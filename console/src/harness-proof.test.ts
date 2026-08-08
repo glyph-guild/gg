@@ -5,6 +5,6 @@ import { resolveKey } from './keymap.js';
 // and CI actually gates on it.
 describe('harness proof', () => {
   it('q quits from normal mode', () => {
-    expect(resolveKey('q', { ctrl: false, escape: false }, { mode: 'normal' })).toBeNull();
+    expect(resolveKey('q', { ctrl: false, escape: false }, { mode: 'normal' })).toEqual({ kind: 'quit' });
   });
 });

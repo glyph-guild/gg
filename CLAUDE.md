@@ -64,3 +64,13 @@ dotnet run --project tools/Gg.ContractsGen   # regenerate console/src/generated
 `ci.yml` jobs: `dotnet`, `console`, `generated-sync`, summarized by a single
 required check named **CI** (branch protection points at it — keep the job
 name stable).
+
+## Practices
+
+- Strict TDD. YOU MUST write the failing test and COMMIT IT, then write the
+  code and commit separately. Two commits minimum. The ordering is the
+  practice and it is invisible in the final diff.
+- No `Task.Delay` or sleeps in tests. Inject time.
+- Some constraints here have reasons not stated in this repository. If one
+  looks arbitrary or wrong, stop and ask. Do not infer the reason, and do not
+  work around it.

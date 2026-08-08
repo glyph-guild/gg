@@ -1,0 +1,36 @@
+name: Publish Gg.Contracts
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  pack:
+    name: pack 0.1.0-alpha.N
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Compute prerelease suffix from commit count
+        run: echo "VERSION_SUFFIX=alpha.$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+      - run: dotnet pack Gg.Contracts/Gg.Contracts.csproj -c Release --version-suffix "$VERSION_SUFFIX" -o artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: artifacts/*.nupkg
+      - name: Push to NuGet (skipped until NUGET_API_KEY is configured)
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "NUGET_API_KEY not set; package built but not pushed."
+            exit 0
+          fi
+          dotnet nuget push artifacts/*.nupkg \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate

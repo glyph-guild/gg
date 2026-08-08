@@ -1,0 +1,29 @@
+{
+  "name": "@glyph-guild/gg",
+  "version": "0.1.0",
+  "description": "Good Grief console — TUI for driving AI-agent work in your environment.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "gg": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ink": "^6.0.0",
+    "react": "^19.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

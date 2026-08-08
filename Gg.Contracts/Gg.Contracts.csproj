@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>GlyphGuild.Gg.Contracts</PackageId>
+    <Description>Wire protocol contracts for Good Grief (gg): console, runner, control plane.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+</Project>

@@ -1,12 +1,16 @@
 using System.Diagnostics;
 using System.Reflection;
 using Gg.Cli;
+using Gg.Client;
 using Gg.Console;
 
 return CliArgs.Parse(args) switch
 {
     CliAction.LaunchConsole => LaunchConsole(),
     CliAction.PrintVersion => PrintVersion(),
+    CliAction.Login => await AuthAsync(commands => commands.LoginAsync(Environment.MachineName)),
+    CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
+    CliAction.WhoAmI => await AuthAsync(commands => commands.WhoAmIAsync()),
     CliAction.RunnerUp => RunnerUp(),
     CliAction.RunnerServe => Gg.Runner.RunnerHost.Run(),
     CliAction.Unknown unknown => Fail(unknown.Message),
@@ -34,10 +38,42 @@ static int LaunchConsole()
 
 static int PrintVersion()
 {
-    var version = typeof(CliArgs).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
-    Console.WriteLine($"gg {version}");
+    // All three, not just the binary. A runner evaluating facts against a
+    // vocabulary the control plane has moved past gives a silently wrong
+    // answer, so the version that reveals it is printed alongside the others.
+    Console.WriteLine($"gg                {GgVersions.Binary}");
+    Console.WriteLine($"protocol          {GgVersions.Protocol}");
+    Console.WriteLine($"fact vocabulary   {GgVersions.FactVocabulary}");
     return 0;
+}
+
+static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
+{
+    var baseAddress = Environment.GetEnvironmentVariable("GG_CONTROL_PLANE")
+        ?? "http://localhost:5199";
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    var commands = new AuthCommands(
+        new ControlPlaneClient(http),
+        new FileSessionStore(),
+        new StandardConsoleWriter(),
+        new SystemClock(),
+        (span, token) => Task.Delay(span, token));
+
+    try
+    {
+        return await run(commands);
+    }
+    catch (ProtocolTooOldException refusal)
+    {
+        Console.Error.WriteLine(refusal.Message);
+        return 69;   // EX_UNAVAILABLE: the service will not serve this version
+    }
+    catch (HttpRequestException failure)
+    {
+        Console.Error.WriteLine($"Could not reach the control plane at {baseAddress}: {failure.Message}");
+        return 69;
+    }
 }
 
 static int RunnerUp()

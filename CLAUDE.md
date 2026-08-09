@@ -75,3 +75,63 @@ the job name stable).
 - Some constraints here have reasons not stated in this repository. If one
   looks arbitrary or wrong, stop and ask. Do not infer the reason, and do not
   work around it.
+
+## How work reaches `main`
+
+`main` is protected on both repos and **administrators are included** — that
+means you, and it means an agent using an owner's token. There is no push to
+`main`. Not for a one-line fix, not to unblock yourself.
+
+    git switch -c <branch>        # branch first, always
+    …red commit…                  # test only, failing
+    …green commit…                # implementation
+    gh pr create
+    # wait for the CI check
+    gh pr merge --rebase --delete-branch
+
+**Rebase merge only.** Squash and merge commits are disabled at the repo level,
+deliberately — see below.
+
+### CI is red on purpose, half the time
+
+Strict TDD here means a red commit followed by a green one, and the red one is
+pushed. **A PR whose CI is failing on the red commit is working correctly.**
+
+Do not "fix" it, do not squash it away, do not reorder the commits so the branch
+is green throughout. The ordering is the deliverable. Push the red commit, then
+push the green one to the same PR, and merge when the final state is green.
+
+If you are ever tempted to combine the test and the implementation into one
+commit because the branch looks broken: that is the exact thing this forbids.
+
+### Why squash merge is disabled, so nobody re-enables it
+
+Squashing collapses `red` and `green` into a single commit showing a test
+arriving alongside the code that satisfies it. Commit history is the **only**
+place the TDD ordering is visible — it is invisible in the final diff — so
+squashing erases the evidence that the practice was followed.
+
+Force-push is also blocked, so that erasure would be permanent.
+
+### Commit messages
+
+Label the pair so the ordering is legible without reading diffs:
+
+    Add pinned-id manifest tests (red: ProtocolHello unpinned, unregistered)
+    Pin ProtocolHello and register it in the vocabulary (manifest tests green)
+
+State what is red and *why* it is red. A reviewer — human or agent — should be
+able to tell from the log alone that the assertion was wired to something before
+the implementation existed.
+
+### The rules in force
+
+Force pushes blocked · deletions blocked · PR required · `CI` required green ·
+administrators included · zero reviews required · rebase merge only · branches
+auto-delete on merge.
+
+Zero reviews is intentional: self-approval is theatre. The gate is CI and the
+history rules, not a rubber stamp.
+
+This repository is public. Write every commit message as if a customer will
+read it, because they can.

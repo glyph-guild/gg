@@ -8,5 +8,8 @@ namespace Gg.Contracts;
 /// </summary>
 public static class Vocabulary
 {
-    public static IReadOnlyList<Type> Types { get; } = [];
+    public static IReadOnlyList<Type> Types { get; } =
+    [
+        typeof(ProtocolHello),
+    ];
 }

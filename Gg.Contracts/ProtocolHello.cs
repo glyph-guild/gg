@@ -5,6 +5,7 @@ namespace Gg.Contracts;
 /// not designed yet; this exists so the package, the TypeScript generation
 /// pipeline, and the version handshake have something real to chew on.
 /// </summary>
+[PinnedId("b5e32b6d-1347-47e0-90e0-af7ab77e7452")]
 public sealed record ProtocolHello
 {
     /// <summary>Wire protocol revision, bumped on breaking changes.</summary>

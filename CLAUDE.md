@@ -4,66 +4,67 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Developer-side half of Good Grief: one distribution, two executables, one
-version. `gg` (TypeScript/Ink TUI, `console/`) and `gg-runner` (.NET Native
-AOT, `Gg.Runner/`). `Gg.Contracts` is the wire protocol and the source of
-truth for `console/src/generated`. Runs in the customer's environment and
-holds their credentials; the control plane (separate, private repo) never
-sees code or credentials.
+Developer-side half of Good Grief: one Native AOT binary, `gg` (built from
+`Gg.Cli`). No arguments launches the Terminal.Gui console; `gg runner up`
+spawns the runner role as a **separate child process** (`gg runner serve`,
+same binary re-exec). That process boundary is deliberate and load-bearing —
+the runner is treated as hostile, and the OS keeps it apart from the console.
+`Gg.Contracts` is the wire protocol and the artifact a customer audits. The
+control plane (separate, private repo) never sees customer code or
+credentials.
 
 ## Commands
 
 ```sh
 dotnet build && dotnet test              # TUnit — see gotcha below
-dotnet test -- --treenode-filter '/*/*/ProtocolHelloTests/*'   # single class
+dotnet test -- --treenode-filter '/*/*/KeymapTests/*'    # single class
 
-cd console
-npm test                                 # vitest
-npx vitest run src/keymap.test.ts        # single file
-npx tsc --noEmit                         # typecheck incl. tests (CI runs this)
-npm run build && node dist/cli.js --version
-
-dotnet run --project tools/Gg.ContractsGen   # regenerate console/src/generated
+dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
+./artifacts/aot/gg --version             # CI does the same on linux-x64
 ```
 
 ## Non-negotiables
 
-- **`console/src/generated` is generated** from `Gg.Contracts` by
-  `tools/Gg.ContractsGen`. Never edit by hand; regenerate and commit after any
-  contracts change — CI (`generated-sync`) diffs it. When adding a property
-  type the generator doesn't know, extend `ZodFor` in its `Program.cs`
-  (unknown types throw deliberately).
-- **Tests are TUnit + Rocks + Bogus, never xUnit/NUnit/Moq** — those break
-  Native AOT. `Gg.Runner` must stay AOT-publishable (`PublishAot` is set;
-  builds run the AOT analyzers).
-- **`src/keymap.ts` stays pure** — no Ink imports; it takes a structural
-  `KeyInfo`, returns `Command | null`. **State (`src/state/`) stays
-  JSON-serializable** — plain data only, no functions/Dates/classes.
-- **One version everywhere**: `VersionPrefix` in `Directory.Build.props` and
-  `console/package.json` must be bumped together to the same value. CI stamps
-  prereleases `0.1.0-alpha.N` (N = commit count on main).
+- **Terminal release is the architecture.** `TerminalGuiSession` is one
+  complete Init/Run/dispose lifetime; `ConsoleLoop` tears the UI down, hands
+  the terminal to `$EDITOR` (a separate process), and rebuilds views FROM the
+  surviving `AppState`. Views are never the source of truth; `AppState` stays
+  plain JSON-serializable data (source-generated, `AppStateJsonContext`).
+- **`Keymap.Resolve` is pure** — no Terminal.Gui types; only
+  `Views/KeyTranslator` touches `Key`. Status hints come from
+  `Keymap.Hints(context)`, the same context dispatch uses.
+- **Gg.Contracts: zero third-party package references**, every wire type
+  carries `[PinnedId]` and appears in `Vocabulary` — all three enforced by
+  tests in `Gg.Contracts.Tests`. Register new types or the build fails.
+- **Everything must stay AOT-publishable** (CI publishes `Gg.Cli`): no
+  reflection-driven serialization, source generators only. Tests are TUnit +
+  Rocks + Bogus, never xUnit/NUnit/Moq — they break AOT.
+- **Gg.Runner takes no Whizbang dependency.**
+- One version: `VersionPrefix` in `Directory.Build.props`; CI stamps
+  `0.1.0-alpha.N` (N = commit count on main).
 
 ## Gotchas
 
 - `dotnet test` only works because of the `"test"` section in `global.json`
   (Microsoft.Testing.Platform mode). Removing it breaks TUnit with a cryptic
   VSTest error.
+- Terminal.Gui 2.4.17: the static `Application` facade, `Toplevel`, and
+  `TextView` are obsolete — obsolete warnings are errors here. Use
+  `Application.Create()` → `IApplication`, `Window`/`Runnable`, and `Label`
+  (or tui-cs/Editor if real editing is ever needed). ListView selection is
+  the `ValueChanged` event and `SelectedItem` is `int?`.
 - Rocks is pinned to 10.2.0 in `Directory.Packages.props`: 10.3.0's analyzer
   requires a newer Roslyn than SDK 10.0.102 ships (CS9057 if bumped).
 - Package versions are centrally managed (`Directory.Packages.props`); csproj
   `PackageReference`s have no `Version` attribute.
-- `console/` is ESM (`"type": "module"`, NodeNext): relative imports need a
-  `.js` extension even in `.ts`/`.tsx` source.
-- Two tsconfigs: `tsconfig.json` typechecks everything (noEmit);
-  `tsconfig.build.json` emits `dist/` and excludes tests.
 - NuGet publish of `GlyphGuild.Gg.Contracts` is skipped until the
   `NUGET_API_KEY` repo secret exists (workflow logs it, still packs).
 
 ## CI
 
-`ci.yml` jobs: `dotnet`, `console`, `generated-sync`, summarized by a single
-required check named **CI** (branch protection points at it — keep the job
-name stable).
+`ci.yml` jobs: `dotnet`, `aot` (publish `gg`, run `--version`), summarized by
+a single required check named **CI** (branch protection points at it — keep
+the job name stable).
 
 ## Practices
 

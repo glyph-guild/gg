@@ -1,20 +1,15 @@
 # packaging
 
-One install, two executables, one version.
+One install, one executable, one version.
 
-A gg release ships a single archive per platform containing:
+A gg release ships a single self-contained Native AOT binary per platform:
+`gg`. The console and the runner role live in the same binary; `gg runner up`
+spawns `gg runner serve` as a separate OS process.
 
-| executable  | source        | built with            |
-| ----------- | ------------- | --------------------- |
-| `gg`        | `console/`    | Node 20 (bundled TBD) |
-| `gg-runner` | `Gg.Runner/`  | .NET Native AOT       |
+The version's single source of truth is `VersionPrefix` in
+`Directory.Build.props`. CI stamps prereleases as `0.1.0-alpha.N` where N is
+the commit count on main; the `GlyphGuild.Gg.Contracts` NuGet package uses
+the same scheme.
 
-Both report the same version. The single source of truth is `0.1.0`, declared
-in `Directory.Build.props` (`VersionPrefix`) and `console/package.json`
-(`version`) — bump both together, always to the same value. CI stamps
-prereleases as `0.1.0-alpha.N` where N is the commit count on main; the
-`GlyphGuild.Gg.Contracts` NuGet package uses the same scheme.
-
-The actual bundling (how the Node console is packaged next to the AOT runner)
-is not designed yet. This directory will hold the installer/archive tooling
-when it is.
+The actual archive/installer tooling is not designed yet. This directory will
+hold it when it is.

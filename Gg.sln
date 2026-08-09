@@ -9,10 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Runner", "Gg.Runner\Gg.R
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Contracts.Tests", "Gg.Contracts.Tests\Gg.Contracts.Tests.csproj", "{41A6CA18-3816-45DC-9433-F71A886DB7C7}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.ContractsGen", "tools\Gg.ContractsGen\Gg.ContractsGen.csproj", "{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Console", "Gg.Console\Gg.Console.csproj", "{A51B2823-D8F2-409C-BC26-CD4185E65414}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Console.Tests", "Gg.Console.Tests\Gg.Console.Tests.csproj", "{2593C3D8-7FE8-4ECB-8129-9AAB1ED9075B}"
@@ -67,18 +63,6 @@ Global
 		{41A6CA18-3816-45DC-9433-F71A886DB7C7}.Release|x64.Build.0 = Release|Any CPU
 		{41A6CA18-3816-45DC-9433-F71A886DB7C7}.Release|x86.ActiveCfg = Release|Any CPU
 		{41A6CA18-3816-45DC-9433-F71A886DB7C7}.Release|x86.Build.0 = Release|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Debug|x64.Build.0 = Debug|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Debug|x86.Build.0 = Debug|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Release|x64.ActiveCfg = Release|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Release|x64.Build.0 = Release|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Release|x86.ActiveCfg = Release|Any CPU
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F}.Release|x86.Build.0 = Release|Any CPU
 		{A51B2823-D8F2-409C-BC26-CD4185E65414}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A51B2823-D8F2-409C-BC26-CD4185E65414}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A51B2823-D8F2-409C-BC26-CD4185E65414}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -130,8 +114,5 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{35B757D2-BF2D-4F3C-BAE7-ECA240E0721F} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal

@@ -4,6 +4,4 @@ artifacts/
 *.user
 .vs/
 .idea/
-node_modules/
-console/dist/
 .DS_Store

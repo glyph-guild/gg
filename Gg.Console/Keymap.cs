@@ -16,6 +16,27 @@ public static class Keymap
 {
     public static Command? Resolve(char? input, KeyInfo key, KeymapContext context)
     {
-        throw new NotImplementedException();
+        if (key.Ctrl && input is 'c')
+        {
+            return Command.Quit;
+        }
+
+        if (context.Mode == UiMode.Help)
+        {
+            return key.Escape || input is 'q' or '?' ? Command.ToggleHelp : null;
+        }
+
+        if (key.Tab)
+        {
+            return Command.FocusNextPane;
+        }
+
+        return input switch
+        {
+            'q' => Command.Quit,
+            '?' => Command.ToggleHelp,
+            'e' => Command.OpenEditor,
+            _ => null,
+        };
     }
 }

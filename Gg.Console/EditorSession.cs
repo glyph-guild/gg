@@ -23,6 +23,27 @@ public sealed class EditorSession : IEditorSession
 
     public string Edit(string initialText)
     {
-        throw new NotImplementedException();
+        var file = Path.Combine(Path.GetTempPath(), $"gg-notes-{Guid.NewGuid():N}.md");
+        File.WriteAllText(file, initialText);
+        try
+        {
+            var parts = _editorCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var startInfo = new ProcessStartInfo(parts[0]) { UseShellExecute = false };
+            foreach (var argument in parts.Skip(1))
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+            startInfo.ArgumentList.Add(file);
+
+            using var editor = Process.Start(startInfo)
+                ?? throw new InvalidOperationException($"failed to start editor '{_editorCommand}'");
+            editor.WaitForExit();
+
+            return File.ReadAllText(file);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
     }
 }

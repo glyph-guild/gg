@@ -10,13 +10,10 @@ public sealed partial class AppStateJsonContext : JsonSerializerContext;
 /// <summary>Source-generated (AOT-safe) serialization for the model.</summary>
 public static class AppStateJson
 {
-    public static string Serialize(AppState state)
-    {
-        throw new NotImplementedException();
-    }
+    public static string Serialize(AppState state) =>
+        JsonSerializer.Serialize(state, AppStateJsonContext.Default.AppState);
 
-    public static AppState Deserialize(string json)
-    {
-        throw new NotImplementedException();
-    }
+    public static AppState Deserialize(string json) =>
+        JsonSerializer.Deserialize(json, AppStateJsonContext.Default.AppState)
+            ?? throw new InvalidOperationException("AppState JSON deserialized to null");
 }

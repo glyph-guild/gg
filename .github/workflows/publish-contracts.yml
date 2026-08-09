@@ -6,8 +6,11 @@ on:
 
 jobs:
   pack:
-    name: pack 0.1.0-alpha.N
+    name: pack and publish 0.1.0-alpha.N
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,15 +25,13 @@ jobs:
         with:
           name: nuget
           path: artifacts/*.nupkg
-      - name: Push to NuGet (skipped until NUGET_API_KEY is configured)
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      # Published to GitHub Packages using the built-in token, so the control
+      # plane consumes a real published package rather than a project
+      # reference across the repo boundary - which is the alignment the split
+      # was meant to buy.
+      - name: Push to GitHub Packages
         run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "NUGET_API_KEY not set; package built but not pushed."
-            exit 0
-          fi
           dotnet nuget push artifacts/*.nupkg \
-            --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --source https://nuget.pkg.github.com/glyph-guild/index.json \
             --skip-duplicate

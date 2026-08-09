@@ -44,8 +44,9 @@ public static class Keymap
     /// Status-bar hints, derived from the same context the keymap dispatches
     /// on — advertised keys cannot drift from live ones.
     /// </summary>
-    public static string Hints(KeymapContext context)
+    public static string Hints(KeymapContext context) => context.Mode switch
     {
-        throw new NotImplementedException();
-    }
+        UiMode.Help => "esc close help",
+        _ => "q quit · ? help · e edit notes · tab switch pane",
+    };
 }

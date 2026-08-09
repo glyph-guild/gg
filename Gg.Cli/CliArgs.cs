@@ -15,8 +15,12 @@ public abstract record CliAction
 
 public static class CliArgs
 {
-    public static CliAction Parse(string[] args)
+    public static CliAction Parse(string[] args) => args switch
     {
-        throw new NotImplementedException();
-    }
+        [] => new CliAction.LaunchConsole(),
+        ["--version"] or ["-v"] => new CliAction.PrintVersion(),
+        ["runner", "up"] => new CliAction.RunnerUp(),
+        ["runner", "serve"] => new CliAction.RunnerServe(),
+        _ => new CliAction.Unknown("usage: gg | gg --version | gg runner up"),
+    };
 }

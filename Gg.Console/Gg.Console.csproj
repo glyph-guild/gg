@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Terminal.Gui" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
   </ItemGroup>
 

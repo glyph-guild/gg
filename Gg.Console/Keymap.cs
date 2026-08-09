@@ -39,4 +39,13 @@ public static class Keymap
             _ => null,
         };
     }
+
+    /// <summary>
+    /// Status-bar hints, derived from the same context the keymap dispatches
+    /// on — advertised keys cannot drift from live ones.
+    /// </summary>
+    public static string Hints(KeymapContext context)
+    {
+        throw new NotImplementedException();
+    }
 }

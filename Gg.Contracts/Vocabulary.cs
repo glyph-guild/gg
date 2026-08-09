@@ -11,5 +11,12 @@ public static class Vocabulary
     public static IReadOnlyList<Type> Types { get; } =
     [
         typeof(ProtocolHello),
+        typeof(DeviceAuthorizationRequest),
+        typeof(DeviceAuthorizationStarted),
+        typeof(DeviceTokenRequest),
+        typeof(SessionIssued),
+        typeof(WhoAmI),
+        typeof(RunnerRegistrationRequest),
+        typeof(RunnerRegistered),
     ];
 }

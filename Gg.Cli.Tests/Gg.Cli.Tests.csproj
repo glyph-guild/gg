@@ -6,7 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../Gg.Contracts/Gg.Contracts.csproj" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Gg.Cli/Gg.Cli.csproj" />
   </ItemGroup>
 
 </Project>

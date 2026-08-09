@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <PackageVersion Include="Rocks" Version="10.2.0" />
+    <PackageVersion Include="Terminal.Gui" Version="2.4.17" />
     <PackageVersion Include="TUnit" Version="1.63.25" />
   </ItemGroup>
 </Project>

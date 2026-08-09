@@ -9,7 +9,8 @@ paths:
   environment and the control plane, and the thing a customer audits.
 - Every event and fact type carries a pinned id. A rename must not change the
   wire identity.
-- Changing this is a protocol change. Bump the package version, regenerate the
-  TypeScript client and Zod schemas, and consider whether the protocol version
-  floor moves.
-- TypeScript is GENERATED from here, never the reverse.
+- Zero third-party package references, enforced by a test. It must not
+  inherit anyone else's framework, and our wire identity must not be someone
+  else's attribute.
+- Changing this is a protocol change. Bump the package version and consider
+  whether the protocol version floor moves.

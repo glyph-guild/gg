@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>gg</AssemblyName>
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Gg.Console/Gg.Console.csproj" />
+    <ProjectReference Include="../Gg.Runner/Gg.Runner.csproj" />
+  </ItemGroup>
+
+</Project>

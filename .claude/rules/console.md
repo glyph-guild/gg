@@ -1,6 +1,6 @@
 ---
 paths:
-  - "console/**"
+  - "Gg.Console/**"
 ---
 
 # Console
@@ -18,4 +18,3 @@ paths:
   is stripped of terminal control sequences at INGRESS, before storage. Not
   at render time.
 - The live view pane is OFF by default. It is a trust artifact meant to decay.
-- `console/src/generated/` is generated. Never hand-edit it.

@@ -17,42 +17,22 @@ jobs:
       - run: dotnet build -c Release
       - run: dotnet test -c Release
 
-  console:
-    name: console
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: console
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.20.0
-          cache: npm
-          cache-dependency-path: console/package-lock.json
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm test
-
-  generated-sync:
-    name: generated-sync
+  aot:
+    name: aot
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - run: dotnet run --project tools/Gg.ContractsGen -- console/src/generated
-      - name: Fail if console/src/generated is stale
-        run: |
-          if ! git diff --exit-code -- console/src/generated; then
-            echo "::error::console/src/generated is out of sync with Gg.Contracts. Run: dotnet run --project tools/Gg.ContractsGen"
-            exit 1
-          fi
+      - name: AOT-publish gg as a single self-contained binary
+        run: dotnet publish Gg.Cli -c Release -r linux-x64 -o artifacts/aot
+      - name: The published binary actually runs
+        run: ./artifacts/aot/gg --version
 
   ci:
     name: CI
-    needs: [dotnet, console, generated-sync]
+    needs: [dotnet, aot]
     if: always()
     runs-on: ubuntu-latest
     steps:

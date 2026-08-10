@@ -81,8 +81,18 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(DoctorReport))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
+/// <para>
 /// Source-generated: this ships in a Native AOT binary, where reflection-based
 /// serialization is not available at all.
+/// </para>
+/// <para>
+/// The default encoder is kept, which escapes quotes and angle brackets as
+/// \uXXXX. It reads a little worse - a JSON detail field comes out with its
+/// quotes escaped - and every parser reads it identically.
+/// The relaxed encoder is prettier and stops escaping the characters that
+/// matter when somebody pipes this into a web page, which people do with
+/// support output. Not worth trading for whitespace.
+/// </para>
 /// </remarks>
 public sealed partial class VerbJsonContext : JsonSerializerContext;
 

@@ -249,9 +249,11 @@ public class ReducerTests
     [Test]
     public async Task TheRateIsAttachedFlightsOverFlightsSeen()
     {
+        // Attaching is per FLIGHT WATCHED, not per keypress: moving the cursor
+        // while the live view is open is watching the flight you moved to.
         var state = WithQueue("a", "b", "c", "d");
-        state = Reducer.Reduce(state, Command.ToggleLive);                       // a
-        state = Reducer.Reduce(Reducer.Reduce(state, Command.SelectNext), Command.ToggleLive);  // b
+        state = Reducer.Reduce(state, Command.ToggleLive);   // watching a
+        state = Reducer.Reduce(state, Command.SelectNext);   // now watching b
 
         await Assert.That(AttachRate.Of(state)).IsEqualTo(0.5d);
     }

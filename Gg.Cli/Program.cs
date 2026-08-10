@@ -104,11 +104,13 @@ static async Task<int> DoctorAsync(bool json)
 
 static int LaunchConsole()
 {
-    var initial = new AppState
-    {
-        Flights = ["flight-001 · stub", "flight-002 · stub", "flight-003 · stub"],
-        Notes = "Notes live in the model, not the view.\nPress e to edit them in $EDITOR.",
-    };
+    // The queue is loaded through the VERBS, so what the console shows is what
+    // `gg flights --json` would print. There is no other route to the data.
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var data = new ConsoleData(new FlightCommands(new ControlPlaneClient(http), new FileSessionStore()));
+
+    var initial = ConsoleStart.LoadAsync(data).GetAwaiter().GetResult();
 
     var final = new ConsoleLoop(new TerminalGuiSession(), new EditorSession()).Run(initial);
 

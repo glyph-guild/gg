@@ -7,18 +7,35 @@ using Terminal.Gui.Views;
 namespace Gg.Console.Views;
 
 /// <summary>
-/// The whole screen, built FROM an <see cref="AppState"/>. Views here render
-/// the model and forward input; they are never the source of truth. When the
-/// session ends, <see cref="State"/> is everything worth keeping.
+/// The whole screen, built FROM an <see cref="AppState"/>.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Views render the model and forward input; they are never the source of
+/// truth. When the session ends, <see cref="State"/> is everything worth
+/// keeping - and everything worth keeping is in it, which is the property the
+/// serialization tests hold.
+/// </para>
+/// <para>
+/// Rendering is the part that matters least. Every line of text shown here
+/// comes from <see cref="PaneText"/>, which is a pure function of the model
+/// and is tested without a terminal; this file is the part that cannot be.
+/// Keeping the split sharp is what makes the console testable at all.
+/// </para>
+/// </remarks>
 public sealed class ConsoleScreen : Window
 {
     private readonly IApplication _app;
-    private readonly ListView _flights;
-    private readonly Label _notes;
-    private readonly FrameView _flightsPane;
-    private readonly FrameView _notesPane;
-    private readonly FrameView _helpOverlay;
+    private readonly ListView _queue;
+    private readonly Label _flight;
+    private readonly Label _evidence;
+    private readonly Label _live;
+    private readonly FrameView _queuePane;
+    private readonly FrameView _flightPane;
+    private readonly FrameView _evidencePane;
+    private readonly FrameView _livePane;
+    private readonly FrameView _modal;
+    private readonly Label _modalBody;
     private readonly Label _hints;
 
     public AppState State { get; private set; }
@@ -31,57 +48,83 @@ public sealed class ConsoleScreen : Window
         State = state;
         Title = "Good Grief";
 
-        _flightsPane = new FrameView
+        _queuePane = new FrameView
         {
-            Title = "Flights",
+            Title = "Queue",
             X = 0,
             Y = 0,
-            Width = Dim.Percent(40),
+            Width = Dim.Percent(38),
             Height = Dim.Fill(1),
         };
-        _flights = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
-        _flights.SetSource(new ObservableCollection<string>(State.Flights));
-        _flightsPane.Add(_flights);
+        _queue = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
+        _queuePane.Add(_queue);
 
-        _notesPane = new FrameView
+        _flightPane = new FrameView
         {
-            Title = "Notes",
-            X = Pos.Right(_flightsPane),
+            Title = "Flight",
+            X = Pos.Right(_queuePane),
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
         };
-        _notes = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _notesPane.Add(_notes);
+        _flight = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _flightPane.Add(_flight);
+
+        _evidencePane = new FrameView
+        {
+            Title = "Evidence",
+            X = Pos.Right(_queuePane),
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Percent(50),
+            Visible = false,
+        };
+        _evidence = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _evidencePane.Add(_evidence);
+
+        _livePane = new FrameView
+        {
+            Title = "Live",
+            X = Pos.Right(_queuePane),
+            Y = Pos.Bottom(_evidencePane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        // A Label, not a TextView. TextView is obsolete in this Terminal.Gui
+        // and obsolete warnings are errors here - which turned out to be a
+        // better answer than the one it blocked. Copying out of a TUI is the
+        // TERMINAL's own selection, and what defeats it is the application
+        // repainting underneath. Freeze stops the repaint, so the terminal's
+        // selection works, and no widget has to reimplement selection at all.
+        _live = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _livePane.Add(_live);
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
-        _helpOverlay = new FrameView
+        _modal = new FrameView
         {
-            Title = "Help",
             X = Pos.Center(),
             Y = Pos.Center(),
-            Width = 44,
-            Height = 8,
+            Width = 52,
+            Height = 12,
             Visible = false,
         };
-        _helpOverlay.Add(new Label
-        {
-            Text = "q        quit\n?        toggle this help\ne        edit notes in $EDITOR\ntab      switch pane\nctrl+c   quit from anywhere",
-        });
+        _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
+        _modal.Add(_modalBody);
 
-        Add(_flightsPane, _notesPane, _hints, _helpOverlay);
+        Add(_queuePane, _flightPane, _evidencePane, _livePane, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
-        _flights.ValueChanged += OnFlightSelectionChanged;
+        _queue.ValueChanged += OnQueueSelectionChanged;
 
         Render();
     }
 
     private void OnScreenKeyDown(object? sender, Key key)
     {
-        var (input, keyInfo) = KeyTranslator.Translate(key);
-        var command = Keymap.Resolve(input, keyInfo, new KeymapContext(State.Mode));
+        var stroke = KeyTranslator.Translate(key);
+        var command = Keymap.Resolve(stroke, Context());
         if (command is null)
         {
             return;
@@ -99,33 +142,77 @@ public sealed class ConsoleScreen : Window
         Render();
     }
 
-    private void OnFlightSelectionChanged(object? sender, ValueChangedEventArgs<int?> args)
+    private void OnQueueSelectionChanged(object? sender, ValueChangedEventArgs<int?> args)
     {
-        State = State with { SelectedFlight = args.NewValue ?? 0 };
+        // The list is an input device here, not a second store: the model
+        // decides what is selected and the view reports what was clicked.
+        var wanted = args.NewValue ?? 0;
+        if (wanted != State.SelectedRow)
+        {
+            State = Reducer.Reduce(State, wanted > State.SelectedRow ? Command.SelectNext : Command.SelectPrevious);
+            Render();
+        }
     }
+
+    private KeymapContext Context() => new(State.Mode, State.LiveVisible, State.Frozen);
 
     /// <summary>One-way: model in, pixels out.</summary>
     private void Render()
     {
-        if (State.Flights.Count > 0)
+        _queue.SetSource(new ObservableCollection<string>(PaneText.QueueRows(State)));
+        if (State.Queue.Count > 0)
         {
-            _flights.SelectedItem = Math.Clamp(State.SelectedFlight, 0, State.Flights.Count - 1);
+            _queue.SelectedItem = Math.Clamp(State.SelectedRow, 0, State.Queue.Count - 1);
         }
-        _notes.Text = State.Notes;
-        _helpOverlay.Visible = State.Mode == UiMode.Help;
-        _hints.Text = Keymap.Hints(new KeymapContext(State.Mode));
 
-        if (State.Mode == UiMode.Help)
+        _flight.Text = PaneText.Flight(State);
+        _evidence.Text = PaneText.Evidence(State);
+
+        // Frozen means the pixels stop moving, so the terminal's own selection
+        // can survive being made. Held lines are already kept in the model;
+        // this is the half of the promise the view owes.
+        if (!State.Frozen)
         {
-            _helpOverlay.SetFocus();
+            _live.Text = PaneText.Live(State);
         }
-        else if (State.FocusedPane == PaneId.Flights)
+
+        _evidencePane.Visible = State.EvidenceVisible;
+        _livePane.Visible = State.LiveVisible;
+        _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
+        // The flight pane gives up its space rather than being covered.
+        _flightPane.Visible = !State.EvidenceVisible && !State.LiveVisible;
+
+        _modal.Visible = State.Mode != UiMode.Normal;
+        _modal.Title = State.Mode.ToString();
+        _modalBody.Text = PaneText.Modal(State);
+
+        _hints.Text = Keymap.Hints(Context());
+
+        Focus();
+    }
+
+    private void Focus()
+    {
+        if (State.Mode != UiMode.Normal)
         {
-            _flights.SetFocus();
+            _modal.SetFocus();
+            return;
         }
-        else
+
+        switch (State.FocusedPane)
         {
-            _notes.SetFocus();
+            case PaneId.Evidence:
+                _evidence.SetFocus();
+                break;
+            case PaneId.Live:
+                _live.SetFocus();
+                break;
+            case PaneId.Flight:
+                _flight.SetFocus();
+                break;
+            default:
+                _queue.SetFocus();
+                break;
         }
     }
 
@@ -134,7 +221,7 @@ public sealed class ConsoleScreen : Window
         if (disposing)
         {
             KeyDown -= OnScreenKeyDown;
-            _flights.ValueChanged -= OnFlightSelectionChanged;
+            _queue.ValueChanged -= OnQueueSelectionChanged;
         }
         base.Dispose(disposing);
     }

@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Gg.Console/Gg.Console.csproj" />
+    <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

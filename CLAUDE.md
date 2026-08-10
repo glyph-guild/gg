@@ -40,8 +40,14 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   reflection-driven serialization, source generators only. Tests are TUnit +
   Rocks + Bogus, never xUnit/NUnit/Moq — they break AOT.
 - **Gg.Runner takes no Whizbang dependency.**
-- One version: `VersionPrefix` in `Directory.Build.props`; CI stamps
-  `0.1.0-alpha.N` (N = commit count on main).
+- **Two versions, deliberately.** The `gg` binary uses `VersionPrefix` in
+  `Directory.Build.props`. `Gg.Contracts` declares its OWN `<Version>`,
+  because a version on an audited wire contract has to mean something about
+  the contract — under the old commit-count scheme a README fix bumped it as
+  much as a new message type did. `ContractSurfaceTests` holds the number to
+  account: it fingerprints the wire surface and fails the build if that
+  surface moves without the version moving. To change the contract, bump
+  `<Version>` and add an entry to `Gg.Contracts/contract-versions.json`.
 
 ## Gotchas
 

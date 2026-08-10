@@ -1,6 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- The contract versions ITSELF, independently of the gg binary.
+         Declared by hand and held to account by ContractSurfaceTests: a
+         fingerprint of the wire surface is recorded against each version in
+         contract-versions.json, and changing the surface without moving this
+         number fails the build.
+
+         It used to be 0.1.0-alpha.N where N was the commit count on main, so a
+         README fix bumped the wire contract exactly as much as a new message
+         type did. A consumer seeing the number move learned nothing.
+
+         Pre-1.0: any wire change is a minor bump, and there is no compatibility
+         promise. GgVersions.Protocol is a different number and moves only when
+         the protocol itself becomes incompatible. -->
+    <Version>0.2.0</Version>
     <IsPackable>true</IsPackable>
     <PackageId>GlyphGuild.Gg.Contracts</PackageId>
     <Description>Wire protocol contracts for Good Grief (gg): console, runner, control plane.</Description>

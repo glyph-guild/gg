@@ -6,7 +6,7 @@ on:
 
 jobs:
   pack:
-    name: pack and publish 0.1.0-alpha.N
+    name: pack and publish the declared contract version
     runs-on: ubuntu-latest
     permissions:
       # Releases, because the release asset is the distribution channel that
@@ -20,9 +20,20 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Compute prerelease suffix from commit count
-        run: echo "VERSION_SUFFIX=alpha.$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
-      - run: dotnet pack Gg.Contracts/Gg.Contracts.csproj -c Release --version-suffix "$VERSION_SUFFIX" -o artifacts
+      # The version comes from the CONTRACT, not from this repository's commit
+      # count. Under the old scheme a README fix bumped the wire contract
+      # exactly as much as a new message type did, so the number told a
+      # consumer nothing about whether they needed to care.
+      #
+      # ContractSurfaceTests is what makes the declared number trustworthy: it
+      # fingerprints the wire surface and fails the build if that surface moved
+      # without this version moving. CI only has to read it.
+      - name: Read the declared contract version
+        run: |
+          version="$(dotnet msbuild Gg.Contracts/Gg.Contracts.csproj -getProperty:Version -nologo | tr -d '[:space:]')"
+          echo "Contract version: $version"
+          echo "CONTRACT_VERSION=$version" >> "$GITHUB_ENV"
+      - run: dotnet pack Gg.Contracts/Gg.Contracts.csproj -c Release -o artifacts
       - uses: actions/upload-artifact@v4
         with:
           name: nuget
@@ -51,15 +62,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          version="0.1.0-$VERSION_SUFFIX"
-          tag="contracts-v$version"
+          tag="contracts-v$CONTRACT_VERSION"
 
-          # Idempotent: re-running this workflow for a version that already
-          # shipped must not fail, and must not quietly leave a stale asset.
+          # Most pushes to main do not touch the contract, so most runs land
+          # here with a version that already shipped. Skipping is correct: an
+          # already-published contract version is immutable by definition, and
+          # re-uploading its asset would churn the timestamp on an artifact
+          # people pin. To republish, bump the version.
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" artifacts/*.nupkg --clobber
-          else
-            gh release create "$tag" artifacts/*.nupkg \
-              --title "Gg.Contracts $version" \
-              --notes "The runner wire protocol at $version. Consumed by the control plane as a pinned package; a change to this artifact is a protocol change."
+            echo "$tag already published - the contract has not changed."
+            exit 0
           fi
+
+          gh release create "$tag" artifacts/*.nupkg \
+            --title "Gg.Contracts $CONTRACT_VERSION" \
+            --notes "The runner wire protocol at $CONTRACT_VERSION.
+
+          Consumed by the control plane as a pinned package. This version exists because the wire surface changed: see Gg.Contracts/contract-versions.json for the fingerprint it was published with."

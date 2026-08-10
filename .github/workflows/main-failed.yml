@@ -1,0 +1,100 @@
+name: main failed
+
+# Something has to watch main.
+#
+# It happened in the control-plane repo: a green commit failed CI on the MERGE
+# run having passed on the PR run, and main stayed red until somebody noticed a
+# day later, by accident. The flake behind that is fixed; nothing prevents the
+# next one, here or there, and nothing would tell us.
+#
+# An issue is the right shape: free, visible without opening Actions, and it
+# survives a closed terminal. It is closed by hand on purpose - an auto-close
+# would clear the record the moment a rerun went green, which is exactly the
+# case worth reading later.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  open-an-issue:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open an issue naming the commit and the failing jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+
+            // Which jobs failed, not just that the run did. "CI failed" sends
+            // somebody to the Actions tab to find out what this could have
+            // told them.
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              { owner: context.repo.owner, repo: context.repo.repo, run_id: run.id });
+            const failed = jobs
+              .filter(job => job.conclusion === 'failure')
+              .map(job => `- \`${job.name}\` — ${job.html_url}`);
+
+            const sha = run.head_sha;
+            const short = sha.substring(0, 8);
+            const title = `CI is failing on main (${short})`;
+
+            // One issue per commit. A rerun that fails again is the same
+            // breakage, and a second issue would only add noise to a channel
+            // whose whole value is that noise means something.
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'main-red',
+            });
+            if (open.some(issue => issue.title === title)) {
+              core.info(`already open for ${short}`);
+              return;
+            }
+
+            const commit = await github.rest.repos.getCommit({
+              owner: context.repo.owner, repo: context.repo.repo, ref: sha });
+            const headline = commit.data.commit.message.split('\n')[0];
+
+            const body = [
+              `\`main\` is red.`,
+              ``,
+              `**Commit** ${sha}`,
+              `**Message** ${headline}`,
+              `**Author** ${commit.data.commit.author.name}`,
+              `**Run** ${run.html_url}`,
+              ``,
+              `**Failing jobs**`,
+              failed.length ? failed.join('\n') : '- (the run failed without a failing job — cancelled, or a setup error)',
+              ``,
+              `---`,
+              ``,
+              `Opened automatically because a green PR run is not evidence that main is green.`,
+              `Close this by hand once main is green again; nothing closes it for you, so that a`,
+              `rerun that happens to pass does not quietly erase the record.`,
+            ].join('\n');
+
+            // The label is created on demand: a workflow that fails because a
+            // label is missing is a watcher that needed watching.
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: 'main-red', color: 'b60205',
+                description: 'CI failed on main',
+              });
+            } catch (error) {
+              if (error.status !== 422) { throw error; }
+            }
+
+            const created = await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title, body, labels: ['main-red'],
+            });
+            core.notice(`opened #${created.data.number} for ${short}`);

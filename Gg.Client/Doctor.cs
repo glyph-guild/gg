@@ -11,6 +11,15 @@ public static class DoctorChecks
     public const string Protocol = "protocol";
     public const string Session = "session";
     public const string Runner = "runner";
+
+    /// <summary>Where the control plane sends telemetry, if anywhere.</summary>
+    /// <remarks>
+    /// Reported, never judged. Whether a destination is acceptable is the
+    /// customer's decision about their own deployment; gg's job is to make the
+    /// fact askable, because ambient environment once chose one that nothing in
+    /// either repository had configured.
+    /// </remarks>
+    public const string Telemetry = "telemetry";
 }
 
 /// <summary>
@@ -149,6 +158,7 @@ public sealed class Doctor(ControlPlaneClient client, ISessionStore sessions, Ur
             });
 
         checks.Add(await SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
+        checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(RunnerCheck(stored));
 
         return new DoctorReport { Checks = checks };
@@ -210,6 +220,48 @@ public sealed class Doctor(ControlPlaneClient client, ISessionStore sessions, Ur
                 Fixable = true,
                 Fix = "gg login",
             };
+    }
+
+    /// <summary>
+    /// What the control plane says it transmits, and where.
+    /// </summary>
+    /// <remarks>
+    /// Never blocking and never failing on the destination itself. Whether a
+    /// collector is acceptable is the customer's decision about their own
+    /// deployment - gg reports the fact so the decision can be made at all.
+    /// </remarks>
+    private async Task<DoctorCheck> TelemetryCheckAsync(
+        StoredSession? stored, bool reachable, bool protocolOk, CancellationToken cancellationToken)
+    {
+        if (stored is null || !reachable || !protocolOk)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Telemetry,
+                Passed = false,
+                Detail = "not checked: the control plane could not be asked",
+                Blocking = false,
+                Fixable = false,
+            };
+        }
+
+        var disclosure = await _client.TelemetryAsync(stored.SessionToken, cancellationToken);
+
+        return new DoctorCheck
+        {
+            Name = DoctorChecks.Telemetry,
+            // Reporting a destination is not a failure. A control plane that
+            // exports somewhere the customer chose is working correctly, and a
+            // check that went red on it would train them to ignore this line.
+            Passed = true,
+            Detail = disclosure is null
+                ? "this control plane is too old to say"
+                : disclosure.Exporting
+                    ? $"the control plane exports to {disclosure.Destination}"
+                    : "the control plane exports nothing",
+            Blocking = false,
+            Fixable = false,
+        };
     }
 
     /// <summary>

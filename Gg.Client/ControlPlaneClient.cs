@@ -20,6 +20,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(RunnerList))]
+[JsonSerializable(typeof(TelemetryDisclosure))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -262,6 +263,31 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FlightLaunched, cancellationToken)
             ?? throw new InvalidOperationException("Control plane opened no flight.");
+    }
+
+    /// <summary>
+    /// What the control plane says it transmits. Null if it is too old to say.
+    /// </summary>
+    /// <remarks>
+    /// A 404 means an older control plane that predates the disclosure, which
+    /// is a different fact from "exports nothing" and must not be reported as
+    /// it - the whole point is to stop a silent transmission looking like
+    /// silence.
+    /// </remarks>
+    public async Task<TelemetryDisclosure?> TelemetryAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/telemetry", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.TelemetryDisclosure, cancellationToken);
     }
 
     /// <summary>Revokes the session server-side. Returns false if it was already gone.</summary>

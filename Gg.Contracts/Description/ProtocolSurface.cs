@@ -109,7 +109,7 @@ public static class ProtocolSurface
     /// under the same closure guarantee as the rest.
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
-        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights"];
+        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -272,6 +272,18 @@ public static class ProtocolSurface
         new()
         {
             Method = "GET",
+            Path = "/v1/telemetry",
+            Audience = Audience.Developer,
+            Response = typeof(TelemetryDisclosure),
+            // Developer, not anonymous. It says nothing about a tenant, but an
+            // unauthenticated endpoint disclosing where a deployment ships its
+            // logs is a reconnaissance surface for anyone who finds the host.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
             Path = "/v1/runners",
             Audience = Audience.Developer,
             Response = typeof(RunnerList),
@@ -381,5 +393,6 @@ public static class ProtocolSurface
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt"],
             [typeof(RunnerList)] = ["runners"],
+            [typeof(TelemetryDisclosure)] = ["exporting", "destination"],
         };
 }

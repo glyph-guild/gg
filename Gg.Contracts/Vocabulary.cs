@@ -36,5 +36,6 @@ public static class Vocabulary
         typeof(FlightLog),
         typeof(RunnerSummary),
         typeof(RunnerList),
+        typeof(TelemetryDisclosure),
     ];
 }

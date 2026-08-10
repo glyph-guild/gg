@@ -57,8 +57,13 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   requires a newer Roslyn than SDK 10.0.102 ships (CS9057 if bumped).
 - Package versions are centrally managed (`Directory.Packages.props`); csproj
   `PackageReference`s have no `Version` attribute.
-- NuGet publish of `GlyphGuild.Gg.Contracts` is skipped until the
-  `NUGET_API_KEY` repo secret exists (workflow logs it, still packs).
+- `GlyphGuild.Gg.Contracts` publishes to **two** places on every push to
+  `main`, and the second one is the one that matters. GitHub Packages' NuGet
+  registry is repository-scoped: the package is welded to this repo and
+  inherits its permissions, so a workflow in the control-plane repo gets 403
+  no matter what it asks for, and no settings page changes that. The
+  **release asset** is the channel the control plane consumes, because a
+  public repo's release assets download with no authentication at all.
 
 ## CI
 

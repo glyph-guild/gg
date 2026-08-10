@@ -9,7 +9,9 @@ jobs:
     name: pack and publish 0.1.0-alpha.N
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # Releases, because the release asset is the distribution channel that
+      # actually works across repositories - see the note on the push step.
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -25,13 +27,39 @@ jobs:
         with:
           name: nuget
           path: artifacts/*.nupkg
-      # Published to GitHub Packages using the built-in token, so the control
-      # plane consumes a real published package rather than a project
-      # reference across the repo boundary - which is the alignment the split
-      # was meant to buy.
+      # Two destinations, for one reason worth writing down.
+      #
+      # GitHub Packages' NuGet registry is REPOSITORY-SCOPED: a package there
+      # is permanently linked to this repo and inherits its permissions, with
+      # no per-package visibility toggle and no way to grant another repo
+      # access. A workflow in glyph-guild/good-grief authenticates with its own
+      # GITHUB_TOKEN, which is scoped to good-grief, so it gets 403 no matter
+      # what permissions it asks for. Nothing in a settings page fixes that.
+      #
+      # A release asset on a PUBLIC repository, by contrast, downloads with no
+      # authentication at all. So the release is the channel the control plane
+      # actually consumes, and the registry push stays because it is the
+      # conventional place to look and costs nothing.
       - name: Push to GitHub Packages
         run: |
           dotnet nuget push artifacts/*.nupkg \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --source https://nuget.pkg.github.com/glyph-guild/index.json \
             --skip-duplicate
+
+      - name: Attach the package to a public Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="0.1.0-$VERSION_SUFFIX"
+          tag="contracts-v$version"
+
+          # Idempotent: re-running this workflow for a version that already
+          # shipped must not fail, and must not quietly leave a stale asset.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/*.nupkg --clobber
+          else
+            gh release create "$tag" artifacts/*.nupkg \
+              --title "Gg.Contracts $version" \
+              --notes "The runner wire protocol at $version. Consumed by the control plane as a pinned package; a change to this artifact is a protocol change."
+          fi

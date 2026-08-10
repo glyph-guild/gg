@@ -1,5 +1,6 @@
 [
   { "version": "0.1.0-alpha.24", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" },
   { "version": "0.2.0", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" },
-  { "version": "0.3.0", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" }
+  { "version": "0.3.0", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" },
+  { "version": "0.4.0", "surface": "7f15b2db0ac4620ccd3087efb0daa5fb74444186be7687729917a975fe318cc2" }
 ]

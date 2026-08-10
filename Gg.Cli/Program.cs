@@ -11,8 +11,7 @@ return CliArgs.Parse(args) switch
     CliAction.Login => await AuthAsync(commands => commands.LoginAsync(Environment.MachineName)),
     CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
     CliAction.WhoAmI => await AuthAsync(commands => commands.WhoAmIAsync()),
-    CliAction.RunnerUp => RunnerUp(),
-    CliAction.RunnerServe => Gg.Runner.RunnerHost.Run(),
+    CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.Unknown unknown => Fail(unknown.Message),
     _ => Fail("unhandled action"),
 };
@@ -76,21 +75,37 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
     }
 }
 
-static int RunnerUp()
+static async Task<int> RunnerUpAsync()
 {
-    var executable = Environment.ProcessPath
-        ?? throw new InvalidOperationException("cannot resolve own executable path");
+    var baseAddress = Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") ?? "http://localhost:5199";
 
-    // Deliberately a separate OS process: the console acts as the developer,
-    // the runner is treated as hostile, and the OS keeps them apart.
-    var startInfo = new ProcessStartInfo(executable) { UseShellExecute = false };
-    startInfo.ArgumentList.Add("runner");
-    startInfo.ArgumentList.Add("serve");
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
+    }
 
-    var child = Process.Start(startInfo)
-        ?? throw new InvalidOperationException("failed to start runner process");
-    Console.WriteLine($"gg-runner started as pid {child.Id} (separate process — check: ps -p {child.Id})");
-    return 0;
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    // A person registers the runner; the runner then holds only the credential
+    // that comes back. The developer session never reaches the runner process.
+    var registered = await new ControlPlaneClient(http)
+        .RegisterRunnerAsync(session.SessionToken, Environment.MachineName);
+
+    var labels = (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    var holdFor = int.TryParse(Environment.GetEnvironmentVariable("GG_RUNNER_HOLD_SECONDS"), out var seconds)
+        ? TimeSpan.FromSeconds(seconds)
+        : TimeSpan.FromSeconds(10);
+
+    // Ctrl-C stops the loop. A KILL does not, and that is the interesting case:
+    // the lease outlives the process and expires on the control plane's clock.
+    using var stopping = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
+
+    return await Gg.Runner.RunnerHost.RunAsync(
+        new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor, stopping.Token);
 }
 
 static int Fail(string message)

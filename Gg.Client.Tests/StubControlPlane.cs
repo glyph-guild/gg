@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Gg.Contracts;
+using Gg.Contracts.Description;
 
 namespace Gg.Client.Tests;
 
@@ -42,12 +43,37 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, every request is refused with 426.</summary>
     public string? ProtocolFloorMessage { get; set; }
 
+    /// <summary>When set, every flight lookup answers 404.</summary>
+    public bool FlightNotFound { get; set; }
+
+    /// <summary>The body of the most recent request that carried one.</summary>
+    /// <remarks>
+    /// Recorded so what gg actually PUT ON THE WIRE is assertable, rather than
+    /// what a reading of the client's source suggests it would.
+    /// </remarks>
+    public string LastBody { get; private set; } = "";
+
     /// <summary>Session tokens revoked through /v1/auth/logout.</summary>
     public HashSet<string> RevokedTokens { get; } = [];
 
     public string BaseAddress { get; }
 
     public const string IssuedSessionToken = "stub-session-token";
+
+    private const string StubFlightId = "019fe815-6136-7518-bb57-b06d6d3f411a";
+
+    private static FlightSummary AFlight() => new()
+    {
+        FlightId = StubFlightId,
+        FlightNumber = FlightRef.Format(42),
+        Name = "stub-flight",
+        Intent = new FlightIntent { Kind = FlightIntentKinds.Text, Text = "fix the login bug" },
+        CreatedAt = DateTimeOffset.UtcNow,
+        RunnerProtocolVersion = 1,
+        FactVocabularyVersion = "0.1.0",
+        ConstitutionVersion = "1.0.0",
+        EnvelopeVersion = "none",
+    };
 
     public StubControlPlane()
     {
@@ -88,6 +114,12 @@ public sealed class StubControlPlane : IAsyncDisposable
     {
         var path = context.Request.Url!.AbsolutePath;
         ObservedPaths.Add(path);
+        if (context.Request.HasEntityBody)
+        {
+            using var body = new StreamReader(context.Request.InputStream, Encoding.UTF8);
+            LastBody = await body.ReadToEndAsync();
+        }
+
         ObservedHeaders.Add(context.Request.Headers.AllKeys
             .Where(k => k is not null)
             .ToDictionary(k => k!, k => context.Request.Headers[k] ?? "", StringComparer.OrdinalIgnoreCase));
@@ -151,6 +183,62 @@ public sealed class StubControlPlane : IAsyncDisposable
             case "/v1/auth/logout":
                 RevokedTokens.Add(context.Request.Headers["X-Gg-Session"] ?? "");
                 await WriteAsync(context, 204, "");
+                return;
+
+            case "/v1/flights" when context.Request.HttpMethod == "POST":
+                // 202: the number is minted after this answers, so there is
+                // none to return. Null rather than "" - see FlightLaunched.
+                await WriteJsonAsync(context, 202, new FlightLaunched
+                {
+                    FlightId = StubFlightId,
+                    FlightNumber = null,
+                });
+                return;
+
+            case "/v1/flights":
+                await WriteJsonAsync(context, 200, new FlightList { Flights = [AFlight()] });
+                return;
+
+            case "/v1/runners":
+                await WriteJsonAsync(context, 200, new RunnerList
+                {
+                    Runners =
+                    [
+                        new RunnerSummary
+                        {
+                            RunnerId = "019fe8a2-0707-70c2-9ff8-be3adb54cef0",
+                            Label = "stub-runner",
+                            State = RunnerStates.Idle,
+                            LastHeartbeatAt = DateTimeOffset.UtcNow,
+                        },
+                    ],
+                });
+                return;
+
+            case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal) && FlightNotFound:
+                await WriteAsync(context, 404, "");
+                return;
+
+            case var _ when path.EndsWith("/log", StringComparison.Ordinal)
+                         && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
+                await WriteJsonAsync(context, 200, new FlightLog
+                {
+                    FlightId = StubFlightId,
+                    FlightNumber = FlightRef.Format(42),
+                    Entries =
+                    [
+                        new FlightLogEntry
+                        {
+                            At = DateTimeOffset.UtcNow,
+                            Kind = "lease-granted",
+                            Detail = "{\"generation\":1}",
+                        },
+                    ],
+                });
+                return;
+
+            case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal):
+                await WriteJsonAsync(context, 200, AFlight());
                 return;
 
             default:

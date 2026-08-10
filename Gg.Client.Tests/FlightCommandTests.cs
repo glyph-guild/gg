@@ -29,9 +29,17 @@ public class FlightCommandTests
         PrincipalDisplay = "stub-principal",
     };
 
-    private static FlightCommands Build(StubControlPlane stub, StoredSession? session = null) =>
+    private static FlightCommands Build(StubControlPlane stub) => Holding(stub, ASession());
+
+    /// <summary>Commands holding exactly the session given - including none.</summary>
+    /// <remarks>
+    /// Separate from <see cref="Build"/> on purpose. A single helper defaulting
+    /// a null session to a valid one cannot express "signed out" at all, and
+    /// the test that wanted to would silently assert the opposite.
+    /// </remarks>
+    private static FlightCommands Holding(StubControlPlane stub, StoredSession? session) =>
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
-            new HeldSession(session ?? ASession()));
+            new HeldSession(session));
 
     [Test]
     public async Task Flights_lists_what_the_control_plane_returned()
@@ -153,16 +161,31 @@ public class FlightCommandTests
         // Not a 401 from the server. A person who is not signed in should be
         // told to sign in, by name.
         await using var stub = new StubControlPlane();
-        var signedOut = Build(stub, session: null);
+        var signedOut = Holding(stub, session: null);
 
-        foreach (var call in (Func<Task>[])
-                 [() => signedOut.ListAsync(),
-                  () => signedOut.ShowAsync("GG-42"),
-                  () => signedOut.LogAsync("GG-42"),
-                  () => signedOut.RunnersAsync(),
-                  () => signedOut.FlyAsync("words", null)])
+        foreach (var (verb, call) in ((string, Func<Task<VerbResult>>)[])
+                 [("flights", () => signedOut.ListAsync()),
+                  ("show", () => signedOut.ShowAsync("GG-42")),
+                  ("log", () => signedOut.LogAsync("GG-42")),
+                  ("runners", () => signedOut.RunnersAsync()),
+                  ("fly", () => signedOut.FlyAsync("words", null))])
         {
-            await Assert.That(call).Throws<NotSignedInException>();
+            // Awaited and caught by hand: these are async methods, so the
+            // refusal arrives on the task rather than at the call, and an
+            // assertion that only inspected the call would pass for a verb
+            // that never refused at all.
+            var refused = false;
+            try
+            {
+                await call();
+            }
+            catch (NotSignedInException)
+            {
+                refused = true;
+            }
+
+            await Assert.That(refused).IsTrue()
+                .Because($"gg {verb} without a session must say so, not send a request and relay a 401.");
         }
 
         await Assert.That(stub.ObservedPaths).IsEmpty();

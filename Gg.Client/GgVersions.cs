@@ -1,4 +1,5 @@
 using System.Reflection;
+using Gg.Contracts.Description;
 
 namespace Gg.Client;
 
@@ -13,18 +14,27 @@ namespace Gg.Client;
 /// </remarks>
 public static class GgVersions
 {
-    /// <summary>Wire protocol revision this binary speaks.</summary>
-    public const int Protocol = 1;
+    /// <summary>
+    /// Wire protocol revision this binary speaks.
+    /// </summary>
+    /// <remarks>
+    /// Taken from the contract rather than declared here. This used to be its
+    /// own literal, with the control plane keeping a second one - two numbers
+    /// that had to be equal, in two repositories, with nothing checking.
+    /// </remarks>
+    public const int Protocol = ProtocolSurface.Revision;
 
     /// <summary>Pinned fact vocabulary this binary evaluates against.</summary>
     public const string FactVocabulary = "0.1.0";
 
-    public const string ProtocolHeader = "GG-Protocol-Version";
-    public const string RunnerVersionHeader = "GG-Runner-Version";
-    public const string FactVocabularyHeader = "GG-Fact-Vocabulary";
-
-    /// <summary>Session token header. Matches the control plane's scheme.</summary>
-    public const string SessionHeader = "X-Gg-Session";
+    // All four come from the contract. The session header in particular used
+    // to be a literal here with a comment claiming it "matches the control
+    // plane's scheme" - a claim about a repository this one cannot see, which
+    // is exactly the kind of thing that is true right up until it is not.
+    public const string ProtocolHeader = ProtocolSurface.ProtocolHeader;
+    public const string RunnerVersionHeader = ProtocolSurface.RunnerVersionHeader;
+    public const string FactVocabularyHeader = ProtocolSurface.FactVocabularyHeader;
+    public const string SessionHeader = ProtocolSurface.SessionHeader;
 
     /// <summary>This binary's own version.</summary>
     public static string Binary { get; } =

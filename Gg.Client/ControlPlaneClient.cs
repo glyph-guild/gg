@@ -14,7 +14,16 @@ namespace Gg.Client;
 [JsonSerializable(typeof(WhoAmI))]
 [JsonSerializable(typeof(RunnerRegistrationRequest))]
 [JsonSerializable(typeof(RunnerRegistered))]
-internal sealed partial class ProtocolJsonContext : JsonSerializerContext;
+/// <summary>
+/// How this client serializes wire types.
+/// </summary>
+/// <remarks>
+/// Public so conformance tests can read the metadata the SERIALIZER will use,
+/// rather than the C# property names. A naming policy or a [JsonPropertyName]
+/// changes the wire without changing a property name, and it is the wire that
+/// has to match the control plane.
+/// </remarks>
+public sealed partial class ProtocolJsonContext : JsonSerializerContext;
 
 /// <summary>Outcome of one poll of a pending device authorization.</summary>
 public abstract record DevicePollResult

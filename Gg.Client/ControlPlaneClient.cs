@@ -129,6 +129,32 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             : await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.WhoAmI, cancellationToken);
     }
 
+    /// <summary>
+    /// Registers a runner and returns its credential, shown once.
+    /// </summary>
+    /// <remarks>
+    /// A person does this, with their session. The credential that comes back
+    /// is handed to the runner process and is the only thing it ever holds -
+    /// attribution stays with the developer, authority is the runner protocol
+    /// alone.
+    /// </remarks>
+    public async Task<RunnerRegistered> RegisterRunnerAsync(
+        string sessionToken, string label, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/runners", sessionToken);
+        request.Content = JsonContent.Create(
+            new RunnerRegistrationRequest { Label = label, ProtocolVersion = GgVersions.Protocol },
+            ProtocolJsonContext.Default.RunnerRegistrationRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RunnerRegistered, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane registered no runner.");
+    }
+
     /// <summary>Revokes the session server-side. Returns false if it was already gone.</summary>
     public async Task<bool> RevokeSessionAsync(string sessionToken, CancellationToken cancellationToken = default)
     {

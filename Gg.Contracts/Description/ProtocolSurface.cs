@@ -103,7 +103,7 @@ public static class ProtocolSurface
     /// and this file does not name is a divergence, and the control plane's
     /// tests fail on it.
     /// </remarks>
-    public static IReadOnlyList<string> GovernedPrefixes { get; } = ["/v1/auth", "/v1/runner"];
+    public static IReadOnlyList<string> GovernedPrefixes { get; } = ["/v1/auth", "/v1/runner", "/v1/leases"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -167,7 +167,108 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
         },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/heartbeat",
+            Audience = Audience.Runner,
+            Request = typeof(RunnerHeartbeat),
+            Response = typeof(HeartbeatAccepted),
+            // 404 rather than 403 for another runner's id: a runner learning
+            // which ids exist is a runner enumerating the tenant's fleet.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/leases:claim",
+            Audience = Audience.Runner,
+            Request = typeof(LeaseClaimRequest),
+            Response = typeof(LeaseGranted),
+            // 204 is "nothing to do", the normal answer for an idle fleet. It
+            // is not an error and must not read as one, for the same reason
+            // the device poll answers 202.
+            Statuses = [200, 204, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/leases/{id}/renew",
+            Audience = Audience.Runner,
+            Request = typeof(LeaseRenewalRequest),
+            Response = typeof(LeaseRenewed),
+            // 409 is the generation fence refusing a stale holder. It is a
+            // real outcome of correct client behaviour, not a client bug.
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/leases/{id}/release",
+            Audience = Audience.Runner,
+            Request = typeof(LeaseReleaseRequest),
+            Response = typeof(LeaseReleased),
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
     ];
+
+    /// <summary>
+    /// Whether a concrete request path is this endpoint, treating <c>{...}</c>
+    /// segments as placeholders.
+    /// </summary>
+    /// <remarks>
+    /// The control plane can compare its route patterns to <see cref="Endpoint.Path"/>
+    /// literally; a client cannot, because what it actually put on the wire has
+    /// a real lease id in it. Both sides need the same answer, so the matching
+    /// rule lives here rather than being written twice and drifting.
+    /// </remarks>
+    public static bool Matches(Endpoint endpoint, string method, string concretePath)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+
+        if (!string.Equals(endpoint.Method, method, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var declared = endpoint.Path.Split('/');
+        var actual = concretePath.Split('/');
+        if (declared.Length != actual.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < declared.Length; i++)
+        {
+            var segment = declared[i];
+            if (segment.StartsWith('{') && segment.EndsWith('}'))
+            {
+                // A placeholder matches anything except emptiness: an empty
+                // segment means the client sent /v1/leases//renew, which is a
+                // missing id rather than a match.
+                if (actual[i].Length == 0)
+                {
+                    return false;
+                }
+                continue;
+            }
+
+            if (!string.Equals(segment, actual[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The endpoint a concrete request belongs to, or null.</summary>
+    public static Endpoint? Find(string method, string concretePath) =>
+        Endpoints.FirstOrDefault(e => Matches(e, method, concretePath));
 
     /// <summary>
     /// The JSON member names each wire type must serialize to.
@@ -191,5 +292,16 @@ public static class ProtocolSurface
             [typeof(WhoAmI)] = ["principalId", "principalDisplay", "tenantId", "expiresAt"],
             [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
+            [typeof(RunnerHeartbeat)] = ["labels"],
+            [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],
+            [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds"],
+            [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef"],
+            [typeof(LeaseGranted)] =
+                ["leaseId", "generation", "flightId", "flightNumber", "repos",
+                 "classificationCeiling", "expiresAt", "renewWithinSeconds"],
+            [typeof(LeaseRenewalRequest)] = ["generation"],
+            [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
+            [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail"],
+            [typeof(LeaseReleased)] = ["flightId", "disposition"],
         };
 }

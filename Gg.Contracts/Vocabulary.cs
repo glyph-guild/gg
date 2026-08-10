@@ -18,5 +18,14 @@ public static class Vocabulary
         typeof(WhoAmI),
         typeof(RunnerRegistrationRequest),
         typeof(RunnerRegistered),
+        typeof(RunnerHeartbeat),
+        typeof(HeartbeatAccepted),
+        typeof(LeaseClaimRequest),
+        typeof(LeaseRepoRef),
+        typeof(LeaseGranted),
+        typeof(LeaseRenewalRequest),
+        typeof(LeaseRenewed),
+        typeof(LeaseReleaseRequest),
+        typeof(LeaseReleased),
     ];
 }

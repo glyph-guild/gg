@@ -1,0 +1,195 @@
+namespace Gg.Contracts.Description;
+
+/// <summary>Which credential an endpoint answers to.</summary>
+public enum Audience
+{
+    /// <summary>No credential. Only the path by which one is obtained.</summary>
+    Anonymous,
+
+    /// <summary>A person, acting through a browser session or <c>gg</c>.</summary>
+    Developer,
+
+    /// <summary>A runner, acting through the runner protocol and nothing else.</summary>
+    Runner,
+}
+
+/// <summary>One endpoint of the gg-to-control-plane protocol.</summary>
+public sealed record Endpoint
+{
+    public required string Method { get; init; }
+
+    public required string Path { get; init; }
+
+    /// <summary>Which credential this endpoint answers to.</summary>
+    public required Audience Audience { get; init; }
+
+    /// <summary>Wire type of the request body, or null if there is none.</summary>
+    public Type? Request { get; init; }
+
+    /// <summary>Wire type of the success response body, or null if there is none.</summary>
+    public Type? Response { get; init; }
+
+    /// <summary>
+    /// Every status this endpoint may answer with. A client must handle all of
+    /// them and a server must produce no others.
+    /// </summary>
+    public required IReadOnlyList<int> Statuses { get; init; }
+
+    /// <summary>Headers the caller must send beyond the version headers.</summary>
+    public IReadOnlyList<string> RequiredHeaders { get; init; } = [];
+}
+
+/// <summary>
+/// The HTTP surface of the protocol, declared once and checked from both sides.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This exists because the two halves of the protocol live in two
+/// repositories that cannot reference each other. Before it, <c>gg</c> was
+/// tested against a stub written in this repo and the control plane against
+/// its own edge, so both suites could stay green while the two disagreed
+/// about a header name, a status code or a JSON casing - and the first thing
+/// to notice would have been a real customer.
+/// </para>
+/// <para>
+/// Now both sides check themselves against THIS, and a disagreement fails
+/// somebody's build. It still is not an end-to-end test - nothing here runs a
+/// real gg against a real control plane - but it removes the class of
+/// divergence that silence was hiding.
+/// </para>
+/// <para>
+/// Header names and the protocol revision live here rather than being
+/// declared on each side and asserted equal: one definition cannot drift from
+/// itself.
+/// </para>
+/// </remarks>
+public static class ProtocolSurface
+{
+    /// <summary>
+    /// Wire protocol revision. Bumped only when the protocol becomes
+    /// incompatible - not when the package version moves.
+    /// </summary>
+    public const int Revision = 1;
+
+    /// <summary>Carries a developer's session token.</summary>
+    public const string SessionHeader = "X-Gg-Session";
+
+    /// <summary>Carries a runner's credential. Deliberately NOT the session header.</summary>
+    public const string RunnerHeader = "X-Gg-Runner";
+
+    /// <summary>Carries the revision the caller speaks.</summary>
+    public const string ProtocolHeader = "GG-Protocol-Version";
+
+    /// <summary>Carries the calling binary's own version.</summary>
+    public const string RunnerVersionHeader = "GG-Runner-Version";
+
+    /// <summary>Carries the fact vocabulary the caller evaluates against.</summary>
+    public const string FactVocabularyHeader = "GG-Fact-Vocabulary";
+
+    /// <summary>Names the range a 426 would accept.</summary>
+    public const string SupportedProtocolsHeader = "GG-Supported-Protocols";
+
+    /// <summary>Sent on every request to a governed path.</summary>
+    public static IReadOnlyList<string> VersionHeaders { get; } =
+        [ProtocolHeader, RunnerVersionHeader, FactVocabularyHeader];
+
+    /// <summary>
+    /// The path prefixes this declaration governs completely.
+    /// </summary>
+    /// <remarks>
+    /// Scoped rather than "everything under /v1", because the control plane
+    /// also serves a tenant API that gg does not speak yet. Within these
+    /// prefixes the declaration is CLOSED: a route the control plane serves
+    /// and this file does not name is a divergence, and the control plane's
+    /// tests fail on it.
+    /// </remarks>
+    public static IReadOnlyList<string> GovernedPrefixes { get; } = ["/v1/auth", "/v1/runner"];
+
+    /// <summary>Refusal for a caller below the protocol floor.</summary>
+    public const int ProtocolTooOld = 426;
+
+    /// <summary>Every endpoint gg may call.</summary>
+    public static IReadOnlyList<Endpoint> Endpoints { get; } =
+    [
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/auth/device",
+            Audience = Audience.Anonymous,
+            Request = typeof(DeviceAuthorizationRequest),
+            Response = typeof(DeviceAuthorizationStarted),
+            Statuses = [200, ProtocolTooOld],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/auth/device/token",
+            Audience = Audience.Anonymous,
+            Request = typeof(DeviceTokenRequest),
+            Response = typeof(SessionIssued),
+            // 202 is a WAIT, not a failure. 410 covers expired, denied,
+            // already-used and never-existed alike, so an unauthenticated
+            // caller cannot probe for live device codes.
+            Statuses = [200, 202, 410, ProtocolTooOld],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/auth/whoami",
+            Audience = Audience.Developer,
+            Response = typeof(WhoAmI),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/auth/logout",
+            Audience = Audience.Developer,
+            Statuses = [204, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerRegistrationRequest),
+            Response = typeof(RunnerRegistered),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/runner/hello",
+            Audience = Audience.Runner,
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+    ];
+
+    /// <summary>
+    /// The JSON member names each wire type must serialize to.
+    /// </summary>
+    /// <remarks>
+    /// Declared, not derived. If each side derived these from its own
+    /// serializer they would agree with themselves and prove nothing - which
+    /// is exactly how a camelCase-versus-PascalCase split survives two green
+    /// test suites. Compared as a SET: JSON is not positional, so member order
+    /// is not part of the contract.
+    /// </remarks>
+    public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
+        new Dictionary<Type, IReadOnlyList<string>>
+        {
+            [typeof(ProtocolHello)] = ["protocolVersion", "component", "componentVersion"],
+            [typeof(DeviceAuthorizationRequest)] = ["deviceLabel"],
+            [typeof(DeviceAuthorizationStarted)] =
+                ["deviceCode", "userCode", "verificationUri", "pollIntervalSeconds", "expiresAt"],
+            [typeof(DeviceTokenRequest)] = ["deviceCode"],
+            [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
+            [typeof(WhoAmI)] = ["principalId", "principalDisplay", "tenantId", "expiresAt"],
+            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion"],
+            [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
+        };
+}

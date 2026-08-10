@@ -1,3 +1,5 @@
+using Gg.Contracts.Description;
+
 namespace Gg.Contracts.Tests;
 
 /// <summary>

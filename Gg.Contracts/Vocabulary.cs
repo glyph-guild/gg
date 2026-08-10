@@ -27,5 +27,14 @@ public static class Vocabulary
         typeof(LeaseRenewed),
         typeof(LeaseReleaseRequest),
         typeof(LeaseReleased),
+        typeof(FlightIntent),
+        typeof(FlightLaunchRequest),
+        typeof(FlightLaunched),
+        typeof(FlightSummary),
+        typeof(FlightList),
+        typeof(FlightLogEntry),
+        typeof(FlightLog),
+        typeof(RunnerSummary),
+        typeof(RunnerList),
     ];
 }

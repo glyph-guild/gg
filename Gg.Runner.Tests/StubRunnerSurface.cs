@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Gg.Contracts;
+using Gg.Contracts.Description;
 
 namespace Gg.Runner.Tests;
 
@@ -81,7 +82,7 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
                         LeaseId = "lease-9",
                         Generation = 3,
                         FlightId = "flight-9",
-                        FlightNumber = "GG-9",
+                        FlightNumber = FlightRef.Format(9),
                         Repos = [],
                         ClassificationCeiling = "internal",
                         ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),

@@ -46,6 +46,40 @@ public class FlightSurfaceDeclarationTests
     }
 
     [Test]
+    public async Task A_launched_flight_can_say_its_number_is_not_minted_yet()
+    {
+        // POST answers 202: the control plane dispatches a command and the
+        // flight number is minted by whatever handles it. At the moment the
+        // response is written, nobody knows the number.
+        //
+        // The first cut made it required, which left the control plane with a
+        // choice between lying and refusing to compile. "" would have made
+        // "not minted" and "minted as nothing" the same value - the exact
+        // shape Article XI calls silently absent.
+        var launched = new FlightLaunched { FlightId = Guid.NewGuid().ToString(), FlightNumber = null };
+
+        await Assert.That(launched.FlightNumber).IsNull();
+        await Assert.That(string.IsNullOrEmpty(launched.FlightId)).IsFalse()
+            .Because("the id IS known at 202, and is what a person can act on immediately.");
+    }
+
+    [Test]
+    public async Task A_launched_flight_still_carries_the_number_once_there_is_one()
+    {
+        // Nullable so it can be absent, not so it can be forgotten. A control
+        // plane that mints synchronously later fills this in without a
+        // contract change, which is why the field exists now.
+        var launched = new FlightLaunched
+        {
+            FlightId = Guid.NewGuid().ToString(),
+            FlightNumber = FlightRef.Format(42),
+        };
+
+        await Assert.That(FlightRef.TryParse(launched.FlightNumber, out var parsed)).IsTrue();
+        await Assert.That(parsed!.Number).IsEqualTo(42);
+    }
+
+    [Test]
     public async Task The_whole_flight_surface_answers_to_a_developer()
     {
         // Not to a runner. A runner that could read the flight list could

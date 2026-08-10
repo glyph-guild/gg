@@ -2,10 +2,10 @@ name: main failed
 
 # Something has to watch main.
 #
-# It happened in the control-plane repo: a green commit failed CI on the MERGE
-# run having passed on the PR run, and main stayed red until somebody noticed a
-# day later, by accident. The flake behind that is fixed; nothing prevents the
-# next one, here or there, and nothing would tell us.
+# A green commit once failed CI on the MERGE run having passed on the PR run,
+# and main stayed red until somebody noticed a day later, by accident. The
+# flake behind that is fixed; nothing prevents the next one, and nothing would
+# tell us.
 #
 # An issue is the right shape: free, visible without opening Actions, and it
 # survives a closed terminal. It is closed by hand on purpose - an auto-close
@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read
   issues: write
+  # Listing the JOBS of another run needs this, and its absence is a 403 that
+  # only appears when the watcher actually fires. Found by firing it: a watcher
+  # nobody has seen work is a watcher nobody should trust.
+  actions: read
 
 jobs:
   open-an-issue:
@@ -36,12 +40,23 @@ jobs:
             // Which jobs failed, not just that the run did. "CI failed" sends
             // somebody to the Actions tab to find out what this could have
             // told them.
-            const jobs = await github.paginate(
-              github.rest.actions.listJobsForWorkflowRun,
-              { owner: context.repo.owner, repo: context.repo.repo, run_id: run.id });
-            const failed = jobs
-              .filter(job => job.conclusion === 'failure')
-              .map(job => `- \`${job.name}\` — ${job.html_url}`);
+            //
+            // Best effort, deliberately: if this call fails the issue still
+            // opens without the detail. A watcher that stays silent because it
+            // could not enumerate jobs has turned a nice-to-have into the
+            // reason nobody was told at all.
+            let failed = [];
+            try {
+              const jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                { owner: context.repo.owner, repo: context.repo.repo, run_id: run.id });
+              failed = jobs
+                .filter(job => job.conclusion === 'failure')
+                .map(job => `- \`${job.name}\` — ${job.html_url}`);
+            } catch (error) {
+              core.warning(`could not list jobs: ${error.message}`);
+              failed = [`- (could not list jobs: ${error.message})`];
+            }
 
             const sha = run.head_sha;
             const short = sha.substring(0, 8);

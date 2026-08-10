@@ -292,3 +292,29 @@ public sealed record RunnerList
 {
     public required IReadOnlyList<RunnerSummary> Runners { get; init; }
 }
+
+/// <summary>
+/// Whether this control plane sends telemetry anywhere, and where.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A customer runs the control plane in their own cloud account, and "is this
+/// thing transmitting to anybody" is a question they must be able to ask it
+/// directly. The startup line answers it for whoever is watching the console;
+/// this answers it for everybody else, which is most people, most of the time.
+/// </para>
+/// <para>
+/// It exists because ambient environment once chose a destination that nothing
+/// in either repository had configured. A control plane that can be asked is
+/// one where that cannot happen quietly again.
+/// </para>
+/// </remarks>
+[PinnedId("2b5e0f9d-7a41-4c8e-93d6-1f0a5c74b8e2")]
+public sealed record TelemetryDisclosure
+{
+    /// <summary>Whether anything leaves the control plane.</summary>
+    public required bool Exporting { get; init; }
+
+    /// <summary>Where it goes, or null when nothing does.</summary>
+    public string? Destination { get; init; }
+}

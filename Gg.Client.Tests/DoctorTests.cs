@@ -179,6 +179,38 @@ public class DoctorTests
     }
 
     [Test]
+    public async Task Doctor_reports_where_the_control_plane_sends_telemetry()
+    {
+        // A customer runs the control plane in their own account, and "is this
+        // thing transmitting to anybody" is a question they must be able to
+        // ask it. Ambient environment once chose a destination nothing in
+        // either repository had configured, and nobody could have found out.
+        await using var stub = new StubControlPlane { TelemetryDestination = "https://collector.example.invalid" };
+
+        var check = (await Build(stub, new HeldSession(AValidSession())).RunAsync())
+            .Checks.Single(c => c.Name == DoctorChecks.Telemetry);
+
+        await Assert.That(check.Detail).Contains("collector.example.invalid");
+        await Assert.That(check.Blocking).IsFalse()
+            .Because("a destination the customer chose is the system working, not failing.");
+    }
+
+    [Test]
+    public async Task Doctor_says_so_when_the_control_plane_sends_nothing()
+    {
+        // The other state, said out loud. Silence and "exports nothing" must
+        // not be the same line, or the report is worthless in exactly the case
+        // somebody is checking.
+        await using var stub = new StubControlPlane();
+
+        var check = (await Build(stub, new HeldSession(AValidSession())).RunAsync())
+            .Checks.Single(c => c.Name == DoctorChecks.Telemetry);
+
+        await Assert.That(check.Detail).Contains("nothing");
+        await Assert.That(check.Passed).IsTrue();
+    }
+
+    [Test]
     public async Task An_unreachable_runner_is_not_blocking()
     {
         // A person can read their flights, open one, and look at a log with no

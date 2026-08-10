@@ -43,6 +43,9 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, every request is refused with 426.</summary>
     public string? ProtocolFloorMessage { get; set; }
 
+    /// <summary>Where this stub claims the control plane exports to, if anywhere.</summary>
+    public string? TelemetryDestination { get; set; }
+
     /// <summary>When set, every flight lookup answers 404.</summary>
     public bool FlightNotFound { get; set; }
 
@@ -197,6 +200,14 @@ public sealed class StubControlPlane : IAsyncDisposable
 
             case "/v1/flights":
                 await WriteJsonAsync(context, 200, new FlightList { Flights = [AFlight()] });
+                return;
+
+            case "/v1/telemetry":
+                await WriteJsonAsync(context, 200, new TelemetryDisclosure
+                {
+                    Exporting = TelemetryDestination is not null,
+                    Destination = TelemetryDestination,
+                });
                 return;
 
             case "/v1/runners":

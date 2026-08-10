@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Description;
 using Gg.Runner;
 
 namespace Gg.Runner.Tests;
@@ -96,7 +97,7 @@ internal static class Leases
         LeaseId = "lease-1",
         Generation = generation,
         FlightId = "flight-1",
-        FlightNumber = "GG-1042",
+        FlightNumber = FlightRef.Format(1042),
         Repos = [],
         ClassificationCeiling = "internal",
         ExpiresAt = expiresAt,

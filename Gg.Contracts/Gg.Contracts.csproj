@@ -14,7 +14,7 @@
          Pre-1.0: any wire change is a minor bump, and there is no compatibility
          promise. GgVersions.Protocol is a different number and moves only when
          the protocol itself becomes incompatible. -->
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <IsPackable>true</IsPackable>
     <PackageId>GlyphGuild.Gg.Contracts</PackageId>
     <Description>Wire protocol contracts for Good Grief (gg): console, runner, control plane.</Description>

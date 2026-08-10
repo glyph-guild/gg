@@ -102,8 +102,14 @@ public static class ProtocolSurface
     /// prefixes the declaration is CLOSED: a route the control plane serves
     /// and this file does not name is a divergence, and the control plane's
     /// tests fail on it.
+    ///
+    /// /v1/flights joined at step 4a. The flight read surface sat outside the
+    /// declaration while nothing consumed it, which was honest - a declaration
+    /// nobody checks is a comment. The console consumes it, so it comes in
+    /// under the same closure guarantee as the rest.
     /// </remarks>
-    public static IReadOnlyList<string> GovernedPrefixes { get; } = ["/v1/auth", "/v1/runner", "/v1/leases"];
+    public static IReadOnlyList<string> GovernedPrefixes { get; } =
+        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -214,6 +220,66 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
         },
+
+        // The flight read surface. Developer audience throughout: a runner that
+        // could read the flight list could enumerate a tenant's work from a
+        // credential meant only to let it hold one lease at a time.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/flights",
+            Audience = Audience.Developer,
+            Request = typeof(FlightLaunchRequest),
+            Response = typeof(FlightLaunched),
+            // 202, not 200: the edge dispatches a command and the flight is
+            // materialized asynchronously. Answering 200 would claim the
+            // flight is readable, and the very next GET might disagree.
+            // 400 is a refused intent - Article XI, with a diagnosis.
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/flights",
+            Audience = Audience.Developer,
+            Response = typeof(FlightList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/flights/{ref}",
+            Audience = Audience.Developer,
+            Response = typeof(FlightSummary),
+            // {ref} is a uuid OR a flight number. Both resolve here, by the
+            // one parser in FlightRef; a reference in neither form is a 404
+            // rather than a 400, because "GG-nope" names no flight in exactly
+            // the way a well-formed id for somebody else's flight does.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/flights/{ref}/log",
+            Audience = Audience.Developer,
+            Response = typeof(FlightLog),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/runners",
+            Audience = Audience.Developer,
+            Response = typeof(RunnerList),
+            // A person reads the fleet; a runner beats. Same path, and the two
+            // audiences never overlap.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
     ];
 
     /// <summary>
@@ -303,5 +369,17 @@ public static class ProtocolSurface
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail"],
             [typeof(LeaseReleased)] = ["flightId", "disposition"],
+            [typeof(FlightIntent)] = ["kind", "uri", "text"],
+            [typeof(FlightLaunchRequest)] = ["name", "intent"],
+            [typeof(FlightLaunched)] = ["flightId", "flightNumber"],
+            [typeof(FlightSummary)] =
+                ["flightId", "flightNumber", "name", "intent", "createdAt",
+                 "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion"],
+            [typeof(FlightList)] = ["flights"],
+            [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
+            [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
+            [typeof(RunnerSummary)] =
+                ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt"],
+            [typeof(RunnerList)] = ["runners"],
         };
 }

@@ -120,19 +120,29 @@ public sealed record FlightLaunchRequest
     public required FlightIntent Intent { get; init; }
 }
 
-/// <summary>The flight that was opened, named both ways.</summary>
+/// <summary>The flight that was opened.</summary>
 /// <remarks>
-/// The number comes back with the id because the next thing a person does is
-/// type it. Returning only the id would make the number something they had to
-/// go and look up.
+/// The id is what is known at the moment a flight is accepted, so it is what
+/// comes back required. The number is not: it is minted by whatever handles
+/// the launch, and a control plane answering 202 has not seen it yet.
 /// </remarks>
 [PinnedId("e48f8814-947e-4ff6-a6b6-efc3f038fea4")]
 public sealed record FlightLaunched
 {
     public required string FlightId { get; init; }
 
-    /// <summary>Rendered, e.g. GG-1042.</summary>
-    public required string FlightNumber { get; init; }
+    /// <summary>
+    /// Rendered, e.g. GG-1042 - or null when the number has not been minted.
+    /// </summary>
+    /// <remarks>
+    /// Nullable so it can be ABSENT, not so it can be forgotten. The
+    /// alternative was a required field and an empty string, which makes "not
+    /// minted yet" and "minted as nothing" the same value; a caller cannot
+    /// tell those apart, and the one it would guess wrong about is the one
+    /// that matters. A control plane that later mints synchronously fills this
+    /// in without a contract change, which is why the field is here at all.
+    /// </remarks>
+    public string? FlightNumber { get; init; }
 }
 
 /// <summary>

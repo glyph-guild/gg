@@ -3,17 +3,27 @@ using Terminal.Gui.Input;
 namespace Gg.Console.Views;
 
 /// <summary>
-/// The only place Terminal.Gui key events meet the pure keymap: translate
-/// <see cref="Key"/> into the structural (input, KeyInfo) pair and nothing else.
+/// The only place Terminal.Gui key events meet the pure keymap.
 /// </summary>
+/// <remarks>
+/// Translates <see cref="Key"/> into a <see cref="KeyStroke"/> and nothing
+/// else. Every decision about what a key MEANS is on the other side of this
+/// function, which is what keeps the keymap testable without a terminal.
+/// </remarks>
 public static class KeyTranslator
 {
-    public static (char? Input, KeyInfo Key) Translate(Key key)
+    public static KeyStroke Translate(Key key)
     {
-        var info = new KeyInfo(
-            Ctrl: key.IsCtrl,
-            Escape: key == Key.Esc,
-            Tab: key == Key.Tab);
+        ArgumentNullException.ThrowIfNull(key);
+
+        if (key == Key.Esc)
+        {
+            return KeyStroke.Esc;
+        }
+        if (key == Key.Tab)
+        {
+            return KeyStroke.TabKey;
+        }
 
         var bare = key.NoCtrl.NoAlt.NoShift;
         char? input = null;
@@ -26,6 +36,6 @@ public static class KeyTranslator
             input = char.ToLowerInvariant((char)key.AsRune.Value);
         }
 
-        return (input, info);
+        return new KeyStroke(input, Ctrl: key.IsCtrl);
     }
 }

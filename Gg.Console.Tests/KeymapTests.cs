@@ -1,63 +1,171 @@
 namespace Gg.Console.Tests;
 
+/// <summary>
+/// The keymap is pure, total, and the only place bindings live.
+/// </summary>
 public class KeymapTests
 {
-    private static readonly KeyInfo Plain = new(Ctrl: false, Escape: false, Tab: false);
+    /// <summary>
+    /// Every keystroke the console could ever be handed.
+    /// </summary>
+    /// <remarks>
+    /// Enumerated rather than sampled, because the hints check below is an
+    /// EQUALITY and an equality needs both sides to be complete. A sampled
+    /// universe would make "advertised keys equal live keys" mean "advertised
+    /// keys equal the live keys I thought to try".
+    /// </remarks>
+    internal static IReadOnlyList<KeyStroke> Universe { get; } =
+    [
+        .. Enumerable.Range(32, 95).Select(c => KeyStroke.Char((char)c)),
+        .. Enumerable.Range('a', 26).Select(c => KeyStroke.Control((char)c)),
+        KeyStroke.Esc,
+        KeyStroke.TabKey,
+    ];
+
+    /// <summary>Every context the console can be in.</summary>
+    internal static IReadOnlyList<KeymapContext> EveryContext { get; } =
+    [
+        .. from mode in Enum.GetValues<UiMode>()
+           from live in (bool[])[false, true]
+           from frozen in (bool[])[false, true]
+           select new KeymapContext(mode, live, frozen),
+    ];
 
     [Test]
-    public async Task QQuitsInNormalMode()
+    public async Task Advertised_keys_are_exactly_the_keys_that_do_something()
     {
-        await Assert.That(Keymap.Resolve('q', Plain, new(UiMode.Normal))).IsEqualTo(Command.Quit);
+        // Set equality, per context. "The hints look right" is a sampling, and
+        // a sampling is how an advertised key that stopped working survives -
+        // the person presses it, nothing happens, and they conclude the console
+        // is broken rather than the hint.
+        foreach (var context in EveryContext)
+        {
+            var advertised = Keymap.Bindings(context).Select(b => b.Key).ToHashSet();
+
+            var live = Universe
+                .Where(key => key != Keymap.Interrupt && Keymap.Resolve(key, context) is not null)
+                .ToHashSet();
+
+            await Assert.That(live.SetEquals(advertised)).IsTrue()
+                .Because($"in {context}: advertised [{Names(advertised)}] but live [{Names(live)}].");
+        }
     }
 
     [Test]
-    public async Task CtrlCQuitsInAnyMode()
+    public async Task Every_context_advertises_at_least_one_key()
     {
-        await Assert.That(Keymap.Resolve('c', Plain with { Ctrl = true }, new(UiMode.Help)))
-            .IsEqualTo(Command.Quit);
+        // Guards the equality above: two empty sets are equal, and a keymap
+        // that resolved nothing anywhere would pass it.
+        foreach (var context in EveryContext)
+        {
+            await Assert.That(Keymap.Bindings(context)).IsNotEmpty().Because($"{context} advertises nothing.");
+        }
     }
 
     [Test]
-    public async Task QuestionMarkTogglesHelp()
+    public async Task The_hint_line_names_every_live_key_and_nothing_else()
     {
-        await Assert.That(Keymap.Resolve('?', Plain, new(UiMode.Normal))).IsEqualTo(Command.ToggleHelp);
+        // The rendered string, not just the binding list - because the string
+        // is what a person actually reads.
+        foreach (var context in EveryContext)
+        {
+            var hints = Keymap.Hints(context);
+
+            foreach (var binding in Keymap.Bindings(context))
+            {
+                await Assert.That(hints).Contains(binding.Key.Name)
+                    .Because($"{context} does not advertise {binding.Key.Name}.");
+            }
+        }
     }
 
     [Test]
-    public async Task EscapeClosesHelpInsteadOfQuitting()
+    public async Task Ctrl_c_quits_from_every_context_including_a_modal()
     {
-        await Assert.That(Keymap.Resolve(null, Plain with { Escape = true }, new(UiMode.Help)))
-            .IsEqualTo(Command.ToggleHelp);
+        // The last resort. A modal that could swallow it would be a modal that
+        // can trap the terminal.
+        foreach (var context in EveryContext)
+        {
+            await Assert.That(Keymap.Resolve(Keymap.Interrupt, context)).IsEqualTo(Command.Quit)
+                .Because($"{context} swallowed ctrl+c.");
+        }
     }
 
     [Test]
-    public async Task QClosesHelpWhileHelpIsOpen()
+    public async Task A_modal_answers_only_its_own_keys()
     {
-        await Assert.That(Keymap.Resolve('q', Plain, new(UiMode.Help))).IsEqualTo(Command.ToggleHelp);
+        // What "modals own the keyboard" means concretely: nothing underneath
+        // is reachable, so no key can act on a flight the person cannot
+        // currently see.
+        foreach (var context in EveryContext.Where(c => c.Mode != UiMode.Normal))
+        {
+            var reachable = Universe
+                .Where(key => key != Keymap.Interrupt && Keymap.Resolve(key, context) is not null)
+                .Select(key => Keymap.Resolve(key, context)!.Value)
+                .ToHashSet();
+
+            await Assert.That(reachable).IsEquivalentTo(new[] { Command.CloseModal }.ToHashSet())
+                .Because($"{context.Mode} let something through besides its own escape hatch.");
+        }
     }
 
     [Test]
-    public async Task TabFocusesNextPane()
+    public async Task Every_modal_has_exactly_one_escape_hatch()
     {
-        await Assert.That(Keymap.Resolve(null, Plain with { Tab = true }, new(UiMode.Normal)))
-            .IsEqualTo(Command.FocusNextPane);
+        foreach (var context in EveryContext.Where(c => c.Mode != UiMode.Normal))
+        {
+            var hatches = Universe
+                .Where(key => key != Keymap.Interrupt && Keymap.Resolve(key, context) == Command.CloseModal)
+                .ToList();
+
+            await Assert.That(hatches).Count().IsEqualTo(1)
+                .Because($"{context.Mode} has {hatches.Count} ways out; exactly one is the discipline.");
+            await Assert.That(hatches[0]).IsEqualTo(Keymap.EscapeHatch(context)!.Value);
+        }
     }
 
     [Test]
-    public async Task EOpensTheEditor()
+    public async Task Normal_mode_has_no_escape_hatch_because_it_is_not_a_modal()
     {
-        await Assert.That(Keymap.Resolve('e', Plain, new(UiMode.Normal))).IsEqualTo(Command.OpenEditor);
+        await Assert.That(Keymap.EscapeHatch(new KeymapContext(UiMode.Normal))).IsNull();
     }
 
     [Test]
-    public async Task HelpModeSwallowsOtherBindings()
+    public async Task Freeze_is_only_offered_where_there_is_something_to_freeze()
     {
-        await Assert.That(Keymap.Resolve('e', Plain, new(UiMode.Help))).IsNull();
+        // An advertised key that does nothing teaches people to distrust the
+        // hint line, which is the one thing telling them what works.
+        var hidden = new KeymapContext(UiMode.Normal, LiveVisible: false);
+        var shown = new KeymapContext(UiMode.Normal, LiveVisible: true);
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), hidden)).IsNull();
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), shown)).IsEqualTo(Command.ToggleFreeze);
     }
 
     [Test]
-    public async Task UnboundKeysResolveToNull()
+    public async Task The_hint_for_a_toggle_says_what_pressing_it_will_do()
     {
-        await Assert.That(Keymap.Resolve('x', Plain, new(UiMode.Normal))).IsNull();
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, LiveVisible: false))).Contains("l live");
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, LiveVisible: true))).Contains("l hide live");
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, LiveVisible: true, Frozen: true))).Contains("f unfreeze");
     }
+
+    [Test]
+    public async Task The_keymap_is_total_over_every_key_in_every_context()
+    {
+        // Pure and total: no input throws, whatever arrives. A keymap that
+        // threw on an unexpected key would take the terminal down with it.
+        foreach (var context in EveryContext)
+        {
+            foreach (var key in Universe)
+            {
+                _ = Keymap.Resolve(key, context);
+            }
+        }
+
+        await Assert.That(Universe.Count).IsGreaterThan(100)
+            .Because("a universe this small would make the loop above prove very little.");
+    }
+
+    private static string Names(IEnumerable<KeyStroke> keys) => string.Join(", ", keys.Select(k => k.Name));
 }

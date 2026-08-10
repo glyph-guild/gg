@@ -14,6 +14,12 @@ namespace Gg.Client;
 [JsonSerializable(typeof(WhoAmI))]
 [JsonSerializable(typeof(RunnerRegistrationRequest))]
 [JsonSerializable(typeof(RunnerRegistered))]
+[JsonSerializable(typeof(FlightLaunchRequest))]
+[JsonSerializable(typeof(FlightLaunched))]
+[JsonSerializable(typeof(FlightSummary))]
+[JsonSerializable(typeof(FlightList))]
+[JsonSerializable(typeof(FlightLog))]
+[JsonSerializable(typeof(RunnerList))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -153,6 +159,109 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerRegistered, cancellationToken)
             ?? throw new InvalidOperationException("Control plane registered no runner.");
+    }
+
+    /// <summary>
+    /// The cheapest call that reaches the protocol floor.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous on purpose. The floor is checked BEFORE authentication
+    /// server-side, so an unauthenticated request still gets a 426 - which
+    /// means one call answers both "is it up" and "will it talk to this
+    /// binary", and answers the second even for somebody who is not signed in.
+    /// </remarks>
+    public async Task PingAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/auth/whoami");
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        // Any other status means the server answered, which is the question.
+    }
+
+    /// <summary>The tenant's flights.</summary>
+    public async Task<FlightList> ListFlightsAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/flights", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.FlightList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no flight list.");
+    }
+
+    /// <summary>One flight, or null if the reference names none.</summary>
+    public async Task<FlightSummary?> GetFlightAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/flights/{reference}", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.FlightSummary, cancellationToken);
+    }
+
+    /// <summary>A flight's log, or null if the reference names no flight.</summary>
+    public async Task<FlightLog?> GetFlightLogAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/flights/{reference}/log", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.FlightLog, cancellationToken);
+    }
+
+    /// <summary>The tenant's runners, with the state the control plane derived.</summary>
+    public async Task<RunnerList> ListRunnersAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/runners", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no runner list.");
+    }
+
+    /// <summary>Opens a flight. Answers 202: the number is minted afterwards.</summary>
+    public async Task<FlightLaunched> LaunchFlightAsync(
+        string sessionToken, FlightLaunchRequest launch, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/flights", sessionToken);
+        request.Content = JsonContent.Create(launch, ProtocolJsonContext.Default.FlightLaunchRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // Article XI reaching the person: the control plane refused with a
+            // diagnosis, and swallowing it into "bad request" would lose the
+            // only part they can act on.
+            throw new FlightIntentException(
+                (await response.Content.ReadAsStringAsync(cancellationToken)).Trim());
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.FlightLaunched, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane opened no flight.");
     }
 
     /// <summary>Revokes the session server-side. Returns false if it was already gone.</summary>

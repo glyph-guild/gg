@@ -118,17 +118,21 @@ public class FlightRefTests
         // implementations that agree today is exactly the arrangement this
         // step replaced, and it would come back as a lone $"GG-{n}" in a
         // renderer.
+        //
+        // SHIPPED code only. A test spelling "GG-42" is pinning the format
+        // from the outside - which is worth having, and is the opposite of a
+        // second implementation. Narrowing the rule to what ships keeps it
+        // aimed at the thing that can actually drift.
         var root = RepoRoot();
         var offenders = new List<string>();
 
         foreach (var file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
         {
-            var name = Path.GetFileName(file);
             if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 || file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                // The one place allowed to know the prefix, and the tests that
-                // hold it to account.
-                || name is "FlightRef.cs" or "FlightRefTests.cs")
+                || file.Contains(".Tests", StringComparison.Ordinal)
+                // The one place allowed to know the prefix.
+                || Path.GetFileName(file) == "FlightRef.cs")
             {
                 continue;
             }

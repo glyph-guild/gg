@@ -12,9 +12,95 @@ return CliArgs.Parse(args) switch
     CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
     CliAction.WhoAmI => await AuthAsync(commands => commands.WhoAmIAsync()),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
+
+    CliAction.Fly fly => await EmitAsync(fly.Json, c => c.FlyAsync(fly.Text, fly.Uri)),
+    CliAction.Flights flights => await EmitAsync(flights.Json, c => c.ListAsync()),
+    CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
+    CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
+    CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
+    CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
+
     CliAction.Unknown unknown => Fail(unknown.Message),
     _ => Fail("unhandled action"),
 };
+
+static string ControlPlaneAddress() =>
+    Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") ?? "http://localhost:5199";
+
+/// <summary>
+/// Runs a verb and prints its result - one way or the other, never both.
+/// </summary>
+/// <remarks>
+/// The single place a result becomes characters on a screen. Every verb hands
+/// back a VerbResult and nothing else, so the JSON and the human rendering are
+/// two views of one document rather than two implementations that agree today.
+/// The console at step 4b renders the same value through the same code.
+/// </remarks>
+static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult>> run)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var commands = new FlightCommands(new ControlPlaneClient(http), new FileSessionStore());
+
+    try
+    {
+        var result = await run(commands);
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+        return 0;
+    }
+    catch (NotSignedInException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (FlightReferenceException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (FlightNotFoundException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (FlightIntentException refusal)
+    {
+        // Article XI reaching a person: the diagnosis is the actionable part
+        // and collapsing it into "bad request" would throw that away.
+        return Fail(refusal.Message);
+    }
+    catch (ProtocolTooOldException refusal)
+    {
+        Console.Error.WriteLine(refusal.Message);
+        return 69;
+    }
+    catch (HttpRequestException failure)
+    {
+        Console.Error.WriteLine(
+            $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
+        return 69;
+    }
+}
+
+/// <summary>
+/// Runs doctor, which reports rather than throws.
+/// </summary>
+/// <remarks>
+/// Separate from the verbs above because it is the one that must survive
+/// everything they refuse on: an unreachable control plane is a finding here,
+/// not a failure, or the command would be useless in exactly the case somebody
+/// runs it.
+/// </remarks>
+static async Task<int> DoctorAsync(bool json)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    var report = await new Doctor(
+        new ControlPlaneClient(http), new FileSessionStore(), new Uri(baseAddress)).RunAsync();
+
+    var result = new VerbResult.Diagnosis(report);
+    Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+
+    return report.ExitCode;
+}
 
 static int LaunchConsole()
 {
@@ -48,8 +134,7 @@ static int PrintVersion()
 
 static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 {
-    var baseAddress = Environment.GetEnvironmentVariable("GG_CONTROL_PLANE")
-        ?? "http://localhost:5199";
+    var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
     var commands = new AuthCommands(
@@ -77,7 +162,7 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 
 static async Task<int> RunnerUpAsync()
 {
-    var baseAddress = Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") ?? "http://localhost:5199";
+    var baseAddress = ControlPlaneAddress();
 
     var session = new FileSessionStore().Read();
     if (session is null)

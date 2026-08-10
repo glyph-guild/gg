@@ -134,6 +134,51 @@ public class DoctorTests
     }
 
     [Test]
+    public async Task A_check_that_could_not_run_offers_no_fix()
+    {
+        // Found by running the binary: with the control plane down, doctor was
+        // reporting the protocol as failed AND fixable by installing a newer
+        // gg - advice that costs somebody time and changes nothing, over a
+        // network problem. A check that did not run has no remedy to offer.
+        var unreachable = new Doctor(
+            new ControlPlaneClient(new HttpClient { BaseAddress = new Uri("http://127.0.0.1:1/") }),
+            new HeldSession(AValidSession()),
+            new Uri("http://127.0.0.1:1/"));
+
+        var report = await unreachable.RunAsync();
+
+        foreach (var check in report.Checks.Where(c => c.Detail.StartsWith("not checked", StringComparison.Ordinal)))
+        {
+            await Assert.That(check.Fixable).IsFalse()
+                .Because($"'{check.Name}' never ran, so it cannot claim the person can fix it.");
+            await Assert.That(check.Fix).IsNull();
+        }
+
+        await Assert.That(report.Checks.Any(c => c.Detail.StartsWith("not checked", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("with nothing skipped this test would assert over an empty set.");
+    }
+
+    [Test]
+    public async Task Nothing_claims_to_be_fixable_without_naming_a_fix()
+    {
+        // The general form. 'fixable' with no remedy named is a claim rather
+        // than help, and it is the shape a copy-pasted check arrives in.
+        await using var stub = new StubControlPlane();
+
+        foreach (var report in (DoctorReport[])
+                 [await Build(stub, new HeldSession(AValidSession())).RunAsync(),
+                  await Build(stub, new HeldSession(null)).RunAsync()])
+        {
+            foreach (var check in report.Checks.Where(c => c.Fixable))
+            {
+                await Assert.That(string.IsNullOrWhiteSpace(check.Fix)).IsFalse()
+                    .Because($"'{check.Name}' says it is fixable and does not say how.");
+            }
+        }
+    }
+
+    [Test]
     public async Task An_unreachable_runner_is_not_blocking()
     {
         // A person can read their flights, open one, and look at a log with no

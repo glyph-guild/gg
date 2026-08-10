@@ -34,4 +34,170 @@ public class CliArgsTests
         await Assert.That(action).IsTypeOf<CliAction.Unknown>();
         await Assert.That(((CliAction.Unknown)action).Message).Contains("usage");
     }
+
+    // ---- the verbs landing at step 4a ----
+
+    [Test]
+    public async Task FlyTakesWhatAPersonTyped()
+    {
+        var action = CliArgs.Parse(["fly", "fix the login bug"]);
+
+        await Assert.That(action).IsTypeOf<CliAction.Fly>();
+        await Assert.That(((CliAction.Fly)action).Text).IsEqualTo("fix the login bug");
+        await Assert.That(((CliAction.Fly)action).Uri).IsNull();
+    }
+
+    [Test]
+    public async Task FlyTakesAUriInstead()
+    {
+        // The typed reference the three-field intent exists for. One payload,
+        // never both - the parser refuses rather than choosing.
+        var action = CliArgs.Parse(["fly", "--uri", "https://example.invalid/issues/7"]);
+
+        await Assert.That(((CliAction.Fly)action).Uri).IsEqualTo("https://example.invalid/issues/7");
+        await Assert.That(((CliAction.Fly)action).Text).IsNull();
+    }
+
+    [Test]
+    public async Task FlyRefusesToTakeBoth()
+    {
+        var action = CliArgs.Parse(["fly", "some words", "--uri", "https://example.invalid/x"]);
+
+        await Assert.That(action).IsTypeOf<CliAction.Unknown>()
+            .Because("which one wins would be decided by whoever wrote the parser.");
+    }
+
+    [Test]
+    public async Task FlyWithNothingToActOnIsRefused()
+    {
+        await Assert.That(CliArgs.Parse(["fly"])).IsTypeOf<CliAction.Unknown>();
+    }
+
+    [Test]
+    public async Task ShowTakesEitherFormOfReference()
+    {
+        await Assert.That(((CliAction.Show)CliArgs.Parse(["show", "GG-42"])).Reference).IsEqualTo("GG-42");
+        await Assert.That(((CliAction.Show)CliArgs.Parse(["show", "019fe815-6136-7518-bb57-b06d6d3f411a"])).Reference)
+            .IsEqualTo("019fe815-6136-7518-bb57-b06d6d3f411a");
+    }
+
+    [Test]
+    public async Task ShowWithoutAReferenceIsRefused()
+    {
+        await Assert.That(CliArgs.Parse(["show"])).IsTypeOf<CliAction.Unknown>();
+    }
+
+    [Test]
+    public async Task LogTakesAReference()
+    {
+        await Assert.That(((CliAction.Log)CliArgs.Parse(["log", "GG-42"])).Reference).IsEqualTo("GG-42");
+    }
+
+    [Test]
+    public async Task RunnersAndDoctorTakeNoArguments()
+    {
+        await Assert.That(CliArgs.Parse(["runners"])).IsTypeOf<CliAction.Runners>();
+        await Assert.That(CliArgs.Parse(["doctor"])).IsTypeOf<CliAction.Doctor>();
+    }
+
+    [Test]
+    public async Task FlightsListsThem()
+    {
+        await Assert.That(CliArgs.Parse(["flights"])).IsTypeOf<CliAction.Flights>();
+    }
+
+    // ---- --json, on every verb that produces a result ----
+
+    [Test]
+    public async Task EveryResultProducingVerbTakesJson()
+    {
+        // Not a flag on some of them. A person scripting against gg should
+        // never have to find out which verbs learned it.
+        foreach (var argv in (string[][])
+                 [["flights"], ["show", "GG-42"], ["log", "GG-42"], ["runners"], ["doctor"],
+                  ["fly", "words"]])
+        {
+            var action = CliArgs.Parse([.. argv, "--json"]);
+
+            await Assert.That(action).IsAssignableTo<CliAction.IEmitsResult>()
+                .Because($"'{string.Join(' ', argv)}' produces a structured result.");
+            await Assert.That(((CliAction.IEmitsResult)action).Json).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task WithoutTheFlagTheSameVerbsRenderForAPerson()
+    {
+        foreach (var argv in (string[][])
+                 [["flights"], ["show", "GG-42"], ["log", "GG-42"], ["runners"], ["doctor"],
+                  ["fly", "words"]])
+        {
+            await Assert.That(((CliAction.IEmitsResult)CliArgs.Parse(argv)).Json).IsFalse();
+        }
+    }
+
+    [Test]
+    public async Task JsonIsPositionIndependent()
+    {
+        // gg --json show GG-42 and gg show GG-42 --json are the same command,
+        // because a person will type both.
+        await Assert.That(((CliAction.Show)CliArgs.Parse(["show", "--json", "GG-42"])).Json).IsTrue();
+        await Assert.That(((CliAction.Show)CliArgs.Parse(["show", "GG-42", "--json"])).Json).IsTrue();
+    }
+
+    // ---- verbs whose feature does not exist yet do not exist yet ----
+
+    [Test]
+    public async Task CredentialAddIsNotAVerbYet()
+    {
+        // A verb that exists and quietly does nothing is Article XI's failure
+        // mode wearing a CLI: the person is told their credential is
+        // configured, and the flight fails much later for a reason nobody can
+        // trace back to here.
+        var action = CliArgs.Parse(["credential", "add", "GH_TOKEN"]);
+
+        await Assert.That(action).IsTypeOf<CliAction.Unknown>();
+    }
+
+    [Test]
+    public async Task BundleIsNotAVerbYet()
+    {
+        await Assert.That(CliArgs.Parse(["bundle"])).IsTypeOf<CliAction.Unknown>();
+    }
+
+    [Test]
+    public async Task AnUnknownVerbListsTheOnesThatAreReal()
+    {
+        var message = ((CliAction.Unknown)CliArgs.Parse(["credential", "add"])).Message;
+
+        foreach (var verb in (string[])["fly", "show", "log", "runners", "doctor",
+                                        "login", "logout", "whoami", "version", "runner up"])
+        {
+            await Assert.That(message).Contains(verb)
+                .Because($"'{verb}' works today and a person cannot be expected to guess it.");
+        }
+    }
+
+    [Test]
+    public async Task TheListOfRealVerbsAdvertisesNothingThatDoesNotWork()
+    {
+        // The other half. A usage string is a promise, and listing a verb that
+        // is not implemented is the same lie as stubbing it.
+        var message = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
+
+        foreach (var absent in (string[])["credential", "bundle", "cancel", "approve"])
+        {
+            await Assert.That(message).DoesNotContain(absent)
+                .Because($"'{absent}' does not exist yet, so advertising it is a promise gg cannot keep.");
+        }
+    }
+
+    [Test]
+    public async Task TheRefusalNamesWhatWasTyped()
+    {
+        // "unknown command" without saying which one makes a typo in a script
+        // something you find by bisecting.
+        await Assert.That(((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message)
+            .Contains("frobnicate");
+    }
 }

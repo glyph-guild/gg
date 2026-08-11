@@ -290,7 +290,7 @@ public class EnvironmentIdentityTests
         // that without carrying a customer's dependency graph off the machine.
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var materialized = await new Materializer(new LocalVcsAdapter(), trees.Root)
+        var materialized = await new Materializer(new LocalVcsAdapter(fixture.Directory), trees.Root)
             .MaterializeAsync("flight-1", new RepoTarget
             {
                 Provider = LocalVcsAdapter.ProviderKey,
@@ -311,7 +311,7 @@ public class EnvironmentIdentityTests
         // The negative half, on the one fact that reads files at all.
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var materialized = await new Materializer(new LocalVcsAdapter(), trees.Root)
+        var materialized = await new Materializer(new LocalVcsAdapter(fixture.Directory), trees.Root)
             .MaterializeAsync("flight-1", new RepoTarget
             {
                 Provider = LocalVcsAdapter.ProviderKey,

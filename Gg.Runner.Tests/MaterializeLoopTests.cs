@@ -82,7 +82,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(), trees.Root))
+                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var shipped = protocol.ShippedFacts.SelectMany(b => b.Items).ToList();
@@ -107,7 +107,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(), trees.Root))
+                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var provenance = protocol.ShippedFacts
@@ -136,7 +136,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(), trees.Root))
+                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var sent = string.Join("\n", protocol.Serialized);
@@ -165,7 +165,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(), trees.Root))
+                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         await Assert.That(Directory.EnumerateDirectories(trees.Root.Path)).IsEmpty()
@@ -213,6 +213,7 @@ public class MaterializeLoopTests
         // a flight for a repository nobody asked for would be Article XI
         // pointed at itself. The environment fact is about the machine, so it
         // is produced either way.
+        using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
@@ -221,7 +222,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(), trees.Root))
+                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var shipped = protocol.ShippedFacts.SelectMany(b => b.Items).ToList();

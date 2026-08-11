@@ -20,10 +20,22 @@ namespace Gg.Runner.Vcs;
 /// provider's pull-request metadata says.
 /// </para>
 /// </remarks>
-public sealed class LocalVcsAdapter : IVcsAdapter
+public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
 {
     /// <summary>The provider key a lease uses to ask for this adapter.</summary>
     public const string ProviderKey = "local";
+
+    /// <summary>
+    /// The one subtree this adapter will clone from, or null for none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The slug for this provider is a PATH, and the control plane supplies
+    /// slugs.</b> Unbounded, a compromised control plane could name any
+    /// directory on the runner's disk and have it cloned into a tree. So the
+    /// deployment says which subtree is fair game, and null - the default -
+    /// means none at all rather than anywhere.
+    /// </remarks>
+    private readonly string? _root = root is null ? null : System.IO.Path.GetFullPath(root);
 
     public string Provider => ProviderKey;
 
@@ -115,7 +127,40 @@ public sealed class LocalVcsAdapter : IVcsAdapter
         }
 
         return await GitWorkingTree.FetchAsync(
-            new Uri(Path.GetFullPath(target.Slug)).AbsoluteUri, resolvedRef, intoDirectory,
+            new Uri(Bounded(target.Slug)).AbsoluteUri, resolvedRef, intoDirectory,
             secret: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// The slug as a path, if the configured root allows it.
+    /// </summary>
+    /// <remarks>
+    /// Compared on the RESOLVED path, because a prefix check against the string
+    /// somebody sent is one <c>..</c> away from meaning nothing. A separator is
+    /// appended to the root so <c>/srv/repos-elsewhere</c> is not inside
+    /// <c>/srv/repos</c>.
+    /// </remarks>
+    private string Bounded(string slug)
+    {
+        if (_root is null)
+        {
+            throw new VcsCapabilityException(
+                "root",
+                "This runner has no filesystem root configured, so it will not clone from a path. "
+              + $"Set a root for the '{ProviderKey}' provider to allow one subtree.");
+        }
+
+        var resolved = System.IO.Path.GetFullPath(slug);
+        var fence = _root.EndsWith(System.IO.Path.DirectorySeparatorChar)
+            ? _root
+            : _root + System.IO.Path.DirectorySeparatorChar;
+
+        return resolved.StartsWith(fence, StringComparison.Ordinal)
+            || string.Equals(resolved, _root, StringComparison.Ordinal)
+            ? resolved
+            : throw new VcsCapabilityException(
+                "root",
+                $"'{slug}' resolves outside the one subtree this runner will clone from. A path "
+              + "the control plane named is not a path this runner has agreed to read.");
     }
 }

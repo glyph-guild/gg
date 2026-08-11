@@ -36,7 +36,8 @@ public class MaterializeLoopTests
                 },
             ],
             Credentials = credentials,
-            ClassificationCeiling = "internal",
+            ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
             ExpiresAt = T0.AddMinutes(10),
             RenewWithinSeconds = 5,
         };

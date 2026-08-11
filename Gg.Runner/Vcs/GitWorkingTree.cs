@@ -48,6 +48,24 @@ internal static class GitWorkingTree
     }
 
     /// <summary>
+    /// Brings one more ref into an existing tree, without disturbing it.
+    /// </summary>
+    /// <remarks>
+    /// No checkout. The working tree stays at the head that was materialized;
+    /// this only puts the base's objects on the same disk so a diff has two
+    /// points to compare.
+    /// </remarks>
+    internal static async Task<string> FetchAlsoAsync(
+        string url, string resolvedRef, string intoDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        await GitInvocation.Fetch(url, resolvedRef, secret).RunAsync(intoDirectory, cancellationToken);
+
+        return (await GitInvocation.Plain("rev-parse", "FETCH_HEAD")
+            .RunAsync(intoDirectory, cancellationToken)).Trim();
+    }
+
+    /// <summary>
     /// How much disk this took, including git's own objects.
     /// </summary>
     /// <remarks>

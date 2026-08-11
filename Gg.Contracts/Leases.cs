@@ -82,6 +82,18 @@ public sealed record LeaseRepoRef
 
     /// <summary>The exact ref this flight is pinned to.</summary>
     public required string PinnedRef { get; init; }
+
+    /// <summary>
+    /// What the change is measured FROM, when that is known.
+    /// </summary>
+    /// <remarks>
+    /// Null when nothing established a base - a bare repository url, or a
+    /// pull request whose base branch nobody has looked up yet. A manifest
+    /// computed against a guessed default branch would be a false statement
+    /// about what a flight examined, so no base means no manifest rather than
+    /// a plausible one.
+    /// </remarks>
+    public string? BaseRef { get; init; }
 }
 
 /// <summary>
@@ -138,6 +150,18 @@ public sealed record LeaseGranted
     /// gathers anything, because it bounds what may ever leave the machine.
     /// </summary>
     public required string ClassificationCeiling { get; init; }
+
+    /// <summary>
+    /// The tenant's rules, so the runner can decide what is above that ceiling.
+    /// </summary>
+    /// <remarks>
+    /// Sent because the runner filters BEFORE anything leaves its network, and
+    /// it cannot do that without knowing what the tenant considers sensitive.
+    /// The control plane keeps its own copy and re-derives from that: what
+    /// arrives here is what the runner was told, and a runner that ignored it
+    /// is exactly what re-validation is for.
+    /// </remarks>
+    public required IReadOnlyList<ClassificationRule> ClassificationRules { get; init; }
 
     /// <summary>
     /// When this lease stops being valid. Authoritative on its own: a lease

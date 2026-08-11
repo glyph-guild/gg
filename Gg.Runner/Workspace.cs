@@ -94,7 +94,13 @@ public sealed class Workspace : IWorkspace
 
             materialized.Add(await new Materializer(adapter, _trees).MaterializeAsync(
                 flightId,
-                new RepoTarget { Provider = repo.Provider, Slug = repo.Slug, PinnedRef = repo.PinnedRef },
+                new RepoTarget
+                {
+                    Provider = repo.Provider,
+                    Slug = repo.Slug,
+                    PinnedRef = repo.PinnedRef,
+                    BaseRef = repo.BaseRef,
+                },
                 secret,
                 cancellationToken));
         }

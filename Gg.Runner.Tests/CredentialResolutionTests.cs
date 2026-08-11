@@ -62,7 +62,8 @@ public class CredentialResolutionTests
         FlightNumber = FlightRef.Format(1042),
         Repos = [],
         Credentials = references,
-        ClassificationCeiling = "internal",
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
         ExpiresAt = T0.AddMinutes(10),
         RenewWithinSeconds = 5,
     };

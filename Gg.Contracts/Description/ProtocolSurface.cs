@@ -429,10 +429,10 @@ public static class ProtocolSurface
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],
             [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds"],
-            [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef"],
+            [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef", "baseRef"],
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
-                 "classificationCeiling", "expiresAt", "renewWithinSeconds"],
+                 "classificationCeiling", "classificationRules", "expiresAt", "renewWithinSeconds"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],
@@ -472,9 +472,18 @@ public static class ProtocolSurface
                 ["provider", "slug", "requestedRef", "resolvedRef", "headCommit",
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
-                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source"],
+                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected"],
+            [typeof(ClassificationRule)] = ["pathGlob", "classification"],
+            // Paths and counts. Nothing here a line of a file could travel in,
+            // asserted over the shape as well as declared.
+            [typeof(ChangedPath)] = ["path", "change", "linesAdded", "linesRemoved", "classification"],
+            [typeof(DirectoryChange)] = ["directory", "files", "linesAdded", "linesRemoved"],
+            [typeof(LanguageChange)] = ["language", "files", "linesAdded", "linesRemoved"],
+            [typeof(ChangeManifest)] =
+                ["baseCommit", "headCommit", "resolution", "paths", "directories", "languages",
+                 "filesChanged", "linesAdded", "linesRemoved", "pathsWithheld"],
         };
 }

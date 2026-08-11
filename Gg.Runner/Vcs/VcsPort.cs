@@ -11,6 +11,16 @@ public sealed record RepoTarget
 
     /// <summary>The exact ref this flight is pinned to.</summary>
     public required string PinnedRef { get; init; }
+
+    /// <summary>
+    /// What a change is measured FROM, when the flight knows.
+    /// </summary>
+    /// <remarks>
+    /// Null when nothing established a base. No base means no manifest rather
+    /// than one computed against a guessed default branch, which would be a
+    /// false statement about what this flight examined.
+    /// </remarks>
+    public string? BaseRef { get; init; }
 }
 
 /// <summary>
@@ -122,6 +132,20 @@ public interface IVcsAdapter
     /// Fetches one ref into a directory. The secret never reaches the argument list.
     /// </summary>
     Task<CloneOutcome> CloneAsync(
+        RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches one more ref into a tree that already exists, and says what it
+    /// resolved to.
+    /// </summary>
+    /// <remarks>
+    /// Still read-only, and still one ref at a time. It exists because a
+    /// manifest needs a base commit on the same disk as the head, and a
+    /// shallow clone of one ref does not have it. Nothing is checked out - the
+    /// working tree stays at the head that was materialized.
+    /// </remarks>
+    Task<string> FetchAlsoAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
         CancellationToken cancellationToken = default);
 }

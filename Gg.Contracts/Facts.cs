@@ -40,8 +40,51 @@ public static class FactKinds
     /// </remarks>
     public const string SourceProvenance = "source.provenance";
 
+    /// <summary>What changed between the base and the head that was examined.</summary>
+    public const string ChangeManifest = "change.manifest";
+
     /// <summary>Every kind that validates.</summary>
-    public static IReadOnlyList<string> All { get; } = [EnvironmentIdentity, SourceProvenance];
+    public static IReadOnlyList<string> All { get; } =
+        [EnvironmentIdentity, SourceProvenance, ChangeManifest];
+}
+
+/// <summary>
+/// The version of the pinned fact vocabulary, declared once.
+/// </summary>
+/// <remarks>
+/// <para>
+/// It travels on every request as <c>GG-Fact-Vocabulary</c> and it answers one
+/// question: whether the facts a runner can produce are the ones this control
+/// plane evaluates obligations against. A runner evaluating against a
+/// vocabulary the control plane has moved past gives a silently wrong answer,
+/// which is why the header exists at all.
+/// </para>
+/// <para>
+/// <b>Held to account by a ledger</b>, in <c>fact-vocabulary.json</c>: a
+/// fingerprint of every registered fact type is recorded against each version,
+/// and moving the surface without moving this number fails the build. It was
+/// three hand-typed constants until step 7, and it stayed at 0.1.0 through the
+/// addition of a whole fact type - which is what a number nothing holds to
+/// account does.
+/// </para>
+/// <para>
+/// Declared HERE rather than in each half, so the client, the runner and the
+/// control plane read one value. Three copies of a number that must agree is
+/// how one of them stops agreeing.
+/// </para>
+/// </remarks>
+public static class FactVocabulary
+{
+    /// <summary>
+    /// 0.3.0: environment.identity, source.provenance, change.manifest.
+    /// </summary>
+    /// <remarks>
+    /// 0.2.0 is recorded in the ledger and was never emitted by a released
+    /// binary - it is the version source.provenance should have carried, and
+    /// recording it is how the omission stays visible rather than being
+    /// renumbered away.
+    /// </remarks>
+    public const string Version = "0.3.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -190,6 +233,208 @@ public sealed record SourceProvenance
     public required long Bytes { get; init; }
 }
 
+/// <summary>What happened to one path.</summary>
+public static class ChangeKinds
+{
+    public const string Added = "added";
+
+    public const string Modified = "modified";
+
+    public const string Deleted = "deleted";
+
+    /// <summary>Every kind that validates.</summary>
+    public static IReadOnlyList<string> All { get; } = [Added, Modified, Deleted];
+}
+
+/// <summary>At what resolution a manifest describes its change.</summary>
+/// <remarks>
+/// <b>Degrade resolution. Never degrade completeness, and never silently.</b>
+/// A per-directory rollup is a true statement at lower resolution; a truncated
+/// file list is a false statement. This field is how a consumer tells which it
+/// is holding, and it must never have to guess.
+/// </remarks>
+public static class ChangeResolution
+{
+    /// <summary>Every changed path, named.</summary>
+    public const string Files = "files";
+
+    /// <summary>A per-directory rollup, because the file list would not fit.</summary>
+    public const string Directories = "directories";
+
+    public static IReadOnlyList<string> All { get; } = [Files, Directories];
+}
+
+/// <summary>One changed path: what it is, what happened, how much, how sensitive.</summary>
+/// <remarks>
+/// A path and three numbers. Reading the file to count its lines happens on the
+/// runner and the lines stay there - there is no member here a line could
+/// travel in, which is asserted over this type's shape.
+/// </remarks>
+[PinnedId("8c47b1e0-3d95-4a26-b8f7-1e05c9d3a742")]
+public sealed record ChangedPath
+{
+    public required string Path { get; init; }
+
+    /// <summary>One of <see cref="ChangeKinds"/>.</summary>
+    public required string Change { get; init; }
+
+    public required int LinesAdded { get; init; }
+
+    public required int LinesRemoved { get; init; }
+
+    /// <summary>
+    /// What the runner's rules made of this path.
+    /// </summary>
+    /// <remarks>
+    /// Carried so a disagreement with the control plane's own answer is
+    /// visible, which is a genuinely interesting signal. It is emphatically
+    /// NOT what the control plane checks: a patched runner would label
+    /// everything public, and re-validation that read this would pass on every
+    /// item it was built to catch.
+    /// </remarks>
+    public required string Classification { get; init; }
+}
+
+/// <summary>One directory's worth of change, when the file list would not fit.</summary>
+[PinnedId("2b96d4f8-51a3-4c70-9e18-7f0a6b2c85d3")]
+public sealed record DirectoryChange
+{
+    public required string Directory { get; init; }
+
+    public required int Files { get; init; }
+
+    public required int LinesAdded { get; init; }
+
+    public required int LinesRemoved { get; init; }
+}
+
+/// <summary>How much of the change was in one language.</summary>
+[PinnedId("6e83a25c-0f71-4b94-8d36-c15b90e7a4f2")]
+public sealed record LanguageChange
+{
+    public required string Language { get; init; }
+
+    public required int Files { get; init; }
+
+    public required int LinesAdded { get; init; }
+
+    public required int LinesRemoved { get; init; }
+}
+
+/// <summary>
+/// What changed between the base and the head that was examined.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The first fact that is ABOUT files, and so the first where "paths and counts
+/// cross, content does not" is a line of code rather than a slogan.
+/// </para>
+/// <para>
+/// <b>The list and the withheld count account for every file.</b> A manifest
+/// whose paths are fewer than its own total, with nothing saying why, is a
+/// false statement at full resolution - exactly what a truncation would have
+/// been. Validation refuses it, which is what makes "never silently" checkable.
+/// </para>
+/// </remarks>
+[PinnedId("f519c7a3-4e60-4d82-91b5-3a7d0c6e28b4")]
+[FactKind(FactKinds.ChangeManifest)]
+public sealed record ChangeManifest
+{
+    /// <summary>The commit the change is measured from.</summary>
+    public required string BaseCommit { get; init; }
+
+    /// <summary>The commit that was actually examined.</summary>
+    public required string HeadCommit { get; init; }
+
+    /// <summary>One of <see cref="ChangeResolution"/>. Says which list is populated.</summary>
+    public required string Resolution { get; init; }
+
+    /// <summary>Populated at file resolution.</summary>
+    public required IReadOnlyList<ChangedPath> Paths { get; init; }
+
+    /// <summary>Populated at directory resolution.</summary>
+    public required IReadOnlyList<DirectoryChange> Directories { get; init; }
+
+    public required IReadOnlyList<LanguageChange> Languages { get; init; }
+
+    /// <summary>How many files changed in total, whatever the resolution.</summary>
+    /// <remarks>
+    /// Always the truth about the change. At directory resolution this is what
+    /// the rollup states it summarises; at file resolution it is the list
+    /// length plus whatever was withheld.
+    /// </remarks>
+    public required int FilesChanged { get; init; }
+
+    public required int LinesAdded { get; init; }
+
+    public required int LinesRemoved { get; init; }
+
+    /// <summary>
+    /// How many paths the filter withheld for being above the ceiling.
+    /// </summary>
+    /// <remarks>
+    /// Never silently. Without this a filtered manifest is indistinguishable
+    /// from a smaller change, and a tenant reading it would draw a conclusion
+    /// about a flight that examined more than it said.
+    /// </remarks>
+    public required int PathsWithheld { get; init; }
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(ChangeManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+
+        if (!ChangeResolution.All.Contains(manifest.Resolution))
+        {
+            return $"Unknown change resolution '{manifest.Resolution}'. Expected one of: "
+                 + string.Join(", ", ChangeResolution.All) + ".";
+        }
+
+        var files = manifest.Resolution == ChangeResolution.Files;
+
+        if (files && manifest.Directories.Count > 0)
+        {
+            return "A manifest at file resolution carries no directory rollup. Two populated lists "
+                 + "is a document whose meaning depends on which reader looked first.";
+        }
+
+        if (!files && manifest.Paths.Count > 0)
+        {
+            return "A manifest at directory resolution carries no path list, for the same reason.";
+        }
+
+        if (!files && manifest.Directories.Count == 0 && manifest.FilesChanged > 0)
+        {
+            return "A rollup that summarises nothing is not a rollup.";
+        }
+
+        if (files && manifest.Paths.Count + manifest.PathsWithheld != manifest.FilesChanged)
+        {
+            return $"This manifest counts {manifest.FilesChanged} changed file(s), carries "
+                 + $"{manifest.Paths.Count} and admits withholding {manifest.PathsWithheld}. A list "
+                 + "shorter than its own total with nothing accounting for the difference is a "
+                 + "false statement at full resolution.";
+        }
+
+        foreach (var path in manifest.Paths)
+        {
+            if (!ChangeKinds.All.Contains(path.Change))
+            {
+                return $"'{path.Path}' says it was '{path.Change}'. Expected one of: "
+                     + string.Join(", ", ChangeKinds.All) + ".";
+            }
+
+            if (Classifications.RankOf(path.Classification) is null)
+            {
+                return $"'{path.Path}' is classified '{path.Classification}', which is not a "
+                     + "classification.";
+            }
+        }
+
+        return null;
+    }
+}
+
 /// <summary>
 /// One fact, on its way to the control plane.
 /// </summary>
@@ -233,6 +478,9 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.SourceProvenance"/>.</summary>
     public SourceProvenance? Source { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.ChangeManifest"/>.</summary>
+    public ChangeManifest? Change { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
     /// A sentence rather than a bool, for the same reason every other Validate
@@ -267,6 +515,7 @@ public sealed record FactEnvelope
         {
             (FactKinds.EnvironmentIdentity, envelope.Environment is not null),
             (FactKinds.SourceProvenance, envelope.Source is not null),
+            (FactKinds.ChangeManifest, envelope.Change is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -287,7 +536,7 @@ public sealed record FactEnvelope
                  + string.Join(", ", EnvironmentProvenance.All) + ".";
         }
 
-        return null;
+        return envelope.Change is { } change ? ChangeManifest.Validate(change) : null;
     }
 
     private static bool IsSha256(string? value) =>

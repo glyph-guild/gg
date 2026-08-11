@@ -383,4 +383,12 @@ internal sealed class NoPullRequestsAdapter : IVcsAdapter
         CloneAttempts++;
         throw new InvalidOperationException("Nothing should have got this far.");
     }
+
+    public Task<string> FetchAlsoAsync(
+        RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        CloneAttempts++;
+        throw new InvalidOperationException("Nothing should have got this far.");
+    }
 }

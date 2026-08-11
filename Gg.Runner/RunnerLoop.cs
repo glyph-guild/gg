@@ -326,6 +326,14 @@ public sealed class RunnerLoop(
 
         foreach (var tree in workspace.Trees)
         {
+            // What changed, when the flight named a base to measure from. The
+            // tenant's rules classify every path here, on this machine, before
+            // the filter decides which of them may cross.
+            if (ChangeExtractor.Extract(tree, lease.ClassificationRules) is { } manifest)
+            {
+                payloads.Add(new FactPayload.Change(manifest));
+            }
+
             payloads.Add(new FactPayload.Source(new SourceProvenance
             {
                 Provider = lease.Repos.First(r => r.Slug == tree.Slug).Provider,

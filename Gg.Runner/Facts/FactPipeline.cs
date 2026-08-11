@@ -12,6 +12,8 @@ public abstract record FactPayload
     public sealed record Environment(EnvironmentIdentity Value) : FactPayload;
 
     public sealed record Source(SourceProvenance Value) : FactPayload;
+
+    public sealed record Change(ChangeManifest Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -40,6 +42,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(EnvironmentIdentity))]
 [JsonSerializable(typeof(SourceProvenance))]
+[JsonSerializable(typeof(ChangeManifest))]
 [JsonSerializable(typeof(FactEnvelope))]
 internal sealed partial class FactJsonContext : JsonSerializerContext;
 
@@ -104,6 +107,14 @@ public static class FactPipeline
                     ObservedAt = observedAt,
                     Source = source.Value,
                 },
+                FactPayload.Change change => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Change = change.Value,
+                },
                 // Article XI. A payload with no envelope shape halts rather
                 // than being dropped: silently absent is indistinguishable
                 // from satisfied.
@@ -138,7 +149,66 @@ public static class FactPipeline
         ArgumentNullException.ThrowIfNull(digested);
         ArgumentException.ThrowIfNullOrWhiteSpace(classificationCeiling);
 
-        return new FilteredFacts([.. digested.Items.Where(item => !OverBudget(item))]);
+        // Article XI, at the control that matters most: a ceiling nobody
+        // declared halts here rather than permitting everything. A typo in a
+        // tenant's configuration must not be the same as switching the filter
+        // off, and IsAtOrBelow throws on one.
+        if (Classifications.RankOf(classificationCeiling) is null)
+        {
+            throw new ArgumentException(
+                $"'{classificationCeiling}' is not a classification ceiling. Expected one of: "
+              + string.Join(", ", Classifications.Ordered) + ".",
+                nameof(classificationCeiling));
+        }
+
+        return new FilteredFacts(
+            [.. digested.Items.Select(item => Withhold(item, classificationCeiling))
+                              .Where(item => !OverBudget(item))]);
+    }
+
+    /// <summary>
+    /// Removes what may not cross from one fact, and records that it did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only the manifest has classified items today. The environment fact is
+    /// about the machine rather than about a customer's files, and a filter
+    /// that started dropping it would be one applying a rule to something the
+    /// rule is not about.
+    /// </para>
+    /// <para>
+    /// <b>Never silently.</b> The withheld count goes up by exactly what came
+    /// out, so the manifest still accounts for every file it observed - which
+    /// is the invariant that makes a filtered manifest a smaller TRUE statement
+    /// rather than the false one a truncation would be.
+    /// </para>
+    /// <para>
+    /// The digest is not recomputed, and that is the point of computing it
+    /// first: it describes what was observed, so a digest that no longer
+    /// matches its payload is evidence that something was withheld.
+    /// </para>
+    /// </remarks>
+    private static FactEnvelope Withhold(FactEnvelope item, string ceiling)
+    {
+        if (item.Change is not { } manifest || manifest.Resolution != ChangeResolution.Files)
+        {
+            return item;
+        }
+
+        var permitted = manifest.Paths
+            .Where(p => Classifications.IsAtOrBelow(p.Classification, ceiling))
+            .ToList();
+
+        return permitted.Count == manifest.Paths.Count
+            ? item
+            : item with
+            {
+                Change = manifest with
+                {
+                    Paths = permitted,
+                    PathsWithheld = manifest.PathsWithheld + (manifest.Paths.Count - permitted.Count),
+                },
+            };
     }
 
     /// <summary>Whether one envelope is larger than the evidence budget allows.</summary>
@@ -159,6 +229,9 @@ public static class FactPipeline
         FactPayload.Source source => (
             FactKinds.SourceProvenance,
             JsonSerializer.Serialize(source.Value, FactJsonContext.Default.SourceProvenance)),
+        FactPayload.Change change => (
+            FactKinds.ChangeManifest,
+            JsonSerializer.Serialize(change.Value, FactJsonContext.Default.ChangeManifest)),
         _ => throw new InvalidOperationException(
             $"'{payload.GetType().Name}' has no canonical form, so it has no digest."),
     };

@@ -148,13 +148,14 @@ public class CliArgsTests
     // ---- verbs whose feature does not exist yet do not exist yet ----
 
     [Test]
-    public async Task CredentialAddIsNotAVerbYet()
+    public async Task CredentialAddTakesNoPositionalValue()
     {
-        // A verb that exists and quietly does nothing is Article XI's failure
-        // mode wearing a CLI: the person is told their credential is
-        // configured, and the flight fails much later for a reason nobody can
-        // trace back to here.
-        var action = CliArgs.Parse(["credential", "add", "GH_TOKEN"]);
+        // This used to assert that the verb did not exist at all. It exists
+        // now - and what survives from the original is the more important
+        // half: a bare word after `credential add` is refused rather than read
+        // as the secret. A positional value is in shell history and in ps
+        // output before any code of ours has run.
+        var action = CliArgs.Parse(["credential", "add", "A_PROVIDER_TOKEN"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Unknown>();
     }
@@ -168,10 +169,11 @@ public class CliArgsTests
     [Test]
     public async Task AnUnknownVerbListsTheOnesThatAreReal()
     {
-        var message = ((CliAction.Unknown)CliArgs.Parse(["credential", "add"])).Message;
+        var message = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
 
         foreach (var verb in (string[])["fly", "show", "log", "runners", "doctor",
-                                        "login", "logout", "whoami", "version", "runner up"])
+                                        "login", "logout", "whoami", "version", "runner up",
+                                        "credential add", "credential list", "credential rm"])
         {
             await Assert.That(message).Contains(verb)
                 .Because($"'{verb}' works today and a person cannot be expected to guess it.");
@@ -185,7 +187,9 @@ public class CliArgsTests
         // is not implemented is the same lie as stubbing it.
         var message = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
 
-        foreach (var absent in (string[])["credential", "bundle", "cancel", "approve"])
+        // 'credential' came off this list at step 5, which is what the list is
+        // for: a verb graduates from here to the one above by being built.
+        foreach (var absent in (string[])["bundle", "cancel", "approve"])
         {
             await Assert.That(message).DoesNotContain(absent)
                 .Because($"'{absent}' does not exist yet, so advertising it is a promise gg cannot keep.");

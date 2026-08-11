@@ -26,13 +26,30 @@ namespace Gg.Console;
 /// data.
 /// </para>
 /// </remarks>
-public sealed class ConsoleData(FlightCommands commands)
+public sealed class ConsoleData(FlightCommands commands, CredentialCommands credentials)
 {
     private readonly FlightCommands _commands = commands;
+    private readonly CredentialCommands _credentials = credentials;
 
     /// <summary>`gg flights`.</summary>
     public Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
         _commands.ListAsync(cancellationToken);
+
+    /// <summary>`gg credential list`.</summary>
+    public Task<VerbResult> ListCredentialsAsync(CancellationToken cancellationToken = default) =>
+        _credentials.ListCredentialsAsync(cancellationToken);
+
+    /// <summary>
+    /// `gg credential rm`.
+    /// </summary>
+    /// <remarks>
+    /// Here because the equivalence rule reaches it, not because a pane binds
+    /// a key to it yet. A store you cannot clean is a store people work
+    /// around, and a console that could only add would be exactly that.
+    /// </remarks>
+    public Task<VerbResult> RemoveCredentialAsync(
+        string credentialId, CancellationToken cancellationToken = default) =>
+        _credentials.RemoveCredentialAsync(credentialId, cancellationToken);
 
     /// <summary>`gg show`.</summary>
     public Task<VerbResult> ShowAsync(string reference, CancellationToken cancellationToken = default) =>
@@ -80,6 +97,13 @@ public static class ConsoleProjection
             VerbResult.Flight flight => state with { Flight = flight.Value, Diagnosis = null },
             VerbResult.Log log => state with { FlightLog = log.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+            // References, never secrets. There is nothing in a CredentialList
+            // to withhold, which is why the flight pane can show it.
+            VerbResult.Credentials credentials => state with
+            {
+                Credentials = credentials.Value,
+                Diagnosis = null,
+            },
             // A flight LIST is not the queue. It is the raw material the queue
             // is derived from, and nothing renders it directly.
             VerbResult.Flights => state with { Diagnosis = null },

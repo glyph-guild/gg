@@ -21,6 +21,10 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(TelemetryDisclosure))]
+[JsonSerializable(typeof(CredentialRegistrationRequest))]
+[JsonSerializable(typeof(CredentialRegistered))]
+[JsonSerializable(typeof(CredentialList))]
+[JsonSerializable(typeof(CredentialRemoved))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -263,6 +267,71 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FlightLaunched, cancellationToken)
             ?? throw new InvalidOperationException("Control plane opened no flight.");
+    }
+
+    /// <summary>
+    /// Registers a reference to a credential the developer stored locally.
+    /// </summary>
+    /// <remarks>
+    /// The request type has no field capable of carrying secret material, so
+    /// there is nothing this method could send even if somebody wanted it to.
+    /// A 400 is the control plane refusing the reference - a kind that is not
+    /// local, a scope wider than read - and the diagnosis is the actionable
+    /// part, so it is carried through rather than collapsed into a status.
+    /// </remarks>
+    public async Task<CredentialRegistered> RegisterCredentialAsync(
+        string sessionToken, CredentialRegistrationRequest registration,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/credentials", sessionToken);
+        request.Content = JsonContent.Create(
+            registration, ProtocolJsonContext.Default.CredentialRegistrationRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new CredentialRefusedException(
+                (await response.Content.ReadAsStringAsync(cancellationToken)).Trim());
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.CredentialRegistered, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane registered no credential.");
+    }
+
+    /// <summary>Every credential reference this tenant has registered.</summary>
+    public async Task<CredentialList> ListCredentialsAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/credentials", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.CredentialList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no credential list.");
+    }
+
+    /// <summary>Deregisters a credential, or null if the id names none.</summary>
+    public async Task<CredentialRemoved?> RemoveCredentialAsync(
+        string sessionToken, string credentialId, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Delete, $"/v1/credentials/{credentialId}", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.CredentialRemoved, cancellationToken);
     }
 
     /// <summary>

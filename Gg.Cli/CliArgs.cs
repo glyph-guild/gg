@@ -43,6 +43,23 @@ public abstract record CliAction
 
     public sealed record Doctor(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Registers a credential for a repository.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three facts and no value.</b> The secret is prompted for, and there
+    /// is no member here that could hold one - asserted over this type's shape
+    /// in <c>CredentialArgsTests</c>, so adding one fails the build. An
+    /// argument would be in shell history and in <c>ps</c> output before any
+    /// code of ours ran, and neither is somewhere a later fix can reach.
+    /// </remarks>
+    public sealed record CredentialAdd(
+        string Repo, IReadOnlyList<string> Scopes, string? Identity, bool Json) : CliAction, IEmitsResult;
+
+    public sealed record CredentialList(bool Json) : CliAction, IEmitsResult;
+
+    public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
+
     public sealed record Unknown(string Message) : CliAction;
 }
 
@@ -52,26 +69,41 @@ public static class CliArgs
     /// What gg actually does today.
     /// </summary>
     /// <remarks>
-    /// A usage string is a promise. <c>credential add</c> and <c>bundle</c> are
-    /// deliberately absent: their features do not exist, and both listing them
-    /// and stubbing them tell a person something gg cannot deliver. An
-    /// unimplemented verb that reports success is Article XI's failure mode
-    /// wearing a CLI - the flight fails much later, for a reason nobody can
-    /// trace back to here.
+    /// A usage string is a promise. <c>bundle</c> is deliberately absent: the
+    /// feature does not exist, and both listing it and stubbing it tell a
+    /// person something gg cannot deliver. An unimplemented verb that reports
+    /// success is Article XI's failure mode wearing a CLI - the flight fails
+    /// much later, for a reason nobody can trace back to here.
+    ///
+    /// <c>credential add</c> came off that list at step 5, which is what the
+    /// list is for. Note what it does NOT offer: there is no way to pass the
+    /// value on the command line, and the flag scanner in the CLI tests fails
+    /// the build if one appears.
     /// </remarks>
     private static readonly string[] Verbs =
     [
-        "gg                          the console",
-        "gg fly <text>|--uri <uri>   open a flight",
-        "gg flights                  list flights",
-        "gg show <flight>            one flight, by GG-42 or by id",
-        "gg log <flight>             a flight's log",
-        "gg runners                  the runners this tenant has",
-        "gg doctor                   check what gg needs to work",
-        "gg login | logout | whoami  identity",
-        "gg runner up                take work on this machine",
-        "gg version                  binary, protocol and fact vocabulary",
+        "gg                             the console",
+        "gg fly <text>|--uri <uri>      open a flight",
+        "gg flights                     list flights",
+        "gg show <flight>               one flight, by GG-42 or by id",
+        "gg log <flight>                a flight's log",
+        "gg runners                     the runners this tenant has",
+        "gg credential add --repo <slug>  register a credential (the value is prompted for)",
+        "gg credential list             the references the control plane holds",
+        "gg credential rm <id>          forget one, here and there",
+        "gg doctor                      check what gg needs to work",
+        "gg login | logout | whoami     identity",
+        "gg runner up                   take work on this machine",
+        "gg version                     binary, protocol and fact vocabulary",
     ];
+
+    /// <summary>What a credential asks for when nobody says otherwise.</summary>
+    /// <remarks>
+    /// Read, and there is nothing else to ask for. The default is spelled out
+    /// rather than implied so <c>--scopes read</c> and no flag at all are
+    /// visibly the same request.
+    /// </remarks>
+    private static readonly string[] ReadOnly = ["read"];
 
     public static CliAction Parse(string[] args)
     {
@@ -108,12 +140,72 @@ public static class CliArgs
                 "gg fly takes either some text or --uri, and this has both. "
               + "An intent that says two things says nothing."),
 
+            ["credential", "list"] => new CliAction.CredentialList(json),
+            ["credential", "rm", var credentialId] => new CliAction.CredentialRemove(credentialId, json),
+            ["credential", "rm", ..] => Unknown("gg credential rm needs one credential id. Run gg credential list."),
+            ["credential", "add", .. var options] => CredentialAdd(options, json),
+            ["credential", ..] => Unknown("gg credential takes add, list or rm."),
+
             ["show"] => Unknown("gg show needs a flight: gg show GG-42, or the id."),
             ["log"] => Unknown("gg log needs a flight: gg log GG-42, or the id."),
 
             [var verb, ..] => Unknown($"'{verb}' is not a gg command."),
             _ => Unknown("unrecognised arguments."),
         };
+    }
+
+    /// <summary>
+    /// Parses the options of <c>gg credential add</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Three options, all of them facts: which repository, which scopes, and
+    /// which account the credential acts as. The value is prompted for and
+    /// there is no option that could carry it.
+    /// </para>
+    /// <para>
+    /// <b>An option this method does not know is refused rather than ignored.</b>
+    /// Absorbing an unknown one is how a token flag would appear to work while
+    /// being silently dropped - and a person who believed it did something is
+    /// worse off than one who was told no.
+    /// </para>
+    /// </remarks>
+    private static CliAction CredentialAdd(IReadOnlyList<string> options, bool json)
+    {
+        string? repo = null;
+        string? identity = null;
+        IReadOnlyList<string> scopes = ReadOnly;
+
+        for (var i = 0; i < options.Count; i += 2)
+        {
+            if (i + 1 >= options.Count)
+            {
+                return Unknown($"'{options[i]}' was given nothing to be.");
+            }
+
+            var value = options[i + 1];
+            switch (options[i])
+            {
+                case "--repo":
+                    repo = value;
+                    break;
+
+                case "--scopes":
+                    scopes = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    break;
+
+                case "--identity":
+                    identity = value;
+                    break;
+
+                default:
+                    return Unknown($"'{options[i]}' is not something gg credential add takes.");
+            }
+        }
+
+        return repo is { Length: > 0 }
+            ? new CliAction.CredentialAdd(repo, scopes, identity, json)
+            : Unknown("gg credential add needs --repo <slug>: which repository this credential is for.");
     }
 
     /// <summary>A refusal that says what was wrong AND what is available.</summary>

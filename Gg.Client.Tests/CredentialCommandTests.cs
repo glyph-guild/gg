@@ -67,7 +67,7 @@ internal sealed class HeldSessionStore(StoredSession? session) : ISessionStore
 /// </remarks>
 public class LocalCredentialStoreTests
 {
-    private const string Locator = "local:github/acme-widgets";
+    private const string Locator = "local:acme/widgets";
 
     [Test]
     public async Task A_written_secret_reads_back()
@@ -208,7 +208,7 @@ public class CredentialCommandTests
         var store = temporary.Store;
         var prompt = new ScriptedPrompt(TheSecret);
 
-        var result = await Build(stub, store, prompt).AddAsync("github/acme-widgets", [CredentialScopes.Read]);
+        var result = await Build(stub, store, prompt).AddAsync("acme/widgets", [CredentialScopes.Read]);
 
         await Assert.That(prompt.Prompts).IsNotEmpty()
             .Because("the secret is prompted for. There is no other way in.");
@@ -230,7 +230,7 @@ public class CredentialCommandTests
         using var temporary = new TemporaryStore();
 
         await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret))
-            .AddAsync("github/acme-widgets", [CredentialScopes.Read]);
+            .AddAsync("acme/widgets", [CredentialScopes.Read]);
 
         foreach (var body in stub.ObservedBodies)
         {
@@ -248,10 +248,10 @@ public class CredentialCommandTests
         using var temporary = new TemporaryStore();
 
         await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret))
-            .AddAsync("github/acme-widgets", [CredentialScopes.Read]);
+            .AddAsync("acme/widgets", [CredentialScopes.Read]);
 
         await Assert.That(stub.ObservedBodies).IsNotEmpty();
-        await Assert.That(string.Join("\n", stub.ObservedBodies)).Contains("acme-widgets")
+        await Assert.That(string.Join("\n", stub.ObservedBodies)).Contains("acme/widgets")
             .Because("if the recorder cannot see the locator, its silence about the secret means nothing.");
     }
 
@@ -265,6 +265,10 @@ public class CredentialCommandTests
         var parameters = typeof(CredentialCommands)
             .GetMethod(nameof(CredentialCommands.AddAsync))!
             .GetParameters()
+            // A CancellationToken is a token in the other sense of the word,
+            // and excluding it by TYPE rather than by name keeps the word list
+            // honest about what it is hunting.
+            .Where(p => p.ParameterType != typeof(CancellationToken))
             .Select(p => p.Name!)
             .ToList();
 
@@ -286,7 +290,7 @@ public class CredentialCommandTests
         var store = temporary.Store;
 
         await Assert.That(async () => await Build(stub, store, new ScriptedPrompt(TheSecret))
-                .AddAsync("github/acme-widgets", ["write"]))
+                .AddAsync("acme/widgets", ["write"]))
             .Throws<CredentialScopeException>();
 
         await Assert.That(Directory.Exists(temporary.Root) && Directory.EnumerateFiles(
@@ -303,7 +307,7 @@ public class CredentialCommandTests
         using var temporary = new TemporaryStore();
 
         await Assert.That(async () => await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret))
-                .AddAsync("github/acme-widgets", [CredentialScopes.Read]))
+                .AddAsync("acme/widgets", [CredentialScopes.Read]))
             .Throws<CredentialRefusedException>();
 
         await Assert.That(Directory.Exists(temporary.Root) && Directory.EnumerateFiles(
@@ -317,7 +321,7 @@ public class CredentialCommandTests
         using var temporary = new TemporaryStore();
 
         await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret))
-            .AddAsync("github/acme-widgets", [CredentialScopes.Read]);
+            .AddAsync("acme/widgets", [CredentialScopes.Read]);
 
         var listed = ((VerbResult.Credentials)await Build(
             stub, temporary.Store, new ScriptedPrompt(TheSecret)).ListCredentialsAsync()).Value;
@@ -338,7 +342,7 @@ public class CredentialCommandTests
         var store = temporary.Store;
 
         var added = ((VerbResult.CredentialAdded)await Build(stub, store, new ScriptedPrompt(TheSecret))
-            .AddAsync("github/acme-widgets", [CredentialScopes.Read])).Value;
+            .AddAsync("acme/widgets", [CredentialScopes.Read])).Value;
 
         var removed = ((VerbResult.CredentialRemoved)await Build(stub, store, new ScriptedPrompt(TheSecret))
             .RemoveCredentialAsync(added.CredentialId)).Value;
@@ -369,7 +373,7 @@ public class CredentialCommandTests
         await Assert.That(async () => await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret), signedOut)
             .ListCredentialsAsync()).Throws<NotSignedInException>();
         await Assert.That(async () => await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret), signedOut)
-            .AddAsync("github/acme-widgets", [CredentialScopes.Read])).Throws<NotSignedInException>();
+            .AddAsync("acme/widgets", [CredentialScopes.Read])).Throws<NotSignedInException>();
     }
 
     [Test]
@@ -384,7 +388,7 @@ public class CredentialCommandTests
         try
         {
             await Build(stub, temporary.Store, prompt, new HeldSessionStore(null))
-                .AddAsync("github/acme-widgets", [CredentialScopes.Read]);
+                .AddAsync("acme/widgets", [CredentialScopes.Read]);
         }
         catch (NotSignedInException)
         {
@@ -403,11 +407,11 @@ public class CredentialVerbOutputTests
     private static CredentialSummary ASummary() => new()
     {
         CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
-        Repo = "github/acme-widgets",
+        Repo = "acme/widgets",
         Reference = new CredentialReference
         {
             Kind = CredentialKinds.Local,
-            Locator = "local:github/acme-widgets",
+            Locator = "local:acme/widgets",
             Identity = "acme-bot",
             Scopes = [CredentialScopes.Read],
         },
@@ -474,7 +478,7 @@ public class CredentialVerbOutputTests
         var rendered = VerbOutput.ToText(new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] }));
 
         await Assert.That(rendered).DoesNotContain("secret");
-        await Assert.That(rendered).Contains("local:github/acme-widgets")
+        await Assert.That(rendered).Contains("local:acme/widgets")
             .Because("the locator is what a person needs to see; it is a place, not a value.");
     }
 }

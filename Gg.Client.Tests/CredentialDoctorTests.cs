@@ -95,11 +95,11 @@ public class CredentialDoctorTests
         stub.Credentials.Add(new CredentialSummary
         {
             CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
-            Repo = "github/acme-widgets",
+            Repo = "acme/widgets",
             Reference = new CredentialReference
             {
                 Kind = CredentialKinds.Local,
-                Locator = "local:github/acme-widgets",
+                Locator = "local:acme/widgets",
                 Identity = "acme-bot",
                 Scopes = [CredentialScopes.Read],
             },
@@ -114,7 +114,7 @@ public class CredentialDoctorTests
         await Assert.That(check.Fix).IsNotNull();
         await Assert.That(check.Fix!).Contains("gg credential add")
             .Because("nothing claims fixable without naming what would fix it.");
-        await Assert.That(check.Detail).Contains("local:github/acme-widgets")
+        await Assert.That(check.Detail).Contains("local:acme/widgets")
             .Because("which reference failed is the whole diagnosis.");
     }
 
@@ -124,16 +124,16 @@ public class CredentialDoctorTests
         await using var stub = new StubControlPlane();
         using var temporary = new TemporaryStore();
         var store = temporary.Store;
-        store.Write("local:github/acme-widgets", "ghp-not-a-real-token");
+        store.Write("local:acme/widgets", "ghp-not-a-real-token");
 
         stub.Credentials.Add(new CredentialSummary
         {
             CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
-            Repo = "github/acme-widgets",
+            Repo = "acme/widgets",
             Reference = new CredentialReference
             {
                 Kind = CredentialKinds.Local,
-                Locator = "local:github/acme-widgets",
+                Locator = "local:acme/widgets",
                 Identity = "acme-bot",
                 Scopes = [CredentialScopes.Read],
             },
@@ -189,8 +189,25 @@ public class CredentialDoctorTests
     [Test]
     public async Task Blocking_and_fixable_stay_independent_across_the_credential_checks()
     {
+        // Asserted in the state where they differ. Both are non-blocking when
+        // there is nothing wrong, which is correct and proves nothing - the
+        // question is whether the two fields can ever disagree, and the missing
+        // credential is where they do.
         await using var stub = new StubControlPlane();
         using var temporary = new TemporaryStore();
+        stub.Credentials.Add(new CredentialSummary
+        {
+            CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
+            Repo = "acme/widgets",
+            Reference = new CredentialReference
+            {
+                Kind = CredentialKinds.Local,
+                Locator = "local:acme/widgets",
+                Identity = "acme-bot",
+                Scopes = [CredentialScopes.Read],
+            },
+            AddedAt = DateTimeOffset.UtcNow,
+        });
 
         var checks = (await Build(stub, temporary.Store, ASession()).RunAsync()).Checks
             .Where(c => c.Name.Contains("credential", StringComparison.OrdinalIgnoreCase))
@@ -198,8 +215,9 @@ public class CredentialDoctorTests
 
         await Assert.That(checks.Count).IsEqualTo(2)
             .Because("where the secret lives and whether it resolves are different questions.");
-        await Assert.That(checks.Select(c => c.Blocking).Distinct().Count()).IsEqualTo(2)
-            .Because("one of these stops a flight and one of them is a statement of fact.");
+        await Assert.That(checks.Select(c => (c.Blocking, c.Fixable)).Distinct().Count()).IsEqualTo(2)
+            .Because("one of these stops a flight and the person can fix it; the other is a "
+                   + "statement of fact about the machine.");
     }
 
     [Test]

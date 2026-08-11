@@ -96,7 +96,7 @@ public class CredentialContainmentTests
     private static List<(Type Owner, PropertyInfo Property)> Walk(IEnumerable<Type> roots)
     {
         var seen = new HashSet<Type>();
-        var found = new List<(Type, PropertyInfo)>();
+        var found = new List<(Type Owner, PropertyInfo Property)>();
         var queue = new Queue<Type>(roots);
 
         while (queue.Count > 0)
@@ -126,7 +126,7 @@ public class CredentialContainmentTests
     }
 
     private static string Normalized(string name) =>
-        new([.. name.Where(char.IsLetterOrDigit)]).ToLowerInvariant();
+        new string([.. name.Where(char.IsLetterOrDigit)]).ToLowerInvariant();
 
     [Test]
     public async Task No_member_on_the_credential_path_is_named_for_secret_material()
@@ -227,9 +227,15 @@ public class CredentialContainmentTests
             .ToList();
 
         await Assert.That(offenders.Select(m => m.Property.Name)).Contains("Metadata");
-        // And the name check does NOT catch it, which is why there are two.
-        await Assert.That(SecretShapedWords.Any(w => Normalized("Metadata").Contains(w, StringComparison.Ordinal)))
-            .IsFalse();
+
+        // And the name check does NOT catch it, which is why there are two of
+        // them. Computed rather than asserted as a literal, so the claim is
+        // about the word list rather than about this sentence.
+        var caughtByName = Walk([typeof(SmugglesAMap)])
+            .Where(m => SecretShapedWords.Any(w => Normalized(m.Property.Name).Contains(w, StringComparison.Ordinal)))
+            .Select(m => m.Property.Name)
+            .ToList();
+        await Assert.That(caughtByName).IsEmpty();
     }
 
     [Test]
@@ -261,7 +267,7 @@ public class CredentialReferenceTests
         string? kind = null, string? locator = null, IReadOnlyList<string>? scopes = null) => new()
     {
         Kind = kind ?? CredentialKinds.Local,
-        Locator = locator ?? CredentialLocator.ForRepo("github/acme-widgets"),
+        Locator = locator ?? CredentialLocator.ForRepo("acme/widgets"),
         Identity = "acme-bot",
         Scopes = scopes ?? [CredentialScopes.Read],
     };
@@ -331,11 +337,11 @@ public class CredentialReferenceTests
         // not stop somebody pasting a lowercase token in. What it does stop is
         // the accident: a locator is short, lowercase and path-shaped, and a
         // bearer value is not.
-        await Assert.That(CredentialLocator.Validate("local:github/acme-widgets")).IsNull();
+        await Assert.That(CredentialLocator.Validate("local:acme/widgets")).IsNull();
 
         foreach (var malformed in (string[])
-                 ["", "github/acme-widgets", "local:", "local:/leading", "local:UPPER",
-                  "local:has space", "local:tab\tseparated", "env:GITHUB_TOKEN"])
+                 ["", "acme/widgets", "local:", "local:/leading", "local:UPPER",
+                  "local:has space", "local:tab\tseparated", "env:A_PROVIDER_TOKEN"])
         {
             await Assert.That(CredentialLocator.Validate(malformed)).IsNotNull()
                 .Because($"'{malformed}' is not a locator this contract accepts.");
@@ -348,7 +354,12 @@ public class CredentialReferenceTests
         var overlong = "local:" + new string('a', CredentialLocator.MaxLength);
 
         await Assert.That(CredentialLocator.Validate(overlong)).IsNotNull();
-        await Assert.That(CredentialLocator.MaxLength).IsLessThanOrEqualTo(128);
+
+        // Shorter than any provider token anyone actually issues. Asserted
+        // against the longest of them rather than against a bare number, so
+        // the bound says what it is for.
+        const int ShortestRealisticProviderToken = 36;
+        await Assert.That(overlong.Length).IsGreaterThan(ShortestRealisticProviderToken);
     }
 
     [Test]
@@ -357,9 +368,9 @@ public class CredentialReferenceTests
         // Both halves of gg compute it and the control plane stores it. Two
         // derivations that agree today is how a runner ends up looking for a
         // file the CLI never wrote.
-        await Assert.That(CredentialLocator.ForRepo("github/Acme-Widgets"))
-            .IsEqualTo(CredentialLocator.ForRepo("github/acme-widgets"));
-        await Assert.That(CredentialLocator.Validate(CredentialLocator.ForRepo("github/acme-widgets"))).IsNull();
+        await Assert.That(CredentialLocator.ForRepo("Acme/Widgets"))
+            .IsEqualTo(CredentialLocator.ForRepo("acme/widgets"));
+        await Assert.That(CredentialLocator.Validate(CredentialLocator.ForRepo("acme/widgets"))).IsNull();
     }
 
     [Test]

@@ -25,6 +25,16 @@ public interface IRunnerObserver
     void Released(string leaseId, string disposition);
 
     void Idle();
+
+    /// <summary>
+    /// A credential the lease named could not be read here.
+    /// </summary>
+    /// <remarks>
+    /// The failure carries the REFERENCE and a sentence, never anything that
+    /// came of resolving it. This is narrated to stdout in a real runner, and
+    /// stdout is what a customer pastes into a ticket.
+    /// </remarks>
+    void CredentialUnresolved(CredentialResolutionFailure failure);
 }
 
 /// <summary>Ignores everything, for tests where the narration is not the subject.</summary>
@@ -35,6 +45,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void Fenced(string leaseId) { }
     public void Released(string leaseId, string disposition) { }
     public void Idle() { }
+    public void CredentialUnresolved(CredentialResolutionFailure failure) { }
 }
 
 /// <summary>
@@ -64,7 +75,8 @@ public sealed class RunnerLoop(
     IRunnerProtocol protocol,
     IClock clock,
     Func<TimeSpan, CancellationToken, Task> delay,
-    IRunnerObserver observer)
+    IRunnerObserver observer,
+    ICredentialResolver credentials)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -73,6 +85,7 @@ public sealed class RunnerLoop(
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
     private readonly IRunnerObserver _observer = observer;
+    private readonly ICredentialResolver _credentials = credentials;
 
     /// <summary>
     /// How long this no-op runner holds a lease before releasing it.
@@ -110,6 +123,16 @@ public sealed class RunnerLoop(
                 _observer.Claimed(lease);
                 Activity = RunnerActivity.Holding;
 
+                // Lease, THEN resolve credentials, then everything else. The
+                // order is load-bearing and this is the second step of it; a
+                // credential that cannot be read stops the flight here, before
+                // anything is materialized, rather than halfway through.
+                if (await ResolveAsync(lease, cancellationToken) is { } failure)
+                {
+                    await GiveBackAsync(lease, failure, cancellationToken);
+                    continue;
+                }
+
                 await HoldAsync(runnerId, labels, lease, cancellationToken);
             }
         }
@@ -119,6 +142,68 @@ public sealed class RunnerLoop(
             // lease is deliberately NOT released on the way out: proving that a
             // lease survives its holder and expires on the control plane's
             // clock is the point of the whole step.
+        }
+    }
+
+    /// <summary>
+    /// Resolves every credential the lease named, or reports the first that
+    /// could not be.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not "resolve what you can". A flight running with half its credentials
+    /// produces a partial result nobody can tell from a whole one, which is
+    /// exactly the failure Article XI exists for - a silently-absent input is
+    /// indistinguishable from one that was there.
+    /// </para>
+    /// <para>
+    /// <b>The resolved value is deliberately dropped.</b> Nothing fetches
+    /// anything until step 6, and holding a secret in a field for a step that
+    /// does not exist is a secret in a heap dump for no reason. What this
+    /// establishes now is that it CAN be read, which is the half the flight
+    /// depends on and the half that fails silently.
+    /// </para>
+    /// </remarks>
+    private async Task<CredentialResolutionFailure?> ResolveAsync(
+        LeaseGranted lease, CancellationToken cancellationToken)
+    {
+        foreach (var reference in lease.Credentials)
+        {
+            var resolution = await _credentials.ResolveAsync(reference, cancellationToken);
+
+            if (resolution is CredentialResolution.Unresolvable(var problem))
+            {
+                var failure = new CredentialResolutionFailure { Reference = reference, Problem = problem };
+                _observer.CredentialUnresolved(failure);
+                return failure;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Hands the lease straight back with the diagnosis.
+    /// </summary>
+    /// <remarks>
+    /// At once, rather than holding it. A runner that kept a lease it cannot
+    /// work would block the flight for the lease's whole duration and then
+    /// expire, which is the stalled flight ADR-0004 named wearing a timer.
+    /// </remarks>
+    private async Task GiveBackAsync(
+        LeaseGranted lease, CredentialResolutionFailure failure, CancellationToken cancellationToken)
+    {
+        var release = await _protocol.ReleaseAsync(
+            lease.LeaseId, lease.Generation, RunnerDisposition.Failed,
+            detail: null, credentialFailure: failure, cancellationToken);
+
+        if (release is ReleaseResult.Released)
+        {
+            _observer.Released(lease.LeaseId, RunnerDisposition.Failed);
+        }
+        else
+        {
+            _observer.Fenced(lease.LeaseId);
         }
     }
 
@@ -162,7 +247,8 @@ public sealed class RunnerLoop(
         }
 
         var release = await _protocol.ReleaseAsync(
-            lease.LeaseId, lease.Generation, RunnerDisposition.Completed, detail: null, cancellationToken);
+            lease.LeaseId, lease.Generation, RunnerDisposition.Completed,
+            detail: null, credentialFailure: null, cancellationToken);
 
         if (release is ReleaseResult.Released)
         {

@@ -183,6 +183,17 @@ public sealed record AppState
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>
     public RunnerList? Runners { get; init; }
 
+    /// <summary>
+    /// The credential references, exactly as `gg credential list` returned them.
+    /// </summary>
+    /// <remarks>
+    /// Safe to hold in a serializable model precisely because it holds no
+    /// secret: kind, locator, identity, scopes. The state is written to disk by
+    /// the state-dump hook and survives a terminal release, and neither of
+    /// those would be acceptable for anything else.
+    /// </remarks>
+    public CredentialList? Credentials { get; init; }
+
     /// <summary>Evidence is on demand.</summary>
     public bool EvidenceVisible { get; init; }
 

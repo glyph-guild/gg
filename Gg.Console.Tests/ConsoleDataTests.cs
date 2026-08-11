@@ -189,11 +189,11 @@ public class ConsoleDataTests
                     new CredentialSummary
                     {
                         CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
-                        Repo = "github/acme-widgets",
+                        Repo = "acme/widgets",
                         Reference = new CredentialReference
                         {
                             Kind = CredentialKinds.Local,
-                            Locator = "local:github/acme-widgets",
+                            Locator = "local:acme/widgets",
                             Identity = "acme-bot",
                             Scopes = [CredentialScopes.Read],
                         },
@@ -376,6 +376,34 @@ public class ConsoleStartTests
         public void Clear() { }
     }
 
+    /// <summary>
+    /// A store with nothing in it and nowhere to put anything.
+    /// </summary>
+    /// <remarks>
+    /// The console never reaches these paths - it is not signed in, so every
+    /// verb refuses first - and a store that threw would make that assumption
+    /// visible if it stopped being true.
+    /// </remarks>
+    private sealed class RefusesEverything : ICredentialStore
+    {
+        public string Root => "(no store)";
+        public string Protection => "nothing is stored";
+        public string PathFor(string locator) => throw new InvalidOperationException("no store here");
+        public void Write(string locator, string secret) => throw new InvalidOperationException("no store here");
+        public string? Read(string locator) => null;
+        public bool Remove(string locator) => false;
+    }
+
+    /// <summary>Throws if the console ever asks a person for a secret.</summary>
+    private sealed class NeverAsked : ISecretPrompt
+    {
+        public string ReadSecret(string prompt) =>
+            throw new InvalidOperationException("the console does not prompt for secrets.");
+
+        public string ReadLine(string prompt) =>
+            throw new InvalidOperationException("the console does not prompt for secrets.");
+    }
+
     [Test]
     public async Task A_console_that_could_not_load_says_why_in_the_model()
     {
@@ -383,7 +411,11 @@ public class ConsoleStartTests
         // survives the UI being destroyed. A console that forgets why it is
         // empty is a console that looks like it is working.
         using var http = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:1/") };
-        var data = new ConsoleData(new FlightCommands(new ControlPlaneClient(http), new NoSession()));
+        var client = new ControlPlaneClient(http);
+        var sessions = new NoSession();
+        var data = new ConsoleData(
+            new FlightCommands(client, sessions),
+            new CredentialCommands(client, sessions, new RefusesEverything(), new NeverAsked()));
 
         var state = await ConsoleStart.LoadAsync(data);
 

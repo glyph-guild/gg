@@ -114,10 +114,10 @@ public class CredentialArgsTests
     [Test]
     public async Task Credential_add_takes_a_repository_and_defaults_to_read()
     {
-        var parsed = CliArgs.Parse(["credential", "add", "--repo", "github/acme-widgets"]);
+        var parsed = CliArgs.Parse(["credential", "add", "--repo", "acme/widgets"]);
 
         var action = (CliAction.CredentialAdd)parsed;
-        await Assert.That(action.Repo).IsEqualTo("github/acme-widgets");
+        await Assert.That(action.Repo).IsEqualTo("acme/widgets");
         await Assert.That(action.Scopes).IsEquivalentTo((string[])["read"]);
     }
 
@@ -138,7 +138,7 @@ public class CredentialArgsTests
         // is worse than refusing it: somebody would believe it did something.
         foreach (var hostile in (string[])["--token", "--secret", "--password"])
         {
-            var parsed = CliArgs.Parse(["credential", "add", "--repo", "github/acme-widgets", hostile, "value"]);
+            var parsed = CliArgs.Parse(["credential", "add", "--repo", "acme/widgets", hostile, "value"]);
 
             await Assert.That(parsed).IsTypeOf<CliAction.Unknown>()
                 .Because($"{hostile} must be refused, not absorbed.");

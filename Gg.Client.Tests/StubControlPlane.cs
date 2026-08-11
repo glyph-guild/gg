@@ -224,9 +224,9 @@ public sealed class StubControlPlane : IAsyncDisposable
             // the request type it deserializes has no field for one.
             case "/v1/credentials" when context.Request.HttpMethod == "POST":
                 {
-                    if (RefuseCredential is { } refusal)
+                    if (RefuseCredential is { } credentialRefusal)
                     {
-                        await WriteAsync(context, 400, refusal);
+                        await WriteAsync(context, 400, credentialRefusal);
                         return;
                     }
 

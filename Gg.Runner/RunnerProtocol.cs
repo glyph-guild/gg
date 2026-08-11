@@ -68,8 +68,19 @@ public interface IRunnerProtocol
 
     Task<RenewResult> RenewAsync(string leaseId, int generation, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gives the lease back, optionally with a credential diagnosis.
+    /// </summary>
+    /// <remarks>
+    /// The diagnosis is typed and separate from <paramref name="detail"/>
+    /// because the control plane records it as a flight-log event of its own
+    /// naming the reference. It carries a <see cref="CredentialReference"/>,
+    /// which is incapable of holding a secret - so this parameter cannot become
+    /// the way one leaves the machine.
+    /// </remarks>
     Task<ReleaseResult> ReleaseAsync(
         string leaseId, int generation, string disposition, string? detail = null,
+        CredentialResolutionFailure? credentialFailure = null,
         CancellationToken cancellationToken = default);
 }
 

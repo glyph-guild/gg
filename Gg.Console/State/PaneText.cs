@@ -94,7 +94,7 @@ public static class PaneText
         text.AppendLine();
         text.AppendLine("  pinned refs   (none until the flight is materialized)");
         text.AppendLine($"  credential    {Credentials(state)}");
-        text.AppendLine("  facts         (none produced yet)");
+        text.AppendLine($"  facts         {Facts(flight)}");
 
         if (state.FlightLog is { Entries.Count: > 0 } log)
         {
@@ -133,6 +133,33 @@ public static class PaneText
 
         return string.Join(", ", list.Credentials.Select(
             c => Clean($"{c.Reference.Identity} ({c.Reference.Locator})")));
+    }
+
+    /// <summary>
+    /// What the runner observed, one line each.
+    /// </summary>
+    /// <remarks>
+    /// The first thing this console shows that no part of the control plane
+    /// could have known. It arrives on the flight summary the existing verb
+    /// already returns - there is no fetch route for facts, and a pane that
+    /// could reach one would be a pane whose output <c>--json</c> cannot
+    /// reproduce.
+    /// </remarks>
+    private static string Facts(FlightSummary flight)
+    {
+        if (flight.Facts.Count == 0)
+        {
+            return "(none yet)";
+        }
+
+        return string.Join(", ", flight.Facts.Select(f => f switch
+        {
+            { Source: { } source } => Clean(
+                $"{f.Kind} {source.HeadCommit[..Math.Min(8, source.HeadCommit.Length)]}"
+              + (source.HeadIsFork ? $" (fork {source.ForkSlug})" : "")),
+            { Environment: { } environment } => Clean($"{f.Kind} {environment.Provenance}"),
+            _ => Clean(f.Kind),
+        }));
     }
 
     private static string Intent(FlightIntent intent) => intent.Kind switch

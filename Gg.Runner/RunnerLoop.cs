@@ -1,4 +1,6 @@
 using Gg.Contracts;
+using Gg.Runner.Facts;
+using Gg.Runner.Vcs;
 
 namespace Gg.Runner;
 
@@ -27,6 +29,22 @@ public interface IRunnerObserver
     void Idle();
 
     /// <summary>
+    /// A repository is on disk: which commit, and how much of it.
+    /// </summary>
+    /// <remarks>
+    /// The commit and the byte count, never a path inside the tree and never a
+    /// byte of what is in it. This line goes to stdout, and stdout is what a
+    /// customer pastes into a ticket.
+    /// </remarks>
+    void Materialized(string slug, string headCommit, long bytes);
+
+    /// <summary>The workspace could not be prepared, and this is why.</summary>
+    void WorkspaceFailed(string diagnosis);
+
+    /// <summary>Facts left the machine. How many, never which.</summary>
+    void FactsShipped(int count);
+
+    /// <summary>
     /// A credential the lease named could not be read here.
     /// </summary>
     /// <remarks>
@@ -46,17 +64,21 @@ public sealed class SilentObserver : IRunnerObserver
     public void Released(string leaseId, string disposition) { }
     public void Idle() { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
+    public void Materialized(string slug, string headCommit, long bytes) { }
+    public void WorkspaceFailed(string diagnosis) { }
+    public void FactsShipped(int count) { }
 }
 
 /// <summary>
-/// The runner's whole life at this step: claim, hold, heartbeat, release.
+/// The runner's whole life: claim, resolve, materialize, ship, hold, release.
 /// </summary>
 /// <remarks>
 /// <para>
-/// It does NOTHING with the lease. No materialize, no credential resolution,
-/// no facts - those are later steps. This is deliberately a runner that proves
-/// the protocol and performs no work, so anything failing here is the protocol
-/// failing rather than the work.
+/// The order is load-bearing and the whole of it is here: <b>lease → resolve
+/// credentials → materialize → extract facts → compute digest → apply filter →
+/// emit</b>. Everything up to emit is now real. What is still missing is the
+/// executor, so nothing runs a customer's tests yet - which is why a flight
+/// holds its lease for a fixed window rather than for as long as work takes.
 /// </para>
 /// <para>
 /// Heartbeat and renew are kept apart on purpose. The heartbeat says this
@@ -76,7 +98,8 @@ public sealed class RunnerLoop(
     IClock clock,
     Func<TimeSpan, CancellationToken, Task> delay,
     IRunnerObserver observer,
-    ICredentialResolver credentials)
+    ICredentialResolver credentials,
+    IWorkspace workspace)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -86,6 +109,7 @@ public sealed class RunnerLoop(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
     private readonly IRunnerObserver _observer = observer;
     private readonly ICredentialResolver _credentials = credentials;
+    private readonly IWorkspace _workspace = workspace;
 
     /// <summary>
     /// How long this no-op runner holds a lease before releasing it.
@@ -127,13 +151,27 @@ public sealed class RunnerLoop(
                 // order is load-bearing and this is the second step of it; a
                 // credential that cannot be read stops the flight here, before
                 // anything is materialized, rather than halfway through.
-                if (await ResolveAsync(lease, cancellationToken) is { } failure)
+                var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
+                if (await ResolveAsync(lease, resolved, cancellationToken) is { } failure)
                 {
                     await GiveBackAsync(lease, failure, cancellationToken);
                     continue;
                 }
 
-                await HoldAsync(runnerId, labels, lease, cancellationToken);
+                // ...then MATERIALIZE, then extract facts, then digest, then
+                // filter, then emit. The rest of the order, and the first part
+                // of it that puts a customer's source code on our disk.
+                try
+                {
+                    await WorkAsync(runnerId, labels, lease, resolved, cancellationToken);
+                }
+                finally
+                {
+                    // Whatever happened, the tree goes. A SIGKILL defeats this
+                    // and that is what the startup sweep is for; everything
+                    // short of one is handled here.
+                    _workspace.Release(lease.FlightId);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -157,19 +195,28 @@ public sealed class RunnerLoop(
     /// indistinguishable from one that was there.
     /// </para>
     /// <para>
-    /// <b>The resolved value is deliberately dropped.</b> Nothing fetches
-    /// anything until step 6, and holding a secret in a field for a step that
-    /// does not exist is a secret in a heap dump for no reason. What this
-    /// establishes now is that it CAN be read, which is the half the flight
-    /// depends on and the half that fails silently.
+    /// The resolved values are held in a local dictionary for exactly as long
+    /// as the materialize below needs them, and in no field of this class. A
+    /// secret on an object that outlives the flight is a secret in a heap dump
+    /// for no reason.
     /// </para>
     /// </remarks>
     private async Task<CredentialResolutionFailure?> ResolveAsync(
-        LeaseGranted lease, CancellationToken cancellationToken)
+        LeaseGranted lease,
+        Dictionary<string, string> resolvedByLocator,
+        CancellationToken cancellationToken)
     {
         foreach (var reference in lease.Credentials)
         {
             var resolution = await _credentials.ResolveAsync(reference, cancellationToken);
+
+            if (resolution is CredentialResolution.Resolved(var secret))
+            {
+                // Kept only for as long as the materialize below needs it, and
+                // keyed by the locator the contract derives - the same
+                // derivation gg credential add used, so the two cannot drift.
+                resolvedByLocator[reference.Locator] = secret;
+            }
 
             if (resolution is CredentialResolution.Unresolvable(var problem))
             {
@@ -200,6 +247,116 @@ public sealed class RunnerLoop(
         if (release is ReleaseResult.Released)
         {
             _observer.Released(lease.LeaseId, RunnerDisposition.Failed);
+        }
+        else
+        {
+            _observer.Fenced(lease.LeaseId);
+        }
+    }
+
+    /// <summary>
+    /// Materialize, extract, digest, filter, emit - then hold the lease.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The facts are shipped BEFORE the hold rather than after it. A runner
+    /// that gathered evidence and then sat on it until the work finished would
+    /// lose all of it to the crash that the work caused, which is exactly the
+    /// flight somebody needs the evidence for.
+    /// </para>
+    /// <para>
+    /// A workspace that cannot be prepared ends the flight with a diagnosis. A
+    /// declared capability gap is answerable - the flight asked for something
+    /// this runner cannot serve - and a stalled flight is not.
+    /// </para>
+    /// </remarks>
+    private async Task WorkAsync(
+        string runnerId,
+        IReadOnlyList<string> labels,
+        LeaseGranted lease,
+        IReadOnlyDictionary<string, string> secretsByLocator,
+        CancellationToken cancellationToken)
+    {
+        WorkspaceResult workspace;
+        try
+        {
+            workspace = await _workspace.PrepareAsync(
+                lease.FlightId, lease.Repos, secretsByLocator, cancellationToken);
+        }
+        catch (Exception failure) when (failure is VcsCapabilityException or InvalidOperationException)
+        {
+            _observer.WorkspaceFailed(failure.Message);
+            await ReleaseAsync(lease, RunnerDisposition.Failed, failure.Message, cancellationToken);
+            return;
+        }
+
+        foreach (var tree in workspace.Trees)
+        {
+            // The commit and the size. Never a path inside the tree, and never
+            // a byte of what is in it.
+            _observer.Materialized(tree.Slug, tree.HeadCommit, tree.Bytes);
+        }
+
+        await ShipAsync(lease, workspace, cancellationToken);
+
+        await HoldAsync(runnerId, labels, lease, cancellationToken);
+    }
+
+    /// <summary>
+    /// The three stages, in the only order the types allow.
+    /// </summary>
+    /// <remarks>
+    /// Digest before filter, filter before egress. Written here as three
+    /// statements because that is all it can be: <c>Filter</c> takes what only
+    /// <c>Digest</c> produces, and what ships takes what only <c>Filter</c>
+    /// produces.
+    /// </remarks>
+    private async Task ShipAsync(
+        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+    {
+        var payloads = new List<FactPayload>
+        {
+            new FactPayload.Environment(EnvironmentSurvey.Observe(
+                // The first tree, when there is one: lock files are a property
+                // of what was checked out, and with no repository there is
+                // nothing to hash and the fact is about the machine alone.
+                workspace.Trees.Count > 0 ? workspace.Trees[0].Path : null,
+                workspace.Reused ? EnvironmentProvenance.Reused : EnvironmentProvenance.Fresh)),
+        };
+
+        foreach (var tree in workspace.Trees)
+        {
+            payloads.Add(new FactPayload.Source(new SourceProvenance
+            {
+                Provider = lease.Repos.First(r => r.Slug == tree.Slug).Provider,
+                Slug = tree.Slug,
+                RequestedRef = tree.RequestedRef,
+                ResolvedRef = tree.ResolvedRef,
+                HeadCommit = tree.HeadCommit,
+                HeadIsFork = tree.HeadIsFork,
+                ForkSlug = tree.ForkSlug,
+                FileCount = tree.FileCount,
+                Bytes = tree.Bytes,
+            }));
+        }
+
+        var digested = FactPipeline.Digest(new GatheredFacts(payloads), lease.FlightId, _clock.UtcNow);
+        var filtered = FactPipeline.Filter(digested, lease.ClassificationCeiling);
+
+        await _protocol.ShipFactsAsync(lease.LeaseId, lease.Generation, filtered, cancellationToken);
+        _observer.FactsShipped(filtered.Items.Count);
+    }
+
+    /// <summary>Gives the lease back with a disposition, and narrates the outcome.</summary>
+    private async Task ReleaseAsync(
+        LeaseGranted lease, string disposition, string? detail, CancellationToken cancellationToken)
+    {
+        var release = await _protocol.ReleaseAsync(
+            lease.LeaseId, lease.Generation, disposition, detail, credentialFailure: null, cancellationToken);
+
+        if (release is ReleaseResult.Released)
+        {
+            _observer.Released(lease.LeaseId, disposition);
         }
         else
         {

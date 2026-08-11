@@ -80,7 +80,7 @@ public class MaterializeLoopTests
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseFor(fixture, "refs/heads/main")));
         var observer = new RecordingObserver();
 
-        using var stopping = StopAfter(observer, 3);
+        using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
                 new Workspace(new LocalVcsAdapter(), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
@@ -105,7 +105,7 @@ public class MaterializeLoopTests
             ALeaseFor(fixture, $"refs/pull/{GitFixture.PullNumber}/head")));
         var observer = new RecordingObserver();
 
-        using var stopping = StopAfter(observer, 3);
+        using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
                 new Workspace(new LocalVcsAdapter(), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
@@ -134,7 +134,7 @@ public class MaterializeLoopTests
             ALeaseFor(fixture, $"refs/pull/{GitFixture.PullNumber}/head")));
         var observer = new RecordingObserver();
 
-        using var stopping = StopAfter(observer, 3);
+        using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
                 new Workspace(new LocalVcsAdapter(), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
@@ -163,7 +163,7 @@ public class MaterializeLoopTests
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseFor(fixture, "refs/heads/main")));
         var observer = new RecordingObserver();
 
-        using var stopping = StopAfter(observer, 3);
+        using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
                 new Workspace(new LocalVcsAdapter(), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
@@ -219,7 +219,7 @@ public class MaterializeLoopTests
         protocol.Claims.Enqueue(new ClaimResult.Granted(Leases.At(T0.AddMinutes(10))));
         var observer = new RecordingObserver();
 
-        using var stopping = StopAfter(observer, 3);
+        using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
                 new Workspace(new LocalVcsAdapter(), trees.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);

@@ -183,6 +183,18 @@ public sealed record FlightSummary
 
     /// <summary>Version of the governing envelope, or "none".</summary>
     public required string EnvelopeVersion { get; init; }
+
+    /// <summary>
+    /// What the runner observed, as the control plane recorded it.
+    /// </summary>
+    /// <remarks>
+    /// On the SUMMARY rather than behind a route of its own, so the console
+    /// renders facts through the verb it already has. A pane that could fetch
+    /// by a route no verb uses is a pane whose output <c>--json</c> cannot
+    /// reproduce - and this is the first thing the console shows that no part
+    /// of the control plane could have known.
+    /// </remarks>
+    public required IReadOnlyList<FactEnvelope> Facts { get; init; }
 }
 
 /// <summary>

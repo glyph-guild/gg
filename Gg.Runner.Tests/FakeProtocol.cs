@@ -129,10 +129,23 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     internal Action<string>? OnEvent { get; set; }
 
-    private void Record(string what)
+    /// <summary>
+    /// Records everything; wakes a waiting test only on a LIFECYCLE event.
+    /// </summary>
+    /// <remarks>
+    /// Narration - a tree appearing, facts shipping - is recorded and asserted
+    /// on, but it does not advance the counter a test is waiting on. Otherwise
+    /// every test that waits for "claim then release" would have to know how
+    /// many lines the runner happens to print in between, and adding a line
+    /// would break tests that are about something else entirely.
+    /// </remarks>
+    private void Record(string what, bool lifecycle = true)
     {
         Events.Add(what);
-        OnEvent?.Invoke(what);
+        if (lifecycle)
+        {
+            OnEvent?.Invoke(what);
+        }
     }
 
     public void Claimed(LeaseGranted lease) => Record($"claimed:{lease.LeaseId}");
@@ -147,13 +160,13 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     /// <summary>A repository was put on disk. The path and the commit, never a byte of it.</summary>
     public void Materialized(string slug, string headCommit, long bytes) =>
-        Record($"materialized:{headCommit}:{bytes}");
+        Record($"materialized:{headCommit}:{bytes}", lifecycle: false);
 
     /// <summary>The workspace could not be prepared, and this is why.</summary>
     public void WorkspaceFailed(string diagnosis) => Record($"workspace:{diagnosis}");
 
     /// <summary>Facts left the machine.</summary>
-    public void FactsShipped(int count) => Record($"shipped:{count}");
+    public void FactsShipped(int count) => Record($"shipped:{count}", lifecycle: false);
 }
 
 internal static class Leases

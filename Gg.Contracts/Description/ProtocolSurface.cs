@@ -217,6 +217,20 @@ public static class ProtocolSurface
         new()
         {
             Method = "POST",
+            Path = "/v1/leases/{id}/facts",
+            Audience = Audience.Runner,
+            Request = typeof(FactBatch),
+            Response = typeof(FactBatchAccepted),
+            // Against the LEASE, because the lease is the authorisation: a
+            // runner asserting facts about a flight it does not hold would be
+            // a runner writing into somebody else's evidence. 409 is the
+            // generation fence refusing exactly that.
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "POST",
             Path = "/v1/leases/{id}/release",
             Audience = Audience.Runner,
             Request = typeof(LeaseReleaseRequest),
@@ -428,7 +442,8 @@ public static class ProtocolSurface
             [typeof(FlightLaunched)] = ["flightId", "flightNumber"],
             [typeof(FlightSummary)] =
                 ["flightId", "flightNumber", "name", "intent", "createdAt",
-                 "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion"],
+                 "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion",
+                 "facts"],
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
@@ -446,5 +461,20 @@ public static class ProtocolSurface
             [typeof(CredentialList)] = ["credentials"],
             [typeof(CredentialRemoved)] = ["credentialId", "reference"],
             [typeof(CredentialResolutionFailure)] = ["reference", "problem"],
+            // Paths, counts and hashes. There is no member on any of these a
+            // file's contents could travel in, which is asserted over their
+            // shape as well as declared here.
+            [typeof(LockHash)] = ["path", "sha256"],
+            [typeof(ToolVersion)] = ["name", "version"],
+            [typeof(EnvironmentIdentity)] =
+                ["hostFingerprint", "imageDigest", "locks", "tools", "provenance"],
+            [typeof(SourceProvenance)] =
+                ["provider", "slug", "requestedRef", "resolvedRef", "headCommit",
+                 "headIsFork", "forkSlug", "fileCount", "bytes"],
+            [typeof(FactEnvelope)] =
+                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source"],
+            [typeof(FactBatch)] = ["generation", "facts"],
+            [typeof(FactRejection)] = ["idempotencyKey", "reason"],
+            [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected"],
         };
 }

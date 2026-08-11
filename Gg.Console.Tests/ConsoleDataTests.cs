@@ -165,6 +165,7 @@ public class ConsoleDataTests
             FactVocabularyVersion = "0.1.0",
             ConstitutionVersion = "1.0.0",
             EnvelopeVersion = "none",
+        Facts = [],
         };
 
         var state = ConsoleProjection.Apply(new AppState(), new VerbResult.Flight(summary));
@@ -230,6 +231,7 @@ public class ConsoleDataTests
         FactVocabularyVersion = "0.1.0",
         ConstitutionVersion = "1.0.0",
         EnvelopeVersion = "none",
+        Facts = [],
     };
 
     private static FlightLog LogWith(string id, int expiries) => new()

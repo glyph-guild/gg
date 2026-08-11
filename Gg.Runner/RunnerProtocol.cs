@@ -69,6 +69,25 @@ public interface IRunnerProtocol
     Task<RenewResult> RenewAsync(string leaseId, int generation, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Ships a batch of facts about the flight this lease holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Takes <see cref="Facts.FilteredFacts"/> and nothing else, which is the
+    /// egress half of the pipeline's ordering: only the filter produces one, so
+    /// there is no way to hand this something that has not been through it.
+    /// </para>
+    /// <para>
+    /// Against the lease, with the generation, because the lease is the
+    /// authorisation and the fence refuses a runner that no longer holds this
+    /// flight.
+    /// </para>
+    /// </remarks>
+    Task<FactBatchAccepted> ShipFactsAsync(
+        string leaseId, int generation, Facts.FilteredFacts facts,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gives the lease back, optionally with a credential diagnosis.
     /// </summary>
     /// <remarks>

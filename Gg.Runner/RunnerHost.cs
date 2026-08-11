@@ -21,6 +21,23 @@ internal sealed class ConsoleObserver : IRunnerObserver
     public void Idle() => System.Console.WriteLine("nothing ready");
 
     /// <summary>
+    /// The commit and the size. Never a path inside the tree.
+    /// </summary>
+    /// <remarks>
+    /// The byte count is here because disk is the first resource this product
+    /// consumes in somebody else's environment, and an operator watching a
+    /// runner fill a laptop has no other number to look at.
+    /// </remarks>
+    public void Materialized(string slug, string headCommit, long bytes) =>
+        System.Console.WriteLine($"materialized {headCommit} ({bytes:N0} bytes on disk)");
+
+    public void WorkspaceFailed(string diagnosis) =>
+        System.Console.WriteLine($"workspace: {diagnosis}");
+
+    public void FactsShipped(int count) =>
+        System.Console.WriteLine($"shipped {count} fact(s)");
+
+    /// <summary>
     /// The reference and the problem. Never anything resolving it produced.
     /// </summary>
     /// <remarks>
@@ -52,6 +69,11 @@ internal sealed class ConsoleObserver : IRunnerObserver
 /// </remarks>
 public static class RunnerHost
 {
+    /// <param name="workspace">
+    /// Where this runner puts a customer's source code, and what removes it
+    /// again. Passed in for the same reason the resolver is: the adapter and
+    /// the tree root are the deployment's business, not this assembly's.
+    /// </param>
     /// <param name="credentials">
     /// How this runner turns a reference into a secret, on this machine.
     /// Passed in rather than constructed, because the adapter reads the local
@@ -64,6 +86,7 @@ public static class RunnerHost
         IReadOnlyList<string> labels,
         TimeSpan holdFor,
         ICredentialResolver credentials,
+        IWorkspace workspace,
         CancellationToken cancellationToken)
     {
         // Longer than the claim's long poll, or the client aborts every idle
@@ -74,12 +97,23 @@ public static class RunnerHost
             Timeout = TimeSpan.FromSeconds(RunnerLoop.ClaimWaitSeconds + 30),
         };
 
+        // Before anything else. A runner that is starting holds no lease, so
+        // every tree under the root belongs to a process that is gone - most
+        // likely one a SIGKILL took out mid-clone, which is the case no
+        // finally block can cover.
+        var swept = workspace.SweepOrphans();
+        if (swept > 0)
+        {
+            System.Console.WriteLine($"swept {swept} working tree(s) left by a previous run");
+        }
+
         var loop = new RunnerLoop(
             new RunnerProtocolClient(http, runnerToken),
             new SystemClock(),
             (span, token) => Task.Delay(span, token),
             new ConsoleObserver(),
-            credentials)
+            credentials,
+            workspace)
         {
             HoldFor = holdFor,
         };

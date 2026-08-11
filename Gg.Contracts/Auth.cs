@@ -71,6 +71,68 @@ public sealed record SessionIssued
     public required string TenantId { get; init; }
 }
 
+/// <summary>The codes a notice can carry. Neutral about who the provider is.</summary>
+/// <remarks>
+/// A code named for a forge would put a forge's name in <c>gg</c>, which is
+/// the one thing this tool does not contain. The code says WHICH CAPABILITY
+/// is degraded; the sentence saying whose and what to do about it is composed
+/// by the control plane, which is allowed to know.
+/// </remarks>
+public static class TenantNoticeCodes
+{
+    /// <summary>
+    /// Reporting a flight's result back to where it came from is not working.
+    /// </summary>
+    /// <remarks>
+    /// The degradation nobody on this machine can detect. Observation is
+    /// unaffected - a runner clones with the customer's own credential and
+    /// never needed the control plane's - so flights keep running, keep
+    /// recording facts and keep landing. Only the last mile is gone, and
+    /// nothing about a pull request with no check on it says why.
+    /// </remarks>
+    public const string Egress = "egress";
+
+    public static IReadOnlyList<string> All { get; } = [Egress];
+}
+
+/// <summary>
+/// Something degraded that the tenant should be told about.
+/// </summary>
+/// <remarks>
+/// One shape, three renderers: <c>gg doctor</c> turns it into a check, the
+/// console puts it on the queue row, and the tenant page shows it as a banner.
+/// Written once on the control plane, so the three cannot drift into saying
+/// different things about the same fault.
+/// </remarks>
+[PinnedId("bd41f0c6-9e73-4a58-b2d1-6c0e57a839f4")]
+public sealed record TenantNotice
+{
+    /// <summary>One of <see cref="TenantNoticeCodes"/>.</summary>
+    public required string Code { get; init; }
+
+    /// <summary>What is wrong, as a sentence somebody can read.</summary>
+    public required string Detail { get; init; }
+
+    /// <summary>
+    /// What to do about it, or null when there is nothing the reader can do.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than a placeholder. "Contact support" is worse than
+    /// silence: following it costs somebody an hour and changes nothing.
+    /// </remarks>
+    public string? Remedy { get; init; }
+
+    /// <summary>
+    /// Whether this should stop a build rather than warn.
+    /// </summary>
+    /// <remarks>
+    /// Decided by the control plane, never upgraded by a reader. A tool that
+    /// promoted advisories to failures would make every notice a broken build
+    /// and teach people to pass <c>--ignore</c>.
+    /// </remarks>
+    public required bool Blocking { get; init; }
+}
+
 /// <summary>Who the caller currently is.</summary>
 [PinnedId("7783ba8d-38e7-4009-bd05-a2cf9c0d8224")]
 public sealed record WhoAmI
@@ -82,4 +144,15 @@ public sealed record WhoAmI
     public required string TenantId { get; init; }
 
     public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>
+    /// Degradations this tenant should see. Empty when there are none.
+    /// </summary>
+    /// <remarks>
+    /// Empty rather than null, and not <c>required</c>: a control plane too
+    /// old to send this omits the member, and the default has to mean "nothing
+    /// to report" rather than throw on a response that was valid when it was
+    /// written.
+    /// </remarks>
+    public IReadOnlyList<TenantNotice> Notices { get; init; } = [];
 }

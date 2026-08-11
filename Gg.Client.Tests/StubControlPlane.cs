@@ -43,6 +43,9 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, every request is refused with 426.</summary>
     public string? ProtocolFloorMessage { get; set; }
 
+    /// <summary>Degradations whoami reports for this tenant.</summary>
+    public IReadOnlyList<TenantNotice> Notices { get; set; } = [];
+
     /// <summary>Where this stub claims the control plane exports to, if anywhere.</summary>
     public string? TelemetryDestination { get; set; }
 
@@ -197,6 +200,7 @@ public sealed class StubControlPlane : IAsyncDisposable
                         PrincipalDisplay = "stub-principal",
                         TenantId = "019fe062-d000-730c-a37d-7247342cd810",
                         ExpiresAt = DateTimeOffset.UtcNow.AddHours(12),
+                        Notices = Notices,
                     });
                     return;
                 }

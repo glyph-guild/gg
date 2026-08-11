@@ -32,7 +32,10 @@ public class RunnerLoopTests
             observer,
             // Nothing here grants a lease carrying a reference, so nothing is
             // ever asked of this. Credential resolution has its own file.
-            new NoCredentialResolver())
+            new NoCredentialResolver(),
+            // No lease here carries a repository, so nothing is ever asked of
+            // this. Materialize has its own file.
+            new NoWorkspace())
         {
             HoldFor = holdFor ?? TimeSpan.FromSeconds(3),
         };

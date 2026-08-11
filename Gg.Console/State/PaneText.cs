@@ -32,15 +32,25 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // Above the rows, and present when there are none. An empty queue is
+        // the state a broken egress produces, so a notice shown only alongside
+        // flights would be invisible in the case it exists for.
+        var notices = state.Notices.Select(NoticeRow);
+
         if (state.Queue.Count == 0)
         {
             // Nothing needing me and nothing printed look identical, and one of
             // them is a queue that failed to load.
-            return [state.Diagnosis is { Length: > 0 } ? "(could not load)" : "nothing needs you"];
+            return
+            [
+                .. notices,
+                state.Diagnosis is { Length: > 0 } ? "(could not load)" : "nothing needs you",
+            ];
         }
 
         return
         [
+            .. notices,
             .. state.Queue.Select(row =>
             {
                 var unread = row.UnreadArrivals > 0 ? $" ({row.UnreadArrivals})" : "";
@@ -48,6 +58,22 @@ public static class PaneText
             }),
         ];
     }
+
+    /// <summary>
+    /// A degradation, with what to do about it when there is something.
+    /// </summary>
+    /// <remarks>
+    /// Rendered whole and never rewritten. gg names no forge, so the sentence
+    /// is the control plane's - and a console that said something was broken
+    /// without saying what to do would send somebody to a support channel to
+    /// be told a sentence we already had.
+    /// </remarks>
+    private static string NoticeRow(TenantNotice notice) =>
+        Clean(notice.Remedy is { Length: > 0 } remedy
+            // No trailing separator when there is no remedy: a dash with
+            // nothing after it reads as text that got cut off.
+            ? $"! {notice.Detail} - {remedy}"
+            : $"! {notice.Detail}");
 
     /// <summary>Why a flight is in the queue, in words rather than an enum name.</summary>
     public static string Reason(QueueReason reason) => reason switch

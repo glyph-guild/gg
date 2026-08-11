@@ -125,7 +125,12 @@ public class AuthCommandTests
             await Assert.That(headers.ContainsKey(GgVersions.FactVocabularyHeader)).IsTrue()
                 .Because("the fact-vocabulary version is the one nobody remembers to send.");
             await Assert.That(headers[GgVersions.ProtocolHeader]).IsEqualTo("1");
-            await Assert.That(headers[GgVersions.FactVocabularyHeader]).IsEqualTo("0.1.0");
+            // From the contract, not restated here. A literal would have to be
+            // edited every time the vocabulary moves, which is how a test
+            // stops asserting that both halves read one number and starts
+            // asserting that somebody remembered to change two.
+            await Assert.That(headers[GgVersions.FactVocabularyHeader])
+                .IsEqualTo(Gg.Contracts.FactVocabulary.Version);
         }
     }
 

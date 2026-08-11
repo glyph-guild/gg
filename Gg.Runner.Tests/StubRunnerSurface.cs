@@ -87,7 +87,8 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
                         // References, never secrets - and this stub could not
                         // send one if it wanted to.
                         Credentials = [],
-                        ClassificationCeiling = "internal",
+                        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
                         ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
                         RenewWithinSeconds = 30,
                     });

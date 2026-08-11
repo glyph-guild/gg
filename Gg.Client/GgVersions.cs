@@ -24,8 +24,17 @@ public static class GgVersions
     /// </remarks>
     public const int Protocol = ProtocolSurface.Revision;
 
-    /// <summary>Pinned fact vocabulary this binary evaluates against.</summary>
-    public const string FactVocabulary = "0.1.0";
+    /// <summary>
+    /// Pinned fact vocabulary this binary evaluates against.
+    /// </summary>
+    /// <remarks>
+    /// From the contract, like the protocol revision, and for the same reason.
+    /// It was a hand-typed literal here and in two other places until step 7,
+    /// and three copies of a number that must agree is how one of them stops
+    /// agreeing - which is exactly what happened when source.provenance shipped
+    /// under an unchanged 0.1.0.
+    /// </remarks>
+    public const string FactVocabulary = Gg.Contracts.FactVocabulary.Version;
 
     // All four come from the contract. The session header in particular used
     // to be a literal here with a comment claiming it "matches the control

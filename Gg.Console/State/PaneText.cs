@@ -157,6 +157,10 @@ public static class PaneText
             { Source: { } source } => Clean(
                 $"{f.Kind} {source.HeadCommit[..Math.Min(8, source.HeadCommit.Length)]}"
               + (source.HeadIsFork ? $" (fork {source.ForkSlug})" : "")),
+            { Change: { } change } => Clean(
+                $"{f.Kind} {change.FilesChanged} file(s)"
+              + (change.Resolution == ChangeResolution.Directories ? " (by directory)" : "")
+              + (change.PathsWithheld > 0 ? $", {change.PathsWithheld} withheld" : "")),
             { Environment: { } environment } => Clean($"{f.Kind} {environment.Provenance}"),
             _ => Clean(f.Kind),
         }));

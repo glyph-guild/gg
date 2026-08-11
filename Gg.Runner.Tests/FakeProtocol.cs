@@ -181,7 +181,8 @@ internal static class Leases
         // Nothing to resolve. A flight only carries references once somebody
         // has registered one for a repository it touches.
         Credentials = [],
-        ClassificationCeiling = "internal",
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
         ExpiresAt = expiresAt,
         RenewWithinSeconds = renewWithin,
     };

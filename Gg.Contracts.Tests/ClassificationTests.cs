@@ -36,12 +36,12 @@ public class ClassificationTests
     {
         // The order is the control. Sorted by name, "confidential" would sit
         // below "internal" and the ceiling would let the wrong things through.
-        await Assert.That(Classifications.RankOf(Classifications.Public))
-            .IsLessThan(Classifications.RankOf(Classifications.Internal));
-        await Assert.That(Classifications.RankOf(Classifications.Internal))
-            .IsLessThan(Classifications.RankOf(Classifications.Confidential));
-        await Assert.That(Classifications.RankOf(Classifications.Confidential))
-            .IsLessThan(Classifications.RankOf(Classifications.Restricted));
+        await Assert.That(Classifications.RankOf(Classifications.Public)!.Value)
+            .IsLessThan(Classifications.RankOf(Classifications.Internal)!.Value);
+        await Assert.That(Classifications.RankOf(Classifications.Internal)!.Value)
+            .IsLessThan(Classifications.RankOf(Classifications.Confidential)!.Value);
+        await Assert.That(Classifications.RankOf(Classifications.Confidential)!.Value)
+            .IsLessThan(Classifications.RankOf(Classifications.Restricted)!.Value);
     }
 
     [Test]

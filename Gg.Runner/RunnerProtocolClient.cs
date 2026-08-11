@@ -57,7 +57,12 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
     }
 
     /// <summary>Pinned fact vocabulary this runner evaluates against.</summary>
-    public const string FactVocabulary = "0.1.0";
+    /// <remarks>
+    /// From the contract. A runner evaluating facts against a vocabulary the
+    /// control plane has moved past gives a silently wrong answer, which is
+    /// the whole reason this travels on every request.
+    /// </remarks>
+    public const string FactVocabulary = Gg.Contracts.FactVocabulary.Version;
 
     public async Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)

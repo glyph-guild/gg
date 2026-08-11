@@ -52,5 +52,10 @@ public static class Vocabulary
         typeof(FactBatch),
         typeof(FactRejection),
         typeof(FactBatchAccepted),
+        typeof(ClassificationRule),
+        typeof(ChangedPath),
+        typeof(DirectoryChange),
+        typeof(LanguageChange),
+        typeof(ChangeManifest),
     ];
 }

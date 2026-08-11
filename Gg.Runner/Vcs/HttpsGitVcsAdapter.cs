@@ -80,6 +80,17 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
         return GitWorkingTree.FetchAsync(
             $"https://{_host}/{target.Slug}.git", resolvedRef, intoDirectory, secret, cancellationToken);
     }
+
+    /// <summary>Brings the base ref onto the same disk, so a diff has two points.</summary>
+    public Task<string> FetchAlsoAsync(
+        RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        return GitWorkingTree.FetchAlsoAsync(
+            $"https://{_host}/{target.Slug}.git", resolvedRef, intoDirectory, secret, cancellationToken);
+    }
 }
 
 /// <summary>

@@ -321,6 +321,54 @@ public static class VerbOutput
                 }
             }
 
+            if (fact.Change is { } change)
+            {
+                text.AppendLine($"    range       {Clean(change.BaseCommit)[..8]}…{Clean(change.HeadCommit)[..8]}");
+                text.AppendLine(
+                    $"    change      {change.FilesChanged} file(s), "
+                  + $"+{change.LinesAdded} -{change.LinesRemoved}");
+
+                // Said out loud, both of them. A consumer must never have to
+                // guess whether it is looking at everything - a rollup is a
+                // true statement at lower resolution, and a withheld count is
+                // what keeps a filtered list from reading as a smaller change.
+                if (change.Resolution == ChangeResolution.Directories)
+                {
+                    text.AppendLine(
+                        $"    resolution  by directory - {change.FilesChanged} file(s) summarised "
+                      + "because the full list would not fit the evidence budget");
+                    foreach (var directory in change.Directories)
+                    {
+                        text.AppendLine(
+                            $"      {Clean(directory.Directory),-28}  {directory.Files} file(s), "
+                          + $"+{directory.LinesAdded} -{directory.LinesRemoved}");
+                    }
+                }
+                else
+                {
+                    foreach (var path in change.Paths)
+                    {
+                        text.AppendLine(
+                            $"      {Clean(path.Change),-8} {Clean(path.Path),-40}  "
+                          + $"+{path.LinesAdded} -{path.LinesRemoved}  {Clean(path.Classification)}");
+                    }
+                }
+
+                if (change.PathsWithheld > 0)
+                {
+                    text.AppendLine(
+                        $"      ({change.PathsWithheld} path(s) withheld: above this tenant's "
+                      + "classification ceiling)");
+                }
+
+                foreach (var language in change.Languages)
+                {
+                    text.AppendLine(
+                        $"    {Clean(language.Language),-11} {language.Files} file(s), "
+                      + $"+{language.LinesAdded} -{language.LinesRemoved}");
+                }
+            }
+
             if (fact.Source is { } source)
             {
                 text.AppendLine($"    repo        {Clean(source.Slug)}");

@@ -131,6 +131,17 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
             secret: null, cancellationToken);
     }
 
+    public Task<string> FetchAlsoAsync(
+        RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        return GitWorkingTree.FetchAlsoAsync(
+            new Uri(Bounded(target.Slug)).AbsoluteUri, resolvedRef, intoDirectory,
+            secret: null, cancellationToken);
+    }
+
     /// <summary>
     /// The slug as a path, if the configured root allows it.
     /// </summary>

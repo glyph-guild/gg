@@ -15,6 +15,9 @@ public sealed record Materialized
 
     public required string HeadCommit { get; init; }
 
+    /// <summary>The commit the change is measured from, when there is one.</summary>
+    public string? BaseCommit { get; init; }
+
     /// <summary>Whether the head belongs to a fork rather than to the base repository.</summary>
     public required bool HeadIsFork { get; init; }
 
@@ -73,6 +76,18 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
         var outcome = await _adapter.CloneAsync(
             target, resolved.Value, directory, secret, cancellationToken);
 
+        // The base, when the flight named one. Fetched as a second shallow ref
+        // into the same tree: there is no common ancestor on this disk to find
+        // a merge base from, so what a manifest can honestly describe is the
+        // difference between two commits.
+        string? baseCommit = null;
+        if (target.BaseRef is { Length: > 0 } baseRef
+            && _adapter.Resolve(baseRef) is RefResolution.Ref(var resolvedBase, _))
+        {
+            baseCommit = await _adapter.FetchAlsoAsync(
+                target, resolvedBase, directory, secret, cancellationToken);
+        }
+
         return new Materialized
         {
             Slug = target.Slug,
@@ -80,6 +95,7 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
             RequestedRef = target.PinnedRef,
             ResolvedRef = resolved.Value,
             HeadCommit = outcome.HeadCommit,
+            BaseCommit = baseCommit,
             HeadIsFork = origin is not null,
             ForkSlug = origin?.Slug,
             FileCount = outcome.FileCount,

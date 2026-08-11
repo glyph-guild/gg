@@ -56,6 +56,22 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public string LastBody { get; private set; } = "";
 
+    /// <summary>
+    /// Every body, kept.
+    /// </summary>
+    /// <remarks>
+    /// "The secret is in no request body" is a claim about all of them. Only
+    /// keeping the most recent one would make the assertion true of whichever
+    /// call happened to come last.
+    /// </remarks>
+    public List<string> ObservedBodies { get; } = [];
+
+    /// <summary>The credential references this stub is holding.</summary>
+    public List<CredentialSummary> Credentials { get; } = [];
+
+    /// <summary>When set, credential registration answers 400 with this diagnosis.</summary>
+    public string? RefuseCredential { get; set; }
+
     /// <summary>Session tokens revoked through /v1/auth/logout.</summary>
     public HashSet<string> RevokedTokens { get; } = [];
 
@@ -121,6 +137,7 @@ public sealed class StubControlPlane : IAsyncDisposable
         {
             using var body = new StreamReader(context.Request.InputStream, Encoding.UTF8);
             LastBody = await body.ReadToEndAsync();
+            ObservedBodies.Add(LastBody);
         }
 
         ObservedHeaders.Add(context.Request.Headers.AllKeys
@@ -201,6 +218,65 @@ public sealed class StubControlPlane : IAsyncDisposable
             case "/v1/flights":
                 await WriteJsonAsync(context, 200, new FlightList { Flights = [AFlight()] });
                 return;
+
+            // The credential surface. This stub stores a REFERENCE, exactly as
+            // the control plane does, and has nowhere to put anything else -
+            // the request type it deserializes has no field for one.
+            case "/v1/credentials" when context.Request.HttpMethod == "POST":
+                {
+                    if (RefuseCredential is { } refusal)
+                    {
+                        await WriteAsync(context, 400, refusal);
+                        return;
+                    }
+
+                    var request = JsonSerializer.Deserialize<CredentialRegistrationRequest>(
+                        LastBody, JsonSerializerOptions.Web)!;
+
+                    var summary = new CredentialSummary
+                    {
+                        CredentialId = Guid.NewGuid().ToString(),
+                        Repo = request.Repo,
+                        Reference = request.Reference,
+                        AddedAt = DateTimeOffset.UtcNow,
+                    };
+                    Credentials.Add(summary);
+
+                    await WriteJsonAsync(context, 200, new CredentialRegistered
+                    {
+                        CredentialId = summary.CredentialId,
+                        Reference = summary.Reference,
+                        AddedAt = summary.AddedAt,
+                    });
+                    return;
+                }
+
+            case "/v1/credentials":
+                await WriteJsonAsync(context, 200, new CredentialList { Credentials = [.. Credentials] });
+                return;
+
+            case var _ when path.StartsWith("/v1/credentials/", StringComparison.Ordinal)
+                         && context.Request.HttpMethod == "DELETE":
+                {
+                    var id = path["/v1/credentials/".Length..];
+                    var held = Credentials.SingleOrDefault(c => c.CredentialId == id);
+                    if (held is null)
+                    {
+                        await WriteAsync(context, 404, "");
+                        return;
+                    }
+
+                    Credentials.Remove(held);
+                    // The reference comes back, so gg can clean up the local
+                    // secret the reference pointed at. There is no other way
+                    // for it to know which file that was.
+                    await WriteJsonAsync(context, 200, new CredentialRemoved
+                    {
+                        CredentialId = held.CredentialId,
+                        Reference = held.Reference,
+                    });
+                    return;
+                }
 
             case "/v1/telemetry":
                 await WriteJsonAsync(context, 200, new TelemetryDisclosure

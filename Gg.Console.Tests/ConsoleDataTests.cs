@@ -108,9 +108,11 @@ public class ConsoleDataTests
     public async Task Every_verb_that_returns_a_result_has_a_console_equivalent()
     {
         // The other direction, and the half that rots first: a verb gains a
-        // capability and the console silently does not.
-        var verbs = typeof(FlightCommands)
-            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+        // capability and the console silently does not. Over EVERY class that
+        // holds verbs, not just the flight ones - a second verb class that the
+        // rule did not reach would be a whole surface the console never grew.
+        var verbs = VerbClasses
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
             .Where(m => !m.IsSpecialName && m.ReturnType == typeof(Task<VerbResult>))
             .Select(m => m.Name)
             .ToHashSet();
@@ -121,16 +123,31 @@ public class ConsoleDataTests
             .Select(m => m.Name)
             .ToHashSet();
 
-        // FlyAsync is a WRITE and belongs to slice two's take/attach work; the
-        // console builds its precondition and nothing more. Named here rather
-        // than silently skipped, so the exemption is visible.
-        var readVerbs = verbs.Where(v => v != "FlyAsync").ToList();
-        var missing = readVerbs.Where(v => !console.Contains(v)).ToList();
+        // Named rather than silently skipped, so each exemption is visible.
+        // FlyAsync is a WRITE belonging to slice two's take/attach work.
+        // AddAsync needs a secret typed at a prompt, and a prompt inside a
+        // Terminal.Gui modal is a keyboard path with its own escape-hatch
+        // rules - it is credential-broker work the console does not do.
+        var exempt = (string[])["FlyAsync", "AddAsync"];
+        var expected = verbs.Where(v => !exempt.Contains(v)).ToList();
+        var missing = expected.Where(v => !console.Contains(v)).ToList();
 
         await Assert.That(missing).IsEmpty()
             .Because($"these verbs have no console equivalent: {string.Join(", ", missing)}");
-        await Assert.That(readVerbs).IsNotEmpty();
+        await Assert.That(expected).IsNotEmpty();
+        await Assert.That(expected).Contains("ListCredentialsAsync")
+            .Because("the credential list is a read, so the rule reaches it and the exemptions do not.");
     }
+
+    /// <summary>Every class the CLI dispatches a verb to.</summary>
+    /// <remarks>
+    /// Listed rather than discovered, because "every public class returning
+    /// VerbResult" would silently include a helper somebody wrote in a test.
+    /// A new verb class not added here is a surface the equivalence rule does
+    /// not reach, so the count is asserted too.
+    /// </remarks>
+    private static IReadOnlyList<Type> VerbClasses { get; } =
+        [typeof(FlightCommands), typeof(CredentialCommands)];
 
     [Test]
     public async Task Applying_a_verb_result_is_the_only_way_flight_data_enters_the_model()
@@ -155,6 +172,49 @@ public class ConsoleDataTests
         await Assert.That(state.Flight).IsEqualTo(summary);
         await Assert.That(PaneText.Flight(state)).Contains("nightly audit");
         await Assert.That(PaneText.Flight(state)).Contains(FlightRef.Format(42));
+    }
+
+    [Test]
+    public async Task The_flight_pane_shows_the_credential_identity_rather_than_promising_it_later()
+    {
+        // The pane has said "(resolution arrives at step 5)" since it was
+        // written. It is step 5. A placeholder that outlives its step is the
+        // same lie as a stub verb, one screen further along.
+        var state = ConsoleProjection.Apply(
+            new AppState(),
+            new VerbResult.Credentials(new CredentialList
+            {
+                Credentials =
+                [
+                    new CredentialSummary
+                    {
+                        CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
+                        Repo = "github/acme-widgets",
+                        Reference = new CredentialReference
+                        {
+                            Kind = CredentialKinds.Local,
+                            Locator = "local:github/acme-widgets",
+                            Identity = "acme-bot",
+                            Scopes = [CredentialScopes.Read],
+                        },
+                        AddedAt = DateTimeOffset.UnixEpoch,
+                    },
+                ],
+            }));
+
+        state = ConsoleProjection.Apply(state, new VerbResult.Flight(Flight("a", "needs a token")));
+
+        await Assert.That(PaneText.Flight(state)).Contains("acme-bot");
+        await Assert.That(PaneText.Flight(state)).DoesNotContain("step 5");
+    }
+
+    [Test]
+    public async Task A_flight_pane_with_no_credentials_registered_says_none_rather_than_nothing()
+    {
+        var state = ConsoleProjection.Apply(new AppState(), new VerbResult.Flight(Flight("a", "no credentials")));
+
+        await Assert.That(PaneText.Flight(state)).Contains("credential")
+            .Because("a section that vanishes reads as a flight with nothing to say about credentials.");
     }
 
     // ---- the queue is not a flight list ----

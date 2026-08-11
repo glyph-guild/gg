@@ -84,6 +84,9 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
                         FlightId = "flight-9",
                         FlightNumber = FlightRef.Format(9),
                         Repos = [],
+                        // References, never secrets - and this stub could not
+                        // send one if it wanted to.
+                        Credentials = [],
                         ClassificationCeiling = "internal",
                         ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
                         RenewWithinSeconds = 30,

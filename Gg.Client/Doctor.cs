@@ -2,8 +2,9 @@ namespace Gg.Client;
 
 /// <summary>The checks <c>gg doctor</c> runs.</summary>
 /// <remarks>
-/// Only what exists. Credential resolution joins at step 5; a check that
-/// passed because the feature is absent would be the same lie as a stub verb.
+/// Only what exists. Credential resolution joined at step 5 because credential
+/// resolution now happens; a check that passed because the feature is absent
+/// would be the same lie as a stub verb.
 /// </remarks>
 public static class DoctorChecks
 {
@@ -11,6 +12,22 @@ public static class DoctorChecks
     public const string Protocol = "protocol";
     public const string Session = "session";
     public const string Runner = "runner";
+
+    /// <summary>Where secrets live on this machine, and how they are protected.</summary>
+    /// <remarks>
+    /// Stated, never judged, and never blocking. A person cannot reason about
+    /// a store they cannot find, and this is the only place gg says where it
+    /// is - or admits what a mode-0600 file does and does not buy them.
+    /// </remarks>
+    public const string CredentialStore = "credential store";
+
+    /// <summary>Whether every registered reference resolves on this machine.</summary>
+    /// <remarks>
+    /// ADR-0004 named this failure before it existed: a runner that cannot
+    /// read a secret produces a stalled flight that looks like a broken
+    /// product. This is the diagnosis that stops it being one.
+    /// </remarks>
+    public const string Credentials = "credentials";
 
     /// <summary>Where the control plane sends telemetry, if anywhere.</summary>
     /// <remarks>
@@ -75,10 +92,12 @@ public sealed record DoctorReport
 /// cannot be reached, and reporting the session as broken in that case would
 /// send somebody to re-authenticate for no reason.
 /// </remarks>
-public sealed class Doctor(ControlPlaneClient client, ISessionStore sessions, Uri controlPlane)
+public sealed class Doctor(
+    ControlPlaneClient client, ISessionStore sessions, ICredentialStore credentials, Uri controlPlane)
 {
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
+    private readonly ICredentialStore _credentials = credentials;
     private readonly Uri _controlPlane = controlPlane;
 
     public async Task<DoctorReport> RunAsync(CancellationToken cancellationToken = default)
@@ -160,8 +179,132 @@ public sealed class Doctor(ControlPlaneClient client, ISessionStore sessions, Ur
         checks.Add(await SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(RunnerCheck(stored));
+        checks.Add(CredentialStoreCheck());
+        checks.Add(await CredentialResolutionCheckAsync(
+            stored, reachable, protocolRefusal is null, cancellationToken));
 
         return new DoctorReport { Checks = checks };
+    }
+
+    /// <summary>
+    /// Where the secret is, and what that actually protects.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It runs in every state, including with no session and no control plane,
+    /// because it asks nothing of either. Somebody debugging a credential
+    /// problem needs the path before they need anything else.
+    /// </para>
+    /// <para>
+    /// Never blocking and never failing: it is a statement of fact, and a check
+    /// that went red on "here is where your secrets live" would train somebody
+    /// to skip the line above the one that matters.
+    /// </para>
+    /// </remarks>
+    private DoctorCheck CredentialStoreCheck() =>
+        new()
+        {
+            Name = DoctorChecks.CredentialStore,
+            Passed = true,
+            Detail = _credentials.Protection,
+            Blocking = false,
+            Fixable = false,
+        };
+
+    /// <summary>
+    /// Whether every reference the control plane holds resolves here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Blocking, because a flight touching that repository cannot run - and
+    /// fixable, because the person at this machine is exactly who can fix it.
+    /// The two are answered separately, and the remedy is named: nothing claims
+    /// fixable without saying what would fix it.
+    /// </para>
+    /// <para>
+    /// The references come from the control plane and the secrets are looked
+    /// for locally, which is the whole shape of the product in one check. It
+    /// therefore cannot run without a session, and when it cannot run it offers
+    /// no remedy - telling somebody to re-enter a token over a login problem is
+    /// advice that costs them time and changes nothing.
+    /// </para>
+    /// </remarks>
+    private async Task<DoctorCheck> CredentialResolutionCheckAsync(
+        StoredSession? stored, bool reachable, bool protocolOk, CancellationToken cancellationToken)
+    {
+        if (stored is null || !reachable || !protocolOk)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Credentials,
+                Passed = false,
+                Detail = "not checked: the control plane could not be asked which credentials are registered",
+                Blocking = false,
+                Fixable = false,
+            };
+        }
+
+        var registered = await _client.ListCredentialsAsync(stored.SessionToken, cancellationToken);
+
+        if (registered.Credentials.Count == 0)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Credentials,
+                Passed = true,
+                Detail = "no credentials registered, so there is nothing to resolve",
+                Blocking = false,
+                Fixable = false,
+            };
+        }
+
+        // Named individually. "1 of 3 credentials could not be resolved" sends
+        // somebody looking; naming the locator ends the search.
+        var unresolvable = registered.Credentials
+            .Where(c => Missing(c.Reference.Locator))
+            .Select(c => $"{c.Reference.Locator} ({c.Repo}, as {c.Reference.Identity})")
+            .ToList();
+
+        return unresolvable.Count == 0
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Credentials,
+                Passed = true,
+                Detail = $"all {registered.Credentials.Count} registered credential(s) resolve on this machine",
+                Blocking = false,
+                Fixable = false,
+            }
+            : new DoctorCheck
+            {
+                Name = DoctorChecks.Credentials,
+                Passed = false,
+                Detail = "registered here but not stored on this machine: " + string.Join(", ", unresolvable),
+                // A flight needing one of these cannot run at all, and it fails
+                // at the runner where nobody is looking.
+                Blocking = true,
+                Fixable = true,
+                Fix = "gg credential add --repo <slug>, on this machine, for each one listed",
+            };
+    }
+
+    /// <summary>
+    /// Whether a locator has no secret here.
+    /// </summary>
+    /// <remarks>
+    /// A locator the store refuses counts as missing rather than throwing: it
+    /// came back from the control plane, and a malformed one is a finding for
+    /// this report rather than a crash in the middle of it.
+    /// </remarks>
+    private bool Missing(string locator)
+    {
+        try
+        {
+            return _credentials.Read(locator) is null;
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
     }
 
     private async Task<DoctorCheck> SessionCheckAsync(

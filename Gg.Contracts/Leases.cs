@@ -122,6 +122,18 @@ public sealed record LeaseGranted
     public required IReadOnlyList<LeaseRepoRef> Repos { get; init; }
 
     /// <summary>
+    /// Which credentials the runner must resolve, and where they are.
+    /// </summary>
+    /// <remarks>
+    /// References, never secrets - the control plane holds none to send. This
+    /// is the boundary in one field: the runner is told WHICH credential to
+    /// use, resolves it on its own machine, and the value never crosses in
+    /// either direction. The type is incapable of carrying one, asserted over
+    /// its shape rather than intended.
+    /// </remarks>
+    public required IReadOnlyList<CredentialReference> Credentials { get; init; }
+
+    /// <summary>
     /// The tenant's classification ceiling. The runner needs it before it
     /// gathers anything, because it bounds what may ever leave the machine.
     /// </summary>
@@ -176,6 +188,17 @@ public sealed record LeaseReleaseRequest
 
     /// <summary>Optional human-readable detail, recorded on the flight log.</summary>
     public string? Detail { get; init; }
+
+    /// <summary>
+    /// Set when the flight ended because a credential could not be resolved.
+    /// </summary>
+    /// <remarks>
+    /// Typed rather than folded into <see cref="Detail"/>, because the control
+    /// plane records it as a flight-log event of its own naming the reference,
+    /// and parsing that back out of prose is how a diagnosis becomes a guess.
+    /// The reference it carries cannot hold a secret; nor can this.
+    /// </remarks>
+    public CredentialResolutionFailure? CredentialFailure { get; init; }
 }
 
 /// <summary>The lease is given back and the flight has moved on.</summary>

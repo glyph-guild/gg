@@ -93,7 +93,7 @@ public static class PaneText
         text.AppendLine($"  vocabulary    {Clean(flight.FactVocabularyVersion)}");
         text.AppendLine();
         text.AppendLine("  pinned refs   (none until the flight is materialized)");
-        text.AppendLine("  credential    (resolution arrives at step 5)");
+        text.AppendLine($"  credential    {Credentials(state)}");
         text.AppendLine("  facts         (none produced yet)");
 
         if (state.FlightLog is { Entries.Count: > 0 } log)
@@ -106,6 +106,33 @@ public static class PaneText
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Who the flight would read as, and where that secret lives.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The identity and the locator, which are the two things a person needs
+    /// when a flight will not start. There is no value here to withhold - the
+    /// model holds references and the control plane holds references, which is
+    /// the whole product in one line of a pane.
+    /// </para>
+    /// <para>
+    /// It says "none registered" rather than going blank. A section that
+    /// vanishes reads as a flight with nothing to say about credentials, and
+    /// that is precisely the case somebody is looking at this pane to diagnose.
+    /// </para>
+    /// </remarks>
+    private static string Credentials(AppState state)
+    {
+        if (state.Credentials is not { Credentials.Count: > 0 } list)
+        {
+            return "none registered";
+        }
+
+        return string.Join(", ", list.Credentials.Select(
+            c => Clean($"{c.Reference.Identity} ({c.Reference.Locator})")));
     }
 
     private static string Intent(FlightIntent intent) => intent.Kind switch

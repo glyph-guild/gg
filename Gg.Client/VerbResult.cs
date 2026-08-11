@@ -56,6 +56,21 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.Diagnosis;
     }
+
+    public sealed record Credentials(CredentialList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Credentials;
+    }
+
+    public sealed record CredentialAdded(CredentialRegistered Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.CredentialAdded;
+    }
+
+    public sealed record CredentialRemoved(Gg.Contracts.CredentialRemoved Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.CredentialRemoved;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -67,6 +82,9 @@ public static class VerbResultKinds
     public const string Log = "log";
     public const string Runners = "runners";
     public const string Diagnosis = "diagnosis";
+    public const string Credentials = "credentials";
+    public const string CredentialAdded = "credential-added";
+    public const string CredentialRemoved = "credential-removed";
 }
 
 [JsonSourceGenerationOptions(
@@ -79,6 +97,9 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(DoctorReport))]
+[JsonSerializable(typeof(CredentialList))]
+[JsonSerializable(typeof(CredentialRegistered))]
+[JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -124,6 +145,11 @@ public static class VerbOutput
         VerbResult.Log r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLog),
         VerbResult.Runners r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         VerbResult.Diagnosis r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DoctorReport),
+        VerbResult.Credentials r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialList),
+        VerbResult.CredentialAdded r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
+        VerbResult.CredentialRemoved r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRemoved),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -142,6 +168,12 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Diagnosis => new VerbResult.Diagnosis(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.DoctorReport))),
+        VerbResultKinds.Credentials => new VerbResult.Credentials(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialList))),
+        VerbResultKinds.CredentialAdded => new VerbResult.CredentialAdded(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
+        VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRemoved))),
         _ => throw Unknown(kind),
     };
 
@@ -162,8 +194,47 @@ public static class VerbOutput
         VerbResult.Log r => Log(r.Value),
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
+        VerbResult.Credentials r => Credentials(r.Value),
+        VerbResult.CredentialAdded r => CredentialAdded(r.Value),
+        VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         _ => throw Unknown(result?.Kind),
     };
+
+    /// <summary>
+    /// The references, and nothing else - because there is nothing else.
+    /// </summary>
+    /// <remarks>
+    /// The locator is printed on purpose: it is a place, and a person needs to
+    /// know which file <c>gg doctor</c> is talking about. There is no value
+    /// here to withhold, which is the whole point of the row.
+    /// </remarks>
+    private static string Credentials(CredentialList list)
+    {
+        if (list.Credentials.Count == 0)
+        {
+            return "No credentials registered. Run gg credential add --repo <slug> to register one.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var credential in list.Credentials)
+        {
+            text.AppendLine(
+                $"{Clean(credential.Repo),-28}  {Clean(credential.Reference.Identity),-16}  "
+              + $"{Clean(string.Join(',', credential.Reference.Scopes)),-8}  "
+              + $"{Clean(credential.Reference.Locator)}");
+            text.AppendLine($"  id  {Clean(credential.CredentialId)}   added {credential.AddedAt:u}");
+        }
+        return text.ToString().TrimEnd();
+    }
+
+    private static string CredentialAdded(CredentialRegistered registered) =>
+        $"Registered {Clean(registered.Reference.Identity)} for "
+      + $"{Clean(string.Join(',', registered.Reference.Scopes))}. "
+      + $"The control plane holds {Clean(registered.Reference.Locator)}; the value stays here.";
+
+    private static string CredentialRemoved(Gg.Contracts.CredentialRemoved removed) =>
+        $"Removed {Clean(removed.CredentialId)}. "
+      + $"The reference is gone and so is {Clean(removed.Reference.Locator)} on this machine.";
 
     private static string Flights(FlightList list)
     {
@@ -286,7 +357,8 @@ public static class VerbOutput
         new($"'{kind}' is not a result gg knows how to render. "
           + $"Expected one of: {VerbResultKinds.Flights}, {VerbResultKinds.Flight}, "
           + $"{VerbResultKinds.Launched}, {VerbResultKinds.Log}, {VerbResultKinds.Runners}, "
-          + $"{VerbResultKinds.Diagnosis}.");
+          + $"{VerbResultKinds.Diagnosis}, {VerbResultKinds.Credentials}, "
+          + $"{VerbResultKinds.CredentialAdded}, {VerbResultKinds.CredentialRemoved}.");
 
     private static T Require<T>(T? value) where T : class =>
         value ?? throw new InvalidOperationException("The result document was empty.");

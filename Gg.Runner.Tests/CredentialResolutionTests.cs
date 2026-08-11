@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Description;
 using Gg.Runner;
 
 namespace Gg.Runner.Tests;
@@ -45,7 +46,7 @@ public class CredentialResolutionTests
 
     private const string TheSecret = "ghp-THE-SECRET-VALUE-nobody-should-see";
 
-    private static CredentialReference AReference(string locator = "local:github/acme-widgets") => new()
+    private static CredentialReference AReference(string locator = "local:acme/widgets") => new()
     {
         Kind = CredentialKinds.Local,
         Locator = locator,
@@ -104,13 +105,13 @@ public class CredentialResolutionTests
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseNeeding(AReference())));
-        var resolver = new ScriptedResolver { Secrets = { ["local:github/acme-widgets"] = TheSecret } };
+        var resolver = new ScriptedResolver { Secrets = { ["local:acme/widgets"] = TheSecret } };
         var observer = new RecordingObserver();
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, resolver).RunAsync("runner-1", ["linux"], stopping.Token);
 
-        await Assert.That(resolver.Asked).Contains("local:github/acme-widgets");
+        await Assert.That(resolver.Asked).Contains("local:acme/widgets");
         await Assert.That(observer.Events).Contains("released:completed")
             .Because("a resolvable credential changes nothing about the rest of the flight.");
     }
@@ -126,7 +127,7 @@ public class CredentialResolutionTests
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new ScriptedResolver()).RunAsync("runner-1", ["linux"], stopping.Token);
 
-        await Assert.That(observer.Events).Contains("unresolved:local:github/acme-widgets")
+        await Assert.That(observer.Events).Contains("unresolved:local:acme/widgets")
             .Because("silence here is the stalled flight ADR-0004 named.");
         await Assert.That(protocol.Calls.Any(c => c.StartsWith("release:1:failed", StringComparison.Ordinal)))
             .IsTrue()
@@ -147,7 +148,7 @@ public class CredentialResolutionTests
         var failure = protocol.LastCredentialFailure;
 
         await Assert.That(failure).IsNotNull();
-        await Assert.That(failure!.Reference.Locator).IsEqualTo("local:github/acme-widgets");
+        await Assert.That(failure!.Reference.Locator).IsEqualTo("local:acme/widgets");
         await Assert.That(failure.Reference.Kind).IsEqualTo(CredentialKinds.Local);
         await Assert.That(failure.Reference.Identity).IsEqualTo("acme-bot");
         await Assert.That(failure.Problem).IsNotEmpty()
@@ -182,14 +183,14 @@ public class CredentialResolutionTests
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(
-            ALeaseNeeding(AReference(), AReference("local:github/other-repo"))));
-        var resolver = new ScriptedResolver { Secrets = { ["local:github/acme-widgets"] = TheSecret } };
+            ALeaseNeeding(AReference(), AReference("local:acme/other"))));
+        var resolver = new ScriptedResolver { Secrets = { ["local:acme/widgets"] = TheSecret } };
         var observer = new RecordingObserver();
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, resolver).RunAsync("runner-1", ["linux"], stopping.Token);
 
-        await Assert.That(observer.Events).Contains("unresolved:local:github/other-repo");
+        await Assert.That(observer.Events).Contains("unresolved:local:acme/other");
         await Assert.That(protocol.Calls.Any(c => c.Contains("failed", StringComparison.Ordinal))).IsTrue();
     }
 
@@ -202,7 +203,7 @@ public class CredentialResolutionTests
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseNeeding(AReference())));
-        var resolver = new ScriptedResolver { Secrets = { ["local:github/acme-widgets"] = TheSecret } };
+        var resolver = new ScriptedResolver { Secrets = { ["local:acme/widgets"] = TheSecret } };
         var observer = new RecordingObserver();
 
         using var stopping = StopAfter(observer, 2);
@@ -227,7 +228,7 @@ public class CredentialResolutionTests
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseNeeding(AReference())));
-        var resolver = new ScriptedResolver { Secrets = { ["local:github/acme-widgets"] = TheSecret } };
+        var resolver = new ScriptedResolver { Secrets = { ["local:acme/widgets"] = TheSecret } };
         var observer = new RecordingObserver();
 
         using var stopping = StopAfter(observer, 2);

@@ -8,6 +8,7 @@ namespace Gg.Console;
 [JsonSerializable(typeof(Gg.Contracts.FlightSummary))]
 [JsonSerializable(typeof(Gg.Contracts.FlightLog))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerList))]
+[JsonSerializable(typeof(Gg.Contracts.CredentialList))]
 public sealed partial class AppStateJsonContext : JsonSerializerContext;
 
 /// <summary>Source-generated (AOT-safe) serialization for the model.</summary>

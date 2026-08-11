@@ -20,6 +20,12 @@ return CliArgs.Parse(args) switch
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
 
+    CliAction.CredentialAdd add =>
+        await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
+    CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
+    CliAction.CredentialRemove remove =>
+        await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
+
     CliAction.Unknown unknown => Fail(unknown.Message),
     _ => Fail("unhandled action"),
 };
@@ -80,6 +86,63 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
 }
 
 /// <summary>
+/// Runs a credential verb, in the credential-broker role.
+/// </summary>
+/// <remarks>
+/// Separate from <c>EmitAsync</c> only because the refusals are different
+/// ones. The result path is the same: a VerbResult, printed one way or the
+/// other, and never both.
+/// </remarks>
+static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<VerbResult>> run)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    var commands = new CredentialCommands(
+        new ControlPlaneClient(http),
+        new FileSessionStore(),
+        new FileCredentialStore(),
+        // The only way a secret enters this process, and it is a terminal.
+        new ConsoleSecretPrompt());
+
+    try
+    {
+        var result = await run(commands);
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+        return 0;
+    }
+    catch (NotSignedInException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (CredentialScopeException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (CredentialRefusedException refusal)
+    {
+        // Article XI reaching a person: the control plane refused with a
+        // diagnosis and the diagnosis is the part they can act on.
+        return Fail(refusal.Message);
+    }
+    catch (CredentialNotFoundException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (ProtocolTooOldException refusal)
+    {
+        Console.Error.WriteLine(refusal.Message);
+        return 69;
+    }
+    catch (HttpRequestException failure)
+    {
+        Console.Error.WriteLine(
+            $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
+        return 69;
+    }
+}
+
+/// <summary>
 /// Runs doctor, which reports rather than throws.
 /// </summary>
 /// <remarks>
@@ -94,7 +157,8 @@ static async Task<int> DoctorAsync(bool json)
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
     var report = await new Doctor(
-        new ControlPlaneClient(http), new FileSessionStore(), new Uri(baseAddress)).RunAsync();
+        new ControlPlaneClient(http), new FileSessionStore(), new FileCredentialStore(),
+        new Uri(baseAddress)).RunAsync();
 
     var result = new VerbResult.Diagnosis(report);
     Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
@@ -108,7 +172,15 @@ static int LaunchConsole()
     // `gg flights --json` would print. There is no other route to the data.
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
-    var data = new ConsoleData(new FlightCommands(new ControlPlaneClient(http), new FileSessionStore()));
+    var client = new ControlPlaneClient(http);
+    var sessions = new FileSessionStore();
+    var data = new ConsoleData(
+        new FlightCommands(client, sessions),
+        // The console can read the credential references and forget one. It
+        // cannot add one: that needs a secret typed at a prompt, and a prompt
+        // inside a Terminal.Gui modal is a keyboard path with its own
+        // escape-hatch rules. Registering stays a command-line act.
+        new CredentialCommands(client, sessions, new FileCredentialStore(), new ConsoleSecretPrompt()));
 
     var initial = ConsoleStart.LoadAsync(data).GetAwaiter().GetResult();
 
@@ -191,8 +263,13 @@ static async Task<int> RunnerUpAsync()
     using var stopping = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
 
+    // The runner resolves credentials from the SAME local store gg credential
+    // add wrote to. The reference travels through the control plane; the value
+    // never leaves this machine, and the two halves are joined here because
+    // this is the only project that can see both.
     return await Gg.Runner.RunnerHost.RunAsync(
-        new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor, stopping.Token);
+        new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
+        new LocalCredentialResolver(new FileCredentialStore()), stopping.Token);
 }
 
 static int Fail(string message)

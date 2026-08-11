@@ -107,9 +107,13 @@ public static class ProtocolSurface
     /// declaration while nothing consumed it, which was honest - a declaration
     /// nobody checks is a comment. The console consumes it, so it comes in
     /// under the same closure guarantee as the rest.
+    ///
+    /// /v1/credentials joined at step 5, and closure matters most here: a
+    /// credential route the control plane served and this file did not name
+    /// would be an unaudited path into the one table Article VIII is about.
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
-        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry"];
+        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -281,6 +285,44 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // The credential surface. Developer throughout, and that is the whole
+        // authority story: a person registers a credential, a runner resolves
+        // one. A runner that could register would be a runner that could point
+        // a flight at a secret of its own choosing.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/credentials",
+            Audience = Audience.Developer,
+            Request = typeof(CredentialRegistrationRequest),
+            Response = typeof(CredentialRegistered),
+            // 400 is a refused reference - a kind that is not local, a scope
+            // wider than read, a malformed locator. Article XI, with a
+            // diagnosis, rather than a 500 nobody can act on.
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/credentials",
+            Audience = Audience.Developer,
+            Response = typeof(CredentialList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "DELETE",
+            Path = "/v1/credentials/{id}",
+            Audience = Audience.Developer,
+            Response = typeof(CredentialRemoved),
+            // 404 covers another tenant's credential and one that never
+            // existed alike, for the same reason a flight does.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
         new()
         {
             Method = "GET",
@@ -375,11 +417,11 @@ public static class ProtocolSurface
             [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds"],
             [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef"],
             [typeof(LeaseGranted)] =
-                ["leaseId", "generation", "flightId", "flightNumber", "repos",
+                ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "classificationCeiling", "expiresAt", "renewWithinSeconds"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
-            [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail"],
+            [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],
             [typeof(LeaseReleased)] = ["flightId", "disposition"],
             [typeof(FlightIntent)] = ["kind", "uri", "text"],
             [typeof(FlightLaunchRequest)] = ["name", "intent"],
@@ -394,5 +436,15 @@ public static class ProtocolSurface
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(TelemetryDisclosure)] = ["exporting", "destination"],
+            // Four members, and none of them a secret. Declared here as well
+            // as asserted over the type, because a [JsonPropertyName] can add
+            // a wire member without adding a property name.
+            [typeof(CredentialReference)] = ["kind", "locator", "identity", "scopes"],
+            [typeof(CredentialRegistrationRequest)] = ["repo", "reference"],
+            [typeof(CredentialRegistered)] = ["credentialId", "reference", "addedAt"],
+            [typeof(CredentialSummary)] = ["credentialId", "repo", "reference", "addedAt"],
+            [typeof(CredentialList)] = ["credentials"],
+            [typeof(CredentialRemoved)] = ["credentialId", "reference"],
+            [typeof(CredentialResolutionFailure)] = ["reference", "problem"],
         };
 }

@@ -37,5 +37,12 @@ public static class Vocabulary
         typeof(RunnerSummary),
         typeof(RunnerList),
         typeof(TelemetryDisclosure),
+        typeof(CredentialReference),
+        typeof(CredentialRegistrationRequest),
+        typeof(CredentialRegistered),
+        typeof(CredentialSummary),
+        typeof(CredentialList),
+        typeof(CredentialRemoved),
+        typeof(CredentialResolutionFailure),
     ];
 }

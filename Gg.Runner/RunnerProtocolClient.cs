@@ -125,11 +125,20 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
 
     public async Task<ReleaseResult> ReleaseAsync(
         string leaseId, int generation, string disposition, string? detail = null,
+        CredentialResolutionFailure? credentialFailure = null,
         CancellationToken cancellationToken = default)
     {
         using var request = Request(HttpMethod.Post, $"/v1/leases/{leaseId}/release");
         request.Content = JsonContent.Create(
-            new LeaseReleaseRequest { Generation = generation, Disposition = disposition, Detail = detail },
+            new LeaseReleaseRequest
+            {
+                Generation = generation,
+                Disposition = disposition,
+                Detail = detail,
+                // A reference and a sentence. The type has no field for a
+                // secret, so this is the diagnosis and not the value.
+                CredentialFailure = credentialFailure,
+            },
             RunnerJsonContext.Default.LeaseReleaseRequest);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);

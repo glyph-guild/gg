@@ -19,6 +19,19 @@ internal sealed class ConsoleObserver : IRunnerObserver
         System.Console.WriteLine($"released {leaseId} as {disposition}");
 
     public void Idle() => System.Console.WriteLine("nothing ready");
+
+    /// <summary>
+    /// The reference and the problem. Never anything resolving it produced.
+    /// </summary>
+    /// <remarks>
+    /// Which credential, where it should have been, who it acts as, and what
+    /// went wrong - because this line is what somebody sends us when their
+    /// flight will not start.
+    /// </remarks>
+    public void CredentialUnresolved(CredentialResolutionFailure failure) =>
+        System.Console.WriteLine(
+            $"credential {failure.Reference.Locator} (as {failure.Reference.Identity}, "
+          + $"{failure.Reference.Kind}) could not be resolved: {failure.Problem}");
 }
 
 /// <summary>
@@ -39,12 +52,18 @@ internal sealed class ConsoleObserver : IRunnerObserver
 /// </remarks>
 public static class RunnerHost
 {
+    /// <param name="credentials">
+    /// How this runner turns a reference into a secret, on this machine.
+    /// Passed in rather than constructed, because the adapter reads the local
+    /// store and this assembly cannot see the developer client that owns it.
+    /// </param>
     public static async Task<int> RunAsync(
         Uri controlPlane,
         string runnerId,
         string runnerToken,
         IReadOnlyList<string> labels,
         TimeSpan holdFor,
+        ICredentialResolver credentials,
         CancellationToken cancellationToken)
     {
         // Longer than the claim's long poll, or the client aborts every idle
@@ -59,7 +78,8 @@ public static class RunnerHost
             new RunnerProtocolClient(http, runnerToken),
             new SystemClock(),
             (span, token) => Task.Delay(span, token),
-            new ConsoleObserver())
+            new ConsoleObserver(),
+            credentials)
         {
             HoldFor = holdFor,
         };

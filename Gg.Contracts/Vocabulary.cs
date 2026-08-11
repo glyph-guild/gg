@@ -44,5 +44,13 @@ public static class Vocabulary
         typeof(CredentialList),
         typeof(CredentialRemoved),
         typeof(CredentialResolutionFailure),
+        typeof(LockHash),
+        typeof(ToolVersion),
+        typeof(EnvironmentIdentity),
+        typeof(SourceProvenance),
+        typeof(FactEnvelope),
+        typeof(FactBatch),
+        typeof(FactRejection),
+        typeof(FactBatchAccepted),
     ];
 }

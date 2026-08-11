@@ -267,9 +267,16 @@ static async Task<int> RunnerUpAsync()
     // add wrote to. The reference travels through the control plane; the value
     // never leaves this machine, and the two halves are joined here because
     // this is the only project that can see both.
+    // Which providers this runner serves, and where they live. Deployment
+    // knowledge, so it is configured rather than compiled in: gg is public and
+    // distributed, and which forge a tenant uses is the control plane's
+    // business. A provider nobody configured is a declared capability gap.
+    var workspace = new Gg.Runner.Workspace(
+        Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot());
+
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
-        new LocalCredentialResolver(new FileCredentialStore()), stopping.Token);
+        new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token);
 }
 
 static int Fail(string message)

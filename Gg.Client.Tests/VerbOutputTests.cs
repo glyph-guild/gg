@@ -36,6 +36,7 @@ public class VerbOutputTests
         FactVocabularyVersion = "0.1.0",
         ConstitutionVersion = "1.0.0",
         EnvelopeVersion = "none",
+        Facts = [],
     };
 
     /// <summary>One of every result shape a verb can produce.</summary>

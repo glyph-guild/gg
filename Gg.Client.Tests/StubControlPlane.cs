@@ -92,6 +92,7 @@ public sealed class StubControlPlane : IAsyncDisposable
         FactVocabularyVersion = "0.1.0",
         ConstitutionVersion = "1.0.0",
         EnvelopeVersion = "none",
+        Facts = [],
     };
 
     public StubControlPlane()

@@ -17,6 +17,8 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(LeaseRenewed))]
 [JsonSerializable(typeof(LeaseReleaseRequest))]
 [JsonSerializable(typeof(LeaseReleased))]
+[JsonSerializable(typeof(FactBatch))]
+[JsonSerializable(typeof(FactBatchAccepted))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -123,6 +125,45 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         return new RenewResult.Renewed(renewed.ExpiresAt);
     }
 
+    /// <summary>
+    /// Ships facts against the lease that authorises them.
+    /// </summary>
+    /// <remarks>
+    /// Takes <see cref="Facts.FilteredFacts"/>, so nothing that has not been
+    /// through the filter can reach the wire from here. A 409 is the generation
+    /// fence: the flight belongs to another runner now, and its facts are not
+    /// ours to assert.
+    /// </remarks>
+    public async Task<FactBatchAccepted> ShipFactsAsync(
+        string leaseId, int generation, Facts.FilteredFacts facts,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+
+        using var request = Request(HttpMethod.Post, $"/v1/leases/{leaseId}/facts");
+        request.Content = JsonContent.Create(
+            new FactBatch { Generation = generation, Facts = facts.Items },
+            RunnerJsonContext.Default.FactBatch);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            // Not a retry. The fence refused us, and shipping again would be
+            // asserting facts about another runner's flight.
+            throw new RunnerFencedException(
+                $"Lease {leaseId} generation {generation} is not the live one. These facts belong to "
+              + "a flight this runner no longer holds.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.FactBatchAccepted, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane accepted facts with no answer.");
+    }
+
     public async Task<ReleaseResult> ReleaseAsync(
         string leaseId, int generation, string disposition, string? detail = null,
         CredentialResolutionFailure? credentialFailure = null,
@@ -172,3 +213,13 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
 
 /// <summary>Raised when the control plane refuses this runner's protocol revision.</summary>
 public sealed class RunnerProtocolTooOldException(string message) : Exception(message);
+
+/// <summary>
+/// The generation fence refused this runner.
+/// </summary>
+/// <remarks>
+/// Its own exception rather than a status code, because the correct response
+/// is emphatically not to retry: the flight belongs to another runner now, and
+/// asserting facts about it would write into somebody else's evidence.
+/// </remarks>
+public sealed class RunnerFencedException(string message) : Exception(message);

@@ -16,7 +16,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// <para>
 /// <b>The pull-request head is a real commit that is not on any branch</b>,
-/// which is exactly the shape GitHub publishes for a fork's PR: the base
+/// which is exactly the shape a forge publishes for a fork's PR: the base
 /// repository can serve the head without holding a branch for it, and without
 /// anybody holding a credential for the fork.
 /// </para>
@@ -77,7 +77,7 @@ internal sealed class GitFixture : IDisposable
         Run(work, "push", "origin", $"HEAD:refs/pull/{PullNumber}/head");
 
         // The local adapter's stand-in for what a provider's PR metadata says.
-        // GitHub answers this from its API; a bare repository has nowhere else
+        // A real forge answers this from its API; a bare repository has nowhere else
         // to put it, and inventing a ref for it would be worse.
         Run(BarePath, "config", $"gg.pull.{PullNumber}.origin", ForkSlug);
     }

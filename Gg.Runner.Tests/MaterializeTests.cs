@@ -35,9 +35,9 @@ internal sealed class ScratchTreeRoot : IDisposable
 /// </para>
 /// <para>
 /// Every mechanical assertion here runs against the LOCAL adapter: a bare
-/// repository over <c>file://</c>, no credential, no network. The GitHub
-/// adapter is the same port with a different ref-resolution rule and a
-/// credential, exercised separately and more slowly.
+/// repository over <c>file://</c>, no credential, no network. The https
+/// adapter is the same port with a host from configuration and a credential,
+/// exercised separately and more slowly.
 /// </para>
 /// </remarks>
 public class MaterializeTests
@@ -158,7 +158,7 @@ public class MaterializeTests
     [Test]
     public async Task The_adapter_declares_what_it_can_do_rather_than_being_asked_to_try()
     {
-        // refs/pull/<n>/head is a GitHub convention. Another provider spells it
+        // refs/pull/<n>/head is one forge's convention. Another spells it
         // differently or not at all, so ref resolution lives behind the port as
         // a declared capability from the first adapter rather than the second.
         await Assert.That(new LocalVcsAdapter().Capabilities.PullRequestHeadsFromBase).IsTrue();
@@ -343,7 +343,7 @@ public class MaterializeTests
 
 /// <summary>An adapter that cannot serve pull-request heads, and says so.</summary>
 /// <remarks>
-/// Stands in for the second provider. GitLab does not publish
+/// Stands in for the second provider. Not every forge publishes
 /// <c>refs/pull/&lt;n&gt;/head</c>, and the point of declaring the capability
 /// from the FIRST adapter is that the second one does not have to change the
 /// port to arrive.

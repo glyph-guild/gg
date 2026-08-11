@@ -92,6 +92,7 @@ internal static class StateGenerator
         FactVocabularyVersion = "0.1.0",
         ConstitutionVersion = "1.0.0",
         EnvelopeVersion = "none",
+        Facts = [],
     };
 
     private static FlightLog NextLog(Random random) => new()

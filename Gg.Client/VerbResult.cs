@@ -266,6 +266,77 @@ public static class VerbOutput
         text.AppendLine($"  vocabulary  {Clean(flight.FactVocabularyVersion)}");
         text.AppendLine($"  constitution {Clean(flight.ConstitutionVersion)}");
         text.AppendLine($"  envelope    {Clean(flight.EnvelopeVersion)}");
+        text.AppendLine(Facts(flight.Facts));
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What the runner observed, rendered.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The first thing this surface shows that no part of the control plane
+    /// could have known. It comes through the same verb path as everything
+    /// else - the summary carries it - so the JSON and this rendering are two
+    /// views of one document.
+    /// </para>
+    /// <para>
+    /// Paths, counts, hashes and a commit. There is nothing here that could be
+    /// a line of somebody's source code, which is the property the control
+    /// plane's own absence scan proves and this rendering inherits.
+    /// </para>
+    /// </remarks>
+    private static string Facts(IReadOnlyList<FactEnvelope> facts)
+    {
+        var text = new StringBuilder();
+        text.AppendLine();
+
+        if (facts.Count == 0)
+        {
+            // Said out loud. A flight with no facts and a flight whose facts we
+            // failed to render look identical otherwise, and only one of them
+            // means the runner never got there.
+            text.AppendLine("  facts       (none yet - the runner reports them as it works)");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var fact in facts)
+        {
+            text.AppendLine($"  {Clean(fact.Kind),-20}  {fact.ObservedAt:u}");
+
+            if (fact.Environment is { } environment)
+            {
+                text.AppendLine($"    host        {Clean(environment.HostFingerprint)[..16]}…  "
+                              + $"({Clean(environment.Provenance)})");
+                var image = Clean(environment.ImageDigest);
+                text.AppendLine(
+                    $"    image       {(image.Length > 0 ? image : "(not running in an image)")}");
+                foreach (var tool in environment.Tools)
+                {
+                    text.AppendLine($"    {Clean(tool.Name),-11} {Clean(tool.Version)}");
+                }
+                foreach (var held in environment.Locks)
+                {
+                    text.AppendLine($"    lock        {Clean(held.Path)}  {Clean(held.Sha256)[..16]}…");
+                }
+            }
+
+            if (fact.Source is { } source)
+            {
+                text.AppendLine($"    repo        {Clean(source.Slug)}");
+                text.AppendLine($"    commit      {Clean(source.HeadCommit)}");
+                text.AppendLine($"    ref         {Clean(source.RequestedRef)} → {Clean(source.ResolvedRef)}");
+                // Named rather than implied. A run that examined a fork and did
+                // not say so is a false fact, which this design treats as
+                // unrecoverable - so the rendering says it either way.
+                var head = source.HeadIsFork
+                    ? $"a fork, {Clean(source.ForkSlug)}"
+                    : "the base repository";
+                text.AppendLine($"    head        {head}");
+                text.AppendLine($"    size        {source.FileCount} file(s), {source.Bytes:N0} bytes");
+            }
+        }
+
         return text.ToString().TrimEnd();
     }
 

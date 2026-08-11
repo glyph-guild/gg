@@ -3,6 +3,7 @@ using System.Text.Json;
 using Gg.Contracts;
 using Gg.Runner;
 using Gg.Runner.Facts;
+using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
 
@@ -50,11 +51,27 @@ public class FactPipelineTests
 
     // ---- the structural half ----
 
+    /// <summary>The stage types themselves, whose own equality members are not stages.</summary>
+    private static readonly Type[] StageTypes =
+        [typeof(GatheredFacts), typeof(DigestedFacts), typeof(FilteredFacts)];
+
+    /// <summary>
+    /// Every method in the runner that a stage type could flow through.
+    /// </summary>
+    /// <remarks>
+    /// A record's generated <c>Equals</c>, <c>&lt;Clone&gt;$</c> and constructor
+    /// all mention their own type, and none of them is a pipeline stage. They
+    /// are excluded by declaring type rather than by name, so a genuine method
+    /// added to one of these records would still be caught.
+    /// </remarks>
     private static IEnumerable<MethodInfo> RunnerMethods() =>
         typeof(FactPipeline).Assembly.GetTypes()
+            .Where(t => !StageTypes.Contains(t))
+            .Where(t => !t.Name.StartsWith('<'))
             .SelectMany(t => t.GetMethods(
                 BindingFlags.Public | BindingFlags.NonPublic |
-                BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly));
+                BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            .Where(m => !m.IsSpecialName && !m.Name.StartsWith('<'));
 
     private static string Describe(MethodInfo method) => $"{method.DeclaringType?.Name}.{method.Name}";
 
@@ -132,9 +149,9 @@ public class FactPipelineTests
     {
         var digested = FactPipeline.Digest(AGathering(), "flight-1", T0);
 
-        await Assert.That(digested.Items).HasCount(1);
+        await Assert.That(digested.Items.Count).IsEqualTo(1);
         await Assert.That(FactEnvelope.Validate(digested.Items[0])).IsNull();
-        await Assert.That(digested.Items[0].Digest).HasCount(64);
+        await Assert.That(digested.Items[0].Digest.Length).IsEqualTo(64);
     }
 
     [Test]
@@ -185,7 +202,7 @@ public class FactPipelineTests
         // point of it existing is that step 7 adds a rule rather than a stage.
         var filtered = FactPipeline.Filter(FactPipeline.Digest(AGathering(), "flight-1", T0), "internal");
 
-        await Assert.That(filtered.Items).HasCount(1);
+        await Assert.That(filtered.Items.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -247,7 +264,7 @@ public class EnvironmentIdentityTests
 
         var identity = EnvironmentSurvey.Observe(treePath: null, provenance: EnvironmentProvenance.Fresh);
 
-        await Assert.That(identity.HostFingerprint).HasCount(64);
+        await Assert.That(identity.HostFingerprint.Length).IsEqualTo(64);
         await Assert.That(identity.Tools.Select(t => t.Name)).Contains("git")
             .Because("git is the tool that put the source on disk; a run nobody can reproduce is one "
                    + "where nobody recorded which git did it.");
@@ -273,10 +290,10 @@ public class EnvironmentIdentityTests
         // that without carrying a customer's dependency graph off the machine.
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var materialized = await new Materializer(new Gg.Runner.Vcs.LocalVcsAdapter(), trees.Root)
-            .MaterializeAsync("flight-1", new Gg.Runner.Vcs.RepoTarget
+        var materialized = await new Materializer(new LocalVcsAdapter(), trees.Root)
+            .MaterializeAsync("flight-1", new RepoTarget
             {
-                Provider = Gg.Runner.Vcs.LocalVcsAdapter.ProviderKey,
+                Provider = LocalVcsAdapter.ProviderKey,
                 Slug = fixture.BarePath,
                 PinnedRef = "refs/heads/main",
             }, secret: null);
@@ -285,7 +302,7 @@ public class EnvironmentIdentityTests
 
         var recorded = identity.Locks.SingleOrDefault(l => l.Path == "package-lock.json");
         await Assert.That(recorded).IsNotNull();
-        await Assert.That(recorded!.Sha256).HasCount(64);
+        await Assert.That(recorded!.Sha256.Length).IsEqualTo(64);
     }
 
     [Test]
@@ -294,10 +311,10 @@ public class EnvironmentIdentityTests
         // The negative half, on the one fact that reads files at all.
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var materialized = await new Materializer(new Gg.Runner.Vcs.LocalVcsAdapter(), trees.Root)
-            .MaterializeAsync("flight-1", new Gg.Runner.Vcs.RepoTarget
+        var materialized = await new Materializer(new LocalVcsAdapter(), trees.Root)
+            .MaterializeAsync("flight-1", new RepoTarget
             {
-                Provider = Gg.Runner.Vcs.LocalVcsAdapter.ProviderKey,
+                Provider = LocalVcsAdapter.ProviderKey,
                 Slug = fixture.BarePath,
                 PinnedRef = "refs/heads/main",
             }, secret: null);

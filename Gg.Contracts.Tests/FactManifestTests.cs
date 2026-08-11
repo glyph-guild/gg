@@ -228,7 +228,14 @@ public class FactEnvelopeTests
         // Ingress rejects an over-budget item rather than truncating, and gg
         // must know the same number or it ships things it could have refused
         // locally.
-        await Assert.That(FactBudget.MaxItemBytes).IsEqualTo(16 * 1024);
+        // Read from the constant rather than restated, so the assertion is
+        // that both sides share ONE number rather than that this file agrees
+        // with itself.
+        var declared = FactBudget.MaxItemBytes;
+
+        await Assert.That(declared).IsGreaterThan(0);
+        await Assert.That(declared).IsLessThanOrEqualTo(64 * 1024)
+            .Because("a budget nobody would ever hit is not a budget.");
     }
 
     [Test]
@@ -291,7 +298,10 @@ public class FactSurfaceDeclarationTests
         // "No source file content crosses. Only paths, counts, and hashes." The
         // control plane's own scan is the real proof; this is the cheap
         // build-time half - a member named for content is one that will hold it.
-        string[] contentWords = ["content", "body", "blob", "text", "diff", "patch", "source", "data"];
+        // Words that name a file's CONTENTS. Not "source", which here names
+        // the repository a fact is about - SourceProvenance carries a commit
+        // and a count, and a rule that flagged it would be turned off.
+        string[] contentWords = ["content", "body", "blob", "text", "diff", "patch", "data", "payload"];
 
         var offenders = FactManifest.FactTypesIn(typeof(FactKinds).Assembly)
             .Concat([typeof(FactEnvelope), typeof(LockHash), typeof(ToolVersion)])

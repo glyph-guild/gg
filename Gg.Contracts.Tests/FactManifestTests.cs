@@ -234,8 +234,18 @@ public class FactEnvelopeTests
         var declared = FactBudget.MaxItemBytes;
 
         await Assert.That(declared).IsGreaterThan(0);
-        await Assert.That(declared).IsLessThanOrEqualTo(64 * 1024)
-            .Because("a budget nobody would ever hit is not a budget.");
+
+        // A budget nobody would ever hit is not a budget - but the ceiling
+        // that expresses that is the MEASUREMENT, not a round number. It has
+        // to be small enough that a real change can exceed it and large enough
+        // that an ordinary one never does, and both halves are asserted
+        // against the per-file cost rather than against a figure somebody
+        // liked.
+        await Assert.That(FactBudget.ManifestFilesWithinBudget).IsLessThan(5_000)
+            .Because("a manifest nothing could ever overflow makes the rollup untested code.");
+        await Assert.That(FactBudget.ManifestFilesWithinBudget).IsGreaterThan(500)
+            .Because("at a hundred files the rollup was the common case, which is what broke "
+                   + "'enough to compare thirty flights' - thirty rollups compare with nothing.");
     }
 
     [Test]

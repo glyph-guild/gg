@@ -95,14 +95,55 @@ public static class FactVocabulary
 
 /// <summary>How much evidence one fact may be.</summary>
 /// <remarks>
+/// <para>
 /// Declared once and read by both sides. gg refuses an over-budget item where
 /// it was produced, and ingress refuses it again - and neither truncates,
 /// because a fact cut in half is a false fact rather than a small one.
+/// </para>
+/// <para>
+/// <b>This budget is not the gate budget, and conflating them was a mistake.</b>
+/// The gate numbers - 8 KiB an item, 32 KiB a page - were sized for WHAT A
+/// PERSON READS while deciding something. A digest is machine-comparable
+/// history: nobody reads a hundred of them, something diffs them.
+/// </para>
+/// <para>
+/// Sized at 16 KiB, a manifest of about 150 bytes a file ran out at roughly a
+/// hundred files, so an ordinary pull request nearly filled it and the
+/// per-directory rollup became the common case. That quietly breaks the claim
+/// the hardening rests on - "enough to compare thirty flights" - because thirty
+/// rollups cannot be compared with each other at all.
+/// </para>
 /// </remarks>
 public static class FactBudget
 {
-    /// <summary>The digest budget, per item.</summary>
-    public const int MaxItemBytes = 16 * 1024;
+    /// <summary>
+    /// The digest budget, per item. Derived from the measurement.
+    /// </summary>
+    /// <remarks>
+    /// <c>ManifestSizeTests</c> measures about 150 bytes a changed file at
+    /// realistic path lengths. A thousand files is a very large pull request
+    /// and a real one - a dependency bump, a formatter run, a rename - so the
+    /// budget is sized to hold one at full resolution and the rollup goes back
+    /// to being the exceptional case it was described as.
+    ///
+    /// The number is the measurement rounded up to a power of two, not a
+    /// number somebody liked: 1000 files x 150 bytes is 150 KiB, and 192 KiB
+    /// leaves the same proportional headroom 16 KiB left for a hundred.
+    /// </remarks>
+    public const int MaxItemBytes = 192 * 1024;
+
+    /// <summary>
+    /// Roughly what one changed file costs in a change manifest.
+    /// </summary>
+    /// <remarks>
+    /// Recorded so the budget above can be re-derived rather than
+    /// re-guessed, and asserted against a real manifest by
+    /// <c>ManifestSizeTests</c> - a constant nothing checks is a comment.
+    /// </remarks>
+    public const int ManifestBytesPerFile = 150;
+
+    /// <summary>How many files the digest budget holds at full resolution.</summary>
+    public static int ManifestFilesWithinBudget => MaxItemBytes / ManifestBytesPerFile;
 }
 
 /// <summary>Whether this environment was made for this flight or found.</summary>

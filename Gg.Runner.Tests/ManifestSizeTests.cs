@@ -69,17 +69,42 @@ public class ManifestSizeTests
     }
 
     [Test]
-    public async Task The_budget_runs_out_somewhere_worth_knowing()
+    public async Task An_ordinary_pull_request_is_nowhere_near_the_budget()
     {
-        // The real answer to "is 16 KiB the right number". A manifest is about
-        // 150 bytes a file at realistic path lengths, so the budget buys
-        // roughly a hundred files - which is a large pull request rather than
-        // an impossible one, and it is why the rollup exists rather than being
-        // a theoretical fallback.
-        await Assert.That(Bytes(Of(100))).IsLessThan(FactBudget.MaxItemBytes);
-        await Assert.That(Bytes(Of(200))).IsGreaterThan(FactBudget.MaxItemBytes)
-            .Because("if nothing realistic ever exceeded the budget, the rollup would be untested "
-                   + "code guarding a case that never happens.");
+        // What 16 KiB got wrong. At about 150 bytes a file it ran out around a
+        // hundred files, so an ordinary change nearly filled it and the
+        // per-directory rollup became the COMMON case - which breaks the claim
+        // the hardening rests on, because thirty rollups cannot be compared
+        // with each other at all.
+        //
+        // The gate budgets are a different question with a different answer:
+        // 8 KiB an item is what a person reads while deciding something. A
+        // digest is machine-comparable history and nobody reads a hundred.
+        await Assert.That(Bytes(Of(100))).IsLessThan(FactBudget.MaxItemBytes / 10);
+    }
+
+    [Test]
+    public async Task The_budget_still_runs_out_somewhere_real()
+    {
+        // The twin, and the reason the budget is not simply enormous. A rollup
+        // that nothing could ever trigger would be untested code guarding a
+        // case that never happens, and the day it fired it would be the first
+        // time anybody had seen it.
+        await Assert.That(Bytes(Of(FactBudget.ManifestFilesWithinBudget * 2)))
+            .IsGreaterThan(FactBudget.MaxItemBytes);
+    }
+
+    [Test]
+    public async Task The_budget_is_derived_from_the_measurement_rather_than_chosen()
+    {
+        // The per-file cost is recorded in the contract so the budget can be
+        // re-derived instead of re-guessed. If a manifest ever gets
+        // meaningfully fatter per file, this fails and the number gets
+        // revisited - which is the only thing that stops it becoming folklore.
+        var measured = (Bytes(Of(200)) - Bytes(Of(100))) / 100;
+
+        await Assert.That(measured).IsLessThan(FactBudget.ManifestBytesPerFile * 2);
+        await Assert.That(measured).IsGreaterThan(FactBudget.ManifestBytesPerFile / 2);
     }
 
     [Test]

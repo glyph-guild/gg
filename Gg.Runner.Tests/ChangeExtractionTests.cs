@@ -177,7 +177,7 @@ public class ChangeExtractionTests
         // Degrade resolution. A per-directory rollup is a true statement at
         // lower resolution; a truncated file list is a false one, and ingress
         // already makes exactly that distinction about facts cut in half.
-        using var fixture = new DiffFixture(wideFiles: 900);
+        using var fixture = new DiffFixture(wideFiles: FactBudget.ManifestFilesWithinBudget * 2);
         using var trees = new ScratchTreeRoot();
         var tree = await MaterializeAsync(fixture, trees);
 
@@ -196,7 +196,7 @@ public class ChangeExtractionTests
     public async Task The_rollup_fits_where_the_file_list_did_not()
     {
         // Otherwise it is a slower way to be rejected.
-        using var fixture = new DiffFixture(wideFiles: 900);
+        using var fixture = new DiffFixture(wideFiles: FactBudget.ManifestFilesWithinBudget * 2);
         using var trees = new ScratchTreeRoot();
         var tree = await MaterializeAsync(fixture, trees);
 
@@ -212,7 +212,7 @@ public class ChangeExtractionTests
     {
         // A lower-resolution TRUE statement. If the totals changed it would be
         // a different statement, not a coarser one.
-        using var fixture = new DiffFixture(wideFiles: 900);
+        using var fixture = new DiffFixture(wideFiles: FactBudget.ManifestFilesWithinBudget * 2);
         using var trees = new ScratchTreeRoot();
         var tree = await MaterializeAsync(fixture, trees);
 

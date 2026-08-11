@@ -94,7 +94,7 @@ public class DiffBasisTests
         var rollup = AManifest(Gg.Contracts.DiffBasis.MergeBase) with
         {
             Resolution = ChangeResolution.Directories,
-            Directories = [new DirectoryChange { Path = "src", FilesChanged = 1, LinesAdded = 1, LinesRemoved = 0 }],
+            Directories = [new DirectoryChange { Directory = "src", Files = 1, LinesAdded = 1, LinesRemoved = 0 }],
             FilesChanged = 1,
             LinesAdded = 1,
         };

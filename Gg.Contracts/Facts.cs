@@ -76,15 +76,21 @@ public static class FactKinds
 public static class FactVocabulary
 {
     /// <summary>
-    /// 0.3.0: environment.identity, source.provenance, change.manifest.
+    /// 0.4.0: environment.identity, source.provenance, change.manifest with
+    /// a diff basis.
     /// </summary>
     /// <remarks>
     /// 0.2.0 is recorded in the ledger and was never emitted by a released
     /// binary - it is the version source.provenance should have carried, and
     /// recording it is how the omission stays visible rather than being
     /// renumbered away.
+    ///
+    /// 0.4.0 adds no fact type. It adds a required member to change.manifest,
+    /// which is exactly as much of a vocabulary change: a control plane
+    /// reading 0.3.0 manifests cannot tell which diff they described, and the
+    /// version is how it knows to stop guessing.
     /// </remarks>
-    public const string Version = "0.3.0";
+    public const string Version = "0.4.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -264,6 +270,35 @@ public static class ChangeResolution
     public static IReadOnlyList<string> All { get; } = [Files, Directories];
 }
 
+/// <summary>
+/// Which diff a change manifest measured.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Two-point over-reports a pull request.</b> It is the difference between
+/// two commits; a pull request's change is the difference between the head and
+/// the point the branch left the base. They diverge by everything anybody else
+/// merged in the meantime, and on a busy repository that is most of it.
+/// </para>
+/// <para>
+/// Recorded rather than corrected, deliberately and for now. A manifest that
+/// says which basis it used can be read correctly today and re-read correctly
+/// after somebody computes a real merge base; a manifest that stayed silent
+/// would have to be re-interpreted retroactively, and there is no way to know
+/// which of the old ones were affected.
+/// </para>
+/// </remarks>
+public static class DiffBasis
+{
+    /// <summary>Base commit to head commit. What the runner computes today.</summary>
+    public const string TwoPoint = "two-point";
+
+    /// <summary>Merge base to head. What a pull request's change actually is.</summary>
+    public const string MergeBase = "merge-base";
+
+    public static IReadOnlyList<string> All { get; } = [TwoPoint, MergeBase];
+}
+
 /// <summary>One changed path: what it is, what happened, how much, how sensitive.</summary>
 /// <remarks>
 /// A path and three numbers. Reading the file to count its lines happens on the
@@ -349,6 +384,16 @@ public sealed record ChangeManifest
     /// <summary>One of <see cref="ChangeResolution"/>. Says which list is populated.</summary>
     public required string Resolution { get; init; }
 
+    /// <summary>
+    /// One of <see cref="DiffBasis"/>. Says which diff these numbers are.
+    /// </summary>
+    /// <remarks>
+    /// Required, not defaulted. A default would let a producer that has never
+    /// heard of this member emit manifests labelled with a basis it did not
+    /// use, which is the failure this member exists to end.
+    /// </remarks>
+    public required string DiffBasis { get; init; }
+
     /// <summary>Populated at file resolution.</summary>
     public required IReadOnlyList<ChangedPath> Paths { get; init; }
 
@@ -383,6 +428,14 @@ public sealed record ChangeManifest
     public static string? Validate(ChangeManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);
+
+        if (!Gg.Contracts.DiffBasis.All.Contains(manifest.DiffBasis))
+        {
+            return $"Unknown diff basis '{manifest.DiffBasis}'. Expected one of: "
+                 + string.Join(", ", Gg.Contracts.DiffBasis.All)
+                 + ". A manifest that cannot say which diff it measured cannot be compared with one "
+                 + "that can.";
+        }
 
         if (!ChangeResolution.All.Contains(manifest.Resolution))
         {

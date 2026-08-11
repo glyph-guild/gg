@@ -306,6 +306,13 @@ public class FactSurfaceDeclarationTests
         var offenders = FactManifest.FactTypesIn(typeof(FactKinds).Assembly)
             .Concat([typeof(FactEnvelope), typeof(LockHash), typeof(ToolVersion)])
             .SelectMany(t => t.GetProperties().Select(p => (Type: t, Property: p)))
+            // ChangeManifest.DiffBasis names the word and cannot hold the
+            // thing: its value space is two labels, and ChangeManifestTests
+            // asserts that next to its own copy of this scan. Exempted by
+            // shape rather than by name so a member that grew into something
+            // else fails here.
+            .Where(m => !(m.Property.Name == nameof(ChangeManifest.DiffBasis)
+                          && m.Property.PropertyType == typeof(string)))
             .Where(m => contentWords.Any(w => m.Property.Name.Contains(w, StringComparison.OrdinalIgnoreCase)))
             .Select(m => $"{m.Type.Name}.{m.Property.Name}")
             .ToList();

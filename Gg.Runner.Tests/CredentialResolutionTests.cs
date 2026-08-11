@@ -77,7 +77,8 @@ public class CredentialResolutionTests
                 return Task.CompletedTask;
             },
             observer,
-            resolver)
+            resolver,
+            new NoWorkspace())
         {
             HoldFor = TimeSpan.FromSeconds(3),
         };

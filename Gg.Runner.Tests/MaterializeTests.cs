@@ -56,8 +56,16 @@ public class MaterializeTests
         PinnedRef = $"refs/pull/{GitFixture.PullNumber}/head",
     };
 
-    private static Materializer Build(ScratchTreeRoot trees) =>
-        new(new LocalVcsAdapter(), trees.Root);
+    /// <summary>
+    /// A materializer rooted at the fixture, which is the whole allowed subtree.
+    /// </summary>
+    /// <remarks>
+    /// Rooted rather than unbounded, because that is the only form this adapter
+    /// has: the slug is a path and the control plane supplies slugs, so a
+    /// runner agrees to one subtree or to none.
+    /// </remarks>
+    private static Materializer Build(GitFixture fixture, ScratchTreeRoot trees) =>
+        new(new LocalVcsAdapter(fixture.Directory), trees.Root);
 
     [Test]
     public async Task A_branch_materializes_at_the_pinned_ref()
@@ -65,7 +73,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
 
         await Assert.That(materialized.HeadCommit).IsEqualTo(fixture.BranchCommit);
         await Assert.That(File.Exists(Path.Combine(materialized.Path, "README.md"))).IsTrue();
@@ -81,7 +89,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", APullRequest(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", APullRequest(fixture), secret: null);
 
         await Assert.That(materialized.HeadCommit).IsEqualTo(fixture.ForkHeadCommit)
             .Because("cloning the base and reporting its branch head would be a false fact about "
@@ -107,7 +115,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", APullRequest(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", APullRequest(fixture), secret: null);
 
         await Assert.That(materialized.HeadIsFork).IsTrue();
         await Assert.That(materialized.ForkSlug).IsEqualTo(GitFixture.ForkSlug);
@@ -119,7 +127,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
 
         await Assert.That(materialized.HeadIsFork).IsFalse();
         await Assert.That(materialized.ForkSlug).IsNull();
@@ -161,9 +169,9 @@ public class MaterializeTests
         // refs/pull/<n>/head is one forge's convention. Another spells it
         // differently or not at all, so ref resolution lives behind the port as
         // a declared capability from the first adapter rather than the second.
-        await Assert.That(new LocalVcsAdapter().Capabilities.PullRequestHeadsFromBase).IsTrue();
+        await Assert.That(new LocalVcsAdapter("/").Capabilities.PullRequestHeadsFromBase).IsTrue();
         await Assert.That(new NoPullRequestsAdapter().Capabilities.PullRequestHeadsFromBase).IsFalse();
-        await Assert.That(new LocalVcsAdapter().Capabilities.RefScheme).IsNotEmpty()
+        await Assert.That(new LocalVcsAdapter("/").Capabilities.RefScheme).IsNotEmpty()
             .Because("a capability nobody can read is a capability nobody checks.");
     }
 
@@ -175,7 +183,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
 
         await Assert.That(materialized.Path).StartsWith(trees.Root.Path);
         await Assert.That(materialized.Path).Contains("flight-1")
@@ -188,7 +196,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
         trees.Root.Release("flight-1");
 
         await Assert.That(Directory.Exists(materialized.Path)).IsFalse();
@@ -240,7 +248,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
 
         await Assert.That(materialized.Bytes).IsGreaterThan(0);
         await Assert.That(materialized.FileCount).IsGreaterThan(0);
@@ -298,7 +306,7 @@ public class MaterializeTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
 
-        var materialized = await Build(trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
+        var materialized = await Build(fixture, trees).MaterializeAsync("flight-1", ABranch(fixture), secret: null);
 
         var remotes = GitFixture.Run(materialized.Path, "remote").Trim();
 

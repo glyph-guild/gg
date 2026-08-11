@@ -94,7 +94,9 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
 /// <para>
 /// <c>GG_VCS_HOSTS</c> is a comma-separated list of <c>key=host</c>, optionally
 /// suffixed <c>!nopr</c> for a forge that does not publish pull-request heads
-/// on the base. Absent entirely means this runner serves no remote provider -
+/// on the base. The key <c>local</c> takes a filesystem ROOT rather than a
+/// host, and clones only from inside it. Absent entirely means this runner
+/// serves no provider -
 /// which is an honest state for a runner nobody has configured, and produces a
 /// capability gap rather than a clone that fails at DNS.
 /// </para>
@@ -130,6 +132,15 @@ public static class VcsConfiguration
 
             var servesPullRequests = !parts[1].EndsWith(NoPullRequestHeads, StringComparison.Ordinal);
             var host = servesPullRequests ? parts[1] : parts[1][..^NoPullRequestHeads.Length];
+
+            // The filesystem provider takes a ROOT rather than a host, and
+            // bounds itself to it. Same variable because it is the same
+            // question - which providers does this runner serve, and where.
+            if (parts[0] == LocalVcsAdapter.ProviderKey)
+            {
+                adapters.Add(new LocalVcsAdapter(host));
+                continue;
+            }
 
             adapters.Add(new HttpsGitVcsAdapter(parts[0], host, new VcsCapabilities
             {

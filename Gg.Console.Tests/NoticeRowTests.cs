@@ -1,4 +1,4 @@
-using Gg.Console.State;
+using Gg.Console;
 using Gg.Contracts;
 
 namespace Gg.Console.Tests;

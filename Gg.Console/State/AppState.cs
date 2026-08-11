@@ -172,6 +172,18 @@ public sealed record AppState
     /// <summary>Flights needing me.</summary>
     public IReadOnlyList<QueueRow> Queue { get; init; } = [];
 
+    /// <summary>
+    /// What the control plane says is degraded, exactly as it said it.
+    /// </summary>
+    /// <remarks>
+    /// The failure the queue hides by construction: when check runs stop being
+    /// written, every flight still runs, still records its facts and still
+    /// leaves the queue. Nothing needs anybody, and a pull request somewhere
+    /// quietly has no check on it - so the queue is at its most reassuring
+    /// exactly when this is worst.
+    /// </remarks>
+    public IReadOnlyList<TenantNotice> Notices { get; init; } = [];
+
     public int SelectedRow { get; init; }
 
     /// <summary>The selected flight, exactly as `gg show` returned it.</summary>

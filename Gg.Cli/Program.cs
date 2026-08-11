@@ -19,6 +19,7 @@ return CliArgs.Parse(args) switch
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
+    CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
@@ -164,6 +165,42 @@ static async Task<int> DoctorAsync(bool json)
     Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
 
     return report.ExitCode;
+}
+
+/// <summary>
+/// `gg bundle`. Everything doctor asked, plus what a person would otherwise
+/// be asked for, minus anything a runner printed.
+/// </summary>
+/// <remarks>
+/// The flight log is fetched only when the control plane answered. Asking for
+/// it anyway would turn one clear "could not connect" into two, and the second
+/// one would be the one people report.
+/// </remarks>
+static async Task<int> BundleAsync(bool json)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    var sessions = new FileSessionStore();
+    var client = new ControlPlaneClient(http);
+    var report = await new Doctor(client, sessions, new FileCredentialStore(), new Uri(baseAddress))
+        .RunAsync();
+
+    // Observed with no tree: a bundle is taken from wherever somebody happens
+    // to be standing, and the locks and the tree belong to a flight rather
+    // than to this machine. The fingerprint is the same one the runner
+    // records, which is what lets a bundle be matched to a flight's facts.
+    var environment = Gg.Runner.Facts.EnvironmentSurvey.Observe(treePath: null, Gg.Contracts.EnvironmentProvenance.Reused);
+
+    var result = new VerbResult.Bundle(
+        Gg.Client.Bundle.Build(DateTimeOffset.UtcNow, environment, report, flightLog: null));
+
+    Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+
+    // Zero. A bundle is a report, not a verdict: exiting non-zero because the
+    // machine it describes has a problem would make `gg bundle` unusable in
+    // the script somebody writes to collect one.
+    return 0;
 }
 
 static int LaunchConsole()

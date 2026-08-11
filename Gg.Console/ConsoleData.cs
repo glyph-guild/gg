@@ -31,6 +31,40 @@ public sealed class ConsoleData(FlightCommands commands, CredentialCommands cred
     private readonly FlightCommands _commands = commands;
     private readonly CredentialCommands _credentials = credentials;
 
+    /// <summary>
+    /// `gg bundle`, from the state the console is holding.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It takes the state and reads almost none of it.</b> That is the
+    /// point. The console holds the live channel - whatever a runner printed,
+    /// including whatever a tool echoed that it should not have - and this is
+    /// the one place where a bundle could pick it up. Passing the state in and
+    /// deliberately not touching <c>Live</c> or <c>Held</c> is what makes the
+    /// redaction test meaningful: the needle is right there, in scope, and
+    /// still does not come out.
+    /// </para>
+    /// <para>
+    /// Static because it decides nothing that needs a control plane. Every
+    /// input has already been through a verb.
+    /// </para>
+    /// </remarks>
+    public static DiagnosticsBundle BundleFrom(
+        AppState state,
+        DateTimeOffset takenAt,
+        EnvironmentIdentity environment,
+        DoctorReport doctor,
+        FlightLog? flightLog)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        // The flight log comes from the control plane through a verb, never
+        // from the console's own copy: state.FlightLog is a projection that
+        // may be stale, and a bundle carrying a stale log is worse than one
+        // carrying none.
+        return Bundle.Build(takenAt, environment, doctor, flightLog);
+    }
+
     /// <summary>`gg flights`.</summary>
     public Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
         _commands.ListAsync(cancellationToken);

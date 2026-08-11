@@ -161,9 +161,13 @@ public class CliArgsTests
     }
 
     [Test]
-    public async Task BundleIsNotAVerbYet()
+    public async Task BundleIsAVerbNow()
     {
-        await Assert.That(CliArgs.Parse(["bundle"])).IsTypeOf<CliAction.Unknown>();
+        // It graduated at step 9, which is what this pair of tests is for: a
+        // verb moves from the forbidden list to the advertised one by being
+        // built, and never the other way round without somebody noticing.
+        await Assert.That(CliArgs.Parse(["bundle"])).IsTypeOf<CliAction.Bundle>();
+        await Assert.That(((CliAction.Bundle)CliArgs.Parse(["bundle", "--json"])).Json).IsTrue();
     }
 
     [Test]
@@ -171,7 +175,7 @@ public class CliArgsTests
     {
         var message = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
 
-        foreach (var verb in (string[])["fly", "show", "log", "runners", "doctor",
+        foreach (var verb in (string[])["fly", "show", "log", "runners", "doctor", "bundle",
                                         "login", "logout", "whoami", "version", "runner up",
                                         "credential add", "credential list", "credential rm"])
         {
@@ -187,9 +191,10 @@ public class CliArgsTests
         // is not implemented is the same lie as stubbing it.
         var message = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
 
-        // 'credential' came off this list at step 5, which is what the list is
-        // for: a verb graduates from here to the one above by being built.
-        foreach (var absent in (string[])["bundle", "cancel", "approve"])
+        // 'credential' came off this list at step 5 and 'bundle' at step 9,
+        // which is what the list is for: a verb graduates from here to the one
+        // above by being built.
+        foreach (var absent in (string[])["cancel", "approve"])
         {
             await Assert.That(message).DoesNotContain(absent)
                 .Because($"'{absent}' does not exist yet, so advertising it is a promise gg cannot keep.");

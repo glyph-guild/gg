@@ -71,6 +71,11 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.CredentialRemoved;
     }
+
+    public sealed record Bundle(DiagnosticsBundle Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Bundle;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -85,6 +90,7 @@ public static class VerbResultKinds
     public const string Credentials = "credentials";
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
+    public const string Bundle = "bundle";
 }
 
 [JsonSourceGenerationOptions(
@@ -100,6 +106,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(CredentialList))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
+[JsonSerializable(typeof(DiagnosticsBundle))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -150,6 +157,7 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
         VerbResult.CredentialRemoved r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRemoved),
+        VerbResult.Bundle r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DiagnosticsBundle),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -174,6 +182,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRemoved))),
+        VerbResultKinds.Bundle => new VerbResult.Bundle(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.DiagnosticsBundle))),
         _ => throw Unknown(kind),
     };
 
@@ -197,6 +207,7 @@ public static class VerbOutput
         VerbResult.Credentials r => Credentials(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
+        VerbResult.Bundle r => Bundle(r.Value),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -434,6 +445,60 @@ public static class VerbOutput
             var beat = runner.LastHeartbeatAt is { } at ? $"  last seen {at:u}" : "  never seen";
             text.AppendLine($"{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}");
         }
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The bundle, for a person to read before they send it.
+    /// </summary>
+    /// <remarks>
+    /// Completeness first, because it changes how everything below it should
+    /// be read. Every value comes out of the document; nothing here consults
+    /// the machine it is running on, or the two surfaces would be different
+    /// views rather than one view twice.
+    /// </remarks>
+    private static string Bundle(DiagnosticsBundle bundle)
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"bundle            {Clean(bundle.Completeness)}");
+        text.AppendLine($"                  {Clean(bundle.CompletenessDetail)}");
+        text.AppendLine($"taken             {bundle.TakenAt:u}");
+        text.AppendLine($"binary            {Clean(bundle.Binary)}");
+        text.AppendLine($"protocol          {bundle.Protocol}");
+        text.AppendLine($"fact vocabulary   {Clean(bundle.FactVocabulary)}");
+        text.AppendLine($"environment       {Clean(bundle.Environment.HostFingerprint)} "
+                      + $"({Clean(bundle.Environment.Provenance)})");
+
+        foreach (var tool in bundle.Environment.Tools)
+        {
+            text.AppendLine($"  tool            {Clean(tool.Name)} {Clean(tool.Version)}");
+        }
+
+        text.AppendLine();
+        text.AppendLine(Diagnosis(new DoctorReport { Checks = bundle.Checks }));
+
+        // Repeated deliberately. The checks above are the whole picture and
+        // people skim them; this is the list somebody should act on, and it is
+        // empty when there is nothing to act on.
+        text.AppendLine();
+        text.AppendLine(bundle.Degradations.Count == 0
+            ? "degradations      none"
+            : "degradations");
+        foreach (var degradation in bundle.Degradations)
+        {
+            var mark = degradation.Blocking ? "STOP" : "warn";
+            text.AppendLine($"  {mark}  {Clean(degradation.Name),-16}  {Clean(degradation.Detail)}");
+            if (degradation.Remedy is { Length: > 0 } remedy)
+            {
+                text.AppendLine($"        fix: {Clean(remedy)}");
+            }
+        }
+
+        text.AppendLine();
+        text.AppendLine(bundle.FlightLog is { } log
+            ? Log(log)
+            : "flight log        not in this bundle - see the completeness line above.");
+
         return text.ToString().TrimEnd();
     }
 

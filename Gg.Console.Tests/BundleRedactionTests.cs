@@ -75,7 +75,7 @@ public class BundleRedactionTests
         {
             state = Reducer.StreamArrived(state, new StreamLine
             {
-                Kind = StreamLineKind.Stdout,
+                Kind = StreamLineKind.Raw,
                 Text = line,
                 At = T0,
             });
@@ -116,7 +116,7 @@ public class BundleRedactionTests
         // reads would leak into the one a person pastes into a chat.
         var state = WithNeedleOnTheWire();
 
-        var rendered = VerbOutput.Render(new VerbResult.Bundle(
+        var rendered = VerbOutput.ToText(new VerbResult.Bundle(
             ConsoleData.BundleFrom(state, T0, AnEnvironment(), AReport(), flightLog: null)));
 
         await Assert.That(rendered).DoesNotContain(Needle);
@@ -150,7 +150,7 @@ public class BundleRedactionTests
         var state = WithNeedleOnTheWire() with { Frozen = true };
         state = Reducer.StreamArrived(state, new StreamLine
         {
-            Kind = StreamLineKind.Stdout,
+            Kind = StreamLineKind.Raw,
             Text = $"held: {Needle}",
             At = T0,
         });

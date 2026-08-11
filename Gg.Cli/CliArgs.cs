@@ -60,6 +60,9 @@ public abstract record CliAction
 
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>A redacted diagnostics bundle.</summary>
+    public sealed record Bundle(bool Json) : CliAction, IEmitsResult;
+
     public sealed record Unknown(string Message) : CliAction;
 }
 
@@ -69,16 +72,15 @@ public static class CliArgs
     /// What gg actually does today.
     /// </summary>
     /// <remarks>
-    /// A usage string is a promise. <c>bundle</c> is deliberately absent: the
-    /// feature does not exist, and both listing it and stubbing it tell a
-    /// person something gg cannot deliver. An unimplemented verb that reports
-    /// success is Article XI's failure mode wearing a CLI - the flight fails
-    /// much later, for a reason nobody can trace back to here.
+    /// A usage string is a promise. Verbs join this list when they work, and
+    /// not before: an unimplemented verb that reports success is Article XI's
+    /// failure mode wearing a CLI - the flight fails much later, for a reason
+    /// nobody can trace back to here.
     ///
-    /// <c>credential add</c> came off that list at step 5, which is what the
-    /// list is for. Note what it does NOT offer: there is no way to pass the
-    /// value on the command line, and the flag scanner in the CLI tests fails
-    /// the build if one appears.
+    /// <c>credential add</c> joined at step 5 and <c>bundle</c> at step 9,
+    /// which is what the list is for. Note what it does NOT offer: there is no
+    /// way to pass a credential value on the command line, and the flag
+    /// scanner in the CLI tests fails the build if one appears.
     /// </remarks>
     private static readonly string[] Verbs =
     [
@@ -92,6 +94,7 @@ public static class CliArgs
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
         "gg doctor                      check what gg needs to work",
+        "gg bundle                      a redacted diagnostics bundle to send us",
         "gg login | logout | whoami     identity",
         "gg runner up                   take work on this machine",
         "gg version                     binary, protocol and fact vocabulary",
@@ -127,6 +130,7 @@ public static class CliArgs
             ["flights"] => new CliAction.Flights(json),
             ["runners"] => new CliAction.Runners(json),
             ["doctor"] => new CliAction.Doctor(json),
+            ["bundle"] => new CliAction.Bundle(json),
 
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),

@@ -83,6 +83,14 @@ public static class ChangeExtractor
             BaseCommit = baseCommit,
             HeadCommit = headCommit,
             Resolution = ChangeResolution.Files,
+            // What this actually is, said out loud. The runner diffs two
+            // commits; a pull request's change is head against the point the
+            // branch left the base, and the two differ by everything anybody
+            // else merged since. Labelling it is not fixing it - it is making
+            // the gap legible to whoever reads the numbers, and making the day
+            // somebody computes a real merge base a label change rather than a
+            // silent reinterpretation of every fact already recorded.
+            DiffBasis = DiffBasis.TwoPoint,
             Paths = paths,
             Directories = [],
             Languages = Languages(paths),

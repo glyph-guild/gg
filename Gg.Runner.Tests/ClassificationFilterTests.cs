@@ -40,6 +40,7 @@ public class ClassificationFilterTests
         BaseCommit = new string('a', 40),
         HeadCommit = new string('b', 40),
         Resolution = ChangeResolution.Files,
+        DiffBasis = Gg.Contracts.DiffBasis.TwoPoint,
         Paths = paths,
         Directories = [],
         Languages = [],

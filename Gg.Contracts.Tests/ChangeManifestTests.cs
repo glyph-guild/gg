@@ -34,6 +34,7 @@ public class ChangeManifestTests
         BaseCommit = new string('a', 40),
         HeadCommit = new string('b', 40),
         Resolution = ChangeResolution.Files,
+        DiffBasis = Gg.Contracts.DiffBasis.TwoPoint,
         Paths = paths,
         Directories = [],
         Languages = [new LanguageChange { Language = "csharp", Files = paths.Length, LinesAdded = 3, LinesRemoved = 1 }],
@@ -74,6 +75,7 @@ public class ChangeManifestTests
             BaseCommit = new string('a', 40),
             HeadCommit = new string('b', 40),
             Resolution = ChangeResolution.Directories,
+        DiffBasis = Gg.Contracts.DiffBasis.TwoPoint,
             Paths = [],
             Directories = [new DirectoryChange { Directory = "src", Files = 900, LinesAdded = 12, LinesRemoved = 4 }],
             Languages = [],
@@ -136,6 +138,22 @@ public class ChangeManifestTests
             AManifest(APath("a.cs") with { Classification = "spicy" }))).IsNotNull();
     }
 
+
+    /// <summary>
+    /// The one member whose NAME says "diff" and whose value cannot be one.
+    /// </summary>
+    /// <remarks>
+    /// <c>DiffBasis</c> says WHICH diff a manifest measured - two-point or
+    /// merge-base - and its whole value space is those two strings. The scan
+    /// below is right to be suspicious of the word, so the exemption is not a
+    /// name on a list: it holds only while the member really is one of the two
+    /// labels, asserted next to it. A <c>DiffBasis</c> that ever held anything
+    /// else fails here rather than being quietly allowed through.
+    /// </remarks>
+    private static bool IsTheDiffLabel(System.Reflection.PropertyInfo property) =>
+        property.Name == nameof(ChangeManifest.DiffBasis)
+        && property.PropertyType == typeof(string);
+
     [Test]
     public async Task No_member_of_the_manifest_could_carry_a_line_of_a_file()
     {
@@ -149,12 +167,19 @@ public class ChangeManifestTests
 
         var found = offenders
             .SelectMany(t => t.GetProperties().Select(p => (Type: t, Property: p)))
+            .Where(m => !IsTheDiffLabel(m.Property))
             .Where(m => contentWords.Any(w => m.Property.Name.Contains(w, StringComparison.OrdinalIgnoreCase)))
             .Select(m => $"{m.Type.Name}.{m.Property.Name}")
             .ToList();
 
         await Assert.That(found).IsEmpty()
             .Because("Found: " + string.Join(", ", found));
+
+        // The exemption, earned rather than asserted: the member it lets past
+        // can only ever hold one of two labels.
+        await Assert.That(Gg.Contracts.DiffBasis.All.Count).IsEqualTo(2);
+        await Assert.That(Gg.Contracts.DiffBasis.All.All(v => v.Length < 16)).IsTrue()
+            .Because("a label long enough to hold a hunk would not be a label.");
     }
 
     [Test]

@@ -484,7 +484,7 @@ public static class ProtocolSurface
             [typeof(DirectoryChange)] = ["directory", "files", "linesAdded", "linesRemoved"],
             [typeof(LanguageChange)] = ["language", "files", "linesAdded", "linesRemoved"],
             [typeof(ChangeManifest)] =
-                ["baseCommit", "headCommit", "resolution", "paths", "directories", "languages",
-                 "filesChanged", "linesAdded", "linesRemoved", "pathsWithheld"],
+                ["baseCommit", "headCommit", "resolution", "diffBasis", "paths", "directories",
+                 "languages", "filesChanged", "linesAdded", "linesRemoved", "pathsWithheld"],
         };
 }

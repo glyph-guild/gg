@@ -31,9 +31,26 @@ public static class CredentialKinds
 /// What a credential may be used for.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Read, and only read. Nothing in this slice writes anywhere, and a scope
 /// list that could ask for more would be a promise the rest of the system does
 /// not keep - the runner has no write path at all.
+/// </para>
+/// <para>
+/// <b>What is asserted, and what is not.</b> Two things are held today: the
+/// only scope that validates is <c>read</c>, and a reference asking for more
+/// is refused - here, and again by the control plane. The stronger claim,
+/// <i>a write attempt fails at the credential rather than at our API</i>, is
+/// NOT asserted and must not be, because nothing fetches anything yet and
+/// there is no real token to try it with. A test for it now would assert our
+/// own intention and pass forever.
+/// </para>
+/// <para>
+/// It is <b>step 6's criterion</b>: when the runner fetches for the first
+/// time, the thing to prove is that a write refused by the provider is
+/// refused by the credential's own scope - which is a claim about a token
+/// somebody actually minted, and only provable against one.
+/// </para>
 /// </remarks>
 public static class CredentialScopes
 {

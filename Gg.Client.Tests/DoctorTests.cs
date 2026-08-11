@@ -19,10 +19,22 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class DoctorTests
 {
+    /// <summary>
+    /// A doctor pointed at a scratch credential store.
+    /// </summary>
+    /// <remarks>
+    /// The store is real but empty and lives under the temp directory: these
+    /// tests are about the other checks, and a doctor reading the developer's
+    /// own store would answer differently on every machine.
+    /// </remarks>
     private static Doctor Build(StubControlPlane stub, ISessionStore sessions) =>
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
             sessions,
+            ScratchStore(),
             new Uri(stub.BaseAddress));
+
+    private static FileCredentialStore ScratchStore() =>
+        new(Path.Combine(Path.GetTempPath(), "gg-doctor-tests", Guid.NewGuid().ToString("n")));
 
     private sealed class HeldSession(StoredSession? session) : ISessionStore
     {
@@ -62,6 +74,7 @@ public class DoctorTests
         var unreachable = new Doctor(
             new ControlPlaneClient(new HttpClient { BaseAddress = new Uri("http://127.0.0.1:1/") }),
             new HeldSession(AValidSession()),
+            ScratchStore(),
             new Uri("http://127.0.0.1:1/"));
 
         var check = (await unreachable.RunAsync()).Checks.Single(c => c.Name == DoctorChecks.ControlPlane);
@@ -143,6 +156,7 @@ public class DoctorTests
         var unreachable = new Doctor(
             new ControlPlaneClient(new HttpClient { BaseAddress = new Uri("http://127.0.0.1:1/") }),
             new HeldSession(AValidSession()),
+            ScratchStore(),
             new Uri("http://127.0.0.1:1/"));
 
         var report = await unreachable.RunAsync();
@@ -226,12 +240,13 @@ public class DoctorTests
     [Test]
     public async Task Doctor_checks_nothing_that_does_not_exist_yet()
     {
-        // Credential resolution joins at step 5. A check that passed because
-        // the feature is absent is the same lie as a stub verb.
+        // Credentials came off this list at step 5, which is what a list like
+        // this is for. The rest stay: a check that passed because the feature
+        // is absent is the same lie as a stub verb.
         await using var stub = new StubControlPlane();
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
-        foreach (var absent in (string[])["credential", "bundle", "envelope", "fact"])
+        foreach (var absent in (string[])["bundle", "envelope", "fact", "digest"])
         {
             await Assert.That(report.Checks.Any(c => c.Name.Contains(absent, StringComparison.OrdinalIgnoreCase)))
                 .IsFalse()

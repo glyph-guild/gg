@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Gg.Contracts;
 using Gg.Contracts.Description;
 using Gg.Runner;
@@ -24,6 +25,19 @@ internal sealed class FakeProtocol : IRunnerProtocol
 {
     internal List<string> Calls { get; } = [];
 
+    /// <summary>
+    /// Every request body this fake was handed, serialized.
+    /// </summary>
+    /// <remarks>
+    /// So "the resolved secret never leaves this machine" is asserted against
+    /// what would actually go on the wire, rather than against the parameter
+    /// list of the method that would send it.
+    /// </remarks>
+    internal List<string> Serialized { get; } = [];
+
+    /// <summary>The credential diagnosis carried by the most recent release.</summary>
+    internal CredentialResolutionFailure? LastCredentialFailure { get; private set; }
+
     internal Queue<ClaimResult> Claims { get; } = new();
 
     internal Queue<RenewResult> Renewals { get; } = new();
@@ -32,10 +46,13 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     internal int HeartbeatSeconds { get; set; } = 1;
 
+    private void Record<T>(T body) => Serialized.Add(JsonSerializer.Serialize(body, JsonSerializerOptions.Web));
+
     public Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
     {
         Calls.Add("heartbeat");
+        Record(new RunnerHeartbeat { Labels = labels });
         return Task.FromResult(new HeartbeatAccepted { NextHeartbeatSeconds = HeartbeatSeconds });
     }
 
@@ -44,20 +61,34 @@ internal sealed class FakeProtocol : IRunnerProtocol
         CancellationToken cancellationToken = default)
     {
         Calls.Add($"claim:{maxWaitSeconds}");
+        Record(new LeaseClaimRequest { RunnerId = runnerId, Labels = labels, MaxWaitSeconds = maxWaitSeconds });
         return Task.FromResult(Claims.Count > 0 ? Claims.Dequeue() : new ClaimResult.Nothing());
     }
 
     public Task<RenewResult> RenewAsync(string leaseId, int generation, CancellationToken cancellationToken = default)
     {
         Calls.Add($"renew:{generation}");
+        Record(new LeaseRenewalRequest { Generation = generation });
         return Task.FromResult(Renewals.Count > 0 ? Renewals.Dequeue() : new RenewResult.Renewed(DateTimeOffset.MaxValue));
     }
 
     public Task<ReleaseResult> ReleaseAsync(
         string leaseId, int generation, string disposition, string? detail = null,
+        CredentialResolutionFailure? credentialFailure = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add($"release:{generation}:{disposition}");
+        LastCredentialFailure = credentialFailure;
+        Record(new LeaseReleaseRequest
+        {
+            Generation = generation,
+            Disposition = disposition,
+            Detail = detail,
+            CredentialFailure = credentialFailure,
+        });
+        // The lease id is on the path rather than in the body, and the secret
+        // assertion sweeps everything the runner produced - so it goes in too.
+        Serialized.Add(leaseId);
         return Task.FromResult(Release);
     }
 }
@@ -88,6 +119,10 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Fenced(string leaseId) => Record($"fenced:{leaseId}");
     public void Released(string leaseId, string disposition) => Record($"released:{disposition}");
     public void Idle() => Record("idle");
+
+    /// <summary>The reference, and nothing that came out of resolving it.</summary>
+    public void CredentialUnresolved(CredentialResolutionFailure failure) =>
+        Record($"unresolved:{failure.Reference.Locator}");
 }
 
 internal static class Leases
@@ -99,6 +134,9 @@ internal static class Leases
         FlightId = "flight-1",
         FlightNumber = FlightRef.Format(1042),
         Repos = [],
+        // Nothing to resolve. A flight only carries references once somebody
+        // has registered one for a repository it touches.
+        Credentials = [],
         ClassificationCeiling = "internal",
         ExpiresAt = expiresAt,
         RenewWithinSeconds = renewWithin,

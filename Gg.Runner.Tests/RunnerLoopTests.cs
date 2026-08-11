@@ -29,7 +29,10 @@ public class RunnerLoopTests
                 clock.Advance(span);
                 return Task.CompletedTask;
             },
-            observer)
+            observer,
+            // Nothing here grants a lease carrying a reference, so nothing is
+            // ever asked of this. Credential resolution has its own file.
+            new NoCredentialResolver())
         {
             HoldFor = holdFor ?? TimeSpan.FromSeconds(3),
         };

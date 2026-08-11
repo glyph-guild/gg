@@ -16,6 +16,7 @@ public static class Vocabulary
         typeof(DeviceTokenRequest),
         typeof(SessionIssued),
         typeof(WhoAmI),
+        typeof(TenantNotice),
         typeof(RunnerRegistrationRequest),
         typeof(RunnerRegistered),
         typeof(RunnerHeartbeat),

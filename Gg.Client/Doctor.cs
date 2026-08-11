@@ -1,3 +1,5 @@
+using Gg.Contracts;
+
 namespace Gg.Client;
 
 /// <summary>The checks <c>gg doctor</c> runs.</summary>
@@ -11,6 +13,15 @@ public static class DoctorChecks
     public const string ControlPlane = "control plane";
     public const string Protocol = "protocol";
     public const string Session = "session";
+
+    /// <summary>Reporting a flight's result back to where it came from.</summary>
+    /// <remarks>
+    /// The degradation nothing on this machine can detect. Flights keep
+    /// running and keep recording facts - the runner uses the customer's own
+    /// credential and never needed the control plane's - so the only symptom
+    /// is a pull request with no check on it, and nothing about that says why.
+    /// </remarks>
+    public const string Egress = "egress";
     public const string Runner = "runner";
 
     /// <summary>Where secrets live on this machine, and how they are protected.</summary>
@@ -182,8 +193,74 @@ public sealed class Doctor(
         checks.Add(CredentialStoreCheck());
         checks.Add(await CredentialResolutionCheckAsync(
             stored, reachable, protocolRefusal is null, cancellationToken));
+        checks.AddRange(await TenantNoticeChecksAsync(
+            stored, reachable, protocolRefusal is null, cancellationToken));
 
         return new DoctorReport { Checks = checks };
+    }
+
+    /// <summary>
+    /// What the control plane says is degraded, said here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>None of these can be detected from this machine.</b> That is the
+    /// whole reason they travel: the control plane knows its app was
+    /// uninstalled, and nothing gg can measure locally does.
+    /// </para>
+    /// <para>
+    /// <b>The sentence is rendered, never composed.</b> gg names no forge, so
+    /// a remedy written here would either say nothing useful or would put a
+    /// provider's name in this binary. Blocking and fixable come from the
+    /// control plane too - a tool that promoted advisories to failures would
+    /// make every notice a broken build.
+    /// </para>
+    /// <para>
+    /// Nothing when there is nothing wrong. A doctor that always printed a
+    /// green egress line would train somebody to read past the line that
+    /// matters.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<DoctorCheck>> TenantNoticeChecksAsync(
+        StoredSession? stored, bool reachable, bool protocolOk, CancellationToken cancellationToken)
+    {
+        // Nothing to ask on behalf of. Reporting somebody else's degradation
+        // to an unauthenticated caller would be both wrong and a disclosure.
+        if (stored is null || !reachable || !protocolOk)
+        {
+            return [];
+        }
+
+        WhoAmI? who;
+        try
+        {
+            who = await _client.WhoAmIAsync(stored.SessionToken, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // The session check above already reported the connection. A
+            // second red line about the same failure is noise.
+            return [];
+        }
+
+        return
+        [
+            .. (who?.Notices ?? []).Select(notice => new DoctorCheck
+            {
+                Name = notice.Code,
+                Passed = false,
+                // Stripped here: this is the last code between a response body
+                // and somebody's terminal, and a notice is externally-sourced
+                // text arriving at a renderer like any other.
+                Detail = ControlText.Strip(notice.Detail),
+                Blocking = notice.Blocking,
+                // Answered separately, and never claimed without a remedy to
+                // name. "Fixable, but we cannot say how" sends somebody
+                // looking for an hour.
+                Fixable = notice.Remedy is { Length: > 0 },
+                Fix = notice.Remedy is { Length: > 0 } remedy ? ControlText.Strip(remedy) : null,
+            }),
+        ];
     }
 
     /// <summary>

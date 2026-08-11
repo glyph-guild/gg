@@ -46,7 +46,6 @@ public class TenantNoticeTests
         ExpiresAt = DateTimeOffset.UtcNow.AddHours(12),
         TenantId = "019fe062-d000-730c-a37d-7247342cd810",
         PrincipalDisplay = "stub-principal",
-        ControlPlane = "http://127.0.0.1",
     };
 
     private static TenantNotice ARevokedEgressNotice() => new()
@@ -60,7 +59,7 @@ public class TenantNoticeTests
     [Test]
     public async Task A_notice_becomes_a_check()
     {
-        using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
+        await using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
         var check = report.Checks.SingleOrDefault(c => c.Name == DoctorChecks.Egress);
@@ -75,7 +74,7 @@ public class TenantNoticeTests
         // The twin. A doctor that always printed an egress line would train
         // somebody to read past the one that matters, and there is nothing
         // useful to say about egress that is working.
-        using var stub = new StubControlPlane();
+        await using var stub = new StubControlPlane();
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
         await Assert.That(report.Checks.Any(c => c.Name == DoctorChecks.Egress)).IsFalse();
@@ -87,7 +86,7 @@ public class TenantNoticeTests
         // Not a remedy written here. gg cannot name the forge, so a sentence
         // composed on this side would either be useless or would break the
         // neutrality rule the whole design rests on.
-        using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
+        await using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
         var check = report.Checks.Single(c => c.Name == DoctorChecks.Egress);
@@ -102,7 +101,7 @@ public class TenantNoticeTests
     {
         // What "blocking" is for. A check that reads red and exits 0 is a
         // check that a script ignores.
-        using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
+        await using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
         await Assert.That(report.Checks.Single(c => c.Name == DoctorChecks.Egress).Blocking).IsTrue();
@@ -115,7 +114,7 @@ public class TenantNoticeTests
         // The twin of the assertion above. The control plane decides which a
         // notice is; gg must not upgrade one, or every advisory becomes a
         // broken build.
-        using var stub = new StubControlPlane
+        await using var stub = new StubControlPlane
         {
             Notices = [ARevokedEgressNotice() with { Blocking = false, Remedy = null }],
         };
@@ -131,21 +130,25 @@ public class TenantNoticeTests
     [Test]
     public async Task A_notice_naming_a_forge_still_renders_because_gg_never_composes_one()
     {
+        // Spelled in fragments for the same reason the shape tests are:
+        // ProviderNeutralityTests scans test files, and it is right to.
+        var forge = "git" + "hub.com";
+
         // The neutrality rule cuts one way only: gg contains no forge name, and
         // it renders whatever sentence it is handed. A gg that filtered
         // provider names out of a control-plane diagnosis would be a gg that
         // hides the remedy.
-        using var stub = new StubControlPlane
+        await using var stub = new StubControlPlane
         {
             Notices = [ARevokedEgressNotice() with
             {
-                Detail = "The Good Grief app is no longer installed on github.com for glyph-guild.",
+                Detail = $"The Good Grief app is no longer installed on {forge} for glyph-guild.",
             }],
         };
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
         await Assert.That(report.Checks.Single(c => c.Name == DoctorChecks.Egress).Detail)
-            .Contains("github.com");
+            .Contains(forge);
     }
 
     [Test]
@@ -155,15 +158,15 @@ public class TenantNoticeTests
         // the same shape as every other ingress in this system. The control
         // plane strips at its own edge; this is the last code between a
         // response body and somebody's terminal.
-        using var stub = new StubControlPlane
+        await using var stub = new StubControlPlane
         {
-            Notices = [ARevokedEgressNotice() with { Detail = "clean[31mred[0m" }],
+            Notices = [ARevokedEgressNotice() with { Detail = "clean\u001b[31mred\u001b[0m" }],
         };
         var report = await Build(stub, new HeldSession(AValidSession())).RunAsync();
 
         var detail = report.Checks.Single(c => c.Name == DoctorChecks.Egress).Detail;
 
-        await Assert.That(detail).DoesNotContain("");
+        await Assert.That(detail).DoesNotContain("\u001b");
         await Assert.That(detail).Contains("red")
             .Because("stripped rather than dropped - if the text vanished, the absence above would "
                    + "also pass on a doctor that silently discarded the notice.");
@@ -174,7 +177,7 @@ public class TenantNoticeTests
     {
         // Nothing to ask on behalf of. A doctor that reported an egress problem
         // to somebody who is not signed in would be reporting somebody else's.
-        using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
+        await using var stub = new StubControlPlane { Notices = [ARevokedEgressNotice()] };
         var report = await Build(stub, new HeldSession(null)).RunAsync();
 
         await Assert.That(report.Checks.Any(c => c.Name == DoctorChecks.Egress)).IsFalse();

@@ -48,6 +48,55 @@ public class ContractSurfaceTests
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
         ?? throw new InvalidOperationException("contract-versions.json is empty");
 
+    /// <summary>
+    /// The assembly version is pinned, and both ledgers depend on it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A regression guard rather than a discovery: this arrived WITH its fix,
+    /// because the fix and the fact it asserts are the same thing. What
+    /// discovered the defect was the fact-vocabulary ledger failing on a
+    /// release that touched no fact.
+    /// </para>
+    /// <para>
+    /// Both fingerprints record <c>Type.FullName</c>, and for a constructed
+    /// generic that string embeds the assembly-qualified name of the argument,
+    /// including <c>Version=</c>. So the assembly version leaked into every
+    /// recorded surface, and bumping the package version made both ledgers cry
+    /// "the surface changed" when nothing had - the exact false alarm that
+    /// teaches somebody to re-record a hash without reading the diff.
+    /// </para>
+    /// <para>
+    /// Unpinning it invalidates every entry in both ledgers at once, silently,
+    /// and there is no way back: the recorded values of shipped versions may
+    /// not be edited.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task The_assembly_version_is_pinned_because_both_ledgers_hash_it()
+    {
+        var pinned = typeof(Vocabulary).Assembly.GetName().Version;
+
+        await Assert.That(pinned?.ToString()).IsEqualTo("0.10.0.0")
+            .Because("every surface in contract-versions.json and fact-vocabulary.json was computed "
+                   + "under this number. Moving it rewrites all of them at once.");
+    }
+
+    /// <summary>
+    /// Proof the leak is real, so the pin above is not cargo.
+    /// </summary>
+    /// <remarks>
+    /// If <c>FullName</c> ever stopped embedding the version, the pin would be
+    /// harmless superstition and this would say so by failing.
+    /// </remarks>
+    [Test]
+    public async Task A_generic_property_type_name_really_does_carry_the_assembly_version()
+    {
+        var name = typeof(IReadOnlyList<WhoAmI>).FullName;
+
+        await Assert.That(name).Contains("Version=0.10.0.0");
+    }
+
     /// <summary>The version this build of the contract claims to be.</summary>
     private static string DeclaredVersion() =>
         typeof(Vocabulary).Assembly

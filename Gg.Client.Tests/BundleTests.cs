@@ -176,7 +176,7 @@ public class BundleTests
             Bundle.Build(T0, AnEnvironment(), AReport(ACheck(DoctorChecks.ControlPlane)), ALog()));
 
         var json = VerbOutput.ToJson(result);
-        var rendered = VerbOutput.Render(result);
+        var rendered = VerbOutput.ToText(result);
 
         await Assert.That(result.Kind).IsEqualTo(VerbResultKinds.Bundle);
         await Assert.That(json).Contains("hostFingerprint");
@@ -192,8 +192,8 @@ public class BundleTests
             Bundle.Build(T0, AnEnvironment(), AReport(
                 ACheck(DoctorChecks.Telemetry, passed: false, detail: "exports somewhere")), ALog()));
 
-        var round = VerbOutput.FromJson(VerbResultKinds.Bundle, VerbOutput.ToJson(result));
+        var round = VerbOutput.Parse(VerbResultKinds.Bundle, VerbOutput.ToJson(result));
 
-        await Assert.That(VerbOutput.Render(round!)).IsEqualTo(VerbOutput.Render(result));
+        await Assert.That(VerbOutput.ToText(round)).IsEqualTo(VerbOutput.ToText(result));
     }
 }

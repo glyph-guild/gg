@@ -38,6 +38,18 @@ internal sealed class ConsoleObserver : IRunnerObserver
         System.Console.WriteLine($"shipped {count} fact(s)");
 
     /// <summary>
+    /// How the loop ended, and what it reached for.
+    /// </summary>
+    /// <remarks>
+    /// Never a line of what the agent produced. This is stdout, and stdout is
+    /// what a customer pastes into a ticket - the outcome and the counts are
+    /// safe there and the work is not.
+    /// </remarks>
+    public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
+        System.Console.WriteLine(
+            $"loop {loopId} {outcome} after {attempts} attempt(s), used {movesUsed.Count} move(s)");
+
+    /// <summary>
     /// The reference and the problem. Never anything resolving it produced.
     /// </summary>
     /// <remarks>

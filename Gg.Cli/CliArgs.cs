@@ -63,6 +63,19 @@ public abstract record CliAction
     /// <summary>A redacted diagnostics bundle.</summary>
     public sealed record Bundle(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>The tenant's envelope, as canonical text.</summary>
+    public sealed record EnvelopeShow(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Writes an envelope back, from a file or from stdin.</summary>
+    /// <remarks>
+    /// A path or "-". Reading from stdin is what makes this composable with an
+    /// editor and with the sync a customer keeping envelopes in git will want.
+    /// </remarks>
+    public sealed record EnvelopeApply(string Source, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Checks an envelope without contacting anything.</summary>
+    public sealed record EnvelopeValidate(string Source, bool Json) : CliAction, IEmitsResult;
+
     public sealed record Unknown(string Message) : CliAction;
 }
 
@@ -93,6 +106,9 @@ public static class CliArgs
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
+        "gg envelope show               the rules governing this tenant's flights",
+        "gg envelope apply <file>|-     write them back",
+        "gg envelope validate <file>|-  check a file without sending it anywhere",
         "gg doctor                      check what gg needs to work",
         "gg bundle                      a redacted diagnostics bundle to send us",
         "gg login | logout | whoami     identity",
@@ -131,6 +147,15 @@ public static class CliArgs
             ["runners"] => new CliAction.Runners(json),
             ["doctor"] => new CliAction.Doctor(json),
             ["bundle"] => new CliAction.Bundle(json),
+
+            ["envelope", "show"] => new CliAction.EnvelopeShow(json),
+            ["envelope", "apply", var source] => new CliAction.EnvelopeApply(source, json),
+            ["envelope", "apply"] => Unknown(
+                "gg envelope apply needs a file, or - to read the envelope from stdin."),
+            ["envelope", "validate", var source] => new CliAction.EnvelopeValidate(source, json),
+            ["envelope", "validate"] => Unknown(
+                "gg envelope validate needs a file, or - to read the envelope from stdin."),
+            ["envelope", ..] => Unknown("gg envelope takes show, apply or validate."),
 
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),

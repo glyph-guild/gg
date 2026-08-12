@@ -113,7 +113,8 @@ public static class ProtocolSurface
     /// would be an unaudited path into the one table Article VIII is about.
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
-        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials"];
+        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials",
+         "/v1/envelope"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -348,6 +349,32 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/envelope",
+            Audience = Audience.Developer,
+            Response = typeof(EnvelopeState),
+            // 404 is a tenant that has never applied one, and it is a
+            // DIFFERENT answer from an empty envelope: one of them governs
+            // nothing on purpose and the other has never been set up.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "PUT",
+            Path = "/v1/envelope",
+            Audience = Audience.Developer,
+            Request = typeof(Envelope),
+            Response = typeof(EnvelopeApplied),
+            // 400 is a refused envelope, with the diagnosis Envelope.Validate
+            // produced. The control plane checks on its own terms rather than
+            // trusting that gg did - both sides fail closed on their own
+            // format.
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
     ];
 
     /// <summary>
@@ -417,6 +444,15 @@ public static class ProtocolSurface
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
         new Dictionary<Type, IReadOnlyList<string>>
         {
+            [typeof(ContextBinding)] = ["scope", "constitution"],
+            [typeof(Obligation)] = ["id", "check", "rule", "provenance"],
+            [typeof(LoopBudget)] = ["wallClock"],
+            [typeof(Loop)] =
+                ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
+            [typeof(Destination)] = ["id", "kind", "requires"],
+            [typeof(Envelope)] = ["context", "obligations", "loops", "destinations"],
+            [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
+            [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed"],
             [typeof(ProtocolHello)] = ["protocolVersion", "component", "componentVersion"],
             [typeof(DeviceAuthorizationRequest)] = ["deviceLabel"],
             [typeof(DeviceAuthorizationStarted)] =

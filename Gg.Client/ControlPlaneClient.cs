@@ -25,6 +25,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(CredentialList))]
 [JsonSerializable(typeof(CredentialRemoved))]
+[JsonSerializable(typeof(Envelope))]
+[JsonSerializable(typeof(EnvelopeState))]
+[JsonSerializable(typeof(EnvelopeApplied))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -194,6 +197,69 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.FlightList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no flight list.");
+    }
+
+    /// <summary>
+    /// The tenant's envelope, or null when it has never applied one.
+    /// </summary>
+    /// <remarks>
+    /// Null and "an envelope that governs nothing" are different answers, and
+    /// the endpoint keeps them apart with a 404. A tenant that has never set
+    /// one up should be told to; one whose envelope is deliberately permissive
+    /// should not.
+    /// </remarks>
+    public async Task<EnvelopeState?> GetEnvelopeAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/envelope", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeState, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no envelope.");
+    }
+
+    /// <summary>
+    /// Writes the envelope back, and answers with the version it became.
+    /// </summary>
+    /// <remarks>
+    /// The wire is JSON even though the thing a person edited was YAML. The
+    /// control plane holds no YAML parser at all - that is a property worth
+    /// having deliberately rather than by accident, since it is the service that
+    /// holds the platform's own signing keys - so the format is translated
+    /// here, on the side that already has the grammar.
+    /// </remarks>
+    public async Task<EnvelopeApplied> ApplyEnvelopeAsync(
+        string sessionToken, Envelope envelope, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Put, "/v1/envelope", sessionToken);
+        request.Content = JsonContent.Create(envelope, ProtocolJsonContext.Default.Envelope);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // The control plane's own diagnosis, carried through unchanged. It
+            // validated on its own terms rather than trusting that gg did, and
+            // if the two disagree the person needs to see which one refused.
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
     }
 
     /// <summary>One flight, or null if the reference names none.</summary>

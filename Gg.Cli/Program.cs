@@ -21,6 +21,14 @@ return CliArgs.Parse(args) switch
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 
+    CliAction.EnvelopeShow show => await EnvelopeAsync(show.Json, c => c.ShowAsync()),
+    CliAction.EnvelopeApply apply =>
+        await EnvelopeAsync(apply.Json, c => c.ApplyAsync(ReadEnvelope(apply.Source))),
+    // No client and no session: validate contacts nothing, so a syntax error
+    // costs no round trip and works with no network at all.
+    CliAction.EnvelopeValidate check => EmitLocal(check.Json, () =>
+        EnvelopeCommands.Validate(ReadEnvelope(check.Source))),
+
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
@@ -30,6 +38,80 @@ return CliArgs.Parse(args) switch
     CliAction.Unknown unknown => Fail(unknown.Message),
     _ => Fail("unhandled action"),
 };
+
+/// <summary>
+/// The envelope text, from a file or from stdin.
+/// </summary>
+/// <remarks>
+/// "-" reads stdin, which is what makes this compose with an editor and with
+/// the sync a customer keeping envelopes in git will want. Their review
+/// process, our authority.
+/// </remarks>
+static string ReadEnvelope(string source) =>
+    source == "-" ? Console.In.ReadToEnd() : File.ReadAllText(source);
+
+/// <summary>
+/// A verb that needs nothing but the text it was handed.
+/// </summary>
+/// <remarks>
+/// <b>An invalid envelope exits non-zero</b>, while still printing the whole
+/// structured result. A validator that reports success on a document it just
+/// refused is one nobody can put in a pipeline, and the pipeline is where this
+/// verb earns its keep - a customer keeping envelopes in git wants their
+/// review process and our authority.
+/// </remarks>
+static int EmitLocal(bool json, Func<VerbResult> run)
+{
+    try
+    {
+        var result = run();
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+        return result is VerbResult.EnvelopeValidated { Value.Valid: false } ? 1 : 0;
+    }
+    catch (IOException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+    catch (UnauthorizedAccessException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+}
+
+/// <summary>The envelope verbs, which need a session and the control plane.</summary>
+static async Task<int> EnvelopeAsync(bool json, Func<EnvelopeCommands, Task<VerbResult>> run)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var commands = new EnvelopeCommands(new ControlPlaneClient(http), new FileSessionStore());
+
+    try
+    {
+        var result = await run(commands);
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+        return 0;
+    }
+    catch (NotSignedInException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (NoEnvelopeException missing)
+    {
+        return Fail(missing.Message);
+    }
+    catch (EnvelopeUnreadableException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+    catch (EnvelopeRefusedException refused)
+    {
+        return Fail(refused.Message);
+    }
+    catch (IOException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+}
 
 static string ControlPlaneAddress() =>
     Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") ?? "http://localhost:5199";

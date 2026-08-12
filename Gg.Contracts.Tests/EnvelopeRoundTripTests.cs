@@ -97,6 +97,12 @@ public class EnvelopeRoundTripTests
         // The Norway problem by its own name, plus its relatives. None of these
         // is a value we expect; all of them are values a reader would silently
         // retype.
+        //
+        // The emitter's rule is an ALLOW-LIST rather than this list: an
+        // identifier survives unquoted and everything else is quoted. These are
+        // the cases that would hurt, asserted directly, but the rule catches a
+        // larger set than anybody enumerated - which is the point of writing it
+        // that way round.
         foreach (var hazard in (string[])["no", "yes", "true", "false", "null", "~", "on", "off", "1.10", "010"])
         {
             var text = EnvelopeText.Render(AnEnvelope(constitution: hazard));
@@ -150,7 +156,7 @@ public class EnvelopeRoundTripTests
                   - run-tests
                   - search
                 budget:
-                  wall-clock: 30m
+                  wall-clock: "30m"
                 on-exhaustion: handoff-to-human
             destinations:
               pull-request:

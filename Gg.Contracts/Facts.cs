@@ -43,9 +43,36 @@ public static class FactKinds
     /// <summary>What changed between the base and the head that was examined.</summary>
     public const string ChangeManifest = "change.manifest";
 
+    /// <summary>
+    /// What a loop did: attempts, moves used, how it ended and why.
+    /// </summary>
+    /// <remarks>
+    /// Everything in it is MEASURED - the executor's own result and the tool
+    /// calls it made - never anything the agent said about its work. That is
+    /// what keeps an injected instruction out of a machine-checked verdict.
+    /// </remarks>
+    public const string LoopOutcome = "loop.outcome";
+
+    /// <summary>
+    /// Where the loop's transcript is, without carrying it.
+    /// </summary>
+    /// <remarks>
+    /// Hash, size, content type and a locator. The bytes are customer-adjacent
+    /// and enormous; the reference proves what they were and crosses in a few
+    /// hundred bytes.
+    /// </remarks>
+    public const string LoopTranscript = "loop.transcript";
+
     /// <summary>Every kind that validates.</summary>
+    /// <remarks>
+    /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
+    /// runner-side check reports, and the only obligation this slice has is
+    /// evaluated control-plane-side - there is no check to report one. A kind
+    /// the pinned runner cannot produce would arrive absent rather than
+    /// loudly, which is the failure this list exists to prevent.
+    /// </remarks>
     public static IReadOnlyList<string> All { get; } =
-        [EnvironmentIdentity, SourceProvenance, ChangeManifest];
+        [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript];
 }
 
 /// <summary>
@@ -91,7 +118,11 @@ public static class FactVocabulary
     /// reading 0.3.0 manifests cannot tell which diff they described, and the
     /// version is how it knows to stop guessing.
     /// </remarks>
-    public const string Version = "0.5.0";
+    /// 0.6.0 adds loop.outcome and loop.transcript: the first facts produced by
+    /// something other than inspection. A control plane reading 0.5.0 cannot
+    /// know a flight ran an executor at all, which is exactly the kind of
+    /// silence this version exists to break.
+    public const string Version = "0.6.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -576,6 +607,12 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.ChangeManifest"/>.</summary>
     public ChangeManifest? Change { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopOutcome"/>.</summary>
+    public LoopOutcome? Loop { get; init; }
+
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopTranscript"/>.</summary>
+    public ArtifactReference? Transcript { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
     /// A sentence rather than a bool, for the same reason every other Validate
@@ -611,6 +648,8 @@ public sealed record FactEnvelope
             (FactKinds.EnvironmentIdentity, envelope.Environment is not null),
             (FactKinds.SourceProvenance, envelope.Source is not null),
             (FactKinds.ChangeManifest, envelope.Change is not null),
+            (FactKinds.LoopOutcome, envelope.Loop is not null),
+            (FactKinds.LoopTranscript, envelope.Transcript is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -629,6 +668,31 @@ public sealed record FactEnvelope
         {
             return $"Unknown environment provenance '{environment.Provenance}'. Expected one of: "
                  + string.Join(", ", EnvironmentProvenance.All) + ".";
+        }
+
+        if (envelope.Loop is { } loop && LoopOutcome.Validate(loop) is { } badLoop)
+        {
+            return badLoop;
+        }
+
+        if (envelope.Transcript is { } transcript)
+        {
+            if (!IsSha256(transcript.Sha256))
+            {
+                return $"'{transcript.Sha256}' is not a sha256. A reference whose hash cannot be "
+                     + "compared proves nothing about what it points at.";
+            }
+
+            if (!ArtifactScopes.All.Contains(transcript.Scope))
+            {
+                return $"Unknown artifact scope '{transcript.Scope}'. Expected one of: "
+                     + string.Join(", ", ArtifactScopes.All) + ".";
+            }
+
+            if (string.IsNullOrWhiteSpace(transcript.Locator))
+            {
+                return "A reference carries a locator. Without one it names nothing.";
+            }
         }
 
         return envelope.Change is { } change ? ChangeManifest.Validate(change) : null;

@@ -444,6 +444,11 @@ public static class ProtocolSurface
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
         new Dictionary<Type, IReadOnlyList<string>>
         {
+            [typeof(LeaseLoop)] =
+                ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion"],
+            [typeof(LoopOutcome)] =
+                ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed"],
+            [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
             [typeof(Obligation)] = ["id", "check", "rule", "provenance"],
             [typeof(LoopBudget)] = ["wallClock"],
@@ -469,7 +474,8 @@ public static class ProtocolSurface
             [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef", "baseRef"],
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
-                 "classificationCeiling", "classificationRules", "expiresAt", "renewWithinSeconds"],
+                 "classificationCeiling", "classificationRules", "expiresAt", "renewWithinSeconds",
+                 "intentUri", "loop"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],
@@ -509,7 +515,8 @@ public static class ProtocolSurface
                 ["provider", "slug", "requestedRef", "resolvedRef", "headCommit",
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
-                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change"],
+                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
+                 "loop", "transcript"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected"],

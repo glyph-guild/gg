@@ -110,6 +110,13 @@ public class DiffBasisTests
         // The mechanism that exists so a runner and a control plane cannot
         // disagree about what a fact means. Adding a required member to a
         // pinned fact type is exactly the change it is for.
-        await Assert.That(FactVocabulary.Version).IsEqualTo("0.5.0");
+        //
+        // Asserted as "at least the version this shape arrived in" rather than
+        // as a literal. DiffBasis landed in 0.5.0 and the vocabulary has moved
+        // since; pinning the literal here made every later fact type edit this
+        // test, which teaches somebody to edit it without reading it.
+        await Assert.That(string.CompareOrdinal(FactVocabulary.Version, "0.5.0"))
+            .IsGreaterThanOrEqualTo(0)
+            .Because("DiffBasis arrived in 0.5.0, so the vocabulary can never be older than that.");
     }
 }

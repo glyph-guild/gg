@@ -97,6 +97,51 @@ public sealed record LeaseRepoRef
 }
 
 /// <summary>
+/// The loop a lease authorises, flattened from the envelope.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Flattened rather than carrying the envelope itself. The runner needs four
+/// things to run a loop and must not be handed the document that decides what
+/// it is allowed to do - policy arriving at a runner is Article IX's failure
+/// wearing a convenience.
+/// </para>
+/// <para>
+/// <b>Moves are recorded, not enforced.</b> They are sent so the runner can
+/// report which of them it used; nothing here bounds the executor, and the
+/// capability declaration says why - the adapter cannot restrict its own tool
+/// list. Recording what a flight used is what makes bounding it designable.
+/// </para>
+/// </remarks>
+[PinnedId("2d740fb8-6e51-49a3-8c07-b1f9e35a4d26")]
+public sealed record LeaseLoop
+{
+    /// <summary>Which loop, by its id in the envelope.</summary>
+    public required string LoopId { get; init; }
+
+    /// <summary>Which rung runs it.</summary>
+    public required string Executor { get; init; }
+
+    /// <summary>What it may do. Recorded, never enforced.</summary>
+    public required IReadOnlyList<string> Moves { get; init; }
+
+    /// <summary>
+    /// Wall clock, in seconds. The one budget this slice enforces.
+    /// </summary>
+    /// <remarks>
+    /// Seconds rather than the envelope's text form, because the runner needs
+    /// a number and the grammar that reads "30m" lives on the other side.
+    /// Attempts and tokens are NOT enforced - the executor reports both, but
+    /// stopping on them needs a decision about what a partial attempt means
+    /// and this slice does not make one.
+    /// </remarks>
+    public required int WallClockSeconds { get; init; }
+
+    /// <summary>What happens when the budget runs out.</summary>
+    public required string OnExhaustion { get; init; }
+}
+
+/// <summary>
 /// A flight, granted to one runner for a bounded time.
 /// </summary>
 /// <remarks>
@@ -132,6 +177,31 @@ public sealed record LeaseGranted
 
     /// <summary>Repositories this flight operates on, pinned to exact refs.</summary>
     public required IReadOnlyList<LeaseRepoRef> Repos { get; init; }
+
+    /// <summary>
+    /// What the flight is for, as an addressable reference.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reference, never the body.</b> An issue's text is customer
+    /// content and does not cross: the control plane holds the URI, and the
+    /// runner resolves what it points at with the customer's own credential,
+    /// in the customer's environment. That is the same shape as credentials
+    /// and it also avoids a real cost - reading an issue needs a permission
+    /// this platform's app does not have, and ADDING an app permission makes
+    /// every existing installation re-approve.
+    /// </remarks>
+    public string? IntentUri { get; init; }
+
+    /// <summary>
+    /// The loop this flight runs, when its envelope declares one.
+    /// </summary>
+    /// <remarks>
+    /// Null when nothing governs the flight. A runner with no loop does what
+    /// it did before an executor existed: materialize, extract, ship. That is
+    /// a real state rather than a degraded one - most flights in slice one had
+    /// no envelope at all.
+    /// </remarks>
+    public LeaseLoop? Loop { get; init; }
 
     /// <summary>
     /// Which credentials the runner must resolve, and where they are.

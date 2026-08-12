@@ -14,6 +14,12 @@ public abstract record FactPayload
     public sealed record Source(SourceProvenance Value) : FactPayload;
 
     public sealed record Change(ChangeManifest Value) : FactPayload;
+
+    /// <summary>What a loop did. Short, decidable, read first.</summary>
+    public sealed record Loop(LoopOutcome Value) : FactPayload;
+
+    /// <summary>Where the loop's transcript is, without carrying it.</summary>
+    public sealed record Transcript(ArtifactReference Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -43,6 +49,8 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(EnvironmentIdentity))]
 [JsonSerializable(typeof(SourceProvenance))]
 [JsonSerializable(typeof(ChangeManifest))]
+[JsonSerializable(typeof(LoopOutcome))]
+[JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(FactEnvelope))]
 internal sealed partial class FactJsonContext : JsonSerializerContext;
 
@@ -107,6 +115,24 @@ public static class FactPipeline
                     ObservedAt = observedAt,
                     Source = source.Value,
                 },
+                FactPayload.Loop loop => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Loop = loop.Value,
+                },
+
+                FactPayload.Transcript transcript => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Transcript = transcript.Value,
+                },
+
                 FactPayload.Change change => new FactEnvelope
                 {
                     IdempotencyKey = Key(flightId, kind, digest),
@@ -232,6 +258,12 @@ public static class FactPipeline
         FactPayload.Change change => (
             FactKinds.ChangeManifest,
             JsonSerializer.Serialize(change.Value, FactJsonContext.Default.ChangeManifest)),
+        FactPayload.Loop loop => (
+            FactKinds.LoopOutcome,
+            JsonSerializer.Serialize(loop.Value, FactJsonContext.Default.LoopOutcome)),
+        FactPayload.Transcript transcript => (
+            FactKinds.LoopTranscript,
+            JsonSerializer.Serialize(transcript.Value, FactJsonContext.Default.ArtifactReference)),
         _ => throw new InvalidOperationException(
             $"'{payload.GetType().Name}' has no canonical form, so it has no digest."),
     };

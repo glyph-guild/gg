@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Runner.Execution;
 using Gg.Runner.Facts;
 using Gg.Runner.Vcs;
 
@@ -45,6 +46,16 @@ public interface IRunnerObserver
     void FactsShipped(int count);
 
     /// <summary>
+    /// A loop ran, and this is how it ended.
+    /// </summary>
+    /// <remarks>
+    /// The outcome, the attempts and the moves it reached for - never a line of
+    /// what the agent produced. This goes to stdout, and stdout is what a
+    /// customer pastes into a ticket.
+    /// </remarks>
+    void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed);
+
+    /// <summary>
     /// A credential the lease named could not be read here.
     /// </summary>
     /// <remarks>
@@ -67,6 +78,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void Materialized(string slug, string headCommit, long bytes) { }
     public void WorkspaceFailed(string diagnosis) { }
     public void FactsShipped(int count) { }
+    public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) { }
 }
 
 /// <summary>
@@ -99,7 +111,9 @@ public sealed class RunnerLoop(
     Func<TimeSpan, CancellationToken, Task> delay,
     IRunnerObserver observer,
     ICredentialResolver credentials,
-    IWorkspace workspace)
+    IWorkspace workspace,
+    IExecutorPort? executor = null,
+    TranscriptStore? transcripts = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -110,6 +124,20 @@ public sealed class RunnerLoop(
     private readonly IRunnerObserver _observer = observer;
     private readonly ICredentialResolver _credentials = credentials;
     private readonly IWorkspace _workspace = workspace;
+
+    /// <summary>
+    /// The runner's missing verb, when this runner has one.
+    /// </summary>
+    /// <remarks>
+    /// Optional, and null is a real state rather than a degraded one: a runner
+    /// with no executor does exactly what every runner did before this step -
+    /// materialize, extract, ship. Most flights in slice one had no envelope at
+    /// all, so a loop is something a flight HAS rather than something a runner
+    /// requires.
+    /// </remarks>
+    private readonly IExecutorPort? _executor = executor;
+
+    private readonly TranscriptStore _transcripts = transcripts ?? new TranscriptStore();
 
     /// <summary>
     /// How long this no-op runner holds a lease before releasing it.
@@ -297,9 +325,58 @@ public sealed class RunnerLoop(
             _observer.Materialized(tree.Slug, tree.HeadCommit, tree.Bytes);
         }
 
-        await ShipAsync(lease, workspace, cancellationToken);
+        // THE MISSING VERB, here and only here: lease -> resolve -> materialize
+        // -> INVOKE -> extract -> digest -> filter -> emit. The order matters
+        // for a new reason now - the manifest is extracted AFTER the agent has
+        // worked, so what ships is a measurement of the agent's own edits
+        // rather than of the tree it was handed.
+        var run = await InvokeAsync(lease, workspace, cancellationToken);
+
+        await ShipAsync(lease, workspace, run, cancellationToken);
 
         await HoldAsync(runnerId, labels, lease, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs the flight's loop, when it has one and this runner can.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing happens when the flight declares no loop, and nothing happens
+    /// when this runner has no executor. Neither is a failure: the first is a
+    /// flight nothing governs, and the second is a runner that only observes.
+    /// </para>
+    /// <para>
+    /// The agent works in the FIRST tree. One repository per loop this slice;
+    /// a multi-repo flight running one loop has no answer to which tree is
+    /// "the" working directory, and inventing one here would be the second
+    /// loop arriving early.
+    /// </para>
+    /// </remarks>
+    private async Task<ExecutorRun?> InvokeAsync(
+        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+    {
+        if (_executor is null || lease.Loop is not { } loop
+            || lease.IntentUri is not { Length: > 0 } intent
+            || workspace.Trees.Count == 0)
+        {
+            return null;
+        }
+
+        var run = await _executor.ExecuteAsync(
+            new ExecutorRequest
+            {
+                WorkingDirectory = workspace.Trees[0].Path,
+                LoopId = loop.LoopId,
+                IntentUri = intent,
+                Moves = loop.Moves,
+                WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
+                TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),
+            },
+            cancellationToken);
+
+        _observer.LoopFinished(run.LoopId, run.Outcome, run.Attempts, run.MovesUsed);
+        return run;
     }
 
     /// <summary>
@@ -312,7 +389,8 @@ public sealed class RunnerLoop(
     /// produces.
     /// </remarks>
     private async Task ShipAsync(
-        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+        LeaseGranted lease, WorkspaceResult workspace, ExecutorRun? run,
+        CancellationToken cancellationToken)
     {
         var payloads = new List<FactPayload>
         {
@@ -346,6 +424,20 @@ public sealed class RunnerLoop(
                 FileCount = tree.FileCount,
                 Bytes = tree.Bytes,
             }));
+        }
+
+        if (run is not null)
+        {
+            // What the loop did, and where its transcript is. Two facts rather
+            // than one: the outcome is short and decidable and somebody reads
+            // it first; the transcript is enormous and customer-adjacent, so
+            // what crosses is a hash and a locator.
+            payloads.Add(new FactPayload.Loop(run.ToFact(lease.Loop!.Executor)));
+
+            if (run.Transcript is { } transcript)
+            {
+                payloads.Add(new FactPayload.Transcript(transcript));
+            }
         }
 
         var digested = FactPipeline.Digest(new GatheredFacts(payloads), lease.FlightId, _clock.UtcNow);

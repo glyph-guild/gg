@@ -167,6 +167,9 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     /// <summary>Facts left the machine.</summary>
     public void FactsShipped(int count) => Record($"shipped:{count}", lifecycle: false);
+
+    public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
+        Record($"loop:{loopId}:{outcome}:{attempts}", lifecycle: false);
 }
 
 internal static class Leases

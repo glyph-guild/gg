@@ -58,5 +58,13 @@ public static class Vocabulary
         typeof(DirectoryChange),
         typeof(LanguageChange),
         typeof(ChangeManifest),
+        typeof(ContextBinding),
+        typeof(Obligation),
+        typeof(LoopBudget),
+        typeof(Loop),
+        typeof(Destination),
+        typeof(Envelope),
+        typeof(EnvelopeState),
+        typeof(EnvelopeApplied),
     ];
 }

@@ -444,6 +444,10 @@ public static class ProtocolSurface
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
         new Dictionary<Type, IReadOnlyList<string>>
         {
+            [typeof(DestinationLanded)] =
+                ["destinationId", "branch", "pullRequestUri", "pullRequestNumber"],
+            [typeof(DestinationAdmission)] =
+                ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
                 ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion"],
             [typeof(LoopOutcome)] =
@@ -516,10 +520,10 @@ public static class ProtocolSurface
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
-                 "loop", "transcript"],
+                 "loop", "transcript", "landed"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
-            [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected"],
+            [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected", "admission"],
             [typeof(ClassificationRule)] = ["pathGlob", "classification"],
             // Paths and counts. Nothing here a line of a file could travel in,
             // asserted over the shape as well as declared.

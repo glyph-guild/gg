@@ -100,47 +100,6 @@ public interface IDestinationAdapter
 }
 
 /// <summary>
-/// How a branch is named, so a person can trace it back.
-/// </summary>
-/// <remarks>
-/// Declared here because the control plane names the branch and the runner
-/// pushes it: two derivations of one name is how a flight ends up unable to
-/// find the branch it just created.
-/// </remarks>
-public static class DestinationBranch
-{
-    /// <summary>The prefix every branch this platform creates carries.</summary>
-    public const string Prefix = "gg/";
-
-    /// <summary>
-    /// The branch for a flight, carrying its number.
-    /// </summary>
-    /// <remarks>
-    /// <c>GG-42</c> is the thing a person can type and the thing that ties a
-    /// branch back to a record. A name nobody can trace is a branch nobody will
-    /// ever delete.
-    /// </remarks>
-    public static string For(string flightNumber) => Prefix + Safe(flightNumber);
-
-    /// <summary>Whether this is a branch this platform would have created.</summary>
-    public static bool IsOurs(string branch) =>
-        branch is not null && branch.StartsWith(Prefix, StringComparison.Ordinal);
-
-    /// <summary>
-    /// A component safe in a ref name.
-    /// </summary>
-    /// <remarks>
-    /// The flight number comes from the control plane and is <c>GG-42</c>
-    /// shaped, so this removes nothing in a healthy system. It is here because a
-    /// ref name is passed to git, and git has opinions about what is in one -
-    /// notably that <c>..</c> is forbidden, which is why the dot is not in the
-    /// allowed set at all rather than allowed-and-then-collapsed.
-    /// </remarks>
-    private static string Safe(string component) =>
-        new([.. component.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-')]);
-}
-
-/// <summary>
 /// Which providers this runner may land work with, and where their apis are.
 /// </summary>
 /// <remarks>

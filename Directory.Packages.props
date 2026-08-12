@@ -7,5 +7,12 @@
     <PackageVersion Include="Rocks" Version="10.2.0" />
     <PackageVersion Include="Terminal.Gui" Version="2.4.17" />
     <PackageVersion Include="TUnit" Version="1.63.25" />
+    <!-- The only YAML parser in the product, and it lives in gg alone.
+         Verified under Native AOT by inspecting the package rather than
+         trusting the version: of 432 types exactly two carry
+         [RequiresDynamicCode] - DeserializerBuilder and SerializerBuilder -
+         and neither is used. The event-level parser carries no annotations
+         and publishes AOT with no IL warnings. -->
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 </Project>

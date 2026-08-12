@@ -206,8 +206,8 @@ public class EnvelopeParserTests
         // A superset on purpose. Somebody hand-writing an envelope should not
         // have to guess our canonical form, and `show` normalises it anyway.
         var parsed = EnvelopeYaml.Parse(
-            Valid.Replace("            discharges:\n              - in-scope\n",
-                          "            discharges: [in-scope]\n", StringComparison.Ordinal));
+            Valid.Replace("    discharges:\n      - in-scope\n",
+                          "    discharges: [in-scope]\n", StringComparison.Ordinal));
 
         await Assert.That(parsed.Diagnosis).IsNull();
         await Assert.That(parsed.Envelope!.Loops.Single().Discharges).IsEquivalentTo((string[])["in-scope"]);
@@ -223,7 +223,7 @@ public class EnvelopeParserTests
 
         await Assert.That(parsed.Diagnosis).IsNull();
         await Assert.That(parsed.Notes).IsNotEmpty();
-        await Assert.That(string.Join(" ", parsed.Notes)).Contains("comment");
+        await Assert.That(string.Join(" ", parsed.Notes).ToLowerInvariant()).Contains("comment");
     }
 
     [Test]
@@ -279,7 +279,7 @@ public class EnvelopeParserTests
         // one this slice allows. The diagnosis comes from Envelope.Validate,
         // so gg and the control plane cannot disagree about it.
         var parsed = EnvelopeYaml.Parse(Valid.Replace(
-            "            executor: frontier", "            executor: cheap", StringComparison.Ordinal));
+            "    executor: frontier", "    executor: cheap", StringComparison.Ordinal));
 
         await Assert.That(parsed.Envelope).IsNull();
         await Assert.That(parsed.Diagnosis).Contains("cheap");

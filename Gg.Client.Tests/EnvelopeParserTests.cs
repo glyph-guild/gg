@@ -24,7 +24,7 @@ namespace Gg.Client.Tests;
 /// This lives in <c>gg</c> and only in <c>gg</c>. Every YAML library is a
 /// package reference; the control plane holds none, so YAML's attack surface -
 /// billion laughs, anchor expansion, type coercion - never reaches the service
-/// holding the GitHub App private key.
+/// that holds the platform's own signing keys.
 /// </para>
 /// </remarks>
 public class EnvelopeParserTests

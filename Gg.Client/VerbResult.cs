@@ -76,6 +76,30 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.Bundle;
     }
+
+    public sealed record EnvelopeShown(EnvelopeState Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Envelope;
+    }
+
+    /// <summary>
+    /// What applying produced, and what applying discarded.
+    /// </summary>
+    /// <remarks>
+    /// The notes ride alongside the wire document rather than in it: what the
+    /// round trip dropped is a fact about THIS machine's text, and the control
+    /// plane never saw the text.
+    /// </remarks>
+    public sealed record EnvelopeApplied(
+        Gg.Contracts.EnvelopeApplied Value, IReadOnlyList<string> Notes) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.EnvelopeApplied;
+    }
+
+    public sealed record EnvelopeValidated(EnvelopeValidation Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.EnvelopeValidated;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -91,6 +115,9 @@ public static class VerbResultKinds
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string Bundle = "bundle";
+    public const string Envelope = "envelope";
+    public const string EnvelopeApplied = "envelope-applied";
+    public const string EnvelopeValidated = "envelope-validated";
 }
 
 [JsonSourceGenerationOptions(
@@ -107,6 +134,9 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(DiagnosticsBundle))]
+[JsonSerializable(typeof(EnvelopeState))]
+[JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
+[JsonSerializable(typeof(EnvelopeValidation))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -158,6 +188,11 @@ public static class VerbOutput
         VerbResult.CredentialRemoved r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRemoved),
         VerbResult.Bundle r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DiagnosticsBundle),
+        VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
+        VerbResult.EnvelopeApplied r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
+        VerbResult.EnvelopeValidated r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeValidation),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -184,6 +219,15 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRemoved))),
         VerbResultKinds.Bundle => new VerbResult.Bundle(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.DiagnosticsBundle))),
+        VerbResultKinds.Envelope => new VerbResult.EnvelopeShown(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeState))),
+        // The notes are not in the document, so a result read back has none.
+        // That is honest rather than lossy: they were about text this process
+        // never saw.
+        VerbResultKinds.EnvelopeApplied => new VerbResult.EnvelopeApplied(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeApplied)), []),
+        VerbResultKinds.EnvelopeValidated => new VerbResult.EnvelopeValidated(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeValidation))),
         _ => throw Unknown(kind),
     };
 
@@ -208,8 +252,77 @@ public static class VerbOutput
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.Bundle r => Bundle(r.Value),
+        VerbResult.EnvelopeShown r => Envelope(r.Value),
+        VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
+        VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         _ => throw Unknown(result?.Kind),
     };
+
+    /// <summary>
+    /// The envelope, as its canonical text, with the version above it.
+    /// </summary>
+    /// <remarks>
+    /// The rendering IS the canonical form rather than a prettier summary of
+    /// it: what a person reads here has to be what they can edit and apply
+    /// back, or `show` and `apply` are two different documents.
+    /// </remarks>
+    private static string Envelope(EnvelopeState state)
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"# version   {Clean(state.Version)}");
+        text.AppendLine($"# updated   {state.UpdatedAt:u} by {Clean(state.UpdatedBy)}");
+        text.AppendLine();
+        text.Append(EnvelopeText.Render(state.Envelope));
+        return text.ToString().TrimEnd();
+    }
+
+    private static string EnvelopeApplied(
+        Gg.Contracts.EnvelopeApplied applied, IReadOnlyList<string> notes)
+    {
+        var text = new StringBuilder();
+
+        // "Nothing changed" is an answer, not a non-event. A version minted per
+        // apply would make "which rules governed this change" differ for two
+        // flights that ran under the same rules.
+        text.AppendLine(applied.Changed
+            ? $"Applied. This envelope is now {Clean(applied.Version)}."
+            : $"Nothing changed. The envelope is still {Clean(applied.Version)}.");
+
+        foreach (var note in notes)
+        {
+            text.AppendLine($"  note: {Clean(note)}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    private static string EnvelopeValidated(EnvelopeValidation validation)
+    {
+        var text = new StringBuilder();
+
+        if (!validation.Valid)
+        {
+            text.AppendLine("This is not an envelope.");
+            text.AppendLine($"  {Clean(validation.Diagnosis)}");
+            return text.ToString().TrimEnd();
+        }
+
+        text.AppendLine("This is a valid envelope.");
+        foreach (var note in validation.Notes)
+        {
+            text.AppendLine($"  note: {Clean(note)}");
+        }
+
+        if (validation.Canonical is { Length: > 0 } canonical)
+        {
+            text.AppendLine();
+            text.AppendLine("It will be stored and rendered back as:");
+            text.AppendLine();
+            text.Append(canonical);
+        }
+
+        return text.ToString().TrimEnd();
+    }
 
     /// <summary>
     /// The references, and nothing else - because there is nothing else.

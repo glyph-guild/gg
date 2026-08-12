@@ -33,8 +33,8 @@ public sealed record EnvelopeParse
 /// this cannot live in <c>Gg.Contracts</c>, and it must not live in the
 /// control plane: YAML's attack surface - billion laughs, anchor expansion,
 /// type coercion - stays on this side of the boundary, away from the service
-/// that holds the GitHub App private key. The wire between them is JSON, and
-/// both sides fail closed on their own format.
+/// that holds the platform's own signing keys. The wire between them is JSON,
+/// and both sides fail closed on their own format.
 /// </para>
 /// <para>
 /// <b>The event layer, not the object mapper.</b> Of 432 types in YamlDotNet

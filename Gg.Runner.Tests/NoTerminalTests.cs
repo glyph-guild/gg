@@ -23,6 +23,21 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class NoTerminalTests
 {
+    /// <summary>
+    /// A file's CODE, with its comments removed.
+    /// </summary>
+    /// <remarks>
+    /// The rule is about allocating a terminal, not about mentioning one - and
+    /// the place you most want to write the word is the comment explaining why
+    /// there is none. Stripping comments keeps the scan blunt everywhere it
+    /// matters, and the liveness half below asserts the distinction directly so
+    /// this is a deliberate exclusion rather than a convenient one.
+    /// </remarks>
+    private static string CodeOf(string file) =>
+        string.Join('\n', File.ReadAllLines(file)
+            .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)
+                     && !l.TrimStart().StartsWith("*", StringComparison.Ordinal)));
+
     private static IEnumerable<string> RunnerSources()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -49,7 +64,7 @@ public class NoTerminalTests
             RegexOptions.Compiled);
 
         var offenders = RunnerSources()
-            .Where(f => terminal.IsMatch(File.ReadAllText(f)))
+            .Where(f => terminal.IsMatch(CodeOf(f)))
             .Select(f => Path.GetFileName(f)!)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -85,6 +100,23 @@ public class NoTerminalTests
         await Assert.That(terminal.IsMatch("var pty = openpty();")).IsTrue();
         await Assert.That(terminal.IsMatch("using var process = new Process();")).IsFalse();
         await Assert.That(RunnerSources().Any()).IsTrue();
+
+        // The exclusion, asserted rather than assumed: a file that only talks
+        // about a terminal is clean, and the same file with one line of code
+        // is not.
+        var explained = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(explained, "// there is no PTY here, deliberately\nvar x = 1;\n");
+            await Assert.That(terminal.IsMatch(CodeOf(explained))).IsFalse();
+
+            File.WriteAllText(explained, "// there is no PTY here\nvar h = openpty();\n");
+            await Assert.That(terminal.IsMatch(CodeOf(explained))).IsTrue();
+        }
+        finally
+        {
+            File.Delete(explained);
+        }
     }
 
     // ---- no write to a remote ----
@@ -101,7 +133,7 @@ public class NoTerminalTests
             RegexOptions.Compiled);
 
         var offenders = RunnerSources()
-            .Where(f => writes.IsMatch(File.ReadAllText(f)))
+            .Where(f => writes.IsMatch(CodeOf(f)))
             .Select(f => Path.GetFileName(f)!)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -128,7 +160,7 @@ public class NoTerminalTests
             RegexOptions.Compiled);
 
         var offenders = RunnerSources()
-            .Where(f => deciding.IsMatch(File.ReadAllText(f)))
+            .Where(f => deciding.IsMatch(CodeOf(f)))
             .Select(f => Path.GetFileName(f)!)
             .Order(StringComparer.Ordinal)
             .ToList();

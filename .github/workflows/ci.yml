@@ -15,7 +15,13 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build -c Release
-      - run: dotnet test -c Release
+      # The RealAgent category is excluded DELIBERATELY and by name, exactly as
+      # the control plane excludes RealGitHub. Those tests drive a real agent
+      # binary against a real tree and refuse loudly rather than passing when
+      # unconfigured - so excluding them here is the difference between a green
+      # CI and a CI that cannot run at all. The exclusion is written down so
+      # that "an agent ran" is never something CI appears to have claimed.
+      - run: dotnet test -c Release -- --treenode-filter '/*/*/*[Category!=RealAgent]/*'
 
   aot:
     name: aot

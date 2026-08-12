@@ -225,6 +225,27 @@ public class DestinationWriteTests
     // ---- the branch a person can trace ----
 
     [Test]
+    public async Task The_naming_rule_is_declared_once_where_both_sides_read_it()
+    {
+        // The control plane names the branch in the admission and the runner
+        // pushes it. A runner deriving the name itself would agree until one side
+        // changed, and then a flight would be unable to find the branch it had
+        // just created - so the rule lives in the contract, and this asserts the
+        // runner holds no copy of it.
+        var runnerCopies = RunnerSources()
+            .Where(f => CodeOf(f).Contains("\"gg/\"", StringComparison.Ordinal))
+            .Select(f => Path.GetFileName(f)!)
+            .ToList();
+
+        await Assert.That(runnerCopies).IsEmpty()
+            .Because("the prefix is the contract's. Found: " + string.Join(", ", runnerCopies));
+
+        await Assert.That(typeof(DestinationBranch).Assembly)
+            .IsEqualTo(typeof(FactKinds).Assembly)
+            .Because("it crosses, so it is declared where things that cross are declared.");
+    }
+
+    [Test]
     public async Task The_branch_name_carries_the_flight_number()
     {
         // GG-42 is the thing a person can type and the thing that ties a branch

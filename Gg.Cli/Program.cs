@@ -393,9 +393,16 @@ static async Task<int> RunnerUpAsync()
     var workspace = new Gg.Runner.Workspace(
         Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot());
 
+    // Where this runner may LAND work, which is a second declaration on purpose.
+    // A runner configured to read and not to write cannot write - there is no
+    // adapter for it to reach. Absent is the ordinary state.
+    var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
+        api => new HttpClient { BaseAddress = new Uri(api) });
+
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
-        new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token);
+        new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
+        destinations: destinations);
 }
 
 static int Fail(string message)

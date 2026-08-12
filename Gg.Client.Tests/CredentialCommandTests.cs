@@ -283,19 +283,43 @@ public class CredentialCommandTests
     }
 
     [Test]
-    public async Task Scopes_wider_than_read_are_refused_before_anything_is_stored()
+    public async Task A_scope_the_contract_does_not_name_is_refused_before_anything_is_stored()
     {
+        // AMENDED IN SLICE TWO, STEP 4. This used to refuse "write", correctly:
+        // nothing could write and a wider scope was a request nobody had a use
+        // for. Write is now a scope a developer may register, so the claim
+        // narrows to the one still doing work - a scope the contract cannot
+        // name is refused HERE, before a secret touches disk.
+        //
+        // What has not changed, and is asserted in the contract instead: nothing
+        // server-side can widen what was registered. An envelope declares that
+        // a flight may land somewhere; only this store grants the ability to.
         await using var stub = new StubControlPlane();
         using var temporary = new TemporaryStore();
         var store = temporary.Store;
 
         await Assert.That(async () => await Build(stub, store, new ScriptedPrompt(TheSecret))
-                .AddAsync("acme/widgets", ["write"]))
+                .AddAsync("acme/widgets", ["admin"]))
             .Throws<CredentialScopeException>();
 
         await Assert.That(Directory.Exists(temporary.Root) && Directory.EnumerateFiles(
                 temporary.Root, "*", SearchOption.AllDirectories).Any()).IsFalse()
             .Because("a refused registration must not leave a secret on disk with nothing pointing at it.");
+    }
+
+    [Test]
+    public async Task Write_is_a_scope_a_developer_may_register()
+    {
+        // The other half of the amendment, and the control this step's whole
+        // design rests on: the ability to write comes from the developer's own
+        // store and from nowhere else.
+        await using var stub = new StubControlPlane();
+        using var temporary = new TemporaryStore();
+
+        var result = await Build(stub, temporary.Store, new ScriptedPrompt(TheSecret))
+            .AddAsync("acme/widgets", [CredentialScopes.Read, CredentialScopes.Write]);
+
+        await Assert.That(result).IsNotNull();
     }
 
     [Test]

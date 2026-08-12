@@ -306,19 +306,56 @@ public class CredentialReferenceTests
     }
 
     [Test]
-    public async Task Scopes_are_read_only_and_cannot_be_widened()
+    public async Task Scopes_are_what_the_developer_registered_and_nothing_widens_them()
     {
-        await Assert.That(CredentialScopes.All).IsEquivalentTo((string[])[CredentialScopes.Read]);
+        // AMENDED IN SLICE TWO, STEP 4, and the amendment is the point.
+        //
+        // This asserted that read was the only scope, which was true and useful
+        // while nothing could write: a wider scope was a request nobody had a
+        // use for. Write now exists, registered by the developer in their own
+        // store - so the claim narrows to the one that still matters and is the
+        // one that was always doing the work.
+        //
+        // AN ENVELOPE DECLARES THAT A FLIGHT MAY LAND SOMEWHERE; IT CANNOT
+        // GRANT THE ABILITY TO. A control plane that could escalate a
+        // credential would make the customer's own store advisory, which is the
+        // layering model - lower layers narrow, never widen - reaching across
+        // the boundary.
+        await Assert.That(CredentialScopes.All)
+            .IsEquivalentTo((string[])[CredentialScopes.Read, CredentialScopes.Write]);
 
-        foreach (var wider in (string[])["write", "admin", "repo", "read:write"])
+        foreach (var invented in (string[])["admin", "repo", "read:write", "delete", "force-push"])
         {
-            await Assert.That(CredentialReference.Validate(AReference(scopes: [wider]))).IsNotNull()
-                .Because($"'{wider}' is not a scope this slice can ask for.");
+            await Assert.That(CredentialReference.Validate(AReference(scopes: [invented]))).IsNotNull()
+                .Because($"'{invented}' is not a scope this contract knows, and a scope nobody can "
+                       + "name is one nobody can audit.");
         }
 
-        await Assert.That(CredentialReference.Validate(AReference(scopes: [CredentialScopes.Read, "write"])))
-            .IsNotNull()
-            .Because("a list containing read is not a read-only list.");
+        await Assert.That(CredentialReference.Validate(AReference(scopes: [CredentialScopes.Read])))
+            .IsNull();
+        await Assert.That(CredentialReference.Validate(AReference(scopes: [CredentialScopes.Write])))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task A_reference_carries_no_member_that_could_widen_its_own_scopes()
+    {
+        // Structural, because this is the property the two-control design rests
+        // on: whatever is registered is what is held, and there is nowhere for a
+        // later "grant" or "elevate" to arrive. An escalation that has no field
+        // to travel in cannot be added by forgetting a rule.
+        var members = typeof(CredentialReference).GetProperties().Select(p => p.Name).ToList();
+
+        foreach (var widening in (string[])
+                 ["Grant", "Grants", "Elevate", "Elevated", "Escalate", "Additional",
+                  "ExtraScopes", "EffectiveScopes", "GrantedScopes"])
+        {
+            await Assert.That(members).DoesNotContain(widening)
+                .Because($"'{widening}' is where a server-side widening would end up.");
+        }
+
+        await Assert.That(members).Contains(nameof(CredentialReference.Scopes))
+            .Because("the scan has to be looking at the type that holds them.");
     }
 
     [Test]

@@ -60,6 +60,8 @@ public static class Vocabulary
         typeof(LanguageChange),
         typeof(ChangeManifest),
         typeof(LoopOutcome),
+        typeof(DestinationLanded),
+        typeof(DestinationAdmission),
         typeof(ArtifactReference),
         typeof(ContextBinding),
         typeof(Obligation),

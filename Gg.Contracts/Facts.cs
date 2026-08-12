@@ -63,6 +63,16 @@ public static class FactKinds
     /// </remarks>
     public const string LoopTranscript = "loop.transcript";
 
+    /// <summary>
+    /// Where a flight's work landed, once a destination admitted it.
+    /// </summary>
+    /// <remarks>
+    /// The first fact reporting something the runner WROTE rather than
+    /// something it observed. Recorded because it happened; the decision that
+    /// allowed it was made in the control plane before anything was pushed.
+    /// </remarks>
+    public const string DestinationLanded = "destination.landed";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -72,7 +82,8 @@ public static class FactKinds
     /// loudly, which is the failure this list exists to prevent.
     /// </remarks>
     public static IReadOnlyList<string> All { get; } =
-        [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript];
+        [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
+         DestinationLanded];
 }
 
 /// <summary>
@@ -122,7 +133,11 @@ public static class FactVocabulary
     /// something other than inspection. A control plane reading 0.5.0 cannot
     /// know a flight ran an executor at all, which is exactly the kind of
     /// silence this version exists to break.
-    public const string Version = "0.6.0";
+    /// 0.7.0 adds destination.landed: the first fact about something the runner
+    /// WROTE. A control plane reading 0.6.0 cannot tell a flight pushed
+    /// anything, and "did this flight change a repository" is not a question to
+    /// leave to inference.
+    public const string Version = "0.7.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -320,6 +335,16 @@ public static class ChangeKinds
     public const string Modified = "modified";
 
     public const string Deleted = "deleted";
+
+    /// <summary>
+    /// Where a flight's work landed, once a destination admitted it.
+    /// </summary>
+    /// <remarks>
+    /// The first fact reporting something the runner WROTE rather than
+    /// something it observed. Recorded because it happened; the decision that
+    /// allowed it was made in the control plane before anything was pushed.
+    /// </remarks>
+    public const string DestinationLanded = "destination.landed";
 
     /// <summary>Every kind that validates.</summary>
     public static IReadOnlyList<string> All { get; } = [Added, Modified, Deleted];
@@ -613,6 +638,9 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopTranscript"/>.</summary>
     public ArtifactReference? Transcript { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DestinationLanded"/>.</summary>
+    public DestinationLanded? Landed { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
     /// A sentence rather than a bool, for the same reason every other Validate
@@ -650,6 +678,7 @@ public sealed record FactEnvelope
             (FactKinds.ChangeManifest, envelope.Change is not null),
             (FactKinds.LoopOutcome, envelope.Loop is not null),
             (FactKinds.LoopTranscript, envelope.Transcript is not null),
+            (FactKinds.DestinationLanded, envelope.Landed is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -673,6 +702,11 @@ public sealed record FactEnvelope
         if (envelope.Loop is { } loop && LoopOutcome.Validate(loop) is { } badLoop)
         {
             return badLoop;
+        }
+
+        if (envelope.Landed is { } landed && DestinationLanded.Validate(landed) is { } badLanding)
+        {
+            return badLanding;
         }
 
         if (envelope.Transcript is { } transcript)
@@ -749,4 +783,22 @@ public sealed record FactBatchAccepted
     public required int Duplicates { get; init; }
 
     public required IReadOnlyList<FactRejection> Rejected { get; init; }
+
+    /// <summary>
+    /// Whether this flight's work may now land, and where.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Carried on the response to shipping facts rather than on an endpoint of
+    /// its own, because the decision depends on the facts that just arrived and
+    /// the runner is already holding the tree when it asks.
+    /// </para>
+    /// <para>
+    /// <b>Null means do not push</b>, and it means that for every reason at
+    /// once: no destination declared, obligations unmet, or a control plane too
+    /// old to answer. A runner that treated absence as anything but refusal
+    /// would land work on the strength of a field it could not see.
+    /// </para>
+    /// </remarks>
+    public DestinationAdmission? Admission { get; init; }
 }

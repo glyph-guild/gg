@@ -57,8 +57,43 @@ public static class CredentialScopes
     /// <summary>Read the repository, and nothing else.</summary>
     public const string Read = "read";
 
-    /// <summary>Every scope that validates. Exactly one.</summary>
-    public static IReadOnlyList<string> All { get; } = [Read];
+    /// <summary>
+    /// Push a branch and open a pull request.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Registered by the developer, in their own store, and never widened
+    /// from anywhere else.</b> An envelope declares that a flight MAY land
+    /// somewhere; it cannot grant the ability to. A write destination against a
+    /// read-only credential fails at the credential, with a diagnosis - which is
+    /// the layering model reaching across the boundary, because a control plane
+    /// that could escalate a credential would make the customer's own store
+    /// advisory.
+    /// </para>
+    /// <para>
+    /// Slice one refused this scope at the edge, correctly: nothing could write
+    /// and a scope wider than read was a request nobody had a use for. This is
+    /// that changing, deliberately, with the other control arriving in the same
+    /// step.
+    /// </para>
+    /// </remarks>
+    public const string Write = "write";
+
+    /// <summary>Every scope that validates.</summary>
+    public static IReadOnlyList<string> All { get; } = [Read, Write];
+
+    /// <summary>Whether this set of scopes permits writing.</summary>
+    /// <remarks>
+    /// Declared once, because the runner asks it before pushing and the control
+    /// plane asks it before admitting. Two derivations of "can this write" is
+    /// how one side comes to believe a flight may land when it may not.
+    /// </remarks>
+    public static bool AllowWrite(IReadOnlyList<string> scopes)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+
+        return scopes.Contains(Write, StringComparer.Ordinal);
+    }
 }
 
 /// <summary>

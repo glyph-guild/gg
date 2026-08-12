@@ -56,6 +56,15 @@ public interface IRunnerObserver
     void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed);
 
     /// <summary>
+    /// The work landed somewhere, or was refused, and this says which.
+    /// </summary>
+    /// <remarks>
+    /// The branch and the proposal - never a line of what was in them. This
+    /// goes to stdout, and stdout is what a customer pastes into a ticket.
+    /// </remarks>
+    void Landed(string outcome, string detail);
+
+    /// <summary>
     /// A credential the lease named could not be read here.
     /// </summary>
     /// <remarks>
@@ -79,6 +88,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void WorkspaceFailed(string diagnosis) { }
     public void FactsShipped(int count) { }
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) { }
+    public void Landed(string outcome, string detail) { }
 }
 
 /// <summary>
@@ -113,7 +123,8 @@ public sealed class RunnerLoop(
     ICredentialResolver credentials,
     IWorkspace workspace,
     IExecutorPort? executor = null,
-    TranscriptStore? transcripts = null)
+    TranscriptStore? transcripts = null,
+    IReadOnlyList<IDestinationAdapter>? destinations = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -138,6 +149,16 @@ public sealed class RunnerLoop(
     private readonly IExecutorPort? _executor = executor;
 
     private readonly TranscriptStore _transcripts = transcripts ?? new TranscriptStore();
+
+    /// <summary>
+    /// Where this runner can land work, when it is admitted to.
+    /// </summary>
+    /// <remarks>
+    /// Empty is the ordinary state and not a degraded one: a runner nobody has
+    /// configured to write cannot write, which is the slice-one property
+    /// surviving as the default.
+    /// </remarks>
+    private readonly IReadOnlyList<IDestinationAdapter> _destinations = destinations ?? [];
 
     /// <summary>
     /// How long this no-op runner holds a lease before releasing it.
@@ -332,7 +353,15 @@ public sealed class RunnerLoop(
         // rather than of the tree it was handed.
         var run = await InvokeAsync(lease, workspace, cancellationToken);
 
-        await ShipAsync(lease, workspace, run, cancellationToken);
+        // THE TREE IS HELD ACROSS THIS ROUND TRIP, and that is new. Until this
+        // step the tree died as soon as facts were shipped; the landing
+        // decision depends on the facts that just arrived, so the runner has to
+        // still be holding what it would push when the answer comes back. Said
+        // out loud because it is the mechanism rather than an incidental
+        // consequence of where the release happens to sit.
+        var accepted = await ShipAsync(lease, workspace, run, cancellationToken);
+
+        await LandAsync(lease, workspace, accepted, secretsByLocator, cancellationToken);
 
         await HoldAsync(runnerId, labels, lease, cancellationToken);
     }
@@ -388,7 +417,7 @@ public sealed class RunnerLoop(
     /// <c>Digest</c> produces, and what ships takes what only <c>Filter</c>
     /// produces.
     /// </remarks>
-    private async Task ShipAsync(
+    private async Task<FactBatchAccepted?> ShipAsync(
         LeaseGranted lease, WorkspaceResult workspace, ExecutorRun? run,
         CancellationToken cancellationToken)
     {
@@ -443,8 +472,129 @@ public sealed class RunnerLoop(
         var digested = FactPipeline.Digest(new GatheredFacts(payloads), lease.FlightId, _clock.UtcNow);
         var filtered = FactPipeline.Filter(digested, lease.ClassificationCeiling);
 
-        await _protocol.ShipFactsAsync(lease.LeaseId, lease.Generation, filtered, cancellationToken);
+        var accepted = await _protocol.ShipFactsAsync(
+            lease.LeaseId, lease.Generation, filtered, cancellationToken);
         _observer.FactsShipped(filtered.Items.Count);
+
+        return accepted;
+    }
+
+    /// <summary>
+    /// Lands the work, if and only if the control plane said to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The decision arrives or nothing is pushed.</b> This runner can see the
+    /// facts it produced and could work out an obligation for itself; one that
+    /// did would be deciding, and a patched one would decide differently. So it
+    /// acts on a decision rather than on the inputs to one - Article IX, at the
+    /// only place in this binary where it could be broken profitably.
+    /// </para>
+    /// <para>
+    /// <b>Two controls, and this method needs both.</b> The admission is the
+    /// envelope's permission; the credential's write scope is the ability. A
+    /// destination admitted against a read-only credential fails at the
+    /// credential, with a diagnosis naming it - which is the layering model
+    /// reaching across the boundary rather than a check bolted on here.
+    /// </para>
+    /// </remarks>
+    private async Task LandAsync(
+        LeaseGranted lease,
+        WorkspaceResult workspace,
+        FactBatchAccepted? accepted,
+        IReadOnlyDictionary<string, string> secretsByLocator,
+        CancellationToken cancellationToken)
+    {
+        if (accepted?.Admission is not { } admission)
+        {
+            // Absent means no, for every reason at once: no destination, an
+            // unmet obligation, or a control plane too old to answer.
+            return;
+        }
+
+        if (workspace.Trees.FirstOrDefault(t => t.Slug == admission.Slug) is not { } tree)
+        {
+            _observer.Landed("refused",
+                $"admitted to land in {admission.Slug} and this flight does not hold it");
+            return;
+        }
+
+        // Matched by LOCATOR, which is what ties a credential to a repository -
+        // derived by the contract's own rule, so gg and the control plane cannot
+        // disagree about which credential belongs to which repo.
+        var wanted = CredentialLocator.ForRepo(admission.Slug);
+        var reference = lease.Credentials.FirstOrDefault(c =>
+            string.Equals(c.Locator, wanted, StringComparison.Ordinal));
+
+        if (reference is null || !CredentialScopes.AllowWrite(reference.Scopes))
+        {
+            // FAILS AT THE CREDENTIAL, which is the criterion slice one wrote
+            // and could never verify - there was nothing that could try.
+            _observer.Landed("refused",
+                $"the credential registered for {admission.Slug} carries "
+              + $"{(reference is null ? "no scopes at all" : string.Join(",", reference.Scopes))} "
+              + "and landing needs write. An envelope declares that a flight may land somewhere; "
+              + "it cannot grant the ability to.");
+            return;
+        }
+
+        var adapter = _destinations.FirstOrDefault(d =>
+            d.Provider == lease.Repos.First(r => r.Slug == admission.Slug).Provider);
+
+        if (adapter is null)
+        {
+            _observer.Landed("refused", "this runner is not configured to land anywhere");
+            return;
+        }
+
+        var outcome = await adapter.LandAsync(
+            new LandingRequest
+            {
+                WorkingDirectory = tree.Path,
+                Slug = admission.Slug,
+                Branch = admission.Branch,
+                BaseRef = admission.BaseRef,
+                Title = $"{lease.FlightNumber}: {admission.Reason}",
+                Secret = secretsByLocator[reference.Locator],
+            },
+            cancellationToken);
+
+        switch (outcome)
+        {
+            case LandingOutcome.Landed(var branch, var uri, var number):
+                _observer.Landed("landed", $"{branch} -> {uri}");
+
+                // Recorded because it happened. A landing nobody can trace back
+                // to a flight is a branch nobody will ever delete.
+                await _protocol.ShipFactsAsync(
+                    lease.LeaseId, lease.Generation,
+                    FactPipeline.Filter(
+                        FactPipeline.Digest(
+                            new GatheredFacts([new FactPayload.Landing(new DestinationLanded
+                            {
+                                DestinationId = admission.DestinationId,
+                                Branch = branch,
+                                PullRequestUri = uri,
+                                PullRequestNumber = number,
+                            })]),
+                            lease.FlightId, _clock.UtcNow),
+                        lease.ClassificationCeiling),
+                    cancellationToken);
+                break;
+
+            case LandingOutcome.BranchExists(var existing):
+                _observer.Landed("refused",
+                    $"{existing} already exists on the remote and was not overwritten");
+                break;
+
+            case LandingOutcome.CredentialRefused(var locator, var diagnosis):
+                _observer.Landed("refused", $"{locator}: {diagnosis}");
+                break;
+
+            case LandingOutcome.Unsupported(var diagnosis):
+                _observer.Landed("refused", diagnosis);
+                break;
+        }
     }
 
     /// <summary>Gives the lease back with a disposition, and narrates the outcome.</summary>

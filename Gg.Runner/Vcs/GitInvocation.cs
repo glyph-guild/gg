@@ -59,6 +59,16 @@ public sealed record GitInvocation
 
         var environment = new Dictionary<string, string>(StringComparer.Ordinal);
 
+        // The machine's OWN helpers are cleared first, and this is not tidiness.
+        // git treats credential.helper as a LIST and tries each in turn, so
+        // appending ours to a developer's keychain means git can authenticate
+        // with a credential this flight was never granted - and it will,
+        // silently, and the operation will succeed. That makes the registered
+        // credential advisory, which is the exact property this platform sells.
+        // An empty value resets the list; ours is then the only one.
+        arguments.Add("-c");
+        arguments.Add("credential.helper=");
+
         if (!string.IsNullOrEmpty(secret))
         {
             // The helper text names the variable; the value is not here.
@@ -76,6 +86,55 @@ public sealed record GitInvocation
     }
 
     /// <summary>A plan with no secret in it at all.</summary>
+    /// <summary>
+    /// The plan for pushing one branch, and only creating it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No force, and refspec-refusing rather than refspec-forcing.</b> The
+    /// leading <c>+</c> that would make this overwrite is absent and there is no
+    /// <c>--force</c>: a push that would not fast-forward FAILS, which is what
+    /// makes "an existing branch is refused" a property of the command rather
+    /// than of a check somebody remembered to run first. Fifth application of
+    /// never overwrite a lifecycle, and the one where the thing overwritten
+    /// might be somebody's work.
+    /// </para>
+    /// <para>
+    /// The secret travels in the environment for the same reason it does on a
+    /// fetch: <c>argv</c> is readable by every process on the machine.
+    /// </para>
+    /// </remarks>
+    public static GitInvocation Push(string url, string localRef, string remoteBranch, string? secret)
+    {
+        var arguments = new List<string>
+        {
+            "-c", "core.askPass=",
+            "-c", "credential.interactive=false",
+        };
+
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        // Same reset as the fetch, and it matters more here: an ambient helper
+        // that can authenticate a PUSH is one that can write to a repository
+        // this flight was never granted write on.
+        arguments.Add("-c");
+        arguments.Add("credential.helper=");
+
+        if (!string.IsNullOrEmpty(secret))
+        {
+            arguments.Add("-c");
+            arguments.Add(
+                $"credential.helper=!f() {{ echo username=x-access-token; echo password=${SecretVariable}; }}; f");
+            environment[SecretVariable] = secret;
+        }
+
+        // No leading '+' on the refspec. That single character is the difference
+        // between creating a branch and destroying whatever was there.
+        arguments.AddRange(["push", url, $"{localRef}:refs/heads/{remoteBranch}"]);
+
+        return new GitInvocation { Arguments = arguments, Environment = environment };
+    }
+
     public static GitInvocation Plain(params string[] arguments) =>
         new()
         {
@@ -107,6 +166,16 @@ public sealed record GitInvocation
         // customer's code on our disk.
         start.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
         start.Environment["GIT_CONFIG_SYSTEM"] = "/dev/null";
+
+        // NOT redundant with the line above, which is the whole reason this is
+        // here. GIT_CONFIG_SYSTEM replaces ONE path; a git built by somebody
+        // else reads another - on macOS the command-line tools ship a gitconfig
+        // at share/git-core/gitconfig which declares an osxkeychain credential
+        // helper and survives GIT_CONFIG_SYSTEM entirely. Measured, not assumed:
+        // with only the two lines above, a push carrying a deliberately invalid
+        // secret authenticated from the developer's keychain and succeeded.
+        start.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
+
         start.Environment["GIT_TERMINAL_PROMPT"] = "0";
 
         using var process = Process.Start(start)

@@ -20,6 +20,9 @@ public abstract record FactPayload
 
     /// <summary>Where the loop's transcript is, without carrying it.</summary>
     public sealed record Transcript(ArtifactReference Value) : FactPayload;
+
+    /// <summary>Where the work landed, once a destination admitted it.</summary>
+    public sealed record Landing(DestinationLanded Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -51,6 +54,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(ChangeManifest))]
 [JsonSerializable(typeof(LoopOutcome))]
 [JsonSerializable(typeof(ArtifactReference))]
+[JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(FactEnvelope))]
 internal sealed partial class FactJsonContext : JsonSerializerContext;
 
@@ -122,6 +126,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Loop = loop.Value,
+                },
+
+                FactPayload.Landing landing => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Landed = landing.Value,
                 },
 
                 FactPayload.Transcript transcript => new FactEnvelope
@@ -264,6 +277,9 @@ public static class FactPipeline
         FactPayload.Transcript transcript => (
             FactKinds.LoopTranscript,
             JsonSerializer.Serialize(transcript.Value, FactJsonContext.Default.ArtifactReference)),
+        FactPayload.Landing landing => (
+            FactKinds.DestinationLanded,
+            JsonSerializer.Serialize(landing.Value, FactJsonContext.Default.DestinationLanded)),
         _ => throw new InvalidOperationException(
             $"'{payload.GetType().Name}' has no canonical form, so it has no digest."),
     };

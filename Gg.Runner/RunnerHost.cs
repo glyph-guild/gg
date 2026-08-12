@@ -45,6 +45,17 @@ internal sealed class ConsoleObserver : IRunnerObserver
     /// what a customer pastes into a ticket - the outcome and the counts are
     /// safe there and the work is not.
     /// </remarks>
+    /// <summary>
+    /// Where the work went, or why it did not go anywhere.
+    /// </summary>
+    /// <remarks>
+    /// The branch and the proposal. Never a line of what was in them - stdout is
+    /// what a customer pastes into a ticket, and a refusal's diagnosis is the
+    /// thing they most need to be able to paste.
+    /// </remarks>
+    public void Landed(string outcome, string detail) =>
+        System.Console.WriteLine($"destination {outcome}: {detail}");
+
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
         System.Console.WriteLine(
             $"loop {loopId} {outcome} after {attempts} attempt(s), used {movesUsed.Count} move(s)");
@@ -99,7 +110,8 @@ public static class RunnerHost
         TimeSpan holdFor,
         ICredentialResolver credentials,
         IWorkspace workspace,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -125,7 +137,8 @@ public static class RunnerHost
             (span, token) => Task.Delay(span, token),
             new ConsoleObserver(),
             credentials,
-            workspace)
+            workspace,
+            destinations: destinations)
         {
             HoldFor = holdFor,
         };

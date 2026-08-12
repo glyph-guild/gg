@@ -15,13 +15,18 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build -c Release
-      # The RealAgent category is excluded DELIBERATELY and by name, exactly as
-      # the control plane excludes RealGitHub. Those tests drive a real agent
-      # binary against a real tree and refuse loudly rather than passing when
-      # unconfigured - so excluding them here is the difference between a green
-      # CI and a CI that cannot run at all. The exclusion is written down so
-      # that "an agent ran" is never something CI appears to have claimed.
-      - run: dotnet test -c Release -- --treenode-filter '/*/*/*[Category!=RealAgent]/*'
+      # RealAgent and RealRemote are excluded DELIBERATELY and by name. Those
+      # tests drive a real agent binary against a real tree, and land real
+      # branches on a real remote, and they refuse loudly rather than passing
+      # when unconfigured - so excluding them here is the difference between a
+      # green CI and a CI that cannot run at all. The exclusion is written down
+      # so that "an agent ran" and "a flight landed" are never things CI appears
+      # to have claimed. What they prove is recorded by hand, against the
+      # criteria that name them.
+      # The parentheses are load-bearing: without them the expression matches
+      # NOTHING and CI passes having run zero tests, which is the worst possible
+      # failure mode for a filter. Measured before it was committed.
+      - run: dotnet test -c Release -- --treenode-filter '/*/*/*[(Category!=RealAgent)&(Category!=RealRemote)]/*'
 
   aot:
     name: aot

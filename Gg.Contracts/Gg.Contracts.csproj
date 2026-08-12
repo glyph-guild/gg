@@ -14,29 +14,20 @@
          Pre-1.0: any wire change is a minor bump, and there is no compatibility
          promise. GgVersions.Protocol is a different number and moves only when
          the protocol itself becomes incompatible. -->
-    <Version>0.13.0</Version>
+    <Version>0.14.0</Version>
 
-    <!-- PINNED, and it must stay pinned at this number.
+    <!-- AssemblyVersion is NOT pinned any more, and that is the point.
 
-         Both fingerprints - the wire surface and the fact vocabulary - walk
-         property types and record Type.FullName. For a constructed generic
-         like IReadOnlyList<LockHash> that string embeds the ASSEMBLY-QUALIFIED
-         name of the argument, which contains Version=x.y.z.0. So the assembly
-         version leaked into every fingerprint, and bumping <Version> made both
-         ledgers report "the surface changed" when nothing about the surface
-         had.
+         It used to be, at 0.10.0.0, because both fingerprints recorded
+         Type.FullName and a constructed generic renders its argument
+         assembly-qualified - so the version leaked into every recorded surface
+         and bumping this file's Version made both ledgers report a change that
+         had not happened.
 
-         That is the worst possible false alarm for this mechanism: it fires on
-         the exact action a real change also requires, so it trains whoever
-         sees it to re-record the hash without reading the diff - which is the
-         one thing the ledger exists to prevent.
-
-         Pinning it here fixes the leak WITHOUT rewriting history. Every
-         recorded surface in contract-versions.json and fact-vocabulary.json
-         was computed under 0.10.0.0, so they all stay valid, and from now on
-         the package version moves without disturbing them. Changing this
-         number would invalidate all of them at once. -->
-    <AssemblyVersion>0.10.0.0</AssemblyVersion>
+         The names are normalised now (SurfaceNaming), so nothing about the
+         assembly reaches a fingerprint, and three tests assert that silence
+         directly. The pin was a workaround for a defect that no longer
+         exists. -->
     <IsPackable>true</IsPackable>
     <PackageId>GlyphGuild.Gg.Contracts</PackageId>
     <Description>Wire protocol contracts for Good Grief (gg): console, runner, control plane.</Description>

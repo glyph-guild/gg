@@ -78,13 +78,9 @@ public class FactVocabularyLedgerTests
             var pinned = type.GetCustomAttribute<PinnedIdAttribute>()!.Id;
             lines.Add($"fact {kind} {pinned}");
 
-            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                         .OrderBy(p => p.Name, StringComparer.Ordinal))
-            {
-                var required = property.GetCustomAttributes().Any(a => a is RequiredMemberAttribute)
-                    ? "required" : "optional";
-                lines.Add($"  {property.Name} {property.PropertyType.FullName} {required}");
-            }
+            // The same stable naming the wire surface uses. Both ledgers had
+            // the same leak and both are fixed by the same function.
+            lines.AddRange(SurfaceNaming.PropertyLines(type));
         }
 
         return Convert.ToHexString(
@@ -188,6 +184,13 @@ public class FactVocabularyLedgerTests
         // changed since it shipped - the fingerprint over the subset today is
         // the fingerprint that version would have recorded. No future entry may
         // be reconstructed; once a version ships, its recorded value stands.
+        //
+        // RE-DERIVED ONCE, at the fingerprint normalisation. Both were always
+        // reconstructions and neither was ever emitted by a released binary,
+        // so re-deriving them under the new naming records the same claim in
+        // the new spelling rather than editing history. 0.3.0 and 0.4.0 were
+        // NOT touched: they shipped, so their recorded values stand and the
+        // normalisation simply gets a new version of its own.
         var all = FactManifest.FactTypesIn(typeof(FactKinds).Assembly).ToList();
         var byKind = all.ToDictionary(t => t.GetCustomAttribute<FactKindAttribute>()!.Kind);
 

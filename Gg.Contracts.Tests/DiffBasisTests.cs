@@ -110,6 +110,6 @@ public class DiffBasisTests
         // The mechanism that exists so a runner and a control plane cannot
         // disagree about what a fact means. Adding a required member to a
         // pinned fact type is exactly the change it is for.
-        await Assert.That(FactVocabulary.Version).IsEqualTo("0.4.0");
+        await Assert.That(FactVocabulary.Version).IsEqualTo("0.5.0");
     }
 }

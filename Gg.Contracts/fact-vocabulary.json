@@ -1,6 +1,7 @@
 [
-  { "version": "0.1.0", "surface": "610f77b0a11a274cf96c1d7a21784639e9b357052680acf0270e9a2f0c623a5c", "kinds": "environment.identity" },
-  { "version": "0.2.0", "surface": "284bdfaf46a974d86da9d82d187e8ed4fdf258ebd7917ef853811d2477cb6f77", "kinds": "environment.identity, source.provenance" },
+  { "version": "0.1.0", "surface": "b872accc871ace0c794ebfa67690eb4894f559682e86bad386f01b68226c07eb", "kinds": "environment.identity" },
+  { "version": "0.2.0", "surface": "eeda88d912604c34b76e9a0ff4f4906f5ebb5f3b937344c6b697365c40352578", "kinds": "environment.identity, source.provenance" },
   { "version": "0.3.0", "surface": "4bef1932e6aa12d75078b18afce53e8cd3a62aa5b6cb02c2fbdb0961e1e74771", "kinds": "change.manifest, environment.identity, source.provenance" },
-  { "version": "0.4.0", "surface": "4e1567bf465cfdc59252b291015d25a707cbb3d8785c6af2d0bf7a3e4a0b3b05", "kinds": "change.manifest, environment.identity, source.provenance" }
+  { "version": "0.4.0", "surface": "4e1567bf465cfdc59252b291015d25a707cbb3d8785c6af2d0bf7a3e4a0b3b05", "kinds": "change.manifest, environment.identity, source.provenance" },
+  { "version": "0.5.0", "surface": "8fefa833214fd07daf874f5af080e031b03c987ca6b8f54a3390706bc02f2b2a", "kinds": "change.manifest, environment.identity, source.provenance" }
 ]

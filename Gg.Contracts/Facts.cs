@@ -76,8 +76,9 @@ public static class FactKinds
 public static class FactVocabulary
 {
     /// <summary>
-    /// 0.4.0: environment.identity, source.provenance, change.manifest with
-    /// a diff basis.
+    /// 0.5.0: environment.identity, source.provenance, change.manifest with
+    /// a diff basis. Same three kinds as 0.4.0 - the version moves because the
+    /// FINGERPRINT'S NAMING changed, not the vocabulary.
     /// </summary>
     /// <remarks>
     /// 0.2.0 is recorded in the ledger and was never emitted by a released
@@ -90,7 +91,7 @@ public static class FactVocabulary
     /// reading 0.3.0 manifests cannot tell which diff they described, and the
     /// version is how it knows to stop guessing.
     /// </remarks>
-    public const string Version = "0.4.0";
+    public const string Version = "0.5.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

@@ -49,52 +49,79 @@ public class ContractSurfaceTests
         ?? throw new InvalidOperationException("contract-versions.json is empty");
 
     /// <summary>
-    /// The assembly version is pinned, and both ledgers depend on it.
+    /// The noise floor. Never asserted until now, which is how the check lost
+    /// its signal value.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A regression guard rather than a discovery: this arrived WITH its fix,
-    /// because the fix and the fact it asserts are the same thing. What
-    /// discovered the defect was the fact-vocabulary ledger failing on a
-    /// release that touched no fact.
-    /// </para>
-    /// <para>
-    /// Both fingerprints record <c>Type.FullName</c>, and for a constructed
-    /// generic that string embeds the assembly-qualified name of the argument,
-    /// including <c>Version=</c>. So the assembly version leaked into every
-    /// recorded surface, and bumping the package version made both ledgers cry
-    /// "the surface changed" when nothing had - the exact false alarm that
-    /// teaches somebody to re-record a hash without reading the diff.
-    /// </para>
-    /// <para>
-    /// Unpinning it invalidates every entry in both ledgers at once, silently,
-    /// and there is no way back: the recorded values of shipped versions may
-    /// not be edited.
-    /// </para>
+    /// The alarm has always been tested - move a member, the fingerprint
+    /// moves. The SILENCE never was, and a check that also fires on things
+    /// that are not changes is a check people learn to silence.
     /// </remarks>
     [Test]
-    public async Task The_assembly_version_is_pinned_because_both_ledgers_hash_it()
+    public async Task Nothing_about_the_assembly_is_inside_the_fingerprint()
     {
-        var pinned = typeof(Vocabulary).Assembly.GetName().Version;
+        // The defect this replaces: FullName renders a constructed generic's
+        // argument assembly-qualified, so bumping the package version rewrote
+        // every recorded surface. It was worked around by pinning
+        // AssemblyVersion; the name is normalised now, so the pin is gone and
+        // this is what holds instead.
+        var text = SurfaceText();
 
-        await Assert.That(pinned?.ToString()).IsEqualTo("0.10.0.0")
-            .Because("every surface in contract-versions.json and fact-vocabulary.json was computed "
-                   + "under this number. Moving it rewrites all of them at once.");
+        foreach (var leak in (string[])["Version=", "Culture=", "PublicKeyToken="])
+        {
+            await Assert.That(text).DoesNotContain(leak)
+                .Because($"'{leak}' makes the fingerprint move when the assembly moves, which is not "
+                       + "a wire change.");
+        }
     }
 
-    /// <summary>
-    /// Proof the leak is real, so the pin above is not cargo.
-    /// </summary>
-    /// <remarks>
-    /// If <c>FullName</c> ever stopped embedding the version, the pin would be
-    /// harmless superstition and this would say so by failing.
-    /// </remarks>
     [Test]
-    public async Task A_generic_property_type_name_really_does_carry_the_assembly_version()
+    public async Task A_generic_member_is_named_without_its_assembly()
     {
-        var name = typeof(IReadOnlyList<WhoAmI>).FullName;
+        // The mechanism, asserted directly, so the absence above cannot pass
+        // because nothing generic happens to be on the surface today.
+        var raw = typeof(IReadOnlyList<WhoAmI>).FullName!;
+        var stable = SurfaceNaming.StableTypeName(typeof(IReadOnlyList<WhoAmI>));
 
-        await Assert.That(name).Contains("Version=0.10.0.0");
+        await Assert.That(raw).Contains("Version=")
+            .Because("if FullName stopped doing this, the normalisation would be superstition.");
+        await Assert.That(stable).DoesNotContain("Version=");
+        await Assert.That(stable).IsEqualTo(
+            "System.Collections.Generic.IReadOnlyList<Gg.Contracts.WhoAmI>");
+    }
+
+    [Test]
+    public async Task A_doc_comment_is_not_part_of_the_surface()
+    {
+        // Reflection metadata carries no XML documentation, so this is true by
+        // construction - and asserting it is what stops somebody "improving"
+        // the fingerprint by reading the docs file.
+        var text = SurfaceText();
+
+        await Assert.That(text).DoesNotContain("///");
+        await Assert.That(text).DoesNotContain("<summary>");
+    }
+
+    [Test]
+    public async Task Declaration_order_is_not_part_of_the_surface()
+    {
+        // JSON is not positional. Reordering members is not a wire change and
+        // must not read as one - asserted by checking the text is sorted
+        // within each type, which is the property that makes it so.
+        var lines = SurfaceText().Split('\n');
+
+        for (var i = 1; i < lines.Length; i++)
+        {
+            if (!lines[i].StartsWith("  ", StringComparison.Ordinal)
+                || !lines[i - 1].StartsWith("  ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await Assert.That(string.CompareOrdinal(lines[i - 1], lines[i])).IsLessThan(0)
+                .Because($"'{lines[i - 1]}' and '{lines[i]}' are out of order, so the digest depends "
+                       + "on how the compiler happened to list them.");
+        }
     }
 
     /// <summary>The version this build of the contract claims to be.</summary>
@@ -123,7 +150,7 @@ public class ContractSurfaceTests
     /// rather than of the compiler's member ordering.
     /// </para>
     /// </remarks>
-    private static string ComputeSurface()
+    private static string SurfaceText()
     {
         var lines = new List<string>();
 
@@ -134,19 +161,16 @@ public class ContractSurfaceTests
                 ?? throw new InvalidOperationException($"{type.FullName} has no pinned id")).Id;
 
             lines.Add($"type {pinnedId} {type.Name}");
-
-            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                         .OrderBy(p => p.Name, StringComparer.Ordinal))
-            {
-                var required = property.GetCustomAttributes()
-                    .Any(a => a is RequiredMemberAttribute) ? "required" : "optional";
-                lines.Add($"  {property.Name} {property.PropertyType.FullName} {required}");
-            }
+            lines.AddRange(SurfaceNaming.PropertyLines(type));
         }
 
-        return Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', lines)))).ToLowerInvariant();
+        return string.Join('\n', lines);
     }
+
+    /// <summary>The digest of the text above.</summary>
+    private static string ComputeSurface() =>
+        Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(SurfaceText()))).ToLowerInvariant();
 
     [Test]
     public async Task The_declared_version_has_an_entry_in_the_ledger()

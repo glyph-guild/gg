@@ -11,5 +11,6 @@
   { "version": "0.10.0", "surface": "56e6575a2a82dc3672652c973995410e055a1232038152b95756e059997de707" },
   { "version": "0.11.0", "surface": "082f58779b59aed891414e5127a3845a75f989bb0897edde084964decab083c4" },
   { "version": "0.12.0", "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7" },
-  { "version": "0.13.0", "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7" }
+  { "version": "0.13.0", "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7" },
+  { "version": "0.14.0", "surface": "bfae16184fa0ccf378a487e8e66f7434b59bccd973fa8c3a19cc7bf09416837c" }
 ]

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Gg.Runner.Tests;
 
 /// <summary>
-/// No PTY, no remote write, and no evaluation on this side.
+/// No PTY, no evaluation on this side, and write only where it was declared.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,10 +15,16 @@ namespace Gg.Runner.Tests;
 /// coming back without anybody deciding it should.
 /// </para>
 /// <para>
-/// The other two are re-assertions, and both are worth re-making NOW: there is
-/// an executor to tempt them for the first time. A write path arrives the day
-/// somebody wants the agent to open a pull request, and an evaluation path
-/// arrives the day somebody wants a verdict without a round trip.
+/// <b>The write assertion has been amended, not deleted.</b> Slice one said the
+/// runner has no path that writes to a remote; that day arrived, somebody did
+/// want the agent to open a pull request, and the property that mattered was
+/// never the absence of the word. It was that nothing can push without something
+/// declared changing. So the scan still runs and now names the files write is
+/// allowed to live in - a second path is caught exactly as before.
+/// </para>
+/// <para>
+/// The evaluation assertion is unchanged and is not negotiable in the same way:
+/// a verdict computed here removes the product's reason to exist.
 /// </para>
 /// </remarks>
 public class NoTerminalTests
@@ -119,17 +125,31 @@ public class NoTerminalTests
         }
     }
 
-    // ---- no write to a remote ----
+    // ---- write exists now, and only where it was declared ----
 
+    /// <summary>
+    /// Slice one asserted the runner has no path that writes to a remote. It has
+    /// one now, and this is that assertion AMENDED rather than deleted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The original test's value was never "the string push appears nowhere" -
+    /// it was <b>nothing can push, and you would have to change something
+    /// declared to make it able to</b>. That property survives, narrowed: write
+    /// lives in a named set of files, and a second path anywhere else in this
+    /// project still fails the build exactly as it did before.
+    /// </para>
+    /// <para>
+    /// The <i>files</i> are listed rather than a count, because a count grows
+    /// silently and a name has to be typed by somebody who then has to explain
+    /// it in a diff.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task The_runner_has_no_path_that_writes_to_a_remote()
+    public async Task The_only_write_path_in_the_runner_is_the_one_that_was_declared()
     {
-        // The agent EDITS FILES - that is the job - and the edits go nowhere.
-        // Write is a property of a declared destination, no envelope declares
-        // one yet, and this is the structural half of proving it: there is no
-        // code that could push even if something asked.
         var writes = new Regex(
-            @"""push""|\bpush\b\s*\+|git\s+push|PushAsync|CreatePullRequest|OpenPullRequest",
+            @"""push""|\bpush\b\s*\+|git\s+push|PushAsync|CreatePullRequest|OpenPullRequest|pulls",
             RegexOptions.Compiled);
 
         var offenders = RunnerSources()
@@ -138,11 +158,42 @@ public class NoTerminalTests
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(offenders).IsEmpty()
-            .Because("no branch, no pull request, no push. Found: " + string.Join(", ", offenders));
+        await Assert.That(offenders).IsEquivalentTo((string[])
+            [
+                // The plan. Checkable without a remote, and it cannot force.
+                "GitInvocation.cs",
+
+                // The adapter behind IDestinationAdapter, which is the escalation
+                // itself: a port that did not exist in slice one.
+                "HttpsDestinationAdapter.cs",
+            ])
+            .Because("write arrived as a declared destination and nowhere else. A path here that is "
+                   + "not one of these is the thing this test has always been for. Found: "
+                   + string.Join(", ", offenders));
 
         await Assert.That(writes.IsMatch("await git(\"push\", remote);")).IsTrue()
             .Because("the scan has to be able to see one.");
+    }
+
+    [Test]
+    public async Task The_loop_never_pushes_and_only_carries_out_a_decision()
+    {
+        // Where the amendment could rot. The adapter is allowed to push; the
+        // loop is what decides whether to call it, and a loop that shelled out
+        // to git itself would be a second write path wearing the first one's
+        // permission.
+        var loop = RunnerSources().Single(f => Path.GetFileName(f) == "RunnerLoop.cs");
+        var code = CodeOf(loop);
+
+        foreach (var direct in (string[])["git ", "GitInvocation", "\"push\"", "HttpClient"])
+        {
+            await Assert.That(code).DoesNotContain(direct)
+                .Because($"'{direct}' in the loop would be a write path that never passed through "
+                       + "the port where writing was declared.");
+        }
+
+        await Assert.That(code).Contains("IDestinationAdapter")
+            .Because("it reaches a remote only through the port, or not at all.");
     }
 
     // ---- no evaluation on this side ----

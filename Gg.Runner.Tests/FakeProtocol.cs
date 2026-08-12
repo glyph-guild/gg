@@ -75,6 +75,16 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.FromResult(Renewals.Count > 0 ? Renewals.Dequeue() : new RenewResult.Renewed(DateTimeOffset.MaxValue));
     }
 
+    /// <summary>
+    /// The landing decision this control plane answers with, if any.
+    /// </summary>
+    /// <remarks>
+    /// Null by default, because that is what a flight with no destination and a
+    /// flight whose obligations are unmet both get. A test that wants a landing
+    /// has to say so, exactly as an envelope does.
+    /// </remarks>
+    public DestinationAdmission? Admission { get; set; }
+
     public Task<FactBatchAccepted> ShipFactsAsync(
         string leaseId, int generation, Gg.Runner.Facts.FilteredFacts facts,
         CancellationToken cancellationToken = default)
@@ -90,6 +100,7 @@ internal sealed class FakeProtocol : IRunnerProtocol
             Accepted = facts.Items.Count,
             Duplicates = 0,
             Rejected = [],
+            Admission = Admission,
         });
     }
 
@@ -170,6 +181,9 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
         Record($"loop:{loopId}:{outcome}:{attempts}", lifecycle: false);
+
+    public void Landed(string outcome, string detail) =>
+        Record($"landed:{outcome}", lifecycle: false);
 }
 
 internal static class Leases

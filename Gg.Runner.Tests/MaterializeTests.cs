@@ -336,16 +336,36 @@ public class MaterializeTests
             .Because("if the plan carried the secret nowhere at all, the absence above would be vacuous.");
     }
 
+    /// <summary>
+    /// A fetch with no secret can authenticate with nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>Amended, and the amendment strengthens it.</b> This used to assert that
+    /// no <c>credential.helper</c> appeared - which was the wrong shape of the
+    /// right idea, because a plan that configures NO helper leaves git free to
+    /// use whatever the machine has. It does: measured against a real remote, an
+    /// operation carrying an invalid secret authenticated from the developer's
+    /// keychain. So the plan now clears the list explicitly, and what is asserted
+    /// is the property that was always meant - nothing here can authenticate.
+    /// </remarks>
     [Test]
-    public async Task A_fetch_with_no_secret_configures_no_credential_helper()
+    public async Task A_fetch_with_no_secret_can_authenticate_with_nothing()
     {
-        // The local adapter never has one. A helper configured with nothing
-        // behind it would prompt, and a runner that prompts hangs forever.
+        // The local adapter never has one. A helper with nothing behind it would
+        // prompt, and a runner that prompts hangs until its lease expires.
         var plan = GitInvocation.Fetch(
             url: "file:///somewhere/base.git", resolvedRef: "refs/heads/main", secret: null);
 
-        await Assert.That(plan.Environment).IsEmpty();
-        await Assert.That(string.Join(' ', plan.Arguments)).DoesNotContain("credential.helper");
+        await Assert.That(plan.Environment).IsEmpty()
+            .Because("no secret means nothing to carry.");
+
+        var helpers = plan.Arguments
+            .Where(a => a.StartsWith("credential.helper", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(helpers).IsEquivalentTo((string[])["credential.helper="])
+            .Because("exactly one entry, and it is the reset - so git has an empty helper list rather "
+                   + "than the machine's.");
     }
 }
 

@@ -46,9 +46,34 @@ public static class ObligationChecks
 public static class ObligationPredicates
 {
     /// <summary>Nothing was touched outside the context's scope.</summary>
+    /// <remarks>Reads <c>context.scope</c> and a <c>change.manifest</c> fact.</remarks>
     public const string NoFileOutsideScope = "no-file-outside-scope";
 
-    public static IReadOnlyList<string> All { get; } = [NoFileOutsideScope];
+    /// <summary>
+    /// The loop did not run out of time.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reads a <c>loop.outcome</c> fact - <b>a different fact from the first
+    /// predicate</b>, which is the whole reason this is the second one. Two
+    /// obligations reading the same fact with similar predicates is the first
+    /// obligation twice; two reading different facts is where the interaction
+    /// lives, because a flight can carry the facts for one and not the other.
+    /// </para>
+    /// <para>
+    /// Real governance rather than a demonstration: work from a loop that ran out
+    /// of time is half-finished by definition, and landing it is how a deadline
+    /// becomes a merge.
+    /// </para>
+    /// <para>
+    /// <b>Declares no new fact.</b> <c>loop.outcome</c> has crossed since slice
+    /// two step 3 - which is the guard this slice is built under, because a gate
+    /// reads facts that already cross.
+    /// </para>
+    /// </remarks>
+    public const string LoopNotExhausted = "loop-not-exhausted";
+
+    public static IReadOnlyList<string> All { get; } = [NoFileOutsideScope, LoopNotExhausted];
 }
 
 /// <summary>
@@ -344,15 +369,22 @@ public sealed record Envelope
     /// The steel thread is one of each, and this is where that is a rule.
     /// </summary>
     /// <remarks>
-    /// Checked rather than aspired to. Every primitive here is justified and
-    /// none of them is needed at cardinality one, so the pressure to add a
-    /// second is constant and the failure mode is a slice that ships a schema
-    /// instead of a handoff.
+    /// <para>
+    /// Checked rather than aspired to. Every primitive here is justified and the
+    /// pressure to add a second is constant, so the failure mode is a slice that
+    /// ships a schema instead of a handoff.
+    /// </para>
+    /// <para>
+    /// <b>Obligations are many; everything else is still one.</b> Two obligations
+    /// is where the interaction between obligations first exists - a flight can
+    /// carry the facts for one and not the other - and nothing in this slice needs
+    /// a second loop or a second destination.
+    /// </para>
     /// </remarks>
     private static string? Cardinality(Envelope envelope) =>
-        envelope.Obligations.Count != 1
-            ? $"An envelope carries one obligation, and this one has {envelope.Obligations.Count}. "
-            + "A second is the next slice arriving early."
+        envelope.Obligations.Count < 1
+            ? "An envelope carries at least one obligation, and this one has none. An envelope "
+            + "that governs nothing is a flight nobody is measuring."
         : envelope.Loops.Count != 1
             ? $"An envelope carries one loop, and this one has {envelope.Loops.Count}. "
             + "A second is the next slice arriving early."

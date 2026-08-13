@@ -24,7 +24,7 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public sealed class StubControlPlane : IAsyncDisposable
 {
-    private readonly HttpListener _listener = new();
+    private readonly HttpListener _listener;
     private readonly CancellationTokenSource _stopping = new();
     private readonly Task _loop;
 
@@ -100,7 +100,7 @@ public sealed class StubControlPlane : IAsyncDisposable
 
     public StubControlPlane()
     {
-        BaseAddress = BindLoopback(_listener);
+        (_listener, BaseAddress) = BindLoopback();
         _loop = Task.Run(ServeAsync);
     }
 
@@ -385,44 +385,76 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     private static readonly HashSet<int> _taken = [];
 
-    private static string BindLoopback(HttpListener listener)
+    /// <summary>
+    /// A listener already bound to a loopback port nobody else holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Asking the operating system for a free port and then giving it back
+    /// before binding it is a check whose answer expires. So there is no probe:
+    /// a candidate is tried by starting the real listener on it, and the
+    /// operating system arbitrates the only bind that happens.
+    /// </para>
+    /// <para>
+    /// <b>A FRESH listener per attempt.</b> A failed <c>Start</c> disposes the
+    /// one it failed on, so reusing it to try the next port throws
+    /// <c>ObjectDisposedException</c> from <c>Prefixes</c> - out of a
+    /// constructor, in whichever test was unlucky. That is a fault this retry
+    /// introduced and the measurement loop found.
+    /// </para>
+    /// </remarks>
+    private static (HttpListener Listener, string Address) BindLoopback()
     {
         for (var attempt = 1; ; attempt++)
         {
-            // Above the range the operating system hands out for ephemeral
-            // sockets, so this is not competing with every outbound connection
-            // on the machine as well as with the other stub.
             int candidate;
             lock (_taken)
             {
                 do
                 {
+                    // Above the range the operating system hands out for
+                    // ephemeral sockets, so this is not competing with every
+                    // outbound connection on the machine as well.
                     candidate = Random.Shared.Next(20000, 60000);
                 }
                 while (!_taken.Add(candidate));
             }
 
             var address = $"http://127.0.0.1:{candidate}/";
+            var listener = new HttpListener();
 
             try
             {
                 listener.Prefixes.Add(address);
                 listener.Start();
-                return address;
+                return (listener, address);
             }
             catch (HttpListenerException) when (attempt < 40)
             {
-                // Another process had it. Ours stays in the taken set: reusing it
-                // later would only re-run this.
-                listener.Prefixes.Remove(address);
+                // Another process had it. The listener is spent; the next
+                // attempt builds another.
+                listener.Close();
             }
         }
     }
+
 
     public async ValueTask DisposeAsync()
     {
         await _stopping.CancelAsync();
         _listener.Stop();
+
+        // The loop first, THEN the close. Closing while the serve loop is still
+        // holding the listener hands it a disposed object, and the order is the
+        // only thing that prevents it.
+        try
+        {
+            await _loop;
+        }
+        catch (Exception)
+        {
+            // Shutting down; the listener loop's cancellation is expected.
+        }
 
         try
         {
@@ -435,14 +467,7 @@ public sealed class StubControlPlane : IAsyncDisposable
             // path binds a socket to look one up. Swallowed here and nowhere
             // else - what this stub existed to serve has already been asserted.
         }
-        try
-        {
-            await _loop;
-        }
-        catch (Exception)
-        {
-            // Shutting down; the listener loop's cancellation is expected.
-        }
+
         _stopping.Dispose();
     }
 }

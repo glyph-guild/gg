@@ -261,12 +261,18 @@ public static class EnvelopeYaml
 
     private static Obligation MapObligation((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "check", "rule", "provenance");
+        Closed(entry.Body, "check", "when", "rule", "provenance");
 
         return new Obligation
         {
             Id = entry.Id,
             Check = RequireScalar(Require(entry.Body, "check"), $"{entry.Body.Path}.check"),
+            // OPTIONAL, and absent means always. A condition that is present and
+            // unrecognised is refused by Envelope.Validate rather than read as
+            // false, because false is the answer that makes the obligation vanish.
+            When = entry.Body.Entries.TryGetValue("when", out var when)
+                ? RequireScalar(when, $"{entry.Body.Path}.when")
+                : null,
             Rule = RequireScalar(Require(entry.Body, "rule"), $"{entry.Body.Path}.rule"),
             Provenance = entry.Body.Entries.TryGetValue("provenance", out var provenance)
                 ? RequireScalar(provenance, $"{entry.Body.Path}.provenance")

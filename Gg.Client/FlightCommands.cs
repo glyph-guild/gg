@@ -54,7 +54,49 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
             ?? throw NoSuchFlight(reference));
     }
 
-    /// <summary>A flight's log.</summary>
+    /// <summary>
+    /// Why each obligation applied to this flight, or did not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched, never derived.</b> The attribution arrives already decided, and
+    /// nothing here looks at a fact or a glob. A client that worked out why an
+    /// obligation attached could explain a verdict it did not produce, and the two
+    /// would drift apart quietly.
+    /// </remarks>
+    public async Task<VerbResult> WhyAsync(
+        string reference, string? obligation, CancellationToken cancellationToken = default)
+    {
+        var token = Session();
+        var resolved = Readable(reference);
+
+        var attribution = await _client.WhyAsync(token, resolved, cancellationToken)
+            ?? throw NoSuchFlight(reference);
+
+        if (obligation is not { Length: > 0 })
+        {
+            return new VerbResult.Why(attribution);
+        }
+
+        // Narrowed, and a name nothing matches is a refusal rather than an empty
+        // answer - "no obligation called that" and "it did not attach" are
+        // different things and the second is the one this verb exists to show.
+        var one = attribution.Obligations
+            .Where(o => string.Equals(o.ObligationId, obligation, StringComparison.Ordinal))
+            .ToList();
+
+        if (one.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"This flight's envelope declares no obligation called '{obligation}'. It declares: "
+              + string.Join(", ", attribution.Obligations.Select(o => o.ObligationId))
+              + ". An obligation that is absent from the envelope is a different thing from one "
+              + "whose condition did not hold.");
+        }
+
+        return new VerbResult.Why(attribution with { Obligations = one });
+    }
+
+    /// <summary>A flight's log.</summary>    /// <summary>A flight's log.</summary>
     public async Task<VerbResult> LogAsync(string reference, CancellationToken cancellationToken = default)
     {
         var token = Session();

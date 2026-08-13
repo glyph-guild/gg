@@ -71,6 +71,17 @@ public static class EnvelopeText
         {
             text.Append($"{Indent}{Scalar(obligation.Id)}:\n");
             text.Append($"{Indent}{Indent}check: {Scalar(obligation.Check)}\n");
+
+            // Before the rule, because it reads as a sentence in that order:
+            // WHEN this is true, the rule applies. Emitted only when there is
+            // one, so an always-attaching obligation does not carry a line
+            // saying so - and an absent line means always, which is the only
+            // thing it is allowed to mean.
+            if (obligation.When is { Length: > 0 } condition)
+            {
+                text.Append($"{Indent}{Indent}when: {Scalar(condition)}\n");
+            }
+
             text.Append($"{Indent}{Indent}rule: {Scalar(obligation.Rule)}\n");
             text.Append($"{Indent}{Indent}provenance: {Scalar(obligation.Provenance)}\n");
         }

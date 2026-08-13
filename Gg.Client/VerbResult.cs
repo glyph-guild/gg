@@ -100,6 +100,20 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.EnvelopeValidated;
     }
+
+    /// <summary>
+    /// Why each obligation applied to a flight, or did not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered, never computed.</b> The value arrives from the control plane
+    /// already decided. A client that worked out for itself why an obligation
+    /// attached could explain a verdict it did not produce, and the two would
+    /// drift - which is Article IX wearing the costume of a rendering concern.
+    /// </remarks>
+    public sealed record Why(FlightAttribution Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Why;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -118,6 +132,8 @@ public static class VerbResultKinds
     public const string Envelope = "envelope";
     public const string EnvelopeApplied = "envelope-applied";
     public const string EnvelopeValidated = "envelope-validated";
+
+    public const string Why = "why";
 }
 
 [JsonSourceGenerationOptions(
@@ -135,6 +151,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(DiagnosticsBundle))]
 [JsonSerializable(typeof(EnvelopeState))]
+[JsonSerializable(typeof(FlightAttribution))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
 /// <summary>How verb results are written and read back.</summary>
@@ -189,6 +206,7 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRemoved),
         VerbResult.Bundle r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DiagnosticsBundle),
         VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
+        VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
         VerbResult.EnvelopeApplied r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
@@ -253,6 +271,7 @@ public static class VerbOutput
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.Bundle r => Bundle(r.Value),
         VerbResult.EnvelopeShown r => Envelope(r.Value),
+        VerbResult.Why r => WhyText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         _ => throw Unknown(result?.Kind),
@@ -648,6 +667,70 @@ public static class VerbOutput
     /// control plane that was compromised, or an older one that stored a name
     /// before stripping existed, must not be able to drive it through us.
     /// </remarks>
+    /// <summary>
+    /// Why each obligation applied, as a person reads it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every obligation appears, including the ones that did not attach.</b> A
+    /// list of only the ones that applied would make non-attachment invisible,
+    /// which is the failure this verb exists to prevent - and the three states are
+    /// spelled differently on purpose, because that is the whole point.
+    /// </remarks>
+    private static string WhyText(FlightAttribution attribution)
+    {
+        var text = new StringBuilder();
+
+        text.AppendLine($"{Clean(attribution.FlightNumber)} — governed by envelope "
+                      + $"{Clean(attribution.EnvelopeVersion)}");
+
+        if (attribution.Halt is { Length: > 0 } halt)
+        {
+            text.AppendLine();
+            text.AppendLine($"HALTED: {Clean(halt, lines: true)}");
+        }
+
+        if (attribution.Obligations.Count == 0)
+        {
+            text.AppendLine();
+            text.AppendLine("This envelope declares no obligation, so nothing governed this flight.");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var obligation in attribution.Obligations)
+        {
+            text.AppendLine();
+            text.AppendLine($"{Clean(obligation.ObligationId)}: {Clean(obligation.Attachment)}");
+
+            if (obligation.Condition is { Length: > 0 } condition)
+            {
+                text.AppendLine($"  when:     {Clean(condition)}");
+            }
+            else if (obligation.Attachment == Attachments.Attached)
+            {
+                // Said, rather than left blank. A missing 'when' line and a
+                // condition that could not be read must not look the same.
+                text.AppendLine("  when:     always (this obligation declares no condition)");
+            }
+
+            if (obligation.Because is { Length: > 0 } because)
+            {
+                text.AppendLine($"  because:  {Clean(because, lines: true)}");
+            }
+
+            if (obligation.Outcome is { Length: > 0 } outcome)
+            {
+                text.AppendLine($"  verdict:  {Clean(outcome)}");
+            }
+
+            if (obligation.Diagnosis is { Length: > 0 } diagnosis)
+            {
+                text.AppendLine($"  detail:   {Clean(diagnosis, lines: true)}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     private static string Clean(string? value, bool lines = false) => ControlText.Strip(value, lines);
 
     private static InvalidOperationException Unknown(string? kind) =>

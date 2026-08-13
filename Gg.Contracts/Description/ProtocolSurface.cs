@@ -259,6 +259,19 @@ public static class ProtocolSurface
         },
         new()
         {
+            Method = "GET",
+            Path = "/v1/flights/{ref}/why",
+            Audience = Audience.Developer,
+            Response = typeof(FlightAttribution),
+            // 404 for a flight nobody has. There is no 'no obligations' status:
+            // an envelope that governs nothing is refused at ingress, and a
+            // flight governed by nothing answers with an empty list and says so
+            // - which is a different thing from a missing flight.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "POST",
             Path = "/v1/flights/{id}/takeover",
             Audience = Audience.Developer,
@@ -459,6 +472,10 @@ public static class ProtocolSurface
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
         new Dictionary<Type, IReadOnlyList<string>>
         {
+            [typeof(ObligationAttribution)] =
+                ["obligationId", "attachment", "condition", "because", "outcome", "diagnosis"],
+            [typeof(FlightAttribution)] =
+                ["flightNumber", "envelopeVersion", "obligations", "halt"],
             [typeof(TakeoverRecord)] =
                 ["by", "startedAt", "heldForMs", "outcome", "diagnosis", "note"],
             [typeof(TakeoverReturn)] = ["flightId", "outcome", "note"],
@@ -478,7 +495,7 @@ public static class ProtocolSurface
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
-            [typeof(Obligation)] = ["id", "check", "rule", "provenance"],
+            [typeof(Obligation)] = ["id", "check", "when", "rule", "provenance"],
             [typeof(LoopBudget)] = ["wallClock"],
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],

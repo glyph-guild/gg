@@ -90,7 +90,12 @@ public class DestinationWriteTests
         // where writing happened somewhere nobody had declared.
         var members = typeof(IDestinationAdapter).GetMembers().Select(m => m.Name).ToList();
 
-        await Assert.That(members).Contains(nameof(IDestinationAdapter.LandAsync));
+        // TWO methods now, and that is the shape rather than an accident: the control
+        // plane grants two permissions, so the port offers two calls and the runner
+        // cannot conflate them. A single LandAsync that decided internally whether to
+        // propose would put the gate decision inside the runner.
+        await Assert.That(members).Contains(nameof(IDestinationAdapter.PushAsync));
+        await Assert.That(members).Contains(nameof(IDestinationAdapter.ProposeAsync));
     }
 
     // ---- nothing is ever force-pushed ----

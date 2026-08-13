@@ -49,6 +49,35 @@ public class AgainstRealRemoteTests
               + "it; skipping them would leave the claim this whole step rests on unverified - that "
               + "a flight which was not admitted leaves nothing behind.");
 
+    /// <summary>
+    /// Pushes and then proposes, which is what these cases have always asked for.
+    /// </summary>
+    /// <remarks>
+    /// <b>The adapter's two methods, called in order, by a helper that is not
+    /// production.</b> The cases in this file are about what reaches a real remote;
+    /// the gating that decides whether to call the second one is the runner's, and it
+    /// is asserted in <c>TwoGateTests</c> and in the two cases at the end of this
+    /// file. Keeping this helper here rather than restoring a single adapter method
+    /// is the point: production cannot make this call, because production has to
+    /// choose.
+    /// </remarks>
+    private static async Task<LandingOutcome> PushAndProposeAsync(
+        IDestinationAdapter adapter, LandingRequest request)
+    {
+        var pushed = await adapter.PushAsync(request);
+
+        return pushed switch
+        {
+            PushOutcome.Pushed or PushOutcome.AlreadyThere =>
+                await adapter.ProposeAsync(request),
+            PushOutcome.Refused(var locator, var diagnosis) =>
+                new LandingOutcome.CredentialRefused(locator, diagnosis),
+            PushOutcome.NothingToPush(var diagnosis) =>
+                new LandingOutcome.Unsupported(diagnosis),
+            _ => new LandingOutcome.Unsupported("the push produced no outcome"),
+        };
+    }
+
     private static string Slug => Required(SlugVariable);
 
     private static string Secret => Required(SecretVariable);
@@ -173,7 +202,7 @@ public class AgainstRealRemoteTests
 
         try
         {
-            var outcome = await Adapter(api).LandAsync(Request(tree, branch));
+            var outcome = await PushAndProposeAsync(Adapter(api), Request(tree, branch));
 
             var landed = outcome as LandingOutcome.Landed;
             await Assert.That(landed).IsNotNull()
@@ -206,7 +235,7 @@ public class AgainstRealRemoteTests
 
         try
         {
-            await Adapter(api).LandAsync(Request(tree, branch));
+            await PushAndProposeAsync(Adapter(api), Request(tree, branch));
 
             using var response = await api.GetAsync($"repos/{Slug}/branches/{branch}");
             response.EnsureSuccessStatusCode();
@@ -237,7 +266,7 @@ public class AgainstRealRemoteTests
 
         try
         {
-            var landed = (LandingOutcome.Landed)await Adapter(api).LandAsync(Request(tree, branch));
+            var landed = (LandingOutcome.Landed)await PushAndProposeAsync(Adapter(api), Request(tree, branch));
 
             using var response = await api.GetAsync($"repos/{Slug}/pulls/{landed.Number}");
             response.EnsureSuccessStatusCode();
@@ -532,12 +561,12 @@ public class AgainstRealRemoteTests
 
         try
         {
-            var landed = await Adapter(api).LandAsync(Request(first, branch));
+            var landed = await PushAndProposeAsync(Adapter(api), Request(first, branch));
             await Assert.That(landed).IsTypeOf<LandingOutcome.Landed>();
 
             var before = await HeadAsync(api, branch);
 
-            var refused = await Adapter(api).LandAsync(Request(second, branch));
+            var refused = await PushAndProposeAsync(Adapter(api), Request(second, branch));
 
             await Assert.That(refused).IsTypeOf<LandingOutcome.BranchExists>()
                 .Because("it was " + refused);
@@ -573,7 +602,7 @@ public class AgainstRealRemoteTests
 
         try
         {
-            var first = await Adapter(api).LandAsync(Request(tree, branch)) as LandingOutcome.Landed;
+            var first = await PushAndProposeAsync(Adapter(api), Request(tree, branch)) as LandingOutcome.Landed;
             await Assert.That(first).IsNotNull();
 
             // Replayed from a tree that has not pushed yet, so the proposal
@@ -581,7 +610,7 @@ public class AgainstRealRemoteTests
             var replay = await WorkedTreeAsync("landed once\n");
             try
             {
-                await Adapter(api).LandAsync(Request(replay, branch));
+                await PushAndProposeAsync(Adapter(api), Request(replay, branch));
             }
             finally
             {
@@ -623,7 +652,7 @@ public class AgainstRealRemoteTests
 
         try
         {
-            var outcome = await Adapter(api).LandAsync(new LandingRequest
+            var outcome = await PushAndProposeAsync(Adapter(api), new LandingRequest
             {
                 WorkingDirectory = tree,
                 Slug = Slug,

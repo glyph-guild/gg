@@ -63,8 +63,20 @@ public class EnvelopeContractsTests
         await Assert.That(Envelope.Validate(AnEnvelope())).IsNull();
     }
 
+    /// <summary>
+    /// A second obligation is allowed now, and it was not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Amended, and the rule it protects is unchanged in shape.</b> Slice two
+    /// held every primitive at one so that a slice could not quietly ship a
+    /// schema instead of a handoff. Obligations are many from slice three step 1,
+    /// because two obligations is where the interaction between obligations first
+    /// exists - a flight can carry the facts for one and not the other - and that
+    /// interaction is what a gate stands on. Everything else is still one, and
+    /// <see cref="EnvelopeCardinalityTests"/> is where that is asserted.
+    /// </remarks>
     [Test]
-    public async Task A_second_obligation_is_the_slice_slipping_and_is_refused()
+    public async Task A_second_obligation_is_allowed_and_a_second_of_anything_else_is_not()
     {
         var two = AnEnvelope() with
         {
@@ -73,17 +85,21 @@ public class EnvelopeContractsTests
                 .. AnEnvelope().Obligations,
                 new Obligation
                 {
-                    Id = "also-in-scope",
+                    Id = "not-exhausted",
                     Check = ObligationChecks.Machine,
-                    Rule = ObligationPredicates.NoFileOutsideScope,
+                    // A DIFFERENT FACT. A second obligation reading the same fact
+                    // with a similar predicate is the first obligation twice.
+                    Rule = ObligationPredicates.LoopNotExhausted,
                 },
             ],
         };
 
-        var diagnosis = Envelope.Validate(two);
+        await Assert.That(Envelope.Validate(two)).IsNull()
+            .Because("two obligations is the point of this cardinality, not a slip.");
 
-        await Assert.That(diagnosis).IsNotNull();
-        await Assert.That(diagnosis).Contains("one obligation");
+        await Assert.That(Envelope.Validate(AnEnvelope() with { Obligations = [] }))
+            .IsNotNull()
+            .Because("an envelope that governs nothing is a flight nobody is measuring.");
     }
 
     [Test]

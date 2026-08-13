@@ -104,5 +104,10 @@
     "version": "0.26.0",
     "surface": "f28c265770a357f942b88607f99c2985effedf4a15d4ebd7b29784bac32ead8d",
     "note": "The answer path: POST /v1/flights/{ref}/decisions, DecisionRequest carrying the evidence manifest hash it was made against, DecisionRecorded carrying the re-evaluated admission, and DecisionObservations - what gg observed about how a decision was made, interpreted by nothing. PendingGate gains the manifest hash a decision is scoped to and the attempt count. All new types and new members; no enumeration that already crosses gained a value, so the fact vocabulary stays at 0.10.0."
+  },
+  {
+    "version": "0.27.0",
+    "surface": "95f1f4ff9e284c53c8e0c7ec4fe7983c8abc750f47c3f022ab12a1324546d9c8",
+    "note": "DiffBasis.PriorAttempt - an attempt-two manifest measured from the previous attempt's head. And the fingerprints now hash closed vocabularies' VALUES: the rule has always been that a value may not be added freely, and until now neither ledger could see one. Fact vocabulary moves to 0.11.0 with it."
   }
 ]

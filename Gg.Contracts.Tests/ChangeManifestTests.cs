@@ -175,9 +175,14 @@ public class ChangeManifestTests
         await Assert.That(found).IsEmpty()
             .Because("Found: " + string.Join(", ", found));
 
-        // The exemption, earned rather than asserted: the member it lets past
-        // can only ever hold one of two labels.
-        await Assert.That(Gg.Contracts.DiffBasis.All.Count).IsEqualTo(2);
+        // The exemption, earned rather than asserted: the member it lets past can only
+        // ever hold one of a few short labels.
+        //
+        // THREE NOW, and the count is pinned rather than left open because that is what
+        // makes the exemption earned. A vocabulary free to grow is one somebody can widen
+        // until the exempted member holds something worth exempting - and the length
+        // assertion below is the property that actually matters.
+        await Assert.That(Gg.Contracts.DiffBasis.All.Count).IsEqualTo(3);
         await Assert.That(Gg.Contracts.DiffBasis.All.All(v => v.Length < 16)).IsTrue()
             .Because("a label long enough to hold a hunk would not be a label.");
     }

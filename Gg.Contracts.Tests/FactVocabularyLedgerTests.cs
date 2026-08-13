@@ -87,7 +87,38 @@ public class FactVocabularyLedgerTests
             SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', lines)))).ToLowerInvariant();
     }
 
-    private static string Current() => Fingerprint(FactManifest.FactTypesIn(typeof(FactKinds).Assembly));
+    /// <summary>
+    /// This build's fact vocabulary: every fact type's shape, AND the closed
+    /// vocabularies whose values travel on them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The values are here and not in <see cref="Fingerprint"/>, deliberately.</b>
+    /// That function reconstructs what a historical version would have recorded, and it
+    /// is only defensible because those types' shapes have not changed since they
+    /// shipped. Folding today's vocabularies into it would re-derive history a second
+    /// time - which the comment on that reconstruction explicitly forbids.
+    /// </para>
+    /// <para>
+    /// <b>Why values belong in the fingerprint at all.</b> Contracts says a member may be
+    /// added freely and a value may not, because the only safe response to an unknown
+    /// value is to halt. Until this line existed the rule had no mechanism: a third
+    /// DiffBasis value moved neither ledger, so the guard that exists to force the
+    /// conversation could not see the change that most needs one.
+    /// </para>
+    /// <para>
+    /// <b>Over-inclusive on purpose.</b> A vocabulary that never travels on a fact moves
+    /// this version too. A false alarm is the direction this project takes every time
+    /// over a silent break.
+    /// </para>
+    /// </remarks>
+    private static string Current()
+    {
+        var shape = Fingerprint(FactManifest.FactTypesIn(typeof(FactKinds).Assembly));
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            shape + '\n' + string.Join('\n', ClosedVocabularies.Lines())))).ToLowerInvariant();
+    }
 
     [Test]
     public async Task The_declared_vocabulary_version_has_an_entry_in_the_ledger()

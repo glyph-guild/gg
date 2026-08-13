@@ -208,7 +208,22 @@ public static class FactVocabulary
     /// a commit. The pushed commit does not cross today and nothing else that
     /// crosses is it - source.provenance carries what was cloned, and the manifest
     /// carries the tree's head before the agent's edits were committed.
-    public const string Version = "0.10.0";
+    /// 0.11.0 adds a THIRD DiffBasis value, prior-attempt, and adds the closed
+    /// vocabularies to what this version fingerprints.
+    ///
+    /// The value first: an attempt-two manifest is measured from the previous attempt's
+    /// head, so it describes what one attempt added rather than what the flight did. A
+    /// control plane reading it as the flight's total would be wrong by everything the
+    /// earlier attempt touched.
+    ///
+    /// AND THE REASON THIS VERSION MOVED AT ALL, which is the more important half. The
+    /// rule has always been that a member may be added freely and a value may not,
+    /// because the only safe response to an unknown value is to halt - so an added value
+    /// breaks every prior reader by design. The fingerprint could not see values: it
+    /// hashed pinned types and their property names, and a third DiffBasis value moved
+    /// nothing. The guard that exists to force this conversation was blind to the change
+    /// that most needs one. It now hashes every closed vocabulary's values as well.
+    public const string Version = "0.11.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -465,7 +480,28 @@ public static class DiffBasis
     /// <summary>Merge base to head. What a pull request's change actually is.</summary>
     public const string MergeBase = "merge-base";
 
-    public static IReadOnlyList<string> All { get; } = [TwoPoint, MergeBase];
+    /// <summary>
+    /// The previous attempt's head to this one's. What one attempt added.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A third basis, because the base means something different.</b> A manifest on
+    /// this basis describes what ONE ATTEMPT did, not what the flight did - so
+    /// <c>filesChanged</c> read as the flight's total would be wrong by everything the
+    /// previous attempt touched. A reader that cannot tell the two apart has a number
+    /// whose meaning depends on history it was not given.
+    /// </para>
+    /// <para>
+    /// <b>Safe because the control plane unions them.</b> Obligations are evaluated over
+    /// every manifest a flight has shipped, so an incremental manifest narrows what one
+    /// fact says without narrowing what is measured. If they were read one at a time,
+    /// this basis would let a violation introduced in attempt one pass unnoticed in
+    /// attempt two.
+    /// </para>
+    /// </remarks>
+    public const string PriorAttempt = "prior-attempt";
+
+    public static IReadOnlyList<string> All { get; } = [TwoPoint, MergeBase, PriorAttempt];
 }
 
 /// <summary>One changed path: what it is, what happened, how much, how sensitive.</summary>

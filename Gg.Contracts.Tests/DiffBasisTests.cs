@@ -44,10 +44,18 @@ public class DiffBasisTests
     };
 
     [Test]
-    public async Task The_two_bases_are_the_two_that_exist_and_no_others()
+    public async Task The_bases_are_the_ones_that_exist_and_no_others()
     {
+        // THREE NOW. `prior-attempt` arrived with the second loop run: a manifest
+        // measured from the previous attempt's head describes what one attempt added
+        // rather than what the flight did, and a reader that cannot tell those apart has
+        // a number whose meaning depends on history it was not given.
+        //
+        // Named rather than counted, so a value swapped for another is caught as well as
+        // one added - and adding one is a version event, which is what the ledger entry
+        // beside this change is for.
         await Assert.That(Gg.Contracts.DiffBasis.All)
-            .IsEquivalentTo((string[])["two-point", "merge-base"]);
+            .IsEquivalentTo((string[])["two-point", "merge-base", "prior-attempt"]);
     }
 
     [Test]

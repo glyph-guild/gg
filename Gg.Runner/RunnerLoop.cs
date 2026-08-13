@@ -556,24 +556,43 @@ public sealed class RunnerLoop(
         IReadOnlyDictionary<string, string> secretsByLocator,
         CancellationToken cancellationToken)
     {
-        if (accepted?.Admission is not { } admission)
+        // TWO GATES, READ INDEPENDENTLY. The push is granted when no machine
+        // obligation is violated; the proposal when every requirement is satisfied.
+        // Neither is derived from the other: a runner that inferred a push from an
+        // admission - or a proposal from a push - would be deciding one of them
+        // itself, and this is the one place in this binary where that would pay.
+        if (accepted?.Push is not { } push)
         {
-            // Absent means no, for every reason at once: no destination, an
-            // unmet obligation, or a control plane too old to answer.
+            // Absent means no, for every reason at once: no destination, a violated
+            // obligation, or a control plane too old to answer. Nothing is pushed
+            // and nobody is asked, which is deliberate for the case where a machine
+            // obligation failed AND a human obligation is pending: presenting a gate
+            // on work that already failed a check spends the attention this product
+            // exists to protect.
+            //
+            // EXPIRY CONDITION, and it must not be defended on principle later. That
+            // rule is correct only because `when:` reads facts and not verdicts. The
+            // canonical gate trigger in the design -
+            // `when: obligations.contracts-intact == violated` - describes a gate
+            // that exists PRECISELY BECAUSE a machine obligation is violated, and
+            // the moment that form ships this inverts: the violation becomes the
+            // reason to ask rather than the reason not to.
             return;
         }
 
-        if (workspace.Trees.FirstOrDefault(t => t.Slug == admission.Slug) is not { } tree)
+        if (workspace.Trees.FirstOrDefault(t => t.Slug == push.Slug) is not { } tree)
         {
             _observer.Landed("refused",
-                $"admitted to land in {admission.Slug} and this flight does not hold it");
+                $"cleared to push {push.Slug} and this flight does not hold it");
             return;
         }
+
+        var admission = accepted.Admission;
 
         // Matched by LOCATOR, which is what ties a credential to a repository -
         // derived by the contract's own rule, so gg and the control plane cannot
         // disagree about which credential belongs to which repo.
-        var wanted = CredentialLocator.ForRepo(admission.Slug);
+        var wanted = CredentialLocator.ForRepo(push.Slug);
         var reference = lease.Credentials.FirstOrDefault(c =>
             string.Equals(c.Locator, wanted, StringComparison.Ordinal));
 
@@ -582,15 +601,15 @@ public sealed class RunnerLoop(
             // FAILS AT THE CREDENTIAL, which is the criterion slice one wrote
             // and could never verify - there was nothing that could try.
             _observer.Landed("refused",
-                $"the credential registered for {admission.Slug} carries "
+                $"the credential registered for {push.Slug} carries "
               + $"{(reference is null ? "no scopes at all" : string.Join(",", reference.Scopes))} "
-              + "and landing needs write. An envelope declares that a flight may land somewhere; "
+              + "and pushing needs write. An envelope declares that a flight may land somewhere; "
               + "it cannot grant the ability to.");
             return;
         }
 
         var adapter = _destinations.FirstOrDefault(d =>
-            d.Provider == lease.Repos.First(r => r.Slug == admission.Slug).Provider);
+            d.Provider == lease.Repos.First(r => r.Slug == push.Slug).Provider);
 
         if (adapter is null)
         {
@@ -598,40 +617,80 @@ public sealed class RunnerLoop(
             return;
         }
 
-        var outcome = await adapter.LandAsync(
-            new LandingRequest
+        var request = new LandingRequest
+        {
+            WorkingDirectory = tree.Path,
+            Slug = push.Slug,
+            Branch = push.Branch,
+            BaseRef = push.BaseRef,
+            Title = $"{lease.FlightNumber}: {admission?.Reason ?? push.Reason}",
+            Secret = secretsByLocator[reference.Locator],
+        };
+
+        // THE PUSH FIRST, ALWAYS. A proposal on a branch that is not there yet is a
+        // proposal against nothing, and a gate whose work exists only in a tree that
+        // is about to be released is a gate nobody can act on.
+        var pushed = await adapter.PushAsync(request, cancellationToken);
+
+        var commit = pushed switch
+        {
+            PushOutcome.Pushed(_, var sha) => sha,
+            // ALREADY THERE is the crash-recovery case and still a reference: a
+            // runner that pushed, died and came back must not lose it.
+            PushOutcome.AlreadyThere(_, var sha) => sha,
+            _ => null,
+        };
+
+        if (commit is null)
+        {
+            // THE SAFETY PROPERTY. Nothing is reported and the tree is NOT released,
+            // because the only copy of the work is here - entering a pending
+            // decision with the work in a doomed tree loses it. `_landed` stays
+            // unset, so the finally block holds the tree for a takeover.
+            _observer.Landed("refused", pushed switch
             {
-                WorkingDirectory = tree.Path,
-                Slug = admission.Slug,
-                Branch = admission.Branch,
-                BaseRef = admission.BaseRef,
-                Title = $"{lease.FlightNumber}: {admission.Reason}",
-                Secret = secretsByLocator[reference.Locator],
-            },
-            cancellationToken);
+                PushOutcome.Refused(var slug, var diagnosis) => $"{slug}: {diagnosis}",
+                PushOutcome.NothingToPush(var diagnosis) => diagnosis,
+                _ => "the branch was not pushed",
+            });
+            return;
+        }
+
+        // KEYED ON THE PUSH, not on the proposal. The work is on the remote, so the
+        // tree is finished with - and a gated flight releases its tree for the same
+        // reason a landed one does. Keying this on the proposal would hold every
+        // gated flight's tree forever; keying it on "we tried" would release the
+        // only copy of work that failed to push.
+        _landed.Add(lease.FlightId);
+
+        _observer.Landed(
+            pushed is PushOutcome.AlreadyThere ? "pushed" : "pushed",
+            $"{push.Branch} at {commit[..Math.Min(7, commit.Length)]}");
+
+        // REPORTED AS A PUSH, always, and before any proposal. Two events, neither
+        // overwriting the other: this one says a branch reached the remote at a
+        // commit, and it is true whether or not a proposal follows. A gated flight
+        // produces only this, and it is what the pending decision is about.
+        await ReportPushAsync(lease, push.Slug, push.Branch, commit, cancellationToken);
+
+        if (admission is null)
+        {
+            // The second gate was not granted. The branch is on the remote and the
+            // proposal waits on a decision, which is the whole shape of a gate.
+            return;
+        }
+
+        var outcome = await adapter.ProposeAsync(request, cancellationToken);
 
         switch (outcome)
         {
             case LandingOutcome.Landed(var branch, var uri, var number):
                 _observer.Landed("landed", $"{branch} -> {uri}");
-                _landed.Add(lease.FlightId);
 
                 // Recorded because it happened. A landing nobody can trace back
                 // to a flight is a branch nobody will ever delete.
-                await _protocol.ShipFactsAsync(
-                    lease.LeaseId, lease.Generation,
-                    FactPipeline.Filter(
-                        FactPipeline.Digest(
-                            FactHygiene.Clean(new GatheredFacts([new FactPayload.Landing(new DestinationLanded
-                            {
-                                DestinationId = admission.DestinationId,
-                                Branch = branch,
-                                PullRequestUri = uri,
-                                PullRequestNumber = number,
-                            })])),
-                            lease.FlightId, _clock.UtcNow),
-                        lease.ClassificationCeiling),
-                    cancellationToken);
+                await ReportLandingAsync(
+                    lease, branch, admission.DestinationId, uri, number, cancellationToken);
                 break;
 
             case LandingOutcome.BranchExists(var existing):
@@ -648,6 +707,60 @@ public sealed class RunnerLoop(
                 break;
         }
     }
+
+    /// <summary>
+    /// Reports what reached the remote, with or without a proposal.
+    /// </summary>
+    /// <remarks>
+    /// <b>One reporter for both shapes.</b> A pushed branch with no proposal and a
+    /// pushed branch with one are the same fact kind with a different disposition,
+    /// and two call sites building it would eventually disagree about the commit.
+    /// </remarks>
+    private Task ReportPushAsync(
+        LeaseGranted lease,
+        string slug,
+        string branch,
+        string commit,
+        CancellationToken cancellationToken) =>
+        _protocol.ShipFactsAsync(
+            lease.LeaseId, lease.Generation,
+            FactPipeline.Filter(
+                FactPipeline.Digest(
+                    FactHygiene.Clean(new GatheredFacts([new FactPayload.Push(new DestinationPushed
+                    {
+                        // NO DESTINATION. A push under a pending decision was cleared
+                        // by the first gate and admitted nowhere, and naming a
+                        // destination would be a record claiming permission nobody
+                        // granted.
+                        Slug = slug,
+                        Branch = branch,
+                        Commit = commit,
+                    })])),
+                    lease.FlightId, _clock.UtcNow),
+                lease.ClassificationCeiling),
+            cancellationToken);
+
+    private Task ReportLandingAsync(
+        LeaseGranted lease,
+        string branch,
+        string destinationId,
+        string uri,
+        int number,
+        CancellationToken cancellationToken) =>
+        _protocol.ShipFactsAsync(
+            lease.LeaseId, lease.Generation,
+            FactPipeline.Filter(
+                FactPipeline.Digest(
+                    FactHygiene.Clean(new GatheredFacts([new FactPayload.Landing(new DestinationLanded
+                    {
+                        DestinationId = destinationId,
+                        Branch = branch,
+                        PullRequestUri = uri,
+                        PullRequestNumber = number,
+                    })])),
+                    lease.FlightId, _clock.UtcNow),
+                lease.ClassificationCeiling),
+            cancellationToken);
 
     /// <summary>Gives the lease back with a disposition, and narrates the outcome.</summary>
     private async Task ReleaseAsync(

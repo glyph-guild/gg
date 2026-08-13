@@ -51,6 +51,32 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
         ReportsDuration = true,
         ReportsMovesUsed = true,
         ReportsTokens = true,
+        // FALSE, and the reason is not the one that used to be written here.
+        //
+        // The old reason was that passing the allowed set does not shorten the tool
+        // list the session advertises - true, and not the point, since a restriction
+        // that is not advertised could still refuse at the moment of the call.
+        // MEASURED, both directions, against the real binary:
+        //
+        //   --allowedTools Read        asked to edit a file, the agent EDITED it.
+        //                              The allow-list does not bind - with or
+        //                              without --permission-mode acceptEdits.
+        //   --disallowedTools Edit,…   asked to edit a file, the agent did NOT, and
+        //                              said editing was not enabled. The deny-list
+        //                              DOES bind.
+        //
+        // So enforcement is achievable and this runner is not doing it, which is a
+        // sharper statement than "the executor cannot". Two things stop it here:
+        //
+        //   1. A deny-list needs a closed enumeration of the executor's tools, and
+        //      that list belongs to the executor and grows without telling us. One
+        //      that missed a tool added later would silently grant it - an
+        //      enforcement that looks total with a hole in it.
+        //   2. Enforcing moves would be a new runner capability, and the step that
+        //      corrected this reason was explicitly guarded against gaining one.
+        //
+        // EnforcesMovesTests holds this comment to account and re-runs the
+        // measurement.
         EnforcesMoves = false,
         AttributesEditsToTools = false,
         Gaps =
@@ -203,6 +229,11 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
                   "--verbose",
                   "--setting-sources", "",
                   "--strict-mcp-config",
+                  // NOT A BOUND. Measured: the allow-list does not refuse a call.
+                  // Passed anyway because it is a true statement of the envelope's
+                  // declared moves and the executor records it in its own
+                  // transcript, which is the only thing tying a session to what it
+                  // was allowed to do. See EnforcesMoves above.
                   "--allowedTools", .. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)])
         {
             info.ArgumentList.Add(argument);
@@ -225,7 +256,18 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
       + "for, in this working tree only. Do not create a branch, do not commit, and do not push "
       + "anything anywhere.";
 
-    /// <summary>The envelope's move vocabulary, as this executor names tools.</summary>
+    /// <summary>
+    /// The envelope's move vocabulary, as this executor names tools.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public so the mapping can be asserted.</b> It is not in correspondence with
+    /// the move vocabulary and that asymmetry is load-bearing: <c>run-tests</c> maps
+    /// onto <c>Bash</c>, which can also edit files. So even a binding tool-level
+    /// restriction would be enforcing something other than the envelope's moves while
+    /// appearing to enforce the moves.
+    /// </remarks>
+    public static string ToolFor(string move) => Tool(move);
+
     private static string Tool(string move) => move switch
     {
         LoopMoves.Read => "Read",

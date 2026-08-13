@@ -22,9 +22,28 @@ public static class ExecutorRungs
 /// </remarks>
 public static class ObligationChecks
 {
+    /// <summary>A predicate the Engine evaluates against facts.</summary>
     public const string Machine = "machine";
 
-    public static IReadOnlyList<string> All { get; } = [Machine];
+    /// <summary>
+    /// A person decides, and nothing else can.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The Engine cannot evaluate this, and that is not a failure.</b> It
+    /// returns no verdict at all rather than an <c>unevaluable</c> one - those are
+    /// both "no answer" and they mean opposite things: <c>unevaluable</c> is the
+    /// system having failed, and a pending decision is the system working.
+    /// </para>
+    /// <para>
+    /// <b>It carries an approver and no rule.</b> A human check with a predicate
+    /// would be two answers to one question, and one with nobody named to answer
+    /// it is a gate with no route out.
+    /// </para>
+    /// </remarks>
+    public const string Human = "human";
+
+    public static IReadOnlyList<string> All { get; } = [Machine, Human];
 }
 
 /// <summary>
@@ -188,8 +207,26 @@ public sealed record Obligation
     /// <summary>One of <see cref="ObligationChecks"/>.</summary>
     public required string Check { get; init; }
 
-    /// <summary>A predicate from <see cref="ObligationPredicates"/>. Never prose.</summary>
-    public required string Rule { get; init; }
+    /// <summary>
+    /// A predicate from <see cref="ObligationPredicates"/>, or null for a human check.
+    /// </summary>
+    /// <remarks>
+    /// <b>Optional only because <c>check: human</c> exists.</b> A machine check with
+    /// no rule is refused at ingress - an obligation nothing can evaluate reports
+    /// satisfied by never running - and a human check carrying one is refused too,
+    /// because the Engine would then have to choose which answer counts.
+    /// </remarks>
+    public string? Rule { get; init; }
+
+    /// <summary>
+    /// Who may decide, for a human check. Null for a machine one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Required for <c>check: human</c>.</b> A gate nobody was named to answer
+    /// is a flight that waits forever, which is the halt-with-no-exit arriving
+    /// through the schema rather than through the state machine.
+    /// </remarks>
+    public string? Approver { get; init; }
 
     /// <summary>
     /// When this obligation applies at all, or null when it always does.
@@ -349,13 +386,52 @@ public sealed record Envelope
                      + string.Join(", ", ObligationChecks.All) + ".";
             }
 
-            if (Unknown(obligation.Rule, ObligationPredicates.All) is { } rule)
+            // THE TWO ROUTES, each closed. Which fields an obligation carries is
+            // determined by its check, and one carrying the other route's fields is
+            // refused rather than half-interpreted.
+            if (string.Equals(obligation.Check, ObligationChecks.Human, StringComparison.Ordinal))
             {
-                // Article XI, at the earliest point it can be caught. A rule
-                // nothing can evaluate must never become an obligation that
-                // reports satisfied by never running.
-                return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one of: "
-                     + string.Join(", ", ObligationPredicates.All) + ".";
+                if (obligation.Approver is not { Length: > 0 }
+                    || obligation.Approver.All(char.IsWhiteSpace))
+                {
+                    return $"Obligation '{obligation.Id}' is checked by a human and names no "
+                         + "approver. A gate nobody was named to answer is a flight that waits "
+                         + "forever - and it would wait looking exactly like a flight that is "
+                         + "still working.";
+                }
+
+                if (obligation.Rule is not null)
+                {
+                    return $"Obligation '{obligation.Id}' is checked by a human and also carries "
+                         + $"rule '{obligation.Rule}'. That is two answers to one question, and "
+                         + "the Engine would have to choose which one counts.";
+                }
+            }
+            else
+            {
+                if (obligation.Rule is null)
+                {
+                    return $"Obligation '{obligation.Id}' is checked by a machine and names no "
+                         + "rule. An obligation nothing can evaluate reports satisfied by never "
+                         + "running, which is worse than no obligation at all.";
+                }
+
+                if (obligation.Approver is not null)
+                {
+                    return $"Obligation '{obligation.Id}' is checked by a machine and names "
+                         + $"approver '{obligation.Approver}'. Nobody will ever be asked, so the "
+                         + "field records a person as responsible for something that will not "
+                         + "reach them - and somebody would read it as a gate.";
+                }
+
+                if (Unknown(obligation.Rule, ObligationPredicates.All) is { } rule)
+                {
+                    // Article XI, at the earliest point it can be caught. A rule
+                    // nothing can evaluate must never become an obligation that
+                    // reports satisfied by never running.
+                    return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one "
+                         + "of: " + string.Join(", ", ObligationPredicates.All) + ".";
+                }
             }
 
             if (obligation.When is { } condition && !AttachmentConditions.IsKnown(condition))
@@ -419,9 +495,26 @@ public sealed record Envelope
             {
                 if (!obligationIds.Contains(discharged, StringComparer.Ordinal))
                 {
+                    // A DANGLING REFERENCE, which is the defect here - not "an
+                    // obligation nothing discharges", which is what this message
+                    // used to say. An obligation with no loop is a GATE and is
+                    // allowed; the only thing refused is a loop naming something
+                    // that is not there.
                     return $"Loop '{loop.Id}' discharges '{discharged}', which is not an obligation "
-                         + "in this envelope. An obligation nothing discharges is a flight that "
-                         + "can never finish.";
+                         + "in this envelope. A loop cannot discharge something nothing declares.";
+                }
+
+                if (envelope.Obligations.FirstOrDefault(o =>
+                        string.Equals(o.Id, discharged, StringComparison.Ordinal)) is
+                    { Check: ObligationChecks.Human } human)
+                {
+                    // A runner satisfying a gate, which is the escalation this
+                    // route exists to prevent. Refused at ingress, because the
+                    // alternative is an envelope that reads as though a loop could
+                    // answer for a person.
+                    return $"Loop '{loop.Id}' discharges '{human.Id}', which is checked by a "
+                         + "human. A loop that discharged a human check would be a runner "
+                         + "answering for a person.";
                 }
             }
         }

@@ -261,7 +261,7 @@ public static class EnvelopeYaml
 
     private static Obligation MapObligation((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "check", "when", "rule", "provenance");
+        Closed(entry.Body, "check", "when", "rule", "approver", "provenance");
 
         return new Obligation
         {
@@ -273,7 +273,16 @@ public static class EnvelopeYaml
             When = entry.Body.Entries.TryGetValue("when", out var when)
                 ? RequireScalar(when, $"{entry.Body.Path}.when")
                 : null,
-            Rule = RequireScalar(Require(entry.Body, "rule"), $"{entry.Body.Path}.rule"),
+            // OPTIONAL HERE, closed by the schema's rule afterwards. A machine
+            // check with no rule is refused and a human check with one is refused,
+            // and both refusals belong in Envelope.Validate where both repositories
+            // read them - not in a parser only this repository has.
+            Rule = entry.Body.Entries.TryGetValue("rule", out var rule)
+                ? RequireScalar(rule, $"{entry.Body.Path}.rule")
+                : null,
+            Approver = entry.Body.Entries.TryGetValue("approver", out var approver)
+                ? RequireScalar(approver, $"{entry.Body.Path}.approver")
+                : null,
             Provenance = entry.Body.Entries.TryGetValue("provenance", out var provenance)
                 ? RequireScalar(provenance, $"{entry.Body.Path}.provenance")
                 : ObligationProvenances.Org,

@@ -19,6 +19,7 @@ return CliArgs.Parse(args) switch
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
+    CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 

@@ -114,6 +114,19 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.Why;
     }
+
+    /// <summary>
+    /// What is waiting on a person.
+    /// </summary>
+    /// <remarks>
+    /// <b>A list, and there is nothing beside it that answers one.</b> Nothing an
+    /// agent can call may unstick a flight, and the cheapest guarantee of that is
+    /// for the verb that shows gates to have no companion that resolves them.
+    /// </remarks>
+    public sealed record Gates(GateList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Gates;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -134,6 +147,7 @@ public static class VerbResultKinds
     public const string EnvelopeValidated = "envelope-validated";
 
     public const string Why = "why";
+    public const string Gates = "gates";
 }
 
 [JsonSourceGenerationOptions(
@@ -152,6 +166,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(DiagnosticsBundle))]
 [JsonSerializable(typeof(EnvelopeState))]
 [JsonSerializable(typeof(FlightAttribution))]
+[JsonSerializable(typeof(GateList))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
 /// <summary>How verb results are written and read back.</summary>
@@ -207,6 +222,7 @@ public static class VerbOutput
         VerbResult.Bundle r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DiagnosticsBundle),
         VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
         VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
+        VerbResult.Gates r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.GateList),
         VerbResult.EnvelopeApplied r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
@@ -272,6 +288,7 @@ public static class VerbOutput
         VerbResult.Bundle r => Bundle(r.Value),
         VerbResult.EnvelopeShown r => Envelope(r.Value),
         VerbResult.Why r => WhyText(r.Value),
+        VerbResult.Gates r => GatesText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         _ => throw Unknown(result?.Kind),
@@ -730,6 +747,56 @@ public static class VerbOutput
 
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// The gate list, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reason is a line rather than a column</b>, because it is a sentence and
+    /// a table would truncate it - and the sentence is why somebody looks at all.
+    /// The commit is abbreviated for reading and carried whole in the json, which is
+    /// what a script would read.
+    /// </remarks>
+    private static string GatesText(GateList gates)
+    {
+        if (gates.Gates.Count == 0)
+        {
+            // An answer, not an empty table. A header over nothing reads as a query
+            // that failed.
+            return "Nothing is waiting on a decision.";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine($"{gates.Gates.Count} decision(s) waiting.");
+
+        foreach (var gate in gates.Gates)
+        {
+            text.AppendLine();
+            text.AppendLine($"{Clean(gate.FlightNumber)} - {Clean(gate.ObligationId)}");
+            text.AppendLine($"  approver: {Clean(gate.Approver)}");
+            text.AppendLine($"  commit:   {Clean(Short(gate.Commit))} on {Clean(gate.Branch)}");
+
+            if (gate.Condition is { Length: > 0 } condition)
+            {
+                text.AppendLine($"  when:     {Clean(condition)}");
+            }
+            else
+            {
+                // The same rule as `gg why`: "declares no condition" and "the
+                // condition could not be read" must not render alike.
+                text.AppendLine("  when:     always (this obligation declares no condition)");
+            }
+
+            text.AppendLine($"  because:  {Clean(gate.Because, lines: true)}");
+            text.AppendLine($"  since:    {gate.AwaitingSince:u}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>The first seven characters, which is what a person reads.</summary>
+    private static string Short(string commit) => commit.Length > 7 ? commit[..7] : commit;
 
     private static string Clean(string? value, bool lines = false) => ControlText.Strip(value, lines);
 

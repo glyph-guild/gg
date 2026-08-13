@@ -74,6 +74,32 @@ public static class FactKinds
     public const string DestinationLanded = "destination.landed";
 
     /// <summary>
+    /// A branch was pushed, and nothing was proposed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A ninth kind rather than a member on <c>destination.landed</c>, and the
+    /// reason is the name.</b> Under the two-gate split the push happens BEFORE
+    /// admission, so a member on <c>destination.landed</c> populated at push time
+    /// would make that fact fire when nothing had landed - a name true of one of its
+    /// two uses. The third option, one kind whose name describes one of the two
+    /// events it reports, is the one to avoid.
+    /// </para>
+    /// <para>
+    /// <b>And <c>destination.landed</c> keeps its exact meaning and shape</b>, so
+    /// nothing already recorded is reinterpreted. That was the argument against
+    /// reusing <c>change.manifest.HeadCommit</c> for this, and it applies here too.
+    /// </para>
+    /// <para>
+    /// <b>Two events, neither overwriting the other.</b> A flight with full
+    /// admission produces both: this one when the branch reaches the remote, and
+    /// <c>destination.landed</c> when the proposal opens. A gated flight produces
+    /// only this one, which is what a pending decision is about.
+    /// </para>
+    /// </remarks>
+    public const string DestinationPushed = "destination.pushed";
+
+    /// <summary>
     /// What a loop did, extracted so a person can pick the work up without the
     /// transcript.
     /// </summary>
@@ -107,6 +133,7 @@ public static class FactKinds
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
          DestinationLanded,
+         DestinationPushed,
          LoopDigest,
          HumanAccount];
 }
@@ -162,7 +189,26 @@ public static class FactVocabulary
     /// WROTE. A control plane reading 0.6.0 cannot tell a flight pushed
     /// anything, and "did this flight change a repository" is not a question to
     /// leave to inference.
-    public const string Version = "0.9.0";
+    /// 0.10.0 adds destination.pushed: a branch reached the remote and nothing was
+    /// proposed. A control plane reading 0.9.0 cannot tell that a flight preserved
+    /// its work while a person was asked, and it cannot name the commit the decision
+    /// is about - "what is this decision about" is not a question to leave to
+    /// inference.
+    ///
+    /// WHY A NINTH KIND rather than a member on destination.landed. The push happens
+    /// BEFORE admission now, so a member on destination.landed populated at push
+    /// time would make that fact fire when nothing had landed: a name true of one of
+    /// its two uses. destination.landed is untouched by this version, so nothing
+    /// already recorded is reinterpreted.
+    ///
+    /// AND WHY THE VERSION HAD TO MOVE AT ALL. The step that added this was guarded
+    /// to leave the vocabulary alone, on the reasoning that a gate is evaluated over
+    /// facts that already cross. That is true about EVALUATION and false about
+    /// PRESENTATION: ADR-0006 makes evidence cross by reference, and a reference is
+    /// a commit. The pushed commit does not cross today and nothing else that
+    /// crosses is it - source.provenance carries what was cloned, and the manifest
+    /// carries the tree's head before the agent's edits were committed.
+    public const string Version = "0.10.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -666,6 +712,9 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DestinationLanded"/>.</summary>
     public DestinationLanded? Landed { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DestinationPushed"/>.</summary>
+    public DestinationPushed? Pushed { get; init; }
+
     /// <summary>
     /// Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopDigest"/>.
     /// </summary>
@@ -725,6 +774,7 @@ public sealed record FactEnvelope
             (FactKinds.LoopOutcome, envelope.Loop is not null),
             (FactKinds.LoopTranscript, envelope.Transcript is not null),
             (FactKinds.DestinationLanded, envelope.Landed is not null),
+            (FactKinds.DestinationPushed, envelope.Pushed is not null),
             (FactKinds.LoopDigest, envelope.LoopDigest is not null),
             (FactKinds.HumanAccount, envelope.Human is not null),
         };
@@ -760,6 +810,11 @@ public sealed record FactEnvelope
         if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)
         {
             return badDigest;
+        }
+
+        if (envelope.Pushed is { } pushed && DestinationPushed.Validate(pushed) is { } badPush)
+        {
+            return badPush;
         }
 
         if (envelope.Landed is { } landed && DestinationLanded.Validate(landed) is { } badLanding)
@@ -841,6 +896,24 @@ public sealed record FactBatchAccepted
     public required int Duplicates { get; init; }
 
     public required IReadOnlyList<FactRejection> Rejected { get; init; }
+
+    /// <summary>
+    /// Whether the branch may be pushed, and where.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first of two gates.</b> Granted when no machine obligation is
+    /// violated, which is a weaker condition than admission: a flight whose human
+    /// obligation is pending may preserve its work on the remote so a person has
+    /// something to decide about, and may not open a proposal.
+    /// </para>
+    /// <para>
+    /// <b>Absent means no</b>, and a runner must not derive this from
+    /// <see cref="Admission"/> or the other way round. Two permissions, two fields,
+    /// each refused by its own absence.
+    /// </para>
+    /// </remarks>
+    public BranchPush? Push { get; init; }
 
     /// <summary>
     /// Whether this flight's work may now land, and where.

@@ -86,6 +86,16 @@ public static class FactHygiene
             ForkSlug = Optional(source.Value.ForkSlug),
         }),
 
+        // A push carries a slug, a branch and a sha - none of them prose, and all of
+        // them stripped anyway. A control sequence in a branch name reaches a
+        // person's terminal through the gate list.
+        FactPayload.Push push => new FactPayload.Push(push.Value with
+        {
+            Slug = Text(push.Value.Slug),
+            Branch = Text(push.Value.Branch),
+            Commit = Text(push.Value.Commit),
+        }),
+
         FactPayload.Change change => new FactPayload.Change(change.Value with
         {
             BaseCommit = Text(change.Value.BaseCommit),

@@ -77,6 +77,15 @@ public abstract record CliAction
     /// </remarks>
     public sealed record Why(string Flight, string? Obligation, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// What is waiting on a person.
+    /// </summary>
+    /// <remarks>
+    /// No arguments. A gate list narrowed by approver would be the routing this step
+    /// does not have, and one narrowed by flight is what `gg why` already answers.
+    /// </remarks>
+    public sealed record Gates(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Writes an envelope back, from a file or from stdin.</summary>
     /// <remarks>
     /// A path or "-". Reading from stdin is what makes this composable with an
@@ -159,6 +168,7 @@ public static class CliArgs
             ["doctor"] => new CliAction.Doctor(json),
             ["bundle"] => new CliAction.Bundle(json),
 
+            ["gates"] => new CliAction.Gates(json),
             ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
             ["why", var flight] => new CliAction.Why(flight, null, json),
             ["why"] => Unknown(

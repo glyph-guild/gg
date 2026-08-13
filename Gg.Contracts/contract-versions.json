@@ -1,26 +1,103 @@
 [
-  { "version": "0.1.0-alpha.24", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" },
-  { "version": "0.2.0", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" },
-  { "version": "0.3.0", "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d" },
-  { "version": "0.4.0", "surface": "7f15b2db0ac4620ccd3087efb0daa5fb74444186be7687729917a975fe318cc2" },
-  { "version": "0.5.0", "surface": "8f7be9fa57192b3ed395858339fd24d72c1fb7613b6bb94de901157ac23a795f" },
-  { "version": "0.6.0", "surface": "0d2bdd5a0676583a7df6db8a413a8d68c36901e565d5dd1ed18f2da034ddb466" },
-  { "version": "0.7.0", "surface": "6de623bea8f160a3e0b03f2e5eeb3aceb0c712529bc2585a9a69e1910ec66534" },
-  { "version": "0.8.0", "surface": "38b65bfdd7bca12827df108d9dbfb8139c642e3e6835017b708dbdf3d61f6d81" },
-  { "version": "0.9.0", "surface": "0a18b329476e84f3b7ba35f0a1c741ce5358b28966842218d57c34e2980422eb" },
-  { "version": "0.10.0", "surface": "56e6575a2a82dc3672652c973995410e055a1232038152b95756e059997de707" },
-  { "version": "0.11.0", "surface": "082f58779b59aed891414e5127a3845a75f989bb0897edde084964decab083c4" },
-  { "version": "0.12.0", "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7" },
-  { "version": "0.13.0", "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7" },
-  { "version": "0.14.0", "surface": "bfae16184fa0ccf378a487e8e66f7434b59bccd973fa8c3a19cc7bf09416837c" },
-  { "version": "0.15.0", "surface": "5244d0af4a9f748487d528a82cad74e63f19b74129c683d55ad90e5850e98eec" },
-  { "version": "0.16.0", "surface": "45069142a0ebf8c5c783818f28a1d92f7b9198155a8c93fc37d8f3509112f10c" },
-  { "version": "0.17.0", "surface": "ac938733e0f0bbb5cfe2654c1713254c98ce09ba3e644503c0c1f6133c9ad8be" },
-  { "version": "0.18.0", "surface": "5accb9d5070e92ac4b0019afd0c1a6046a60c80adb57753936302682d4c8603f" },
-  { "version": "0.19.0", "surface": "5accb9d5070e92ac4b0019afd0c1a6046a60c80adb57753936302682d4c8603f" },
-  { "version": "0.20.0", "surface": "4e82ee89cbec3648688c9229bbf2b463be79c0de8c3ad25c8557eafea72d1524" },
-  { "version": "0.21.0", "surface": "dfbeb578a56792a0798cf6bbceead3f38a443ba542e76b26388b9f1c3bce4ef8" },
-  { "version": "0.22.0", "surface": "dfbeb578a56792a0798cf6bbceead3f38a443ba542e76b26388b9f1c3bce4ef8" },
-  { "version": "0.23.0", "surface": "dfbeb578a56792a0798cf6bbceead3f38a443ba542e76b26388b9f1c3bce4ef8" },
-  { "version": "0.24.0", "surface": "6aa6a83cad02ccb025eee8f929bfca22a12adbb033a711755eec0f04e12ab164" }
+  {
+    "version": "0.1.0-alpha.24",
+    "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d"
+  },
+  {
+    "version": "0.2.0",
+    "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d"
+  },
+  {
+    "version": "0.3.0",
+    "surface": "a87f0af7d73c74e00da7811a7515005206c372c565b41284f4a9ff00571ad95d"
+  },
+  {
+    "version": "0.4.0",
+    "surface": "7f15b2db0ac4620ccd3087efb0daa5fb74444186be7687729917a975fe318cc2"
+  },
+  {
+    "version": "0.5.0",
+    "surface": "8f7be9fa57192b3ed395858339fd24d72c1fb7613b6bb94de901157ac23a795f"
+  },
+  {
+    "version": "0.6.0",
+    "surface": "0d2bdd5a0676583a7df6db8a413a8d68c36901e565d5dd1ed18f2da034ddb466"
+  },
+  {
+    "version": "0.7.0",
+    "surface": "6de623bea8f160a3e0b03f2e5eeb3aceb0c712529bc2585a9a69e1910ec66534"
+  },
+  {
+    "version": "0.8.0",
+    "surface": "38b65bfdd7bca12827df108d9dbfb8139c642e3e6835017b708dbdf3d61f6d81"
+  },
+  {
+    "version": "0.9.0",
+    "surface": "0a18b329476e84f3b7ba35f0a1c741ce5358b28966842218d57c34e2980422eb"
+  },
+  {
+    "version": "0.10.0",
+    "surface": "56e6575a2a82dc3672652c973995410e055a1232038152b95756e059997de707"
+  },
+  {
+    "version": "0.11.0",
+    "surface": "082f58779b59aed891414e5127a3845a75f989bb0897edde084964decab083c4"
+  },
+  {
+    "version": "0.12.0",
+    "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7"
+  },
+  {
+    "version": "0.13.0",
+    "surface": "83aaa9d2fc641da0957d590b167cd4c702138fc7c268dad88305e052aa43b7a7"
+  },
+  {
+    "version": "0.14.0",
+    "surface": "bfae16184fa0ccf378a487e8e66f7434b59bccd973fa8c3a19cc7bf09416837c"
+  },
+  {
+    "version": "0.15.0",
+    "surface": "5244d0af4a9f748487d528a82cad74e63f19b74129c683d55ad90e5850e98eec"
+  },
+  {
+    "version": "0.16.0",
+    "surface": "45069142a0ebf8c5c783818f28a1d92f7b9198155a8c93fc37d8f3509112f10c"
+  },
+  {
+    "version": "0.17.0",
+    "surface": "ac938733e0f0bbb5cfe2654c1713254c98ce09ba3e644503c0c1f6133c9ad8be"
+  },
+  {
+    "version": "0.18.0",
+    "surface": "5accb9d5070e92ac4b0019afd0c1a6046a60c80adb57753936302682d4c8603f"
+  },
+  {
+    "version": "0.19.0",
+    "surface": "5accb9d5070e92ac4b0019afd0c1a6046a60c80adb57753936302682d4c8603f"
+  },
+  {
+    "version": "0.20.0",
+    "surface": "4e82ee89cbec3648688c9229bbf2b463be79c0de8c3ad25c8557eafea72d1524"
+  },
+  {
+    "version": "0.21.0",
+    "surface": "dfbeb578a56792a0798cf6bbceead3f38a443ba542e76b26388b9f1c3bce4ef8"
+  },
+  {
+    "version": "0.22.0",
+    "surface": "dfbeb578a56792a0798cf6bbceead3f38a443ba542e76b26388b9f1c3bce4ef8"
+  },
+  {
+    "version": "0.23.0",
+    "surface": "dfbeb578a56792a0798cf6bbceead3f38a443ba542e76b26388b9f1c3bce4ef8"
+  },
+  {
+    "version": "0.24.0",
+    "surface": "6aa6a83cad02ccb025eee8f929bfca22a12adbb033a711755eec0f04e12ab164"
+  },
+  {
+    "version": "0.25.0",
+    "surface": "5ebbd99eaabc54583e8213e6eb37bafefdebc43425c0f5dbfc1e9794c4e7097e",
+    "note": "check: human and its approver; the push and the proposal as two separate permissions (BranchPush beside DestinationAdmission); destination.pushed as a ninth fact kind carrying the commit a pending decision is about, with destination.landed untouched so nothing recorded is reinterpreted; GET /v1/gates and the gate list. Fact vocabulary moves to 0.10.0 with it."
+  }
 ]

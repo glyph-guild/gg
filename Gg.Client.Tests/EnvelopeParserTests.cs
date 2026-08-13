@@ -284,4 +284,88 @@ public class EnvelopeParserTests
         await Assert.That(parsed.Envelope).IsNull();
         await Assert.That(parsed.Diagnosis).Contains("cheap");
     }
+
+    // ---- two obligations, which is where a parser can silently lose one ----
+
+    private static Envelope AtTwo() => new()
+    {
+        Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
+        Obligations =
+        [
+            new Obligation
+            {
+                Id = "in-scope",
+                Check = ObligationChecks.Machine,
+                Rule = ObligationPredicates.NoFileOutsideScope,
+            },
+            new Obligation
+            {
+                Id = "not-exhausted",
+                Check = ObligationChecks.Machine,
+                Rule = ObligationPredicates.LoopNotExhausted,
+            },
+        ],
+        Loops =
+        [
+            new Loop
+            {
+                Id = "implement",
+                Executor = ExecutorRungs.Frontier,
+                Discharges = ["in-scope", "not-exhausted"],
+                Moves = [LoopMoves.Read, LoopMoves.Edit],
+                Budget = new LoopBudget { WallClock = "30m" },
+                OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+            },
+        ],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "pull-request",
+                Kind = DestinationKinds.PullRequest,
+                Requires = ["in-scope", "not-exhausted"],
+            },
+        ],
+    };
+
+    [Test]
+    public async Task Two_obligations_round_trip_without_loss()
+    {
+        // Emitted, parsed, emitted. The second emit has to be the first, or
+        // something the parser dropped is something a tenant wrote - and nobody
+        // notices until a rule stops being enforced.
+        var text = EnvelopeText.Render(AtTwo());
+        var parsed = EnvelopeYaml.Parse(text);
+
+        await Assert.That(parsed.Envelope).IsNotNull().Because(parsed.Diagnosis ?? "");
+        await Assert.That(EnvelopeText.Render(parsed.Envelope!)).IsEqualTo(text);
+    }
+
+    [Test]
+    public async Task Both_obligations_survive_as_distinct_obligations()
+    {
+        // A parser that read the second over the first would produce ONE
+        // obligation and a round trip that looks fine until you count them.
+        var parsed = EnvelopeYaml.Parse(EnvelopeText.Render(AtTwo())).Envelope!;
+
+        await Assert.That(parsed.Obligations.Count).IsEqualTo(2);
+        await Assert.That(parsed.Obligations.Select(o => o.Id).Order().ToList())
+            .IsEquivalentTo((string[])["in-scope", "not-exhausted"]);
+        await Assert.That(parsed.Obligations.Select(o => o.Rule).Distinct().Count()).IsEqualTo(2)
+            .Because("they read different facts, which is the whole reason there are two.");
+    }
+
+    [Test]
+    public async Task A_duplicate_obligation_id_is_still_refused_at_two()
+    {
+        // The duplicate-key hazard, at the cardinality where it stops being
+        // theoretical: two obligations named the same thing is a rule silently
+        // replacing another rule.
+        var text = EnvelopeText.Render(AtTwo()).Replace("not-exhausted:", "in-scope:");
+
+        var parsed = EnvelopeYaml.Parse(text);
+
+        await Assert.That(parsed.Envelope).IsNull();
+        await Assert.That(parsed.Diagnosis!).Contains("in-scope");
+    }
 }

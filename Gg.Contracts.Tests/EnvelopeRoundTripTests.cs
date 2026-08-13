@@ -151,8 +151,8 @@ public class EnvelopeRoundTripTests
                 discharges:
                   - in-scope
                 moves:
-                  - read
                   - edit
+                  - read
                   - run-tests
                   - search
                 budget:

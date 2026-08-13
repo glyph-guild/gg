@@ -84,6 +84,126 @@ public sealed record DestinationLanded
 /// </para>
 /// </remarks>
 [PinnedId("b5e07f31-4a29-4c86-8d15-90fc23e7a641")]
+/// <summary>
+/// What a commit reference looks like, in one place.
+/// </summary>
+/// <remarks>
+/// Hex and forty characters. A rule rather than a comment, because both a landing
+/// fact and a gate carry one and a reference that is not a reference is the
+/// well-formed wrong value that would send somebody to a commit nobody has.
+/// </remarks>
+public static class Commits
+{
+    public const int ShaLength = 40;
+
+    public static bool IsSha(string? value) =>
+        value is { Length: ShaLength } sha && sha.All(Uri.IsHexDigit);
+}
+
+/// <summary>
+/// A branch reached the remote, and nothing was proposed.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Its own kind, because its name has to be true of what it reports.</b> A push
+/// happens under the first gate; a proposal happens under the second. Reporting the
+/// first on <c>destination.landed</c> would make that fact fire when nothing had
+/// landed.
+/// </para>
+/// <para>
+/// <b>The commit is the point.</b> A pending decision is about a commit, and a gate
+/// whose work exists only in a working tree on somebody's machine is a gate nobody
+/// can act on. This is what ADR-0006's by-reference evidence means for a gate: the
+/// reference is a sha.
+/// </para>
+/// <para>
+/// <b>It names no destination.</b> A push under a pending decision was cleared by
+/// the first gate and admitted nowhere, and naming a destination would be a record
+/// claiming permission nobody granted.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.DestinationPushed)]
+[PinnedId("2a7f4c81-6b03-4d95-8e12-c740b9a53f26")]
+public sealed record DestinationPushed
+{
+    /// <summary>Which repository, of the ones the flight holds.</summary>
+    public required string Slug { get; init; }
+
+    /// <summary>The branch that was pushed. Carries the flight number.</summary>
+    public required string Branch { get; init; }
+
+    /// <summary>The commit the branch is at.</summary>
+    public required string Commit { get; init; }
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(DestinationPushed pushed)
+    {
+        ArgumentNullException.ThrowIfNull(pushed);
+
+        if (string.IsNullOrWhiteSpace(pushed.Slug))
+        {
+            return "A push names the repository it wrote to.";
+        }
+
+        if (string.IsNullOrWhiteSpace(pushed.Branch))
+        {
+            return "A push names the branch it wrote. A branch nobody can name is one nobody will "
+                 + "delete.";
+        }
+
+        return Commits.IsSha(pushed.Commit)
+            ? null
+            : $"A push names the commit it wrote, and '{pushed.Commit}' is not one. The commit is "
+            + "what a pending decision is about, so a push without one describes work nobody can "
+            + "find.";
+    }
+}
+
+/// <summary>
+/// Permission to push the branch, which is not permission to propose a change.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Two gates, because conflating them ships a defect.</b> Slice two gated the
+/// push on full admission. A human gate needs the branch pushed <b>before</b>
+/// anybody is asked - work under review cannot live only in a working tree that is
+/// about to be released - and moving the push earlier without splitting the
+/// permission means a flight with a violated obligation pushes its work anyway.
+/// </para>
+/// <para>
+/// So this is granted when <b>no machine obligation is violated</b>, and
+/// <see cref="DestinationAdmission"/> is granted when every <c>requires</c> is
+/// satisfied. A separate type rather than a flag, because a boolean on one object
+/// is one misread away from being ignored.
+/// </para>
+/// <para>
+/// <b>Absent means no</b>, exactly as admission does, and a runner must never
+/// derive one permission from the other.
+/// </para>
+/// </remarks>
+[PinnedId("3d95f8c1-7e42-4a06-b8d3-51c07f2a94e6")]
+public sealed record BranchPush
+{
+    /// <summary>The branch to push. Named by the control plane, which knows the flight number.</summary>
+    public required string Branch { get; init; }
+
+    /// <summary>The ref the work was based on, carried so a later proposal has a base.</summary>
+    public required string BaseRef { get; init; }
+
+    /// <summary>Which repository, of the ones this flight holds.</summary>
+    public required string Slug { get; init; }
+
+    /// <summary>
+    /// Why the work may be preserved, for the record.
+    /// </summary>
+    /// <remarks>
+    /// Preserving is not landing, and the reason says so. A push under a pending
+    /// gate is the control plane making sure a decision has something to be about.
+    /// </remarks>
+    public required string Reason { get; init; }
+}
+
+[PinnedId("f0a37b62-1c94-4e58-8d05-92b6e1cf47a3")]
 public sealed record DestinationAdmission
 {
     /// <summary>Which destination, by its id in the envelope.</summary>

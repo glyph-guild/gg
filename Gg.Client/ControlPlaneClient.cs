@@ -28,6 +28,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(Envelope))]
 [JsonSerializable(typeof(EnvelopeState))]
 [JsonSerializable(typeof(FlightAttribution))]
+[JsonSerializable(typeof(GateList))]
 [JsonSerializable(typeof(EnvelopeApplied))]
 /// <summary>
 /// How this client serializes wire types.
@@ -408,6 +409,29 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// A read, and nothing more. Everything in the answer was decided by the
     /// Engine before it was serialized.
     /// </remarks>
+    /// <summary>
+    /// Everything waiting on a person.
+    /// </summary>
+    /// <remarks>
+    /// A read, and there is no method beside it that answers one. The absence is the
+    /// point: nothing in this client can unstick a flight.
+    /// </remarks>
+    public async Task<GateList> GatesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/gates", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        // An empty list rather than null. "Nothing is waiting" is an answer every
+        // caller can render, and a null would make it a case each of them handles.
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.GateList, cancellationToken)
+            ?? new GateList { Gates = [] };
+    }
+
     public async Task<FlightAttribution?> WhyAsync(
         string sessionToken, string reference, CancellationToken cancellationToken = default)
     {

@@ -112,6 +112,16 @@ public static class FactCleanliness
             return Diagnosis(badTranscript);
         }
 
+        if (fact.Pushed is { } pushed && First(
+            [
+                ("pushed.slug", pushed.Slug, false),
+                ("pushed.branch", pushed.Branch, false),
+                ("pushed.commit", pushed.Commit, false),
+            ]) is { } badPush)
+        {
+            return Diagnosis(badPush);
+        }
+
         if (fact.Landed is { } landed && First(
             [
                 ("landed.destinationId", landed.DestinationId, false),

@@ -82,7 +82,19 @@ public static class EnvelopeText
                 text.Append($"{Indent}{Indent}when: {Scalar(condition)}\n");
             }
 
-            text.Append($"{Indent}{Indent}rule: {Scalar(obligation.Rule)}\n");
+            // Emitted only when there is one. A human check has no rule, and
+            // `rule: ""` would be a predicate that exists and says nothing -
+            // which the parser would then have to refuse on the way back in.
+            if (obligation.Rule is { Length: > 0 } rule)
+            {
+                text.Append($"{Indent}{Indent}rule: {Scalar(rule)}\n");
+            }
+
+            // The approver, for a human check, after the rule slot it replaces.
+            if (obligation.Approver is { Length: > 0 } approver)
+            {
+                text.Append($"{Indent}{Indent}approver: {Scalar(approver)}\n");
+            }
             text.Append($"{Indent}{Indent}provenance: {Scalar(obligation.Provenance)}\n");
         }
 

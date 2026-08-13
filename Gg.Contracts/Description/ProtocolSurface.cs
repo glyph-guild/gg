@@ -259,6 +259,19 @@ public static class ProtocolSurface
         },
         new()
         {
+            // A LIST AND NOTHING ELSE. No companion endpoint answers a gate, which
+            // is what makes "nothing an agent can call can unstick a flight" a
+            // property of the declared surface rather than a convention. Step 4
+            // adds exactly one, and the declaration is where that will be visible.
+            Method = "GET",
+            Path = "/v1/gates",
+            Audience = Audience.Developer,
+            Response = typeof(GateList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/flights/{ref}/why",
             Audience = Audience.Developer,
@@ -474,6 +487,11 @@ public static class ProtocolSurface
         {
             [typeof(ObligationAttribution)] =
                 ["obligationId", "attachment", "condition", "because", "outcome", "diagnosis"],
+            [typeof(GateList)] = ["gates"],
+            [typeof(PendingGate)] =
+                ["flightNumber", "obligationId", "approver", "branch", "commit", "condition",
+                 "because", "awaitingSince"],
+            [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
                 ["flightNumber", "envelopeVersion", "obligations", "halt"],
             [typeof(TakeoverRecord)] =
@@ -487,6 +505,7 @@ public static class ProtocolSurface
             [typeof(DigestError)] = ["source", "detail"],
             [typeof(DestinationLanded)] =
                 ["destinationId", "branch", "pullRequestUri", "pullRequestNumber"],
+            [typeof(DestinationPushed)] = ["slug", "branch", "commit"],
             [typeof(DestinationAdmission)] =
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
@@ -495,7 +514,7 @@ public static class ProtocolSurface
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
-            [typeof(Obligation)] = ["id", "check", "when", "rule", "provenance"],
+            [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance"],
             [typeof(LoopBudget)] = ["wallClock"],
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
@@ -561,10 +580,11 @@ public static class ProtocolSurface
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
-                 "loop", "transcript", "landed", "loopDigest", "human"],
+                 "loop", "transcript", "landed", "pushed", "loopDigest", "human"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
-            [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected", "admission"],
+            [typeof(FactBatchAccepted)] =
+                ["accepted", "duplicates", "rejected", "push", "admission"],
             [typeof(ClassificationRule)] = ["pathGlob", "classification"],
             // Paths and counts. Nothing here a line of a file could travel in,
             // asserted over the shape as well as declared.

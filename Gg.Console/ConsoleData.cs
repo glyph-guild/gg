@@ -78,6 +78,17 @@ public sealed class ConsoleData(FlightCommands commands, CredentialCommands cred
     /// hardest to notice, and a console that could not show it would be a
     /// surface where non-attachment is invisible again.
     /// </remarks>
+    /// <summary>
+    /// `gg gates` - what is waiting on a person.
+    /// </summary>
+    /// <remarks>
+    /// The console shows the same list the verb does, from the same fetch. It cannot
+    /// answer one: there is no decision path in this build, and a console pane that
+    /// offered one would be the exit this step asserts does not exist.
+    /// </remarks>
+    public Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>
+        _commands.GatesAsync(cancellationToken);
+
     public Task<VerbResult> WhyAsync(
         string reference, string? obligation = null, CancellationToken cancellationToken = default) =>
         _commands.WhyAsync(reference, obligation, cancellationToken);

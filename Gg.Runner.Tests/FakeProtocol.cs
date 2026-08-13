@@ -85,6 +85,16 @@ internal sealed class FakeProtocol : IRunnerProtocol
     /// </remarks>
     public DestinationAdmission? Admission { get; set; }
 
+    /// <summary>
+    /// The first gate, set independently of the second.
+    /// </summary>
+    /// <remarks>
+    /// Independent on purpose: a fake that derived one from the other could not
+    /// express the case that matters - cleared to push and not to propose - and a
+    /// test using it would be asserting against its own convenience.
+    /// </remarks>
+    public BranchPush? Push { get; set; }
+
     public Task<FactBatchAccepted> ShipFactsAsync(
         string leaseId, int generation, Gg.Runner.Facts.FilteredFacts facts,
         CancellationToken cancellationToken = default)
@@ -100,6 +110,7 @@ internal sealed class FakeProtocol : IRunnerProtocol
             Accepted = facts.Items.Count,
             Duplicates = 0,
             Rejected = [],
+            Push = Push,
             Admission = Admission,
         });
     }

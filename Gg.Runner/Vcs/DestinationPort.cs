@@ -27,10 +27,50 @@ public sealed record LandingRequest
     public required string Secret { get; init; }
 }
 
-/// <summary>What landing produced, or why it did not.</summary>
+/// <summary>
+/// What pushing produced, or why it did not.
+/// </summary>
+/// <remarks>
+/// <b>Separate from <see cref="LandingOutcome"/> because the two gates are
+/// separate.</b> A push that succeeded and a proposal that succeeded are different
+/// permissions, granted on different conditions, and a single outcome type would
+/// let a caller treat one as the other - which is exactly the conflation that would
+/// push work a machine obligation refused.
+/// </remarks>
+public abstract record PushOutcome
+{
+    /// <summary>
+    /// The branch is on the remote, at this commit.
+    /// </summary>
+    /// <remarks>
+    /// The commit is carried because a pending decision is about a commit. A push
+    /// that reported only a branch name would leave the gate pointing at whatever
+    /// the branch means later.
+    /// </remarks>
+    public sealed record Pushed(string Branch, string Commit) : PushOutcome;
+
+    /// <summary>
+    /// The branch was already there, and this did not touch it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a failure, and not a success either - it is the crash-recovery
+    /// case.</b> A runner that pushed, died, and came back finds its own branch. The
+    /// commit is still carried, because the reference is what the gate needs and it
+    /// exists whether or not this attempt wrote it.
+    /// </remarks>
+    public sealed record AlreadyThere(string Branch, string Commit) : PushOutcome;
+
+    /// <summary>The remote said no, and this says what it said.</summary>
+    public sealed record Refused(string Slug, string Diagnosis) : PushOutcome;
+
+    /// <summary>There was nothing to commit, so there is nothing to push.</summary>
+    public sealed record NothingToPush(string Diagnosis) : PushOutcome;
+}
+
+/// <summary>What proposing produced, or why it did not.</summary>
 public abstract record LandingOutcome
 {
-    /// <summary>Pushed and proposed.</summary>
+    /// <summary>Proposed, on a branch that was already pushed.</summary>
     public sealed record Landed(string Branch, string Uri, int Number) : LandingOutcome;
 
     /// <summary>
@@ -96,7 +136,26 @@ public interface IDestinationAdapter
     /// is keyed on the branch. A retry finds the open proposal and returns it
     /// rather than creating a second one.
     /// </remarks>
-    Task<LandingOutcome> LandAsync(LandingRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Pushes the branch, and does not propose anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first of two gates, and a method of its own.</b> A single call that
+    /// pushed and then decided whether to propose would put the gate decision inside
+    /// the runner, and the runner is not an authority. Two methods means the control
+    /// plane's two permissions map onto two calls that cannot be conflated.
+    /// </remarks>
+    Task<PushOutcome> PushAsync(LandingRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Proposes a change on a branch that has already been pushed.
+    /// </summary>
+    /// <remarks>
+    /// Idempotent on the branch: a retry after a proposal failure finds the one that
+    /// exists rather than opening a second.
+    /// </remarks>
+    Task<LandingOutcome> ProposeAsync(
+        LandingRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -63,6 +63,18 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
     /// obligation attached could explain a verdict it did not produce, and the two
     /// would drift apart quietly.
     /// </remarks>
+    /// <summary>
+    /// What is waiting on a person.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched, never derived</b>, and there is nothing here that answers a gate.
+    /// The reason each gate exists is the attribution the Engine already recorded -
+    /// the same value `gg why` renders - so this verb explains itself without
+    /// computing anything.
+    /// </remarks>
+    public async Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Gates(await _client.GatesAsync(Session(), cancellationToken));
+
     public async Task<VerbResult> WhyAsync(
         string reference, string? obligation, CancellationToken cancellationToken = default)
     {

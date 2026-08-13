@@ -35,20 +35,33 @@ public sealed class HttpsDestinationAdapter(
 
     public string Provider { get; } = provider;
 
-    /// <summary>Pushes, then proposes, and never overwrites either.</summary>
-    public async Task<LandingOutcome> LandAsync(
+    /// <summary>Pushes, and proposes nothing.</summary>
+    /// <remarks>
+    /// <b>The first gate, on its own.</b> Granted when no machine obligation is
+    /// violated, which is weaker than admission: a flight whose human obligation is
+    /// pending pushes its branch so a person has a commit to decide about, and opens
+    /// no proposal.
+    /// </remarks>
+    public async Task<PushOutcome> PushAsync(
         LandingRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var url = $"https://{_host}/{request.Slug}.git";
 
-        // Committed first: the agent edited a working tree and left it dirty,
-        // and a push carries commits rather than changes. Authored as the
-        // developer, because their credential is what is about to push it.
+        // Committed first: the agent edited a working tree and left it dirty, and a
+        // push carries commits rather than changes. Authored as the developer,
+        // because their credential is what is about to push it.
         if (await CommitAsync(request, cancellationToken) is { } uncommittable)
         {
-            return uncommittable;
+            return uncommittable switch
+            {
+                LandingOutcome.CredentialRefused(var locator, var diagnosis) =>
+                    new PushOutcome.Refused(locator, diagnosis),
+                LandingOutcome.Unsupported(var diagnosis) =>
+                    new PushOutcome.NothingToPush(diagnosis),
+                _ => new PushOutcome.Refused(request.Slug, "the tree could not be committed"),
+            };
         }
 
         try
@@ -58,20 +71,41 @@ public sealed class HttpsDestinationAdapter(
         }
         catch (InvalidOperationException refused)
         {
-            // A push that will not fast-forward and a push the credential will
-            // not do both arrive here. They are told apart by asking the remote
-            // whether the branch is already there - because "refused" and
-            // "already exists" are different things to a person, and one of them
-            // is not a problem with their credential.
-            return await ExistsAsync(request, cancellationToken)
-                ? new LandingOutcome.BranchExists(request.Branch)
-                : Refusal(request, refused.Message);
+            // A push that will not fast-forward and a push the credential will not
+            // do both arrive here. They are told apart by asking the remote whether
+            // the branch is already there - because "refused" and "already exists"
+            // are different things to a person, and one of them is not a problem
+            // with their credential.
+            if (!await ExistsAsync(request, cancellationToken))
+            {
+                return Refusal(request, refused.Message) is
+                    LandingOutcome.CredentialRefused(var locator, var diagnosis)
+                        ? new PushOutcome.Refused(locator, diagnosis)
+                        : new PushOutcome.Refused(request.Slug, refused.Message);
+            }
+
+            // ALREADY THERE, which is the crash-recovery case rather than a failure:
+            // a runner that pushed, died and came back finds its own branch. The
+            // commit is still what the gate is about, so it is read rather than
+            // reported as unknown.
+            return new PushOutcome.AlreadyThere(
+                request.Branch, await HeadAsync(request, cancellationToken));
         }
 
-        // Keyed on the branch, so a retry after a proposal failure finds the one
-        // that exists rather than opening a second.
-        return await ProposeAsync(request, cancellationToken);
+        return new PushOutcome.Pushed(
+            request.Branch, await HeadAsync(request, cancellationToken));
     }
+
+    /// <summary>The commit the working tree is at, which is what was pushed.</summary>
+    /// <remarks>
+    /// Read from the local repository rather than from the remote's answer: what was
+    /// pushed is what HEAD is, and asking the remote would be a second round trip
+    /// that can disagree.
+    /// </remarks>
+    private static async Task<string> HeadAsync(
+        LandingRequest request, CancellationToken cancellationToken) =>
+        (await GitInvocation.Plain("rev-parse", "HEAD")
+            .RunAsync(request.WorkingDirectory, cancellationToken)).Trim();
 
     /// <summary>Whether the remote already has this branch.</summary>
     /// <remarks>
@@ -135,7 +169,7 @@ public sealed class HttpsDestinationAdapter(
     /// duplicate error, because a provider that reports duplicates differently
     /// would otherwise produce the second one.
     /// </remarks>
-    private async Task<LandingOutcome> ProposeAsync(
+    public async Task<LandingOutcome> ProposeAsync(
         LandingRequest request, CancellationToken cancellationToken)
     {
         var head = $"{request.Slug.Split('/')[0]}:{request.Branch}";

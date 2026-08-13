@@ -24,6 +24,16 @@ public abstract record FactPayload
     /// <summary>Where the work landed, once a destination admitted it.</summary>
     public sealed record Landing(DestinationLanded Value) : FactPayload;
 
+    /// <summary>
+    /// A branch reached the remote and nothing was proposed.
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="Landing"/> rather than folded into it: the push happens under
+    /// the first gate and the proposal under the second, and one payload reporting
+    /// both would be a name true of one of its uses.
+    /// </remarks>
+    public sealed record Push(DestinationPushed Value) : FactPayload;
+
     /// <summary>What the loop did, for a person who will never see the transcript.</summary>
     public sealed record Digest(LoopDigest Value) : FactPayload;
 }
@@ -160,6 +170,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Landed = landing.Value,
+                },
+
+                FactPayload.Push push => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Pushed = push.Value,
                 },
 
                 FactPayload.Transcript transcript => new FactEnvelope
@@ -308,6 +327,9 @@ public static class FactPipeline
         FactPayload.Landing landing => (
             FactKinds.DestinationLanded,
             JsonSerializer.Serialize(landing.Value, FactJsonContext.Default.DestinationLanded)),
+        FactPayload.Push push => (
+            FactKinds.DestinationPushed,
+            JsonSerializer.Serialize(push.Value, FactJsonContext.Default.DestinationPushed)),
         _ => throw new InvalidOperationException(
             $"'{payload.GetType().Name}' has no canonical form, so it has no digest."),
     };

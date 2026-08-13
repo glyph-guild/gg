@@ -57,7 +57,17 @@ public static class EnvelopeText
         text.Append($"{Indent}constitution: {Scalar(envelope.Context.Constitution)}\n");
 
         text.Append("obligations:\n");
-        foreach (var obligation in envelope.Obligations)
+
+        // BY ID, ORDINAL, AND SAID SO. The emitter used to iterate the collection
+        // and take whatever order came out; at one obligation that is
+        // unobservable, so "twice gives identical bytes" passed without any
+        // ordering rule existing.
+        //
+        // Sorted rather than authored, because a canonical form is a function of
+        // WHAT an envelope says and not of the order somebody typed it in - and a
+        // version derived from these bytes has to mean the rules changed, not
+        // that two lines were swapped.
+        foreach (var obligation in envelope.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal))
         {
             text.Append($"{Indent}{Scalar(obligation.Id)}:\n");
             text.Append($"{Indent}{Indent}check: {Scalar(obligation.Check)}\n");
@@ -97,6 +107,17 @@ public static class EnvelopeText
     /// with nothing in it", and omitting the key entirely would make an empty
     /// list and a missing one the same document.
     /// </remarks>
+    /// <summary>
+    /// One sequence, in the declared order.
+    /// </summary>
+    /// <remarks>
+    /// <b>Sorted here too, and the reason is the same one.</b> Sorting the
+    /// obligations and leaving <c>discharges</c>, <c>requires</c> and
+    /// <c>moves</c> in authored order would be a canonical form with one
+    /// ordering rule and three accidents - two envelopes declaring the same rules
+    /// would still emit differently, which is the defect this was supposed to
+    /// close.
+    /// </remarks>
     private static void Sequence(StringBuilder text, string key, IReadOnlyList<string> values, int depth)
     {
         var pad = string.Concat(Enumerable.Repeat(Indent, depth));
@@ -108,7 +129,7 @@ public static class EnvelopeText
         }
 
         text.Append($"{pad}{key}:\n");
-        foreach (var value in values)
+        foreach (var value in values.OrderBy(v => v, StringComparer.Ordinal))
         {
             text.Append($"{pad}{Indent}- {Scalar(value)}\n");
         }

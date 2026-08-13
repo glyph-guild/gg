@@ -394,13 +394,36 @@ public class AgainstRealRemoteTests
     /// mechanism this step introduced.
     /// </remarks>
     private static async Task<(RecordingObserver Observer, FakeProtocol Protocol)> FlyAsync(
-        string number, DestinationAdmission? admission, params string[] scopes)
+        string number, DestinationAdmission? admission, params string[] scopes) =>
+        await FlyAsync(number, PushFor(admission), admission, scopes);
+
+    /// <summary>
+    /// The push permission that goes with an admission.
+    /// </summary>
+    /// <remarks>
+    /// Derived HERE, in a test helper, because the existing cases are about what
+    /// reaches a real remote rather than about gating - and full admission always
+    /// implies push permission. The cases that separate the two pass both explicitly.
+    /// </remarks>
+    private static BranchPush? PushFor(DestinationAdmission? admission) =>
+        admission is null
+            ? null
+            : new BranchPush
+            {
+                Branch = admission.Branch,
+                BaseRef = admission.BaseRef,
+                Slug = admission.Slug,
+                Reason = "no machine obligation is violated",
+            };
+
+    private static async Task<(RecordingObserver Observer, FakeProtocol Protocol)> FlyAsync(
+        string number, BranchPush? push, DestinationAdmission? admission, params string[] scopes)
     {
         using var api = Api();
         using var trees = new ScratchTreeRoot();
 
         var clock = new MovableClock(T0);
-        var protocol = new FakeProtocol { Admission = admission };
+        var protocol = new FakeProtocol { Admission = admission, Push = push };
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(number, scopes)));
 
         var observer = new RecordingObserver();
@@ -680,6 +703,123 @@ public class AgainstRealRemoteTests
         finally
         {
             Directory.Delete(tree, recursive: true);
+        }
+    }
+
+    // ---- the two gates, against the real remote ----
+    //
+    // Three rows, and the third is why the first two mean anything:
+    //
+    //   machine violated, no human      -> no push
+    //   machine violated, human pending -> no push, and nobody asked
+    //   machine satisfied, human pending -> pushed, and somebody asked
+    //
+    // Rows one and two are absence assertions and an absence test that cannot see
+    // presence is not looking. Row three is the liveness half, and it is what proves
+    // the branch would have appeared had the gate allowed it.
+
+    [Test]
+    public async Task A_violated_machine_obligation_pushes_nothing_with_the_push_moved_earlier()
+    {
+        // ROW ONE. Slice two's property, re-proven now that the push happens before
+        // admission rather than because of it. Asked of the remote, because "nothing
+        // was pushed" observed on a double is a statement about the double.
+        using var api = Api();
+        var number = Number();
+        var branch = DestinationBranch.For(number);
+
+        var (_, protocol) = await FlyAsync(
+            number, push: null, admission: null, CredentialScopes.Read, CredentialScopes.Write);
+
+        await Assert.That(await ExistsAsync(api, branch)).IsFalse()
+            .Because("no push permission means no branch, and this asked the remote rather than "
+                   + "trusting a call count.");
+        await Assert.That((await ProposalsAsync(api, branch)).Count).IsEqualTo(0);
+        await Assert.That(protocol.ShippedFacts.SelectMany(b => b.Items)
+                .Any(f => f.Kind is FactKinds.DestinationPushed or FactKinds.DestinationLanded))
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task A_violated_machine_obligation_with_a_human_pending_pushes_nothing_and_asks_nobody()
+    {
+        // ROW TWO, and the one that would ship as a defect. A pending decision does
+        // not unlock the push: presenting a gate on work that already failed a
+        // machine check spends the attention this product exists to protect.
+        //
+        // EXPIRY CONDITION. This is correct only because `when:` reads facts and not
+        // verdicts. The canonical gate trigger in the design -
+        // `when: obligations.contracts-intact == violated` - describes a gate that
+        // exists PRECISELY BECAUSE a machine obligation is violated, and the day that
+        // form ships this rule inverts: the violation becomes the reason to ask
+        // rather than the reason not to. It is a consequence of the current
+        // vocabulary and must not be defended as a principle.
+        using var api = Api();
+        var number = Number();
+        var branch = DestinationBranch.For(number);
+
+        // The control plane grants neither gate for this flight: the machine
+        // obligation is violated, so there is nothing to preserve and nobody to ask.
+        var (observer, protocol) = await FlyAsync(
+            number, push: null, admission: null, CredentialScopes.Read, CredentialScopes.Write);
+
+        await Assert.That(await ExistsAsync(api, branch)).IsFalse()
+            .Because("the work failed a machine check, so it is not on the remote.");
+        await Assert.That(protocol.ShippedFacts.SelectMany(b => b.Items)
+                .Any(f => f.Kind == FactKinds.DestinationPushed))
+            .IsFalse()
+            .Because("and no push was reported, so no gate can be opened against a commit.");
+        await Assert.That(observer.Events.Any(e => e.StartsWith("landed:pushed", StringComparison.Ordinal)))
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task A_satisfied_machine_obligation_with_a_human_pending_pushes_and_opens_no_proposal()
+    {
+        // ROW THREE, the liveness half. Same envelope shape as row two and one thing
+        // different - the machine obligation holds - so the branch appears on the
+        // remote and no pull request is opened. Without this, rows one and two are
+        // satisfied by a runner that can no longer push at all.
+        using var api = Api();
+        var number = Number();
+        var branch = DestinationBranch.For(number);
+
+        try
+        {
+            var (_, protocol) = await FlyAsync(
+                number,
+                push: new BranchPush
+                {
+                    Branch = branch,
+                    BaseRef = "main",
+                    Slug = Slug,
+                    Reason = "no machine obligation is violated, so the work may be preserved",
+                },
+                admission: null,
+                CredentialScopes.Read, CredentialScopes.Write);
+
+            await Assert.That(await ExistsAsync(api, branch)).IsTrue()
+                .Because("the work is on the remote so a person has a commit to decide about.");
+            await Assert.That((await ProposalsAsync(api, branch)).Count).IsEqualTo(0)
+                .Because("the second gate was not granted, so no proposal was opened.");
+
+            var pushed = protocol.ShippedFacts.SelectMany(b => b.Items)
+                .Where(f => f.Kind == FactKinds.DestinationPushed)
+                .ToList();
+
+            await Assert.That(pushed.Count).IsEqualTo(1);
+            await Assert.That(pushed[0].Pushed!.Branch).IsEqualTo(branch);
+            await Assert.That(Commits.IsSha(pushed[0].Pushed!.Commit)).IsTrue()
+                .Because("the commit is what the pending decision is about, and it came from the "
+                       + "repository rather than from the remote's answer.");
+            await Assert.That(protocol.ShippedFacts.SelectMany(b => b.Items)
+                    .Any(f => f.Kind == FactKinds.DestinationLanded))
+                .IsFalse()
+                .Because("nothing landed, and a landing fact would claim a proposal nobody opened.");
+        }
+        finally
+        {
+            await CleanAsync(api, branch);
         }
     }
 }

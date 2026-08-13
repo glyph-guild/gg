@@ -56,6 +56,58 @@ public class AgainstRealAgentTests
     };
 
     [Test]
+    public async Task A_real_run_produces_every_line_kind_and_a_digest_that_names_what_it_left_alone()
+    {
+        // The 4b bet collected against a real agent rather than a fixture. The
+        // console has carried five kinds since then with nothing producing one;
+        // this is the run that produces them, and the digest extracted from the
+        // same pass.
+        var (tree, transcript) = Scratch();
+        File.WriteAllText(Path.Combine(tree, "src", "util.py"),
+            "def slugify(text):\n    return text.lower()\n");
+        File.WriteAllText(Path.Combine(tree, "ISSUE.md"),
+            "# Issue 1\n\nAdd a docstring to greet in src/greet.py, matching the project's style.\n");
+
+        var livePath = Path.Combine(Path.GetDirectoryName(transcript)!, "live.ndjson");
+        var request = Request(tree, transcript, TimeSpan.FromMinutes(5)) with
+        {
+            Live = new Execution.LiveStream(livePath),
+        };
+
+        var run = await new ClaudeCodeExecutor(Binary).ExecuteAsync(request, CancellationToken.None);
+
+        await Assert.That(run.Outcome).IsEqualTo(LoopOutcomes.Completed);
+
+        // The live view, through the transport a console really tails.
+        var kinds = File.ReadAllLines(livePath)
+            .Select(l => System.Text.Json.JsonDocument.Parse(l).RootElement
+                .GetProperty("kind").GetString())
+            .Distinct()
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(kinds).Contains(Execution.LiveLineKinds.Setup);
+        await Assert.That(kinds).Contains(Execution.LiveLineKinds.Tool);
+        await Assert.That(kinds).Contains(Execution.LiveLineKinds.Text);
+        await Assert.That(kinds).Contains(Execution.LiveLineKinds.Meta)
+            .Because("a run that never says it ended leaves a watcher unable to tell finished from "
+                   + "hung, which is the one thing the pane has to be able to say.");
+
+        // And the digest, from the same stream, naming what it looked at and
+        // left alone. This is what crosses when the transcript does not.
+        var digest = run.Digest!;
+
+        await Assert.That(digest.FilesEdited).Contains("src/greet.py");
+        await Assert.That(digest.FilesReadNotEdited.Concat(digest.FilesEdited).Any()).IsTrue();
+
+        foreach (var path in digest.FilesReadNotEdited.Concat(digest.FilesEdited))
+        {
+            await Assert.That(path.StartsWith('/')).IsFalse()
+                .Because($"'{path}' is a path on this machine rather than one that compares.");
+        }
+    }
+
+    [Test]
     public async Task An_agent_works_the_tree_with_no_terminal_anywhere()
     {
         // THE BET THE SLICE IS SCOPED ON. Redirected pipes, closed stdin, no

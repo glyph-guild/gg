@@ -84,6 +84,102 @@ public class BundleRedactionTests
         return state;
     }
 
+    /// <summary>
+    /// The same rule, against lines a real agent produced.
+    /// </summary>
+    /// <remarks>
+    /// <b>Re-verified now that the channel has something in it.</b> The
+    /// assertions above were written while the live channel was empty, which was
+    /// the honest moment to write them and a weak moment to trust them: every
+    /// one would have passed against a reducer that dropped everything. These
+    /// go through the transport a runner actually uses - a file the console
+    /// tails - so what is asserted absent is what really travelled.
+    /// </remarks>
+    private static AppState WithARealStream(out string needleLine)
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(), "gg-bundle-" + Guid.NewGuid().ToString("N")[..8], "flight.ndjson");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        // Shaped exactly like what the executor writes for a real run, with the
+        // needle where one really would be: echoed by a tool into its result.
+        needleLine = $"→ ok  export GH_TOKEN={Needle}";
+        File.WriteAllLines(path,
+        [
+            """{"kind":"setup","text":"session init","at":"2026-08-13T12:00:00+00:00"}""",
+            """{"kind":"text","text":"I'll look at the project's style first.","at":"2026-08-13T12:00:00+00:00"}""",
+            """{"kind":"tool","text":"Read","at":"2026-08-13T12:00:00+00:00"}""",
+            $$"""{"kind":"tool","text":"{{needleLine}}","at":"2026-08-13T12:00:00+00:00"}""",
+            """{"kind":"meta","text":"loop success","at":"2026-08-13T12:00:00+00:00"}""",
+        ]);
+
+        var state = new AppState { LiveVisible = true };
+        foreach (var line in new LiveTail(path).Read())
+        {
+            state = Reducer.StreamArrived(state, line);
+        }
+
+        return state;
+    }
+
+    [Test]
+    public async Task A_real_stream_reaches_the_console_and_none_of_it_reaches_a_bundle()
+    {
+        // FOUR SINKS, because a rule that holds in three places and not the
+        // fourth is not a rule. The json a machine reads, the text a person
+        // pastes, the state that is serialized when the terminal is released,
+        // and the held buffer that freeze fills.
+        var state = WithARealStream(out var needleLine);
+
+        await Assert.That(state.Live.Any(l => l.Text.Contains(Needle, StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the plant has to have worked, or every absence below is vacuous.");
+        await Assert.That(state.Live.Count).IsEqualTo(5)
+            .Because("all five lines arrived through the real transport.");
+
+        var bundle = ConsoleData.BundleFrom(state, T0, AnEnvironment(), AReport(), flightLog: null);
+
+        var json = VerbOutput.ToJson(new VerbResult.Bundle(bundle));
+        var text = VerbOutput.ToText(new VerbResult.Bundle(bundle));
+        var frozen = Reducer.Reduce(state, Command.ToggleFreeze);
+        var held = VerbOutput.ToJson(new VerbResult.Bundle(
+            ConsoleData.BundleFrom(
+                Reducer.StreamArrived(frozen, new StreamLine
+                {
+                    Kind = StreamLineKind.Tool,
+                    Text = needleLine,
+                    At = T0,
+                }),
+                T0, AnEnvironment(), AReport(), flightLog: null)));
+
+        var state_json = System.Text.Json.JsonSerializer.Serialize(
+            state, AppStateJsonContext.Default.AppState);
+
+        foreach (var (sink, content) in ((string, string)[])
+                 [("json", json), ("text", text), ("held", held), ("serialized state", state_json)])
+        {
+            if (sink == "serialized state")
+            {
+                // The one that is SUPPOSED to carry it: releasing the terminal
+                // and rebuilding views from surviving state is the architecture,
+                // and the live pane has to survive that. It is a local file that
+                // never leaves the machine - which is exactly why the bundle,
+                // which does leave, is built from a redaction rather than from
+                // this.
+                await Assert.That(content).Contains(Needle)
+                    .Because("state survives terminal release, and this proves the two documents "
+                           + "are genuinely different rather than the same one twice.");
+                continue;
+            }
+
+            await Assert.That(content).DoesNotContain(Needle)
+                .Because($"the live channel reached the {sink} sink.");
+            await Assert.That(content).DoesNotContain("session init")
+                .Because($"and no other line of it belongs in {sink} either.");
+        }
+    }
+
     [Test]
     public async Task The_needle_really_is_on_the_wire()
     {

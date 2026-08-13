@@ -64,61 +64,13 @@ public sealed class HttpsDestinationAdapter(
             };
         }
 
-        try
-        {
-            await GitInvocation.Push(url, "HEAD", request.Branch, request.Secret)
-                .RunAsync(request.WorkingDirectory, cancellationToken);
-        }
-        catch (InvalidOperationException refused)
-        {
-            // A push that will not fast-forward and a push the credential will not
-            // do both arrive here. They are told apart by asking the remote whether
-            // the branch is already there - because "refused" and "already exists"
-            // are different things to a person, and one of them is not a problem
-            // with their credential.
-            if (!await ExistsAsync(request, cancellationToken))
-            {
-                return Refusal(request, refused.Message) is
-                    LandingOutcome.CredentialRefused(var locator, var diagnosis)
-                        ? new PushOutcome.Refused(locator, diagnosis)
-                        : new PushOutcome.Refused(request.Slug, refused.Message);
-            }
-
-            // ALREADY THERE, which is the crash-recovery case rather than a failure:
-            // a runner that pushed, died and came back finds its own branch. The
-            // commit is still what the gate is about, so it is read rather than
-            // reported as unknown.
-            return new PushOutcome.AlreadyThere(
-                request.Branch, await HeadAsync(request, cancellationToken));
-        }
-
-        return new PushOutcome.Pushed(
-            request.Branch, await HeadAsync(request, cancellationToken));
-    }
-
-    /// <summary>The commit the working tree is at, which is what was pushed.</summary>
-    /// <remarks>
-    /// Read from the local repository rather than from the remote's answer: what was
-    /// pushed is what HEAD is, and asking the remote would be a second round trip
-    /// that can disagree.
-    /// </remarks>
-    private static async Task<string> HeadAsync(
-        LandingRequest request, CancellationToken cancellationToken) =>
-        (await GitInvocation.Plain("rev-parse", "HEAD")
-            .RunAsync(request.WorkingDirectory, cancellationToken)).Trim();
-
-    /// <summary>Whether the remote already has this branch.</summary>
-    /// <remarks>
-    /// Asked only after a push was refused, and asked of the REMOTE rather than
-    /// inferred from git's wording: a message that changes between versions is
-    /// not something a refusal should be classified by.
-    /// </remarks>
-    private async Task<bool> ExistsAsync(LandingRequest request, CancellationToken cancellationToken)
-    {
-        using var response = await _http.GetAsync(
-            $"repos/{request.Slug}/branches/{Uri.EscapeDataString(request.Branch)}", cancellationToken);
-
-        return response.IsSuccessStatusCode;
+        // THE GIT HALF, WHICH IS GIT'S. Fast-forward rules and what a remote's branch
+        // points at are answered the same way for every url shape, so they live in
+        // GitPush - where they can be proven against a real bare repository in CI rather
+        // than only against a forge no build can reach.
+        return await GitPush.PushAsync(
+            url, request.WorkingDirectory, request.Branch, request.Slug,
+            request.Secret, cancellationToken);
     }
 
     /// <summary>

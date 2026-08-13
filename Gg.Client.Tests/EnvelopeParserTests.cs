@@ -368,4 +368,109 @@ public class EnvelopeParserTests
         await Assert.That(parsed.Envelope).IsNull();
         await Assert.That(parsed.Diagnosis!).Contains("in-scope");
     }
+
+    // ---- the four hazards, with `when:` in play ----
+    //
+    // A new field is a new chance for each of them to come back. The hazards are
+    // properties of the reader, not of the field list, so they are re-asserted
+    // against an envelope that carries a condition rather than assumed to hold.
+
+    private const string Conditional = """
+        context:
+          scope: "src/**"
+          constitution: "1.0.0"
+        obligations:
+          in-scope:
+            check: machine
+            when: "change.manifest touches migrations/**"
+            rule: no-file-outside-scope
+        loops:
+          implement:
+            executor: frontier
+            discharges:
+              - in-scope
+            moves:
+              - read
+              - edit
+              - run-tests
+              - search
+            budget:
+              wall-clock: "30m"
+            on-exhaustion: handoff-to-human
+        destinations:
+          pull-request:
+            kind: pull-request
+            requires:
+              - in-scope
+        """;
+
+    [Test]
+    public async Task An_unknown_key_beside_a_condition_is_still_refused_and_named()
+    {
+        var parsed = EnvelopeYaml.Parse(
+            Conditional.Replace("check: machine", "chek: machine", StringComparison.Ordinal));
+
+        await Assert.That(parsed.Envelope).IsNull();
+        await Assert.That(parsed.Diagnosis!).Contains("chek");
+        await Assert.That(parsed.Diagnosis!).Contains("obligations.in-scope");
+    }
+
+    [Test]
+    public async Task A_duplicate_condition_is_refused_rather_than_last_wins()
+    {
+        // The field where last-wins is worst. Two conditions, the second one
+        // narrower, and a silent last-wins would leave a reviewer looking at a
+        // diff whose behaviour comes from the added line.
+        var parsed = EnvelopeYaml.Parse(Conditional.Replace(
+            "    when: \"change.manifest touches migrations/**\"\n",
+            "    when: \"change.manifest touches migrations/**\"\n"
+          + "    when: \"change.manifest touches src/**\"\n",
+            StringComparison.Ordinal));
+
+        await Assert.That(parsed.Envelope).IsNull();
+        await Assert.That(parsed.Diagnosis!).Contains("when");
+        await Assert.That(parsed.Diagnosis!).Contains("twice");
+    }
+
+    [Test]
+    public async Task A_condition_is_a_string_and_not_coerced()
+    {
+        // The `1.10` hazard, on the new field. A glob is text; a reader that
+        // typed it would be free to decide `migrations/**` meant something else,
+        // and the round trip is where that shows up.
+        var parsed = EnvelopeYaml.Parse(Conditional);
+
+        await Assert.That(parsed.Diagnosis).IsNull();
+        await Assert.That(EnvelopeText.Render(parsed.Envelope!))
+            .Contains("when: \"change.manifest touches migrations/**\"");
+    }
+
+    [Test]
+    public async Task An_unquoted_condition_is_accepted_and_emitted_quoted()
+    {
+        // A person hand-writing this should not have to guess our canonical form.
+        // What comes back out is quoted, because that is the form the version
+        // fingerprints.
+        var parsed = EnvelopeYaml.Parse(Conditional.Replace(
+            "\"change.manifest touches migrations/**\"",
+            "change.manifest touches migrations/**", StringComparison.Ordinal));
+
+        await Assert.That(parsed.Diagnosis).IsNull();
+        await Assert.That(parsed.Envelope!.Obligations.Single().When)
+            .IsEqualTo("change.manifest touches migrations/**");
+        await Assert.That(EnvelopeText.Render(parsed.Envelope!))
+            .Contains("when: \"change.manifest touches migrations/**\"");
+    }
+
+    [Test]
+    public async Task An_empty_condition_is_refused_rather_than_becoming_no_condition()
+    {
+        // `when: ""` must not quietly become "always applies". That is the
+        // absence-impersonating-a-state failure, arriving through the parser.
+        var parsed = EnvelopeYaml.Parse(Conditional.Replace(
+            "\"change.manifest touches migrations/**\"", "\"\"", StringComparison.Ordinal));
+
+        await Assert.That(parsed.Envelope).IsNull()
+            .Because("an empty condition is a condition that exists and says nothing.");
+    }
 }

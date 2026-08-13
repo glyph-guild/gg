@@ -119,6 +119,64 @@ public class EnvelopeCanonicalOrderTests
                    + "one thing with itself.");
     }
 
+    // ---- with `when:` in play ----
+
+    [Test]
+    public async Task A_condition_does_not_move_the_ordering_of_the_obligations()
+    {
+        // The new field is emitted inside an obligation, so it cannot reach the
+        // order obligations appear in. Asserted rather than assumed: the version
+        // is a fingerprint of this text, and a field that perturbed the order
+        // would move every stored version for no change in what governs.
+        var conditioned = InScope with { When = "change.manifest touches migrations/**" };
+
+        await Assert.That(EnvelopeText.Render(With(NotExhausted, conditioned)))
+            .IsEqualTo(EnvelopeText.Render(With(conditioned, NotExhausted)));
+    }
+
+    [Test]
+    public async Task A_condition_lands_in_one_declared_place_in_the_bytes()
+    {
+        // Between `check:` and `rule:`, always. "Wherever the writer put it" is
+        // not a canonical form.
+        var text = EnvelopeText.Render(
+            With(InScope with { When = "change.manifest touches migrations/**" }, NotExhausted));
+
+        var block = text[text.IndexOf("in-scope:", StringComparison.Ordinal)..];
+
+        await Assert.That(block.IndexOf("when:", StringComparison.Ordinal))
+            .IsGreaterThan(block.IndexOf("check:", StringComparison.Ordinal));
+        await Assert.That(block.IndexOf("when:", StringComparison.Ordinal))
+            .IsLessThan(block.IndexOf("rule:", StringComparison.Ordinal));
+    }
+
+    [Test]
+    public async Task Adding_a_condition_changes_the_bytes()
+    {
+        // THE ONE THAT MATTERS. A conditional obligation and an unconditional one
+        // govern differently, so they must not fingerprint the same. An emitter
+        // that dropped the field would pass every ordering assertion above while
+        // silently publishing an envelope that always applies.
+        var unconditional = EnvelopeText.Render(With(InScope, NotExhausted));
+        var conditional = EnvelopeText.Render(
+            With(InScope with { When = "change.manifest touches migrations/**" }, NotExhausted));
+
+        await Assert.That(conditional).IsNotEqualTo(unconditional);
+    }
+
+    [Test]
+    public async Task Two_different_conditions_do_not_emit_identical_bytes()
+    {
+        // And the glob is inside the fingerprint too, not just the fact that a
+        // condition exists.
+        var migrations = EnvelopeText.Render(
+            With(InScope with { When = "change.manifest touches migrations/**" }, NotExhausted));
+        var source = EnvelopeText.Render(
+            With(InScope with { When = "change.manifest touches src/**" }, NotExhausted));
+
+        await Assert.That(source).IsNotEqualTo(migrations);
+    }
+
     [Test]
     public async Task Two_envelopes_that_differ_in_a_rule_do_not_emit_identical_bytes()
     {

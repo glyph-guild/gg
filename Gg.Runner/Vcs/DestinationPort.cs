@@ -292,10 +292,22 @@ public static class GitPush
             branch, await HeadAsync(workingDirectory, cancellationToken));
     }
 
-    /// <summary>Why the push was refused, asked of the remote rather than of git's wording.</summary>
+    /// <summary>
+    /// Why the push was refused, asked of the remote rather than of git's wording.
+    /// </summary>
     /// <remarks>
-    /// A message that changes between git versions is not something a refusal should be
-    /// classified by, so the remote is asked whether the branch is there instead.
+    /// <para>
+    /// <b>Told apart by where the remote's branch IS, not by whether it exists.</b> An
+    /// earlier version asked only whether the branch was there and, if it was, reported
+    /// the LOCAL head as already pushed. On a second attempt the branch always exists, so
+    /// a branch somebody else had moved was reported as a successful push carrying a
+    /// commit that is not on the remote at all - and <c>destination.pushed</c> would
+    /// record it, putting a person in front of work they cannot fetch.
+    /// </para>
+    /// <para>
+    /// A message that changes between git versions is still not something a refusal is
+    /// classified by.
+    /// </para>
     /// </remarks>
     private static async Task<PushOutcome> ClassifyAsync(
         string url,
@@ -310,13 +322,63 @@ public static class GitPush
 
         if (tip is null)
         {
+            // The branch is not there, so nothing about fast-forwarding explains this.
+            // Whatever git said stands - most often a credential that cannot write.
             return new PushOutcome.Refused(slug, refusal);
         }
 
-        // ALREADY THERE, which is the crash-recovery case rather than a failure: a runner
-        // that pushed, died and came back finds its own branch.
-        return new PushOutcome.AlreadyThere(
-            branch, await HeadAsync(workingDirectory, cancellationToken));
+        var head = await HeadAsync(workingDirectory, cancellationToken);
+
+        if (string.Equals(tip, head, StringComparison.Ordinal))
+        {
+            // ALREADY THERE, and this is the only shape that deserves the name: the
+            // remote is at the exact commit this tree is at. A runner that pushed and
+            // died before recording it comes back to this.
+            return new PushOutcome.AlreadyThere(branch, tip);
+        }
+
+        if (await IsAncestorAsync(workingDirectory, tip, head, cancellationToken))
+        {
+            // It would have fast-forwarded, so the refusal is about something else and
+            // git's own words are the honest answer.
+            return new PushOutcome.Refused(slug, refusal);
+        }
+
+        // THE BRANCH MOVED. Somebody pushed to it between attempts - a developer fixing
+        // it themselves is a real case, not a hypothetical - and this attempt does not
+        // build on what they wrote. The two ways forward are to rewrite their work or to
+        // stop, and this system does not rewrite anything in a customer's repository.
+        //
+        // Says what it FOUND rather than what it wanted: "push failed" sends somebody to
+        // look at their credential, and this is not that.
+        return new PushOutcome.Refused(
+            slug,
+            $"the branch '{branch}' has moved since this flight last pushed. It is at "
+          + $"{Short(tip)}, this attempt builds on {Short(head)}, and that commit is not on "
+          + "it - so this push is refusing to rewrite the branch. The commits already there "
+          + "are somebody's work: fetch the branch and continue from where it is now, or "
+          + "ground this flight and fly a new one.");
+    }
+
+    /// <summary>Whether the remote's tip is already in this tree's history.</summary>
+    /// <remarks>
+    /// Answered by git, and answerable at all only because the tip was just advertised to
+    /// us. A shallow clone may not hold the object, in which case git says no - which is
+    /// the safe answer, because not knowing that a fast-forward is safe is not knowing.
+    /// </remarks>
+    private static async Task<bool> IsAncestorAsync(
+        string workingDirectory, string tip, string head, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await GitInvocation.Plain("merge-base", "--is-ancestor", tip, head)
+                .RunAsync(workingDirectory, cancellationToken);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     /// <summary>The commit the remote's branch points at, or null when it has none.</summary>
@@ -340,4 +402,6 @@ public static class GitPush
         string workingDirectory, CancellationToken cancellationToken) =>
         (await GitInvocation.Plain("rev-parse", "HEAD")
             .RunAsync(workingDirectory, cancellationToken)).Trim();
+
+    private static string Short(string commit) => commit[..Math.Min(7, commit.Length)];
 }

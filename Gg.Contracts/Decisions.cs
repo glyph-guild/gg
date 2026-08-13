@@ -21,7 +21,19 @@ public static class DecisionOutcomes
     /// <summary>The obligation is satisfied, for the fact set this was decided against.</summary>
     public const string Approved = "approved";
 
-    public static IReadOnlyList<string> All { get; } = [Approved];
+    /// <summary>
+    /// The work is not acceptable, and the loop runs again with the reason.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reason is advice and never authority.</b> It reaches the loop's context and
+    /// can change nothing: not moves, not scope, not obligations, not the destination,
+    /// not the budget. A reason that could widen any of those would be unreviewable
+    /// configuration arriving one sentence at a time - an envelope by accretion, made of
+    /// rejection comments.
+    /// </remarks>
+    public const string Rejected = "rejected";
+
+    public static IReadOnlyList<string> All { get; } = [Approved, Rejected];
 }
 
 /// <summary>
@@ -104,6 +116,41 @@ public sealed record DecisionRequest
 
     /// <summary>What gg observed about how the decision was made.</summary>
     public required DecisionObservations Observations { get; init; }
+
+    /// <summary>
+    /// Why, in the deciding person's own words. Required when rejecting.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Untrusted prose, treated as such.</b> Trusting the author does not make the
+    /// bytes clean: control sequences are stripped and the length is bounded, at the
+    /// same boundary every other inline item is. A rejection reason reaching a
+    /// terminal is a rejection reason that can move a cursor.
+    /// </para>
+    /// <para>
+    /// <b>Advice, never authority.</b> It enters the loop's context and decides nothing -
+    /// no verdict consumes it, and nothing derived from it can widen what the flight may
+    /// do. The Flight Envelope says context is declared rather than prompted, and this is
+    /// prose entering an agent's context; it is justified on the same terms as the
+    /// agent's own account travelling the other way - attributed, recorded, decides
+    /// nothing.
+    /// </para>
+    /// </remarks>
+    public string? Reason { get; init; }
+}
+
+/// <summary>
+/// How much of a person's reason may cross.
+/// </summary>
+/// <remarks>
+/// Bounded where it is produced and again where it arrives, because a reason cut in
+/// half is a different reason rather than a shorter one - so it is refused rather than
+/// truncated, which is the rule every other inline item follows.
+/// </remarks>
+public static class DecisionReasons
+{
+    /// <summary>Enough for a paragraph of feedback, and not enough for a document.</summary>
+    public const int MaxLength = 4000;
 }
 
 /// <summary>

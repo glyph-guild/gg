@@ -9,5 +9,5 @@
   { "version": "0.8.0", "surface": "efd49bea4e34add01db33e4b4c308ddf32f0fd5ebc8dffb217c100f2d944de62", "kinds": "change.manifest, destination.landed, environment.identity, loop.digest, loop.outcome, loop.transcript, source.provenance" },
   { "version": "0.9.0", "surface": "66970932b748cc0a52ab5aabe8cb6386dc837669c9b5b3c422220163132552db", "kinds": "change.manifest, destination.landed, environment.identity, handoff.account, loop.digest, loop.outcome, loop.transcript, source.provenance" },
   { "version": "0.10.0", "surface": "99eddf80a5ebeaf3038a93c387901a749f74660dbc181c951bc5ff0931c32a0e", "kinds": "change.manifest, destination.landed, destination.pushed, environment.identity, handoff.account, loop.digest, loop.outcome, loop.transcript, source.provenance" },
-  { "version": "0.11.0", "surface": "0115bef039d0d2dc40d8005ce464da9cfd553a46195fd2be1881839105f678be", "kinds": "change.manifest, destination.landed, destination.pushed, environment.identity, handoff.account, loop.digest, loop.outcome, loop.transcript, source.provenance" }
+  { "version": "0.11.0", "surface": "8a171bd586711fb1b69236555266a2957c88624dc544aa27d386d1bb0b9263d1", "kinds": "change.manifest, destination.landed, destination.pushed, environment.identity, handoff.account, loop.digest, loop.outcome, loop.transcript, source.provenance" }
 ]

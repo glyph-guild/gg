@@ -86,6 +86,24 @@ public sealed record ExecutorRequest
     public required string WorkingDirectory { get; init; }
 
     /// <summary>
+    /// What a person said when they sent the previous attempt back, if they did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Advice, never authority.</b> It reaches the agent's context and changes nothing
+    /// the flight is permitted to do: the moves, the tree, the budget and the scope all
+    /// come from the envelope, and this record carries none of them. A reason able to
+    /// widen any of it would be unreviewable configuration arriving one sentence at a
+    /// time.
+    /// </para>
+    /// <para>
+    /// <b>Null on a first attempt</b>, and null again on the attempt after next: a
+    /// rejection is in the record permanently and in the context once.
+    /// </para>
+    /// </remarks>
+    public LeaseFeedback? Feedback { get; init; }
+
+    /// <summary>
     /// Where to append the live view, when one is wanted.
     /// </summary>
     /// <remarks>

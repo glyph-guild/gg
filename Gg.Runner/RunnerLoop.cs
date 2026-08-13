@@ -433,6 +433,10 @@ public sealed class RunnerLoop(
         var run = await _executor.ExecuteAsync(
             new ExecutorRequest
             {
+                // PASSED THROUGH, never interpreted. The runner does not read the reason
+                // and does not derive anything from it: it hands the agent what a person
+                // said and lets the envelope keep deciding what may happen.
+                Feedback = lease.Feedback,
                 WorkingDirectory = workspace.Trees[0].Path,
                 LoopId = loop.LoopId,
                 IntentUri = intent,

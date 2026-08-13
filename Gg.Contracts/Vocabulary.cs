@@ -68,6 +68,7 @@ public static class Vocabulary
         typeof(DecisionRequest),
         typeof(DecisionRecorded),
         typeof(DecisionObservations),
+        typeof(LeaseFeedback),
         typeof(GateList),
         typeof(PendingGate),
         typeof(BranchPush),

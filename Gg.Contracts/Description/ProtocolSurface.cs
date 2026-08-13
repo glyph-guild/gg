@@ -508,7 +508,8 @@ public static class ProtocolSurface
             [typeof(DecisionObservations)] =
                 ["interactive", "evidenceRendered", "secondsToDecide"],
             [typeof(DecisionRequest)] =
-                ["obligationId", "outcome", "manifestHash", "observations"],
+                ["obligationId", "outcome", "manifestHash", "observations", "reason"],
+            [typeof(LeaseFeedback)] = ["obligationId", "decidedBy", "reason", "decidedAt"],
             [typeof(DecisionRecorded)] =
                 ["flightNumber", "obligationId", "outcome", "decidedBy", "decidedAt", "admission"],
             [typeof(PendingGate)] =
@@ -562,7 +563,7 @@ public static class ProtocolSurface
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "classificationCeiling", "classificationRules", "expiresAt", "renewWithinSeconds",
-                 "intentUri", "loop"],
+                 "intentUri", "loop", "feedback"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],

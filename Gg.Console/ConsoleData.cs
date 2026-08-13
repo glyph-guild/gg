@@ -110,8 +110,10 @@ public sealed class ConsoleData(FlightCommands commands, CredentialCommands cred
         string obligation,
         string outcome,
         DecisionObservations observations,
+        string? reason = null,
         CancellationToken cancellationToken = default) =>
-        _commands.DecideAsync(reference, obligation, outcome, observations, cancellationToken);
+        _commands.DecideAsync(
+            reference, obligation, outcome, observations, reason, cancellationToken);
 
     public Task<VerbResult> WhyAsync(
         string reference, string? obligation = null, CancellationToken cancellationToken = default) =>

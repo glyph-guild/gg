@@ -94,9 +94,35 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         string obligation,
         string outcome,
         DecisionObservations observations,
+        string? reason = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(observations);
+
+        var rejecting = string.Equals(outcome, DecisionOutcomes.Rejected, StringComparison.Ordinal);
+
+        if (rejecting && reason is not { Length: > 0 })
+        {
+            // A rejection with no reason is work sent back with nothing to act on, and
+            // the loop would run again against the same instructions it just followed.
+            throw new InvalidOperationException(
+                "Rejecting needs a reason. The loop runs again with it, and a rejection that says "
+              + "nothing sends the work back to be done the same way.");
+        }
+
+        if (reason is { Length: > DecisionReasons.MaxLength })
+        {
+            // REFUSED, NEVER TRUNCATED. A reason cut in half is a different reason rather
+            // than a shorter one - the rule every inline item follows.
+            throw new InvalidOperationException(
+                $"That reason is {reason.Length} characters and the limit is "
+              + $"{DecisionReasons.MaxLength}. It is refused rather than trimmed, because half a "
+              + "reason is a different reason.");
+        }
+
+        // STRIPPED HERE, before the digest and before it leaves this machine. Trusting
+        // the author does not make the bytes clean, and this text reaches a terminal.
+        var clean = reason is { Length: > 0 } ? ControlText.Strip(reason, allowLineBreaks: true) : null;
 
         if (!DecisionOutcomes.All.Contains(outcome, StringComparer.Ordinal))
         {
@@ -137,6 +163,7 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
                 Outcome = outcome,
                 ManifestHash = gate.ManifestHash,
                 Observations = observations,
+                Reason = clean,
             },
             cancellationToken)
             ?? throw NoSuchFlight(reference);

@@ -94,7 +94,8 @@ public abstract record CliAction
     /// booleans admits a state where both or neither are set, and the answer to "what did
     /// you decide" would then have four possible readings. One word has one.
     /// </remarks>
-    public sealed record Decide(string Flight, string Obligation, string Outcome, bool Json)
+    public sealed record Decide(
+        string Flight, string Obligation, string Outcome, string? Reason, bool Json)
         : CliAction, IEmitsResult;
 
     /// <summary>Writes an envelope back, from a file or from stdin.</summary>
@@ -179,14 +180,17 @@ public static class CliArgs
             ["doctor"] => new CliAction.Doctor(json),
             ["bundle"] => new CliAction.Bundle(json),
 
+            ["decide", var flight, var obligation, var outcome, var reason] =>
+                new CliAction.Decide(flight, obligation, outcome, reason, json),
+
             ["decide", var flight, var obligation, var outcome] =>
-                new CliAction.Decide(flight, obligation, outcome, json),
+                new CliAction.Decide(flight, obligation, outcome, null, json),
 
             // Named arguments missing rather than guessed. "gg decide GG-42" could mean
             // any obligation, and picking one for somebody is the wrong kind of helpful
             // when the thing being picked is what they are approving.
             ["decide", ..] => new CliAction.Unknown(
-                "gg decide <flight> <obligation> <approved>"),
+                "gg decide <flight> <obligation> <approved|rejected> [reason]"),
             ["gates"] => new CliAction.Gates(json),
             ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
             ["why", var flight] => new CliAction.Why(flight, null, json),

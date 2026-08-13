@@ -242,3 +242,102 @@ public static class DestinationConfiguration
         return parsed;
     }
 }
+
+/// <summary>
+/// Getting a branch onto a remote, and deciding what happened when that fails.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Separate from the destination adapter because it is git's, not a forge's.</b>
+/// Whether a push fast-forwards, what a refspec without a leading <c>+</c> refuses, and
+/// which commit a remote's branch points at are all answered by git and answered
+/// identically for <c>https://</c> and for a bare repository on disk. Authentication and
+/// pull requests are the forge's, and they stay in the adapter.
+/// </para>
+/// <para>
+/// The seam is what lets the never-overwrite property be proven in CI against a real bare
+/// repository, instead of only against a forge nobody's build can reach.
+/// </para>
+/// </remarks>
+public static class GitPush
+{
+    /// <summary>
+    /// Pushes the working tree's head to a branch, and never rewrites what is there.
+    /// </summary>
+    /// <remarks>
+    /// The refspec carries no leading <c>+</c> and there is no <c>--force</c>, so a push
+    /// that would not fast-forward FAILS inside git rather than being caught by a check
+    /// somebody remembered to run first.
+    /// </remarks>
+    public static async Task<PushOutcome> PushAsync(
+        string url,
+        string workingDirectory,
+        string branch,
+        string slug,
+        string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await GitInvocation.Push(url, "HEAD", branch, secret)
+                .RunAsync(workingDirectory, cancellationToken);
+        }
+        catch (InvalidOperationException refused)
+        {
+            return await ClassifyAsync(
+                url, workingDirectory, branch, slug, secret, refused.Message, cancellationToken);
+        }
+
+        return new PushOutcome.Pushed(
+            branch, await HeadAsync(workingDirectory, cancellationToken));
+    }
+
+    /// <summary>Why the push was refused, asked of the remote rather than of git's wording.</summary>
+    /// <remarks>
+    /// A message that changes between git versions is not something a refusal should be
+    /// classified by, so the remote is asked whether the branch is there instead.
+    /// </remarks>
+    private static async Task<PushOutcome> ClassifyAsync(
+        string url,
+        string workingDirectory,
+        string branch,
+        string slug,
+        string? secret,
+        string refusal,
+        CancellationToken cancellationToken)
+    {
+        var tip = await TipAsync(url, workingDirectory, branch, secret, cancellationToken);
+
+        if (tip is null)
+        {
+            return new PushOutcome.Refused(slug, refusal);
+        }
+
+        // ALREADY THERE, which is the crash-recovery case rather than a failure: a runner
+        // that pushed, died and came back finds its own branch.
+        return new PushOutcome.AlreadyThere(
+            branch, await HeadAsync(workingDirectory, cancellationToken));
+    }
+
+    /// <summary>The commit the remote's branch points at, or null when it has none.</summary>
+    private static async Task<string?> TipAsync(
+        string url, string workingDirectory, string branch, string? secret,
+        CancellationToken cancellationToken)
+    {
+        var advertised = await GitInvocation
+            .LsRemote(url, branch, secret)
+            .RunAsync(workingDirectory, cancellationToken);
+
+        // "<sha>\trefs/heads/<branch>", or nothing at all.
+        var first = advertised.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+
+        return first?.Split('\t', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim()
+            is { Length: > 0 } sha ? sha : null;
+    }
+
+    /// <summary>The commit the working tree is at, which is what a push would send.</summary>
+    private static async Task<string> HeadAsync(
+        string workingDirectory, CancellationToken cancellationToken) =>
+        (await GitInvocation.Plain("rev-parse", "HEAD")
+            .RunAsync(workingDirectory, cancellationToken)).Trim();
+}

@@ -135,6 +135,56 @@ public sealed record GitInvocation
         return new GitInvocation { Arguments = arguments, Environment = environment };
     }
 
+    /// <summary>
+    /// The plan for asking a remote where one of its branches points.
+    /// </summary>
+    /// <remarks>
+    /// <b>Reads nothing and writes nothing.</b> It is how a refused push is told apart
+    /// from a branch that moved, and it is asked of the remote rather than inferred from
+    /// git's wording, which changes between versions. Carries the same credential as the
+    /// push because a private repository will not advertise its refs without one.
+    /// </remarks>
+    public static GitInvocation LsRemote(string url, string branch, string? secret)
+    {
+        var (arguments, environment) = Anonymous(secret);
+
+        arguments.AddRange(["ls-remote", url, $"refs/heads/{branch}"]);
+
+        return new GitInvocation { Arguments = arguments, Environment = environment };
+    }
+
+    /// <summary>
+    /// The argument and environment preamble that keeps an ambient credential out.
+    /// </summary>
+    /// <remarks>
+    /// Shared by every plan that talks to a remote. A helper the machine already has
+    /// configured is one that can authenticate as somebody this flight was never granted
+    /// anything as, and forgetting the reset on one plan out of several is exactly the
+    /// kind of gap that never shows up in a test.
+    /// </remarks>
+    private static (List<string> Arguments, Dictionary<string, string> Environment) Anonymous(
+        string? secret)
+    {
+        var arguments = new List<string>
+        {
+            "-c", "core.askPass=",
+            "-c", "credential.interactive=false",
+            "-c", "credential.helper=",
+        };
+
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrEmpty(secret))
+        {
+            arguments.Add("-c");
+            arguments.Add(
+                $"credential.helper=!f() {{ echo username=x-access-token; echo password=${SecretVariable}; }}; f");
+            environment[SecretVariable] = secret;
+        }
+
+        return (arguments, environment);
+    }
+
     public static GitInvocation Plain(params string[] arguments) =>
         new()
         {

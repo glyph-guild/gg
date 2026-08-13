@@ -289,6 +289,114 @@ public class TakeTests
         public string? Copy(string text) => "no clipboard in a test";
     }
 
+    // ---- hand back, then take again ----
+
+    [Test]
+    public async Task Handing_back_then_taking_again_carries_the_first_takers_account()
+    {
+        // THE ACCEPTANCE TEST, through the console. Nothing resumes the loop, so
+        // a hand-back is only worth anything if the record reaches the next
+        // reader - and the one consumer that exists is the next takeover.
+        var tree = Scratch();
+
+        try
+        {
+            var before = AFlightWorthTaking(tree) with
+            {
+                Principal = "alice",
+                TakenOver = true,
+            };
+
+            // Alice hands back. The agent proposes; she corrects it.
+            var handed = new ConsoleLoop(
+                new ScriptedUi(Command.HandBack, Command.Quit),
+                new NoEditor(),
+                new RecordingTake(tree),
+                new ScriptedHand(
+                    propose: "You changed total() so the rate is applied.",
+                    answer: p => new HandChoice.Edit(
+                        "I moved rounding into total() at the boundary, which addresses the float "
+                      + "issue the agent flagged."))).Run(before);
+
+            await Assert.That(handed.TakeSeed!.PriorHuman).IsNotNull()
+                .Because("what she confirmed is on the model, which is the only thing that "
+                       + "survives to the next session.");
+            await Assert.That(handed.HandConfirmations.Single().Choice)
+                .IsEqualTo(AccountConfirmations.Edited);
+
+            // And the next person takes it over. The seed they read carries her
+            // account, marked as a human assertion.
+            var seed = TakeSeedComposer.Render(handed.TakeSeed!);
+
+            await Assert.That(seed).Contains("A PERSON WORKED ON THIS BEFORE YOU");
+            await Assert.That(seed).Contains("alice");
+            await Assert.That(seed).Contains("a human assertion");
+            await Assert.That(seed).Contains("float issue the agent flagged")
+                .Because("the sentence connecting the two halves of the handoff is the thing worth "
+                       + "carrying, and it is a sentence neither party wrote alone.");
+        }
+        finally
+        {
+            Directory.Delete(tree, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Walking_away_from_a_hand_back_leaves_no_account_on_the_model()
+    {
+        // The boundary, through the console: a person who closed the terminal
+        // has asserted nothing, and the next taker must not read a guess as
+        // theirs.
+        var tree = Scratch();
+
+        try
+        {
+            var before = AFlightWorthTaking(tree) with { Principal = "alice", TakenOver = true };
+
+            var after = new ConsoleLoop(
+                new ScriptedUi(Command.HandBack, Command.Quit),
+                new NoEditor(),
+                new RecordingTake(tree),
+                new ScriptedHand(
+                    propose: "You changed total().",
+                    answer: _ => new HandChoice.WalkedAway())).Run(before);
+
+            await Assert.That(after.TakeSeed!.PriorHuman).IsNull();
+            await Assert.That(TakeSeedComposer.Render(after.TakeSeed!))
+                .DoesNotContain("A PERSON WORKED ON THIS");
+            await Assert.That(after.LastHandBack!).Contains("no account from you");
+
+            await Assert.That(after.HandConfirmations.Single().Choice).IsEqualTo("walked-away")
+                .Because("counted anyway. A rate that only counted the answers would be a rate of "
+                       + "answers.");
+        }
+        finally
+        {
+            Directory.Delete(tree, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task The_hand_back_key_is_offered_only_once_a_flight_has_been_taken()
+    {
+        var taken = Keymap.Bindings(new KeymapContext(UiMode.Normal, HandedBackable: true));
+        var not = Keymap.Bindings(new KeymapContext(UiMode.Normal, HandedBackable: false));
+
+        await Assert.That(taken.Any(b => b.Command == Command.HandBack)).IsTrue();
+        await Assert.That(not.Any(b => b.Command == Command.HandBack)).IsFalse();
+    }
+
+    /// <summary>A hand-back whose inference and answer are both scripted.</summary>
+    private sealed class ScriptedHand(string? propose, Func<string?, HandChoice> answer)
+        : IHandSession
+    {
+        public HandOutcome Hand(HandRequest request) =>
+            new HandSession(
+                infer: (_, _) => propose,
+                ask: answer,
+                time: TimeProvider.System).Hand(request);
+    }
+
     /// <summary>A session that returns the states it was handed, in order.</summary>
     private sealed class ScriptedUi(params Command[] exits) : IUiSession
     {

@@ -41,6 +41,18 @@ public sealed record PendingGate
     public required string Commit { get; init; }
 
     /// <summary>
+    /// The evidence manifest hash this gate was opened against.
+    /// </summary>
+    /// <remarks>
+    /// <b>What a decision about this gate is scoped to.</b> An approval recorded without
+    /// it would be an approval of the obligation rather than of the work - approve one
+    /// migration, let the loop touch four more, and the obligation is still satisfied
+    /// because nothing recorded what was approved. That is a privilege escalation with
+    /// the deciding person's signature on it.
+    /// </remarks>
+    public required string ManifestHash { get; init; }
+
+    /// <summary>
     /// The condition as the envelope wrote it, or null when it always applies.
     /// </summary>
     /// <remarks>
@@ -55,6 +67,19 @@ public sealed record PendingGate
 
     /// <summary>Since when. Oldest first is the order the list is read in.</summary>
     public required DateTimeOffset AwaitingSince { get; init; }
+
+    /// <summary>
+    /// Which attempt this flight is on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Recorded, not enforced.</b> Rejecting a gate sends the work back for another
+    /// attempt, and nothing bounds how many times that can happen - <c>budget.attempts</c>
+    /// was never built, only wall-clock. A person is the rate limiter, since every cycle
+    /// needs a decision, but "no limit" and "a limit nobody wrote down" look identical in
+    /// a record. This is the number that tells them apart, and it is where the bound goes
+    /// when there is one.
+    /// </remarks>
+    public required int Attempt { get; init; }
 }
 
 /// <summary>

@@ -89,6 +89,30 @@ public sealed class ConsoleData(FlightCommands commands, CredentialCommands cred
     public Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>
         _commands.GatesAsync(cancellationToken);
 
+    /// <summary>
+    /// `gg decide` - records a decision about an obligation waiting on a person.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Present for parity and wired to no key. The console's modal is step 6, and this is
+    /// the data path it will use when it arrives - the same one the verb uses, so the
+    /// console cannot end up with a second way to decide.
+    /// </para>
+    /// <para>
+    /// <b>It records nothing locally.</b> Whatever the control plane answers is what the
+    /// console will show: a pane that marked the obligation satisfied when a key was
+    /// pressed would advance on a claim rather than on a decision, which is the failure
+    /// the round-trip refusal test exists to catch.
+    /// </para>
+    /// </remarks>
+    public Task<VerbResult> DecideAsync(
+        string reference,
+        string obligation,
+        string outcome,
+        DecisionObservations observations,
+        CancellationToken cancellationToken = default) =>
+        _commands.DecideAsync(reference, obligation, outcome, observations, cancellationToken);
+
     public Task<VerbResult> WhyAsync(
         string reference, string? obligation = null, CancellationToken cancellationToken = default) =>
         _commands.WhyAsync(reference, obligation, cancellationToken);

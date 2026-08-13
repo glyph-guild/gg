@@ -20,6 +20,8 @@ return CliArgs.Parse(args) switch
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
+    CliAction.Decide decide => await EmitAsync(decide.Json, c => c.DecideAsync(
+        decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json))),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 
@@ -81,6 +83,32 @@ static int EmitLocal(bool json, Func<VerbResult> run)
 }
 
 /// <summary>The envelope verbs, which need a session and the control plane.</summary>
+/// <summary>
+/// What this process can observe about how a decision was made.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Observations, never a conclusion.</b> There is no `attended` here on purpose:
+/// connection is a transport fact and attendance is a decision record, and this process
+/// cannot tell them apart. A person can pipe input; a script can allocate a terminal.
+/// gg says what it saw and the control plane decides what that means.
+/// </para>
+/// <para>
+/// <b>Nothing rendered, in this version.</b> `gg decide` takes the outcome on the
+/// command line, so no evidence was shown and the honest answer to "was it read" is no.
+/// That will change when the console gets a modal; the field exists now because a
+/// decision recorded before it existed is unclassifiable afterwards.
+/// </para>
+/// </remarks>
+static Gg.Contracts.DecisionObservations Observed(bool json) => new()
+{
+    // Both ends, because either being redirected means something other than a person at
+    // a terminal is driving this.
+    Interactive = !Console.IsInputRedirected && !Console.IsOutputRedirected && !json,
+    EvidenceRendered = false,
+    SecondsToDecide = null,
+};
+
 static async Task<int> EnvelopeAsync(bool json, Func<EnvelopeCommands, Task<VerbResult>> run)
 {
     var baseAddress = ControlPlaneAddress();

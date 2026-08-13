@@ -259,6 +259,23 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE ANSWER PATH, and the only one. Questions travel on a path the agent
+            // can write - facts, from a runner token - and answers travel on a path only
+            // the decider can write: Developer audience, session header, and no runner
+            // credential opens it. A runner able to record a decision could answer for
+            // the person it is meant to be waiting on.
+            Method = "POST",
+            Path = "/v1/flights/{ref}/decisions",
+            Audience = Audience.Developer,
+            Request = typeof(DecisionRequest),
+            Response = typeof(DecisionRecorded),
+            // 409 when the work moved between being shown and being decided: the
+            // decision is refused rather than recorded against something nobody saw.
+            Statuses = [200, 400, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // A LIST AND NOTHING ELSE. No companion endpoint answers a gate, which
             // is what makes "nothing an agent can call can unstick a flight" a
             // property of the declared surface rather than a convention. Step 4
@@ -488,9 +505,15 @@ public static class ProtocolSurface
             [typeof(ObligationAttribution)] =
                 ["obligationId", "attachment", "condition", "because", "outcome", "diagnosis"],
             [typeof(GateList)] = ["gates"],
+            [typeof(DecisionObservations)] =
+                ["interactive", "evidenceRendered", "secondsToDecide"],
+            [typeof(DecisionRequest)] =
+                ["obligationId", "outcome", "manifestHash", "observations"],
+            [typeof(DecisionRecorded)] =
+                ["flightNumber", "obligationId", "outcome", "decidedBy", "decidedAt", "admission"],
             [typeof(PendingGate)] =
-                ["flightNumber", "obligationId", "approver", "branch", "commit", "condition",
-                 "because", "awaitingSince"],
+                ["flightNumber", "obligationId", "approver", "branch", "commit", "manifestHash",
+                 "condition", "because", "awaitingSince", "attempt"],
             [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
                 ["flightNumber", "envelopeVersion", "obligations", "halt"],

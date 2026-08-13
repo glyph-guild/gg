@@ -72,6 +72,78 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
     /// the same value `gg why` renders - so this verb explains itself without
     /// computing anything.
     /// </remarks>
+    /// <summary>
+    /// Records a decision about an obligation, and renders what came back.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing here marks anything satisfied.</b> The obligation's state, and whether
+    /// the work may now land, are both read off the response. A client that set them
+    /// locally when the user pressed a key would produce a demo that works and a record
+    /// that disagrees with it - Article IX in its softest clothing, which is the
+    /// dangerous kind.
+    /// </para>
+    /// <para>
+    /// <b>The manifest hash comes from the gate.</b> A decision is made against what was
+    /// shown, so the hash travels with it - and a control plane whose facts have moved
+    /// since refuses rather than recording an approval of something nobody saw.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> DecideAsync(
+        string reference,
+        string obligation,
+        string outcome,
+        DecisionObservations observations,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+
+        if (!DecisionOutcomes.All.Contains(outcome, StringComparer.Ordinal))
+        {
+            // REJECT LANDS HERE, deliberately. It is absent rather than unimplemented:
+            // a verb that accepted it and returned success would record a decision
+            // nobody acted on, and the flight would read as answered.
+            throw new InvalidOperationException(
+                $"'{outcome}' is not a decision this version of gg can record. It knows: "
+              + string.Join(", ", DecisionOutcomes.All)
+              + ". Rejecting a gate is not built yet - the flight stays waiting, which is what "
+              + "it already does, and nothing here will pretend otherwise.");
+        }
+
+        var token = Session();
+        var resolved = Readable(reference);
+
+        // The gate is what says which fact set this decision is about. Fetched rather
+        // than guessed, and a flight with no open gate for this obligation is a refusal
+        // rather than a decision recorded against nothing.
+        var gate = (await _client.GatesAsync(token, cancellationToken)).Gates
+            .FirstOrDefault(g =>
+                string.Equals(g.ObligationId, obligation, StringComparison.Ordinal)
+                && string.Equals(g.FlightNumber, resolved, StringComparison.OrdinalIgnoreCase));
+
+        if (gate is null)
+        {
+            throw new InvalidOperationException(
+                $"Nothing is waiting on a decision about '{obligation}' for {reference}. "
+              + "`gg gates` lists what is.");
+        }
+
+        var recorded = await _client.DecideAsync(
+            token,
+            resolved,
+            new DecisionRequest
+            {
+                ObligationId = obligation,
+                Outcome = outcome,
+                ManifestHash = gate.ManifestHash,
+                Observations = observations,
+            },
+            cancellationToken)
+            ?? throw NoSuchFlight(reference);
+
+        return new VerbResult.Decided(recorded);
+    }
+
     public async Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Gates(await _client.GatesAsync(Session(), cancellationToken));
 

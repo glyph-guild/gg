@@ -146,7 +146,7 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
             // on it forever in a runner with nothing to type.
             process.StandardInput.Close();
 
-            await ReadAsync(process, transcript, moves, budget.Token);
+            await ReadAsync(process, transcript, moves, request.Live, budget.Token);
             await process.WaitForExitAsync(budget.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -245,7 +245,8 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
     /// something nobody can reconstruct.
     /// </remarks>
     private static async Task ReadAsync(
-        Process process, StringBuilder transcript, List<string> moves, CancellationToken cancellationToken)
+        Process process, StringBuilder transcript, List<string> moves,
+        LiveStream? live, CancellationToken cancellationToken)
     {
         while (await process.StandardOutput.ReadLineAsync(cancellationToken) is { } line)
         {
@@ -254,6 +255,11 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
             try
             {
                 using var document = JsonDocument.Parse(line);
+
+                // The live view, from the same pass. Typed by what the event IS
+                // rather than by matching a screen afterwards, which is the
+                // whole reason the console carries a kind.
+                Watch(live, document.RootElement);
 
                 // ValueKind checked at every step. A `message` is sometimes a
                 // string rather than an object, and asking a string for a
@@ -280,7 +286,84 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
             }
             catch (JsonException)
             {
-                // Kept above, counted nowhere. See the remark.
+                // Kept above, counted nowhere. See the remark - and shown, since
+                // a line the parser cannot read is exactly what `raw` is for.
+                live?.Append(LiveLineKinds.Raw, line);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sends one event to the live view, typed.
+    /// </summary>
+    /// <remarks>
+    /// Five kinds, and each is something the stream really distinguishes:
+    /// <c>setup</c> is the session announcing itself before any work,
+    /// <c>tool</c> is a call and its result, <c>text</c> is what the agent said,
+    /// <c>meta</c> is the run's own ending, and <c>raw</c> is a line nothing
+    /// could classify. A person turning verbosity down is choosing among these
+    /// rather than among regular expressions.
+    /// </remarks>
+    private static void Watch(LiveStream? live, JsonElement root)
+    {
+        if (live is null || root.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        var type = root.TryGetProperty("type", out var kind) ? kind.GetString() : null;
+
+        switch (type)
+        {
+            case "system":
+                live.Append(LiveLineKinds.Setup,
+                    root.TryGetProperty("subtype", out var subtype)
+                        ? $"session {subtype.GetString()}"
+                        : "session");
+                return;
+
+            case "result":
+                live.Append(LiveLineKinds.Meta,
+                    root.TryGetProperty("subtype", out var ended)
+                        ? $"loop {ended.GetString()}"
+                        : "loop ended");
+                return;
+        }
+
+        if (!root.TryGetProperty("message", out var message)
+            || message.ValueKind != JsonValueKind.Object
+            || !message.TryGetProperty("content", out var content)
+            || content.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var block in content.EnumerateArray())
+        {
+            if (block.ValueKind != JsonValueKind.Object
+                || !block.TryGetProperty("type", out var blockType))
+            {
+                continue;
+            }
+
+            switch (blockType.GetString())
+            {
+                case "text" when block.TryGetProperty("text", out var said)
+                              && said.GetString() is { Length: > 0 } text:
+                    live.Append(LiveLineKinds.Text, text);
+                    break;
+
+                case "tool_use" when block.TryGetProperty("name", out var name):
+                    live.Append(LiveLineKinds.Tool, $"{name.GetString()}");
+                    break;
+
+                case "tool_result":
+                    live.Append(LiveLineKinds.Tool,
+                        block.TryGetProperty("is_error", out var failed)
+                        && failed.ValueKind == JsonValueKind.True
+                            ? "→ failed"
+                            : "→ ok");
+                    break;
             }
         }
     }
@@ -342,6 +425,13 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
 
         return run with
         {
+            // Extracted HERE, from the stream, while it is still on this
+            // machine. Whatever the transcript holds stops at this boundary;
+            // what crosses is what the extractor could name mechanically.
+            Digest = TranscriptDigest.Extract(
+                transcript.ToString(), request.LoopId, TreeRoots(request.WorkingDirectory),
+                run.Outcome, Refused(request.Moves, run.MovesUsed)),
+
             Transcript = new ArtifactReference
             {
                 Locator = request.TranscriptPath,
@@ -354,6 +444,71 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
                 Scope = ArtifactScopes.RunnerLocal,
             },
         };
+    }
+
+    /// <summary>
+    /// Every name this tree answers to.
+    /// </summary>
+    /// <remarks>
+    /// Resolved HERE rather than in the extractor, which is a function of its
+    /// input and touches no disk on purpose. A directory has more than one
+    /// absolute path whenever a symlink is involved - on macOS the system temp
+    /// directory always is - and the agent reports whichever one it resolved.
+    /// </remarks>
+    private static IReadOnlyList<string> TreeRoots(string workingDirectory)
+    {
+        var roots = new List<string> { workingDirectory };
+
+        try
+        {
+            // COMPONENT BY COMPONENT, because the link is usually an ancestor
+            // rather than the tree itself. On macOS the tree is handed over as
+            // /var/folders/… and /var is the link; resolving only the final
+            // component finds nothing and the agent's own /private/var/… paths
+            // then match nothing either.
+            var resolved = "";
+            foreach (var part in workingDirectory.Split(
+                         Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+            {
+                resolved = Path.Combine(
+                    resolved.Length == 0 ? Path.DirectorySeparatorChar.ToString() : resolved, part);
+
+                if (new DirectoryInfo(resolved).ResolveLinkTarget(returnFinalTarget: true)
+                    is { } target)
+                {
+                    resolved = target.FullName;
+                }
+            }
+
+            if (resolved.Length > 0 && !roots.Contains(resolved, StringComparer.Ordinal))
+            {
+                roots.Add(resolved);
+            }
+        }
+        catch (IOException)
+        {
+            // A tree that has gone is not a reason to lose the digest.
+        }
+
+        return roots;
+    }
+
+    /// <summary>
+    /// Tools it reached for that the envelope did not name.
+    /// </summary>
+    /// <remarks>
+    /// The gap declared above, turned into a signal. Passing the allowed set
+    /// governs permission rather than availability, so the agent still reaches
+    /// for tools it may not use and is refused - and where that happened is
+    /// where the envelope fought the work, which is what somebody taking over
+    /// needs to know before they try the same thing.
+    /// </remarks>
+    private static IReadOnlyList<string> Refused(
+        IReadOnlyList<string> allowed, IReadOnlyList<string> reachedFor)
+    {
+        var permitted = allowed.Select(Tool).ToHashSet(StringComparer.Ordinal);
+
+        return [.. reachedFor.Where(t => !permitted.Contains(t))];
     }
 
     private static void Stop(Process process)

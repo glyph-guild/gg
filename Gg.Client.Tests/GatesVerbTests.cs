@@ -34,6 +34,8 @@ public class GatesVerbTests
                 Approver = "platform-oncall",
                 Branch = "gg/GG-42",
                 Commit = new string('a', 40),
+                ManifestHash = new string('e', 64),
+                Attempt = 1,
                 Condition = "change.manifest touches migrations/**",
                 Because = "change.manifest names 1 path(s) under 'migrations/**': "
                         + "migrations/0002_backfill.sql.",
@@ -46,6 +48,8 @@ public class GatesVerbTests
                 Approver = "platform-oncall",
                 Branch = "gg/GG-43",
                 Commit = new string('b', 40),
+                ManifestHash = new string('f', 64),
+                Attempt = 2,
                 Condition = null,
                 Because = "this obligation declares no condition, so it always applies to every "
                         + "flight this envelope governs",
@@ -143,29 +147,26 @@ public class GatesVerbTests
     // ---- the client decides nothing ----
 
     [Test]
-    public async Task The_verb_offers_no_way_to_answer_a_gate()
+    public async Task The_gate_list_is_read_only()
     {
-        // THE ASSERTION THE SCOPE SPLIT EXISTS FOR. This step lists what is
-        // waiting and nothing else: there is no decide, approve or reject in the
-        // client, so nothing an agent can call can unstick a flight. Step 4 adds
-        // exactly one, deliberately.
-        var forbidden = new[] { "DecideAsync", "ApproveAsync", "RejectAsync", "AmendAsync" };
+        // NARROWED IN STEP 4a, and the change is the point. This asserted that no
+        // decision path existed anywhere in the client, which was true while a gate could
+        // only be listed. Step 4a adds exactly one, so the claim that survives is the one
+        // still worth making: listing what is waiting cannot change it.
+        //
+        // The one decision path, and the fact that it computes nothing, are asserted in
+        // DecideVerbTests.
+        var commands = Sources().Single(f => Path.GetFileName(f) == "FlightCommands.cs");
+        var source = File.ReadAllText(commands);
 
-        var offenders = Sources()
-            .SelectMany(f => forbidden
-                .Where(name => File.ReadAllText(f).Contains(name, StringComparison.Ordinal))
-                .Select(name => $"{Path.GetFileName(f)}: {name}"))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        var gatesVerb = source[source.IndexOf("GatesAsync(CancellationToken", StringComparison.Ordinal)..];
+        var body = gatesVerb[..gatesVerb.IndexOf(';', StringComparison.Ordinal)];
 
-        await Assert.That(offenders).IsEmpty()
-            .Because("a decision path is step 4's, and its absence here is what makes the "
-                   + "zero-exits assertion true from both ends. Found: "
-                   + string.Join(", ", offenders));
-
-        // The scan can see one, so the emptiness means something.
-        await Assert.That("public Task DecideAsync()".Contains("DecideAsync", StringComparison.Ordinal))
-            .IsTrue();
+        await Assert.That(body).DoesNotContain("Decide")
+            .Because("the verb that shows gates does not answer them, so reading a list cannot "
+                   + "change what it lists.");
+        await Assert.That(body).Contains("GatesAsync")
+            .Because("and the scan is looking at the verb it means to.");
     }
 
     private static IEnumerable<string> Sources()

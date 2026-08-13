@@ -29,6 +29,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(EnvelopeState))]
 [JsonSerializable(typeof(FlightAttribution))]
 [JsonSerializable(typeof(GateList))]
+[JsonSerializable(typeof(DecisionRequest))]
+[JsonSerializable(typeof(DecisionRecorded))]
 [JsonSerializable(typeof(EnvelopeApplied))]
 /// <summary>
 /// How this client serializes wire types.
@@ -416,6 +418,61 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// A read, and there is no method beside it that answers one. The absence is the
     /// point: nothing in this client can unstick a flight.
     /// </remarks>
+    /// <summary>
+    /// Posts a decision, and returns what the control plane made of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Posts, never decides.</b> Nothing here marks an obligation satisfied or infers
+    /// an admission: the answer comes back with whatever the Engine re-evaluated, and the
+    /// client renders it. ADR-0011 - a decision is an input to evaluation, never a
+    /// substitute for admission.
+    /// </para>
+    /// <para>
+    /// A 409 means the work moved between being shown and being decided. Surfaced as a
+    /// diagnosis rather than swallowed, because the caller approved something specific
+    /// and the honest answer is that it is no longer what is there.
+    /// </para>
+    /// </remarks>
+    public async Task<DecisionRecorded?> DecideAsync(
+        string sessionToken,
+        string reference,
+        DecisionRequest decision,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(decision);
+
+        using var request = Request(
+            HttpMethod.Post, $"/v1/flights/{reference}/decisions", sessionToken);
+        // THE SOURCE-GENERATED CONTEXT, because the reflection overload is refused here:
+        // this assembly ships inside an AOT binary, and JsonContent.Create<T> cannot be
+        // statically analysed. The build rejects it rather than producing something that
+        // works in Debug and throws in the published binary.
+        request.Content = JsonContent.Create(
+            decision, ProtocolJsonContext.Default.DecisionRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The work changed while this decision was being made, so it was not recorded. "
+              + "What you were shown is not what is there now - read it again with `gg why` and "
+              + "decide against the work as it stands.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.DecisionRecorded, cancellationToken);
+    }
+
     public async Task<GateList> GatesAsync(
         string sessionToken, CancellationToken cancellationToken = default)
     {

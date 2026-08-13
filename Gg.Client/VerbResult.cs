@@ -127,6 +127,19 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.Gates;
     }
+
+    /// <summary>
+    /// What the control plane did with a decision.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered, never computed.</b> Whether the work may now land arrived in the
+    /// response; a client that worked it out from the decision it just posted would be
+    /// deciding admission, which is not its job.
+    /// </remarks>
+    public sealed record Decided(DecisionRecorded Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Decided;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -148,6 +161,7 @@ public static class VerbResultKinds
 
     public const string Why = "why";
     public const string Gates = "gates";
+    public const string Decided = "decided";
 }
 
 [JsonSourceGenerationOptions(
@@ -167,6 +181,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(EnvelopeState))]
 [JsonSerializable(typeof(FlightAttribution))]
 [JsonSerializable(typeof(GateList))]
+[JsonSerializable(typeof(DecisionRecorded))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
 /// <summary>How verb results are written and read back.</summary>
@@ -223,6 +238,7 @@ public static class VerbOutput
         VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
         VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
         VerbResult.Gates r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.GateList),
+        VerbResult.Decided r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DecisionRecorded),
         VerbResult.EnvelopeApplied r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
@@ -289,6 +305,7 @@ public static class VerbOutput
         VerbResult.EnvelopeShown r => Envelope(r.Value),
         VerbResult.Why r => WhyText(r.Value),
         VerbResult.Gates r => GatesText(r.Value),
+        VerbResult.Decided r => DecidedText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         _ => throw Unknown(result?.Kind),
@@ -791,6 +808,33 @@ public static class VerbOutput
             text.AppendLine($"  because:  {Clean(gate.Because, lines: true)}");
             text.AppendLine($"  since:    {gate.AwaitingSince:u}");
         }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What was recorded, and what it changed.
+    /// </summary>
+    /// <remarks>
+    /// The admission line is the point: a decision that satisfied the last outstanding
+    /// obligation lets the work land, and one that did not says so. Both come from the
+    /// response.
+    /// </remarks>
+    private static string DecidedText(DecisionRecorded recorded)
+    {
+        var text = new StringBuilder();
+
+        text.AppendLine(
+            $"{Clean(recorded.FlightNumber)} - {Clean(recorded.ObligationId)}: "
+          + $"{Clean(recorded.Outcome)}");
+        text.AppendLine($"  by:       {Clean(recorded.DecidedBy)}");
+        text.AppendLine($"  at:       {recorded.DecidedAt:u}");
+
+        text.AppendLine(recorded.Admission is { } admission
+            ? $"  landing:  {Clean(admission.DestinationId)} - {Clean(admission.Reason, lines: true)}"
+            // Said rather than omitted. A decision that changed nothing about landing is
+            // a normal outcome, and a blank line would read as one that did.
+            : "  landing:  not yet - something else this destination requires is outstanding");
 
         return text.ToString().TrimEnd();
     }

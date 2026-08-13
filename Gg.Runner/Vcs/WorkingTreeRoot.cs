@@ -117,6 +117,13 @@ public sealed class WorkingTreeRoot
         return swept;
     }
 
+    /// <summary>Where this flight's trees live, whether or not they do.</summary>
+    /// <remarks>
+    /// Public so the handoff root can move them without being told the layout
+    /// twice. One place decides where a flight's trees are.
+    /// </remarks>
+    public string For(string flightId) => FlightDirectory(flightId);
+
     private string FlightDirectory(string flightId) => System.IO.Path.Combine(_path, Safe(flightId));
 
     /// <summary>A flight id, reduced to something that is only ever one path segment.</summary>

@@ -285,7 +285,8 @@ public static class PaneText
     private static string Help(AppState state)
     {
         var text = new StringBuilder();
-        foreach (var binding in Keymap.Bindings(new KeymapContext(UiMode.Normal, state.LiveVisible, state.Frozen)))
+        foreach (var binding in Keymap.Bindings(
+            new KeymapContext(UiMode.Normal, state.LiveVisible, state.Frozen, state.TakeableTree is not null)))
         {
             text.AppendLine($"  {binding.Key.Name,-8}{binding.Description}");
         }

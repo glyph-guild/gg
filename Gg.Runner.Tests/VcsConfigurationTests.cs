@@ -91,7 +91,7 @@ public class VcsConfigurationTests
         // a forge; this runner has no host for it; that is answerable, and a
         // DNS failure is not.
         using var trees = new ScratchTreeRoot();
-        var workspace = new Workspace(VcsConfiguration.FromEnvironment("forge=forge.example.invalid"), trees.Root);
+        var workspace = trees.Workspace(VcsConfiguration.FromEnvironment("forge=forge.example.invalid"));
 
         var refusal = await Assert.That(async () => await workspace.PrepareAsync(
                 "flight-1",

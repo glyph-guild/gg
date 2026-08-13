@@ -401,6 +401,44 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>
+    /// Records that a person took a flight over, and what came back.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Article XII: actions that cannot be attributed do not happen. A person
+    /// held this flight for a while and a machine did not, and the log has to be
+    /// able to say so - otherwise the record reads as though the agent produced
+    /// whatever is now in the tree.
+    /// </para>
+    /// <para>
+    /// <b>Recorded even when nothing came back.</b> Somebody who took a flight
+    /// and wrote nothing is a real event with a real duration, and the absence of
+    /// a decision is part of what is being attributed rather than a reason to
+    /// stay quiet.
+    /// </para>
+    /// </remarks>
+    public async Task<bool> RecordTakeoverAsync(
+        string sessionToken,
+        string flightId,
+        TakeoverRecord record,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        using var request = Request(HttpMethod.Post, $"/v1/flights/{flightId}/takeover", sessionToken);
+        request.Content = JsonContent.Create(record, TakeoverJson.Default.TakeoverRecord);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        // A control plane too old to know the endpoint is not a reason to lose
+        // the takeover locally. The console has already handed the terminal
+        // over and back; refusing to continue would punish the person for the
+        // control plane's version.
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
     /// What the control plane says it transmits. Null if it is too old to say.
     /// </summary>
     /// <remarks>

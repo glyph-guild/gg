@@ -28,4 +28,14 @@ public enum Command
     ToggleFreeze,
 
     OpenEditor,
+
+    /// <summary>
+    /// Take the selected flight over: unmount, hand a person the terminal, come
+    /// back to the same state.
+    /// </summary>
+    /// <remarks>
+    /// Only for a flight whose loop has ended. Interrupting a running one is a
+    /// handoff rather than a steering wheel, and it is a different feature.
+    /// </remarks>
+    TakeFlight,
 }

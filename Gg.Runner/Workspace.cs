@@ -29,6 +29,19 @@ public interface IWorkspace
     /// <summary>Removes everything this flight put on disk.</summary>
     void Release(string flightId);
 
+    /// <summary>
+    /// Keeps this flight's tree instead of deleting it, for somebody to take
+    /// over, and says what that cost on disk.
+    /// </summary>
+    /// <remarks>
+    /// <b>For the flights that did not land.</b> A landed flight has a branch
+    /// and a proposal, so its work is somewhere a person can fetch; a violated or
+    /// exhausted one has neither and the work exists only in the tree - which is
+    /// exactly the flight somebody wants to take over, and exactly the one that
+    /// had nothing left to take.
+    /// </remarks>
+    HeldTree? Hold(string flightId);
+
     /// <summary>Removes what a previous life left behind. Returns how many.</summary>
     int SweepOrphans();
 }
@@ -56,14 +69,19 @@ public sealed class Workspace : IWorkspace
     private readonly IReadOnlyList<IVcsAdapter> _adapters;
     private readonly WorkingTreeRoot _trees;
 
-    public Workspace(IReadOnlyList<IVcsAdapter> adapters, WorkingTreeRoot trees)
+    private readonly HandoffRoot _handoff;
+
+    public Workspace(
+        IReadOnlyList<IVcsAdapter> adapters, WorkingTreeRoot trees, HandoffRoot? handoff = null)
     {
         _adapters = adapters;
         _trees = trees;
+        _handoff = handoff ?? new HandoffRoot();
     }
 
     /// <summary>One adapter, for a runner that serves one provider.</summary>
-    public Workspace(IVcsAdapter adapter, WorkingTreeRoot trees) : this([adapter], trees) { }
+    public Workspace(IVcsAdapter adapter, WorkingTreeRoot trees, HandoffRoot? handoff = null)
+        : this([adapter], trees, handoff) { }
 
     public async Task<WorkspaceResult> PrepareAsync(
         string flightId,
@@ -110,6 +128,17 @@ public sealed class Workspace : IWorkspace
 
     public void Release(string flightId) => _trees.Release(flightId);
 
+    /// <summary>
+    /// Moves the flight's trees to the handoff root.
+    /// </summary>
+    /// <remarks>
+    /// A MOVE, to a root of its own, so the startup sweep keeps its one good
+    /// property: every tree under the working root belongs to a process that is
+    /// gone, with no state behind the rule. A sweep that had to know which trees
+    /// were takeable could be wrong about it.
+    /// </remarks>
+    public HeldTree? Hold(string flightId) => _handoff.Hold(flightId, _trees.For(flightId));
+
     public int SweepOrphans() => _trees.SweepOrphans();
 }
 
@@ -142,6 +171,8 @@ public sealed class NoWorkspace : IWorkspace
     }
 
     public void Release(string flightId) { }
+
+    public HeldTree? Hold(string flightId) => null;
 
     public int SweepOrphans() => 0;
 }

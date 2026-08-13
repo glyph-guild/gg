@@ -48,6 +48,20 @@ public static class DoctorChecks
     /// either repository had configured.
     /// </remarks>
     public const string Telemetry = "telemetry";
+
+    /// <summary>
+    /// Whether takeovers are getting the agent's own account, or only
+    /// measurements.
+    /// </summary>
+    /// <remarks>
+    /// <b>So the fallback cannot quietly become normal.</b> A seed without the
+    /// account still works, which is exactly the danger: handoff degrades to
+    /// measurements-only and the feature stops doing the thing it was built for
+    /// with nobody noticing. An absent account writes a line here and in the
+    /// bundle, because a degradation visible in neither is one somebody reports
+    /// and we cannot reproduce.
+    /// </remarks>
+    public const string HandoffAccount = "handoff account";
 }
 
 /// <summary>
@@ -111,7 +125,14 @@ public sealed class Doctor(
     private readonly ICredentialStore _credentials = credentials;
     private readonly Uri _controlPlane = controlPlane;
 
-    public async Task<DoctorReport> RunAsync(CancellationToken cancellationToken = default)
+    /// <param name="accountsMissing">
+    /// How many recent flights produced no closing account. Passed in because
+    /// gg's evidence lives on the other side of an API call and the doctor does
+    /// not go looking; the console knows, and telling it is cheaper than a
+    /// second fetch.
+    /// </param>
+    public async Task<DoctorReport> RunAsync(
+        int accountsMissing = 0, CancellationToken cancellationToken = default)
     {
         var checks = new List<DoctorCheck>();
 
@@ -190,6 +211,7 @@ public sealed class Doctor(
         checks.Add(await SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(RunnerCheck(stored));
+        checks.Add(HandoffAccountCheck(accountsMissing));
         checks.Add(CredentialStoreCheck());
         checks.Add(await CredentialResolutionCheckAsync(
             stored, reachable, protocolRefusal is null, cancellationToken));
@@ -492,6 +514,30 @@ public sealed class Doctor(
     /// with no runner at all; calling that blocking would train them to ignore
     /// the word, and then to ignore it on the check that matters.
     /// </remarks>
+    /// <summary>
+    /// Says when takeovers have been running on measurements alone.
+    /// </summary>
+    /// <remarks>
+    /// A count rather than a boolean: one flight whose runner was killed is
+    /// ordinary, and every flight for a week is a broken executor nobody has
+    /// noticed. The number is what tells those apart.
+    /// </remarks>
+    public static DoctorCheck HandoffAccountCheck(int accountsMissing) =>
+        new()
+        {
+            Name = DoctorChecks.HandoffAccount,
+            Passed = accountsMissing == 0,
+            Detail = accountsMissing == 0
+                ? "takeover seeds carry the agent's own account"
+                : $"{accountsMissing} recent flight(s) produced no closing account, so their "
+                + "takeover seeds are measurements only",
+            // Not blocking. A takeover still works on measurements - that is the
+            // point of the fallback - and calling this blocking would stop the
+            // thing it exists to protect.
+            Blocking = false,
+            Fixable = false,
+        };
+
     private static DoctorCheck RunnerCheck(StoredSession? stored) =>
         new()
         {

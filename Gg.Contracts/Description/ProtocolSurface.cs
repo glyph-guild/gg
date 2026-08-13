@@ -259,6 +259,21 @@ public static class ProtocolSurface
         },
         new()
         {
+            Method = "POST",
+            Path = "/v1/flights/{id}/takeover",
+            Audience = Audience.Developer,
+            Request = typeof(TakeoverRecord),
+            // No response body. What a person needs is on the flight log a
+            // moment later, and a second shape to keep in step buys nothing.
+            //
+            // DEVELOPER audience, deliberately. A takeover is a person holding a
+            // terminal, and a runner able to record one could write a person's
+            // name onto its own work.
+            Statuses = [202, 400, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/flights",
             Audience = Audience.Developer,
@@ -444,6 +459,9 @@ public static class ProtocolSurface
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
         new Dictionary<Type, IReadOnlyList<string>>
         {
+            [typeof(TakeoverRecord)] =
+                ["by", "startedAt", "heldForMs", "outcome", "diagnosis", "note"],
+            [typeof(TakeoverReturn)] = ["flightId", "outcome", "note"],
             [typeof(LoopDigest)] =
                 ["loopId", "filesReadNotEdited", "filesEdited", "searches", "errors",
                  "refusedMoves", "attempts", "stopReason"],

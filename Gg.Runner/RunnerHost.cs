@@ -56,6 +56,13 @@ internal sealed class ConsoleObserver : IRunnerObserver
     public void Landed(string outcome, string detail) =>
         System.Console.WriteLine($"destination {outcome}: {detail}");
 
+    /// <summary>
+    /// Said out loud, because a kept tree is disk this process decided to spend.
+    /// </summary>
+    public void Held(string flightNumber, string path, long bytes) =>
+        System.Console.WriteLine(
+            $"kept {flightNumber}'s tree for handoff: {bytes / 1024} KiB at {path}");
+
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
         System.Console.WriteLine(
             $"loop {loopId} {outcome} after {attempts} attempt(s), used {movesUsed.Count} move(s)");

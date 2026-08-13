@@ -65,6 +65,16 @@ public interface IRunnerObserver
     void Landed(string outcome, string detail);
 
     /// <summary>
+    /// A flight's tree was kept for somebody to take over.
+    /// </summary>
+    /// <remarks>
+    /// The size is here because this is the first resource this product spends
+    /// in a customer's environment deliberately, and a retention policy nobody
+    /// has a number for is a guess.
+    /// </remarks>
+    void Held(string flightNumber, string path, long bytes);
+
+    /// <summary>
     /// A credential the lease named could not be read here.
     /// </summary>
     /// <remarks>
@@ -89,6 +99,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void FactsShipped(int count) { }
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) { }
     public void Landed(string outcome, string detail) { }
+    public void Held(string flightNumber, string path, long bytes) { }
 }
 
 /// <summary>
@@ -161,6 +172,16 @@ public sealed class RunnerLoop(
     private readonly IReadOnlyList<IDestinationAdapter> _destinations = destinations ?? [];
 
     /// <summary>
+    /// Flights whose work reached a remote, so their tree is finished with.
+    /// </summary>
+    /// <remarks>
+    /// Recorded from what LANDING returned rather than from the admission: a
+    /// flight admitted to land and then refused at the credential has nothing on
+    /// a remote, and is exactly as takeable as one that was never admitted.
+    /// </remarks>
+    private readonly HashSet<string> _landed = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// How long this no-op runner holds a lease before releasing it.
     /// </summary>
     /// <remarks>
@@ -216,10 +237,27 @@ public sealed class RunnerLoop(
                 }
                 finally
                 {
-                    // Whatever happened, the tree goes. A SIGKILL defeats this
-                    // and that is what the startup sweep is for; everything
-                    // short of one is handled here.
-                    _workspace.Release(lease.FlightId);
+                    // A flight that LANDED has a branch and a proposal, so its
+                    // work is somewhere a person can fetch and the tree is
+                    // finished with. One that did not has neither, and the work
+                    // exists only here - which is exactly the flight somebody
+                    // takes over, and exactly the one that used to have nothing
+                    // left to take.
+                    //
+                    // Held by MOVING it to a root of its own, so the startup
+                    // sweep keeps its one good property: every tree under the
+                    // working root belongs to a process that is gone, a rule
+                    // with no state behind it and therefore no way to be wrong.
+                    if (_landed.Contains(lease.FlightId))
+                    {
+                        _workspace.Release(lease.FlightId);
+                    }
+                    else if (_workspace.Hold(lease.FlightId) is { } held)
+                    {
+                        _observer.Held(lease.FlightNumber, held.Path, held.Bytes);
+                    }
+
+                    _landed.Remove(lease.FlightId);
                 }
             }
         }
@@ -576,6 +614,7 @@ public sealed class RunnerLoop(
         {
             case LandingOutcome.Landed(var branch, var uri, var number):
                 _observer.Landed("landed", $"{branch} -> {uri}");
+                _landed.Add(lease.FlightId);
 
                 // Recorded because it happened. A landing nobody can trace back
                 // to a flight is a branch nobody will ever delete.

@@ -33,7 +33,8 @@ public readonly record struct KeyStroke(char? Input, bool Ctrl = false, bool Esc
 /// value, so an advertised key cannot drift from a live one - there is no
 /// second input to disagree about.
 /// </remarks>
-public readonly record struct KeymapContext(UiMode Mode, bool LiveVisible = false, bool Frozen = false);
+public readonly record struct KeymapContext(
+    UiMode Mode, bool LiveVisible = false, bool Frozen = false, bool Takeable = false);
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
 public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description);
@@ -85,6 +86,13 @@ public static class Keymap
             .. context.LiveVisible
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.ToggleFreeze,
                     context.Frozen ? "unfreeze" : "freeze to copy")]
+                : [],
+            // Only offered when there is something to take. A key advertised
+            // against a flight with no held tree is a key that does nothing, and
+            // the hints come from the same context dispatch does so the two
+            // cannot drift.
+            .. context.Takeable
+                ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.TakeFlight, "take over")]
                 : [],
             new(KeyStroke.Char('e'), Command.OpenEditor, "edit notes"),
         ],

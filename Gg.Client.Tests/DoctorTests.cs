@@ -67,6 +67,33 @@ public class DoctorTests
     }
 
     [Test]
+    public async Task Moves_are_reported_as_recorded_rather_than_enforced()
+    {
+        // SILENT DEGRADATION WRITES A LINE, and this is the line. Somebody reading an
+        // envelope's `moves` list would reasonably assume it bounds what an agent may
+        // do; measured, the allow-list gg passes to its executor does not refuse a
+        // call. So the doctor says so, unconditionally.
+        await using var stub = new StubControlPlane();
+        var doctor = new Doctor(
+            new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
+            new HeldSession(AValidSession()),
+            ScratchStore(),
+            new Uri(stub.BaseAddress));
+
+        var check = (await doctor.RunAsync()).Checks.Single(c => c.Name == DoctorChecks.Moves);
+
+        await Assert.That(check.Passed).IsFalse()
+            .Because("'passed' would mean nothing was wrong, and what is wrong is that a bound "
+                   + "somebody expects is absent.");
+        await Assert.That(check.Blocking).IsFalse()
+            .Because("it is a property of the product, not a fault in this machine's setup.");
+        await Assert.That(check.Fixable).IsFalse()
+            .Because("nothing here fixes it, and a remedy would send somebody looking for a "
+                   + "setting that does not exist.");
+        await Assert.That(check.Detail).Contains("not enforced");
+    }
+
+    [Test]
     public async Task A_control_plane_that_cannot_be_reached_is_blocking()
     {
         // Nothing else gg does works without it, so this is not a warning.

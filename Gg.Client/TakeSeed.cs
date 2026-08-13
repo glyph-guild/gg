@@ -34,7 +34,17 @@ public sealed record TakeMeasurements
 
     public required IReadOnlyList<string> Errors { get; init; }
 
-    public required IReadOnlyList<string> RefusedMoves { get; init; }
+    /// <summary>
+    /// Tools the agent used that the envelope's moves did not declare.
+    /// </summary>
+    /// <remarks>
+    /// <b>Used, not refused, and the difference is not cosmetic.</b> This was called
+    /// <c>RefusedMoves</c> and rendered as "moves refused", which says the system
+    /// stopped something. It did not: the allow-list passed to the executor does not
+    /// bind - measured, both directions, in <c>EnforcesMovesTests</c> - so these are
+    /// tools the agent reached for, was not declared for, and used anyway.
+    /// </remarks>
+    public required IReadOnlyList<string> UndeclaredMovesUsed { get; init; }
 
     public required int Attempts { get; init; }
 
@@ -166,7 +176,7 @@ public static class TakeSeedComposer
             FilesReadNotEdited = Clean(digest?.FilesReadNotEdited),
             Searches = Clean(digest?.Searches),
             Errors = Clean(digest?.Errors.Select(e => $"{e.Source}: {e.Detail}").ToList()),
-            RefusedMoves = Clean(digest?.RefusedMoves),
+            UndeclaredMovesUsed = Clean(digest?.RefusedMoves),
             Attempts = digest?.Attempts ?? 0,
             StopReason = ControlText.Strip(digest?.StopReason) is { Length: > 0 } stop
                 ? stop
@@ -241,7 +251,10 @@ public static class TakeSeedComposer
         Section(text, "read, not changed", seed.Measurements.FilesReadNotEdited);
         Section(text, "searched for", seed.Measurements.Searches);
         Section(text, "errors", seed.Measurements.Errors);
-        Section(text, "moves refused", seed.Measurements.RefusedMoves);
+        // NOT "moves refused". Nothing refused them - the allow-list does not bind, so
+        // this is what the agent did outside what the envelope declared. A person
+        // taking the flight over reads this and acts on it.
+        Section(text, "moves used but not declared", seed.Measurements.UndeclaredMovesUsed);
 
         text.AppendLine();
 

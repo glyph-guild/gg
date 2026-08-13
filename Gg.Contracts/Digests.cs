@@ -69,7 +69,23 @@ public sealed record LoopDigest
     /// <summary>What it hit.</summary>
     public required IReadOnlyList<DigestError> Errors { get; init; }
 
-    /// <summary>Moves the envelope did not allow, which say where it fought the work.</summary>
+    /// <summary>
+    /// Tools the agent USED that the envelope's moves did not declare.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The name is wrong and is kept deliberately.</b> Nothing refused these: the
+    /// allow-list this runner passes to its executor does not bind, measured both
+    /// directions in <c>EnforcesMovesTests</c>. So this is where the agent worked
+    /// outside what the envelope declared - which is still exactly the signal
+    /// somebody wants, and is a different claim from "we stopped it".
+    /// </para>
+    /// <para>
+    /// Renaming a member on a pinned fact type is a vocabulary event, so the wire
+    /// spelling stays and every place a person READS it says the true thing. Worth
+    /// renaming the day something else moves this fact.
+    /// </para>
+    /// </remarks>
     public required IReadOnlyList<string> RefusedMoves { get; init; }
 
     /// <summary>Turns taken.</summary>

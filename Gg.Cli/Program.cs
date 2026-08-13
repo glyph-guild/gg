@@ -21,7 +21,7 @@ return CliArgs.Parse(args) switch
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
     CliAction.Decide decide => await EmitAsync(decide.Json, c => c.DecideAsync(
-        decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json))),
+        decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json), decide.Reason)),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 

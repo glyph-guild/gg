@@ -119,21 +119,22 @@ public class DecideVerbTests
     // ---- reject is absent, not stubbed ----
 
     [Test]
-    public async Task Rejecting_says_it_is_not_built_rather_than_reporting_success()
+    public async Task An_outcome_outside_the_closed_list_is_refused_by_name()
     {
-        // An unimplemented verb that returns success is worse than one that says the
-        // word means nothing yet: the first records a decision nobody acted on, and the
-        // flight reads as answered.
-        await Assert.That(DecisionOutcomes.All).IsEquivalentTo(new[] { DecisionOutcomes.Approved });
-        await Assert.That(DecisionOutcomes.All.Contains("rejected")).IsFalse();
+        // SUPERSEDED IN 4b, and narrowed rather than deleted. This asserted that
+        // `rejected` was absent, which was true while reject was not built. What survives
+        // is the property that still matters: the list is closed, and a word outside it
+        // is refused by name rather than recorded as though it had been acted on.
+        await Assert.That(DecisionOutcomes.All)
+            .IsEquivalentTo(new[] { DecisionOutcomes.Approved, DecisionOutcomes.Rejected });
+        await Assert.That(DecisionOutcomes.All.Contains("amended")).IsFalse()
+            .Because("amend has nothing to mean at cardinality two, and a verb that accepted it "
+                   + "would record a decision nobody acted on.");
 
         var verb = Code(Sources().Single(f => Path.GetFileName(f) == "FlightCommands.cs"));
 
         await Assert.That(verb).Contains("is not a decision this version of gg can record")
             .Because("an outcome outside the closed list is refused by name.");
-        await Assert.That(verb).Contains("the flight stays waiting")
-            .Because("and the refusal says what happens instead, which is what somebody needs to "
-                   + "know: nothing changed, and that is step 3's correct behaviour.");
     }
 
     // ---- observations, interpreted by nothing ----

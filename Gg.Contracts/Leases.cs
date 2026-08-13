@@ -113,6 +113,44 @@ public sealed record LeaseRepoRef
 /// list. Recording what a flight used is what makes bounding it designable.
 /// </para>
 /// </remarks>
+/// <summary>
+/// What a person said when they sent this work back.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Advice, never authority, and that is structural rather than conventional.</b> This
+/// record carries a sentence and an attribution and nothing else - there is no field
+/// here that could widen a move, a scope, an obligation, a destination or a budget,
+/// because a reason able to change any of those would be unreviewable configuration
+/// arriving one sentence at a time.
+/// </para>
+/// <para>
+/// <b>In the context once.</b> A lease carries the rejection that sent THIS attempt
+/// back, and never an earlier one. Reasons that accumulated across attempts would be an
+/// envelope by accretion, made of rejection comments - which is the failure the declared
+/// context model exists to prevent.
+/// </para>
+/// <para>
+/// <b>Marked as a person's words</b>, so an executor renders it as something somebody
+/// said rather than as instruction from the platform. The same rule the agent's own
+/// account follows travelling the other way.
+/// </para>
+/// </remarks>
+[PinnedId("0b6e83d1-97f4-42ca-a5c8-31d7e0b96f52")]
+public sealed record LeaseFeedback
+{
+    /// <summary>Which obligation was rejected.</summary>
+    public required string ObligationId { get; init; }
+
+    /// <summary>Who rejected it.</summary>
+    public required string DecidedBy { get; init; }
+
+    /// <summary>Their words, stripped and bounded before they got here.</summary>
+    public required string Reason { get; init; }
+
+    public required DateTimeOffset DecidedAt { get; init; }
+}
+
 [PinnedId("2d740fb8-6e51-49a3-8c07-b1f9e35a4d26")]
 public sealed record LeaseLoop
 {
@@ -202,6 +240,16 @@ public sealed record LeaseGranted
     /// no envelope at all.
     /// </remarks>
     public LeaseLoop? Loop { get; init; }
+
+    /// <summary>
+    /// Why the last attempt was sent back, when it was.
+    /// </summary>
+    /// <remarks>
+    /// Null on a first attempt and on any attempt that follows an approval. Present
+    /// exactly once per rejection: the attempt it sent back gets it, and the one after
+    /// that does not.
+    /// </remarks>
+    public LeaseFeedback? Feedback { get; init; }
 
     /// <summary>
     /// Which credentials the runner must resolve, and where they are.

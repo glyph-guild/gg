@@ -107,7 +107,7 @@
   },
   {
     "version": "0.27.0",
-    "surface": "95f1f4ff9e284c53c8e0c7ec4fe7983c8abc750f47c3f022ab12a1324546d9c8",
-    "note": "DiffBasis.PriorAttempt - an attempt-two manifest measured from the previous attempt's head. And the fingerprints now hash closed vocabularies' VALUES: the rule has always been that a value may not be added freely, and until now neither ledger could see one. Fact vocabulary moves to 0.11.0 with it."
+    "surface": "21a2eb1f036664706763bf8777d62b69cb9c6d7cee8586af1dd866171fa90741",
+    "note": "Reject: DecisionOutcomes gains `rejected`, DecisionRequest gains the person's reason, and a lease carries LeaseFeedback - the sentence that sent an attempt back, attributed, marked as their words, and carrying nothing that could widen a move, a scope, an obligation, a destination or a budget. DiffBasis gains `prior-attempt` for a manifest measured from the previous attempt's head. And the fingerprints now hash closed vocabularies' VALUES: `rejected` and `prior-attempt` are both added values, and until this version neither ledger could see one. Fact vocabulary moves to 0.11.0 with it."
   }
 ]

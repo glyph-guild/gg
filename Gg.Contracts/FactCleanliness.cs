@@ -122,6 +122,17 @@ public static class FactCleanliness
             return Diagnosis(badLanding);
         }
 
+        if (fact.Human is { } human && First(
+            [
+                ("human.by", human.By, false),
+                // Prose a person wrote for a reader, so line breaks are theirs.
+                ("human.statement", human.Statement, true),
+                ("human.confirmation", human.Confirmation, false),
+            ]) is { } badHuman)
+        {
+            return Diagnosis(badHuman);
+        }
+
         if (fact.LoopDigest is { } summary && First(
             [
                 ("loopDigest.loopId", summary.LoopId, false),

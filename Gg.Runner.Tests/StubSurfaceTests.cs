@@ -129,14 +129,10 @@ public class StubSurfaceTests
         // load - and a test that sampled it would be the flake it is fixing.
         // What can be asserted forever is that neither stub lets its teardown
         // throw into a test that has already finished.
-        var stubs = Sources()
-            .Where(f => Path.GetFileName(f) is "StubRunnerSurface.cs" or "StubControlPlane.cs")
-            .ToList();
-
-        await Assert.That(stubs.Count).IsEqualTo(2)
+        await Assert.That(Stubs().Count).IsEqualTo(2)
             .Because("both stub servers are covered, or the one that is not is the next flake.");
 
-        foreach (var file in stubs)
+        foreach (var file in Stubs())
         {
             var code = File.ReadAllText(file);
             var dispose = code[code.IndexOf("DisposeAsync()", StringComparison.Ordinal)..];
@@ -151,6 +147,50 @@ public class StubSurfaceTests
                 .Because($"{Path.GetFileName(file)}'s guard has to be around the close.");
             await Assert.That(catchAt).IsGreaterThan(closeAt)
                 .Because($"{Path.GetFileName(file)} has to catch the one that is actually thrown.");
+        }
+    }
+
+    [Test]
+    public async Task A_retry_never_reuses_the_listener_it_just_failed_on()
+    {
+        // A FAULT THE FIX INTRODUCED, and the measurement loop found. A failed
+        // Start disposes the listener it failed on, so reusing it for the next
+        // candidate throws ObjectDisposedException from Prefixes - out of a
+        // constructor, in whichever test was unlucky. Which is the same shape as
+        // the flake being fixed, arriving from the other end.
+        //
+        // The property: the listener is built inside the retry, so each attempt
+        // gets its own.
+        foreach (var file in Stubs())
+        {
+            var code = Code(file);
+            var bind = code[code.IndexOf("BindLoopback", StringComparison.Ordinal)..];
+            var loopAt = bind.IndexOf("for (", StringComparison.Ordinal);
+            var newAt = bind.IndexOf("new HttpListener()", StringComparison.Ordinal);
+
+            await Assert.That(newAt).IsGreaterThan(0)
+                .Because($"{Path.GetFileName(file)} has to construct its own listener to bind.");
+            await Assert.That(loopAt).IsLessThan(newAt)
+                .Because($"{Path.GetFileName(file)} builds the listener OUTSIDE the retry, so the "
+                       + "second attempt uses the one the first attempt's failure disposed.");
+        }
+    }
+
+    [Test]
+    public async Task Every_stub_awaits_its_serve_loop_before_closing_the_listener()
+    {
+        // The other ordering, and it only became visible once the close stopped
+        // throwing: closing while the serve loop still holds the listener hands
+        // it a disposed object.
+        foreach (var file in Stubs())
+        {
+            var code = Code(file);
+            var dispose = code[code.IndexOf("DisposeAsync()", StringComparison.Ordinal)..];
+
+            await Assert.That(dispose.IndexOf("await _loop", StringComparison.Ordinal))
+                .IsLessThan(dispose.IndexOf("_listener.Close()", StringComparison.Ordinal))
+                .Because($"{Path.GetFileName(file)} closes the listener while its loop may still be "
+                       + "using it.");
         }
     }
 
@@ -176,6 +216,10 @@ public class StubSurfaceTests
                    + "it is bound, and two test assemblies were both doing it. Found: "
                    + string.Join(", ", offenders));
     }
+
+    /// <summary>Both stub servers, wherever they live.</summary>
+    private static List<string> Stubs() =>
+        [.. Sources().Where(f => Path.GetFileName(f) is "StubRunnerSurface.cs" or "StubControlPlane.cs")];
 
     /// <summary>Source with comments removed, so a mention is not a match.</summary>
     private static string Code(string file) =>

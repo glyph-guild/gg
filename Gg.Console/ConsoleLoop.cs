@@ -1,3 +1,4 @@
+using Gg.Client;
 namespace Gg.Console;
 
 /// <summary>
@@ -5,7 +6,8 @@ namespace Gg.Console;
 /// them the terminal belongs to whoever we spawn, and the model is the only
 /// thing that survives.
 /// </summary>
-public sealed class ConsoleLoop(IUiSession ui, IEditorSession editor, ITakeSession? take = null)
+public sealed class ConsoleLoop(
+    IUiSession ui, IEditorSession editor, ITakeSession? take = null, IHandSession? hand = null)
 {
     public AppState Run(AppState initial)
     {
@@ -25,6 +27,13 @@ public sealed class ConsoleLoop(IUiSession ui, IEditorSession editor, ITakeSessi
                     // child process. Its result lands in the model, and the
                     // next session is rebuilt from that model alone.
                     state = state with { Notes = editor.Edit(state.Notes) };
+                    break;
+
+                case Command.HandBack:
+                    // The same shape again: the session ends, an agent reads the
+                    // tree, a person answers, and the model is the only thing
+                    // that crosses back.
+                    state = HandedBack(state, hand);
                     break;
 
                 case Command.TakeFlight:
@@ -85,6 +94,55 @@ public sealed class ConsoleLoop(IUiSession ui, IEditorSession editor, ITakeSessi
                    + "and no decision was written.",
             },
             LastTakeoverHeld = result.Held,
+        };
+    }
+
+    /// <summary>
+    /// Runs the hand-back and folds what the person confirmed into the model.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing is recorded unless they answered.</b> A walk-away leaves no
+    /// account and the state says so, because an unconfirmed proposal stored as
+    /// somebody's words attributes a guess to them.
+    /// </remarks>
+    private static AppState HandedBack(AppState state, IHandSession? hand)
+    {
+        if (hand is null || state.Selected is not { } row || state.TakeSeed is not { } seed)
+        {
+            return state with
+            {
+                LastHandBack = hand is null
+                    ? "This console is not configured to hand flights back."
+                    : "There is nothing to hand back: this flight has not been taken over.",
+            };
+        }
+
+        var outcome = hand.Hand(new HandRequest
+        {
+            FlightId = row.FlightId,
+            FlightNumber = row.FlightNumber,
+            TreePath = state.TakeableTree ?? "",
+            By = state.Principal,
+            PriorAccount = seed.Account,
+            Measurements = seed.Measurements,
+        });
+
+        return state with
+        {
+            LastHandBack = outcome.Detail,
+            // Recorded whichever way it went, INCLUDING the walk-away: a rate
+            // that only counted the answers would be a rate of answers.
+            HandConfirmations =
+            [
+                .. state.HandConfirmations.Where(f => f.FlightId != row.FlightId),
+                new HandConfirmationFact { FlightId = row.FlightId, Choice = outcome.Choice },
+            ],
+            // The account joins the seed, so the next person to take this flight
+            // over finds it where a resuming reader looks.
+            TakeSeed = outcome.Account is { } account
+                ? seed with { PriorHuman = account }
+                : seed,
+            TakenOver = false,
         };
     }
 }

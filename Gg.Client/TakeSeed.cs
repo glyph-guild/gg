@@ -91,6 +91,17 @@ public sealed record TakeSeed
     /// <summary>How much of the account was kept, when it was truncated.</summary>
     public int AccountBytes { get; init; }
 
+    /// <summary>
+    /// What the last person to work on this said they did, in their own name.
+    /// </summary>
+    /// <remarks>
+    /// <b>A human assertion, and marked as one.</b> Three kinds of claim now
+    /// reach a person taking a flight over - what we measured, what the agent
+    /// said about itself, and what a previous taker asserted - and a reader who
+    /// cannot tell them apart will weigh a guess like a measurement.
+    /// </remarks>
+    public HumanAccount? PriorHuman { get; init; }
+
     /// <summary>Why there is no account, when there is none.</summary>
     /// <remarks>
     /// "no account: the runner was killed" and "no account: the agent produced
@@ -139,7 +150,8 @@ public static class TakeSeedComposer
         string treePath,
         LoopDigest? digest,
         string? account,
-        string? verdict = null)
+        string? verdict = null,
+        HumanAccount? priorHuman = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(flightNumber);
         ArgumentException.ThrowIfNullOrWhiteSpace(flightId);
@@ -173,6 +185,7 @@ public static class TakeSeedComposer
                 Account = null,
                 AccountState = AccountState.Missing,
                 AccountAbsence = "the flight produced none",
+                PriorHuman = priorHuman,
             };
         }
 
@@ -189,6 +202,7 @@ public static class TakeSeedComposer
             Account = truncated ? cleaned[..MaxAccount] : cleaned,
             AccountState = truncated ? AccountState.Truncated : AccountState.Present,
             AccountBytes = truncated ? MaxAccount : cleaned.Length,
+            PriorHuman = priorHuman,
         };
     }
 
@@ -252,8 +266,37 @@ public static class TakeSeedComposer
                 break;
         }
 
+        // LAST, and marked hardest of the three. The person reading this is
+        // picking up work somebody else did, and the one thing they must not do
+        // is mistake a colleague's assertion for something a machine measured.
+        if (seed.PriorHuman is { } human)
+        {
+            text.AppendLine();
+            text.AppendLine(
+                $"A PERSON WORKED ON THIS BEFORE YOU — {human.By} says (their words, a human "
+              + "assertion):");
+            text.AppendLine(Indent(human.Statement));
+            text.AppendLine($"  [{Confirmed(human)}, {human.ConfirmedAt:yyyy-MM-dd HH:mm}]");
+        }
+
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// How much of that account was theirs.
+    /// </summary>
+    /// <remarks>
+    /// An accepted account is one they read and agreed with; an edited one is a
+    /// sentence they changed; a written one is entirely theirs. All three are
+    /// their assertion, and the difference is still worth a reader knowing.
+    /// </remarks>
+    private static string Confirmed(HumanAccount human) => human.Confirmation switch
+    {
+        AccountConfirmations.Accepted => "accepted an account proposed to them",
+        AccountConfirmations.Edited => "edited the account proposed to them",
+        AccountConfirmations.Replaced => "wrote this themselves",
+        _ => human.Confirmation,
+    };
 
     private static void Section(StringBuilder text, string title, IReadOnlyList<string> items)
     {

@@ -462,6 +462,8 @@ public static class ProtocolSurface
             [typeof(TakeoverRecord)] =
                 ["by", "startedAt", "heldForMs", "outcome", "diagnosis", "note"],
             [typeof(TakeoverReturn)] = ["flightId", "outcome", "note"],
+            [typeof(HumanAccount)] =
+                ["by", "statement", "confirmation", "confirmedAt", "wasProposed"],
             [typeof(LoopDigest)] =
                 ["loopId", "filesReadNotEdited", "filesEdited", "searches", "errors",
                  "refusedMoves", "attempts", "stopReason"],
@@ -542,7 +544,7 @@ public static class ProtocolSurface
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
-                 "loop", "transcript", "landed", "loopDigest"],
+                 "loop", "transcript", "landed", "loopDigest", "human"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected", "admission"],

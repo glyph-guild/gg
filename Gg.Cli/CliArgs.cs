@@ -66,6 +66,17 @@ public abstract record CliAction
     /// <summary>The tenant's envelope, as canonical text.</summary>
     public sealed record EnvelopeShow(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Why each obligation applied to a flight, or did not.
+    /// </summary>
+    /// <remarks>
+    /// Takes a flight reference, because a person asking why is holding a GG
+    /// number. The obligation argument is optional: with one, the answer is
+    /// narrowed to it; without, every obligation is shown - and showing all of
+    /// them is the default because non-attachment is the thing that hides.
+    /// </remarks>
+    public sealed record Why(string Flight, string? Obligation, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Writes an envelope back, from a file or from stdin.</summary>
     /// <remarks>
     /// A path or "-". Reading from stdin is what makes this composable with an
@@ -148,6 +159,10 @@ public static class CliArgs
             ["doctor"] => new CliAction.Doctor(json),
             ["bundle"] => new CliAction.Bundle(json),
 
+            ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
+            ["why", var flight] => new CliAction.Why(flight, null, json),
+            ["why"] => Unknown(
+                "gg why needs a flight: gg why GG-42, or gg why GG-42 <obligation>."),
             ["envelope", "show"] => new CliAction.EnvelopeShow(json),
             ["envelope", "apply", var source] => new CliAction.EnvelopeApply(source, json),
             ["envelope", "apply"] => Unknown(

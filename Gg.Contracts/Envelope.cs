@@ -110,6 +110,50 @@ public static class DestinationKinds
     public static IReadOnlyList<string> All { get; } = [PullRequest];
 }
 
+/// <summary>
+/// The conditions under which an obligation attaches to a flight.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A closed vocabulary, for the reason the predicates are: a condition nothing
+/// recognises must never be read as false. False is the answer that makes the
+/// obligation disappear.
+/// </para>
+/// <para>
+/// One condition, over one fact, at this cardinality. It reads
+/// <c>change.manifest</c> - the same fact the first predicate reads and the same
+/// path-matching underneath, which is the elegant part and also the risk: one
+/// evaluator now serves two positions.
+/// </para>
+/// </remarks>
+public static class AttachmentConditions
+{
+    /// <summary>The change manifest touches something under a path.</summary>
+    /// <remarks>
+    /// Written <c>change.manifest touches &lt;glob&gt;</c>. The glob is part of
+    /// the value rather than a second field, because a condition is one thing a
+    /// person reads in one line.
+    /// </remarks>
+    public const string TouchesPrefix = "change.manifest touches ";
+
+    /// <summary>Whether this is a condition this version can evaluate.</summary>
+    /// <remarks>
+    /// <b>Shape, not a list of values.</b> The glob varies, so an allow-list of
+    /// whole strings is impossible; what is closed is the FORM. Anything that is
+    /// not this form halts rather than attaching or not attaching.
+    /// </remarks>
+    public static bool IsKnown(string condition) =>
+        condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
+        && condition.Length > TouchesPrefix.Length;
+
+    /// <summary>The glob a touches-condition names, or null when it is not one.</summary>
+    public static string? GlobOf(string condition) =>
+        IsKnown(condition) ? condition[TouchesPrefix.Length..].Trim() : null;
+
+    /// <summary>Every form this version understands, for a diagnosis to list.</summary>
+    public static IReadOnlyList<string> Forms { get; } = [TouchesPrefix + "<glob>"];
+}
+
 /// <summary>Which layer an obligation came from.</summary>
 /// <remarks>
 /// One value, on a real obligation for the first time - the column was carried
@@ -146,6 +190,33 @@ public sealed record Obligation
 
     /// <summary>A predicate from <see cref="ObligationPredicates"/>. Never prose.</summary>
     public required string Rule { get; init; }
+
+    /// <summary>
+    /// When this obligation applies at all, or null when it always does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Self-attachment: the obligation finds the work rather than somebody
+    /// classifying it.</b> A condition over facts, from
+    /// <see cref="AttachmentConditions"/> - so an obligation about migrations
+    /// attaches to the flights that touch migrations, and nobody has to remember
+    /// to tag them.
+    /// </para>
+    /// <para>
+    /// <b>Null is "always", and it is the only thing null may mean here.</b> An
+    /// obligation whose condition was evaluated and did not hold is a different
+    /// state, recorded as such - because a condition evaluating false is
+    /// INVISIBLE otherwise, and an obligation that never attached leaves no
+    /// verdict for anybody to be suspicious of.
+    /// </para>
+    /// <para>
+    /// <b>Facts only.</b> A condition that read another obligation's verdict
+    /// would make attachment depend on evaluation, which turns the verdict set
+    /// into a fixed-point computation and reintroduces the ordering dependence
+    /// this Engine was proven free of.
+    /// </para>
+    /// </remarks>
+    public string? When { get; init; }
 
     /// <summary>Which layer it came from.</summary>
     public string Provenance { get; init; } = ObligationProvenances.Org;
@@ -285,6 +356,22 @@ public sealed record Envelope
                 // reports satisfied by never running.
                 return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one of: "
                      + string.Join(", ", ObligationPredicates.All) + ".";
+            }
+
+            if (obligation.When is { } condition && !AttachmentConditions.IsKnown(condition))
+            {
+                // Article XI at the earliest point it can be caught, on the field
+                // where getting it wrong is invisible: an unrecognised condition
+                // must never be read as false, because false is the answer that
+                // makes the obligation vanish without a trace.
+                // Naming the key as well as the value: a diagnosis quoting only
+                // the condition sends somebody looking for it without saying
+                // which line of the obligation it came from.
+                return $"'{condition}' is not a condition this version understands, at "
+                     + $"obligations.{obligation.Id}.when. Expected one of: "
+                     + string.Join(", ", AttachmentConditions.Forms)
+                     + ". A condition nothing recognises cannot be treated as false - false is the "
+                     + "answer that removes the obligation, and nothing would be recorded.";
             }
 
             if (Unknown(obligation.Provenance, ObligationProvenances.All) is { } provenance)

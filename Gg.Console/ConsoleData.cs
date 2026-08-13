@@ -69,6 +69,19 @@ public sealed class ConsoleData(FlightCommands commands, CredentialCommands cred
     public Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
         _commands.ListAsync(cancellationToken);
 
+    /// <summary>
+    /// `gg why` — why each obligation applied to a flight, or did not.
+    /// </summary>
+    /// <remarks>
+    /// The console shows the same attribution the verb does, from the same
+    /// fetch. Both are renderers: an obligation that did not attach is the thing
+    /// hardest to notice, and a console that could not show it would be a
+    /// surface where non-attachment is invisible again.
+    /// </remarks>
+    public Task<VerbResult> WhyAsync(
+        string reference, string? obligation = null, CancellationToken cancellationToken = default) =>
+        _commands.WhyAsync(reference, obligation, cancellationToken);
+
     /// <summary>`gg credential list`.</summary>
     public Task<VerbResult> ListCredentialsAsync(CancellationToken cancellationToken = default) =>
         _credentials.ListCredentialsAsync(cancellationToken);

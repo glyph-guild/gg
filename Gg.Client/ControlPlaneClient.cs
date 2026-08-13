@@ -27,6 +27,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(CredentialRemoved))]
 [JsonSerializable(typeof(Envelope))]
 [JsonSerializable(typeof(EnvelopeState))]
+[JsonSerializable(typeof(FlightAttribution))]
 [JsonSerializable(typeof(EnvelopeApplied))]
 /// <summary>
 /// How this client serializes wire types.
@@ -398,6 +399,31 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.CredentialRemoved, cancellationToken);
+    }
+
+    /// <summary>
+    /// Why each obligation applied to a flight. Null when there is no such flight.
+    /// </summary>
+    /// <remarks>
+    /// A read, and nothing more. Everything in the answer was decided by the
+    /// Engine before it was serialized.
+    /// </remarks>
+    public async Task<FlightAttribution?> WhyAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/flights/{reference}/why", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.FlightAttribution, cancellationToken);
     }
 
     /// <summary>

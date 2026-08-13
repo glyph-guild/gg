@@ -34,7 +34,7 @@ public class HandTests
         FilesReadNotEdited = ["ISSUE.md", "config/settings.yaml"],
         Searches = [],
         Errors = [],
-        RefusedMoves = [],
+        UndeclaredMovesUsed = [],
         Attempts = 11,
         StopReason = LoopOutcomes.Completed,
         Verdict = "violated",

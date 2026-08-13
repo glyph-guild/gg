@@ -24,6 +24,17 @@ public static class DoctorChecks
     public const string Egress = "egress";
     public const string Runner = "runner";
 
+    /// <summary>
+    /// What the envelope's <c>moves</c> actually do.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because the honest answer is weaker than the field name suggests.</b> Moves
+    /// are recorded and not enforced: the executor's allow-list does not bind, so a
+    /// flight declaring <c>read</c> can edit. Somebody reading an envelope will
+    /// otherwise assume a bound exists, and silent degradation writes a line.
+    /// </remarks>
+    public const string Moves = "moves";
+
     /// <summary>Where secrets live on this machine, and how they are protected.</summary>
     /// <remarks>
     /// Stated, never judged, and never blocking. A person cannot reason about
@@ -211,6 +222,7 @@ public sealed class Doctor(
         checks.Add(await SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(RunnerCheck(stored));
+        checks.Add(MovesCheck());
         checks.Add(HandoffAccountCheck(accountsMissing));
         checks.Add(CredentialStoreCheck());
         checks.Add(await CredentialResolutionCheckAsync(
@@ -535,6 +547,35 @@ public sealed class Doctor(
             // point of the fallback - and calling this blocking would stop the
             // thing it exists to protect.
             Blocking = false,
+            Fixable = false,
+        };
+
+    /// <summary>
+    /// Says that moves are recorded rather than enforced.
+    /// </summary>
+    /// <remarks>
+    /// <b>Always reported, never blocking, and never passing.</b> Not a failure of
+    /// this machine's setup - it is a property of the product, and a person reading
+    /// an envelope's <c>moves</c> list would otherwise reasonably assume it bounds
+    /// what an agent may do. Measured rather than assumed: the allow-list passed to
+    /// the executor does not refuse a call, and the deny-list would.
+    /// </remarks>
+    private static DoctorCheck MovesCheck() =>
+        new()
+        {
+            Name = DoctorChecks.Moves,
+
+            // FALSE, deliberately. "Passed" would mean the check found nothing
+            // wrong, and what it found is that a bound somebody expects is absent.
+            Passed = false,
+            Detail = "declared moves are RECORDED, not enforced. A flight declaring 'read' can "
+                   + "still edit: the allow-list gg passes to the executor does not refuse a call. "
+                   + "What a flight actually did is measured and reported; what it was allowed to "
+                   + "do is not a bound.",
+            Blocking = false,
+
+            // Nothing on this machine fixes it, and offering a remedy would send
+            // somebody looking for a setting that does not exist.
             Fixable = false,
         };
 

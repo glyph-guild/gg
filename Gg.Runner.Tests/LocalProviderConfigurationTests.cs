@@ -41,8 +41,8 @@ public class LocalProviderConfigurationTests
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var workspace = new Workspace(
-            VcsConfiguration.FromEnvironment($"local={fixture.Directory}"), trees.Root);
+        var workspace = trees.Workspace(
+            VcsConfiguration.FromEnvironment($"local={fixture.Directory}"));
 
         var prepared = await workspace.PrepareAsync(
             "flight-1",
@@ -65,9 +65,8 @@ public class LocalProviderConfigurationTests
         // telling it what to clone.
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var workspace = new Workspace(
-            VcsConfiguration.FromEnvironment($"local={Path.Combine(fixture.Directory, "allowed")}"),
-            trees.Root);
+        var workspace = trees.Workspace(
+            VcsConfiguration.FromEnvironment($"local={Path.Combine(fixture.Directory, "allowed")}"));
 
         var refusal = await Assert.That(async () => await workspace.PrepareAsync(
                 "flight-1",
@@ -90,8 +89,8 @@ public class LocalProviderConfigurationTests
         // is on the RESOLVED path rather than on the string somebody sent.
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
-        var workspace = new Workspace(
-            VcsConfiguration.FromEnvironment($"local={fixture.Directory}"), trees.Root);
+        var workspace = trees.Workspace(
+            VcsConfiguration.FromEnvironment($"local={fixture.Directory}"));
 
         await Assert.That(async () => await workspace.PrepareAsync(
                 "flight-1",

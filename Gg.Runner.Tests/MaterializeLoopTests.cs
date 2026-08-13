@@ -83,7 +83,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var shipped = protocol.ShippedFacts.SelectMany(b => b.Items).ToList();
@@ -108,7 +108,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var provenance = protocol.ShippedFacts
@@ -137,7 +137,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var sent = string.Join("\n", protocol.Serialized);
@@ -154,11 +154,21 @@ public class MaterializeLoopTests
                    + "contents is silence about the contents.");
     }
 
+    /// <summary>
+    /// The working root is empty afterwards, whatever happened to the flight.
+    /// </summary>
+    /// <remarks>
+    /// <b>Amended, and the property it protects is unchanged.</b> Slice one said
+    /// the tree is gone once the flight is released, and the reason was that the
+    /// startup sweep can be stateless: a runner that is starting holds no lease,
+    /// so every tree under THIS root belongs to a process that is gone.
+    /// </remarks>
     [Test]
-    public async Task The_tree_is_gone_once_the_flight_is_released()
+    public async Task The_working_root_is_empty_once_the_flight_is_released()
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
+        var handoff = new ScratchHandoffRoot();
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseFor(fixture, "refs/heads/main")));
@@ -166,11 +176,18 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
+                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root, handoff.Root))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         await Assert.That(Directory.EnumerateDirectories(trees.Root.Path)).IsEmpty()
-            .Because("a customer's source code is on our disk only for as long as the flight needs it.");
+            .Because("the sweep's rule is 'all of them', and a tree left here would make that rule "
+                   + "wrong about which trees are live.");
+
+        // This flight did not land, so its work exists nowhere else and it is
+        // kept - in a root of its own, which the sweep never looks at.
+        await Assert.That(handoff.Root.Held().Count).IsEqualTo(1)
+            .Because("a customer's source code is on our disk for as long as the flight needs it, "
+                   + "and a flight nobody can take over needs it until somebody has.");
     }
 
     [Test]
@@ -199,7 +216,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new NoPullRequestsAdapter(), trees.Root))
+                trees.Workspace(new NoPullRequestsAdapter()))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         await Assert.That(protocol.Calls.Any(c => c.Contains("failed", StringComparison.Ordinal))).IsTrue()
@@ -223,7 +240,7 @@ public class MaterializeLoopTests
 
         using var stopping = StopAfter(observer, 2);
         await Build(protocol, clock, observer, new NoCredentialResolver(),
-                new Workspace(new LocalVcsAdapter(fixture.Directory), trees.Root))
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)))
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         var shipped = protocol.ShippedFacts.SelectMany(b => b.Items).ToList();

@@ -62,6 +62,8 @@ public static class Vocabulary
         typeof(LoopOutcome),
         typeof(DestinationLanded),
         typeof(LoopDigest),
+        typeof(TakeoverRecord),
+        typeof(TakeoverReturn),
         typeof(DigestError),
         typeof(DestinationAdmission),
         typeof(ArtifactReference),

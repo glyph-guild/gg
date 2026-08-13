@@ -385,13 +385,12 @@ public class AgainstRealRemoteTests
             }
         };
 
-        var workspace = new Workspace(
+        var workspace = trees.Workspace(
             [new HttpsGitVcsAdapter("fixture", Required(HostVariable), new VcsCapabilities
             {
                 PullRequestHeadsFromBase = true,
                 RefScheme = "refs/heads/<branch>",
-            })],
-            trees.Root);
+            })]);
 
         using (stopping)
         {

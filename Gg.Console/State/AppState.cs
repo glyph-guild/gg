@@ -1,3 +1,4 @@
+using Gg.Client;
 using Gg.Contracts;
 
 namespace Gg.Console;
@@ -228,6 +229,29 @@ public sealed record AppState
     public IReadOnlyList<LiveAttachFact> AttachFacts { get; init; } = [];
 
     public string Notes { get; init; } = "";
+
+    /// <summary>
+    /// The held tree of the selected flight, when there is one.
+    /// </summary>
+    /// <remarks>
+    /// Only a flight that ended without landing has one, which is exactly the
+    /// flight worth taking over: a landed flight's work is on a branch somebody
+    /// can fetch.
+    /// </remarks>
+    public string? TakeableTree { get; init; }
+
+    /// <summary>What a person reads before taking the selected flight over.</summary>
+    public TakeSeed? TakeSeed { get; init; }
+
+    /// <summary>What the last takeover ended with, for the pane to say.</summary>
+    /// <remarks>
+    /// Held on the model rather than printed, because the console is rebuilt
+    /// from the model after the child exits and anything printed is gone.
+    /// </remarks>
+    public string? LastTakeover { get; init; }
+
+    /// <summary>How long the last takeover held the terminal.</summary>
+    public TimeSpan? LastTakeoverHeld { get; init; }
 
     /// <summary>
     /// What went wrong reaching the control plane, if anything.

@@ -6,19 +6,66 @@ using Gg.Runner.Vcs;
 namespace Gg.Runner.Tests;
 
 /// <summary>A tree root of this test's own, under the temp directory.</summary>
-internal sealed class ScratchTreeRoot : IDisposable
+/// <summary>A handoff root of this test's own.</summary>
+/// <remarks>
+/// Separate from the working root, exactly as it is in production: the sweep's
+/// statelessness depends on nothing takeable living under the root it sweeps.
+/// </remarks>
+internal sealed class ScratchHandoffRoot : IDisposable
 {
-    internal WorkingTreeRoot Root { get; }
+    internal HandoffRoot Root { get; }
 
-    internal ScratchTreeRoot() =>
-        Root = new WorkingTreeRoot(Path.Combine(
-            Path.GetTempPath(), "gg-tree-tests", Guid.NewGuid().ToString("n")));
+    internal ScratchHandoffRoot(TimeProvider? time = null) =>
+        Root = new HandoffRoot(
+            Path.Combine(Path.GetTempPath(), "gg-handoff-tests", Guid.NewGuid().ToString("n")), time);
 
     public void Dispose()
     {
         if (Directory.Exists(Root.Path))
         {
             Directory.Delete(Root.Path, recursive: true);
+        }
+    }
+}
+
+internal sealed class ScratchTreeRoot : IDisposable
+{
+    internal WorkingTreeRoot Root { get; }
+
+    /// <summary>
+    /// A handoff root of this test's own, because the real one is a real
+    /// directory.
+    /// </summary>
+    /// <remarks>
+    /// Owned here rather than left to each test to remember. A flight that does
+    /// not land now KEEPS its tree, so a test that forgets writes into the
+    /// developer's own handoff root - and several tests using the same flight id
+    /// then collide there, which is how two unrelated tests started failing
+    /// together and passing alone.
+    /// </remarks>
+    internal HandoffRoot Handoff { get; }
+
+    internal ScratchTreeRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "gg-tree-tests", Guid.NewGuid().ToString("n"));
+
+        Root = new WorkingTreeRoot(Path.Combine(root, "trees"));
+        Handoff = new HandoffRoot(Path.Combine(root, "handoff"));
+    }
+
+    /// <summary>A workspace over both roots, which is what production has.</summary>
+    internal Workspace Workspace(IVcsAdapter adapter) => new(adapter, Root, Handoff);
+
+    internal Workspace Workspace(IReadOnlyList<IVcsAdapter> adapters) => new(adapters, Root, Handoff);
+
+    public void Dispose()
+    {
+        foreach (var path in (string[])[Root.Path, Handoff.Path])
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
         }
     }
 }

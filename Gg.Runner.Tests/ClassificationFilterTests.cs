@@ -52,8 +52,8 @@ public class ClassificationFilterTests
 
     private static FilteredFacts FilterAt(string ceiling, params ChangedPath[] paths) =>
         FactPipeline.Filter(
-            FactPipeline.Digest(
-                new GatheredFacts([new FactPayload.Change(AManifest(paths))]), "flight-1", T0),
+            FactPipeline.Digest(FactHygiene.Clean(
+                new GatheredFacts([new FactPayload.Change(AManifest(paths))])), "flight-1", T0),
             ceiling);
 
     [Test]
@@ -139,8 +139,8 @@ public class ClassificationFilterTests
             APath("deploy/key.pem", Classifications.Restricted),
         ];
 
-        var unfiltered = FactPipeline.Digest(
-            new GatheredFacts([new FactPayload.Change(AManifest(paths))]), "flight-1", T0);
+        var unfiltered = FactPipeline.Digest(FactHygiene.Clean(
+            new GatheredFacts([new FactPayload.Change(AManifest(paths))])), "flight-1", T0);
         var filtered = FactPipeline.Filter(unfiltered, Classifications.Internal);
 
         await Assert.That(filtered.Items.Single().Digest).IsEqualTo(unfiltered.Items.Single().Digest);
@@ -163,11 +163,22 @@ public class ClassificationFilterTests
         };
 
         var filtered = FactPipeline.Filter(
-            FactPipeline.Digest(
-                new GatheredFacts([new FactPayload.Environment(environment)]), "flight-1", T0),
+            FactPipeline.Digest(FactHygiene.Clean(
+                new GatheredFacts([new FactPayload.Environment(environment)])), "flight-1", T0),
             Classifications.Public);
 
-        await Assert.That(filtered.Items.Single().Environment).IsEqualTo(environment);
+        var survived = filtered.Items.Single().Environment!;
+
+        // Field by field, because hygiene rebuilds the record on the way past
+        // and a rebuilt record with identical contents is not reference-equal to
+        // the one handed in. "Untouched" is a claim about the VALUES; asserting
+        // the instance would be asserting that nothing normalised them, which is
+        // the opposite of what this pipeline now guarantees.
+        await Assert.That(survived.HostFingerprint).IsEqualTo(environment.HostFingerprint);
+        await Assert.That(survived.ImageDigest).IsEqualTo(environment.ImageDigest);
+        await Assert.That(survived.Provenance).IsEqualTo(environment.Provenance);
+        await Assert.That(survived.Locks).IsEmpty();
+        await Assert.That(survived.Tools).IsEmpty();
     }
 
     [Test]

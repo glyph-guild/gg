@@ -477,7 +477,12 @@ public sealed class RunnerLoop(
             }
         }
 
-        var digested = FactPipeline.Digest(new GatheredFacts(payloads), lease.FlightId, _clock.UtcNow);
+        // STRIPPED BEFORE THE DIGEST, which the types enforce: Digest takes
+        // what only Clean produces. The hash is computed over the fact as
+        // produced, so cleaning it later would make the stored bytes disagree
+        // with the hash that proves what they were.
+        var digested = FactPipeline.Digest(
+            FactHygiene.Clean(new GatheredFacts(payloads)), lease.FlightId, _clock.UtcNow);
         var filtered = FactPipeline.Filter(digested, lease.ClassificationCeiling);
 
         var accepted = await _protocol.ShipFactsAsync(
@@ -578,13 +583,13 @@ public sealed class RunnerLoop(
                     lease.LeaseId, lease.Generation,
                     FactPipeline.Filter(
                         FactPipeline.Digest(
-                            new GatheredFacts([new FactPayload.Landing(new DestinationLanded
+                            FactHygiene.Clean(new GatheredFacts([new FactPayload.Landing(new DestinationLanded
                             {
                                 DestinationId = admission.DestinationId,
                                 Branch = branch,
                                 PullRequestUri = uri,
                                 PullRequestNumber = number,
-                            })]),
+                            })])),
                             lease.FlightId, _clock.UtcNow),
                         lease.ClassificationCeiling),
                     cancellationToken);

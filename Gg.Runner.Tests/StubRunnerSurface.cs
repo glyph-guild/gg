@@ -33,16 +33,71 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
 
     internal string BaseAddress { get; }
 
+    /// <summary>
+    /// Binds a port by BINDING it, never by asking whether one is free.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Asking the operating system for a free port and then giving it back
+    /// before binding it is a check whose answer expires. The window is small
+    /// and it is not theoretical: two stub servers - this one and its twin in
+    /// the other test assembly, so two PROCESSES, which no lock of ours spans -
+    /// were handed the same port, and then either one threw <c>Address already
+    /// in use</c> from <c>Dispose</c> or, worse, both bound and each answered
+    /// the other's client.
+    /// </para>
+    /// <para>
+    /// So there is no probe. A candidate is tried by starting the real listener
+    /// on it, and the operating system arbitrates the only bind that happens.
+    /// Losing is ordinary and cheap; the loop tries the next one.
+    /// </para>
+    /// </remarks>
+    /// <summary>Ports this process has already bound, so it never picks one twice.</summary>
+    /// <remarks>
+    /// Random candidates collide by birthday - sixteen picks from forty thousand
+    /// is a fraction of a percent - and a fraction of a percent is exactly the
+    /// rate a flake lives at. The operating system arbitrates between processes;
+    /// this removes the chance inside one.
+    /// </remarks>
+    private static readonly HashSet<int> _taken = [];
+
+    private static string BindLoopback(HttpListener listener)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            // Above the range the operating system hands out for ephemeral
+            // sockets, so this is not competing with every outbound connection
+            // on the machine as well as with the other stub.
+            int candidate;
+            lock (_taken)
+            {
+                do
+                {
+                    candidate = Random.Shared.Next(20000, 60000);
+                }
+                while (!_taken.Add(candidate));
+            }
+
+            var address = $"http://127.0.0.1:{candidate}/";
+
+            try
+            {
+                listener.Prefixes.Add(address);
+                listener.Start();
+                return address;
+            }
+            catch (HttpListenerException) when (attempt < 40)
+            {
+                // Another process had it. Ours stays in the taken set: reusing it
+                // later would only re-run this.
+                listener.Prefixes.Remove(address);
+            }
+        }
+    }
+
     internal StubRunnerSurface()
     {
-        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-
-        BaseAddress = $"http://127.0.0.1:{port}/";
-        _listener.Prefixes.Add(BaseAddress);
-        _listener.Start();
+        BaseAddress = BindLoopback(_listener);
         _loop = Task.Run(ServeAsync);
     }
 
@@ -152,7 +207,26 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
         await _stopping.CancelAsync();
         _listener.Stop();
         try { await _loop; } catch (Exception) { /* shutting down */ }
-        _listener.Close();
+
+        try
+        {
+            _listener.Close();
+        }
+        catch (HttpListenerException)
+        {
+            // THE FLAKE. .NET's managed HttpListener - the implementation on
+            // anything that is not Windows - re-enters its endpoint manager on
+            // close, and that path BINDS a socket to look one up. When the entry
+            // has already gone it tries to bind a port something else now holds
+            // and throws "Address already in use", from Close, during teardown.
+            //
+            // Swallowed here and nowhere else. The request and response this
+            // stub existed for have already happened and already been asserted;
+            // failing a test on its own teardown reports a defect in whichever
+            // test happened to be disposing, which is why the failures looked
+            // scattered across a file and unrelated to each other.
+        }
+
         _stopping.Dispose();
     }
 }

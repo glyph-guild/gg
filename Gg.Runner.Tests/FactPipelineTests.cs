@@ -147,7 +147,7 @@ public class FactPipelineTests
     [Test]
     public async Task The_digest_is_a_sha256_of_the_payload()
     {
-        var digested = FactPipeline.Digest(AGathering(), "flight-1", T0);
+        var digested = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0);
 
         await Assert.That(digested.Items.Count).IsEqualTo(1);
         await Assert.That(FactEnvelope.Validate(digested.Items[0])).IsNull();
@@ -160,8 +160,8 @@ public class FactPipelineTests
         // A digest that moved between two identical gatherings would make
         // "replaying an identical batch changes nothing" false at the far end,
         // through no fault of the far end.
-        var one = FactPipeline.Digest(AGathering(), "flight-1", T0);
-        var other = FactPipeline.Digest(AGathering(), "flight-1", T0);
+        var one = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0);
+        var other = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0);
 
         await Assert.That(one.Items[0].Digest).IsEqualTo(other.Items[0].Digest);
         await Assert.That(one.Items[0].IdempotencyKey).IsEqualTo(other.Items[0].IdempotencyKey);
@@ -171,12 +171,12 @@ public class FactPipelineTests
     public async Task Different_facts_digest_differently()
     {
         // A digest that never moves is decoration.
-        var one = FactPipeline.Digest(AGathering(), "flight-1", T0);
-        var other = FactPipeline.Digest(
+        var one = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0);
+        var other = FactPipeline.Digest(FactHygiene.Clean(
             new GatheredFacts([new FactPayload.Environment(AnEnvironment() with
             {
                 Provenance = EnvironmentProvenance.Reused,
-            })]),
+            })])),
             "flight-1", T0);
 
         await Assert.That(one.Items[0].Digest).IsNotEqualTo(other.Items[0].Digest);
@@ -188,8 +188,8 @@ public class FactPipelineTests
         // Two runners in identical containers produce the same environment
         // fact. If the keys collided the second flight's fact would dedupe away
         // and that flight would have no environment recorded at all.
-        var one = FactPipeline.Digest(AGathering(), "flight-1", T0);
-        var other = FactPipeline.Digest(AGathering(), "flight-2", T0);
+        var one = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0);
+        var other = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-2", T0);
 
         await Assert.That(one.Items[0].IdempotencyKey).IsNotEqualTo(other.Items[0].IdempotencyKey);
     }
@@ -200,7 +200,7 @@ public class FactPipelineTests
         // Honest about what it is. Classification joins in step 7, when there
         // is content to classify; today it passes everything through and the
         // point of it existing is that step 7 adds a rule rather than a stage.
-        var filtered = FactPipeline.Filter(FactPipeline.Digest(AGathering(), "flight-1", T0), "internal");
+        var filtered = FactPipeline.Filter(FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0), "internal");
 
         await Assert.That(filtered.Items.Count).IsEqualTo(1);
     }
@@ -225,8 +225,8 @@ public class FactPipelineTests
             Provenance = EnvironmentProvenance.Fresh,
         };
 
-        var digested = FactPipeline.Digest(
-            new GatheredFacts([new FactPayload.Environment(enormous)]), "flight-1", T0);
+        var digested = FactPipeline.Digest(FactHygiene.Clean(
+            new GatheredFacts([new FactPayload.Environment(enormous)])), "flight-1", T0);
 
         await Assert.That(FactPipeline.OverBudget(digested.Items[0])).IsTrue();
 
@@ -240,7 +240,7 @@ public class FactPipelineTests
     {
         // The other half; without it the assertion above passes on a filter
         // that drops everything.
-        var digested = FactPipeline.Digest(AGathering(), "flight-1", T0);
+        var digested = FactPipeline.Digest(FactHygiene.Clean(AGathering()), "flight-1", T0);
 
         await Assert.That(FactPipeline.OverBudget(digested.Items[0])).IsFalse();
     }

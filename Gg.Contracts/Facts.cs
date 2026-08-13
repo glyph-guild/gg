@@ -86,6 +86,16 @@ public static class FactKinds
     /// </remarks>
     public const string LoopDigest = "loop.digest";
 
+    /// <summary>
+    /// What a person says they did, confirmed in their own name.
+    /// </summary>
+    /// <remarks>
+    /// The only fact in the vocabulary that is a human assertion rather than a
+    /// measurement or an agent's claim. Inline, because it is the thing somebody
+    /// reads first when they pick the work up next.
+    /// </remarks>
+    public const string HumanAccount = "handoff.account";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -97,7 +107,8 @@ public static class FactKinds
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
          DestinationLanded,
-         LoopDigest];
+         LoopDigest,
+         HumanAccount];
 }
 
 /// <summary>
@@ -151,7 +162,7 @@ public static class FactVocabulary
     /// WROTE. A control plane reading 0.6.0 cannot tell a flight pushed
     /// anything, and "did this flight change a repository" is not a question to
     /// leave to inference.
-    public const string Version = "0.8.0";
+    public const string Version = "0.9.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -665,6 +676,17 @@ public sealed record FactEnvelope
     /// </remarks>
     public LoopDigest? LoopDigest { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.HumanAccount"/>.
+    /// </summary>
+    /// <remarks>
+    /// A person's own statement, kept in its own slot rather than beside the
+    /// agent's. A reader who cannot tell which of the two they are looking at
+    /// will read a guess as an assertion.
+    /// </remarks>
+    public HumanAccount? Human { get; init; }
+
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
     /// A sentence rather than a bool, for the same reason every other Validate
@@ -704,6 +726,7 @@ public sealed record FactEnvelope
             (FactKinds.LoopTranscript, envelope.Transcript is not null),
             (FactKinds.DestinationLanded, envelope.Landed is not null),
             (FactKinds.LoopDigest, envelope.LoopDigest is not null),
+            (FactKinds.HumanAccount, envelope.Human is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -727,6 +750,11 @@ public sealed record FactEnvelope
         if (envelope.Loop is { } loop && LoopOutcome.Validate(loop) is { } badLoop)
         {
             return badLoop;
+        }
+
+        if (envelope.Human is { } human && HumanAccount.Validate(human) is { } badHuman)
+        {
+            return badHuman;
         }
 
         if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)

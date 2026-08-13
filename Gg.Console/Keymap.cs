@@ -34,7 +34,11 @@ public readonly record struct KeyStroke(char? Input, bool Ctrl = false, bool Esc
 /// second input to disagree about.
 /// </remarks>
 public readonly record struct KeymapContext(
-    UiMode Mode, bool LiveVisible = false, bool Frozen = false, bool Takeable = false);
+    UiMode Mode,
+    bool LiveVisible = false,
+    bool Frozen = false,
+    bool Takeable = false,
+    bool HandedBackable = false);
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
 public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description);
@@ -93,6 +97,12 @@ public static class Keymap
             // cannot drift.
             .. context.Takeable
                 ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.TakeFlight, "take over")]
+                : [],
+            // Only after somebody has taken it. Handing back a flight nobody
+            // took is a key that does nothing, and the hints come from the same
+            // context dispatch does.
+            .. context.HandedBackable
+                ? (KeyBinding[])[new(KeyStroke.Char('h'), Command.HandBack, "hand back")]
                 : [],
             new(KeyStroke.Char('e'), Command.OpenEditor, "edit notes"),
         ],

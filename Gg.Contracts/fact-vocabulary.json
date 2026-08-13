@@ -6,5 +6,6 @@
   { "version": "0.5.0", "surface": "8fefa833214fd07daf874f5af080e031b03c987ca6b8f54a3390706bc02f2b2a", "kinds": "change.manifest, environment.identity, source.provenance" },
   { "version": "0.6.0", "surface": "3ca902676166bec2d9ca9e2daaf1814f94df09590c8d63835ae062450726803e", "kinds": "change.manifest, environment.identity, loop.outcome, loop.transcript, source.provenance" },
   { "version": "0.7.0", "surface": "ef2cd641fb261596dadc79d04fcd9d91326980b0baadefd26c3b06901d84c022", "kinds": "change.manifest, destination.landed, environment.identity, loop.outcome, loop.transcript, source.provenance" },
-  { "version": "0.8.0", "surface": "efd49bea4e34add01db33e4b4c308ddf32f0fd5ebc8dffb217c100f2d944de62", "kinds": "change.manifest, destination.landed, environment.identity, loop.digest, loop.outcome, loop.transcript, source.provenance" }
+  { "version": "0.8.0", "surface": "efd49bea4e34add01db33e4b4c308ddf32f0fd5ebc8dffb217c100f2d944de62", "kinds": "change.manifest, destination.landed, environment.identity, loop.digest, loop.outcome, loop.transcript, source.provenance" },
+  { "version": "0.9.0", "surface": "66970932b748cc0a52ab5aabe8cb6386dc837669c9b5b3c422220163132552db", "kinds": "change.manifest, destination.landed, environment.identity, handoff.account, loop.digest, loop.outcome, loop.transcript, source.provenance" }
 ]

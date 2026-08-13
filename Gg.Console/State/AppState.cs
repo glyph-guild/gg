@@ -254,6 +254,38 @@ public sealed record AppState
     public TimeSpan? LastTakeoverHeld { get; init; }
 
     /// <summary>
+    /// Whether the selected flight has been taken over and not yet handed back.
+    /// </summary>
+    /// <remarks>
+    /// Handing back a flight nobody took is a key that does nothing.
+    /// </remarks>
+    public bool TakenOver { get; init; }
+
+    /// <summary>
+    /// Who this console is acting as. Attribution comes from here, never typed.
+    /// </summary>
+    /// <remarks>
+    /// A human account is attributed under Article XII, and a name a person
+    /// typed into a box is a name anybody can type.
+    /// </remarks>
+    public string Principal { get; init; } = "";
+
+    /// <summary>What the last hand-back ended with, for the pane to say.</summary>
+    public string? LastHandBack { get; init; }
+
+    /// <summary>
+    /// How often a proposal was kept, per flight. Exported nowhere.
+    /// </summary>
+    /// <remarks>
+    /// Accept and edit are the design working; replace is everybody writing the
+    /// summary after all, which is the failure it was built to avoid. Same
+    /// treatment as the attach rate, and for the same reason - a number that says
+    /// whether a premise held is only honest if it was there from the first
+    /// flight.
+    /// </remarks>
+    public IReadOnlyList<HandConfirmationFact> HandConfirmations { get; init; } = [];
+
+    /// <summary>
     /// What went wrong reaching the control plane, if anything.
     /// </summary>
     /// <remarks>

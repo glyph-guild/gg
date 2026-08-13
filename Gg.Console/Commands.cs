@@ -38,4 +38,15 @@ public enum Command
     /// handoff rather than a steering wheel, and it is a different feature.
     /// </remarks>
     TakeFlight,
+
+    /// <summary>
+    /// Hand a taken flight back: the agent proposes an account of what you did,
+    /// and you confirm it.
+    /// </summary>
+    /// <remarks>
+    /// Only for a flight somebody has taken over. Nothing resumes the loop - the
+    /// account is recorded and the flight ends - so what this buys is a record
+    /// the next reader finds, which is the next takeover.
+    /// </remarks>
+    HandBack,
 }

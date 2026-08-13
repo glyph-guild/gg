@@ -444,6 +444,10 @@ public static class ProtocolSurface
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> JsonMembers { get; } =
         new Dictionary<Type, IReadOnlyList<string>>
         {
+            [typeof(LoopDigest)] =
+                ["loopId", "filesReadNotEdited", "filesEdited", "searches", "errors",
+                 "refusedMoves", "attempts", "stopReason"],
+            [typeof(DigestError)] = ["source", "detail"],
             [typeof(DestinationLanded)] =
                 ["destinationId", "branch", "pullRequestUri", "pullRequestNumber"],
             [typeof(DestinationAdmission)] =
@@ -520,7 +524,7 @@ public static class ProtocolSurface
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
-                 "loop", "transcript", "landed"],
+                 "loop", "transcript", "landed", "loopDigest"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             [typeof(FactBatchAccepted)] = ["accepted", "duplicates", "rejected", "admission"],

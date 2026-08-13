@@ -73,6 +73,19 @@ public static class FactKinds
     /// </remarks>
     public const string DestinationLanded = "destination.landed";
 
+    /// <summary>
+    /// What a loop did, extracted so a person can pick the work up without the
+    /// transcript.
+    /// </summary>
+    /// <remarks>
+    /// The transcript is a machine-local reference and does not cross. This is
+    /// what crosses in its place, and it is mechanically extracted rather than
+    /// summarised - a model's account would be a claim rather than a fact, it
+    /// would not be comparable across flights, and it would carry whatever the
+    /// transcript told it to.
+    /// </remarks>
+    public const string LoopDigest = "loop.digest";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -83,7 +96,8 @@ public static class FactKinds
     /// </remarks>
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
-         DestinationLanded];
+         DestinationLanded,
+         LoopDigest];
 }
 
 /// <summary>
@@ -137,7 +151,7 @@ public static class FactVocabulary
     /// WROTE. A control plane reading 0.6.0 cannot tell a flight pushed
     /// anything, and "did this flight change a repository" is not a question to
     /// leave to inference.
-    public const string Version = "0.7.0";
+    public const string Version = "0.8.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -641,6 +655,16 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DestinationLanded"/>.</summary>
     public DestinationLanded? Landed { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopDigest"/>.
+    /// </summary>
+    /// <remarks>
+    /// Not <c>Digest</c>: that is this envelope's content hash, and one word
+    /// meaning both "the hash proving what this fact was" and "the summary of a
+    /// loop" is a confusion that would be read wrong exactly once.
+    /// </remarks>
+    public LoopDigest? LoopDigest { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
     /// A sentence rather than a bool, for the same reason every other Validate
@@ -679,6 +703,7 @@ public sealed record FactEnvelope
             (FactKinds.LoopOutcome, envelope.Loop is not null),
             (FactKinds.LoopTranscript, envelope.Transcript is not null),
             (FactKinds.DestinationLanded, envelope.Landed is not null),
+            (FactKinds.LoopDigest, envelope.LoopDigest is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -702,6 +727,11 @@ public sealed record FactEnvelope
         if (envelope.Loop is { } loop && LoopOutcome.Validate(loop) is { } badLoop)
         {
             return badLoop;
+        }
+
+        if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)
+        {
+            return badDigest;
         }
 
         if (envelope.Landed is { } landed && DestinationLanded.Validate(landed) is { } badLanding)

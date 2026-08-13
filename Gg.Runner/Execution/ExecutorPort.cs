@@ -85,6 +85,16 @@ public sealed record ExecutorRequest
     /// <summary>The materialized tree. The agent works here and nowhere else.</summary>
     public required string WorkingDirectory { get; init; }
 
+    /// <summary>
+    /// Where to append the live view, when one is wanted.
+    /// </summary>
+    /// <remarks>
+    /// Null is the ordinary state: the pane is off by default and a run nobody
+    /// is watching writes nothing. Not evidence - ephemeral, local, and it
+    /// crosses nothing.
+    /// </remarks>
+    public LiveStream? Live { get; init; }
+
     /// <summary>Which loop, by its id in the envelope.</summary>
     public required string LoopId { get; init; }
 
@@ -145,6 +155,18 @@ public sealed record ExecutorRun
 
     /// <summary>Where the transcript is, when one was written.</summary>
     public ArtifactReference? Transcript { get; init; }
+
+    /// <summary>
+    /// What the stream said, extracted so it can cross without the transcript.
+    /// </summary>
+    /// <remarks>
+    /// The transcript is a machine-local reference and does not cross, so this
+    /// is what a person gets instead. Extracted mechanically from the same
+    /// stream the transcript holds - never summarised, because a summary would
+    /// be a claim rather than a fact and would carry whatever the transcript
+    /// told it to.
+    /// </remarks>
+    public LoopDigest? Digest { get; init; }
 
     public static ExecutorRun Completed(
         string loopId, string reason, int attempts, TimeSpan took, IReadOnlyList<string> movesUsed) =>

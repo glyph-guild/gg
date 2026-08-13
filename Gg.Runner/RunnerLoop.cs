@@ -467,6 +467,14 @@ public sealed class RunnerLoop(
             {
                 payloads.Add(new FactPayload.Transcript(transcript));
             }
+
+            // And what the transcript SAID, extracted. The reference above only
+            // resolves on this machine, so without this a person on the other
+            // side has a hash and a path they cannot follow.
+            if (run.Digest is { } summary)
+            {
+                payloads.Add(new FactPayload.Digest(summary));
+            }
         }
 
         var digested = FactPipeline.Digest(new GatheredFacts(payloads), lease.FlightId, _clock.UtcNow);

@@ -201,8 +201,8 @@ public class ChangeExtractionTests
         var tree = await MaterializeAsync(fixture, trees);
 
         var manifest = ChangeExtractor.Extract(tree, ClassificationRules.Default)!;
-        var digested = FactPipeline.Digest(
-            new GatheredFacts([new FactPayload.Change(manifest)]), "flight-1", DateTimeOffset.UnixEpoch);
+        var digested = FactPipeline.Digest(FactHygiene.Clean(
+            new GatheredFacts([new FactPayload.Change(manifest)])), "flight-1", DateTimeOffset.UnixEpoch);
 
         await Assert.That(FactPipeline.OverBudget(digested.Items[0])).IsFalse();
     }

@@ -32,6 +32,18 @@ public abstract record FactPayload
 public sealed record GatheredFacts(IReadOnlyList<FactPayload> Items);
 
 /// <summary>
+/// Stage one-and-a-half's output. Only <see cref="FactHygiene.Clean"/> makes one.
+/// </summary>
+/// <remarks>
+/// A wrapper for the same reason the others are wrappers: <see
+/// cref="FactPipeline.Digest"/> takes one of these and nothing else, so
+/// "stripped BEFORE the digest" is enforced by what the types allow rather than
+/// remembered. The hash is computed over the fact as produced, so a digest of
+/// unstripped facts would be a hash of bytes that are never stored.
+/// </remarks>
+public sealed record CleanFacts(IReadOnlyList<FactPayload> Items);
+
+/// <summary>
 /// Stage two's output. Nothing else can produce one.
 /// </summary>
 /// <remarks>
@@ -94,7 +106,7 @@ public static class FactPipeline
     /// observation is a duplicate, a genuinely different observation is a new
     /// fact, and two flights in identical containers do not collide.
     /// </remarks>
-    public static DigestedFacts Digest(GatheredFacts gathered, string flightId, DateTimeOffset observedAt)
+    public static DigestedFacts Digest(CleanFacts gathered, string flightId, DateTimeOffset observedAt)
     {
         ArgumentNullException.ThrowIfNull(gathered);
 

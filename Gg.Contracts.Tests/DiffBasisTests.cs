@@ -115,8 +115,15 @@ public class DiffBasisTests
         // as a literal. DiffBasis landed in 0.5.0 and the vocabulary has moved
         // since; pinning the literal here made every later fact type edit this
         // test, which teaches somebody to edit it without reading it.
-        await Assert.That(string.CompareOrdinal(FactVocabulary.Version, "0.5.0"))
-            .IsGreaterThanOrEqualTo(0)
+        // COMPARED AS VERSIONS, not as strings. This read
+        // string.CompareOrdinal(version, "0.5.0") until the vocabulary reached
+        // 0.10.0, at which point ordinal ordering put '1' before '5' and the test
+        // reported the vocabulary as older than the shape it already carried. A
+        // version comparison that is correct for nine releases and wrong on the
+        // tenth is the kind of latent defect that only ever fires under a change
+        // somebody is already busy with.
+        await Assert.That(Version.Parse(FactVocabulary.Version))
+            .IsGreaterThanOrEqualTo(Version.Parse("0.5.0"))
             .Because("DiffBasis arrived in 0.5.0, so the vocabulary can never be older than that.");
     }
 }

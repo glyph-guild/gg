@@ -148,8 +148,15 @@ public class NoTerminalTests
     [Test]
     public async Task The_only_write_path_in_the_runner_is_the_one_that_was_declared()
     {
+        // INVOKING a write, which is not the same as naming the method that does.
+        // `PushAsync` was in this pattern and was removed deliberately when the port
+        // split in two: it is now the legitimate name of a port method, so it appears
+        // at the declaration and at the one call site by design. Leaving it here would
+        // have meant allow-listing RunnerLoop.cs for a write path - which is what this
+        // scan exists to refuse - so the pattern narrowed to invocations, and the test
+        // below pins the three places the NAME may appear.
         var writes = new Regex(
-            @"""push""|\bpush\b\s*\+|git\s+push|PushAsync|CreatePullRequest|OpenPullRequest|pulls",
+            @"""push""|\bpush\b\s*\+|git\s+push|CreatePullRequest|OpenPullRequest|pulls",
             RegexOptions.Compiled);
 
         var offenders = RunnerSources()
@@ -173,6 +180,39 @@ public class NoTerminalTests
 
         await Assert.That(writes.IsMatch("await git(\"push\", remote);")).IsTrue()
             .Because("the scan has to be able to see one.");
+    }
+
+    [Test]
+    public async Task The_push_port_is_named_in_exactly_three_places()
+    {
+        // The compensating assertion for narrowing the pattern above, and it is
+        // stricter than what it replaced: the port method may be DECLARED once,
+        // IMPLEMENTED once, and CALLED once. A fourth file naming it is a second
+        // caller, which is how a write path appears with no new invocation anywhere -
+        // and the old scan could not have told the difference.
+        var naming = new Regex("PushAsync", RegexOptions.Compiled);
+
+        var files = RunnerSources()
+            .Where(f => naming.IsMatch(CodeOf(f)))
+            .Select(f => Path.GetFileName(f)!)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(files).IsEquivalentTo((string[])
+            [
+                // Declared.
+                "DestinationPort.cs",
+
+                // Implemented, and the only file that invokes git push.
+                "HttpsDestinationAdapter.cs",
+
+                // Called, once, on a permission the control plane granted.
+                "RunnerLoop.cs",
+            ])
+            .Because("found: " + string.Join(", ", files));
+
+        await Assert.That(naming.IsMatch("await adapter.PushAsync(request);")).IsTrue()
+            .Because("and the scan can see a call, so the list above means something.");
     }
 
     [Test]

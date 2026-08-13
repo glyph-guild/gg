@@ -27,32 +27,117 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class SliceThreeGuardTests
 {
-    /// <summary>Where the fact vocabulary stood when slice three opened.</summary>
+    /// <summary>
+    /// Where the fact vocabulary stood when slice three opened.
+    /// </summary>
+    /// <remarks>
+    /// It has moved since, to 0.10.0, and the reason is recorded on
+    /// <see cref="FactVocabulary.Version"/>. Kept as the floor rather than as an
+    /// equality, because a version that cannot move is a guard against progress.
+    /// </remarks>
     private const string VocabularyAtSliceStart = "0.9.0";
 
-    /// <summary>How many fact kinds crossed when slice three opened.</summary>
-    private const int KindsAtSliceStart = 8;
+    /// <summary>
+    /// How many fact kinds cross.
+    /// </summary>
+    /// <remarks>
+    /// Nine. Slice three opened at eight and step 3 added <c>destination.pushed</c>,
+    /// which is a decision in a diff a reviewer can see - which is the whole
+    /// mechanism. Changing this number is how adding a fact kind is admitted to.
+    /// </remarks>
+    private const int KindsThatCross = 9;
 
     [Test]
-    public async Task The_fact_vocabulary_version_has_not_moved()
+    public async Task A_moved_vocabulary_version_has_a_ledger_entry()
     {
-        await Assert.That(FactVocabulary.Version).IsEqualTo(VocabularyAtSliceStart)
-            .Because("a gate reads facts that already cross. If this moved, something outside this "
-                   + "slice is being built - stop and say why before continuing.");
+        // THE GUARD, REWRITTEN. It used to assert the version string had not moved,
+        // which halted this step - correctly, and then the halt had nothing to say
+        // except "stop". A version that cannot move is a guard against progress; a
+        // version that cannot move SILENTLY is the guard that was wanted.
+        //
+        // So: the version may move, and it may not move without a ledger row naming
+        // what changed. Bumping without recording becomes impossible rather than
+        // discouraged.
+        var ledger = LedgerVersions();
+
+        await Assert.That(ledger).Contains(FactVocabulary.Version)
+            .Because($"the vocabulary declares {FactVocabulary.Version} and the ledger records "
+                   + string.Join(", ", ledger)
+                   + ". A version with no entry is a shape change nobody wrote down.");
+
+        // PARSED, not compared as a string. This assertion read
+        // string.CompareOrdinal until the version reached double digits, at which
+        // point '1' sorted before '5' and 0.10.0 read as older than 0.5.0.
+        await Assert.That(Version.Parse(FactVocabulary.Version))
+            .IsGreaterThanOrEqualTo(Version.Parse(VocabularyAtSliceStart))
+            .Because("the vocabulary only goes forward.");
     }
 
     [Test]
-    public async Task No_fact_kind_has_been_added()
+    public async Task The_ledger_entry_for_this_version_names_the_kinds_it_covers()
+    {
+        // The other half: an entry that exists and says nothing is a row somebody
+        // added to get past the assertion above.
+        var kinds = LedgerKinds(FactVocabulary.Version);
+
+        await Assert.That(kinds).IsNotNull()
+            .Because($"the ledger has no row for {FactVocabulary.Version}.");
+        await Assert.That(kinds!)
+            .IsEqualTo(string.Join(", ", FactKinds.All.Order(StringComparer.Ordinal)))
+            .Because("the row names the kinds that actually cross at this version.");
+    }
+
+    /// <summary>Every version the ledger records.</summary>
+    /// <remarks>
+    /// Read from the file rather than from a constant, because the file is the thing
+    /// being checked and a constant would be this test agreeing with itself.
+    /// </remarks>
+    private static List<string> LedgerVersions() =>
+        [.. Ledger().Select(e => e.GetProperty("version").GetString()!)];
+
+    private static string? LedgerKinds(string version) =>
+        Ledger()
+            .Where(e => e.GetProperty("version").GetString() == version)
+            .Select(e => e.GetProperty("kinds").GetString())
+            .FirstOrDefault();
+
+    private static List<System.Text.Json.JsonElement> Ledger()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null
+            && !File.Exists(Path.Combine(dir.FullName, "Gg.Contracts", "fact-vocabulary.json")))
+        {
+            dir = dir.Parent;
+        }
+
+        var path = Path.Combine(
+            (dir ?? throw new InvalidOperationException("fact-vocabulary.json not found")).FullName,
+            "Gg.Contracts", "fact-vocabulary.json");
+
+        return [.. System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)).RootElement
+            .EnumerateArray()];
+    }
+
+    [Test]
+    public async Task The_kinds_that_cross_are_named()
     {
         // The version and the count are two facts about the same thing, and a
         // version bumped for a rename would pass the assertion above.
-        await Assert.That(FactKinds.All.Count).IsEqualTo(KindsAtSliceStart);
+        //
+        // NINE, and the ninth is destination.pushed. This test used to say "no fact
+        // kind has been added" and the halt it produced is what sent the decision
+        // back for a ruling rather than letting a fact quietly grow a member. What it
+        // asserts now is that the set is NAMED: adding one is a line in a diff beside
+        // a ledger row, and swapping one for another is caught as well as adding one.
+        await Assert.That(FactKinds.All.Count).IsEqualTo(KindsThatCross);
 
         await Assert.That(FactKinds.All.Order(StringComparer.Ordinal).ToList())
             .IsEquivalentTo(new[]
             {
                 FactKinds.ChangeManifest,
                 FactKinds.DestinationLanded,
+                FactKinds.DestinationPushed,
                 FactKinds.EnvironmentIdentity,
                 FactKinds.HumanAccount,
                 FactKinds.LoopDigest,

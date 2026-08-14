@@ -33,7 +33,7 @@ public class DoctorTests
             ScratchStore(),
             new Uri(stub.BaseAddress));
 
-    private static FileCredentialStore ScratchStore() =>
+    internal static FileCredentialStore ScratchStore() =>
         new(Path.Combine(Path.GetTempPath(), "gg-doctor-tests", Guid.NewGuid().ToString("n")));
 
     private sealed class HeldSession(StoredSession? session) : ISessionStore
@@ -43,7 +43,7 @@ public class DoctorTests
         public void Clear() { }
     }
 
-    private static StoredSession AValidSession() => new()
+    internal static StoredSession AValidSession() => new()
     {
         SessionToken = StubControlPlane.IssuedSessionToken,
         ExpiresAt = DateTimeOffset.UtcNow.AddHours(12),

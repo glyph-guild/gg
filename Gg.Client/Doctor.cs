@@ -85,6 +85,28 @@ public static class DoctorChecks
 /// which is a support call and should say so - and a non-blocking one they
 /// can, which is the entire value of a doctor command.
 /// </remarks>
+public enum DoctorOutcome
+{
+    /// <summary>Nothing was wrong.</summary>
+    Pass,
+
+    /// <summary>Something is wrong, and it is about this machine or this setup.</summary>
+    Fail,
+
+    /// <summary>
+    /// Nothing is wrong; this is how the product works, and it will not change here.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three states, because two booleans only ever described two.</b> A check that is
+    /// non-blocking, unfixable and never passing reads as a permanent failure, and a
+    /// permanent failure is a line somebody learns to scroll past - which is exactly what
+    /// makes the real failures beside it easier to ignore. A disclosure is reported every
+    /// time on purpose, so it has to be legible as its own kind of thing rather than as
+    /// the failure it sits next to.
+    /// </remarks>
+    Disclosure,
+}
+
 public sealed record DoctorCheck
 {
     public required string Name { get; init; }
@@ -102,6 +124,29 @@ public sealed record DoctorCheck
 
     /// <summary>What to do, when there is something. Never set without <see cref="Fixable"/>.</summary>
     public string? Fix { get; init; }
+
+    /// <summary>
+    /// Whether this is a standing statement about the product rather than a result.
+    /// </summary>
+    /// <remarks>
+    /// Set on the few checks that report something permanently true. Never set together
+    /// with <see cref="Passed"/>: a disclosure has not passed, and saying it had would be
+    /// the lie in the other direction.
+    /// </remarks>
+    public bool Discloses { get; init; }
+
+    /// <summary>
+    /// Which of the three states this is, which is what anything rendering should read.
+    /// </summary>
+    /// <remarks>
+    /// Derived rather than stored beside the booleans, so the state and the flags cannot
+    /// disagree - and a renderer reading this cannot accidentally treat a disclosure as a
+    /// failure by looking at <see cref="Passed"/> alone, which is what it did before.
+    /// </remarks>
+    public DoctorOutcome Outcome =>
+        Discloses ? DoctorOutcome.Disclosure
+        : Passed ? DoctorOutcome.Pass
+        : DoctorOutcome.Fail;
 }
 
 /// <summary>Everything gg looked at, and what it makes of it.</summary>
@@ -564,6 +609,11 @@ public sealed class Doctor(
         new()
         {
             Name = DoctorChecks.Moves,
+
+            // A DISCLOSURE, not a failure. It is reported every time and can never go
+            // green, and a line like that renders as something to scroll past unless it
+            // says what kind of thing it is.
+            Discloses = true,
 
             // FALSE, deliberately. "Passed" would mean the check found nothing
             // wrong, and what it found is that a bound somebody expects is absent.

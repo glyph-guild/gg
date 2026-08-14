@@ -687,7 +687,14 @@ public static class VerbOutput
             // answered separately. Collapsing them into one severity loses the
             // two cases that matter: a blocking problem the person cannot fix,
             // and a non-blocking one they can.
-            var mark = check.Passed ? "ok  " : check.Blocking ? "STOP" : "warn";
+            // THREE MARKS, from the three states. Reading Passed alone is what made a
+            // permanent disclosure look identical to a non-blocking failure.
+            var mark = check.Outcome switch
+            {
+                DoctorOutcome.Pass => "ok  ",
+                DoctorOutcome.Disclosure => "note",
+                _ => check.Blocking ? "STOP" : "warn",
+            };
             text.AppendLine($"{mark}  {Clean(check.Name),-16}  {Clean(check.Detail)}");
 
             if (!check.Passed && check.Fixable && check.Fix is { Length: > 0 } fix)

@@ -94,18 +94,33 @@ public class KeymapTests
     [Test]
     public async Task A_modal_answers_only_its_own_keys()
     {
-        // What "modals own the keyboard" means concretely: nothing underneath
-        // is reachable, so no key can act on a flight the person cannot
-        // currently see.
+        // What "modals own the keyboard" means concretely: NOTHING UNDERNEATH is
+        // reachable, so no key can act on a flight the person cannot currently see.
+        //
+        // Narrowed once, deliberately. This used to require that a modal answer only its
+        // escape hatch, which was true while every modal was a menu or a help screen and
+        // stopped being true when one of them had to offer a choice: the gate modal exists
+        // to be answered, and a modal that could only be closed could not be.
+        //
+        // What is protected is unchanged and is the whole of it - a modal answers ONLY
+        // what it declares, so nothing leaks through to the pane behind it. The old
+        // assertion was a special case of this one for modals that declare nothing.
         foreach (var context in EveryContext.Where(c => c.Mode != UiMode.Normal))
         {
+            var declared = Keymap.Bindings(context).Select(b => b.Command).ToHashSet();
+
             var reachable = Universe
                 .Where(key => key != Keymap.Interrupt && Keymap.Resolve(key, context) is not null)
                 .Select(key => Keymap.Resolve(key, context)!.Value)
                 .ToHashSet();
 
-            await Assert.That(reachable).IsEquivalentTo(new[] { Command.CloseModal }.ToHashSet())
-                .Because($"{context.Mode} let something through besides its own escape hatch.");
+            await Assert.That(reachable.Except(declared).ToList()).IsEmpty()
+                .Because($"{context.Mode} let something through that it does not declare, "
+                       + "which means a key reached the flight behind it.");
+
+            await Assert.That(reachable).Contains(Command.CloseModal)
+                .Because($"{context.Mode} is escapable, which the hatch test also checks and "
+                       + "which is worth failing twice rather than never.");
         }
     }
 

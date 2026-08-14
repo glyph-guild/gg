@@ -15,6 +15,9 @@ public enum Command
     /// <summary>The one escape hatch out of whichever modal is open.</summary>
     CloseModal,
 
+    /// <summary>Open the gate on the selected row.</summary>
+    OpenGate,
+
     /// <summary>Answer the open gate yes. Posts; decides nothing locally.</summary>
     ApproveGate,
 

@@ -92,6 +92,7 @@ public static class Keymap
             new(KeyStroke.Char('q'), Command.Quit, "quit"),
             new(KeyStroke.Char('?'), Command.ToggleHelp, "help"),
             new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
+            new(KeyStroke.Char('d'), Command.OpenGate, "decide"),
             new(KeyStroke.TabKey, Command.FocusNextPane, "switch pane"),
             new(KeyStroke.Char('j'), Command.SelectNext, "down"),
             new(KeyStroke.Char('k'), Command.SelectPrevious, "up"),

@@ -681,7 +681,12 @@ public static class VerbOutput
     private static string Diagnosis(DoctorReport report)
     {
         var text = new StringBuilder();
-        foreach (var check in report.Checks)
+
+        // CHECKS FIRST, DISCLOSURES AFTER. A standing note among the checks reads as an
+        // item that is not passing however it is marked - and keeping them apart is what
+        // lets this list be genuinely all-green, which is what makes an all-green run
+        // worth anything to the person reading it.
+        foreach (var check in report.Checks.Where(c => c.Outcome != DoctorOutcome.Disclosure))
         {
             // Blocking and fixable are printed separately because they are
             // answered separately. Collapsing them into one severity loses the
@@ -706,6 +711,25 @@ public static class VerbOutput
                 text.AppendLine("      not something this machine can fix.");
             }
         }
+
+        var disclosures = report.Checks
+            .Where(c => c.Outcome == DoctorOutcome.Disclosure)
+            .ToList();
+
+        if (disclosures.Count > 0)
+        {
+            // NOT A HEADING THAT SOUNDS LIKE A PROBLEM. These are reported every run and
+            // will never stop being reported, so the words have to say that is normal.
+            text.AppendLine();
+            text.AppendLine("also true, and not a fault:");
+
+            foreach (var disclosure in disclosures)
+            {
+                text.AppendLine(
+                    $"note  {Clean(disclosure.Name),-16}  {Clean(disclosure.Detail)}");
+            }
+        }
+
         return text.ToString().TrimEnd();
     }
 

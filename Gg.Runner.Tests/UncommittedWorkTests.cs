@@ -66,7 +66,7 @@ internal sealed class UncommittedWorkFixture : IDisposable
     }
 
     /// <summary>The tree as the runner materializes it, before anybody has worked in it.</summary>
-    internal Materialized Materialize(string pinnedRef, string baseRef) =>
+    internal Materialized Materialize(string pinnedRef) =>
         new Materializer(new LocalVcsAdapter(_root), new WorkingTreeRoot(_trees))
             .MaterializeAsync(
                 "flight-1",
@@ -75,7 +75,6 @@ internal sealed class UncommittedWorkFixture : IDisposable
                     Provider = LocalVcsAdapter.ProviderKey,
                     Slug = _bare,
                     PinnedRef = pinnedRef,
-                    BaseRef = baseRef,
                 },
                 secret: null)
             .GetAwaiter().GetResult();
@@ -138,7 +137,7 @@ public class UncommittedWorkTests
         // head and the base are the same commit and the only difference in that
         // tree is what the agent did.
         using var fixture = new UncommittedWorkFixture();
-        var tree = fixture.Materialize("refs/heads/main", "refs/heads/main");
+        var tree = fixture.Materialize("refs/heads/main");
 
         UncommittedWorkFixture.TheAgentWorks(tree);
 
@@ -161,7 +160,7 @@ public class UncommittedWorkTests
         // to a branch that is ahead of its base. The commit-to-commit diff has
         // something in it, and none of it is the agent's.
         using var fixture = new UncommittedWorkFixture();
-        var tree = fixture.Materialize("refs/heads/feature", "refs/heads/main");
+        var tree = fixture.Materialize("refs/heads/feature");
 
         UncommittedWorkFixture.TheAgentWorks(tree);
 
@@ -180,14 +179,13 @@ public class UncommittedWorkTests
         // instrument gives, so the repair can be compared against something.
         using var fixture = new UncommittedWorkFixture();
 
-        foreach (var (pinned, @base) in ((string, string)[])
-                 [("refs/heads/main", "refs/heads/main"), ("refs/heads/feature", "refs/heads/main")])
+        foreach (var pinned in (string[])["refs/heads/main", "refs/heads/feature"])
         {
-            var shape = fixture.Materialize(pinned, @base);
+            var shape = fixture.Materialize(pinned);
             UncommittedWorkFixture.TheAgentWorks(shape);
             var reading = ChangeExtractor.Extract(shape, ClassificationRules.Default)!;
 
-            Console.WriteLine($"--- pinned {pinned}, base {@base}");
+            Console.WriteLine($"--- pinned {pinned}, base {shape.BaseCommit?[..7] ?? "(none)"}");
             Console.WriteLine("git status --porcelain:");
             Console.WriteLine(UncommittedWorkFixture.GitStatus(shape));
             Console.WriteLine($"manifest.filesChanged: {reading.FilesChanged}");
@@ -195,7 +193,7 @@ public class UncommittedWorkTests
                 + string.Join(", ", reading.Paths.Select(p => $"{p.Change} {p.Path}")));
         }
 
-        var tree = fixture.Materialize("refs/heads/feature", "refs/heads/main");
+        var tree = fixture.Materialize("refs/heads/feature");
         UncommittedWorkFixture.TheAgentWorks(tree);
         var manifest = ChangeExtractor.Extract(tree, ClassificationRules.Default)!;
 

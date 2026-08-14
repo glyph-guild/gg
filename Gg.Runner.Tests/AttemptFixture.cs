@@ -97,7 +97,6 @@ internal sealed class AttemptFixture : IDisposable
                 Provider = LocalVcsAdapter.ProviderKey,
                 Slug = _bare,
                 PinnedRef = $"refs/heads/{Branch}",
-                BaseRef = "refs/heads/main",
                 ContinuesFrom = continuesFrom,
             },
             secret: null).GetAwaiter().GetResult();

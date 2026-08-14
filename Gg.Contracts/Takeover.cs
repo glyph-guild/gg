@@ -7,6 +7,7 @@ namespace Gg.Contracts;
 /// both sides read, and a value that arrives before its handler is refused by
 /// name rather than mistaken for something else.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class TakeoverOutcomes
 {
     /// <summary>They finished the work.</summary>

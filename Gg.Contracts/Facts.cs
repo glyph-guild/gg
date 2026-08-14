@@ -25,6 +25,7 @@ public sealed class FactKindAttribute(string kind) : Attribute
 /// which is this system's most dangerous failure mode: governance that reports
 /// success while enforcing nothing.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class FactKinds
 {
     /// <summary>What ran, and where. The first real fact.</summary>
@@ -284,6 +285,7 @@ public static class FactBudget
 /// A field, not a feature. Warm pools are years away; recording which of the
 /// two happened costs nothing now and is unrecoverable later.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class EnvironmentProvenance
 {
     public const string Fresh = "fresh";
@@ -414,6 +416,7 @@ public sealed record SourceProvenance
 }
 
 /// <summary>What happened to one path.</summary>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class ChangeKinds
 {
     public const string Added = "added";
@@ -443,6 +446,7 @@ public static class ChangeKinds
 /// file list is a false statement. This field is how a consumer tells which it
 /// is holding, and it must never have to guess.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class ChangeResolution
 {
     /// <summary>Every changed path, named.</summary>
@@ -472,6 +476,7 @@ public static class ChangeResolution
 /// which of the old ones were affected.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class DiffBasis
 {
     /// <summary>Base commit to head commit. What the runner computes today.</summary>

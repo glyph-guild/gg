@@ -9,6 +9,7 @@ namespace Gg.Contracts;
 /// flight cannot produce halts the flight - it is never rendered as an empty section and
 /// the gate is never presented with the item missing.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class EvidenceItems
 {
     /// <summary>What the flight changed: paths, counts and classifications.</summary>
@@ -41,6 +42,7 @@ public static class EvidenceItems
 /// author's judgement, which is what ADR-0006's split was designed for.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class EvidenceDispositions
 {
     /// <summary>It fitted, so the content crosses.</summary>
@@ -66,6 +68,7 @@ public static class EvidenceDispositions
 /// That only works if both are present AND visibly different in kind, so the difference is
 /// a field rather than a convention about wording.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class EvidenceVoices
 {
     /// <summary>Derived from facts. Nobody's opinion.</summary>

@@ -6,6 +6,7 @@ namespace Gg.Contracts;
 /// contract change, which is what makes it visible; the FIELD to carry it
 /// already exists, which is what makes it cheap.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class FlightIntentKinds
 {
     /// <summary>What a person typed. Carried in <see cref="FlightIntent.Text"/>.</summary>
@@ -296,6 +297,7 @@ public sealed record RunnerSummary
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class RunnerStates
 {
     /// <summary>Heartbeat is stale. Decided before anything else.</summary>

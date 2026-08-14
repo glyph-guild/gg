@@ -118,6 +118,10 @@ public sealed class Workspace : IWorkspace
                     Slug = repo.Slug,
                     PinnedRef = repo.PinnedRef,
                     BaseRef = repo.BaseRef,
+
+                    // Straight through. The control plane is the only authority on what
+                    // this flight has already done.
+                    ContinuesFrom = repo.ContinuesFrom,
                 },
                 secret,
                 cancellationToken));

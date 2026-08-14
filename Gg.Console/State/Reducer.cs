@@ -18,6 +18,15 @@ public static class Reducer
         {
             Command.ToggleHelp => Modal(state, UiMode.Help),
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
+            Command.OpenGate => Modal(state, UiMode.GateDecision),
+
+            // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
+            // it is: the loop sends the decision, the control plane records it, the Engine
+            // re-evaluates, and what comes back is what closes this modal. A reducer that
+            // closed it here would be the console deciding - Article IX in its softest
+            // clothing, which is the dangerous kind, because the demo works.
+            Command.ApproveGate => state,
+            Command.RejectGate => state,
             Command.CloseModal => state with { Mode = UiMode.Normal },
 
             Command.FocusNextPane => state with { FocusedPane = NextVisible(state) },

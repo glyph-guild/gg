@@ -15,6 +15,12 @@ public enum Command
     /// <summary>The one escape hatch out of whichever modal is open.</summary>
     CloseModal,
 
+    /// <summary>Answer the open gate yes. Posts; decides nothing locally.</summary>
+    ApproveGate,
+
+    /// <summary>Answer it no, with a reason. Posts; decides nothing locally.</summary>
+    RejectGate,
+
     FocusNextPane,
     SelectNext,
     SelectPrevious,

@@ -18,6 +18,17 @@ public sealed record Materialized
     /// <summary>The commit the change is measured from, when there is one.</summary>
     public string? BaseCommit { get; init; }
 
+    /// <summary>
+    /// Which diff the base makes this, from <see cref="Gg.Contracts.DiffBasis"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Decided where the base is decided, and carried rather than recomputed.</b> The
+    /// label and the commit it names must not be able to disagree: a manifest claiming
+    /// the prior-attempt basis while measuring from somewhere else is worse than one
+    /// claiming two-point, because it reads as more precise. One place chooses both.
+    /// </remarks>
+    public required string Basis { get; init; }
+
     /// <summary>Whether the head belongs to a fork rather than to the base repository.</summary>
     public required bool HeadIsFork { get; init; }
 
@@ -81,7 +92,23 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
         // a merge base from, so what a manifest can honestly describe is the
         // difference between two commits.
         string? baseCommit = null;
-        if (target.BaseRef is { Length: > 0 } baseRef
+        var basis = DiffBasis.TwoPoint;
+
+        if (target.ContinuesFrom is { Length: > 0 } priorAttempt)
+        {
+            // ATTEMPT TWO CONTINUES. The base is the commit the last attempt pushed, so
+            // the manifest describes what THIS attempt did rather than re-reporting
+            // everything already on the branch - which would make the second gate louder
+            // than the first about work nobody changed.
+            //
+            // Fetched into the same tree the same way the flight's base is, because it is
+            // the same question: a commit this diff needs and a shallow clone does not
+            // have.
+            baseCommit = await _adapter.FetchAlsoAsync(
+                target, priorAttempt, directory, secret, cancellationToken);
+            basis = DiffBasis.PriorAttempt;
+        }
+        else if (target.BaseRef is { Length: > 0 } baseRef
             && _adapter.Resolve(baseRef) is RefResolution.Ref(var resolvedBase, _))
         {
             baseCommit = await _adapter.FetchAlsoAsync(
@@ -96,6 +123,7 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
             ResolvedRef = resolved.Value,
             HeadCommit = outcome.HeadCommit,
             BaseCommit = baseCommit,
+            Basis = basis,
             HeadIsFork = origin is not null,
             ForkSlug = origin?.Slug,
             FileCount = outcome.FileCount,

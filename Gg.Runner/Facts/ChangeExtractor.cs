@@ -67,7 +67,7 @@ public static class ChangeExtractor
             });
         }
 
-        var manifest = AtFileResolution(baseCommit, tree.HeadCommit, paths);
+        var manifest = AtFileResolution(baseCommit, tree.HeadCommit, tree.Basis, paths);
 
         // Degrade resolution rather than completeness. A per-directory rollup
         // is a true statement at lower resolution; a truncated file list is a
@@ -77,7 +77,7 @@ public static class ChangeExtractor
     }
 
     private static ChangeManifest AtFileResolution(
-        string baseCommit, string headCommit, IReadOnlyList<ChangedPath> paths) =>
+        string baseCommit, string headCommit, string basis, IReadOnlyList<ChangedPath> paths) =>
         new()
         {
             BaseCommit = baseCommit,
@@ -90,7 +90,10 @@ public static class ChangeExtractor
             // the gap legible to whoever reads the numbers, and making the day
             // somebody computes a real merge base a label change rather than a
             // silent reinterpretation of every fact already recorded.
-            DiffBasis = DiffBasis.TwoPoint,
+            // CARRIED, not chosen here. Whoever decided which commit to measure from
+            // decided what kind of diff this is, and computing it twice is how a label
+            // ends up describing a base it does not have.
+            DiffBasis = basis,
             Paths = paths,
             Directories = [],
             Languages = Languages(paths),

@@ -6,6 +6,7 @@ namespace Gg.Contracts;
 /// <c>on-failure: escalate</c> needs somewhere to escalate TO, and naming the
 /// rung is free now and a migration later.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class ExecutorRungs
 {
     public const string Frontier = "frontier";
@@ -20,6 +21,7 @@ public static class ExecutorRungs
 /// move along it is a reviewed change on recorded evidence, so the other two
 /// arrive with the mechanism that governs them and not before.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ObligationChecks
 {
     /// <summary>A predicate the Engine evaluates against facts.</summary>
@@ -62,6 +64,7 @@ public static class ObligationChecks
 /// <c>context.scope</c> and a <c>change.manifest</c> fact.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ObligationPredicates
 {
     /// <summary>Nothing was touched outside the context's scope.</summary>
@@ -103,6 +106,7 @@ public static class ObligationPredicates
 /// actually used is what makes enforcement designable later - a bound nobody
 /// has measured is a bound nobody can set.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class LoopMoves
 {
     public const string Read = "read";
@@ -114,6 +118,7 @@ public static class LoopMoves
 }
 
 /// <summary>What happens when a loop runs out of budget.</summary>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ExhaustionPolicies
 {
     public const string HandoffToHuman = "handoff-to-human";
@@ -122,6 +127,7 @@ public static class ExhaustionPolicies
 }
 
 /// <summary>What a destination is.</summary>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class DestinationKinds
 {
     public const string PullRequest = "pull-request";
@@ -145,6 +151,7 @@ public static class DestinationKinds
 /// evaluator now serves two positions.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class AttachmentConditions
 {
     /// <summary>The change manifest touches something under a path.</summary>
@@ -179,6 +186,7 @@ public static class AttachmentConditions
 /// against nothing until now. Layering is a later slice; the field is what
 /// makes "lower layers may only narrow" expressible when it arrives.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ObligationProvenances
 {
     public const string Org = "org";

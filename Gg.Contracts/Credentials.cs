@@ -18,6 +18,7 @@ namespace Gg.Contracts;
 /// "we will be careful" is not a control.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class CredentialKinds
 {
     /// <summary>A file on the machine that registered it. See <see cref="CredentialLocator"/>.</summary>
@@ -52,6 +53,7 @@ public static class CredentialKinds
 /// somebody actually minted, and only provable against one.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class CredentialScopes
 {
     /// <summary>Read the repository, and nothing else.</summary>

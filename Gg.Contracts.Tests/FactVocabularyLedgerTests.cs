@@ -117,7 +117,7 @@ public class FactVocabularyLedgerTests
         var shape = Fingerprint(FactManifest.FactTypesIn(typeof(FactKinds).Assembly));
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            shape + '\n' + string.Join('\n', ClosedVocabularies.Lines())))).ToLowerInvariant();
+            shape + '\n' + string.Join('\n', ClosedVocabularies.Lines(VocabularyFingerprints.Fact))))).ToLowerInvariant();
     }
 
     [Test]

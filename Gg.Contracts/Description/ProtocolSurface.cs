@@ -63,6 +63,12 @@ public sealed record Endpoint
 /// itself.
 /// </para>
 /// </remarks>
+// NOT A VOCABULARY, strictly. This declares the protocol - header names and governed
+// prefixes - rather than enumerating values a field may hold, and it matches the closure
+// check's shape by consequence rather than by intent. Declared as contract because
+// changing a header name is unambiguously a wire change; recorded here because a type
+// answering a question it was not asked is worth a sentence rather than an exemption.
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ProtocolSurface
 {
     /// <summary>

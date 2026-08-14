@@ -10,6 +10,7 @@ namespace Gg.Contracts;
 /// people.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class LoopOutcomes
 {
     /// <summary>The loop finished on its own terms.</summary>
@@ -84,6 +85,7 @@ public sealed record ArtifactReference
 /// <c>tenant</c> joins this list and the transcripts move; nothing else has to
 /// change shape.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class ArtifactScopes
 {
     /// <summary>

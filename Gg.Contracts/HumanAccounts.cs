@@ -15,6 +15,7 @@ namespace Gg.Contracts;
 /// measures the wrong thing.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
 public static class AccountConfirmations
 {
     /// <summary>Taken as proposed.</summary>

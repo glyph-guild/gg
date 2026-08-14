@@ -16,6 +16,7 @@ namespace Gg.Contracts;
 /// direction that lets work land.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class DecisionOutcomes
 {
     /// <summary>The obligation is satisfied, for the fact set this was decided against.</summary>

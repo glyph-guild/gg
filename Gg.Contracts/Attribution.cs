@@ -18,6 +18,7 @@ namespace Gg.Contracts;
 /// well-formed wrong value - arrives in its purest form.
 /// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class Attachments
 {
     /// <summary>The condition was evaluated and held, or there was none.</summary>

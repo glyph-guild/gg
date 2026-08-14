@@ -167,7 +167,7 @@ public class ContractSurfaceTests
         // The closed vocabularies, for the same reason the fact ledger hashes them: a
         // value added to an enumeration that already crosses breaks every prior reader
         // by design, and the surface fingerprint could not see one.
-        lines.AddRange(ClosedVocabularies.Lines());
+        lines.AddRange(ClosedVocabularies.Lines(VocabularyFingerprints.Contract));
 
         return string.Join('\n', lines);
     }

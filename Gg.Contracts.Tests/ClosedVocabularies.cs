@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using System.Reflection;
 
 namespace Gg.Contracts.Tests;
@@ -28,33 +29,66 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 internal static class ClosedVocabularies
 {
-    /// <summary>Every vocabulary and its values, in a stable order.</summary>
-    internal static IReadOnlyList<string> Lines()
+    /// <summary>
+    /// Every type in the contract that is a closed vocabulary, found by shape.
+    /// </summary>
+    /// <remarks>
+    /// <b>By shape, because shape answers this correctly.</b> What shape cannot answer is
+    /// which fingerprint each belongs to - nothing about a static list of strings says
+    /// whether its values reach a fact - so that is declared and this is what verifies
+    /// everybody declared.
+    /// <para>
+    /// Any public static <c>IReadOnlyList&lt;string&gt;</c>, not only one named
+    /// <c>All</c>. Requiring the name meant <see cref="Gg.Contracts.Classifications"/> -
+    /// whose list is called <c>Ordered</c> - was invisible to a mechanism built to make
+    /// closed vocabularies visible, while its values sit inside every change manifest.
+    /// </para>
+    /// </remarks>
+    internal static IReadOnlyList<Type> Discovered() =>
+        [.. typeof(FactKinds).Assembly.GetExportedTypes()
+            .Where(t => t.IsAbstract && t.IsSealed)
+            .Where(t => Lists(t).Count > 0)
+            .OrderBy(t => t.FullName, StringComparer.Ordinal)];
+
+    /// <summary>The vocabularies belonging to one fingerprint, and their values.</summary>
+    internal static IReadOnlyList<string> Lines(string fingerprint)
     {
         var lines = new List<string>();
 
-        foreach (var type in typeof(FactKinds).Assembly.GetExportedTypes()
-                     .Where(t => t.IsAbstract && t.IsSealed)
-                     .OrderBy(t => t.FullName, StringComparer.Ordinal))
+        foreach (var type in Discovered())
         {
-            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.Static) is not
-                { } all || all.PropertyType != typeof(IReadOnlyList<string>))
+            if (type.GetCustomAttribute<VocabularyOfAttribute>() is not { } membership
+                || !string.Equals(membership.Fingerprint, fingerprint, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            if (all.GetValue(null) is not IReadOnlyList<string> values)
+            foreach (var list in Lists(type))
             {
-                continue;
-            }
+                if (list.GetValue(null) is not IReadOnlyList<string> values)
+                {
+                    continue;
+                }
 
-            // ORDERED, because the fingerprint is of what the vocabulary IS rather than
-            // of how somebody happened to type it. Reordering the values is not a wire
-            // change and must not read as one.
-            lines.Add($"vocabulary {type.Name} "
-                    + string.Join(",", values.OrderBy(v => v, StringComparer.Ordinal)));
+                // ORDERED, because the fingerprint is of what the vocabulary IS rather than
+                // of how somebody happened to type it. Reordering the values is not a wire
+                // change and must not read as one.
+                //
+                // FLAGGED: that is true of a SET and not of a RANKING.
+                // Classifications.Ordered is a ranking - "at or below this ceiling" is
+                // computed from its order - so reordering it changes meaning and this
+                // fingerprint would not move. Recorded rather than fixed, because the
+                // sorting is a decision already taken and written down.
+                lines.Add($"vocabulary {type.Name} "
+                        + string.Join(",", values.OrderBy(v => v, StringComparer.Ordinal)));
+            }
         }
 
         return lines;
     }
+
+    private static IReadOnlyList<PropertyInfo> Lists(Type type) =>
+        [.. type.GetProperties(BindingFlags.Public | BindingFlags.Static)
+            .Where(p => p.PropertyType == typeof(IReadOnlyList<string>))
+            .OrderBy(p => p.Name, StringComparer.Ordinal)];
 }

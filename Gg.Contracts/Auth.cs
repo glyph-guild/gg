@@ -78,6 +78,7 @@ public sealed record SessionIssued
 /// is degraded; the sentence saying whose and what to do about it is composed
 /// by the control plane, which is allowed to know.
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class TenantNoticeCodes
 {
     /// <summary>

@@ -261,7 +261,7 @@ public static class EnvelopeYaml
 
     private static Obligation MapObligation((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "check", "when", "rule", "approver", "provenance");
+        Closed(entry.Body, "check", "when", "rule", "approver", "provenance", "evidence");
 
         return new Obligation
         {
@@ -283,6 +283,12 @@ public static class EnvelopeYaml
             Approver = entry.Body.Entries.TryGetValue("approver", out var approver)
                 ? RequireScalar(approver, $"{entry.Body.Path}.approver")
                 : null,
+            // WHAT THE GATE NEEDS. Absent is nothing declared, which is what every
+            // envelope written before this existed means - and an entry naming something
+            // the flight cannot produce halts it rather than rendering a blank.
+            Evidence = entry.Body.Entries.TryGetValue("evidence", out var evidence)
+                ? Strings(evidence, $"{entry.Body.Path}.evidence")
+                : [],
             Provenance = entry.Body.Entries.TryGetValue("provenance", out var provenance)
                 ? RequireScalar(provenance, $"{entry.Body.Path}.provenance")
                 : ObligationProvenances.Org,

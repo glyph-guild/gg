@@ -15,8 +15,27 @@ public sealed record Materialized
 
     public required string HeadCommit { get; init; }
 
-    /// <summary>The commit the change is measured from, when there is one.</summary>
-    public string? BaseCommit { get; init; }
+    /// <summary>
+    /// The commit the change is measured from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Required, and there is no state in which a tree has no base.</b> It used
+    /// to be nullable and it was null on every real flight, because the member the
+    /// lease carries for it is never populated - so <c>ChangeExtractor</c> refused
+    /// to produce a manifest at all and no flight this product flew ever shipped
+    /// one. A nullable base is a manifest that can silently fail to exist.
+    /// </para>
+    /// <para>
+    /// It is the commit this flight CHECKED OUT, which the materializer already
+    /// holds, and for a first attempt that commit is exactly where the branch was
+    /// cut. A flight pinned to a branch already ahead of its destination's base
+    /// needs a merge base, a merge base needs history, and the clone is
+    /// <c>--depth 1</c> - so that base cannot be computed here and has to be
+    /// supplied. That is a contract move and its own step.
+    /// </para>
+    /// </remarks>
+    public required string BaseCommit { get; init; }
 
     /// <summary>
     /// Which diff the base makes this, from <see cref="Gg.Contracts.DiffBasis"/>.
@@ -87,11 +106,17 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
         var outcome = await _adapter.CloneAsync(
             target, resolved.Value, directory, secret, cancellationToken);
 
-        // The base, when the flight named one. Fetched as a second shallow ref
-        // into the same tree: there is no common ancestor on this disk to find
-        // a merge base from, so what a manifest can honestly describe is the
-        // difference between two commits.
-        string? baseCommit = null;
+        // THE BASE IS WHAT WAS CHECKED OUT, decided here because here is where it
+        // is known. It used to be a second ref fetched from what the lease named,
+        // and the lease never named one - LeaseEndpoints populates provider, slug,
+        // pinned ref and continues-from, and there is no member on the control
+        // plane's own FlightRepo for a base to come from. So every flight
+        // materialized with no base and shipped no manifest.
+        //
+        // What a manifest honestly describes is the difference between this commit
+        // and what is on disk now. For a first attempt this commit is where the
+        // branch was cut, which is the base a reader means.
+        var baseCommit = outcome.HeadCommit;
         var basis = DiffBasis.TwoPoint;
 
         if (target.ContinuesFrom is { Length: > 0 } priorAttempt)
@@ -107,12 +132,6 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
             baseCommit = await _adapter.FetchAlsoAsync(
                 target, priorAttempt, directory, secret, cancellationToken);
             basis = DiffBasis.PriorAttempt;
-        }
-        else if (target.BaseRef is { Length: > 0 } baseRef
-            && _adapter.Resolve(baseRef) is RefResolution.Ref(var resolvedBase, _))
-        {
-            baseCommit = await _adapter.FetchAlsoAsync(
-                target, resolvedBase, directory, secret, cancellationToken);
         }
 
         return new Materialized

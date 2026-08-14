@@ -12,15 +12,17 @@ public sealed record RepoTarget
     /// <summary>The exact ref this flight is pinned to.</summary>
     public required string PinnedRef { get; init; }
 
-    /// <summary>
-    /// What a change is measured FROM, when the flight knows.
-    /// </summary>
-    /// <remarks>
-    /// Null when nothing established a base. No base means no manifest rather
-    /// than one computed against a guessed default branch, which would be a
-    /// false statement about what this flight examined.
-    /// </remarks>
-    public string? BaseRef { get; init; }
+    // NO BASE REF, and its absence is the fix rather than an oversight. This
+    // member existed, was copied from the lease, and the lease never carried a
+    // value - so what a change was measured from was null on every flight and no
+    // manifest was produced at all. A member nothing populates and something
+    // reads is a silent null at the bottom of a decision.
+    //
+    // The base is now the commit the materializer checked out, decided where the
+    // tree is made. ManifestInstrumentTests holds this absence to account and
+    // names the day it should end: a flight measured from somewhere the runner
+    // did not check out needs the base SUPPLIED - LeaseRepoRef.BaseRef populated,
+    // a ledger entry for the vocabulary move, and a clone deep enough to hold it.
 
     /// <summary>Where a previous attempt on this flight left off, when there was one.</summary>
     /// <remarks>

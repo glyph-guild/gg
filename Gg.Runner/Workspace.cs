@@ -117,7 +117,6 @@ public sealed class Workspace : IWorkspace
                     Provider = repo.Provider,
                     Slug = repo.Slug,
                     PinnedRef = repo.PinnedRef,
-                    BaseRef = repo.BaseRef,
 
                     // Straight through. The control plane is the only authority on what
                     // this flight has already done.

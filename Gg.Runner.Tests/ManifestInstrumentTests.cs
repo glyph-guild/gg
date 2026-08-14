@@ -62,15 +62,22 @@ public class ManifestInstrumentTests
         // commits first, and every fixture in this repository used to. So what is
         // asserted is that the second commit is not there to pass.
         var code = CodeOf("Gg.Runner", "ChangeExtractor.cs");
+        var lines = code.Split('\n');
 
-        await Assert.That(code).Contains("tree.BaseCommit")
-            .Because("the diff has to name what it measures from, or this scan is vacuous.");
-        await Assert.That(code).DoesNotContain("tree.HeadCommit")
-            .Because("naming the head commit in a diff is the defect: it makes the manifest a "
+        var diffs = lines.Count(l => l.Contains("\"diff\"", StringComparison.Ordinal));
+        var cached = lines.Count(l => l.Contains("\"--cached\"", StringComparison.Ordinal));
+
+        await Assert.That(diffs).IsGreaterThan(0)
+            .Because("an extractor that ran no diff would satisfy every assertion below.");
+        await Assert.That(cached).IsEqualTo(diffs)
+            .Because("EVERY diff is against an index, and an index is the only way the working "
+                   + "tree gets into one. A diff without --cached has a commit on both sides.");
+
+        await Assert.That(lines.Where(l => l.Contains("\"diff\"", StringComparison.Ordinal))
+                .All(l => !l.Contains("HeadCommit", StringComparison.Ordinal))).IsTrue()
+            .Because("the head commit is a LABEL on the manifest, never an operand of the diff. "
+                   + "Naming it as an operand is the defect itself: the manifest becomes a "
                    + "statement about two commits, and the agent's work is in neither of them.");
-        await Assert.That(code).Contains("--cached")
-            .Because("the working tree reaches a diff through an index, and this is the only "
-                   + "index in the story.");
     }
 
     [Test]
@@ -80,12 +87,22 @@ public class ManifestInstrumentTests
         // changes nothing in it." Staging into the real index would be the
         // cheapest way to make untracked files visible, and it would leave a
         // customer's working copy with somebody else's staged changes in it.
-        var code = CodeOf("Gg.Runner", "ChangeExtractor.cs");
+        var extractor = CodeOf("Gg.Runner", "ChangeExtractor.cs");
 
-        await Assert.That(code).Contains("GIT_INDEX_FILE")
+        await Assert.That(extractor).Contains("InScratchIndex")
             .Because("a scratch index is what makes the measurement non-destructive, and its "
                    + "absence is how the destructive version would arrive.");
-        await Assert.That(code).DoesNotContain("intent-to-add");
+        await Assert.That(CodeOf("Gg.Runner", "GitInvocation.cs")).Contains("GIT_INDEX_FILE")
+            .Because("and the scratch index is a real one: the plan redirects git's index to a "
+                   + "path of ours, rather than being a name for staging into theirs.");
+        await Assert.That(extractor).DoesNotContain("intent-to-add")
+            .Because("--intent-to-add is the cheap way to make untracked files visible, and it "
+                   + "writes to the repository's own index.");
+        await Assert.That(extractor.Split('\n')
+                .Where(l => l.Contains("\"add\"", StringComparison.Ordinal))
+                .All(l => l.Contains("InScratchIndex", StringComparison.Ordinal))).IsTrue()
+            .Because("every staging this extractor does goes to the scratch index. One `add` "
+                   + "through GitInvocation.Plain would stage into the customer's tree.");
     }
 
     // ---- the sentence: there is no such thing as a flight with no base ----

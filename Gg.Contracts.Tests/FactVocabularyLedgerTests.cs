@@ -107,9 +107,13 @@ public class FactVocabularyLedgerTests
     /// conversation could not see the change that most needs one.
     /// </para>
     /// <para>
-    /// <b>Over-inclusive on purpose.</b> A vocabulary that never travels on a fact moves
-    /// this version too. A false alarm is the direction this project takes every time
-    /// over a silent break.
+    /// <b>Scoped by declaration, not by shape.</b> This once folded in every closed
+    /// vocabulary in the assembly, on the grounds that a false alarm beats a silent break.
+    /// It turned out to cry wolf in a way that is its own hazard: a gate payload declaring
+    /// three vocabularies moved this fingerprint while the kinds list was byte-identical,
+    /// and a number that moves for reasons unrelated to its name trains people to bump it
+    /// without reading. Membership is declared on each vocabulary and a closure check
+    /// asserts nobody forgot.
     /// </para>
     /// </remarks>
     private static string Current()

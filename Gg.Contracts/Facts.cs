@@ -224,7 +224,20 @@ public static class FactVocabulary
     /// hashed pinned types and their property names, and a third DiffBasis value moved
     /// nothing. The guard that exists to force this conversation was blind to the change
     /// that most needs one. It now hashes every closed vocabulary's values as well.
-    public const string Version = "0.11.0";
+    ///
+    /// 0.12.0 CHANGES NO FACT. The kinds list is byte-identical and no fact type gained,
+    /// lost or reshaped a member. What changed is the INSTRUMENT: the closed-vocabulary
+    /// scan was attributing by shape, so a gate payload's three vocabularies moved this
+    /// number while nothing about facts moved. Membership is now declared and the scan
+    /// verifies that everybody declared - and in scoping it, three vocabularies that had
+    /// been invisible were found, one of which (Classifications) travels inside every
+    /// change manifest. Its levels are a RANKING and are now hashed in their own order,
+    /// because sorting them would let a reordering change what may leave a customer's
+    /// network without moving any ledger.
+    ///
+    /// A version computed by a corrected instrument cannot reproduce a reading taken by
+    /// the broken one. That is what this bump records.
+    public const string Version = "0.12.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

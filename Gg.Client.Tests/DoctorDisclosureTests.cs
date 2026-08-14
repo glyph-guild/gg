@@ -101,6 +101,103 @@ public class DoctorDisclosureTests
             .Because("it states the property rather than requesting an action.");
     }
 
+
+    // ---- the three properties that keep the category honest ----
+
+    [Test]
+    public async Task A_disclosure_does_not_count_as_a_failing_check()
+    {
+        // CRY WOLF, IN THE TOOL PEOPLE RUN WHEN SOMETHING IS ALREADY WRONG. A doctor
+        // reporting "3 checks failed" when one of them can never pass teaches somebody
+        // that the number is inflated, and the next number they discount is a real one.
+        var report = await RunAsync();
+
+        await Assert.That(report.Failed)
+            .IsEqualTo(report.Checks.Count(c => c.Outcome == DoctorOutcome.Fail))
+            .Because("the count is of things that failed, and a disclosure did not fail.");
+
+        await Assert.That(report.Checks.Any(c => c.Outcome == DoctorOutcome.Disclosure)).IsTrue()
+            .Because("ASK WHY IT PASSES: with no disclosure present, excluding them changes "
+                   + "nothing and this asserts an empty difference.");
+    }
+
+    [Test]
+    public async Task A_disclosure_does_not_change_the_exit_status()
+    {
+        // The scripted half of the same property. A doctor that exits non-zero forever is
+        // one people stop running, and then it is not there on the day it matters.
+        var report = await RunAsync();
+
+        await Assert.That(report.ExitCode).IsEqualTo(0)
+            .Because("nothing blocking failed. The standing disclosure is not a reason for "
+                   + "a script to stop.");
+    }
+
+    [Test]
+    public async Task Disclosures_are_rendered_in_their_own_section()
+    {
+        // RENDERS APART, which is stronger than rendering differently. A line inside a
+        // list of checks reads as an item that is not passing however it is marked - and
+        // separating them is what lets the checks list be genuinely all-green, which is
+        // what makes an all-green run mean something.
+        var rendered = VerbOutput.ToText(new VerbResult.Diagnosis(await RunAsync()));
+
+        var lines = rendered.Split('\n').ToList();
+        var checksEnd = lines.FindIndex(l => l.StartsWith("also true", StringComparison.Ordinal));
+
+        await Assert.That(checksEnd).IsGreaterThan(0)
+            .Because("there is a section boundary at all.");
+
+        var checksList = lines.Take(checksEnd).ToList();
+
+        await Assert.That(checksList.Any(l => l.Contains(DoctorChecks.Moves, StringComparison.Ordinal)))
+            .IsFalse()
+            .Because("the disclosure is not among the checks, so a run with nothing wrong "
+                   + "shows a checks list with nothing wrong in it.");
+
+        await Assert.That(lines.Skip(checksEnd).Any(l => l.Contains(DoctorChecks.Moves, StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("and it is still reported, every time, which is the whole reason it "
+                   + "exists.");
+    }
+
+    [Test]
+    public async Task A_disclosure_carries_no_remedy_and_that_is_what_makes_it_one()
+    {
+        // THE DISCRIMINATOR. The obvious abuse of a third category is reclassifying an
+        // inconvenient failing check as a disclosure, and what stops it is that a
+        // disclosure is a check with NO ACTION THE USER CAN TAKE. One carrying a suggested
+        // remedy is a miscategorised check, and this is a structural rule rather than a
+        // convention somebody remembers.
+        var report = await RunAsync();
+
+        foreach (var disclosure in report.Checks.Where(c => c.Outcome == DoctorOutcome.Disclosure))
+        {
+            await Assert.That(disclosure.Fixable).IsFalse()
+                .Because($"'{disclosure.Name}' discloses, so there is nothing to fix.");
+            await Assert.That(disclosure.Fix).IsNull()
+                .Because($"'{disclosure.Name}' offers a remedy, which means it is a check "
+                       + "that failed and was filed as a fact about the product.");
+            await Assert.That(disclosure.Blocking).IsFalse()
+                .Because($"'{disclosure.Name}' blocks, and something that stops gg working "
+                       + "is not a standing note about how it works.");
+        }
+    }
+
+    [Test]
+    public async Task The_disclosure_says_what_it_means_rather_than_only_what_is_true()
+    {
+        // A statement of fact leaves the reader to work out the consequence, and the
+        // consequence is the reason this is reported at all: somebody reading an
+        // envelope's moves list needs to know it records intent rather than bounding
+        // anything.
+        var moves = (await RunAsync()).Checks.Single(c => c.Name == DoctorChecks.Moves);
+
+        await Assert.That(moves.Detail).Contains("record of intent")
+            .Because("what it means for the person reading the envelope, not only what is "
+                   + "true of the executor.");
+    }
+
     /// <summary>The doctor as `gg doctor` runs it, against a stubbed control plane.</summary>
     private static async Task<DoctorReport> RunAsync()
     {

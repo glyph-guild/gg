@@ -114,5 +114,10 @@
     "version": "0.28.0",
     "surface": "165850ebee034f245d5df4c651f367313605a7863458be3e28ac383699b346b7",
     "note": "The second attempt's push: a lease repository reference gains `continuesFrom`, the commit a previous attempt pushed, so the runner is TOLD where to continue rather than inferring it from a branch anybody with push access can move - and so a manifest's prior-attempt basis and the commit it measures from cannot disagree. A flight summary gains `attempts`, counted from loops that ran rather than leases that were granted. Both are added members; no member moved and no value was added to a closed vocabulary."
+  },
+  {
+    "version": "0.29.0",
+    "surface": "b03b9bc2db32ad6b2657be8ab961e80d0743c39b469a4a89aa79e19b3ac7bba6",
+    "note": "The evidence payload. Obligation gains `evidence` - what a gate needs before anybody can answer it, declared in the envelope so the requirement is reviewed configuration rather than whatever the assembler had to hand, and an entry the flight cannot produce halts it rather than rendering a blank. Three new pinned types carry the case put to a person: GateEvidencePayload, GateEvidenceItem and EvidenceReference, the last with deliberately nowhere for a body to travel. Three new closed vocabularies with them: EvidenceItems, EvidenceDispositions - inline, digest, reference, and no fourth, so a shortened item is unrepresentable rather than merely unused - and EvidenceVoices, which marks a piece of evidence as measured or stated so an agent's words stay visibly different in kind from a verdict computed from facts. Also carries the vocabulary-membership attribute and its closure check; see fact-vocabulary 0.12.0 for why."
   }
 ]

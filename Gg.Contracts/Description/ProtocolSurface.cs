@@ -544,7 +544,7 @@ public static class ProtocolSurface
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
-            [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance"],
+            [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],
             [typeof(LoopBudget)] = ["wallClock"],
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],

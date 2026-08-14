@@ -206,6 +206,16 @@ public sealed record AppState
 
     public int SelectedRow { get; init; }
 
+    /// <summary>
+    /// The case a gate is putting to this person, exactly as `gg gates` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched, never assembled here.</b> A console that built its own case would be
+    /// deciding what a person is shown, and the envelope already decided that. Null when
+    /// nothing is waiting - said in the pane rather than rendered as a blank.
+    /// </remarks>
+    public GateEvidencePayload? Payload { get; init; }
+
     /// <summary>The selected flight, exactly as `gg show` returned it.</summary>
     public FlightSummary? Flight { get; init; }
 

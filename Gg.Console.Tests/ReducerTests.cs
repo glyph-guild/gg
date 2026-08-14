@@ -99,6 +99,31 @@ public class ReducerTests
     // ---- arrivals queue, they do not preempt ----
 
     [Test]
+    public async Task AnArrivalBehavesTheSameWhateverPutTheRowThere()
+    {
+        // WHOSE SUBJECT IS THIS? These arrival assertions were written when the queue held
+        // flights and it now holds DECISIONS, so a test asserting the old subject would be
+        // satisfied while proving nothing about the new one.
+        //
+        // It is one path over every reason: Arrived copies the reason through and branches
+        // on nothing. Asserted rather than inspected, so the day somebody adds a reason
+        // that IS special the difference shows up here instead of in the criteria file's
+        // assumptions.
+        foreach (var reason in Enum.GetValues<QueueReason>())
+        {
+            var state = new AppState { Queue = [Row("a"), Row("b")], SelectedRow = 1 };
+
+            var after = Reducer.Arrived(state, Row("c", reason), startedByMe: false);
+
+            await Assert.That(after.Queue[after.SelectedRow].FlightId).IsEqualTo("b")
+                .Because($"a '{reason}' arrival must not take the cursor either.");
+            await Assert.That(after.Queue.Single(r => r.FlightId == "c").UnreadArrivals)
+                .IsEqualTo(1)
+                .Because($"and a '{reason}' arrival still marks its row.");
+        }
+    }
+
+    [Test]
     public async Task AnArrivalDoesNotMoveTheCursor()
     {
         // The discipline the whole console is judged by later. It is barely

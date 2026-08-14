@@ -63,6 +63,19 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   requires a newer Roslyn than SDK 10.0.102 ships (CS9057 if bumped).
 - Package versions are centrally managed (`Directory.Packages.props`); csproj
   `PackageReference`s have no `Version` attribute.
+- **A pull request with merge conflicts runs no workflows at all** — no checks,
+  no runs, no error anywhere. `pull_request` workflows build the merge commit
+  (`refs/pull/<n>/merge`), and GitHub cannot create that ref while the branch
+  conflicts with the base, so nothing is ever dispatched. `gh pr checks` says
+  "no checks reported" and the Actions tab is empty, which reads exactly like a
+  broken trigger. Check `gh api repos/<owner>/<repo>/pulls/<n> --jq
+  .mergeable_state` first: `dirty` means conflicts. Because this repo bumps
+  `Gg.Contracts` `<Version>` and appends to `contract-versions.json` on almost
+  every slice step, two branches in flight conflict there by construction —
+  rebase onto `main` before opening the second one. Do NOT diagnose this by
+  re-running, force-pushing or recreating the branch: any of those can clear the
+  symptom without showing the cause.
+
 - `GlyphGuild.Gg.Contracts` publishes to **two** places on every push to
   `main`, and the second one is the one that matters. GitHub Packages' NuGet
   registry is repository-scoped: the package is welded to this repo and

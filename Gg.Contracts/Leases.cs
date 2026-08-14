@@ -94,6 +94,25 @@ public sealed record LeaseRepoRef
     /// a plausible one.
     /// </remarks>
     public string? BaseRef { get; init; }
+
+    /// <summary>
+    /// The commit a previous attempt on this flight pushed, when there was one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The runner is told, and does not go looking.</b> A runner that inferred the
+    /// previous attempt from whatever branch it found on the remote would be deciding what
+    /// work to build on from something anybody with push access can move. Article IX: the
+    /// client is not an authority on what this flight has already done.
+    /// </para>
+    /// <para>
+    /// Null on a first attempt, and null after grounding and flying again - starting over
+    /// is a different act, and it starts from the pinned base with nothing to continue
+    /// from. Present, it is both where the working tree starts and what the change is
+    /// measured from, which is what keeps a manifest's label and its base from disagreeing.
+    /// </para>
+    /// </remarks>
+    public string? ContinuesFrom { get; init; }
 }
 
 /// <summary>

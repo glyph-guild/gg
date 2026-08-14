@@ -165,6 +165,7 @@ public class ConsoleDataTests
             FactVocabularyVersion = "0.1.0",
             ConstitutionVersion = "1.0.0",
             EnvelopeVersion = "none",
+        Attempts = 1,
         Facts = [],
         };
 
@@ -231,6 +232,7 @@ public class ConsoleDataTests
         FactVocabularyVersion = "0.1.0",
         ConstitutionVersion = "1.0.0",
         EnvelopeVersion = "none",
+        Attempts = 1,
         Facts = [],
     };
 

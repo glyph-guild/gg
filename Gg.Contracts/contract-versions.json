@@ -109,5 +109,10 @@
     "version": "0.27.0",
     "surface": "21a2eb1f036664706763bf8777d62b69cb9c6d7cee8586af1dd866171fa90741",
     "note": "Reject: DecisionOutcomes gains `rejected`, DecisionRequest gains the person's reason, and a lease carries LeaseFeedback - the sentence that sent an attempt back, attributed, marked as their words, and carrying nothing that could widen a move, a scope, an obligation, a destination or a budget. DiffBasis gains `prior-attempt` for a manifest measured from the previous attempt's head. And the fingerprints now hash closed vocabularies' VALUES: `rejected` and `prior-attempt` are both added values, and until this version neither ledger could see one. Fact vocabulary moves to 0.11.0 with it."
+  },
+  {
+    "version": "0.28.0",
+    "surface": "165850ebee034f245d5df4c651f367313605a7863458be3e28ac383699b346b7",
+    "note": "The second attempt's push: a lease repository reference gains `continuesFrom`, the commit a previous attempt pushed, so the runner is TOLD where to continue rather than inferring it from a branch anybody with push access can move - and so a manifest's prior-attempt basis and the commit it measures from cannot disagree. A flight summary gains `attempts`, counted from loops that ran rather than leases that were granted. Both are added members; no member moved and no value was added to a closed vocabulary."
   }
 ]

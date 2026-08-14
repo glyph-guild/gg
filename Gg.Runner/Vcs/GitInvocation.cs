@@ -192,6 +192,32 @@ public sealed record GitInvocation
             Environment = new Dictionary<string, string>(StringComparer.Ordinal),
         };
 
+    /// <summary>
+    /// A plan that stages into an index of our own, leaving the repository's alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The tree may be handed to a person, so measuring it changes nothing in
+    /// it.</b> Making an untracked file visible to <c>git diff</c> needs it in an
+    /// index; staging into the repository's own would leave a customer's working
+    /// copy with somebody else's staged changes in it, and a flight that does not
+    /// land is exactly the one somebody takes over.
+    /// </para>
+    /// <para>
+    /// The path is outside the tree for the reason a transcript is: a scratch file
+    /// inside it would itself become an untracked path in the next measurement.
+    /// </para>
+    /// </remarks>
+    public static GitInvocation InScratchIndex(string indexPath, params string[] arguments) =>
+        new()
+        {
+            Arguments = arguments,
+            Environment = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["GIT_INDEX_FILE"] = indexPath,
+            },
+        };
+
     /// <summary>Runs the plan and returns stdout, throwing with git's own words on failure.</summary>
     public async Task<string> RunAsync(string workingDirectory, CancellationToken cancellationToken = default)
     {

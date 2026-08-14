@@ -5,7 +5,7 @@ using Gg.Runner.Vcs;
 namespace Gg.Runner.Facts;
 
 /// <summary>
-/// What changed between the base and the head, from git's own answer.
+/// What changed between the base and the working tree, from git's own answer.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,23 +15,40 @@ namespace Gg.Runner.Facts;
 /// answer rather than a re-implementation of one.
 /// </para>
 /// <para>
-/// <b>A two-point tree diff, not a merge-base diff.</b> The clone is shallow at
-/// both refs, so there is no common ancestor on this disk to find one from.
-/// That means a base which has moved on since the branch was cut shows up as
-/// change - debt with a trigger, and the trigger is the first person who asks
-/// why a manifest lists a file they did not touch. Fixing it needs history,
-/// which needs a deeper fetch, which is a disk decision rather than a diff one.
+/// <b>The head of this diff is the WORKING TREE, never a commit.</b> The runner's
+/// order is materialize → invoke → extract → ship → land, and the commit happens
+/// inside the destination adapter's push - so at this moment the agent's work is
+/// uncommitted, and a diff between two commits describes a change nobody made. It
+/// is the tree because the tree is where the work is, and it is measured from a
+/// commit rather than from the tree's own HEAD because an agent that commits
+/// half its work mid-loop has not thereby removed it from what is being proposed.
+/// </para>
+/// <para>
+/// <b>A two-point diff, not a merge-base diff.</b> The clone is <c>--depth 1</c>,
+/// so there is no common ancestor on this disk to find one from. The base is the
+/// commit this flight checked out; a flight pinned to a branch already ahead of
+/// its destination's base would need a merge base, and that has to be supplied
+/// rather than computed here.
 /// </para>
 /// </remarks>
 public static class ChangeExtractor
 {
     /// <summary>
-    /// The manifest, or null when there is no base to measure from.
+    /// The manifest. There is always one, because there is always a base.
     /// </summary>
     /// <remarks>
-    /// Null rather than a manifest against a guessed default branch. Article
-    /// XI: a plausible manifest of the wrong change is a false fact, and this
-    /// design treats those as unrecoverable.
+    /// <para>
+    /// Nullable in its return for the caller's sake and never null in fact. It
+    /// used to return null when the tree had no base to measure from, which was a
+    /// correct rule about a state that should not exist - and the state existed on
+    /// every real flight, so the rule silently deleted the fact this whole slice
+    /// reads. <see cref="Materialized.BaseCommit"/> is required now, so the case
+    /// has no way to arise.
+    /// </para>
+    /// <para>
+    /// An EMPTY manifest is a real answer and a different one: a loop that changed
+    /// nothing produces one, and it says so rather than being absent.
+    /// </para>
     /// </remarks>
     public static ChangeManifest? Extract(
         Materialized tree, IReadOnlyList<ClassificationRule> rules)
@@ -39,18 +56,49 @@ public static class ChangeExtractor
         ArgumentNullException.ThrowIfNull(tree);
         ArgumentNullException.ThrowIfNull(rules);
 
-        if (tree.BaseCommit is not { Length: > 0 } baseCommit)
+        var baseCommit = tree.BaseCommit;
+
+        // AN INDEX OF OUR OWN, and never the repository's. Untracked files - the
+        // commonest shape of new work, and the one `when: touches migrations/**`
+        // exists for - reach a diff only through an index, and staging into the
+        // real one would leave a customer's working copy with somebody else's
+        // staged changes in it. This tree is handed to a person when a flight does
+        // not land, so measuring it has to change nothing in it.
+        //
+        // `add --all` is what excludes .gitignore'd files, which is the right
+        // answer for the same reason: the destination adapter's own `git add
+        // --all` would not stage them either, so a manifest naming one would
+        // report as landing something that cannot land.
+        var index = Path.Combine(
+            Path.GetTempPath(), "gg-manifest-index", Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(Path.GetDirectoryName(index)!);
+
+        string numstat;
+        string status;
+        try
         {
-            return null;
+            GitInvocation.InScratchIndex(index, "read-tree", baseCommit)
+                .RunAsync(tree.Path).GetAwaiter().GetResult();
+            GitInvocation.InScratchIndex(index, "add", "--all")
+                .RunAsync(tree.Path).GetAwaiter().GetResult();
+
+            // --no-renames, so a rename is a delete and an add. ChangeKinds has
+            // three words and none of them is "renamed"; decomposing is TRUE at
+            // this vocabulary's resolution, and it is the safer answer for both
+            // readers - `in-scope` evaluates both paths and `touches` matches the
+            // new one. A fourth kind is a contract move with a ledger entry.
+            numstat = GitInvocation
+                .InScratchIndex(index, "diff", "--cached", "--numstat", "--no-renames", "-z", baseCommit)
+                .RunAsync(tree.Path).GetAwaiter().GetResult();
+
+            status = GitInvocation
+                .InScratchIndex(index, "diff", "--cached", "--name-status", "--no-renames", "-z", baseCommit)
+                .RunAsync(tree.Path).GetAwaiter().GetResult();
         }
-
-        var numstat = GitInvocation
-            .Plain("diff", "--numstat", "--no-renames", "-z", baseCommit, tree.HeadCommit)
-            .RunAsync(tree.Path).GetAwaiter().GetResult();
-
-        var status = GitInvocation
-            .Plain("diff", "--name-status", "--no-renames", "-z", baseCommit, tree.HeadCommit)
-            .RunAsync(tree.Path).GetAwaiter().GetResult();
+        finally
+        {
+            File.Delete(index);
+        }
 
         var kinds = ParseStatus(status);
         var paths = new List<ChangedPath>();

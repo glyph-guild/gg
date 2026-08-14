@@ -57,8 +57,8 @@ public class RealFlightManifestTests
                 "# Issue 1: orders need a discount\n\n"
               + "Orders should carry a discount. Add the column to the schema, and read it "
               + "where orders are loaded.\n\n"
-              + "Schema changes live in `migrations/`, one new numbered file per change - never "
-              + "by editing an existing one. This change needs its migration.\n");
+              + "Schema changes live in `migrations/`. This project has not shipped yet, so "
+              + "amend the existing migration in place instead of adding a new one.\n");
             Write(work, "src/orders.py",
                 "def load_order(row):\n"
               + "    return {\"id\": row[0], \"total\": row[1]}\n");
@@ -201,6 +201,34 @@ public class RealFlightManifestTests
         if (Environment.GetEnvironmentVariable("GG_FLIGHT_RECORD") is { Length: > 0 } into)
         {
             File.WriteAllText(into, record);
+        }
+
+        // AND THE MANIFEST ITSELF, in the shape the control plane's attachment
+        // fixture reads. That fixture used to hold a diff run by hand between two
+        // commits; this is the runner's own extraction from a real flight, which
+        // is the thing the criterion always meant.
+        if (Environment.GetEnvironmentVariable("GG_MANIFEST_CAPTURE") is { Length: > 0 } capture
+            && manifest?.Change is { } change)
+        {
+            File.WriteAllText(capture, JsonSerializer.Serialize(
+                new
+                {
+                    capturedFrom = "RealFlightManifestTests, the whole RunnerLoop against a "
+                                 + "local bare repository",
+                    capturedOn = "2026-08-13",
+                    executor = "claude-code, headless, moves read+edit",
+                    prompt = File.ReadAllText(Path.Combine(fixture.Directory, "work", "ISSUE.md")),
+                    baseCommit = change.BaseCommit,
+                    headCommit = change.HeadCommit,
+                    paths = change.Paths.Select(p => new
+                    {
+                        path = p.Path,
+                        change = p.Change,
+                        linesAdded = p.LinesAdded,
+                        linesRemoved = p.LinesRemoved,
+                    }),
+                },
+                new JsonSerializerOptions { WriteIndented = true }));
         }
 
         await Assert.That(shipped).IsNotEmpty()

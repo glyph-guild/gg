@@ -16,7 +16,7 @@ namespace Gg.Contracts;
 /// would let confidential material through.
 /// </para>
 /// </remarks>
-[VocabularyOf(VocabularyFingerprints.Fact)]
+[VocabularyOf(VocabularyFingerprints.Fact, Ordered = true)]
 public static class Classifications
 {
     /// <summary>Publishable. Documentation, licences, the things already public.</summary>

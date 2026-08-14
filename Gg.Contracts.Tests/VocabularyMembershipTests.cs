@@ -94,4 +94,44 @@ public class VocabularyMembershipTests
             .IsFalse()
             .Because("no fact kind changed, so the fact fingerprint must not have moved.");
     }
+
+    [Test]
+    public async Task A_ranking_is_hashed_in_its_own_order()
+    {
+        // THE SILENT CHANGE THIS CLOSES. Whether a fact may leave a customer's network is
+        // computed from whether its classification sits at or below a ceiling, and that
+        // comparison reads the ORDER of the levels. Sorted before hashing, reordering
+        // them would change what may cross and move no ledger - a silent change to an
+        // egress control, inside the ledger built to make silent changes impossible.
+        var declared = typeof(Classifications).GetCustomAttribute<VocabularyOfAttribute>()!;
+
+        await Assert.That(declared.Ordered).IsTrue()
+            .Because("Classifications is a ranking, not a set.");
+
+        var line = ClosedVocabularies.Lines(VocabularyFingerprints.Fact)
+            .Single(l => l.StartsWith("vocabulary Classifications ", StringComparison.Ordinal));
+
+        await Assert.That(line).Contains(
+            string.Join(",", Classifications.Ordered))
+            .Because("hashed in the order that decides what may cross.");
+
+        await Assert.That(line).DoesNotContain(
+            string.Join(",", Classifications.Ordered.OrderBy(v => v, StringComparer.Ordinal)))
+            .Because("and not in the sorted order, which is the whole difference - a "
+                   + "normalisation that discards something meaningful misses in a way that "
+                   + "looks like coverage.");
+    }
+
+    [Test]
+    public async Task A_set_is_still_sorted()
+    {
+        // The other half, so 'ordered' is a distinction rather than a switch that turned
+        // sorting off everywhere. Reordering a set is not a wire change and must not read
+        // as one.
+        var line = ClosedVocabularies.Lines(VocabularyFingerprints.Fact)
+            .Single(l => l.StartsWith("vocabulary DiffBasis ", StringComparison.Ordinal));
+
+        await Assert.That(line).Contains(
+            string.Join(",", DiffBasis.All.OrderBy(v => v, StringComparer.Ordinal)));
+    }
 }

@@ -56,4 +56,29 @@ public sealed class VocabularyOfAttribute(string fingerprint) : Attribute
 {
     /// <summary>One of <see cref="VocabularyFingerprints"/>.</summary>
     public string Fingerprint { get; } = fingerprint;
+
+    /// <summary>
+    /// Whether the ORDER of the values is part of what they mean.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fingerprint's normalisation must preserve everything meaningful.</b> Sorting
+    /// before hashing is right for a SET - reordering how somebody happened to type a list
+    /// is not a wire change and must not read as one - and wrong for a RANKING, where the
+    /// order IS the content.
+    /// </para>
+    /// <para>
+    /// <b>The case that forced it.</b> <see cref="Classifications"/> is a ranking: whether
+    /// a fact may leave a customer's network is computed from whether its level sits at or
+    /// below a ceiling, and that comparison reads the order. Sorted before hashing,
+    /// reordering the levels would change what may cross and move no ledger - a silent
+    /// change to an egress control, inside the ledger built to make silent changes
+    /// impossible.
+    /// </para>
+    /// <para>
+    /// A domain too broad cries wolf and a domain too narrow misses; a normalisation too
+    /// aggressive misses in a way that looks like coverage, which is worse than both.
+    /// </para>
+    /// </remarks>
+    public bool Ordered { get; init; }
 }

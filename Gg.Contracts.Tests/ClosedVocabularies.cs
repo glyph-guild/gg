@@ -70,17 +70,21 @@ internal static class ClosedVocabularies
                     continue;
                 }
 
-                // ORDERED, because the fingerprint is of what the vocabulary IS rather than
-                // of how somebody happened to type it. Reordering the values is not a wire
-                // change and must not read as one.
+                // NORMALISED TO WHAT THE VOCABULARY MEANS. A set is sorted, because
+                // reordering how somebody typed a list is not a wire change and must not
+                // read as one. A RANKING is not, because there the order IS the content -
+                // reordering the classification levels changes what may leave a
+                // customer's network, and a sorted hash would not move.
                 //
-                // FLAGGED: that is true of a SET and not of a RANKING.
-                // Classifications.Ordered is a ranking - "at or below this ceiling" is
-                // computed from its order - so reordering it changes meaning and this
-                // fingerprint would not move. Recorded rather than fixed, because the
-                // sorting is a decision already taken and written down.
+                // A normalisation that discards something meaningful misses in a way that
+                // looks like coverage, which is worse than a domain that is too narrow.
+                IEnumerable<string> normalised = membership.Ordered
+                    ? values
+                    : values.OrderBy(v => v, StringComparer.Ordinal);
+
                 lines.Add($"vocabulary {type.Name} "
-                        + string.Join(",", values.OrderBy(v => v, StringComparer.Ordinal)));
+                        + (membership.Ordered ? "ordered " : "")
+                        + string.Join(",", normalised));
             }
         }
 

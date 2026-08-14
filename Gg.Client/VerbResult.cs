@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -443,6 +444,15 @@ public static class VerbOutput
         text.AppendLine($"  vocabulary  {Clean(flight.FactVocabularyVersion)}");
         text.AppendLine($"  constitution {Clean(flight.ConstitutionVersion)}");
         text.AppendLine($"  envelope    {Clean(flight.EnvelopeVersion)}");
+
+        // HOW MANY TIMES THIS HAS BEEN ROUND. Nothing enforces a ceiling - budget.attempts
+        // does not exist yet - so a person deciding is the only thing that stops a
+        // reject-and-run cycle, and they can only be that if they can see the count.
+        //
+        // None rather than 0, because a flight nobody has run is not a flight that ran
+        // once, and a zero beside a label reads like a counter that failed to increment.
+        text.AppendLine(
+            $"  attempts    {(flight.Attempts == 0 ? "none" : flight.Attempts.ToString(CultureInfo.InvariantCulture))}");
         text.AppendLine(Facts(flight.Facts));
         return text.ToString().TrimEnd();
     }

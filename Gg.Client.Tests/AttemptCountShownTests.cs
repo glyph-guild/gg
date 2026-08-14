@@ -53,7 +53,12 @@ public class AttemptCountShownTests
         // nobody can script against.
         var json = VerbOutput.ToJson(new VerbResult.Flight(AFlight(attempts: 2)));
 
-        await Assert.That(json).Contains("\"attempts\":2");
+        // Whitespace-insensitive: the writer indents, and this is asserting that the
+        // member is there with the right value, not how it is laid out.
+        await Assert.That(json.Replace(" ", "").Replace("\n", "").Replace("\r", ""))
+            .Contains("\"attempts\":2")
+            .Because("what --json carries is what a script reads, and a number only the "
+                   + "rendering has is a number nobody can act on. Actual: " + json);
     }
 
     private static FlightSummary AFlight(int attempts) => new()

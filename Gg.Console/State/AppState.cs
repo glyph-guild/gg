@@ -19,6 +19,16 @@ public enum UiMode
 
     /// <summary>What can be done to the selected flight.</summary>
     FlightActions,
+
+    /// <summary>
+    /// Answering a gate: what is being decided, the evidence, and both answers.
+    /// </summary>
+    /// <remarks>
+    /// A modal of its own rather than an item on the actions menu, because what is being
+    /// decided has to be stated, the evidence has to be in front of the person, and both
+    /// answers have to be offered together - none of which a menu item can do.
+    /// </remarks>
+    GateDecision,
 }
 
 /// <summary>The four panes.</summary>
@@ -75,6 +85,15 @@ public enum StreamLineKind
 /// </remarks>
 public enum QueueReason
 {
+    /// <summary>
+    /// A person has to answer something before this flight can go on.
+    /// </summary>
+    /// <remarks>
+    /// The reason this pane is a queue of DECISIONS rather than a list of flights. A
+    /// flight nobody needs anything from is countable, not readable.
+    /// </remarks>
+    AwaitingDecision,
+
     /// <summary>Two expiries is a pattern, not an incident.</summary>
     LeaseExpiredTwice,
 

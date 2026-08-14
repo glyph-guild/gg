@@ -72,6 +72,16 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close help"),
         ],
 
+        // OWNS THE KEYBOARD. Only these three resolve while it is open, so a key that
+        // means something in Normal mode cannot reach through and act on the flight
+        // behind the modal - and exactly one of them is a way out, which decides nothing.
+        UiMode.GateDecision =>
+        [
+            new(KeyStroke.Char('a'), Command.ApproveGate, "approve"),
+            new(KeyStroke.Char('r'), Command.RejectGate, "reject"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.FlightActions =>
         [
             new(KeyStroke.Esc, Command.CloseModal, "close"),

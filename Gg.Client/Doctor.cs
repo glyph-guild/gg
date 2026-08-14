@@ -162,6 +162,16 @@ public sealed record DoctorReport
     /// exits non-zero on a warning is one people stop running.
     /// </remarks>
     public int ExitCode => Checks.Any(c => !c.Passed && c.Blocking) ? 1 : 0;
+
+    /// <summary>
+    /// How many checks failed. Disclosures are not among them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Cry wolf, in the tool people run when something is already wrong.</b> A doctor
+    /// reporting three failures when one of them can never pass teaches somebody that the
+    /// number is inflated - and the next number they discount is a real one.
+    /// </remarks>
+    public int Failed => Checks.Count(c => c.Outcome == DoctorOutcome.Fail);
 }
 
 /// <summary>

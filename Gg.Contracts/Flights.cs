@@ -185,6 +185,18 @@ public sealed record FlightSummary
     public required string EnvelopeVersion { get; init; }
 
     /// <summary>
+    /// How many times a loop has actually run on this flight.
+    /// </summary>
+    /// <remarks>
+    /// <b>Loops that ran, not leases that were granted.</b> A lease is permission to
+    /// attempt; an attempt is a loop that produced an outcome. Counting permissions makes
+    /// a runner that died before invoking anything look like an attempt, and "three
+    /// attempts" meaning "two attempts and a crashed runner" is a well-formed wrong number
+    /// in a field somebody reads while deciding whether to keep going.
+    /// </remarks>
+    public required int Attempts { get; init; }
+
+    /// <summary>
     /// What the runner observed, as the control plane recorded it.
     /// </summary>
     /// <remarks>

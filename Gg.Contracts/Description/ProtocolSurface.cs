@@ -559,7 +559,7 @@ public static class ProtocolSurface
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],
             [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds"],
-            [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef", "baseRef"],
+            [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef", "baseRef", "continuesFrom"],
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "classificationCeiling", "classificationRules", "expiresAt", "renewWithinSeconds",
@@ -574,6 +574,7 @@ public static class ProtocolSurface
             [typeof(FlightSummary)] =
                 ["flightId", "flightNumber", "name", "intent", "createdAt",
                  "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion",
+                 "attempts",
                  "facts"],
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],

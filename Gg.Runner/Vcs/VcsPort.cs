@@ -21,6 +21,13 @@ public sealed record RepoTarget
     /// false statement about what this flight examined.
     /// </remarks>
     public string? BaseRef { get; init; }
+
+    /// <summary>Where a previous attempt on this flight left off, when there was one.</summary>
+    /// <remarks>
+    /// Carried through from the lease unchanged. The runner does not derive it - see
+    /// <see cref="Gg.Contracts.LeaseRepoRef.ContinuesFrom"/> for why that matters.
+    /// </remarks>
+    public string? ContinuesFrom { get; init; }
 }
 
 /// <summary>

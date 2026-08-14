@@ -229,6 +229,29 @@ public sealed record Obligation
     public string? Approver { get; init; }
 
     /// <summary>
+    /// What this obligation's gate needs before anybody can answer it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Declared, so what a decision requires is reviewed configuration</b> rather than
+    /// whatever the payload assembler happened to have. Entries come from
+    /// <see cref="EvidenceItems"/>.
+    /// </para>
+    /// <para>
+    /// <b>An entry the flight cannot produce halts the flight.</b> It is never rendered as
+    /// an empty section and the gate is never presented with the item missing - a gate
+    /// answered on less than was specified is a decision made by somebody with no way to
+    /// know what is absent. Article XI, one layer out from the fact vocabulary that
+    /// already holds the same rule.
+    /// </para>
+    /// <para>
+    /// Empty is "nothing declared", which is what every envelope written before this
+    /// existed means.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> Evidence { get; init; } = [];
+
+    /// <summary>
     /// When this obligation applies at all, or null when it always does.
     /// </summary>
     /// <remarks>

@@ -97,7 +97,7 @@ public class ConsoleObservationTests
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         var offenders = ConsoleSources()
-            .Where(f => naming.IsMatch(File.ReadAllText(f)))
+            .Where(f => naming.IsMatch(CodeOf(f)))
             .Select(f => Path.GetFileName(f)!)
             .ToList();
 
@@ -124,6 +124,20 @@ public class ConsoleObservationTests
         ],
         DeltaNote = "first ask",
     };
+
+    /// <summary>
+    /// One file's code, without its comments.
+    /// </summary>
+    /// <remarks>
+    /// A rule about what the code DOES must not be tripped by prose explaining the rule -
+    /// and the clearest way to write "nothing here concludes attendance" uses the word. The
+    /// same helper the runner's absence scans use, for the same reason.
+    /// </remarks>
+    private static string CodeOf(string file) =>
+        string.Join('\n', File.ReadAllLines(file)
+            .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)
+                     && !l.TrimStart().StartsWith("*", StringComparison.Ordinal)
+                     && !l.TrimStart().StartsWith("///", StringComparison.Ordinal)));
 
     private static IEnumerable<string> ConsoleSources()
     {

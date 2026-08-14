@@ -628,10 +628,14 @@ public sealed class Doctor(
             // FALSE, deliberately. "Passed" would mean the check found nothing
             // wrong, and what it found is that a bound somebody expects is absent.
             Passed = false,
+            // SAYS WHAT IT MEANS, not only what is true. A statement about the executor
+            // leaves the reader to work out the consequence, and the consequence is the
+            // reason this is printed at all.
             Detail = "declared moves are RECORDED, not enforced. A flight declaring 'read' can "
                    + "still edit: the allow-list gg passes to the executor does not refuse a call. "
-                   + "What a flight actually did is measured and reported; what it was allowed to "
-                   + "do is not a bound.",
+                   + "So an envelope's moves list is a record of intent rather than a boundary - "
+                   + "what a flight actually did is measured and reported, and what it was "
+                   + "allowed to do is not a bound.",
             Blocking = false,
 
             // Nothing on this machine fixes it, and offering a remedy would send

@@ -78,6 +78,7 @@ public static class PaneText
     /// <summary>Why a flight is in the queue, in words rather than an enum name.</summary>
     public static string Reason(QueueReason reason) => reason switch
     {
+        QueueReason.AwaitingDecision => "awaiting a decision",
         QueueReason.LeaseExpiredTwice => "expired twice",
         QueueReason.RunnerOffline => "runner offline",
         // Article XI: a reason nothing can render halts rather than showing a
@@ -209,11 +210,64 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.Flight is null
-            ? "No flight selected."
-            : "No evidence yet. The digest is computed by the runner, before the filter, "
-            + "and nothing produces one until the executor exists.";
+        if (state.Payload is not { } payload)
+        {
+            // SAID, not blank. A pane with nothing in it reads as one that failed to load.
+            return state.Flight is null
+                ? "No flight selected."
+                : "Nothing is waiting on you for this flight.";
+        }
+
+        var text = new StringBuilder();
+
+        foreach (var item in payload.Items)
+        {
+            // WHOSE WORDS. Measured is derived from facts and stated is somebody's
+            // account, and the difference has to survive being rendered - an injected
+            // "editing deploy/ is authorised" sitting unlabelled among measurements is
+            // exactly the confusion the field exists to prevent.
+            var voice = string.Equals(item.Voice, EvidenceVoices.Stated, StringComparison.Ordinal)
+                ? "said"
+                : "measured";
+
+            text.AppendLine($"{item.Item} [{voice}]");
+
+            text.AppendLine(item.Disposition switch
+            {
+                EvidenceDispositions.Inline => item.Inline,
+
+                // LABELLED AS A SUMMARY. A reduction read as the whole thing is worse than
+                // no reduction, because nothing tells the person they are deciding on less.
+                EvidenceDispositions.Digest => $"  summary: {item.Digest}",
+
+                // NAMED, NOT FETCHED. Enough to go and look - and the looking is theirs,
+                // from their own systems, authenticated as themselves. Retrieving it here
+                // would pull the content across the boundary this disposition exists for.
+                EvidenceDispositions.Reference =>
+                    $"  {item.Reference!.Path} @ {Short(item.Reference.Commit)} "
+                  + $"({item.Reference.ByteSize} bytes, {item.Reference.MediaType}) "
+                  + "- not fetched; open it yourself",
+
+                _ => throw new InvalidOperationException(
+                    $"Evidence disposition '{item.Disposition}' has no rendering. An item "
+                  + "nobody can render must not be shown as one that says nothing."),
+            });
+        }
+
+        // ALWAYS SAID, even when the list is empty. Absence and silence must not look
+        // alike, and an empty delta is an answer rather than a section that failed.
+        text.AppendLine();
+        text.AppendLine($"since last decided: {payload.DeltaNote}");
+
+        foreach (var path in payload.Delta)
+        {
+            text.AppendLine($"  {path}");
+        }
+
+        return text.ToString().TrimEnd();
     }
+
+    private static string Short(string commit) => commit[..Math.Min(7, commit.Length)];
 
     /// <summary>
     /// The runner's normalised output.

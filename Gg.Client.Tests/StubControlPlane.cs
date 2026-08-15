@@ -395,7 +395,8 @@ public sealed class StubControlPlane : IAsyncDisposable
 
                 // The mapping the real Engine applies: an approval against the work
                 // shown satisfies the obligation, a rejection leaves it violated.
-                _decidedOutcome = approved ? "satisfied" : "violated";
+                _decidedOutcome = approved
+                    ? ObligationOutcomes.Satisfied : ObligationOutcomes.Violated;
                 _pendingObservations = VisibleAfterPolls;
 
                 if (_pendingObservations <= 0)

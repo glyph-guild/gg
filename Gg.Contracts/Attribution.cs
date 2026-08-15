@@ -47,6 +47,57 @@ public static class Attachments
 }
 
 /// <summary>
+/// What an obligation's verdict may be, as it crosses.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Closed, and fingerprinted with <see cref="Attachments"/> beside it.</b> The
+/// two are read off one endpoint by one client, so a reader current for one is
+/// current for the other - and the verdict was an unconstrained string while the
+/// attachment next to it was closed, which meant a value added to it moved no
+/// ledger and asked nobody to think about it.
+/// </para>
+/// <para>
+/// <b>It shares <c>unevaluable</c> with <see cref="Attachments"/> and means
+/// something else by it.</b> There, the CONDITION could not be read and the
+/// obligation's applicability is unknown. Here, the obligation applied and could
+/// not be MEASURED. Two vocabularies rather than one, because merging them would
+/// make "this rule did not apply" and "this rule could not be checked" the same
+/// value - and the second is a halt.
+/// </para>
+/// <para>
+/// <b>The control plane holds its own copy and always will</b>, because the two
+/// repositories cannot reference each other and its Engine deliberately holds a
+/// third. What this closes is the one that crosses; a test on the other side ties
+/// the spellings together, which is the same trade the runner's outcome spellings
+/// already make.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class ObligationOutcomes
+{
+    /// <summary>It held, for the fact set it was measured against.</summary>
+    public const string Satisfied = "satisfied";
+
+    /// <summary>It did not hold.</summary>
+    public const string Violated = "violated";
+
+    /// <summary>
+    /// It applied and could not be measured. Article XI: it halts.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declared, and nothing writes it today.</b> A halted flight records no
+    /// verdict at all - a verdict set with a hole in it reads as a complete
+    /// answer - so this value is unreachable through the current writer. It is
+    /// here because the store can hold it, and a wire vocabulary missing a value
+    /// the writer can emit is the permissive silence one spelling away.
+    /// </remarks>
+    public const string Unevaluable = "unevaluable";
+
+    public static IReadOnlyList<string> All { get; } = [Satisfied, Violated, Unevaluable];
+}
+
+/// <summary>
 /// Why one obligation applied to a flight, or did not.
 /// </summary>
 /// <remarks>
@@ -90,7 +141,15 @@ public sealed record ObligationAttribution
     /// </remarks>
     public string? Because { get; init; }
 
-    /// <summary>The verdict, when the obligation attached and was evaluated.</summary>
+    /// <summary>
+    /// The verdict, from <see cref="ObligationOutcomes"/>, when the obligation
+    /// attached and was evaluated.
+    /// </summary>
+    /// <remarks>
+    /// Null when it did not attach, or when nobody has measured it yet - which is
+    /// not the same as an outcome saying so. <see cref="Attachment"/> is what
+    /// tells those apart.
+    /// </remarks>
     public string? Outcome { get; init; }
 
     /// <summary>Why, in the Engine's words.</summary>

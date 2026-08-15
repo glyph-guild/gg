@@ -225,7 +225,7 @@ public class FactHygieneTests
           + "\"name\":\"Grep\",\"input\":{\"pattern\":\"\\u001b]0;pwned\\u0007slug\"}}]}}";
 
         var digest = TranscriptDigest.Extract(
-            stream, "implement", ["/work/tree"], LoopOutcomes.Completed, refused: []);
+            stream, "implement", ["/work/tree"], LoopOutcomes.Completed, declared: LoopMoves.All);
 
         await Assert.That(digest.Searches.Single()).DoesNotContain(Esc);
         await Assert.That(digest.Searches.Single()).Contains("slug");

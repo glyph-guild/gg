@@ -59,12 +59,12 @@ public class TranscriptDigestTests
     private static LoopDigest Considered() =>
         TranscriptDigest.Extract(
             Fixture("agent-considered.ndjson"), "implement", ["/work/tree"],
-            LoopOutcomes.Completed, refused: []);
+            LoopOutcomes.Completed, declared: LoopMoves.All);
 
     private static LoopDigest Searched() =>
         TranscriptDigest.Extract(
             Fixture("agent-searched-and-failed.ndjson"), "implement", ["/work/tree"],
-            LoopOutcomes.Completed, refused: []);
+            LoopOutcomes.Completed, declared: LoopMoves.All);
 
     // ---- the signal this step exists for ----
 
@@ -153,11 +153,18 @@ public class TranscriptDigestTests
     [Test]
     public async Task Refused_moves_are_carried_because_they_say_where_the_envelope_fought_the_work()
     {
+        // WHAT THIS USED TO ASSERT: that a list handed in came back out. It was a
+        // pass-through test of a pass-through, and the value handed in was wrong -
+        // it was every undeclared tool the loop reached for, whether or not the
+        // reach worked. The subject is now what the STREAM says was refused, and
+        // DigestTruthTests holds it against a run where the difference is visible.
         var digest = TranscriptDigest.Extract(
             Fixture("agent-considered.ndjson"), "implement", ["/work/tree"],
-            LoopOutcomes.Completed, refused: ["WebFetch", "Write"]);
+            LoopOutcomes.Completed, declared: [LoopMoves.Read, LoopMoves.Edit]);
 
-        await Assert.That(digest.RefusedMoves).IsEquivalentTo((string[])["WebFetch", "Write"]);
+        await Assert.That(digest.RefusedMoves).IsEmpty()
+            .Because("nothing in this run was refused, and a list that filled up anyway "
+                   + "would be describing the envelope rather than the run.");
     }
 
     [Test]
@@ -275,7 +282,7 @@ public class TranscriptDigestTests
           + "\"num_turns\":1,\"result\":\"done\"}";
 
         var digest = TranscriptDigest.Extract(
-            poisoned, "implement", ["/work/tree"], LoopOutcomes.Completed, refused: []);
+            poisoned, "implement", ["/work/tree"], LoopOutcomes.Completed, declared: LoopMoves.All);
 
         await Assert.That(digest.Searches.Single()).DoesNotContain("\u001b");
         await Assert.That(digest.Searches.Single()).Contains("cleared")
@@ -291,7 +298,7 @@ public class TranscriptDigestTests
         var ragged = Fixture("agent-considered.ndjson") + "\n{\"type\":\"assis";
 
         var digest = TranscriptDigest.Extract(
-            ragged, "implement", ["/work/tree"], LoopOutcomes.Completed, refused: []);
+            ragged, "implement", ["/work/tree"], LoopOutcomes.Completed, declared: LoopMoves.All);
 
         await Assert.That(digest.FilesReadNotEdited).IsNotEmpty();
     }

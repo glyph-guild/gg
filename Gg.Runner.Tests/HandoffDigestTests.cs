@@ -37,7 +37,7 @@ public class HandoffDigestTests
     private static LoopDigest Digest(string fixture, string outcome = "completed") =>
         TranscriptDigest.Extract(
             File.ReadAllText(Path.Combine(Root(), "Gg.Runner.Tests", "Fixtures", fixture)),
-            "implement", ["/work/tree"], outcome, refused: []);
+            "implement", ["/work/tree"], outcome, declared: LoopMoves.All);
 
     private static string Root()
     {

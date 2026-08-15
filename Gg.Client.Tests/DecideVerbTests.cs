@@ -39,6 +39,31 @@ public class DecideVerbTests
         Admission = admission,
     };
 
+    /// <summary>
+    /// The report the verb now produces, with the synchronous record still in it.
+    /// </summary>
+    /// <remarks>
+    /// These assertions are about RENDERING, and what is rendered gained a wrapper
+    /// when the verb started observing. The record inside is unchanged, which is
+    /// why every claim below still holds - the shape moved, the content did not.
+    /// </remarks>
+    private static DecisionReport Report(DestinationAdmission? admission = null) => new()
+    {
+        Observation = new Observation
+        {
+            State = ObservationStates.Decided,
+            Because = "Observed on the read surface, which is what the record says.",
+            // The wire carries this spelling with no closed vocabulary behind it,
+            // which is why the differential in DecideObservationTests asserts the
+            // mapping rather than assuming it.
+            Outcome = "satisfied",
+            WaitedSeconds = 0,
+            BoundSeconds = 30,
+            Polls = 1,
+        },
+        Decision = Approved(admission),
+    };
+
     // ---- the client computes nothing ----
 
     [Test]
@@ -210,7 +235,7 @@ public class DecideVerbTests
     [Test]
     public async Task An_approval_that_lets_the_work_land_says_where()
     {
-        var text = VerbOutput.ToText(new VerbResult.Decided(Approved(new DestinationAdmission
+        var text = VerbOutput.ToText(new VerbResult.Decided(Report(new DestinationAdmission
         {
             DestinationId = "pull-request",
             Branch = "gg/GG-42",
@@ -230,7 +255,7 @@ public class DecideVerbTests
     {
         // A decision that changed nothing about landing is a normal outcome, and a blank
         // line would read as one that did.
-        var text = VerbOutput.ToText(new VerbResult.Decided(Approved()));
+        var text = VerbOutput.ToText(new VerbResult.Decided(Report()));
 
         await Assert.That(text).Contains("not yet");
         await Assert.That(text).Contains("outstanding");
@@ -239,7 +264,7 @@ public class DecideVerbTests
     [Test]
     public async Task The_verb_has_json_from_its_first_version()
     {
-        var json = VerbOutput.ToJson(new VerbResult.Decided(Approved()));
+        var json = VerbOutput.ToJson(new VerbResult.Decided(Report()));
 
         await Assert.That(json).Contains("\"outcome\"");
         await Assert.That(json).Contains("approved");

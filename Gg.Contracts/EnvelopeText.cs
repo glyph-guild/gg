@@ -43,7 +43,30 @@ public static class EnvelopeText
     /// obligations that use it, obligations before the loops that discharge
     /// them. Either rule is stable; only one of them reads like a document.
     /// </remarks>
-    public static string Render(Envelope envelope)
+    public static string Render(Envelope envelope) => Render(envelope, withLayers: false);
+
+    /// <summary>
+    /// The composed envelope as a REPORT, each obligation annotated with the layer
+    /// that introduced it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One document answers both questions.</b> A reviewer diffing a flattened
+    /// render can see what governs a flight and cannot see WHICH LAYER CHANGED;
+    /// a per-layer render answers the second and makes the first a mental
+    /// exercise. Annotating the flattened form answers both.
+    /// </para>
+    /// <para>
+    /// <b>It is not authorable, and that is deliberate.</b> The annotation is a
+    /// comment, the parser refuses a declared provenance, and feeding this back in
+    /// would be asking a lower layer to restate what a higher one said. What
+    /// round-trips is <see cref="Render(Envelope)"/>, which is what an author
+    /// wrote.
+    /// </para>
+    /// </remarks>
+    public static string RenderComposed(Envelope envelope) => Render(envelope, withLayers: true);
+
+    private static string Render(Envelope envelope, bool withLayers)
     {
         ArgumentNullException.ThrowIfNull(envelope);
 
@@ -95,7 +118,19 @@ public static class EnvelopeText
             {
                 text.Append($"{Indent}{Indent}approver: {Scalar(approver)}\n");
             }
-            text.Append($"{Indent}{Indent}provenance: {Scalar(obligation.Provenance)}\n");
+            // THE AUTHORED FORM CARRIES NO PROVENANCE, because an author does not
+            // write it - the composer assigns it from where the document sat, and
+            // the parser refuses a document that tries to say. Rendering it here
+            // would emit a line that cannot be read back, which is a round trip
+            // that fails on its own output.
+            //
+            // RenderComposed is where it appears, and that render is a REPORT
+            // rather than a document: it answers "what governs this flight and
+            // which layer said so", and it is deliberately not authorable.
+            if (withLayers)
+            {
+                text.Append($"{Indent}{Indent}# layer: {obligation.Provenance}\n");
+            }
         }
 
         text.Append("loops:\n");

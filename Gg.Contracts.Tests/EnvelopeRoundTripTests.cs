@@ -144,7 +144,6 @@ public class EnvelopeRoundTripTests
               in-scope:
                 check: machine
                 rule: no-file-outside-scope
-                provenance: org
             loops:
               implement:
                 executor: frontier

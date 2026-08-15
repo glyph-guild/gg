@@ -833,7 +833,12 @@ public static class VerbOutput
             text.AppendLine();
             text.AppendLine($"{Clean(gate.FlightNumber)} - {Clean(gate.ObligationId)}");
             text.AppendLine($"  approver: {Clean(gate.Approver)}");
-            text.AppendLine($"  commit:   {Clean(Short(gate.Commit))} on {Clean(gate.Branch)}");
+            // A DECISION THAT IS NOT ABOUT A REPOSITORY SAYS SO, rather than
+            // printing an empty commit on an empty branch. The two absences render
+            // as one sentence because they are one fact: there is no code here.
+            text.AppendLine(gate.Commit is { Length: > 0 } commit
+                ? $"  commit:   {Clean(Short(commit))} on {Clean(gate.Branch ?? "an unnamed branch")}"
+                : "  commit:   none - this decision is not about a repository");
 
             if (gate.Condition is { Length: > 0 } condition)
             {

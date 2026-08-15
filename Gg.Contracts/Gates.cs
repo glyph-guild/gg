@@ -34,11 +34,42 @@ public sealed record PendingGate
     /// <summary>Who may decide, from the envelope.</summary>
     public required string Approver { get; init; }
 
-    /// <summary>The branch the work was pushed to.</summary>
-    public required string Branch { get; init; }
+    /// <summary>
+    /// The branch the work was pushed to, or null when the decision is not about
+    /// a repository.
+    /// </summary>
+    /// <remarks>
+    /// See <see cref="Commit"/> for why these became nullable and what it costs.
+    /// </remarks>
+    public string? Branch { get; init; }
 
-    /// <summary>The commit under review.</summary>
-    public required string Commit { get; init; }
+    /// <summary>
+    /// The commit under review, or null when the decision is not about a
+    /// repository.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nullable because a destination is not always somewhere code goes.</b>
+    /// An envelope-change flight has no repository, no runner and no commit, and
+    /// somebody still has to decide it. Requiring these two made <i>flight</i>
+    /// mean <i>agent run against a branch</i> in the one type a person reads when
+    /// they are asked to answer for something.
+    /// </para>
+    /// <para>
+    /// <b>Null, never an empty string.</b> A gate carrying <c>commit: ""</c>
+    /// makes "no commit" and "a commit nobody recorded" the same value - Article
+    /// XI's failure with the fields swapped, and the harder one to notice,
+    /// because the renderer prints a blank either way.
+    /// </para>
+    /// <para>
+    /// <b>The rule these encoded is unchanged.</b> A gate about work in a
+    /// repository still waits for the push - a decision about a tree on somebody's
+    /// machine is a decision nobody can act on - and that is now a rule about
+    /// repository destinations rather than a rule about gates. A reader that
+    /// treated a present commit as proof the work is fetchable is still right.
+    /// </para>
+    /// </remarks>
+    public string? Commit { get; init; }
 
     /// <summary>
     /// The evidence manifest hash this gate was opened against.

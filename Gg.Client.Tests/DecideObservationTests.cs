@@ -21,8 +21,9 @@ namespace Gg.Client.Tests;
 /// worth stating. The response says what was DECIDED - <c>approved</c> or
 /// <c>rejected</c>. The read surface says what the obligation now IS -
 /// <c>satisfied</c> or <c>violated</c>. The mapping between them is the Engine's,
-/// not the client's, and the wire declares no closed vocabulary for the second
-/// pair - so it is asserted here rather than assumed anywhere.
+/// not the client's, so it is asserted here rather than assumed anywhere. Both
+/// pairs are closed vocabularies since 0.34.0 - the second one was a bare string,
+/// and this differential was the only thing holding its spelling.
 /// </para>
 /// </remarks>
 public class DecideObservationTests
@@ -93,7 +94,7 @@ public class DecideObservationTests
 
         // The mapping, stated rather than assumed: approved satisfies the
         // obligation, and that is the Engine's rule rather than the client's.
-        await Assert.That(report.Observation.Outcome).IsEqualTo("satisfied");
+        await Assert.That(report.Observation.Outcome).IsEqualTo(ObligationOutcomes.Satisfied);
         await Assert.That(report.Decision!.Outcome).IsEqualTo(DecisionOutcomes.Approved);
     }
 
@@ -110,7 +111,7 @@ public class DecideObservationTests
             stub, DecisionOutcomes.Rejected, reason: "the migration is not reversible");
 
         await Assert.That(report.Decision!.Outcome).IsEqualTo(DecisionOutcomes.Rejected);
-        await Assert.That(report.Observation.Outcome).IsEqualTo("violated");
+        await Assert.That(report.Observation.Outcome).IsEqualTo(ObligationOutcomes.Violated);
         await Assert.That(report.Observation.State).IsEqualTo(ObservationStates.Decided)
             .Because("a rejection is a decision that was recorded. `refused` is what the "
                    + "control plane says about the SUBMISSION, and conflating the two would "

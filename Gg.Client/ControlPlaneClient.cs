@@ -456,7 +456,12 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
-            return null;
+            // RAISED RATHER THAN RETURNED AS NULL. Null now means "accepted, and
+            // there is nothing to answer with", so a missing flight needs a value
+            // of its own or the two collapse - and the one that collapses quietly
+            // is the one that reports success.
+            throw new FlightNotFoundException(
+                $"No flight {reference}. Run gg flights to see what is there.");
         }
 
         if (response.StatusCode == HttpStatusCode.Conflict)
@@ -478,6 +483,21 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         }
 
         response.EnsureSuccessStatusCode();
+
+        // ACCEPTED, WITH NOTHING TO SAY. ADR-0012: the write is a command, so the
+        // control plane takes the decision and the caller learns what happened by
+        // looking. Null is the answer rather than an error - `gg decide` already
+        // observes, and the record it used to render was carried beside the
+        // observation and consulted by nothing.
+        //
+        // The 200 branch below is TOLERATED while a control plane that still
+        // answers inline exists, which is what lets the two repositories land this
+        // in either order. When none does, it is dead and deleting it is a change
+        // with its own reason.
+        if (response.StatusCode == HttpStatusCode.Accepted)
+        {
+            return null;
+        }
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.DecisionRecorded, cancellationToken);

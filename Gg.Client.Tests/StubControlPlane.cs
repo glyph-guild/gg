@@ -139,6 +139,13 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, a decision is refused with this diagnosis and a 400.</summary>
     public string? RefuseDecision { get; set; }
 
+    /// <summary>
+    /// When set, a decision is accepted with 202 and no body - the shape ADR-0012
+    /// step 2 produces, where the write is a command and there is nothing to answer
+    /// with.
+    /// </summary>
+    public bool AcceptsWithoutRecording { get; set; }
+
     /// <summary>Every decision this stub recorded.</summary>
     public List<DecisionRecorded> Decisions { get; } = [];
 
@@ -415,6 +422,15 @@ public sealed class StubControlPlane : IAsyncDisposable
                 };
 
                 Decisions.Add(recorded);
+
+                if (AcceptsWithoutRecording)
+                {
+                    // ACCEPTED, NOT ANSWERED. The gate still closes and the verdict
+                    // still lands - what is gone is the caller being told inline.
+                    await WriteAsync(context, 202, "");
+                    return;
+                }
+
                 await WriteJsonAsync(context, 200, recorded);
                 return;
             }

@@ -274,10 +274,19 @@ public static class ProtocolSurface
             Path = "/v1/flights/{ref}/decisions",
             Audience = Audience.Developer,
             Request = typeof(DecisionRequest),
-            Response = typeof(DecisionRecorded),
-            // 409 when the work moved between being shown and being decided: the
-            // decision is refused rather than recorded against something nobody saw.
-            Statuses = [200, 400, 401, 403, 404, 409, ProtocolTooOld],
+            // NO RESPONSE BODY. ADR-0012: the write is a command, so the control
+            // plane accepts the decision and the caller learns what happened by
+            // reading. Answering inline would mean the endpoint had to wait for its
+            // own event to land, which is the blocking read this whole change
+            // removes.
+            Response = null,
+            // 202, not 200. The decision is taken and nothing is answered with.
+            //
+            // 409 SURVIVES, and that is not an inconsistency: a decision made
+            // against work that has since moved is refused BEFORE anything is
+            // dispatched, from state the request already has. What became
+            // asynchronous is the recording, not the admission check on the way in.
+            Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()

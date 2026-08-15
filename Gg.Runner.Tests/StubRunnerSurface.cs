@@ -27,6 +27,21 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
 
     internal HttpStatusCode ClaimStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>
+    /// The lease to grant, when a test needs one that does something.
+    /// </summary>
+    /// <remarks>
+    /// Null keeps the flat lease every surface-conformance test already asserts
+    /// against - no repository, no loop - so adding this changes nothing for them.
+    /// </remarks>
+    internal LeaseGranted? Grant { get; set; }
+
+    /// <summary>Every fact batch body this surface was sent, as it arrived.</summary>
+    internal List<string> FactBodies { get; } = [];
+
+    /// <summary>Called when a batch arrives, so a test can stop the runner.</summary>
+    internal Action? OnFacts { get; set; }
+
     internal HttpStatusCode RenewStatus { get; set; } = HttpStatusCode.OK;
 
     internal HttpStatusCode ReleaseStatus { get; set; } = HttpStatusCode.OK;
@@ -152,7 +167,7 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
                 }
                 else
                 {
-                    await WriteJsonAsync(context, 200, new LeaseGranted
+                    await WriteJsonAsync(context, 200, Grant ?? new LeaseGranted
                     {
                         LeaseId = "lease-9",
                         Generation = 3,
@@ -168,6 +183,24 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
                         RenewWithinSeconds = 30,
                     });
                 }
+            }
+            else if (path.EndsWith("/facts", StringComparison.Ordinal))
+            {
+                using (var body = new StreamReader(context.Request.InputStream))
+                {
+                    FactBodies.Add(await body.ReadToEndAsync());
+                }
+
+                // ABSENT MEANS NO, on both gates. A stub that granted a push would
+                // be handing a runner permission the control plane never gave.
+                await WriteJsonAsync(context, 200, new FactBatchAccepted
+                {
+                    Accepted = 0,
+                    Duplicates = 0,
+                    Rejected = [],
+                });
+
+                OnFacts?.Invoke();
             }
             else if (path.EndsWith("/renew", StringComparison.Ordinal))
             {

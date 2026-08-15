@@ -13,6 +13,18 @@ public sealed record ProbeResult
 
     /// <summary>What it cost. An agent invocation is not free and the number is owed.</summary>
     public required TimeSpan Took { get; init; }
+
+    /// <summary>
+    /// Where it worked, so a caller can say whether anything survived.
+    /// </summary>
+    /// <remarks>
+    /// Reported rather than left implicit, because "the probe leaves nothing
+    /// behind" is a property of THIS probe's directory. A test that answered it by
+    /// counting scratch directories under the system temp root was really
+    /// answering a question about whatever else was running, and failed when a
+    /// sibling probe was mid-flight.
+    /// </remarks>
+    public required string Workspace { get; init; }
 }
 
 /// <summary>
@@ -100,6 +112,7 @@ public static class MoveBoundProbe
             {
                 Bound = !appeared,
                 Took = DateTimeOffset.UtcNow - started,
+                Workspace = root,
                 Diagnosis = appeared
                     ? $"An agent asked to create {Canary} with only 'read' declared created it. "
                     + "The declared moves do not bound what an agent may do on this machine, so a "
@@ -117,6 +130,7 @@ public static class MoveBoundProbe
             {
                 Bound = false,
                 Took = DateTimeOffset.UtcNow - started,
+                Workspace = root,
                 Diagnosis = "Whether declared moves bound this executor could not be measured: "
                           + failure.Message,
             };

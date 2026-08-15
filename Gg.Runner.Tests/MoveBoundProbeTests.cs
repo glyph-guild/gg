@@ -126,20 +126,17 @@ public class MoveBoundProbeTests
     {
         // It runs on a customer's machine, at startup, every time. A probe that
         // accumulated scratch directories would be a disk leak with a schedule.
-        // The DIFFERENCE rather than the count, because other tests in this file
-        // run concurrently and have probe directories of their own in flight. A
-        // count would make this test about the scheduler.
-        var before = Directory
-            .GetDirectories(Path.GetTempPath(), "gg-move-probe*")
-            .ToHashSet(StringComparer.Ordinal);
+        // THE PROBE'S OWN DIRECTORY, which is the only one this claim is about.
+        // Counting scratch directories under the system temp root - or diffing the
+        // set - answers a question about whatever else is running, and both forms
+        // failed when a sibling test's probe was mid-flight.
+        var bound = await MoveBoundProbe.RunAsync(Bound(), CancellationToken.None);
+        var unbound = await MoveBoundProbe.RunAsync(Unbound(), CancellationToken.None);
 
-        await MoveBoundProbe.RunAsync(Bound(), CancellationToken.None);
-        await MoveBoundProbe.RunAsync(Unbound(), CancellationToken.None);
-
-        await Assert.That(Directory
-                .GetDirectories(Path.GetTempPath(), "gg-move-probe*")
-                .Except(before, StringComparer.Ordinal))
-            .IsEmpty();
+        await Assert.That(Directory.Exists(bound.Workspace)).IsFalse();
+        await Assert.That(Directory.Exists(unbound.Workspace)).IsFalse()
+            .Because("the failing path cleans up too, and it is the one that would not have "
+                   + "been noticed.");
     }
 
     [Test]

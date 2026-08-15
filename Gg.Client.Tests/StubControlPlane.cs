@@ -99,6 +99,52 @@ public sealed class StubControlPlane : IAsyncDisposable
         Facts = [],
     };
 
+    // ---- the gate a decision is made against ----
+
+    /// <summary>
+    /// The one gate this stub is holding open, or null once it is answered.
+    /// </summary>
+    /// <remarks>
+    /// Modelled on the real control plane rather than invented: exactly one thing
+    /// closes a gate and it is a decision, so a gate that stops being open is a
+    /// decision having been recorded. That is the signal the observe loop reads,
+    /// and it is only a fair test if this behaves the same way.
+    /// </remarks>
+    public PendingGate? OpenGate { get; set; } = new()
+    {
+        FlightNumber = FlightRef.Format(42),
+        ObligationId = "reversibility-plan",
+        Approver = "platform-oncall",
+        Branch = "gg/GG-42",
+        Commit = new string('a', 40),
+        ManifestHash = new string('m', 64),
+        Because = "this obligation declares no condition, so it always applies.",
+        AwaitingSince = DateTimeOffset.UnixEpoch,
+        Attempt = 1,
+    };
+
+    /// <summary>The obligation's verdict, as `why` would report it. Null until decided.</summary>
+    public string? ObservedOutcome { get; private set; }
+
+    /// <summary>
+    /// How many observations answer "not yet" before the write becomes visible.
+    /// </summary>
+    /// <remarks>
+    /// Zero is today: the write is synchronous, so the first look succeeds.
+    /// Anything above zero is step 2 arriving early, which is the only way to test
+    /// the waiting before the thing being waited for exists.
+    /// </remarks>
+    public int VisibleAfterPolls { get; set; }
+
+    /// <summary>When set, a decision is refused with this diagnosis and a 400.</summary>
+    public string? RefuseDecision { get; set; }
+
+    /// <summary>Every decision this stub recorded.</summary>
+    public List<DecisionRecorded> Decisions { get; } = [];
+
+    private int _pendingObservations;
+    private string? _decidedOutcome;
+
     public StubControlPlane()
     {
         (_listener, BaseAddress) = BindLoopback();
@@ -304,6 +350,94 @@ public sealed class StubControlPlane : IAsyncDisposable
                     ],
                 });
                 return;
+
+            case "/v1/gates":
+                // THE WRITE BECOMING VISIBLE, ONE OBSERVATION AT A TIME. Counted
+                // here because this is the route every observation reads first -
+                // a counter on `why` would never tick, since the loop stops at an
+                // open gate and never gets that far.
+                if (_pendingObservations > 0 && --_pendingObservations <= 0)
+                {
+                    OpenGate = null;
+                    ObservedOutcome = _decidedOutcome;
+                }
+
+                await WriteJsonAsync(context, 200, new GateList
+                {
+                    Gates = OpenGate is { } open ? [open] : [],
+                });
+                return;
+
+            case var _ when path.EndsWith("/decisions", StringComparison.Ordinal)
+                         && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
+            {
+                if (RefuseDecision is { Length: > 0 } refusedWith)
+                {
+                    await WriteAsync(context, 400, refusedWith);
+                    return;
+                }
+
+                var request = JsonSerializer.Deserialize(
+                    LastBody, ProtocolJsonContext.Default.DecisionRequest)!;
+
+                if (OpenGate is null)
+                {
+                    // WHAT THE REAL ONE DOES ON A REPEAT, and it is why the retry
+                    // hazard exists: the gate is closed, so a second submission of
+                    // a decision that SUCCEEDED is answered as though nobody asked.
+                    await WriteAsync(context, 400,
+                        $"Nothing is waiting on a decision about '{request.ObligationId}'.");
+                    return;
+                }
+
+                var approved = string.Equals(
+                    request.Outcome, DecisionOutcomes.Approved, StringComparison.Ordinal);
+
+                // The mapping the real Engine applies: an approval against the work
+                // shown satisfies the obligation, a rejection leaves it violated.
+                _decidedOutcome = approved ? "satisfied" : "violated";
+                _pendingObservations = VisibleAfterPolls;
+
+                if (_pendingObservations <= 0)
+                {
+                    OpenGate = null;
+                    ObservedOutcome = _decidedOutcome;
+                }
+
+                var recorded = new DecisionRecorded
+                {
+                    FlightNumber = FlightRef.Format(42),
+                    ObligationId = request.ObligationId,
+                    Outcome = request.Outcome,
+                    DecidedBy = "someone@example.test",
+                    DecidedAt = new DateTimeOffset(2026, 8, 15, 14, 0, 0, TimeSpan.Zero),
+                };
+
+                Decisions.Add(recorded);
+                await WriteJsonAsync(context, 200, recorded);
+                return;
+            }
+
+            case var _ when path.EndsWith("/why", StringComparison.Ordinal)
+                         && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
+            {
+                await WriteJsonAsync(context, 200, new FlightAttribution
+                {
+                    FlightNumber = FlightRef.Format(42),
+                    EnvelopeVersion = "v1",
+                    Obligations =
+                    [
+                        new ObligationAttribution
+                        {
+                            ObligationId = "reversibility-plan",
+                            Attachment = Attachments.Attached,
+                            Because = "this obligation declares no condition.",
+                            Outcome = ObservedOutcome,
+                        },
+                    ],
+                });
+                return;
+            }
 
             case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal) && FlightNotFound:
                 await WriteAsync(context, 404, "");

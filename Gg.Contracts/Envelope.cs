@@ -11,7 +11,47 @@ public static class ExecutorRungs
 {
     public const string Frontier = "frontier";
 
-    public static IReadOnlyList<string> All { get; } = [Frontier];
+    /// <summary>
+    /// A person does the work, and nothing automated runs this loop.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named rather than borrowed.</b> The alternative was <c>frontier</c>
+    /// with nobody listening, and a rung says what discharges the loop: recording
+    /// an agent rung for work no agent does makes every later count of <i>how
+    /// much did the machine do</i> wrong in the flattering direction, on the one
+    /// measurement this product exists to be honest about.
+    /// </para>
+    /// <para>
+    /// <b>It is the bottom of the ladder, not a rung outside it.</b>
+    /// <c>on-failure: escalate</c> needed somewhere to escalate TO; this is
+    /// somewhere to escalate FROM, and the two arrived at opposite ends of the
+    /// same list.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version.</b> A value in a closed enumeration, so the
+    /// only safe response to it in a prior reader is to halt. Existing envelopes
+    /// are unchanged in meaning - none of them named this - and every reader that
+    /// meets it for the first time stops rather than guessing which rung it is.
+    /// </para>
+    /// </remarks>
+    public const string Human = "human";
+
+    /// <summary>
+    /// Both rungs. A SET today, and deliberately not declared ordered.
+    /// </summary>
+    /// <remarks>
+    /// The type above calls this a ladder, and nothing reads a position on it -
+    /// no <c>Outranks</c>, no escalation, no comparison. <c>ObligationProvenances</c>
+    /// is declared <c>Ordered</c> because something DOES read its position, and
+    /// copying that here would protect an ordering nothing depends on while
+    /// implying one that is not enforced. The day <c>on-failure: escalate</c>
+    /// reads which rung is higher, this needs <c>Ordered = true</c> in the same
+    /// commit - otherwise swapping these two changes which way escalation goes and
+    /// moves no fingerprint, which is the defect this codebase has now found
+    /// twice.
+    /// </remarks>
+    public static IReadOnlyList<string> All { get; } = [Frontier, Human];
 }
 
 /// <summary>Who or what discharges an obligation.</summary>
@@ -155,7 +195,35 @@ public static class DestinationKinds
 {
     public const string PullRequest = "pull-request";
 
-    public static IReadOnlyList<string> All { get; } = [PullRequest];
+    /// <summary>
+    /// The tenant's own envelope. Not a repository, and that is the point.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first destination that is not somewhere code goes.</b> Everything
+    /// the model claims - a destination is a target plus its admission
+    /// conditions, and admission is decided control-plane-side from recorded
+    /// verdicts - was only ever exercised against a git remote, so it was
+    /// impossible to tell the general claim from a repository-shaped one written
+    /// generally.
+    /// </para>
+    /// <para>
+    /// <b>What lands here is a proposal, and landing it is what makes it
+    /// effective.</b> The proposal is durable and held outside the envelope
+    /// stream, so every version in that stream stays in force by construction:
+    /// there is no proposed-but-effective state for a reader to have to tell
+    /// apart from an applied one.
+    /// </para>
+    /// <para>
+    /// <b>It cannot relax the gate that governs it</b>, and that falls out of a
+    /// rule that already existed rather than a new check. A flight pins the
+    /// envelope in force when it opened, so a proposal is evaluated against what
+    /// governs now and never against what it is asking for.
+    /// </para>
+    /// </remarks>
+    public const string EnvelopeChange = "envelope-change";
+
+    public static IReadOnlyList<string> All { get; } = [PullRequest, EnvelopeChange];
 }
 
 /// <summary>
@@ -613,6 +681,23 @@ public sealed record Envelope
                     return $"Unknown move '{unknownMove}' on loop '{loop.Id}'. Expected one of: "
                          + string.Join(", ", LoopMoves.All) + ".";
                 }
+            }
+
+            // A PERMISSION NOTHING ENFORCES, refused where an author can still do
+            // something about it. A move is bound by the executor the runner
+            // starts - the runner refuses to take work when it cannot bind one -
+            // and a human rung starts no executor, so a move declared here would
+            // be granted by the envelope, enforced by nothing, and reported on by
+            // nothing. That is the shape `write` was added to stop being, arriving
+            // through a different door.
+            if (string.Equals(loop.Executor, ExecutorRungs.Human, StringComparison.Ordinal)
+                && loop.Moves is [var declared, ..])
+            {
+                return $"Loop '{loop.Id}' runs at the '{ExecutorRungs.Human}' rung and declares "
+                     + $"move '{declared}'. Moves are bound by the executor a runner starts, and "
+                     + "this rung starts none - so the move would be granted by the envelope and "
+                     + "enforced by nothing. A person's permissions are their account's, not this "
+                     + "document's.";
             }
 
             if (!EnvelopeDurations.TryParse(loop.Budget.WallClock, out _))

@@ -29,9 +29,11 @@ public static class DoctorChecks
     /// </summary>
     /// <remarks>
     /// <b>Because the honest answer is weaker than the field name suggests.</b> Moves
-    /// are recorded and not enforced: the executor's allow-list does not bind, so a
-    /// flight declaring <c>read</c> can edit. Somebody reading an envelope will
-    /// otherwise assume a bound exists, and silent degradation writes a line.
+    /// are recorded and only partly enforced: the executor's allow-list binds some
+    /// tools and not others, so a flight declaring <c>read</c> is refused an edit and
+    /// is not stopped from running a shell command that edits anyway. Somebody
+    /// reading an envelope will otherwise assume a whole bound exists, and a partial
+    /// one presented as none is as misleading as none presented as whole.
     /// </remarks>
     public const string Moves = "moves";
 
@@ -612,8 +614,16 @@ public sealed class Doctor(
     /// <b>Always reported, never blocking, and never passing.</b> Not a failure of
     /// this machine's setup - it is a property of the product, and a person reading
     /// an envelope's <c>moves</c> list would otherwise reasonably assume it bounds
-    /// what an agent may do. Measured rather than assumed: the allow-list passed to
-    /// the executor does not refuse a call, and the deny-list would.
+    /// what an agent may do.
+    /// <para>
+    /// <b>Re-measured, and the old wording was wrong.</b> It said a flight declaring
+    /// `read` can still edit, on the strength of a measurement taken with a command
+    /// this product does not run - the binary invoked without the flag the bound
+    /// rests on. It cannot edit. It can run shell commands, because the bound is per
+    /// tool, and the whole of it is contingent on a flag whose mechanism is not
+    /// characterised - which is why the runner now proves it at startup and refuses
+    /// to take work when it does not hold.
+    /// </para>
     /// </remarks>
     private static DoctorCheck MovesCheck() =>
         new()
@@ -631,11 +641,13 @@ public sealed class Doctor(
             // SAYS WHAT IT MEANS, not only what is true. A statement about the executor
             // leaves the reader to work out the consequence, and the consequence is the
             // reason this is printed at all.
-            Detail = "declared moves are RECORDED, not enforced. A flight declaring 'read' can "
-                   + "still edit: the allow-list gg passes to the executor does not refuse a call. "
-                   + "So an envelope's moves list is a record of intent rather than a boundary - "
-                   + "what a flight actually did is measured and reported, and what it was "
-                   + "allowed to do is not a bound.",
+            Detail = "declared moves are PARTLY enforced, and not enforced as a whole. Measured "
+                   + "one tool at a time: a flight declaring 'read' is refused an edit and is NOT "
+                   + "stopped from running shell commands, which can edit anyway. So an envelope's "
+                   + "moves list is a partial boundary and a full record of intent - what a flight "
+                   + "actually did is measured and reported, and what it was allowed to do bounds "
+                   + "some of it. The runner proves the bound before it takes any work and "
+                   + "refuses to run if it does not hold.",
             Blocking = false,
 
             // Nothing on this machine fixes it, and offering a remedy would send

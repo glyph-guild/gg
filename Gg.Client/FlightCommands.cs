@@ -178,9 +178,12 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
                             Observations = observations,
                             Reason = clean,
                         },
-                        ct)
-                        ?? throw NoSuchFlight(reference);
+                        ct);
 
+                    // NULL IS "ACCEPTED WITH NOTHING TO SAY" NOW, not "no such
+                    // flight" - a flight that does not exist raises from the
+                    // transport, because the two answers used to share a value and
+                    // one of them stopped being exceptional.
                     return null;
                 }
                 catch (DecisionRefusedException refused)

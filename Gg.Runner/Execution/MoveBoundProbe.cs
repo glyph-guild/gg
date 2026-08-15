@@ -25,6 +25,16 @@ public sealed record ProbeResult
     /// sibling probe was mid-flight.
     /// </remarks>
     public required string Workspace { get; init; }
+
+    /// <summary>
+    /// Which tools this probe proved were withheld.
+    /// </summary>
+    /// <remarks>
+    /// What it MEASURED, not what the executor claims. It crosses on
+    /// environment.identity so a fact set says what was proven on that machine
+    /// rather than what a capability record asserted about the adapter.
+    /// </remarks>
+    public required IReadOnlyList<string> Withheld { get; init; }
 }
 
 /// <summary>
@@ -113,6 +123,7 @@ public static class MoveBoundProbe
                 Bound = !appeared,
                 Took = DateTimeOffset.UtcNow - started,
                 Workspace = root,
+                Withheld = appeared ? [] : [ClaudeCodeExecutor.ToolFor(LoopMoves.Write)],
                 Diagnosis = appeared
                     ? $"An agent asked to create {Canary} with only 'read' declared created it. "
                     + "The declared moves do not bound what an agent may do on this machine, so a "
@@ -131,6 +142,7 @@ public static class MoveBoundProbe
                 Bound = false,
                 Took = DateTimeOffset.UtcNow - started,
                 Workspace = root,
+                Withheld = [],
                 Diagnosis = "Whether declared moves bound this executor could not be measured: "
                           + failure.Message,
             };

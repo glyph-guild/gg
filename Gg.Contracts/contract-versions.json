@@ -119,5 +119,10 @@
     "version": "0.29.0",
     "surface": "b03b9bc2db32ad6b2657be8ab961e80d0743c39b469a4a89aa79e19b3ac7bba6",
     "note": "The evidence payload. Obligation gains `evidence` - what a gate needs before anybody can answer it, declared in the envelope so the requirement is reviewed configuration rather than whatever the assembler had to hand, and an entry the flight cannot produce halts it rather than rendering a blank. Three new pinned types carry the case put to a person: GateEvidencePayload, GateEvidenceItem and EvidenceReference, the last with deliberately nowhere for a body to travel. Three new closed vocabularies with them: EvidenceItems, EvidenceDispositions - inline, digest, reference, and no fourth, so a shortened item is unrepresentable rather than merely unused - and EvidenceVoices, which marks a piece of evidence as measured or stated so an agent's words stay visibly different in kind from a verdict computed from facts. Also carries the vocabulary-membership attribute and its closure check; see fact-vocabulary 0.12.0 for why."
+  },
+  {
+    "version": "0.30.0",
+    "surface": "b6c7ae1cb9c92d5f4e9eb5358f87bd3e0a9c94f172500e61ca032614ff47b8c0",
+    "note": "The write move and the environment's account of what bounds it. LoopMoves gains `write` - a VALUE in a closed enumeration, so it costs a fact-vocabulary bump to 0.13.0 and its ledger entry, and it is what finally lets a flight create a file. environment.identity gains moveEnforcement and movesProbed, behind a new MoveEnforcements vocabulary, so a fact set says how much this machine's executor actually bound and what was proven rather than assumed. LoopBudget gains attempts - flight-level, the reject-and-rerun cycle, and NOT the agent's internal turns, which are already called attempts on loop.outcome and would spend a budget of five on one loop thinking. A member, so it costs nothing and rides the value's bump."
   }
 ]

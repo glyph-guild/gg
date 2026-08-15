@@ -56,6 +56,18 @@ public interface IRunnerObserver
     void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed);
 
     /// <summary>
+    /// A loop wanted something its envelope does not declare, and this says what
+    /// to add and where.
+    /// </summary>
+    /// <remarks>
+    /// The move and the envelope path, never a line of what the agent was trying
+    /// to do with it. This goes to stdout, and stdout is what a customer pastes
+    /// into a ticket - which is exactly who needs to know an envelope is one word
+    /// short.
+    /// </remarks>
+    void MoveRefused(string diagnosis);
+
+    /// <summary>
     /// The work landed somewhere, or was refused, and this says which.
     /// </summary>
     /// <remarks>
@@ -98,6 +110,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void WorkspaceFailed(string diagnosis) { }
     public void FactsShipped(int count) { }
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) { }
+    public void MoveRefused(string diagnosis) { }
     public void Landed(string outcome, string detail) { }
     public void Held(string flightNumber, string path, long bytes) { }
 }
@@ -135,7 +148,8 @@ public sealed class RunnerLoop(
     IWorkspace workspace,
     IExecutorPort? executor = null,
     TranscriptStore? transcripts = null,
-    IReadOnlyList<IDestinationAdapter>? destinations = null)
+    IReadOnlyList<IDestinationAdapter>? destinations = null,
+    (string Enforcement, IReadOnlyList<string> Withheld)? moveBound = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -170,6 +184,16 @@ public sealed class RunnerLoop(
     /// surviving as the default.
     /// </remarks>
     private readonly IReadOnlyList<IDestinationAdapter> _destinations = destinations ?? [];
+
+    /// <summary>
+    /// What this machine's executor was proven to bound, from the startup probe.
+    /// </summary>
+    /// <remarks>
+    /// Measured once, before any work was claimed, and carried onto every fact
+    /// set this runner ships - so a flight's record says what actually held on
+    /// the machine that ran it rather than what an adapter claimed about itself.
+    /// </remarks>
+    private readonly (string Enforcement, IReadOnlyList<string> Withheld)? _moveBound = moveBound;
 
     /// <summary>
     /// Flights whose work reached a remote, so their tree is finished with.
@@ -447,6 +471,17 @@ public sealed class RunnerLoop(
             cancellationToken);
 
         _observer.LoopFinished(run.LoopId, run.Outcome, run.Attempts, run.MovesUsed);
+
+        // WHAT WAS NEEDED AND WHERE TO ADD IT. A refusal that only says no teaches
+        // people to want a rejection reason that can widen an envelope, and that
+        // was refused on governance grounds - so the way out has to be a sentence
+        // somebody can act on through the envelope itself.
+        if (run.Digest is { } digest
+            && MoveRefusal.Diagnose(digest.RefusedMoves, loop.LoopId) is { } refusal)
+        {
+            _observer.MoveRefused(refusal);
+        }
+
         return run;
     }
 
@@ -470,7 +505,8 @@ public sealed class RunnerLoop(
                 // of what was checked out, and with no repository there is
                 // nothing to hash and the fact is about the machine alone.
                 workspace.Trees.Count > 0 ? workspace.Trees[0].Path : null,
-                workspace.Reused ? EnvironmentProvenance.Reused : EnvironmentProvenance.Fresh)),
+                workspace.Reused ? EnvironmentProvenance.Reused : EnvironmentProvenance.Fresh,
+                bound: _moveBound)),
         };
 
         foreach (var tree in workspace.Trees)

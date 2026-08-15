@@ -237,7 +237,34 @@ public static class FactVocabulary
     ///
     /// A version computed by a corrected instrument cannot reproduce a reading taken by
     /// the broken one. That is what this bump records.
-    public const string Version = "0.12.0";
+    /// 0.13.0 ADDS A FIFTH LoopMoves VALUE, `write`, and two members to
+    /// environment.identity. The value is why this bumps: a member may be added
+    /// freely and a value may not, because the only safe response to an unknown
+    /// value is to halt.
+    ///
+    /// THE MOVE. Nothing in the vocabulary granted putting bytes at a path, so no
+    /// flight could create a file - and `when: change.manifest touches
+    /// migrations/**`, the gate this design is built around, most often fires on a
+    /// NEW migration. It is spelled `write` and not `create` because the tool
+    /// overwrites, and `create` would be a name true of one of its two uses. It is
+    /// a new value rather than a widening of `edit`, because widening `edit` would
+    /// change what an already-declared move permits for every envelope in force,
+    /// retroactively, with nothing in the record marking the day.
+    ///
+    /// Existing envelopes are unchanged in meaning. They cannot create files,
+    /// which they could not before either.
+    ///
+    /// THE MEMBERS. environment.identity gains what this machine's executor
+    /// actually bounds - the declared enforcement level, from the new
+    /// MoveEnforcements vocabulary, and the tools a startup probe PROVED were
+    /// withheld. Deliberately not a boolean saying the bound held: the runner
+    /// refuses to take work when it does not, so that member would be constant
+    /// across every flight that exists and would record nothing.
+    ///
+    /// ONE BUMP FOR BOTH, because two would mean two ledger entries, two release
+    /// assets and two re-pins - and the second re-pin conflicts with the first in
+    /// the two files every step already touches.
+    public const string Version = "0.13.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -346,6 +373,29 @@ public sealed record ToolVersion
 /// Paths, counts and hashes. There is no member here that could carry a file.
 /// </para>
 /// </remarks>
+/// <summary>How completely an executor bounds the moves an envelope declares.</summary>
+/// <remarks>
+/// <b>Three states, because a boolean could not hold the answer.</b> On the one
+/// executor this product has, <c>Edit</c> and <c>Write</c> are refused at the
+/// call, <c>Grep</c> is removed from the tool list, and <c>Read</c> and
+/// <c>Bash</c> are not bound at all - so neither "enforces" nor "does not" is
+/// true of it.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
+public static class MoveEnforcements
+{
+    /// <summary>Nothing declared is withheld. A move is an observation only.</summary>
+    public const string None = "none";
+
+    /// <summary>Some tools are withheld and some are not.</summary>
+    public const string PerTool = "per-tool";
+
+    /// <summary>Every declared move bounds what may happen. Nothing declares this yet.</summary>
+    public const string Full = "full";
+
+    public static IReadOnlyList<string> All { get; } = [None, PerTool, Full];
+}
+
 [PinnedId("9d1b7e34-2a80-4c56-b7f9-06e3a8d4c150")]
 [FactKind(FactKinds.EnvironmentIdentity)]
 public sealed record EnvironmentIdentity
@@ -379,6 +429,36 @@ public sealed record EnvironmentIdentity
 
     /// <summary>One of <see cref="EnvironmentProvenance"/>.</summary>
     public required string Provenance { get; init; }
+
+    /// <summary>
+    /// How completely this machine's executor bounds a loop's declared moves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One of <see cref="MoveEnforcements"/>, or null when this runner has no
+    /// executor - which is a real state and not a degraded one: a runner that
+    /// cannot invoke an agent cannot break a move bound, and has nothing to
+    /// declare.
+    /// </para>
+    /// <para>
+    /// <b>Not a boolean saying the bound held.</b> The runner refuses to take work
+    /// when it does not, so a "bound: true" member would be constant across every
+    /// flight that exists and would record nothing. What varies by machine and by
+    /// executor version is HOW MUCH is bound, and that is what a comparison across
+    /// flights needs.
+    /// </para>
+    /// </remarks>
+    public string? MoveEnforcement { get; init; }
+
+    /// <summary>
+    /// The tools this runner PROVED were withheld, before it took any work.
+    /// </summary>
+    /// <remarks>
+    /// Measured on this machine at startup rather than declared, because the
+    /// bound rests on a flag whose mechanism is not characterised and whose
+    /// failure is silent. Empty when nothing was probed.
+    /// </remarks>
+    public IReadOnlyList<string> MovesProbed { get; init; } = [];
 }
 
 /// <summary>

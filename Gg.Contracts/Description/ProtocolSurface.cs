@@ -545,7 +545,7 @@ public static class ProtocolSurface
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],
-            [typeof(LoopBudget)] = ["wallClock"],
+            [typeof(LoopBudget)] = ["wallClock", "attempts"],
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
             [typeof(Destination)] = ["id", "kind", "requires"],
@@ -605,7 +605,8 @@ public static class ProtocolSurface
             [typeof(LockHash)] = ["path", "sha256"],
             [typeof(ToolVersion)] = ["name", "version"],
             [typeof(EnvironmentIdentity)] =
-                ["hostFingerprint", "imageDigest", "locks", "tools", "provenance"],
+                ["hostFingerprint", "imageDigest", "locks", "tools", "provenance",
+                 "moveEnforcement", "movesProbed"],
             [typeof(SourceProvenance)] =
                 ["provider", "slug", "requestedRef", "resolvedRef", "headCommit",
                  "headIsFork", "forkSlug", "fileCount", "bytes"],

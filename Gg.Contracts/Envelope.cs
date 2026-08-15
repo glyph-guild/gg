@@ -114,7 +114,30 @@ public static class LoopMoves
     public const string RunTests = "run-tests";
     public const string Search = "search";
 
-    public static IReadOnlyList<string> All { get; } = [Read, Edit, RunTests, Search];
+    /// <summary>Putting bytes at a path, including one that did not exist.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>`write` and not `create`, because the tool overwrites.</b> Naming it
+    /// `create` would be a name true of one of its two uses - the argument that
+    /// ruled out reusing <c>destination.landed</c> for the pushed commit.
+    /// </para>
+    /// <para>
+    /// <b>And not by making `edit` grant it.</b> That would retroactively widen
+    /// what an already-declared move permits, for every envelope in force, with
+    /// nothing in the record marking the day it changed. A move whose meaning
+    /// moves is the thing a governance product cannot have.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version.</b> Adding a value to a closed enumeration is
+    /// not additive: the only safe response to an unknown value is to halt, so an
+    /// added value breaks every prior reader by design. Existing envelopes are
+    /// unchanged in meaning - they cannot create files, which they could not
+    /// before either.
+    /// </para>
+    /// </remarks>
+    public const string Write = "write";
+
+    public static IReadOnlyList<string> All { get; } = [Read, Edit, RunTests, Search, Write];
 }
 
 /// <summary>What happens when a loop runs out of budget.</summary>
@@ -292,15 +315,38 @@ public sealed record Obligation
 
 /// <summary>What a loop may spend.</summary>
 /// <remarks>
-/// Wall-clock only. Token and attempt budgets need an executor that reports
-/// them; wall-clock needs a timer that already exists, so it is the one that
-/// can be honest today.
+/// Wall-clock and attempts. Token budgets still need an answer to what a
+/// half-finished attempt means, and that is not this step's.
 /// </remarks>
 [PinnedId("e2a67b5c-118f-4d30-9a4e-7c8b0d1f2a63")]
 public sealed record LoopBudget
 {
     /// <summary>A duration, as <see cref="EnvelopeDurations"/> reads it.</summary>
     public required string WallClock { get; init; }
+
+    /// <summary>
+    /// How many times this flight's loop may run. Null is unbounded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>FLIGHT-LEVEL attempts, and the word is already taken.</b> A loop reports
+    /// <c>attempts</c> of its own - the agent's internal turns, and a real run
+    /// printed <i>completed after 7 attempt(s)</i> for one invocation. This is the
+    /// reject-and-rerun cycle: how many times a person may send the work back and
+    /// have it run again. If the two counts ever share a variable, a budget of
+    /// five is spent by one loop thinking.
+    /// </para>
+    /// <para>
+    /// Null rather than a default, because a number nobody chose would be a
+    /// termination condition nobody agreed to - and the current state is that
+    /// there is none, which is worth being able to express.
+    /// </para>
+    /// <para>
+    /// A MEMBER, so this half costs nothing: a member may be added freely and a
+    /// value may not. The version this rides on is the <c>write</c> move's.
+    /// </para>
+    /// </remarks>
+    public int? Attempts { get; init; }
 }
 
 /// <summary>Work that discharges obligations.</summary>

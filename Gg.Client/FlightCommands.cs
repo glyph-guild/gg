@@ -95,6 +95,8 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         string outcome,
         DecisionObservations observations,
         string? reason = null,
+        ObservationBound? bound = null,
+        SubmitAndObserve? loop = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(observations);
@@ -105,7 +107,7 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         {
             // A rejection with no reason is work sent back with nothing to act on, and
             // the loop would run again against the same instructions it just followed.
-            throw new InvalidOperationException(
+            throw new DecisionRefusedException(
                 "Rejecting needs a reason. The loop runs again with it, and a rejection that says "
               + "nothing sends the work back to be done the same way.");
         }
@@ -114,7 +116,7 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         {
             // REFUSED, NEVER TRUNCATED. A reason cut in half is a different reason rather
             // than a shorter one - the rule every inline item follows.
-            throw new InvalidOperationException(
+            throw new DecisionRefusedException(
                 $"That reason is {reason.Length} characters and the limit is "
               + $"{DecisionReasons.MaxLength}. It is refused rather than trimmed, because half a "
               + "reason is a different reason.");
@@ -129,7 +131,7 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
             // REJECT LANDS HERE, deliberately. It is absent rather than unimplemented:
             // a verb that accepted it and returned success would record a decision
             // nobody acted on, and the flight would read as answered.
-            throw new InvalidOperationException(
+            throw new DecisionRefusedException(
                 $"'{outcome}' is not a decision this version of gg can record. It knows: "
               + string.Join(", ", DecisionOutcomes.All)
               + ". Rejecting a gate is not built yet - the flight stays waiting, which is what "
@@ -149,26 +151,108 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
 
         if (gate is null)
         {
-            throw new InvalidOperationException(
+            throw new DecisionRefusedException(
                 $"Nothing is waiting on a decision about '{obligation}' for {reference}. "
               + "`gg gates` lists what is.");
         }
 
-        var recorded = await _client.DecideAsync(
-            token,
-            resolved,
-            new DecisionRequest
-            {
-                ObligationId = obligation,
-                Outcome = outcome,
-                ManifestHash = gate.ManifestHash,
-                Observations = observations,
-                Reason = clean,
-            },
-            cancellationToken)
-            ?? throw NoSuchFlight(reference);
+        // SUBMIT, THEN OBSERVE. The control plane still answers inline and the
+        // answer is still carried back - but nothing here READS it to decide what
+        // happened. What happened is read from the surface a person would read,
+        // which is the only source that survives the write becoming a command.
+        DecisionRecorded? recorded = null;
 
-        return new VerbResult.Decided(recorded);
+        var observed = await (loop ?? Waiting()).RunAsync(
+            async ct =>
+            {
+                try
+                {
+                    recorded = await _client.DecideAsync(
+                        token,
+                        resolved,
+                        new DecisionRequest
+                        {
+                            ObligationId = obligation,
+                            Outcome = outcome,
+                            ManifestHash = gate.ManifestHash,
+                            Observations = observations,
+                            Reason = clean,
+                        },
+                        ct)
+                        ?? throw NoSuchFlight(reference);
+
+                    return null;
+                }
+                catch (DecisionRefusedException refused)
+                {
+                    // AN ANSWER, so the loop stops rather than waiting for
+                    // something nobody wrote. It is not a failure of the wait.
+                    return refused.Message;
+                }
+            },
+            ct => ObserveAsync(token, resolved, obligation, gate.ManifestHash, ct),
+            bound ?? ObservationBound.Default,
+            cancellationToken);
+
+        return new VerbResult.Decided(new DecisionReport
+        {
+            Observation = observed,
+            // Carried, not consulted. Step 2 empties this field and nothing above
+            // it changes, which is the property this ordering exists to buy.
+            Decision = recorded,
+        });
+    }
+
+    /// <summary>The loop a person at a terminal gets.</summary>
+    private static SubmitAndObserve Waiting() =>
+        new((span, ct) => Task.Delay(span, ct), () => DateTimeOffset.UtcNow);
+
+    /// <summary>
+    /// Whether this decision is visible yet, and what it came to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The gate is the signal; the verdict is the answer.</b> Exactly one thing
+    /// closes a gate and it is a decision - the control plane asserts that
+    /// structurally - so a gate that was open against this manifest hash and is no
+    /// longer open is a decision having been recorded. Reading the verdict instead
+    /// would confuse "not decided yet" with "decided, and the obligation is still
+    /// unmet for another reason".
+    /// </para>
+    /// <para>
+    /// <b>Scoped to the manifest hash</b>, because a gate can REOPEN when the work
+    /// moves. A gate that came back against a different hash is a new question,
+    /// not this one still pending, and matching on the obligation alone would read
+    /// it as the latter forever.
+    /// </para>
+    /// <para>
+    /// Null means not yet, never no. That is the contract the observation loop
+    /// rests on, and inverting it here is the one mistake that would turn a slow
+    /// control plane into a recorded rejection.
+    /// </para>
+    /// </remarks>
+    private async Task<string?> ObserveAsync(
+        string token, string resolved, string obligation, string manifestHash,
+        CancellationToken cancellationToken)
+    {
+        var stillOpen = (await _client.GatesAsync(token, cancellationToken)).Gates
+            .Any(g => string.Equals(g.ObligationId, obligation, StringComparison.Ordinal)
+                   && string.Equals(g.FlightNumber, resolved, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(g.ManifestHash, manifestHash, StringComparison.Ordinal));
+
+        if (stillOpen)
+        {
+            return null;
+        }
+
+        // The consequence, read from the record rather than derived from what was
+        // just posted. A client that reported its own outcome back to itself would
+        // be observing nothing.
+        var attribution = await _client.WhyAsync(token, resolved, cancellationToken);
+
+        return attribution?.Obligations
+            .FirstOrDefault(o => string.Equals(o.ObligationId, obligation, StringComparison.Ordinal))
+            ?.Outcome;
     }
 
     public async Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>

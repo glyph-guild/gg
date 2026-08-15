@@ -165,7 +165,17 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
     {
         var result = await run(commands);
         Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
-        return 0;
+
+        // THREE OUTCOMES, THREE CODES. A script has to tell "you were told no"
+        // from "we do not know yet", and one non-zero cannot carry both.
+        return ExitCodes.For(result);
+    }
+    catch (DecisionRefusedException refused)
+    {
+        // AN ANSWER, AND IT USED TO BE A CRASH. Every refusal on this path left as
+        // an unhandled InvalidOperationException - a stack trace and exit 134,
+        // which is SIGABRT and is what gg looks like when it breaks.
+        return Fail(refused.Message);
     }
     catch (NotSignedInException refusal)
     {
@@ -188,13 +198,13 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
     catch (ProtocolTooOldException refusal)
     {
         Console.Error.WriteLine(refusal.Message);
-        return 69;
+        return ExitCodes.Unavailable;
     }
     catch (HttpRequestException failure)
     {
         Console.Error.WriteLine(
             $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
-        return 69;
+        return ExitCodes.Unavailable;
     }
 }
 
@@ -245,13 +255,13 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
     catch (ProtocolTooOldException refusal)
     {
         Console.Error.WriteLine(refusal.Message);
-        return 69;
+        return ExitCodes.Unavailable;
     }
     catch (HttpRequestException failure)
     {
         Console.Error.WriteLine(
             $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
-        return 69;
+        return ExitCodes.Unavailable;
     }
 }
 
@@ -379,7 +389,7 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
     catch (HttpRequestException failure)
     {
         Console.Error.WriteLine($"Could not reach the control plane at {baseAddress}: {failure.Message}");
-        return 69;
+        return ExitCodes.Unavailable;
     }
 }
 
@@ -445,5 +455,5 @@ static async Task<int> RunnerUpAsync()
 static int Fail(string message)
 {
     Console.Error.WriteLine(message);
-    return 64;
+    return ExitCodes.Refused;
 }

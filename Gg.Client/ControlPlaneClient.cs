@@ -461,10 +461,20 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            throw new InvalidOperationException(
+            throw new DecisionRefusedException(
                 "The work changed while this decision was being made, so it was not recorded. "
               + "What you were shown is not what is there now - read it again with `gg why` and "
               + "decide against the work as it stands.");
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // THE DIAGNOSIS, CARRIED THROUGH. This used to fall to
+            // EnsureSuccessStatusCode and leave as an HttpRequestException saying
+            // "400 (Bad Request)" - the control plane's sentence, which is the only
+            // part anybody can act on, was thrown away one line before it was read.
+            throw new DecisionRefusedException(
+                (await response.Content.ReadAsStringAsync(cancellationToken)).Trim());
         }
 
         response.EnsureSuccessStatusCode();

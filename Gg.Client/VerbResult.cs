@@ -137,7 +137,12 @@ public abstract record VerbResult
     /// response; a client that worked it out from the decision it just posted would be
     /// deciding admission, which is not its job.
     /// </remarks>
-    public sealed record Decided(DecisionRecorded Value) : VerbResult
+    /// <remarks>
+    /// <b>A report rather than the record, since ADR-0012 step 1.</b> What happened is
+    /// OBSERVED on the read surface; the synchronous answer rides along beside it while
+    /// there still is one. Step 2 empties that field and this shape does not move.
+    /// </remarks>
+    public sealed record Decided(DecisionReport Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Decided;
     }
@@ -183,6 +188,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(FlightAttribution))]
 [JsonSerializable(typeof(GateList))]
 [JsonSerializable(typeof(DecisionRecorded))]
+[JsonSerializable(typeof(DecisionReport))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
 /// <summary>How verb results are written and read back.</summary>
@@ -239,7 +245,7 @@ public static class VerbOutput
         VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
         VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
         VerbResult.Gates r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.GateList),
-        VerbResult.Decided r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DecisionRecorded),
+        VerbResult.Decided r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DecisionReport),
         VerbResult.EnvelopeApplied r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
@@ -866,13 +872,40 @@ public static class VerbOutput
     /// obligation lets the work land, and one that did not says so. Both come from the
     /// response.
     /// </remarks>
-    private static string DecidedText(DecisionRecorded recorded)
+    private static string DecidedText(DecisionReport report)
     {
         var text = new StringBuilder();
+        var seen = report.Observation;
+
+        // WHAT WAS OBSERVED, FIRST AND ALWAYS. The line a person reads comes from
+        // the read surface rather than from the answer to the submission, because
+        // that is the line that still exists once the write is a command.
+        text.AppendLine(seen.State switch
+        {
+            ObservationStates.Decided =>
+                $"decided: the obligation is now {Clean(seen.Outcome)}",
+            ObservationStates.Refused =>
+                $"refused: {Clean(seen.Because, lines: true)}",
+            // NOT A FAILURE, and the wording has to carry that on its own -
+            // somebody reading this at 2am decides whether to submit again.
+            _ => $"not yet visible: {Clean(seen.Because, lines: true)}",
+        });
 
         text.AppendLine(
-            $"{Clean(recorded.FlightNumber)} - {Clean(recorded.ObligationId)}: "
-          + $"{Clean(recorded.Outcome)}");
+            $"  looked:   {seen.Polls} time(s) over {seen.WaitedSeconds:0.#}s "
+          + $"of a {seen.BoundSeconds:0.#}s bound");
+
+        if (report.Decision is not { } recorded)
+        {
+            return text.ToString().TrimEnd();
+        }
+
+        // WHAT WAS DECIDED, beside what the obligation became. The observation
+        // says the obligation is satisfied; only this says somebody approved it,
+        // and a person reading their own decision back needs their own word for
+        // it. It disappears with the synchronous answer, which is why it sits in
+        // the block that does.
+        text.AppendLine($"  decided:  {Clean(recorded.Outcome)}");
         text.AppendLine($"  by:       {Clean(recorded.DecidedBy)}");
         text.AppendLine($"  at:       {recorded.DecidedAt:u}");
 

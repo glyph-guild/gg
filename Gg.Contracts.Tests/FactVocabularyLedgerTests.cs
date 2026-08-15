@@ -226,14 +226,40 @@ public class FactVocabularyLedgerTests
         // the new spelling rather than editing history. 0.3.0 and 0.4.0 were
         // NOT touched: they shipped, so their recorded values stand and the
         // normalisation simply gets a new version of its own.
-        var all = FactManifest.FactTypesIn(typeof(FactKinds).Assembly).ToList();
-        var byKind = all.ToDictionary(t => t.GetCustomAttribute<FactKindAttribute>()!.Kind);
+        //
+        // AND THE DEFENCE ENDED AT 0.13.0, which is what this assertion is now
+        // about. Re-deriving was only ever defensible because neither type's
+        // SHAPE had changed since it shipped - so the fingerprint over the subset
+        // TODAY was the fingerprint that version would have recorded. 0.13.0 adds
+        // `moveEnforcement` and `movesProbed` to environment.identity, and that
+        // sentence stops being true: a fingerprint computed now describes a type
+        // 0.1.0 never had.
+        //
+        // So the reconstructed values are LITERALS from here on. Re-deriving them
+        // against today's types would not repair the assertion - it would record
+        // today's shape as what 0.1.0 meant, which is the one thing the paragraph
+        // above forbids. The values below are the ones the ledger has always
+        // carried, and they no longer move.
+        //
+        // Nothing was lost by the change: this guard's job is that a shipped
+        // version's recorded value stands, and it caught the first change that
+        // could have quietly rewritten one.
+        const string Reconstructed010 = "b872accc871ace0c794ebfa67690eb4894f559682e86bad386f01b68226c07eb";
+        const string Reconstructed020 = "eeda88d912604c34b76e9a0ff4f4906f5ebb5f3b937344c6b697365c40352578";
 
         await Assert.That(Ledger().Single(e => e.Version == "0.1.0").Surface)
-            .IsEqualTo(Fingerprint([byKind[FactKinds.EnvironmentIdentity]]));
+            .IsEqualTo(Reconstructed010);
 
         await Assert.That(Ledger().Single(e => e.Version == "0.2.0").Surface)
-            .IsEqualTo(Fingerprint([byKind[FactKinds.EnvironmentIdentity], byKind[FactKinds.SourceProvenance]]));
+            .IsEqualTo(Reconstructed020);
+
+        // AND THE REASON THEY ARE LITERALS IS ITSELF ASSERTED, so this does not
+        // become a pair of magic numbers nobody can date. The member below did not
+        // exist at 0.1.0; its presence is what ended the re-derivation.
+        await Assert.That(typeof(EnvironmentIdentity)
+            .GetProperty(nameof(EnvironmentIdentity.MoveEnforcement))).IsNotNull()
+            .Because("environment.identity's shape moved at 0.13.0, which is why the two "
+                   + "reconstructions above can no longer be recomputed from it.");
     }
 
     [Test]

@@ -60,6 +60,23 @@ public enum MoveEnforcement
     Full,
 }
 
+/// <summary>How an enforcement level is spelled on the wire.</summary>
+/// <remarks>
+/// Two spellings of one idea would drift, and the drift would be invisible: the
+/// enum is what this assembly reasons with and <see cref="MoveEnforcements"/> is
+/// what crosses, so the translation is in one place and asserted.
+/// </remarks>
+public static class MoveEnforcementNames
+{
+    public static string Of(MoveEnforcement enforcement) => enforcement switch
+    {
+        MoveEnforcement.None => MoveEnforcements.None,
+        MoveEnforcement.PerTool => MoveEnforcements.PerTool,
+        MoveEnforcement.Full => MoveEnforcements.Full,
+        _ => throw new ArgumentOutOfRangeException(nameof(enforcement)),
+    };
+}
+
 public sealed record ExecutorCapabilities
 {
     /// <summary>Which rung this is, from the envelope's vocabulary.</summary>

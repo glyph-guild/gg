@@ -50,8 +50,16 @@ public static class EnvironmentSurvey
     public const string ImageDigestVariable = "GG_IMAGE_DIGEST";
 
     /// <summary>Observes this machine, and the tree if there is one.</summary>
+    /// <param name="bound">
+    /// What this machine's executor was proven to withhold, from the startup
+    /// probe, and what it declares it enforces. Null when this runner has no
+    /// executor - a real state, and one where there is nothing to bound.
+    /// </param>
     public static EnvironmentIdentity Observe(
-        string? treePath, string provenance, string? imageDigest = null)
+        string? treePath,
+        string provenance,
+        string? imageDigest = null,
+        (string Enforcement, IReadOnlyList<string> Withheld)? bound = null)
     {
         var digest = imageDigest ?? Environment.GetEnvironmentVariable(ImageDigestVariable);
 
@@ -62,6 +70,15 @@ public static class EnvironmentSurvey
             Locks = treePath is null ? [] : LocksUnder(treePath),
             Tools = Tools(),
             Provenance = provenance,
+
+            // WHAT VARIES, and nothing that does not. Whether the bound HELD is
+            // constant across every flight that exists, because a runner refuses
+            // to take work when it does not - so recording it would record
+            // nothing. How much is bound, and which tools were proven, differ by
+            // machine and by executor version, which is what a comparison across
+            // flights is for.
+            MoveEnforcement = bound?.Enforcement,
+            MovesProbed = bound?.Withheld ?? [],
         };
     }
 

@@ -68,6 +68,11 @@ internal sealed class ConsoleObserver : IRunnerObserver
             $"loop {loopId} {outcome} after {attempts} attempt(s), used {movesUsed.Count} move(s)");
 
     /// <summary>
+    /// The envelope is one word short, and this says which word and where.
+    /// </summary>
+    public void MoveRefused(string diagnosis) => System.Console.WriteLine($"moves: {diagnosis}");
+
+    /// <summary>
     /// The reference and the problem. Never anything resolving it produced.
     /// </summary>
     /// <remarks>
@@ -145,11 +150,16 @@ public static class RunnerHost
         // because a governed flight on a machine where moves are not enforceable
         // is not governed, and flying one anyway makes the claim
         // this product is sold on false on somebody's laptop.
+        // What the probe proved, carried onto every fact set this runner ships.
+        (string Enforcement, IReadOnlyList<string> Withheld)? bound = null;
+
         if (Execution.MoveBoundProbe.Required(executor) is { } why)
         {
             System.Console.WriteLine($"probing whether declared moves bound this executor. {why}");
 
             var probe = await Execution.MoveBoundProbe.RunAsync(executor!, cancellationToken);
+            bound = (Execution.MoveEnforcementNames.Of(executor!.Capabilities.EnforcesMoves),
+                     probe.Withheld);
 
             System.Console.WriteLine(
                 $"move bound: {(probe.Bound ? "held" : "NOT HELD")} "
@@ -172,7 +182,8 @@ public static class RunnerHost
             credentials,
             workspace,
             executor,
-            destinations: destinations)
+            destinations: destinations,
+            moveBound: bound)
         {
             HoldFor = holdFor,
         };

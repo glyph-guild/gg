@@ -298,6 +298,11 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
         LoopMoves.Edit => "Edit",
         LoopMoves.Search => "Grep",
         LoopMoves.RunTests => "Bash",
+        // MEASURED AS BOUND. Withheld, this tool is offered and refused at the
+        // call - which is what makes declaring it mean something, and what made
+        // its absence a real bar rather than a formality: no flight could create
+        // a file at all until the vocabulary had a word for it.
+        LoopMoves.Write => "Write",
         _ => move,
     };
 

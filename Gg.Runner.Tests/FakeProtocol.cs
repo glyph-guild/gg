@@ -193,6 +193,9 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
         Record($"loop:{loopId}:{outcome}:{attempts}", lifecycle: false);
 
+    /// <summary>The whole sentence, because what it SAYS is the criterion.</summary>
+    public void MoveRefused(string diagnosis) => Record($"moves:{diagnosis}", lifecycle: false);
+
     public void Landed(string outcome, string detail) =>
         Record($"landed:{outcome}", lifecycle: false);
 

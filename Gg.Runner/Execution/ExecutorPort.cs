@@ -31,6 +31,35 @@ public sealed record ExecutorGap
 /// convenient would describe an executor nobody has run.
 /// </para>
 /// </remarks>
+/// <summary>
+/// How completely an executor's declared moves bound it.
+/// </summary>
+/// <remarks>
+/// Measured per tool rather than assumed, because it is not uniform: on the one
+/// executor this product has, <c>Edit</c> and <c>Write</c> are refused at the
+/// call, <c>Grep</c> is removed from the tool list entirely, and <c>Read</c> and
+/// <c>Bash</c> are not bound at all.
+/// </remarks>
+public enum MoveEnforcement
+{
+    /// <summary>Nothing declared is withheld. A move is an observation only.</summary>
+    None,
+
+    /// <summary>
+    /// Some tools are withheld and some are not, and which is which is the
+    /// executor's business rather than the envelope's.
+    /// </summary>
+    /// <remarks>
+    /// The honest state for anything whose bound is per tool: a flight declaring
+    /// <c>read</c> alone is genuinely stopped from editing and genuinely able to
+    /// run shell commands, so neither <c>None</c> nor <c>Full</c> is true of it.
+    /// </remarks>
+    PerTool,
+
+    /// <summary>Every declared move bounds what may happen. Nothing declares this yet.</summary>
+    Full,
+}
+
 public sealed record ExecutorCapabilities
 {
     /// <summary>Which rung this is, from the envelope's vocabulary.</summary>
@@ -56,14 +85,17 @@ public sealed record ExecutorCapabilities
     public required bool ReportsTokens { get; init; }
 
     /// <summary>
-    /// Whether the envelope's <c>moves</c> bound what it may do.
+    /// Whether the envelope's <c>moves</c> bound what a loop may do.
     /// </summary>
     /// <remarks>
-    /// False, and measured: passing the allowed set does not shorten the tool
-    /// list the session advertises. So moves are an OBSERVATION here rather
-    /// than a guarantee.
+    /// <b>Three states, because a boolean could not hold the answer.</b> This said
+    /// <c>false</c> for three flaggings on the strength of a measurement taken with
+    /// a command this product does not run. The allow-list does bind - for some
+    /// tools, by two different mechanisms, and only while one flag holds. False was
+    /// nearer the truth than true and it was still wrong, and being wrong in the
+    /// safe direction is how a claim survives that long unfixed.
     /// </remarks>
-    public required bool EnforcesMoves { get; init; }
+    public required MoveEnforcement EnforcesMoves { get; init; }
 
     /// <summary>
     /// Whether it can say which tool call produced which file change.

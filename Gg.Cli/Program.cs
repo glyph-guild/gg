@@ -429,10 +429,17 @@ static async Task<int> RunnerUpAsync()
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
         api => new HttpClient { BaseAddress = new Uri(api) });
 
+    // WHICH AGENT THIS MACHINE HAS, and none is a real answer. Until this line
+    // existed the runner was handed no executor at all, so `gg runner serve`
+    // built a loop that could not invoke anything and no flight in the product
+    // ever ran an agent - registered is not invoked, on the verb the whole slice
+    // is about. The host probes whatever comes back before it claims any work.
+    var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment();
+
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
-        destinations: destinations);
+        destinations: destinations, executor: executor);
 }
 
 static int Fail(string message)

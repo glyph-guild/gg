@@ -51,17 +51,37 @@ public static class TranscriptDigest
     /// Every spelling of the tree, so paths can be made relative to it.
     /// </param>
     /// <param name="outcome">Where it stopped, from <see cref="LoopOutcomes"/>.</param>
-    /// <param name="refused">Moves the envelope did not allow.</param>
+    /// <param name="declared">
+    /// The moves the envelope named, so a refusal can be told from a tool that
+    /// simply was not asked for.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>The declared moves come in and a set difference does not go out.</b> This
+    /// used to be handed a list of "refused" moves computed as every tool the loop
+    /// reached for that the envelope did not name - which is a statement about the
+    /// ENVELOPE, and was reported as a statement about the RUN. Measured against a
+    /// real blocked flight, it named <c>Bash</c> as refused in a run where Bash was
+    /// called and worked.
+    /// </para>
+    /// <para>
+    /// What is refused is what the stream says came back an error, every time it
+    /// was tried. The declared set still matters, because a declared tool that
+    /// fails is a failure and not a refusal - and telling those apart by reading
+    /// the failure's TEXT would be matching on a vendor's wording, which changes
+    /// without telling us and would fail in the permissive direction.
+    /// </para>
+    /// </remarks>
     public static LoopDigest Extract(
         string transcript,
         string loopId,
         IReadOnlyList<string> treeRoots,
         string outcome,
-        IReadOnlyList<string> refused)
+        IReadOnlyList<string> declared)
     {
         ArgumentNullException.ThrowIfNull(transcript);
         ArgumentNullException.ThrowIfNull(treeRoots);
-        ArgumentNullException.ThrowIfNull(refused);
+        ArgumentNullException.ThrowIfNull(declared);
 
         // First-appearance order, deduplicated. The order is part of the value -
         // it is the sequence in which the loop looked at things.
@@ -74,6 +94,20 @@ public static class TranscriptDigest
         // event from the call that caused it, and "something failed" without the
         // tool is a sentence nobody can act on.
         var toolById = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        // AND WHICH PATH, for the same reason and one the digest used to get
+        // wrong. A refused write is a tool_use carrying a path followed by an
+        // error carrying an id, and with nothing joining them the path was
+        // recorded as edited. The tree said otherwise.
+        var pathById = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        // Calls that came back an error, and every call that was made. A tool is
+        // refused when it never once got through; one failure among successes is
+        // a tool that works and a call that did not.
+        var calls = new Dictionary<string, int>(StringComparer.Ordinal);
+        var failures = new Dictionary<string, int>(StringComparer.Ordinal);
+        var failedPaths = new HashSet<string>(StringComparer.Ordinal);
+        var succeededPaths = new HashSet<string>(StringComparer.Ordinal);
 
         var attempts = 0;
 
@@ -129,11 +163,12 @@ public static class TranscriptDigest
                     switch (type.GetString())
                     {
                         case "tool_use":
-                            Use(block, treeRoots, toolById, read, edited, searches);
+                            Use(block, treeRoots, toolById, pathById, calls, read, edited, searches);
                             break;
 
                         case "tool_result":
-                            Result(block, toolById, errors);
+                            Result(block, toolById, pathById, failures, failedPaths,
+                                succeededPaths, errors);
                             break;
                     }
                 }
@@ -146,10 +181,25 @@ public static class TranscriptDigest
             // Read AND edited is the work, not the thinking. What is left is the
             // proxy for considered-and-ruled-out, which is the point of all this.
             FilesReadNotEdited = Bounded(read.Where(p => !edited.Contains(p, StringComparer.Ordinal))),
-            FilesEdited = Bounded(edited),
+            // WHAT SURVIVED, not what was attempted. A path whose every write came
+            // back an error is not an edit - the tree said so, and the digest said
+            // otherwise for a whole slice. The attempt is not erased: it is on the
+            // error, with the path in its detail, which is where a thing that did
+            // not happen belongs.
+            FilesEdited = Bounded(edited.Where(p =>
+                succeededPaths.Contains(p) || !failedPaths.Contains(p))),
             Searches = Bounded(searches),
             Errors = [.. errors.Take(MaxItems)],
-            RefusedMoves = Bounded(refused),
+            // REFUSED IS NEVER ONCE GOT THROUGH, and only for a tool the envelope
+            // did not name. A declared tool that fails is a failure; an undeclared
+            // one that works is the envelope being out of step with the work, which
+            // the control plane derives for itself from loop.outcome's moves and
+            // the envelope it holds - the runner is not an authority on the
+            // envelope, and it was making a claim about one.
+            RefusedMoves = Bounded(calls.Keys
+                .Where(t => !declared.Contains(t, StringComparer.Ordinal))
+                .Where(t => failures.GetValueOrDefault(t) >= calls[t])
+                .Order(StringComparer.Ordinal)),
             Attempts = attempts,
             StopReason = outcome,
         };
@@ -160,6 +210,8 @@ public static class TranscriptDigest
         JsonElement block,
         IReadOnlyList<string> treeRoots,
         Dictionary<string, string> toolById,
+        Dictionary<string, string> pathById,
+        Dictionary<string, int> calls,
         List<string> read,
         List<string> edited,
         List<string> searches)
@@ -170,8 +222,12 @@ public static class TranscriptDigest
             return;
         }
 
-        if (block.TryGetProperty("id", out var id) && id.GetString() is { Length: > 0 } callId)
+        calls[tool] = calls.GetValueOrDefault(tool) + 1;
+
+        string? callId = null;
+        if (block.TryGetProperty("id", out var id) && id.GetString() is { Length: > 0 } value)
         {
+            callId = value;
             toolById[callId] = tool;
         }
 
@@ -190,6 +246,14 @@ public static class TranscriptDigest
             // which is the mistake that would matter: it would report the work
             // as thinking.
             (string.Equals(tool, "Read", StringComparison.Ordinal) ? read : edited).Add(relative);
+
+            // REMEMBERED AGAINST THE CALL, so the result can say whether it
+            // happened. Without this a refused write is a path in filesEdited and
+            // an untouched file on disk, which is what the tree found.
+            if (callId is not null)
+            {
+                pathById[callId] = relative;
+            }
         }
 
         if (Text(input, "pattern") is { } pattern)
@@ -198,22 +262,48 @@ public static class TranscriptDigest
         }
     }
 
-    /// <summary>Records a failure, against the tool that produced it.</summary>
+    /// <summary>
+    /// Records what became of one call: a failure against its tool, and whether
+    /// the path it named survived.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both outcomes, not only the failures.</b> A result that succeeded used to
+    /// be skipped at the first line, which is why nothing could tell a tool that
+    /// never worked from one that did - and why a path whose write was refused
+    /// stayed in the edited list. What a call DID is as much a fact as what it
+    /// failed to do.
+    /// </remarks>
     private static void Result(
-        JsonElement block, Dictionary<string, string> toolById, List<DigestError> errors)
+        JsonElement block,
+        Dictionary<string, string> toolById,
+        Dictionary<string, string> pathById,
+        Dictionary<string, int> failures,
+        HashSet<string> failedPaths,
+        HashSet<string> succeededPaths,
+        List<DigestError> errors)
     {
-        if (!block.TryGetProperty("is_error", out var flag)
-            || flag.ValueKind != JsonValueKind.True)
+        var callId = block.TryGetProperty("tool_use_id", out var id)
+            ? id.GetString()
+            : null;
+
+        var failed = block.TryGetProperty("is_error", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
+
+        if (callId is { Length: > 0 } && pathById.TryGetValue(callId, out var path))
+        {
+            (failed ? failedPaths : succeededPaths).Add(path);
+        }
+
+        if (!failed)
         {
             return;
         }
 
-        var source = block.TryGetProperty("tool_use_id", out var id)
-                  && id.GetString() is { Length: > 0 } callId
-                  && toolById.TryGetValue(callId, out var tool)
+        var source = callId is { Length: > 0 } && toolById.TryGetValue(callId, out var tool)
             ? tool
             : "unknown";
 
+        failures[source] = failures.GetValueOrDefault(source) + 1;
         errors.Add(new DigestError { Source = source, Detail = Short(Content(block)) });
     }
 

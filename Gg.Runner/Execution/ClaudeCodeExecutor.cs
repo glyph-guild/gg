@@ -51,45 +51,42 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
         ReportsDuration = true,
         ReportsMovesUsed = true,
         ReportsTokens = true,
-        // FALSE, and the reason is not the one that used to be written here.
+        // PER TOOL, and measured through the invocation below rather than through
+        // a command assembled for a test - which is what the superseded
+        // measurement did, and why it concluded the opposite.
         //
-        // The old reason was that passing the allowed set does not shorten the tool
-        // list the session advertises - true, and not the point, since a restriction
-        // that is not advertised could still refuse at the moment of the call.
-        // MEASURED, both directions, against the real binary:
+        //   Edit, Write   offered and REFUSED at the call:
+        //                 "Claude requested permissions to write to …, but you
+        //                  haven't granted it yet."
+        //   Grep          NOT IN THE TOOL LIST at all; the agent reports it
+        //                 "isn't available in this session".
+        //   Read, Bash    NOT BOUND. Both ran with the tool withheld, and Bash is
+        //                 gated per COMMAND rather than per tool - `uname -s` ran
+        //                 while `touch` and `rm` were refused in a real flight.
         //
-        //   --allowedTools Read        asked to edit a file, the agent EDITED it.
-        //                              The allow-list does not bind - with or
-        //                              without --permission-mode acceptEdits.
-        //   --disallowedTools Edit,…   asked to edit a file, the agent did NOT, and
-        //                              said editing was not enabled. The deny-list
-        //                              DOES bind.
-        //
-        // So enforcement is achievable and this runner is not doing it, which is a
-        // sharper statement than "the executor cannot". Two things stop it here:
-        //
-        //   1. A deny-list needs a closed enumeration of the executor's tools, and
-        //      that list belongs to the executor and grows without telling us. One
-        //      that missed a tool added later would silently grant it - an
-        //      enforcement that looks total with a hole in it.
-        //   2. Enforcing moves would be a new runner capability, and the step that
-        //      corrected this reason was explicitly guarded against gaining one.
-        //
-        // EnforcesMovesTests holds this comment to account and re-runs the
-        // measurement.
-        EnforcesMoves = false,
+        // AND THE WHOLE BOUND RESTS ON --setting-sources "" BELOW. Without it a
+        // withheld Write wrote, because the operator's own settings applied.
+        // --permission-mode acceptEdits overrides the list too, which is what the
+        // superseded capture passed. And passing --permission-mode default does
+        // NOT restore the bound - only clearing setting sources does, and why
+        // that is so is not characterised. So this is declared as contingent and
+        // MoveBoundProbe verifies it at startup rather than trusting it.
+        EnforcesMoves = MoveEnforcement.PerTool,
         AttributesEditsToTools = false,
         Gaps =
         [
             new ExecutorGap
             {
-                Name = "moves are observed, not bounded",
+                Name = "moves are bounded per tool, and only while one flag holds",
                 Consequence =
-                    "Passing the allowed tool set governs PERMISSION, not availability: the session "
-                  + "still advertises every tool and the agent still reaches for ones the envelope "
-                  + "did not name, and is refused. So what is recorded is what it attempted, which "
-                  + "is the more useful signal and not a bound. Bounding them needs either a "
-                  + "different invocation surface or a sandbox around the process.",
+                    "The allowed tool set binds Edit, Write and Grep and does not bind Read or "
+                  + "Bash, so a flight declaring `read` alone is genuinely stopped from editing "
+                  + "and genuinely able to run shell commands. Worse, the bound is contingent on "
+                  + "--setting-sources being cleared: without it the operator's own settings "
+                  + "apply and a withheld Write writes, and passing --permission-mode default "
+                  + "does not restore it. The mechanism is not characterised, so the runner "
+                  + "PROVES the bound at startup and refuses to take work when it does not hold, "
+                  + "rather than trusting the flag.",
             },
             new ExecutorGap
             {
@@ -229,11 +226,12 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
                   "--verbose",
                   "--setting-sources", "",
                   "--strict-mcp-config",
-                  // NOT A BOUND. Measured: the allow-list does not refuse a call.
-                  // Passed anyway because it is a true statement of the envelope's
-                  // declared moves and the executor records it in its own
-                  // transcript, which is the only thing tying a session to what it
-                  // was allowed to do. See EnforcesMoves above.
+                  // A PARTIAL BOUND, measured. It refuses Edit and Write at the
+                  // call and removes Grep from the tool list; it does not bind Read
+                  // or Bash. It is also the whole of what makes the line above
+                  // matter - clearing setting sources is what stops the operator's
+                  // own permissions applying instead. See EnforcesMoves above, and
+                  // MoveBoundProbe, which proves this rather than assuming it.
                   "--allowedTools", .. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)])
         {
             info.ArgumentList.Add(argument);
@@ -498,7 +496,7 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
             // what crosses is what the extractor could name mechanically.
             Digest = TranscriptDigest.Extract(
                 transcript.ToString(), request.LoopId, TreeRoots(request.WorkingDirectory),
-                run.Outcome, Refused(request.Moves, run.MovesUsed)),
+                run.Outcome, [.. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)]),
 
             Transcript = new ArtifactReference
             {
@@ -561,23 +559,13 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
         return roots;
     }
 
-    /// <summary>
-    /// Tools it reached for that the envelope did not name.
-    /// </summary>
-    /// <remarks>
-    /// The gap declared above, turned into a signal. Passing the allowed set
-    /// governs permission rather than availability, so the agent still reaches
-    /// for tools it may not use and is refused - and where that happened is
-    /// where the envelope fought the work, which is what somebody taking over
-    /// needs to know before they try the same thing.
-    /// </remarks>
-    private static IReadOnlyList<string> Refused(
-        IReadOnlyList<string> allowed, IReadOnlyList<string> reachedFor)
-    {
-        var permitted = allowed.Select(Tool).ToHashSet(StringComparer.Ordinal);
-
-        return [.. reachedFor.Where(t => !permitted.Contains(t))];
-    }
+    // NO `Refused` HELPER ANY MORE, and its absence is the fix. It answered
+    // "which tools did the loop reach for that the envelope did not name", which
+    // is a statement about the envelope, and the digest reported it as a
+    // statement about the run. Measured against a real blocked flight it named
+    // Bash as refused in a run where Bash was called and worked. What is refused
+    // is now read from the stream by TranscriptDigest, which is the only place
+    // that knows whether a call came back.
 
     private static void Stop(Process process)
     {

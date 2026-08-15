@@ -4,86 +4,91 @@ using Gg.Runner.Execution;
 namespace Gg.Runner.Tests;
 
 /// <summary>
-/// `EnforcesMoves = false`, on its third flagging — and the reason it stays false
-/// is not the reason that was written down.
+/// What the declared moves actually bound, measured through the invocation the
+/// executor really makes.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The old reason described a symptom.</b> It said <i>"passing the allowed set
-/// does not shorten the tool list the session advertises"</i>, which is true and is
-/// not the point: a bound that is not advertised could still refuse at the moment
-/// of the call. The question nobody had measured is whether it refuses.
+/// <b>The previous measurement was taken with a different command.</b> It ran the
+/// binary with <c>--allowedTools Read</c> and nothing else - no
+/// <c>--setting-sources ""</c>, which is the flag the bound rests on - so the
+/// operator's own settings applied, the agent edited, and the conclusion written
+/// down was <i>the allow-list does not bind</i>. The allow-list binds. What was
+/// measured was a command this product never runs.
 /// </para>
 /// <para>
-/// <b>Measured, both directions, against the real binary.</b> The result is not
-/// what anybody expected:
+/// <b>And it binds three different ways, which is why a boolean could not hold
+/// it.</b> Measured one tool at a time, each held off the list the executor
+/// passes:
 /// </para>
 /// <list type="table">
-/// <item>
-///   <term><c>--allowedTools Read</c></term>
-///   <description>Asked to edit a file, the agent <b>edited it</b>. The allow-list
-///   does not bind — with or without <c>--permission-mode acceptEdits</c>.</description>
-/// </item>
-/// <item>
-///   <term><c>--disallowedTools Edit,Write,…</c></term>
-///   <description>Asked to edit a file, the agent <b>did not</b>, and said editing
-///   was not enabled. The deny-list <b>does</b> bind.</description>
-/// </item>
+/// <item><term><c>Edit</c>, <c>Write</c></term><description>offered and refused at
+/// the call: <i>"Claude requested permissions to write to …, but you haven't
+/// granted it yet."</i></description></item>
+/// <item><term><c>Grep</c></term><description>not in the tool list at all - the
+/// agent reports it <i>"isn't available in this session"</i>.</description></item>
+/// <item><term><c>Read</c>, <c>Bash</c></term><description><b>not bound.</b> Both
+/// ran with the tool withheld. Bash is gated per COMMAND rather than per tool:
+/// <c>uname -s</c> ran, and <c>touch</c> and <c>rm</c> were refused in a real
+/// flight.</description></item>
 /// </list>
 /// <para>
-/// <b>So enforcement is achievable and this runner is not doing it</b>, which is a
-/// sharper statement than "the executor cannot". It stays false here for two
-/// reasons, and both belong next to the flag:
-/// </para>
-/// <list type="number">
-/// <item><description>
-/// <b>A deny-list needs a closed enumeration of the executor's tools</b>, and that
-/// list belongs to the executor and grows without telling us. A deny-list that
-/// misses a tool added next month silently grants it — an enforcement that looks
-/// total with a hole in it, which is this project's signature defect in the shape
-/// that is hardest to notice.
-/// </description></item>
-/// <item><description>
-/// <b>Enforcing moves would be a new runner capability</b>, and this step is
-/// explicitly guarded against gaining one. Turning it on here would be smuggling a
-/// capability in under a flag correction.
-/// </description></item>
-/// </list>
-/// <para>
-/// What changes now is that the claim is honest and the route to <c>true</c> is
-/// named, with the thing that blocks it.
+/// <b>And the bound is contingent on one flag whose mechanism is not
+/// characterised.</b> Without <c>--setting-sources ""</c> a withheld <c>Write</c>
+/// wrote. <c>--permission-mode acceptEdits</c> also overrides the list - which is
+/// what the superseded capture used - and, worse, passing
+/// <c>--permission-mode default</c> did <b>not</b> restore the bound. Only
+/// clearing setting sources did. So the runner does not trust the flag: it runs
+/// <see cref="MoveBoundProbe"/> at startup and refuses to take work if the bound
+/// does not hold.
 /// </para>
 /// </remarks>
 public class EnforcesMovesTests
 {
-    /// <summary>What the measurement below found, as the adapter must state it.</summary>
-    private const string AllowListDoesNotBind = "allow-list does not bind";
-
     // ---- what the declaration says ----
 
     [Test]
-    public async Task The_capability_is_still_declared_false()
+    public async Task The_capability_is_declared_as_the_three_state_thing_it_is()
     {
-        // Unchanged, and now for a measured reason rather than an assumed one.
-        await Assert.That(ClaudeCodeExecutor.Capabilities.EnforcesMoves).IsFalse();
+        // A boolean here said "no" about a mechanism that says "yes for these
+        // tools, no for those, and only while a flag holds". False was nearer the
+        // truth than true and it was still wrong, and being wrong in the safe
+        // direction is how a claim survives three flaggings without being fixed.
+        await Assert.That(ClaudeCodeExecutor.Capabilities.EnforcesMoves)
+            .IsEqualTo(MoveEnforcement.PerTool);
     }
 
     [Test]
-    public async Task The_declared_reason_is_the_one_that_was_measured()
+    public async Task Every_state_the_type_names_is_one_something_could_declare()
     {
-        // THE POINT OF THIS FILE. A capability flag whose stated reason is wrong is
-        // worse than one with no reason: somebody reads it, believes the mechanism
-        // works differently than it does, and builds on the belief.
-        var source = File.ReadAllText(ExecutorSource());
-
-        await Assert.That(source).Contains(AllowListDoesNotBind)
-            .Because("the adapter states what was actually measured about --allowedTools.");
-        await Assert.That(source).Contains("--disallowedTools")
-            .Because("and names the flag that DOES bind, so the route to enforcement is written "
-                   + "where somebody would look for it.");
-        await Assert.That(source).Contains("closed enumeration")
-            .Because("and names what blocks taking that route, or the next person re-measures it.");
+        // Three states and no more. A fourth added without a measurement behind it
+        // would be the boolean's problem again with more room.
+        await Assert.That(Enum.GetValues<MoveEnforcement>().Length).IsEqualTo(3);
+        await Assert.That(Enum.GetValues<MoveEnforcement>())
+            .Contains(MoveEnforcement.None)
+            .And.Contains(MoveEnforcement.PerTool)
+            .And.Contains(MoveEnforcement.Full);
     }
+
+    // ---- WHAT THIS FILE USED TO ASSERT, AND WHY IT IS GONE ----
+    //
+    // `The_declared_reason_is_the_one_that_was_measured` scanned the executor's
+    // source for the string "allow-list does not bind", plus "--disallowedTools"
+    // and "closed enumeration". Its subject was PROSE: it held the adapter's
+    // comment to account for containing particular words.
+    //
+    // It is DELETED rather than narrowed, and the distinction matters because
+    // this project's rule is to narrow a guard and never delete one. That rule's
+    // test is whether the old assertion survives as a special case of the new
+    // one. Here it cannot. Prose is not a narrower version of a behaviour - it is
+    // a different thing to assert, and asserting it is what let a false claim sit
+    // in the source for three flaggings while a test went green over it. The
+    // string it pinned was wrong, and the test's only possible response to
+    // correcting the truth was to fail.
+    //
+    // What replaces it asserts the MEASURED BEHAVIOUR, through the invocation the
+    // executor really makes, so it goes red the day the bound changes - which is
+    // what the original was reaching for and could not express.
 
     [Test]
     public async Task The_gap_is_declared_rather_than_left_to_be_discovered()
@@ -92,22 +97,19 @@ public class EnforcesMovesTests
             .SingleOrDefault(g => g.Name.Contains("moves", StringComparison.OrdinalIgnoreCase));
 
         await Assert.That(gap).IsNotNull()
-            .Because("a capability this runner does not have is declared on the port.");
+            .Because("a capability this runner has only partly is declared on the port.");
+        await Assert.That(gap!.Consequence).Contains("setting-sources")
+            .Because("and the flag the whole bound rests on is named where somebody would look.");
     }
 
     [Test]
-    public async Task The_runner_still_passes_the_allow_list_and_says_why_that_is_not_a_bound()
+    public async Task The_runner_does_not_take_the_flag_on_trust()
     {
-        // It is kept because it is a true statement of intent that the executor
-        // records in its own transcript, and because removing it would lose the
-        // only signal tying a session to the moves its envelope declared. Kept
-        // WITH a comment saying it does not enforce, because a flag that looks
-        // like a control and is not one is the thing to write down.
-        var source = File.ReadAllText(ExecutorSource());
-
-        await Assert.That(source).Contains("--allowedTools");
-        await Assert.That(source).Contains("not a bound")
-            .Because("somebody reading the argument list must not conclude it bounds anything.");
+        // The declaration above says the bound is contingent. This is the thing
+        // that makes the contingency safe rather than merely disclosed: a
+        // capability note nobody acts on is a disclosure, and this product's own
+        // finding is that a disclosure is not a control.
+        await Assert.That(MoveBoundProbe.Required(new ClaudeCodeExecutor("claude"))).IsNotNull();
     }
 
     // ---- the mapping is coarser than the vocabulary, which is a second reason ----
@@ -115,15 +117,10 @@ public class EnforcesMovesTests
     [Test]
     public async Task Run_tests_maps_onto_a_tool_that_can_do_more_than_run_tests()
     {
-        // Even a binding deny-list would not make `moves` enforceable as written:
-        // `run-tests` maps to Bash, and Bash can edit files. So a flight declaring
-        // read plus run-tests would, under a tool-level bound, still be able to
-        // edit - which means the bound would be enforcing something other than the
-        // envelope's moves while appearing to enforce the moves.
-        //
-        // Recorded as a test because it is the argument, not a footnote: the move
-        // vocabulary and the tool vocabulary are not in correspondence, and no flag
-        // fixes that.
+        // Unchanged, and now with a measurement behind it: `run-tests` maps to
+        // Bash, Bash can write files, and Bash is one of the two tools the
+        // allow-list does not bind at all. A flight declaring read plus run-tests
+        // can edit, and no flag available here changes that.
         var mapped = LoopMoves.All
             .ToDictionary(m => m, ClaudeCodeExecutor.ToolFor, StringComparer.Ordinal);
 
@@ -138,108 +135,75 @@ public class EnforcesMovesTests
     [Test]
     public async Task Every_declared_move_maps_to_something()
     {
-        // Liveness on the mapping. A move that fell through to itself would be
-        // passed to the executor as a tool name it does not know, and an unknown
-        // tool in an allow-list is silently ignored - which would look like a
-        // bound and be nothing at all.
         foreach (var move in LoopMoves.All)
         {
-            var tool = ClaudeCodeExecutor.ToolFor(move);
-
-            await Assert.That(tool).IsNotEqualTo(move)
+            await Assert.That(ClaudeCodeExecutor.ToolFor(move)).IsNotEqualTo(move)
                 .Because($"'{move}' falls through the mapping and would be passed as itself.");
         }
     }
 
-    // ---- the measurement itself ----
+    // ---- the measurement itself, through the command the product runs ----
 
     [Test]
     [Category("RealAgent")]
-    public async Task The_allow_list_does_not_refuse_an_edit_and_the_deny_list_does()
+    public async Task The_bound_holds_for_a_withheld_edit_under_the_executors_own_invocation()
     {
-        // THE MEASUREMENT the two claims above rest on. Excluded from CI by name,
-        // like every other test that needs the real binary, and recorded here so
-        // the next person changing this flag re-runs it rather than reasoning about
-        // it.
+        // THE REPLACEMENT for the deleted prose guard. It runs the probe the
+        // runner runs, against the real binary, through ExecuteAsync - so what is
+        // measured is the command a flight uses rather than one assembled for a
+        // test. The previous measurement's whole error was assembling its own.
         var binary = Environment.GetEnvironmentVariable("GG_EXECUTOR_BINARY")
             ?? throw new InvalidOperationException(
-                "GG_EXECUTOR_BINARY is not set. This measurement is what the EnforcesMoves claim "
+                "GG_EXECUTOR_BINARY is not set. This is the measurement the EnforcesMoves claim "
               + "rests on; skipping it would leave the claim as an assumption again.");
 
-        var allowed = await EditsUnderAsync(binary, ["--allowedTools", "Read"]);
-        var denied = await EditsUnderAsync(
-            binary, ["--disallowedTools", "Edit,Write,MultiEdit,NotebookEdit,Bash"]);
+        var result = await MoveBoundProbe.RunAsync(
+            new ClaudeCodeExecutor(binary), CancellationToken.None);
 
-        await Assert.That(allowed).IsTrue()
-            .Because("the allow-list does not bind: asked to edit with only Read allowed, the "
-                   + "agent edited. This is why EnforcesMoves is false.");
-        await Assert.That(denied).IsFalse()
-            .Because("the deny-list does bind, which is why 'the executor cannot enforce' would "
-                   + "have been the wrong thing to write down.");
+        await Assert.That(result.Bound).IsTrue()
+            .Because(result.Diagnosis);
     }
 
-    /// <summary>Whether the agent edited the file, under these arguments.</summary>
-    /// <remarks>
-    /// The assertion is on the FILE rather than on what the agent said. An agent
-    /// that reported an edit it was refused would otherwise be indistinguishable
-    /// from one that made it.
-    /// </remarks>
-    private static async Task<bool> EditsUnderAsync(string binary, string[] arguments)
+    [Test]
+    [Category("RealAgent")]
+    public async Task And_it_does_not_hold_for_bash_which_is_why_the_state_is_per_tool()
     {
+        // The other half, and the one that makes PerTool a measurement rather than
+        // a hedge. Bash is withheld here exactly as Edit is above, and it runs.
+        var binary = Environment.GetEnvironmentVariable("GG_EXECUTOR_BINARY")
+            ?? throw new InvalidOperationException("GG_EXECUTOR_BINARY is not set.");
+
         var directory = Path.Combine(
             Path.GetTempPath(), "gg-moves-" + Guid.NewGuid().ToString("n")[..8]);
         Directory.CreateDirectory(directory);
-
-        var file = Path.Combine(directory, "greet.py");
-        await File.WriteAllTextAsync(file, "def greet(n):\n    return \"Hi \" + n\n");
+        await File.WriteAllTextAsync(Path.Combine(directory, "ISSUE.md"),
+            "# Probe\n\nUse the Bash tool to run `uname -s` and report its exact output.\n");
 
         try
         {
-            var start = new System.Diagnostics.ProcessStartInfo(binary)
-            {
-                WorkingDirectory = directory,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
+            var run = await new ClaudeCodeExecutor(binary).ExecuteAsync(
+                new ExecutorRequest
+                {
+                    WorkingDirectory = directory,
+                    LoopId = "bash-bound",
+                    IntentUri = "gg://probe/bash",
+                    // Bash is not among them, and `run-tests` is the move that
+                    // would have granted it.
+                    Moves = [LoopMoves.Read],
+                    WallClock = TimeSpan.FromMinutes(3),
+                    TranscriptPath = Path.Combine(directory, "probe.ndjson"),
+                },
+                CancellationToken.None);
 
-            start.ArgumentList.Add("-p");
-
-            foreach (var argument in arguments)
-            {
-                start.ArgumentList.Add(argument);
-            }
-
-            using var process = System.Diagnostics.Process.Start(start)
-                ?? throw new InvalidOperationException($"{binary} did not start");
-
-            await process.StandardInput.WriteAsync(
-                "Change the greeting in greet.py from Hi to Hello. Edit the file.");
-            process.StandardInput.Close();
-
-            await process.WaitForExitAsync();
-
-            return (await File.ReadAllTextAsync(file)).Contains("Hello", StringComparison.Ordinal);
+            await Assert.That(run.MovesUsed).Contains("Bash")
+                .Because("withheld and reached for; the allow-list does not remove it and does "
+                       + "not refuse it, which is the per-tool half of the declaration.");
+            await Assert.That(run.Digest!.RefusedMoves).DoesNotContain("Bash")
+                .Because("and the digest now says so, because the call came back.");
         }
         finally
         {
             Directory.Delete(directory, recursive: true);
         }
-    }
-
-    private static string ExecutorSource()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (dir is not null
-            && !File.Exists(Path.Combine(
-                dir.FullName, "Gg.Runner", "Execution", "ClaudeCodeExecutor.cs")))
-        {
-            dir = dir.Parent;
-        }
-
-        return Path.Combine(
-            (dir ?? throw new InvalidOperationException("ClaudeCodeExecutor.cs not found")).FullName,
-            "Gg.Runner", "Execution", "ClaudeCodeExecutor.cs");
     }
 }

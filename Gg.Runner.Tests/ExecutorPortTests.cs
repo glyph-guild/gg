@@ -46,7 +46,7 @@ public class ExecutorPortTests
         // one.
         var declared = ClaudeCodeExecutor.Capabilities;
 
-        await Assert.That(declared.EnforcesMoves).IsFalse();
+        await Assert.That(declared.EnforcesMoves).IsEqualTo(MoveEnforcement.PerTool);
         await Assert.That(declared.AttributesEditsToTools).IsFalse()
             .Because("what the agent touched is read from the tree, not from what it said it did - "
                    + "which is the property that keeps an injected instruction out of a verdict.");

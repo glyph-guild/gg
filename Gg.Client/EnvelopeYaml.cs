@@ -263,6 +263,24 @@ public static class EnvelopeYaml
     {
         Closed(entry.Body, "check", "when", "rule", "approver", "provenance", "evidence");
 
+        // PROVENANCE IS DERIVED, NEVER DECLARED, and refusing it here is the whole
+        // of that. The composer assigns the layer from where the document sat; a
+        // document that could name its own would let a flight-level file claim
+        // `org`, which is the governed thing describing its own authority - the
+        // same rule as `no envelope arrives from a runner`.
+        //
+        // Refused rather than ignored. Silently discarding it would leave people
+        // writing a line that looks load-bearing and does nothing, which is how a
+        // field becomes folklore.
+        if (entry.Body.Entries.ContainsKey("provenance"))
+        {
+            throw new EnvelopeSyntaxException(
+                $"{entry.Body.Path}.provenance is not yours to set. Which layer an obligation "
+              + "came from is assigned from where its document sat, so that a lower layer "
+              + "cannot claim a higher one's authority. Remove the line; the composed envelope "
+              + "will carry it.");
+        }
+
         return new Obligation
         {
             Id = entry.Id,
@@ -289,9 +307,9 @@ public static class EnvelopeYaml
             Evidence = entry.Body.Entries.TryGetValue("evidence", out var evidence)
                 ? Strings(evidence, $"{entry.Body.Path}.evidence")
                 : [],
-            Provenance = entry.Body.Entries.TryGetValue("provenance", out var provenance)
-                ? RequireScalar(provenance, $"{entry.Body.Path}.provenance")
-                : ObligationProvenances.Org,
+            // NOT SET HERE. A parsed document has no layer: it acquires one when a
+            // composer places it, and until then `org` is the default the type
+            // carries rather than a claim this parser made.
         };
     }
 

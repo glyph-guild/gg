@@ -90,6 +90,8 @@ public static class Vocabulary
         typeof(Loop),
         typeof(Destination),
         typeof(Envelope),
+        typeof(EnvelopeLayer),
+        typeof(Composition),
         typeof(EnvelopeState),
         typeof(EnvelopeApplied),
     ];

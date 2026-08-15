@@ -203,18 +203,53 @@ public static class AttachmentConditions
     public static IReadOnlyList<string> Forms { get; } = [TouchesPrefix + "<glob>"];
 }
 
-/// <summary>Which layer an obligation came from.</summary>
+/// <summary>
+/// Which layer an obligation came from, highest authority first.
+/// </summary>
 /// <remarks>
-/// One value, on a real obligation for the first time - the column was carried
-/// against nothing until now. Layering is a later slice; the field is what
-/// makes "lower layers may only narrow" expressible when it arrives.
+/// <para>
+/// <b>A RANKING, not a set, and the attribute has to say so.</b>
+/// <c>ClosedVocabularies.Lines</c> sorts a vocabulary's values before hashing
+/// unless it is declared ordered - correct for <c>LoopMoves</c>, where the order
+/// is how somebody typed a list, and wrong here, where the order IS the content.
+/// Sorted, swapping org and flight would change which layer outranks which and
+/// move no fingerprint at all. That defect was found once already on the egress
+/// levels; this is the second place it could have happened.
+/// </para>
+/// <para>
+/// <b>Derived, never declared.</b> A document does not say which layer it is - the
+/// composer assigns it from where the document sat, and the parser refuses an
+/// obligation that tries to say. A flight-level document claiming <c>org</c> would
+/// be the governed thing describing its own authority, which is the same rule as
+/// <i>no envelope arrives from a runner</i>.
+/// </para>
+/// <para>
+/// <b>No <c>team</c>, deliberately.</b> The design has three layers and this step
+/// ships two; a value nothing can produce is a value nobody maintains, and the
+/// day a third layer arrives it is a version move, which is honest. Its absence
+/// is asserted so that day is visible.
+/// </para>
 /// </remarks>
-[VocabularyOf(VocabularyFingerprints.Contract)]
+[VocabularyOf(VocabularyFingerprints.Contract, Ordered = true)]
 public static class ObligationProvenances
 {
+    /// <summary>The higher layer. A lower one may not touch what it declared.</summary>
     public const string Org = "org";
 
-    public static IReadOnlyList<string> All { get; } = [Org];
+    /// <summary>The lower layer. It may add its own and remove its own.</summary>
+    public const string Flight = "flight";
+
+    /// <summary>Highest authority first. The order is the ranking.</summary>
+    public static IReadOnlyList<string> All { get; } = [Org, Flight];
+
+    /// <summary>Whether the first outranks the second.</summary>
+    /// <remarks>
+    /// Read from <see cref="All"/> rather than from a comparison somebody wrote,
+    /// so the ranking has one definition and reordering the list is what changes
+    /// it - which is exactly what the fingerprint now notices.
+    /// </remarks>
+    public static bool Outranks(string layer, string other) =>
+        All.ToList().IndexOf(layer) < All.ToList().IndexOf(other);
 }
 
 /// <summary>What the flight is bound to.</summary>
@@ -520,6 +555,24 @@ public sealed record Envelope
                 // Naming the key as well as the value: a diagnosis quoting only
                 // the condition sends somebody looking for it without saying
                 // which line of the obligation it came from.
+                // NAMED SPECIFICALLY, because this one is not a typo. It is THE
+                // canonical gate trigger in the design documents, so somebody will
+                // type it, and a generic "not understood" would read as a version
+                // that has not got round to it yet - which is how an ordering
+                // escape hatch ships as unsupported-but-authorable.
+                if (condition.StartsWith("obligations.", StringComparison.Ordinal))
+                {
+                    return $"'{condition}' cites a VERDICT, at obligations.{obligation.Id}.when, "
+                         + "and this version refuses it rather than leaving it authorable. It "
+                         + "makes one obligation's attachment depend on another's outcome, which "
+                         + "turns evaluation into a fixed point and reintroduces the ordering "
+                         + "dependence the Engine proved absent. The open question it needs an "
+                         + "answer to is whether an attribution may cite a verdict: the line is "
+                         + "not how many things evaluation may read, it is that none of them may "
+                         + "be something evaluation produced. Until that is decided, express the "
+                         + "rule as a condition over facts.";
+                }
+
                 return $"'{condition}' is not a condition this version understands, at "
                      + $"obligations.{obligation.Id}.when. Expected one of: "
                      + string.Join(", ", AttachmentConditions.Forms)

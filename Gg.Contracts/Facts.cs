@@ -264,7 +264,7 @@ public static class FactVocabulary
     /// ONE BUMP FOR BOTH, because two would mean two ledger entries, two release
     /// assets and two re-pins - and the second re-pin conflicts with the first in
     /// the two files every step already touches.
-    public const string Version = "0.13.0";
+    public const string Version = "0.14.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

@@ -20,7 +20,7 @@ namespace Gg.Runner.Tests;
 /// <para>
 /// <b>What it does on failure is refuse to lease.</b> If moves are not enforceable
 /// on this machine then a governed flight here is not governed, and flying one
-/// anyway is the product's central claim being false on a customer's laptop.
+/// anyway is the claim this product is sold on being false on a customer's laptop.
 /// </para>
 /// <para>
 /// <b>And an inconclusive probe refuses too.</b> Unknown is not false - the rule
@@ -126,13 +126,45 @@ public class MoveBoundProbeTests
     {
         // It runs on a customer's machine, at startup, every time. A probe that
         // accumulated scratch directories would be a disk leak with a schedule.
-        var before = Directory.GetDirectories(Path.GetTempPath(), "gg-move-probe*").Length;
+        // The DIFFERENCE rather than the count, because other tests in this file
+        // run concurrently and have probe directories of their own in flight. A
+        // count would make this test about the scheduler.
+        var before = Directory
+            .GetDirectories(Path.GetTempPath(), "gg-move-probe*")
+            .ToHashSet(StringComparer.Ordinal);
 
         await MoveBoundProbe.RunAsync(Bound(), CancellationToken.None);
         await MoveBoundProbe.RunAsync(Unbound(), CancellationToken.None);
 
-        await Assert.That(Directory.GetDirectories(Path.GetTempPath(), "gg-move-probe*").Length)
-            .IsEqualTo(before);
+        await Assert.That(Directory
+                .GetDirectories(Path.GetTempPath(), "gg-move-probe*")
+                .Except(before, StringComparer.Ordinal))
+            .IsEmpty();
+    }
+
+    [Test]
+    [Category("RealAgent")]
+    public async Task What_the_probe_costs_against_the_real_binary()
+    {
+        // PROBE COST, measured rather than estimated, because it is spent on every
+        // runner start on somebody else's machine and "an agent invocation is not
+        // free" is not a number.
+        var binary = Environment.GetEnvironmentVariable("GG_EXECUTOR_BINARY")
+            ?? throw new InvalidOperationException("GG_EXECUTOR_BINARY is not set.");
+
+        var result = await MoveBoundProbe.RunAsync(
+            new ClaudeCodeExecutor(binary), CancellationToken.None);
+
+        Console.WriteLine($"probe took {result.Took.TotalSeconds:F1}s, bound={result.Bound}");
+
+        if (Environment.GetEnvironmentVariable("GG_PROBE_COST") is { Length: > 0 } into)
+        {
+            File.WriteAllText(into, $"{result.Took.TotalSeconds:F1}s bound={result.Bound}\n{result.Diagnosis}\n");
+        }
+
+        await Assert.That(result.Took).IsLessThan(TimeSpan.FromMinutes(3))
+            .Because("the budget it is given, so a probe that reached it would be a runner "
+                   + "held up for three minutes rather than one told something.");
     }
 
     // ---- and it runs in the product, not only here ----

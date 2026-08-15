@@ -118,7 +118,8 @@ public static class RunnerHost
         ICredentialResolver credentials,
         IWorkspace workspace,
         CancellationToken cancellationToken,
-        IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null)
+        IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null,
+        Execution.IExecutorPort? executor = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -138,6 +139,31 @@ public static class RunnerHost
             System.Console.WriteLine($"swept {swept} working tree(s) left by a previous run");
         }
 
+        // BEFORE ANY WORK IS CLAIMED, and only when this runner can run a loop.
+        // A runner with no executor cannot invoke an agent, so it cannot break a
+        // move bound and has nothing to prove; one that can has to prove it here,
+        // because a governed flight on a machine where moves are not enforceable
+        // is not governed, and flying one anyway makes the claim
+        // this product is sold on false on somebody's laptop.
+        if (Execution.MoveBoundProbe.Required(executor) is { } why)
+        {
+            System.Console.WriteLine($"probing whether declared moves bound this executor. {why}");
+
+            var probe = await Execution.MoveBoundProbe.RunAsync(executor!, cancellationToken);
+
+            System.Console.WriteLine(
+                $"move bound: {(probe.Bound ? "held" : "NOT HELD")} "
+              + $"in {probe.Took.TotalSeconds:F1}s - {probe.Diagnosis}");
+
+            if (!probe.Bound)
+            {
+                System.Console.Error.WriteLine(
+                    "This runner will not take work. Nothing is claimed, nothing is cloned and "
+                  + "no agent is invoked.");
+                return 69;
+            }
+        }
+
         var loop = new RunnerLoop(
             new RunnerProtocolClient(http, runnerToken),
             new SystemClock(),
@@ -145,6 +171,7 @@ public static class RunnerHost
             new ConsoleObserver(),
             credentials,
             workspace,
+            executor,
             destinations: destinations)
         {
             HoldFor = holdFor,

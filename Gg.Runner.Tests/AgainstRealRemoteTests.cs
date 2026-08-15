@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Gg.Contracts;
+using Gg.Runner.Execution;
 using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
@@ -311,7 +312,7 @@ public class AgainstRealRemoteTests
         public Execution.ExecutorCapabilities Capabilities => new()
         {
             Rung = "fixture-agent",
-            EnforcesMoves = false,
+            EnforcesMoves = MoveEnforcement.PerTool,
             ReportsAttempts = true,
             ReportsTokens = false,
             ReportsDuration = true,

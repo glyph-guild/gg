@@ -227,11 +227,29 @@ public static class ProtocolSurface
             Path = "/v1/leases/{id}/facts",
             Audience = Audience.Runner,
             Request = typeof(FactBatch),
+            // ACCEPTED, not answered. ADR-0012 makes the write a command, so
+            // the body reports only what was refused before anything was
+            // written - the one part decided from the request itself.
             Response = typeof(FactBatchAccepted),
             // Against the LEASE, because the lease is the authorisation: a
             // runner asserting facts about a flight it does not hold would be
             // a runner writing into somebody else's evidence. 409 is the
-            // generation fence refusing exactly that.
+            // generation fence refusing exactly that, and it stays synchronous
+            // because it too is decided from what the request carries.
+            Statuses = [202, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/leases/{id}/admission",
+            Audience = Audience.Runner,
+            // WHERE THE LANDING DECISION WENT. It rode the facts response while
+            // the write was synchronous; it cannot once the answer is computed
+            // after the request returns. Asked against the lease, which is the
+            // same authorisation shipping facts uses - a runner may ask about
+            // the flight it holds and no other.
+            Response = typeof(LandingDecision),
             Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
         },
@@ -624,8 +642,12 @@ public static class ProtocolSurface
                  "loop", "transcript", "landed", "pushed", "loopDigest", "human"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
-            [typeof(FactBatchAccepted)] =
-                ["accepted", "duplicates", "rejected", "push", "admission"],
+            // Refusals only: accepted and duplicates are answers the write has,
+            // and the write is a command now. Push and admission moved to
+            // LandingDecision, which carries `settled` so a runner can tell
+            // "not yet" from "no" - absence means refusal only once it is true.
+            [typeof(FactBatchAccepted)] = ["rejected"],
+            [typeof(LandingDecision)] = ["settled", "push", "admission"],
             [typeof(ClassificationRule)] = ["pathGlob", "classification"],
             // Paths and counts. Nothing here a line of a file could travel in,
             // asserted over the shape as well as declared.

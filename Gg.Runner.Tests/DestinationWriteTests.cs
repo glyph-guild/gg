@@ -360,9 +360,14 @@ public class DestinationWriteTests
         // unmet obligation, or a control plane too old to answer. A runner that
         // treated absence as anything else would land work on the strength of a
         // field it could not see.
-        var accepted = new FactBatchAccepted { Accepted = 3, Duplicates = 0, Rejected = [] };
+        // SETTLED, so absence is an answer rather than a wait. That distinction
+        // is the whole reason LandingDecision carries `settled`: unsettled with
+        // no admission is "not yet", and reading it as this case is how a
+        // flight that was going to land quietly never does.
+        var decision = new LandingDecision { Settled = true };
 
-        await Assert.That(accepted.Admission).IsNull();
+        await Assert.That(decision.Admission).IsNull();
+        await Assert.That(decision.Push).IsNull();
     }
 
     [Test]

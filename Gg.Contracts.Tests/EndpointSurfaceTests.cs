@@ -89,7 +89,7 @@ public class EndpointSurfaceTests
         // rather than 200 with a DecisionRecorded, because the write became a
         // command and answering inline would mean waiting for its own event.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7ad6afdc666b578e2e89a1ef789566c4901e752a13aac2fd2a451b66b9594951")
+            .IsEqualTo("db01b6eb0512d83de39879a514d4fa486e5211a2b42510f0173b255e92519e69")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

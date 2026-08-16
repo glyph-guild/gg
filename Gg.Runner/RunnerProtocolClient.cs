@@ -19,6 +19,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(LeaseReleased))]
 [JsonSerializable(typeof(FactBatch))]
 [JsonSerializable(typeof(FactBatchAccepted))]
+[JsonSerializable(typeof(LandingDecision))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -167,6 +168,36 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         return await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.FactBatchAccepted, cancellationToken)
             ?? throw new InvalidOperationException("Control plane accepted facts with no answer.");
+    }
+
+    /// <summary>
+    /// Asks whether this flight may push, and whether its work may land.
+    /// </summary>
+    /// <remarks>
+    /// A 409 is the same generation fence shipping facts meets: the flight
+    /// belongs to another runner now, and its landing is not ours to ask about.
+    /// </remarks>
+    public async Task<LandingDecision> ReadAdmissionAsync(
+        string leaseId, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/leases/{leaseId}/admission");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new RunnerFencedException(
+                $"Lease {leaseId} is not the live one. This flight's landing belongs to a runner "
+              + "this one is not.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.LandingDecision, cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Control plane answered the admission route with no decision.");
     }
 
     public async Task<ReleaseResult> ReleaseAsync(

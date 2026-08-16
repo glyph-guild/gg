@@ -88,6 +88,24 @@ public interface IRunnerProtocol
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Asks whether this flight may push, and whether its work may land.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A separate question because it now has a separate answer.</b> Shipping
+    /// facts is accepted rather than answered - the control plane records the
+    /// batch and evaluates afterwards - so the decision cannot come back on that
+    /// response. Against the lease, which is the same authorisation.
+    /// </para>
+    /// <para>
+    /// <c>Settled</c> false means ask again. It does NOT mean no, and reading it
+    /// as no is the failure this route exists to prevent.
+    /// </para>
+    /// </remarks>
+    Task<LandingDecision> ReadAdmissionAsync(
+        string leaseId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gives the lease back, optionally with a credential diagnosis.
     /// </summary>
     /// <remarks>

@@ -191,16 +191,19 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
                     FactBodies.Add(await body.ReadToEndAsync());
                 }
 
-                // ABSENT MEANS NO, on both gates. A stub that granted a push would
-                // be handing a runner permission the control plane never gave.
-                await WriteJsonAsync(context, 200, new FactBatchAccepted
-                {
-                    Accepted = 0,
-                    Duplicates = 0,
-                    Rejected = [],
-                });
+                // ACCEPTED, and refusing nothing.
+                await WriteJsonAsync(context, 202, new FactBatchAccepted { Rejected = [] });
 
                 OnFacts?.Invoke();
+            }
+            else if (path.EndsWith("/admission", StringComparison.Ordinal))
+            {
+                // SETTLED, AND REFUSING BOTH GATES. A stub that granted a push
+                // would be handing a runner permission the control plane never
+                // gave; one that answered unsettled forever would hang every
+                // test that ships facts. Settled with neither permission is the
+                // honest default and the one absence-means-no is written for.
+                await WriteJsonAsync(context, 200, new LandingDecision { Settled = true });
             }
             else if (path.EndsWith("/renew", StringComparison.Ordinal))
             {

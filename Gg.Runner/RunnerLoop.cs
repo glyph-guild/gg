@@ -421,9 +421,15 @@ public sealed class RunnerLoop(
         // still be holding what it would push when the answer comes back. Said
         // out loud because it is the mechanism rather than an incidental
         // consequence of where the release happens to sit.
-        var accepted = await ShipAsync(lease, workspace, run, cancellationToken);
+        await ShipAsync(lease, workspace, run, cancellationToken);
 
-        await LandAsync(lease, workspace, accepted, secretsByLocator, cancellationToken);
+        // AND THEN IT ASKS, because shipping is accepted rather than answered.
+        // The control plane records the batch and evaluates afterwards, so the
+        // decision arrives on a route of its own - and the tree is still held
+        // while the runner waits for it.
+        var decision = await AwaitLandingAsync(lease, cancellationToken);
+
+        await LandAsync(lease, workspace, decision, secretsByLocator, cancellationToken);
 
         await HoldAsync(runnerId, labels, lease, cancellationToken);
     }
@@ -494,7 +500,7 @@ public sealed class RunnerLoop(
     /// <c>Digest</c> produces, and what ships takes what only <c>Filter</c>
     /// produces.
     /// </remarks>
-    private async Task<FactBatchAccepted?> ShipAsync(
+    private async Task ShipAsync(
         LeaseGranted lease, WorkspaceResult workspace, ExecutorRun? run,
         CancellationToken cancellationToken)
     {
@@ -563,12 +569,59 @@ public sealed class RunnerLoop(
             FactHygiene.Clean(new GatheredFacts(payloads)), lease.FlightId, _clock.UtcNow);
         var filtered = FactPipeline.Filter(digested, lease.ClassificationCeiling);
 
-        var accepted = await _protocol.ShipFactsAsync(
+        await _protocol.ShipFactsAsync(
             lease.LeaseId, lease.Generation, filtered, cancellationToken);
         _observer.FactsShipped(filtered.Items.Count);
-
-        return accepted;
     }
+
+    /// <summary>
+    /// Waits for the control plane to have an answer about landing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Settled is not the answer, it is whether there is one.</b> Both
+    /// permissions are refused by being absent, which is only safe while absence
+    /// means the control plane said no. Once the evaluation happens after the
+    /// request returns, absence also means it has not looked yet - and a runner
+    /// reading those as one would stop pushing work that was going to be
+    /// admitted, silently and with nothing to see.
+    /// </para>
+    /// <para>
+    /// <b>Bounded, and refusal on exhaustion.</b> A control plane that never
+    /// settles must not strand a runner holding a tree forever; giving up and
+    /// treating it as unsettled means nothing is pushed, which is the same
+    /// direction every other absence here fails in.
+    /// </para>
+    /// </remarks>
+    private async Task<LandingDecision?> AwaitLandingAsync(
+        LeaseGranted lease, CancellationToken cancellationToken)
+    {
+        var deadline = _clock.UtcNow + LandingPatience;
+
+        while (_clock.UtcNow < deadline)
+        {
+            var decision = await _protocol.ReadAdmissionAsync(lease.LeaseId, cancellationToken);
+
+            if (decision.Settled)
+            {
+                return decision;
+            }
+
+            await _delay(LandingPoll, cancellationToken);
+        }
+
+        _observer.Landed("refused",
+            "the control plane did not settle this flight's landing in "
+          + $"{LandingPatience.TotalSeconds:0}s, so nothing was pushed");
+
+        return null;
+    }
+
+    /// <summary>How long a runner holds its tree waiting for a landing decision.</summary>
+    private static readonly TimeSpan LandingPatience = TimeSpan.FromMinutes(5);
+
+    /// <summary>How often it asks while it waits.</summary>
+    private static readonly TimeSpan LandingPoll = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Lands the work, if and only if the control plane said to.
@@ -592,7 +645,7 @@ public sealed class RunnerLoop(
     private async Task LandAsync(
         LeaseGranted lease,
         WorkspaceResult workspace,
-        FactBatchAccepted? accepted,
+        LandingDecision? accepted,
         IReadOnlyDictionary<string, string> secretsByLocator,
         CancellationToken cancellationToken)
     {

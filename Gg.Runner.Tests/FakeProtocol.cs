@@ -105,11 +105,38 @@ internal sealed class FakeProtocol : IRunnerProtocol
         ShippedFacts.Add(facts);
         Record(new FactBatch { Generation = generation, Facts = facts.Items });
 
-        return Task.FromResult(new FactBatchAccepted
+        return Task.FromResult(new FactBatchAccepted { Rejected = [] });
+    }
+
+    /// <summary>
+    /// How many times the runner has to ask before this control plane settles.
+    /// </summary>
+    /// <remarks>
+    /// Zero by default, so a test that does not care about the wait does not pay
+    /// for one. A test that DOES care sets it and gets the real shape: unsettled
+    /// answers first, carrying neither permission, and a runner that must not
+    /// read those as refusals.
+    /// </remarks>
+    public int UnsettledAnswers { get; set; }
+
+    public Task<LandingDecision> ReadAdmissionAsync(
+        string leaseId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("admission");
+
+        if (UnsettledAnswers > 0)
         {
-            Accepted = facts.Items.Count,
-            Duplicates = 0,
-            Rejected = [],
+            UnsettledAnswers--;
+
+            // NEITHER PERMISSION, and not settled. This is the state that used
+            // to be unrepresentable: absent push and absent admission, which a
+            // runner reading absence as refusal would land on - wrongly.
+            return Task.FromResult(new LandingDecision { Settled = false });
+        }
+
+        return Task.FromResult(new LandingDecision
+        {
+            Settled = true,
             Push = Push,
             Admission = Admission,
         });

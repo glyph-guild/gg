@@ -1014,22 +1014,61 @@ public sealed record FactRejection
 }
 
 /// <summary>
-/// What the control plane did with a batch.
+/// What the control plane refused, out of a batch it has accepted.
 /// </summary>
 /// <remarks>
-/// Three numbers rather than one, because they mean different things to a
-/// runner. Duplicates are the expected result of a retry and not a problem;
-/// rejections are, and they are named.
+/// <para>
+/// <b>Refusals only, because they are the only part decided synchronously.</b>
+/// ADR-0012 makes the write a command: validation, cleanliness, classification
+/// and budget are all settled from the request itself and are answered here,
+/// while how many items landed and how many were already held are answers only
+/// the write has. Reporting a count the control plane has not yet reached would
+/// be a number that reads as measured.
+/// </para>
+/// <para>
+/// A rejection is Article XI's diagnosis, so it keeps its place on the wire even
+/// though the status is 202: accepting the batch and refusing an item in it are
+/// not in tension - the batch was taken, and this says which parts of it will
+/// never become evidence.
+/// </para>
 /// </remarks>
 [PinnedId("41a9e7b2-38c0-4f65-9d1a-5e70b8c34962")]
 public sealed record FactBatchAccepted
 {
-    public required int Accepted { get; init; }
-
-    /// <summary>Already recorded under the same idempotency key. A replay changed nothing.</summary>
-    public required int Duplicates { get; init; }
-
     public required IReadOnlyList<FactRejection> Rejected { get; init; }
+}
+
+/// <summary>
+/// Whether this flight may push, and whether its work may land.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It used to ride the facts response, and it cannot any more.</b> The write
+/// is a command, so at the moment the batch is accepted neither answer exists
+/// yet. A runner asks for this instead, on the lease it already holds.
+/// </para>
+/// <para>
+/// <b><see cref="Settled"/> is what makes absence safe.</b> Both permissions are
+/// refused by being absent - deliberately, so a runner that cannot read a field
+/// never lands on the strength of it. That rule only works while absence means
+/// "the control plane said no"; once the answer is computed asynchronously,
+/// absence ALSO means "it has not looked yet", and the two are the same value.
+/// A runner reading them as one would stop pushing work that was going to be
+/// admitted, silently. So the question "has this been answered" is carried
+/// separately from the answer.
+/// </para>
+/// </remarks>
+[PinnedId("33b87adb-e0de-49db-a803-03f4f94ebb10")]
+public sealed record LandingDecision
+{
+    /// <summary>
+    /// Whether every fact this flight has shipped has been evaluated.
+    /// </summary>
+    /// <remarks>
+    /// False means ask again, not "no". A runner holds its tree across this, so
+    /// the wait is bounded by its own patience rather than by a promise here.
+    /// </remarks>
+    public required bool Settled { get; init; }
 
     /// <summary>
     /// Whether the branch may be pushed, and where.
@@ -1042,9 +1081,9 @@ public sealed record FactBatchAccepted
     /// something to decide about, and may not open a proposal.
     /// </para>
     /// <para>
-    /// <b>Absent means no</b>, and a runner must not derive this from
-    /// <see cref="Admission"/> or the other way round. Two permissions, two fields,
-    /// each refused by its own absence.
+    /// <b>Absent means no</b> once <see cref="Settled"/> is true, and a runner
+    /// must not derive this from <see cref="Admission"/> or the other way round.
+    /// Two permissions, two fields, each refused by its own absence.
     /// </para>
     /// </remarks>
     public BranchPush? Push { get; init; }
@@ -1053,17 +1092,9 @@ public sealed record FactBatchAccepted
     /// Whether this flight's work may now land, and where.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Carried on the response to shipping facts rather than on an endpoint of
-    /// its own, because the decision depends on the facts that just arrived and
-    /// the runner is already holding the tree when it asks.
-    /// </para>
-    /// <para>
-    /// <b>Null means do not push</b>, and it means that for every reason at
-    /// once: no destination declared, obligations unmet, or a control plane too
-    /// old to answer. A runner that treated absence as anything but refusal
-    /// would land work on the strength of a field it could not see.
-    /// </para>
+    /// <b>Null means do not push</b> once <see cref="Settled"/> is true, and it
+    /// means that for every reason at once: no destination declared, obligations
+    /// unmet, or a control plane too old to answer.
     /// </remarks>
     public DestinationAdmission? Admission { get; init; }
 }

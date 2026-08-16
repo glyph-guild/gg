@@ -273,9 +273,54 @@ public class FactSurfaceDeclarationTests
 
         await Assert.That(endpoint.Audience).IsEqualTo(Audience.Runner);
         await Assert.That(endpoint.Request).IsEqualTo(typeof(FactBatch));
-        await Assert.That(endpoint.Response).IsEqualTo(typeof(FactBatchAccepted));
         await Assert.That(endpoint.Statuses).Contains(409)
             .Because("the generation fence refuses a runner that no longer holds this flight.");
+    }
+
+    [Test]
+    public async Task Shipping_facts_is_accepted_rather_than_answered()
+    {
+        // ADR-0012: the evidence write becomes a command, so the response cannot
+        // report what the write did. What it CAN still report is what was
+        // refused before anything was written - validation, cleanliness,
+        // classification and budget are all decided from the request itself.
+        // Accepted and duplicates are not: both are answers only the write has.
+        var endpoint = ProtocolSurface.Endpoints.Single(
+            e => e.Method == "POST" && e.Path == "/v1/leases/{id}/facts");
+
+        await Assert.That(endpoint.Statuses).Contains(202);
+        await Assert.That(endpoint.Statuses).DoesNotContain(200);
+
+        var members = ProtocolSurface.JsonMembers[typeof(FactBatchAccepted)];
+
+        await Assert.That(members).Contains("rejected")
+            .Because("a refused item is Article XI's diagnosis, and it is decided synchronously.");
+        await Assert.That(members).DoesNotContain("accepted");
+        await Assert.That(members).DoesNotContain("duplicates");
+    }
+
+    [Test]
+    public async Task The_landing_decision_moves_to_a_route_a_runner_can_ask_again()
+    {
+        // IT CANNOT RIDE THE FACTS RESPONSE ANY MORE. LandAsync reads push and
+        // admission and treats each as refused when absent - correct while the
+        // answer arrived with the write, and a silent bug the moment the write
+        // is asynchronous, because "not evaluated yet" and "refused" become the
+        // same value and the runner never pushes.
+        var endpoint = ProtocolSurface.Endpoints.Single(
+            e => e.Method == "GET" && e.Path == "/v1/leases/{id}/admission");
+
+        await Assert.That(endpoint.Audience).IsEqualTo(Audience.Runner)
+            .Because("the lease is the authorisation here exactly as it is for facts.");
+        await Assert.That(endpoint.Response).IsEqualTo(typeof(LandingDecision));
+
+        var members = ProtocolSurface.JsonMembers[typeof(LandingDecision)];
+
+        await Assert.That(members).Contains("settled")
+            .Because("without it the runner cannot tell 'not yet' from 'no', and absent-means-no "
+                   + "turns a flight that was going to be admitted into one that never pushes.");
+        await Assert.That(members).Contains("push");
+        await Assert.That(members).Contains("admission");
     }
 
     [Test]

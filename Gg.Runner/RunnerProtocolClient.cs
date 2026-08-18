@@ -12,6 +12,8 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(RunnerHeartbeat))]
 [JsonSerializable(typeof(HeartbeatAccepted))]
 [JsonSerializable(typeof(LeaseClaimRequest))]
+[JsonSerializable(typeof(LeaseClaimAccepted))]
+[JsonSerializable(typeof(LeaseClaimStatus))]
 [JsonSerializable(typeof(LeaseGranted))]
 [JsonSerializable(typeof(LeaseRenewalRequest))]
 [JsonSerializable(typeof(LeaseRenewed))]
@@ -81,7 +83,7 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
             ?? throw new InvalidOperationException("Control plane returned no heartbeat interval.");
     }
 
-    public async Task<ClaimResult> ClaimAsync(
+    public async Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
         CancellationToken cancellationToken = default)
     {
@@ -93,16 +95,77 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         ThrowIfProtocolRefused(response);
 
+        // BOTH OLD ANSWERS, tolerated so the two repositories can land this in
+        // either order - the arrangement the decisions endpoint was given when
+        // it stopped answering inline. A control plane serving this contract
+        // sends neither.
         if (response.StatusCode == HttpStatusCode.NoContent)
         {
-            return new ClaimResult.Nothing();
+            return new ClaimAcceptance.Inline(new ClaimResult.Nothing());
+        }
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var inline = await response.Content.ReadFromJsonAsync(
+                RunnerJsonContext.Default.LeaseGranted, cancellationToken)
+                ?? throw new InvalidOperationException("Control plane granted a lease with no body.");
+            return new ClaimAcceptance.Inline(new ClaimResult.Granted(inline));
         }
 
         response.EnsureSuccessStatusCode();
-        var lease = await response.Content.ReadFromJsonAsync(
-            RunnerJsonContext.Default.LeaseGranted, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane granted a lease with no body.");
-        return new ClaimResult.Granted(lease);
+        var accepted = await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.LeaseClaimAccepted, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane accepted a claim with no body.");
+
+        return new ClaimAcceptance.Accepted(
+            accepted.RequestId, TimeSpan.FromSeconds(accepted.PollAfterSeconds));
+    }
+
+    /// <summary>
+    /// Asks what became of a request.
+    /// </summary>
+    /// <remarks>
+    /// A 404 is <see cref="ClaimResult.Expired"/> rather than a throw: a request
+    /// the control plane has finished with and one it never had are the same
+    /// thing to a runner, and both are answered by asking again with a new one.
+    /// </remarks>
+    public async Task<ClaimResult> ReadClaimAsync(
+        string requestId, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/leases/claims/{requestId}");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return new ClaimResult.Expired();
+        }
+
+        response.EnsureSuccessStatusCode();
+        var status = await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.LeaseClaimStatus, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered a claim status with no body.");
+
+        return status.State switch
+        {
+            // The lease is read only in the state that carries one. A granted
+            // status with no lease is a control plane bug and says so here,
+            // rather than becoming an idle runner nobody can explain.
+            LeaseClaimStates.Granted => new ClaimResult.Granted(
+                status.Lease ?? throw new InvalidOperationException(
+                    "Control plane granted a claim and attached no lease.")),
+            LeaseClaimStates.Waiting => new ClaimResult.Waiting(status.WaitingOn),
+            LeaseClaimStates.Expired => new ClaimResult.Expired(),
+            LeaseClaimStates.Pending => new ClaimResult.Nothing(),
+
+            // HALT ON A STATE THIS BINARY DOES NOT KNOW. The vocabulary is
+            // closed precisely so a fifth value is a version move; guessing
+            // would make the closure decorative.
+            _ => throw new InvalidOperationException(
+                $"Control plane reported claim state '{status.State}', which this runner does not "
+              + "know. Its contract version is older than the control plane's."),
+        };
     }
 
     public async Task<RenewResult> RenewAsync(

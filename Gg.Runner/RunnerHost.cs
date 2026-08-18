@@ -21,6 +21,17 @@ internal sealed class ConsoleObserver : IRunnerObserver
     public void Idle() => System.Console.WriteLine("nothing ready");
 
     /// <summary>
+    /// Which repositories, because that is the sentence somebody can act on.
+    /// </summary>
+    /// <remarks>
+    /// A slug is not a secret and not a line of anybody's code - it is the thing
+    /// the person reading this would have to type into `gg credential add`.
+    /// </remarks>
+    public void Waiting(IReadOnlyList<string> repos) =>
+        System.Console.WriteLine(
+            $"waiting on a credential for {string.Join(", ", repos)} (work is ready; this is not)");
+
+    /// <summary>
     /// The commit and the size. Never a path inside the tree.
     /// </summary>
     /// <remarks>

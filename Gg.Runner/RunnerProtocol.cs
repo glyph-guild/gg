@@ -10,9 +10,72 @@ public abstract record ClaimResult
 
     /// <summary>
     /// Nothing to do. The normal answer for an idle fleet, and not an error -
-    /// 204 at the wire for the same reason the device poll answers 202.
+    /// <c>pending</c> at the wire, for the same reason the device poll answers
+    /// 202 rather than treating "not yet" as a failure.
     /// </summary>
     public sealed record Nothing : ClaimResult;
+
+    /// <summary>
+    /// A flight is ready and what its lease must carry is not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The state that had nowhere to be reported.</b> This and
+    /// <see cref="Nothing"/> were one 204, so a runner idling because there is
+    /// no work and a runner idling because a credential nobody has registered
+    /// has not arrived looked identical - from the outside, both are silence.
+    /// </para>
+    /// <para>
+    /// The repositories by name rather than a count: a number says something is
+    /// wrong, a name says which credential to register.
+    /// </para>
+    /// </remarks>
+    public sealed record Waiting(IReadOnlyList<string> Repos) : ClaimResult;
+
+    /// <summary>
+    /// The request outlived its window. Terminal.
+    /// </summary>
+    /// <remarks>
+    /// Not an error and not retryable under the same name: a runner that kept
+    /// polling an expired request would poll something the control plane has
+    /// finished with forever. The answer is a new request.
+    /// </remarks>
+    public sealed record Expired : ClaimResult;
+}
+
+/// <summary>What came back from asking for work.</summary>
+/// <remarks>
+/// <para>
+/// <b>Accepted rather than answered.</b> Whether a flight can be handed over
+/// depends on state that arrives asynchronously, so at the moment the request is
+/// taken the answer does not exist yet.
+/// </para>
+/// </remarks>
+public abstract record ClaimAcceptance
+{
+    /// <summary>
+    /// The control plane took the request. Ask about it after
+    /// <paramref name="PollAfter"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b><paramref name="PollAfter"/> is not advice.</b> The claim used to be a
+    /// long poll and the control plane holding the request open WAS the rate
+    /// limiter - this runner has no backoff of its own. An interval the runner
+    /// invented would either hammer an endpoint that now answers instantly or
+    /// idle past work that was ready.
+    /// </remarks>
+    public sealed record Accepted(string RequestId, TimeSpan PollAfter) : ClaimAcceptance;
+
+    /// <summary>
+    /// An older control plane answered the claim inline.
+    /// </summary>
+    /// <remarks>
+    /// Tolerated for the same reason the decisions endpoint's two answers were,
+    /// and it is what lets the two repositories land this in either order. When
+    /// no control plane answers a claim with a lease, this case is dead and
+    /// deleting it is a change with a reason of its own.
+    /// </remarks>
+    public sealed record Inline(ClaimResult Answer) : ClaimAcceptance;
 }
 
 /// <summary>Outcome of a renewal.</summary>
@@ -62,9 +125,24 @@ public interface IRunnerProtocol
     Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default);
 
-    Task<ClaimResult> ClaimAsync(
+    /// <summary>
+    /// Asks for work. Two calls rather than one, deliberately.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="maxWaitSeconds"/> survives the change and means something
+    /// different: it used to be how long the control plane would HOLD the
+    /// request open, and it is now how long the request stays alive before it
+    /// expires. The runner still says how long it is prepared to wait; the
+    /// control plane no longer spends a connection waiting with it.
+    /// </remarks>
+    Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asks what became of a request. Reports; never grants.
+    /// </summary>
+    Task<ClaimResult> ReadClaimAsync(string requestId, CancellationToken cancellationToken = default);
 
     Task<RenewResult> RenewAsync(string leaseId, int generation, CancellationToken cancellationToken = default);
 

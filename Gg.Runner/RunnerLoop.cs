@@ -30,6 +30,17 @@ public interface IRunnerObserver
     void Idle();
 
     /// <summary>
+    /// A flight is ready and its lease cannot be completed yet.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Idle"/> because they used to be the same 204,
+    /// and the difference is the whole reason the claim became a request: an
+    /// idle fleet needs nobody, and a waiting one needs somebody to register a
+    /// credential. The repositories by name, because that names the action.
+    /// </remarks>
+    void Waiting(IReadOnlyList<string> repos);
+
+    /// <summary>
     /// A repository is on disk: which commit, and how much of it.
     /// </summary>
     /// <remarks>
@@ -105,6 +116,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void Fenced(string leaseId) { }
     public void Released(string leaseId, string disposition) { }
     public void Idle() { }
+    public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
     public void Materialized(string slug, string headCommit, long bytes) { }
     public void WorkspaceFailed(string diagnosis) { }
@@ -228,13 +240,41 @@ public sealed class RunnerLoop(
             {
                 Activity = RunnerActivity.Claiming;
 
-                var claim = await _protocol.ClaimAsync(runnerId, labels, ClaimWaitSeconds, cancellationToken);
+                var claim = await AskForWorkAsync(runnerId, labels, cancellationToken);
                 if (claim is not ClaimResult.Granted(var lease))
                 {
-                    // The control plane already held the request open for up to
-                    // ClaimWaitSeconds. Going straight round again is a long
-                    // poll, not a busy loop.
-                    _observer.Idle();
+                    // Every wait this took was one the control plane asked for,
+                    // inside AskForWorkAsync. Going round again here makes a new
+                    // request rather than re-reading a finished one.
+                    // Waiting was already said, once per poll, by the ask
+                    // itself. Saying it again here would double every line a
+                    // person watching this runner reads.
+                    if (claim is not ClaimResult.Waiting)
+                    {
+                        _observer.Idle();
+                    }
+
+                    continue;
+                }
+
+                // NAMED BY THE CONTROL PLANE, refused here, and BEFORE the
+                // workspace is asked for anything. Cloning what we have no
+                // credential for used to go out anonymously - a public
+                // repository worked and a private one failed later at git's own
+                // words, with nothing pointing at the missing credential.
+                if (lease.UnresolvedRepos.Count > 0)
+                {
+                    _observer.Claimed(lease);
+                    var missing =
+                        "This flight names repositories the control plane holds no credential "
+                      + $"reference for: {string.Join(", ", lease.UnresolvedRepos)}. Register one "
+                      + "with `gg credential add` and fly it again. Fetching without one either "
+                      + "fails at the forge with nothing pointing at the cause or, worse, quietly "
+                      + "succeeds against a public copy of something that was meant to be read "
+                      + "with a credential.";
+
+                    _observer.WorkspaceFailed(missing);
+                    await ReleaseAsync(lease, RunnerDisposition.Failed, missing, cancellationToken);
                     continue;
                 }
 
@@ -312,6 +352,68 @@ public sealed class RunnerLoop(
     /// for no reason.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Makes a request and asks about it until it settles or its window passes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The rate limiter changed hands here.</b> The claim used to be a long
+    /// poll: the control plane held the request open for
+    /// <see cref="ClaimWaitSeconds"/>, so a runner going straight round again
+    /// was polling rather than spinning. Nothing holds it open now, and this
+    /// runner has no backoff of its own - so the interval the control plane
+    /// sends is the entire thing standing between an idle fleet and a busy loop,
+    /// and it is honoured rather than adjusted.
+    /// </para>
+    /// <para>
+    /// <b>Bounded by the same window the request has.</b> The runner stops
+    /// asking when its own patience runs out and makes a fresh request, which is
+    /// what keeps a heartbeat flowing and what stops an abandoned request from
+    /// being polled forever.
+    /// </para>
+    /// </remarks>
+    private async Task<ClaimResult> AskForWorkAsync(
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        var acceptance = await _protocol.RequestClaimAsync(
+            runnerId, labels, ClaimWaitSeconds, cancellationToken);
+
+        if (acceptance is ClaimAcceptance.Inline(var answered))
+        {
+            return answered;
+        }
+
+        var accepted = (ClaimAcceptance.Accepted)acceptance;
+        var giveUpAt = _clock.UtcNow + TimeSpan.FromSeconds(ClaimWaitSeconds);
+        ClaimResult latest = new ClaimResult.Nothing();
+
+        while (!cancellationToken.IsCancellationRequested && _clock.UtcNow < giveUpAt)
+        {
+            await _delay(accepted.PollAfter, cancellationToken);
+
+            latest = await _protocol.ReadClaimAsync(accepted.RequestId, cancellationToken);
+
+            // Granted and expired are terminal, and expired especially: polling
+            // a request the control plane has finished with is polling something
+            // that will never change again.
+            if (latest is ClaimResult.Granted or ClaimResult.Expired)
+            {
+                return latest;
+            }
+
+            // WAITING IS SAID EVERY TIME IT IS READ, not once. A person watching
+            // a runner needs to see that it is still blocked and on what; a
+            // single line at the start of a long wait reads as a runner that
+            // stopped.
+            if (latest is ClaimResult.Waiting(var blocked))
+            {
+                _observer.Waiting(blocked);
+            }
+        }
+
+        return latest;
+    }
+
     private async Task<CredentialResolutionFailure?> ResolveAsync(
         LeaseGranted lease,
         Dictionary<string, string> resolvedByLocator,

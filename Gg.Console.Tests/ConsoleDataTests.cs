@@ -128,7 +128,11 @@ public class ConsoleDataTests
         // AddAsync needs a secret typed at a prompt, and a prompt inside a
         // Terminal.Gui modal is a keyboard path with its own escape-hatch
         // rules - it is credential-broker work the console does not do.
-        var exempt = (string[])["FlyAsync", "AddAsync"];
+        // InviteAsync is a write for the same reason FlyAsync is, and it
+        // produces a value whose whole purpose is to be COPIED somewhere else.
+        // A link a person cannot select out of a Terminal.Gui view is worse
+        // than no link at all, and clipboard access is its own piece of work.
+        var exempt = (string[])["FlyAsync", "AddAsync", "InviteAsync"];
         var expected = verbs.Where(v => !exempt.Contains(v)).ToList();
         var missing = expected.Where(v => !console.Contains(v)).ToList();
 

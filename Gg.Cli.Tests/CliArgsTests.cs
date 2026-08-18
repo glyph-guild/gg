@@ -177,7 +177,8 @@ public class CliArgsTests
 
         foreach (var verb in (string[])["fly", "show", "log", "runners", "doctor", "bundle",
                                         "login", "logout", "whoami", "version", "runner up",
-                                        "credential add", "credential list", "credential rm"])
+                                        "credential add", "credential list", "credential rm",
+                                        "invite"])
         {
             await Assert.That(message).Contains(verb)
                 .Because($"'{verb}' works today and a person cannot be expected to guess it.");

@@ -41,6 +41,8 @@ public abstract record CliAction
 
     public sealed record Runners(bool Json) : CliAction, IEmitsResult;
 
+    public sealed record Invite(bool Json) : CliAction, IEmitsResult;
+
     public sealed record Doctor(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>
@@ -135,6 +137,7 @@ public static class CliArgs
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
         "gg runners                     the runners this tenant has",
+        "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
@@ -177,6 +180,7 @@ public static class CliArgs
 
             ["flights"] => new CliAction.Flights(json),
             ["runners"] => new CliAction.Runners(json),
+            ["invite"] => new CliAction.Invite(json),
             ["doctor"] => new CliAction.Doctor(json),
             ["bundle"] => new CliAction.Bundle(json),
 

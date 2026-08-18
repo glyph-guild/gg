@@ -310,6 +310,18 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));
 
     /// <summary>
+    /// Invites somebody into the caller's tenant.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is asked for and nothing is validated here, because there is
+    /// nothing to validate: an invitation names nobody, and the tenant comes
+    /// from the session. What comes back is a link the person who ran this
+    /// passes on themselves.
+    /// </remarks>
+    public async Task<VerbResult> InviteAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Invited(await _client.InviteAsync(Session(), cancellationToken));
+
+    /// <summary>
     /// Opens a flight.
     /// </summary>
     /// <remarks>

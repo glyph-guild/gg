@@ -53,6 +53,11 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Runners;
     }
 
+    public sealed record Invited(InvitationIssued Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Invited;
+    }
+
     public sealed record Diagnosis(DoctorReport Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Diagnosis;
@@ -156,6 +161,7 @@ public static class VerbResultKinds
     public const string Launched = "launched";
     public const string Log = "log";
     public const string Runners = "runners";
+    public const string Invited = "invited";
     public const string Diagnosis = "diagnosis";
     public const string Credentials = "credentials";
     public const string CredentialAdded = "credential-added";
@@ -174,6 +180,7 @@ public static class VerbResultKinds
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     WriteIndented = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
+[JsonSerializable(typeof(InvitationIssued))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightLaunched))]
@@ -235,6 +242,7 @@ public static class VerbOutput
         VerbResult.Launched r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLaunched),
         VerbResult.Log r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLog),
         VerbResult.Runners r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
+        VerbResult.Invited r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.InvitationIssued),
         VerbResult.Diagnosis r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DoctorReport),
         VerbResult.Credentials r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialList),
         VerbResult.CredentialAdded r =>
@@ -266,6 +274,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightLog))),
         VerbResultKinds.Runners => new VerbResult.Runners(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
+        VerbResultKinds.Invited => new VerbResult.Invited(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.InvitationIssued))),
         VerbResultKinds.Diagnosis => new VerbResult.Diagnosis(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.DoctorReport))),
         VerbResultKinds.Credentials => new VerbResult.Credentials(Require(
@@ -304,6 +314,7 @@ public static class VerbOutput
         VerbResult.Launched r => Launched(r.Value),
         VerbResult.Log r => Log(r.Value),
         VerbResult.Runners r => Runners(r.Value),
+        VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
         VerbResult.Credentials r => Credentials(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
@@ -628,6 +639,30 @@ public static class VerbOutput
             text.AppendLine($"{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}");
         }
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The invitation, for the person who has to pass it on.
+    /// </summary>
+    /// <remarks>
+    /// <b>The link is on a line of its own and nothing else is.</b> Whoever ran
+    /// this is about to copy it into a message, and a URL wrapped in prose is a
+    /// URL that arrives truncated. The expiry is said in the sentence after,
+    /// because it changes what they write, not what they copy.
+    /// </remarks>
+    private static string Invited(InvitationIssued invitation)
+    {
+        var text = new StringBuilder();
+        text.AppendLine(Clean(invitation.InvitationUrl));
+        text.AppendLine();
+        text.AppendLine($"Send that to the person you are inviting. It works once, and stops");
+        text.AppendLine($"working at {invitation.ExpiresAt:u}.");
+        text.AppendLine();
+        // SAID PLAINLY, because it is the one thing about this link somebody
+        // would not guess: it is not addressed to anybody. Whoever opens it
+        // becomes a principal in this tenant.
+        text.Append("Anybody who opens it joins this tenant, so send it the way you would send a password.");
+        return text.ToString();
     }
 
     /// <summary>

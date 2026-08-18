@@ -85,11 +85,18 @@ public class EndpointSurfaceTests
         // type fails HERE - which is not the ledger, and is better than nothing.
         // Update this value in the same commit as the change, and say what moved.
         //
+        // Moved for slice five: POST /v1/invitations arrives, and
+        // /v1/invitations joins GovernedPrefixes so the declaration closes over
+        // it. An invitation is the strongest capability the product issues -
+        // whoever holds the link becomes a principal in a tenant - so an
+        // undeclared route under that prefix would be an unaudited way to make
+        // one.
+        //
         // Moved for ADR-0012 B2: the decisions route answers 202 with no body
         // rather than 200 with a DecisionRecorded, because the write became a
         // command and answering inline would mean waiting for its own event.
         await Assert.That(Fingerprint())
-            .IsEqualTo("db01b6eb0512d83de39879a514d4fa486e5211a2b42510f0173b255e92519e69")
+            .IsEqualTo("ae9ece9f2d5fef38f41b59bf759156bd7961c4c33187d9f64ff5cdd2a0492c93")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

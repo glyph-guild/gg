@@ -12,6 +12,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(DeviceTokenRequest))]
 [JsonSerializable(typeof(SessionIssued))]
 [JsonSerializable(typeof(WhoAmI))]
+[JsonSerializable(typeof(InvitationRequest))]
+[JsonSerializable(typeof(InvitationIssued))]
 [JsonSerializable(typeof(RunnerRegistrationRequest))]
 [JsonSerializable(typeof(RunnerRegistered))]
 [JsonSerializable(typeof(FlightLaunchRequest))]
@@ -136,6 +138,32 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>Who the held session belongs to.</summary>
+    /// <summary>
+    /// Asks for an invitation into the caller's own tenant.
+    /// </summary>
+    /// <remarks>
+    /// The request body is empty and stays empty: an invitation names nobody,
+    /// and the tenant comes from the session. The URL comes back built - where
+    /// the web surface lives is deployment knowledge, and composing it here
+    /// would guess wrong the first time somebody deployed it anywhere but a
+    /// laptop.
+    /// </remarks>
+    public async Task<InvitationIssued> InviteAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/invitations", sessionToken);
+        request.Content = JsonContent.Create(
+            new InvitationRequest(), ProtocolJsonContext.Default.InvitationRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.InvitationIssued, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane issued no invitation.");
+    }
+
     public async Task<WhoAmI?> WhoAmIAsync(string sessionToken, CancellationToken cancellationToken = default)
     {
         using var request = Request(HttpMethod.Get, "/v1/auth/whoami", sessionToken);

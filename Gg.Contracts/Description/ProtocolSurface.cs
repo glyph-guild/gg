@@ -117,10 +117,17 @@ public static class ProtocolSurface
     /// /v1/credentials joined at step 5, and closure matters most here: a
     /// credential route the control plane served and this file did not name
     /// would be an unaudited path into the one table Article VIII is about.
+    ///
+    /// /v1/invitations joined at slice five. It could have stayed outside -
+    /// nothing forces a new prefix in - but an invitation is the strongest
+    /// capability the product issues: whoever holds the link becomes a principal
+    /// in a tenant. A route under this prefix that this file did not name would
+    /// be an undeclared way to make one, which is the same argument
+    /// /v1/credentials came in on.
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
         ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials",
-         "/v1/envelope"];
+         "/v1/envelope", "/v1/invitations"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -148,6 +155,16 @@ public static class ProtocolSurface
             // already-used and never-existed alike, so an unauthenticated
             // caller cannot probe for live device codes.
             Statuses = [200, 202, 410, ProtocolTooOld],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/invitations",
+            Audience = Audience.Developer,
+            Request = typeof(InvitationRequest),
+            Response = typeof(InvitationIssued),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
         },
         new()
         {
@@ -586,6 +603,10 @@ public static class ProtocolSurface
             [typeof(DeviceTokenRequest)] = ["deviceCode"],
             [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
             [typeof(WhoAmI)] = ["principalId", "principalDisplay", "tenantId", "expiresAt", "notices"],
+        // An invitation names nobody: no address, no display, no tenant. The
+        // request really is empty, and the empty set is the assertion.
+        [typeof(InvitationRequest)] = [],
+        [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
             [typeof(TenantNotice)] = ["code", "detail", "remedy", "blocking"],
             [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],

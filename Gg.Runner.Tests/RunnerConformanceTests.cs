@@ -30,7 +30,8 @@ public class RunnerConformanceTests
         ExerciseAsync(async client =>
         {
             await client.HeartbeatAsync("runner-1", ["linux"]);
-            await client.ClaimAsync("runner-1", ["linux"], RunnerLoop.ClaimWaitSeconds);
+            await client.RequestClaimAsync("runner-1", ["linux"], RunnerLoop.ClaimWaitSeconds);
+            await client.ReadClaimAsync("request-9");
             await client.RenewAsync("lease-9", 3);
             await client.ReleaseAsync("lease-9", 3, RunnerDisposition.Completed);
         });
@@ -105,19 +106,72 @@ public class RunnerConformanceTests
     }
 
     [Test]
-    public async Task Nothing_to_claim_is_204_and_is_not_an_error()
+    public async Task A_claim_is_accepted_and_then_asked_about()
     {
-        // The normal answer for an idle fleet. A client that treated it as a
-        // failure would make an idle runner look broken in every dashboard.
+        // TWO CALLS, and the second one is the answer. A claim cannot be
+        // answered inline any more: whether a flight can be handed over depends
+        // on an announcement from identity, and an endpoint that waited for one
+        // would be the blocking read this change removes.
+        await using var stub = await ExerciseAsync(async client =>
+        {
+            var acceptance = await client.RequestClaimAsync("runner-1", [], 30);
+            var accepted = acceptance as ClaimAcceptance.Accepted;
+
+            await Assert.That(accepted).IsNotNull();
+            var result = await client.ReadClaimAsync(accepted!.RequestId);
+            await Assert.That(result).IsTypeOf<ClaimResult.Granted>();
+        });
+
+        await Assert.That(ProtocolSurface.Find("POST", "/v1/leases:claim")!.Statuses).Contains(202);
+        await Assert.That(ProtocolSurface.Find("GET", "/v1/leases/claims/{id}")).IsNotNull();
+    }
+
+    [Test]
+    public async Task Waiting_is_read_as_itself_rather_than_as_nothing_to_do()
+    {
+        // The state that had no way to be said. Reading it as Nothing would
+        // rebuild the 204 conflation inside the client, one layer below where
+        // it used to live and harder to see.
         await using var stub = await ExerciseAsync(
             async client =>
             {
-                var result = await client.ClaimAsync("runner-1", [], 30);
-                await Assert.That(result).IsTypeOf<ClaimResult.Nothing>();
+                var result = await client.ReadClaimAsync("request-9");
+                await Assert.That(result).IsTypeOf<ClaimResult.Waiting>();
+                await Assert.That(((ClaimResult.Waiting)result).Repos).Contains("acme/widgets");
+            },
+            s => s.ClaimReport = new LeaseClaimStatus
+            {
+                State = LeaseClaimStates.Waiting,
+                WaitingOn = ["acme/widgets"],
+            });
+    }
+
+    [Test]
+    public async Task A_control_plane_that_still_answers_a_claim_inline_is_tolerated()
+    {
+        // Both older answers, because the two repositories ship independently
+        // and this is what lets them land in either order. 204 was an idle
+        // fleet; 200 was a lease. Neither is served by a control plane on this
+        // contract, and until none are left this branch is how a runner built
+        // today talks to one deployed yesterday.
+        await using var idle = await ExerciseAsync(
+            async client =>
+            {
+                var acceptance = await client.RequestClaimAsync("runner-1", [], 30);
+                await Assert.That(acceptance).IsTypeOf<ClaimAcceptance.Inline>();
+                await Assert.That(((ClaimAcceptance.Inline)acceptance).Answer)
+                    .IsTypeOf<ClaimResult.Nothing>();
             },
             s => s.ClaimStatus = HttpStatusCode.NoContent);
 
-        await Assert.That(ProtocolSurface.Find("POST", "/v1/leases:claim")!.Statuses).Contains(204);
+        await using var granted = await ExerciseAsync(
+            async client =>
+            {
+                var acceptance = await client.RequestClaimAsync("runner-1", [], 30);
+                await Assert.That(((ClaimAcceptance.Inline)acceptance).Answer)
+                    .IsTypeOf<ClaimResult.Granted>();
+            },
+            s => s.ClaimStatus = HttpStatusCode.OK);
     }
 
     [Test]

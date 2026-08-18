@@ -219,11 +219,31 @@ public static class ProtocolSurface
             Path = "/v1/leases:claim",
             Audience = Audience.Runner,
             Request = typeof(LeaseClaimRequest),
-            Response = typeof(LeaseGranted),
-            // 204 is "nothing to do", the normal answer for an idle fleet. It
-            // is not an error and must not read as one, for the same reason
-            // the device poll answers 202.
-            Statuses = [200, 204, 401, 403, ProtocolTooOld],
+            // ACCEPTED, not answered. Whether a flight can be handed over
+            // depends on state that arrives asynchronously - the control plane
+            // learns which credential references a flight needs from what
+            // identity announced - so at the moment the request is taken the
+            // answer does not exist yet.
+            //
+            // 204 goes with the 200, and that is the point rather than a side
+            // effect: an idle fleet and a fleet waiting on something were the
+            // same answer, so a runner could not tell "nothing to do" from
+            // "something is missing and somebody should look".
+            Response = typeof(LeaseClaimAccepted),
+            Statuses = [202, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/leases/claims/{id}",
+            Audience = Audience.Runner,
+            // What became of the request. The lease is here once there is one,
+            // and absent otherwise - which is safe only because `state` carries
+            // the question separately from the answer, the arrangement
+            // LandingDecision uses for exactly the same reason.
+            Response = typeof(LeaseClaimStatus),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
         },
         new()
@@ -613,11 +633,20 @@ public static class ProtocolSurface
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],
             [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds"],
+        [typeof(LeaseClaimAccepted)] = ["requestId", "pollAfterSeconds"],
+        // `lease` is absent unless `state` is granted, and `waitingOn` names
+        // repositories rather than counting them - a number says something is
+        // wrong, a name says which credential to register.
+        [typeof(LeaseClaimStatus)] = ["state", "waitingOn", "lease"],
             [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef", "baseRef", "continuesFrom"],
+            // unresolvedRepos joined at slice six: an empty `credentials` was
+            // two different facts - no credential registered, or one not yet
+            // known here - and a runner that could not tell them apart fetched
+            // anonymously.
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
-                 "classificationCeiling", "classificationRules", "expiresAt", "renewWithinSeconds",
-                 "intentUri", "loop", "feedback"],
+                 "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
+                 "renewWithinSeconds", "intentUri", "loop", "feedback"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],

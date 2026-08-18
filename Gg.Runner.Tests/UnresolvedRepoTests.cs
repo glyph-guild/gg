@@ -1,5 +1,7 @@
 using Gg.Contracts;
 using Gg.Runner;
+using Gg.Contracts.Description;
+using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
 

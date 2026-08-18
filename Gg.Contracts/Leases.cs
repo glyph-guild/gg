@@ -283,6 +283,31 @@ public sealed record LeaseGranted
     public required IReadOnlyList<CredentialReference> Credentials { get; init; }
 
     /// <summary>
+    /// Repositories on this flight that the control plane could not name a
+    /// credential reference for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because an empty list is two different facts.</b> A repository may
+    /// have no credential registered, or its reference may not have reached the
+    /// control plane's read model yet. Absence alone cannot tell them apart, and
+    /// a runner that treated both as "this one needs none" fetched ANONYMOUSLY:
+    /// a public repository worked, a private one failed later on git's own words
+    /// with nothing pointing at the cause.
+    /// </para>
+    /// <para>
+    /// Naming them converts that into a refusal a person can act on, before
+    /// anything is materialized — which is what the push path has always done
+    /// and the clone path never did.
+    /// </para>
+    /// <para>
+    /// Empty on a flight whose every repository resolved, which is the ordinary
+    /// case.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> UnresolvedRepos { get; init; } = [];
+
+    /// <summary>
     /// The tenant's classification ceiling. The runner needs it before it
     /// gathers anything, because it bounds what may ever leave the machine.
     /// </summary>
@@ -370,4 +395,105 @@ public sealed record LeaseReleased
 
     /// <summary>The disposition the control plane recorded.</summary>
     public required string Disposition { get; init; }
+}
+
+/// <summary>The states a lease request may be in.</summary>
+/// <remarks>
+/// <para>
+/// <b>Two of these were the same answer before.</b> Claiming was a long poll
+/// that returned 204 for "nothing came", and an idle fleet and a fleet blocked
+/// on something it is waiting for looked identical. They are different facts and
+/// a runner should be able to tell them apart — one is the normal state of the
+/// system and the other is a thing somebody may need to fix.
+/// </para>
+/// <para>
+/// Derived control-plane-side, like <see cref="RunnerStates"/>: a runner reports
+/// none of these about itself, it asks.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class LeaseClaimStates
+{
+    /// <summary>Nothing is ready for this runner. Not an error, and the common case.</summary>
+    public const string Pending = "pending";
+
+    /// <summary>
+    /// A flight is ready and what its lease must carry is not.
+    /// </summary>
+    /// <remarks>
+    /// The control plane learns which credential references a flight needs from
+    /// what identity announced, and that arrives after the fact. Waiting says
+    /// so, rather than handing over a lease with a gap in it.
+    /// </remarks>
+    public const string Waiting = "waiting";
+
+    /// <summary>The lease is attached. Terminal.</summary>
+    public const string Granted = "granted";
+
+    /// <summary>The request outlived its window. Terminal, and recorded rather than forgotten.</summary>
+    public const string Expired = "expired";
+
+    public static IReadOnlyList<string> All { get; } = [Pending, Waiting, Granted, Expired];
+}
+
+/// <summary>
+/// A lease request the control plane has taken, and how often to ask about it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Accepted rather than answered.</b> Whether a flight can be handed over
+/// depends on state that arrives asynchronously, so at the moment the request is
+/// taken the answer does not exist yet. The same reason
+/// <c>FactBatchAccepted</c> carries refusals and nothing else.
+/// </para>
+/// <para>
+/// <b><see cref="PollAfterSeconds"/> is server-supplied and load-bearing.</b>
+/// The claim used to be a long poll, and the control plane holding the request
+/// open WAS the rate limiter — the runner has no backoff of its own. A cadence
+/// the runner invented would either hammer this endpoint or idle past work that
+/// was ready. <c>DeviceAuthorizationStarted.PollIntervalSeconds</c> is the same
+/// arrangement for the same reason.
+/// </para>
+/// </remarks>
+[PinnedId("233442c9-06b4-43ef-90eb-12d64ed140b6")]
+public sealed record LeaseClaimAccepted
+{
+    /// <summary>What to ask about. Not a lease, and not a promise of one.</summary>
+    public required string RequestId { get; init; }
+
+    /// <summary>Seconds to wait before asking. Respected, never invented.</summary>
+    public required int PollAfterSeconds { get; init; }
+}
+
+/// <summary>
+/// What became of a lease request.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b><see cref="Lease"/> is absent unless <see cref="State"/> is
+/// <c>granted</c>.</b> That is the arrangement <c>LandingDecision.Settled</c>
+/// uses and for the identical reason: absence has to mean one thing. A runner
+/// reading an absent lease as "nothing yet" and an absent lease as "never" would
+/// be reading two facts off one silence.
+/// </para>
+/// <para>
+/// <b><see cref="WaitingOn"/> names repositories rather than counting them.</b>
+/// A number tells a person that something is wrong; a name tells them which
+/// credential to go and register.
+/// </para>
+/// </remarks>
+[PinnedId("8da2b319-f94d-43b7-a3d0-c9ba4abfdc69")]
+public sealed record LeaseClaimStatus
+{
+    /// <summary>One of <see cref="LeaseClaimStates"/>.</summary>
+    public required string State { get; init; }
+
+    /// <summary>
+    /// Repositories whose credential reference has not arrived, when the state
+    /// is <c>waiting</c>. Empty otherwise.
+    /// </summary>
+    public IReadOnlyList<string> WaitingOn { get; init; } = [];
+
+    /// <summary>The lease, once there is one.</summary>
+    public LeaseGranted? Lease { get; init; }
 }

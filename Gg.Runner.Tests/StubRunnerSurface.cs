@@ -25,7 +25,31 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
 
     internal List<Dictionary<string, string>> Headers { get; } = [];
 
-    internal HttpStatusCode ClaimStatus { get; set; } = HttpStatusCode.OK;
+    /// <summary>
+    /// What a claim answers. Accepted by default; the other two are older shapes.
+    /// </summary>
+    internal HttpStatusCode ClaimStatus { get; set; } = HttpStatusCode.Accepted;
+
+    /// <summary>What a status read reports, when a test cares.</summary>
+    internal LeaseClaimStatus? ClaimReport { get; set; }
+
+    /// <summary>The lease this stub grants when a test has not supplied one.</summary>
+    private static LeaseGranted TheLease => new LeaseGranted
+        {
+            LeaseId = "lease-9",
+            Generation = 3,
+            FlightId = "flight-9",
+            FlightNumber = FlightRef.Format(9),
+            Repos = [],
+
+            // References, never secrets - and this stub could not send one if it
+            // wanted to.
+            Credentials = [],
+            ClassificationCeiling = Classifications.Internal,
+            ClassificationRules = ClassificationRules.Default,
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+            RenewWithinSeconds = 30,
+        };
 
     /// <summary>
     /// The lease to grant, when a test needs one that does something.
@@ -161,28 +185,39 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
             }
             else if (path.EndsWith(":claim", StringComparison.Ordinal))
             {
+                // 202 BY DEFAULT, because that is what a control plane serving
+                // this contract answers. The other two are the shapes an older
+                // one answers, kept configurable so the tolerance the client
+                // carries is exercised rather than asserted about.
                 if (ClaimStatus == HttpStatusCode.NoContent)
                 {
                     await WriteAsync(context, 204, "");
                 }
+                else if (ClaimStatus == HttpStatusCode.OK)
+                {
+                    await WriteJsonAsync(context, 200, Grant ?? TheLease);
+                }
                 else
                 {
-                    await WriteJsonAsync(context, 200, Grant ?? new LeaseGranted
+                    await WriteJsonAsync(context, 202, new LeaseClaimAccepted
                     {
-                        LeaseId = "lease-9",
-                        Generation = 3,
-                        FlightId = "flight-9",
-                        FlightNumber = FlightRef.Format(9),
-                        Repos = [],
-                        // References, never secrets - and this stub could not
-                        // send one if it wanted to.
-                        Credentials = [],
-                        ClassificationCeiling = Classifications.Internal,
-        ClassificationRules = ClassificationRules.Default,
-                        ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
-                        RenewWithinSeconds = 30,
+                        RequestId = "request-9",
+
+                        // Zero, so a conformance test that follows the acceptance
+                        // does not wait. What the interval is FOR is decided in
+                        // the loop's own tests, where time is injected; the
+                        // subject here is the wire.
+                        PollAfterSeconds = 0,
                     });
                 }
+            }
+            else if (path.Contains("/leases/claims/", StringComparison.Ordinal))
+            {
+                await WriteJsonAsync(context, 200, ClaimReport ?? new LeaseClaimStatus
+                {
+                    State = LeaseClaimStates.Granted,
+                    Lease = Grant ?? TheLease,
+                });
             }
             else if (path.EndsWith("/facts", StringComparison.Ordinal))
             {

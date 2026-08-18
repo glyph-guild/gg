@@ -92,11 +92,18 @@ public class EndpointSurfaceTests
         // undeclared route under that prefix would be an unaudited way to make
         // one.
         //
+        // Moved for slice six: POST /v1/leases:claim stops answering a lease and
+        // answers 202 with a request id, and GET /v1/leases/claims/{id} arrives
+        // to say what became of it. 200 and 204 both go, which is the change:
+        // a lease could not be decided inline once identity moved behind an
+        // announcement, and 204 made an idle fleet and a fleet blocked on a
+        // missing credential the same answer.
+        //
         // Moved for ADR-0012 B2: the decisions route answers 202 with no body
         // rather than 200 with a DecisionRecorded, because the write became a
         // command and answering inline would mean waiting for its own event.
         await Assert.That(Fingerprint())
-            .IsEqualTo("ae9ece9f2d5fef38f41b59bf759156bd7961c4c33187d9f64ff5cdd2a0492c93")
+            .IsEqualTo("03795af44d08a35c685fb382692dbe81d1e66d10b7e25616aa6946f74fa07966")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

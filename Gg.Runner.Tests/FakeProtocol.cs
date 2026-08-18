@@ -43,6 +43,19 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     internal Queue<ClaimResult> Claims { get; } = new();
 
+    /// <summary>
+    /// What this control plane says when a claim is taken.
+    /// </summary>
+    /// <remarks>
+    /// An acceptance by default, because that is what a control plane serving
+    /// this contract answers. A test that wants the tolerated older shape - a
+    /// lease answered inline - sets an <see cref="ClaimAcceptance.Inline"/>.
+    /// </remarks>
+    internal ClaimAcceptance? Acceptance { get; set; }
+
+    /// <summary>How many seconds this control plane tells the runner to wait.</summary>
+    internal int PollAfterSeconds { get; set; } = 2;
+
     internal Queue<RenewResult> Renewals { get; } = new();
 
     internal ReleaseResult Release { get; set; } = new ReleaseResult.Released();
@@ -59,12 +72,29 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.FromResult(new HeartbeatAccepted { NextHeartbeatSeconds = HeartbeatSeconds });
     }
 
-    public Task<ClaimResult> ClaimAsync(
+    public Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
         CancellationToken cancellationToken = default)
     {
         Calls.Add($"claim:{maxWaitSeconds}");
         Record(new LeaseClaimRequest { RunnerId = runnerId, Labels = labels, MaxWaitSeconds = maxWaitSeconds });
+
+        return Task.FromResult(Acceptance ?? new ClaimAcceptance.Accepted(
+            $"request-{Calls.Count(c => c.StartsWith("claim:", StringComparison.Ordinal))}",
+            TimeSpan.FromSeconds(PollAfterSeconds)));
+    }
+
+    /// <summary>
+    /// Answers from <see cref="Claims"/>, and pends once it is empty.
+    /// </summary>
+    /// <remarks>
+    /// Pending rather than granted-with-nothing, because that is what an idle
+    /// control plane reports and a test that ran out of queued answers is
+    /// describing an idle one.
+    /// </remarks>
+    public Task<ClaimResult> ReadClaimAsync(string requestId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"claim-status:{requestId}");
         return Task.FromResult(Claims.Count > 0 ? Claims.Dequeue() : new ClaimResult.Nothing());
     }
 
@@ -202,6 +232,15 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Fenced(string leaseId) => Record($"fenced:{leaseId}");
     public void Released(string leaseId, string disposition) => Record($"released:{disposition}");
     public void Idle() => Record("idle");
+
+    /// <summary>
+    /// The repositories, because WHICH one is the whole content of the report.
+    /// </summary>
+    /// <remarks>
+    /// A count would tell a person that something is wrong. A name tells them
+    /// which credential to go and register, which is the only action available.
+    /// </remarks>
+    public void Waiting(IReadOnlyList<string> repos) => Record($"waiting:{string.Join(",", repos)}");
 
     /// <summary>The reference, and nothing that came out of resolving it.</summary>
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>

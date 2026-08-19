@@ -215,5 +215,35 @@ public static class TakeoverReturnReader
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(TakeoverReturn))]
-[JsonSerializable(typeof(TakeoverRecord))]
+[JsonSerializable(typeof(TakeoverClaimed))]
+[JsonSerializable(typeof(TakeoverHeld))]
+[JsonSerializable(typeof(TakeoverRenewalRequest))]
+[JsonSerializable(typeof(TakeoverRenewed))]
+[JsonSerializable(typeof(TakeoverReturnRequest))]
 public sealed partial class TakeoverJson : JsonSerializerContext;
+
+/// <summary>What came of asking to hold a flight.</summary>
+/// <remarks>
+/// <b>Three answers rather than a nullable one.</b> Granted, refused because
+/// somebody else holds it, and no such flight are three different things a caller
+/// says three different sentences about - and collapsing the last two would tell
+/// somebody the flight is taken when it does not exist.
+/// </remarks>
+public abstract record TakeoverClaim
+{
+    /// <summary>It is yours, until <see cref="TakeoverClaimed.HeldUntil"/>.</summary>
+    public sealed record Granted(TakeoverClaimed Hold) : TakeoverClaim;
+
+    /// <summary>
+    /// Somebody else holds it, and here is who, unless the refusal was unreadable.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Holder"/> is nullable because a refusal with a body nobody can
+    /// parse is still a refusal, and reading it as a grant would be the worst
+    /// available interpretation.
+    /// </remarks>
+    public sealed record Refused(TakeoverHeld? Holder) : TakeoverClaim;
+
+    /// <summary>No flight of that reference, for this tenant.</summary>
+    public sealed record NoSuchFlight : TakeoverClaim;
+}

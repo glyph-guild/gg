@@ -594,40 +594,110 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>
-    /// Records that a person took a flight over, and what came back.
+    /// Claims a flight for a takeover, or reports who already holds it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Article XII: actions that cannot be attributed do not happen. A person
-    /// held this flight for a while and a machine did not, and the log has to be
-    /// able to say so - otherwise the record reads as though the agent produced
-    /// whatever is now in the tree.
+    /// <b>A claim rather than a record, and the difference is when it happens.</b>
+    /// What this replaced posted a <c>TakeoverRecord</c> when somebody had already
+    /// finished, so two people on two machines could both take one stopped flight
+    /// and both find out afterwards. This asks first, and exactly one of two
+    /// simultaneous claimants is granted.
     /// </para>
     /// <para>
-    /// <b>Recorded even when nothing came back.</b> Somebody who took a flight
-    /// and wrote nothing is a real event with a real duration, and the absence of
-    /// a decision is part of what is being attributed rather than a reason to
-    /// stay quiet.
+    /// <b>A refusal is returned rather than thrown.</b> Somebody else holding the
+    /// flight is the ordinary case this exists for, not an error - and what the
+    /// caller has to do with it is print who holds it and since when.
     /// </para>
     /// </remarks>
-    public async Task<bool> RecordTakeoverAsync(
-        string sessionToken,
-        string flightId,
-        TakeoverRecord record,
-        CancellationToken cancellationToken = default)
+    public async Task<TakeoverClaim> ClaimTakeoverAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(record);
-
-        using var request = Request(HttpMethod.Post, $"/v1/flights/{flightId}/takeover", sessionToken);
-        request.Content = JsonContent.Create(record, TakeoverJson.Default.TakeoverRecord);
+        using var request = Request(
+            HttpMethod.Post, $"/v1/flights/{reference}/takeover:claim", sessionToken);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);
 
-        // A control plane too old to know the endpoint is not a reason to lose
-        // the takeover locally. The console has already handed the terminal
-        // over and back; refusing to continue would punish the person for the
-        // control plane's version.
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return new TakeoverClaim.NoSuchFlight();
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            var held = await response.Content.ReadFromJsonAsync(
+                TakeoverJson.Default.TakeoverHeld, cancellationToken);
+
+            // A 409 with an unreadable body still means refused. Reporting it as
+            // granted would be the worst possible reading of a refusal.
+            return held is null
+                ? new TakeoverClaim.Refused(null)
+                : new TakeoverClaim.Refused(held);
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var claimed = await response.Content.ReadFromJsonAsync(
+            TakeoverJson.Default.TakeoverClaimed, cancellationToken);
+
+        return claimed is null
+            ? new TakeoverClaim.Refused(null)
+            : new TakeoverClaim.Granted(claimed);
+    }
+
+    /// <summary>Keeps a hold, or reports that it is no longer this caller's.</summary>
+    /// <remarks>
+    /// <b>The generation is the fence.</b> A holder who stopped renewing long
+    /// enough for the hold to lapse, and whose flight was then claimed by somebody
+    /// else, is told so rather than handed it back - which is the same arrangement
+    /// a lease renewal uses.
+    /// </remarks>
+    public async Task<TakeoverRenewed?> RenewTakeoverAsync(
+        string sessionToken, string reference, int generation,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/flights/{reference}/takeover:renew", sessionToken);
+        request.Content = JsonContent.Create(
+            new TakeoverRenewalRequest { Generation = generation },
+            TakeoverJson.Default.TakeoverRenewalRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync(
+                TakeoverJson.Default.TakeoverRenewed, cancellationToken)
+            : null;
+    }
+
+    /// <summary>
+    /// Hands a flight back with a decision, against the hold that made it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refusal is a real answer and is reported as one.</b> A decision arriving
+    /// against a hold that has moved to somebody else is not applied - putting one
+    /// person's decision on another person's work is worse than losing it, which
+    /// is the same argument <see cref="TakeoverReturn.Validate"/> makes about a
+    /// leftover file.
+    /// </remarks>
+    public async Task<bool> ReturnTakeoverAsync(
+        string sessionToken,
+        string reference,
+        TakeoverReturnRequest decision,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(decision);
+
+        using var request = Request(
+            HttpMethod.Post, $"/v1/flights/{reference}/takeover:return", sessionToken);
+        request.Content = JsonContent.Create(
+            decision, TakeoverJson.Default.TakeoverReturnRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
         return response.IsSuccessStatusCode;
     }
 

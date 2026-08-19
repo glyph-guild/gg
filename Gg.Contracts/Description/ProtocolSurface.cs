@@ -370,19 +370,55 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // THE HOLD, in three routes where there was one.
+        //
+        // What was here was POST /v1/flights/{id}/takeover, which took a
+        // TakeoverRecord carrying heldForMs - so it was posted when somebody had
+        // already finished. That is a record and not a hold: two people on two
+        // machines both saw a takeable flight, both took it, and both found out
+        // afterwards. It is deleted rather than kept beside these, because a route
+        // that records a takeover without holding anything sitting next to the
+        // claim that replaces it is a shape somebody will build against.
+        //
+        // Developer throughout. A runner able to claim a takeover could hold a
+        // flight against the person it is meant to be waiting for.
         new()
         {
             Method = "POST",
-            Path = "/v1/flights/{id}/takeover",
+            Path = "/v1/flights/{ref}/takeover:claim",
             Audience = Audience.Developer,
-            Request = typeof(TakeoverRecord),
-            // No response body. What a person needs is on the flight log a
-            // moment later, and a second shape to keep in step buys nothing.
-            //
-            // DEVELOPER audience, deliberately. A takeover is a person holding a
-            // terminal, and a runner able to record one could write a person's
-            // name onto its own work.
-            Statuses = [202, 400, 401, 403, 404, ProtocolTooOld],
+            Response = typeof(TakeoverClaimed),
+            // 409 IS THE POINT, and it carries TakeoverHeld. A second claimant is
+            // refused, and refusal is an outcome of correct client behaviour rather
+            // than a client bug - two people looking at the same stopped flight is
+            // the ordinary case this exists for.
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/flights/{ref}/takeover:renew",
+            Audience = Audience.Developer,
+            Request = typeof(TakeoverRenewalRequest),
+            Response = typeof(TakeoverRenewed),
+            // The same generation fence POST /v1/leases/{id}/renew uses, for the
+            // same reason: a holder whose hold lapsed and was claimed by somebody
+            // else is told it is not theirs rather than handed it back.
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/flights/{ref}/takeover:return",
+            Audience = Audience.Developer,
+            Request = typeof(TakeoverReturnRequest),
+            // NO RESPONSE BODY. The write is a command: the record is appended and
+            // what a person needs is on the flight log a moment later. Answering
+            // inline would mean waiting for its own event to land.
+            Response = null,
+            Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()
@@ -612,8 +648,11 @@ public static class ProtocolSurface
             [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
                 ["flightNumber", "envelopeVersion", "obligations", "halt"],
-            [typeof(TakeoverRecord)] =
-                ["by", "startedAt", "heldForMs", "outcome", "diagnosis", "note"],
+            [typeof(TakeoverClaimed)] = ["generation", "heldUntil", "renewWithinSeconds"],
+            [typeof(TakeoverHeld)] = ["by", "since", "heldUntil"],
+            [typeof(TakeoverRenewalRequest)] = ["generation"],
+            [typeof(TakeoverRenewed)] = ["generation", "heldUntil"],
+            [typeof(TakeoverReturnRequest)] = ["generation", "outcome", "note"],
             [typeof(TakeoverReturn)] = ["flightId", "outcome", "note"],
             [typeof(TakeSeed)] =
                 ["revision", "flightNumber", "flightId", "measurements", "account", "accountState",

@@ -113,8 +113,20 @@ public class EndpointSurfaceTests
         // read what every flight in the tenant tried and ruled out from a
         // credential meant only to let it hold one lease. A resuming loop is
         // handed its seed on the lease instead.
+        // Moved again for slice seven step 2, and this one REMOVES a route.
+        // POST /v1/flights/{id}/takeover is gone; three replace it -
+        // takeover:claim, takeover:renew and takeover:return. What went recorded a
+        // takeover after the fact, carrying how long somebody had held the flight,
+        // so two people on two machines could both take one stopped flight and both
+        // find out afterwards. A record is not a hold.
+        //
+        // Deleted rather than kept beside the claim: a route that records a takeover
+        // without holding anything, sitting next to the claim that replaces it, is a
+        // shape somebody will build against. It was reachable only through a client
+        // method nothing in the product called, because nothing in the product ever
+        // took a flight over.
         await Assert.That(Fingerprint())
-            .IsEqualTo("3042d22f3dfaab4124c8f96a0df5da22f38c298dfa6266bf1fe7da0f9d7b689f")
+            .IsEqualTo("5d6668990c921da2679b7306d344bdb012f7ebd35ef8b81c084e4b376406dc39")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -196,6 +196,37 @@ public sealed record LeaseLoop
 
     /// <summary>What happens when the budget runs out.</summary>
     public required string OnExhaustion { get; init; }
+
+    /// <summary>
+    /// What the last attempt tried and ruled out, for a loop resuming its work.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Handed over rather than fetched, and the audience is why.</b>
+    /// <c>GET /v1/flights/{ref}/seed</c> answers a developer session on purpose: a
+    /// runner able to call it could read what every flight in the tenant tried and
+    /// ruled out, from a credential meant only to let it hold one lease. So a
+    /// resuming loop is given its context on the lease it already has.
+    /// </para>
+    /// <para>
+    /// <b>The rendered seed, not the model.</b> It reaches an executor as declared
+    /// context beside the intent - text an agent reads - and rendering it here would
+    /// be a second implementation of a document the contract already renders once.
+    /// </para>
+    /// <para>
+    /// <b>Absent on a first attempt, which is the ordinary case.</b> There is nothing
+    /// to resume from, and a member that had to be present would make every lease
+    /// carry an empty document - so "no prior attempt" and "a prior attempt that
+    /// measured nothing" would read the same, which is this project's most repeated
+    /// defect.
+    /// </para>
+    /// <para>
+    /// <b>Nothing in it is customer content.</b> It is composed from facts that
+    /// already crossed, and <c>TakeSeed</c> carries no absolute path and no machine
+    /// name by construction - the transcript is named and never included.
+    /// </para>
+    /// </remarks>
+    public string? ResumesFrom { get; init; }
 }
 
 /// <summary>

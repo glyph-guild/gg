@@ -184,9 +184,38 @@ public static class LoopMoves
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ExhaustionPolicies
 {
+    /// <summary>A person is asked to pick the work up.</summary>
     public const string HandoffToHuman = "handoff-to-human";
 
-    public static IReadOnlyList<string> All { get; } = [HandoffToHuman];
+    /// <summary>
+    /// The loop runs again, with what the last one tried and ruled out as its
+    /// declared context.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No new machinery, because <c>executor</c> is a parameter of a loop.</b>
+    /// An agent resuming another agent's work is the same loop starting again on a
+    /// rung, and the thing that was missing was somewhere for this field to point -
+    /// plus a way for the seed to reach a runner, which is
+    /// <see cref="LeaseLoop.ResumesFrom"/>.
+    /// </para>
+    /// <para>
+    /// <b>It is bounded by the loop's attempt budget and by nothing else.</b>
+    /// <c>LoopBudget.Attempts</c> already counts how many times a flight's loop may
+    /// run; without that bound this value is an instruction to retry for ever, which
+    /// is a termination condition nobody agreed to.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version.</b> A value in a closed enumeration, so the only
+    /// safe response to it in a prior reader is to halt. Existing envelopes are
+    /// unchanged in meaning - none of them named this - and every reader meeting it
+    /// for the first time stops rather than guessing what to do when a budget runs
+    /// out.
+    /// </para>
+    /// </remarks>
+    public const string HandoffToAgent = "handoff-to-agent";
+
+    public static IReadOnlyList<string> All { get; } = [HandoffToHuman, HandoffToAgent];
 }
 
 /// <summary>What a destination is.</summary>

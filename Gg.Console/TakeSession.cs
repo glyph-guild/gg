@@ -72,8 +72,21 @@ public interface ITakeSession
 public sealed class TakeSession(
     string? command = null,
     IClipboard? clipboard = null,
-    TimeProvider? time = null) : ITakeSession
+    TimeProvider? time = null,
+    Func<string, TakeoverClaim>? claim = null) : ITakeSession
 {
+    /// <summary>
+    /// Takes the hold before the terminal goes, or says who has it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null means no claim is made, and that is only for the UI tests.</b> A
+    /// console that spawned a session without claiming would reintroduce the exact
+    /// failure slice seven exists to remove - two people on two machines both
+    /// working one flight, each believing they hold it - so the product passes one
+    /// and <c>ConsoleTakeWiringTests</c> asserts it does.
+    /// </remarks>
+    private readonly Func<string, TakeoverClaim>? _claim = claim;
+
     private readonly string _command = command
         ?? Environment.GetEnvironmentVariable("GG_TAKE_COMMAND")
         ?? "claude";
@@ -81,9 +94,40 @@ public sealed class TakeSession(
     private readonly IClipboard _clipboard = clipboard ?? new SystemClipboard();
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
+    /// <summary>The reason not to hand the terminal over, or null.</summary>
+    private static string? Refusal(TakeoverClaim claim) => claim switch
+    {
+        TakeoverClaim.Granted => null,
+
+        TakeoverClaim.Refused { Holder: { } holder } =>
+            $"{holder.By} has held this since {holder.Since:HH:mm} and until "
+          + $"{holder.HeldUntil:HH:mm}. Nothing was started: exactly one person holds a flight at "
+          + "a time, which is what stops two people editing the same work.",
+
+        TakeoverClaim.Refused =>
+            "Somebody holds this flight and the control plane would not say who. Nothing was "
+          + "started - a hold nobody can be attributed to is still a hold.",
+
+        _ => "The control plane has no such flight, so there is nothing to take over.",
+    };
+
     public TakeResult Take(TakeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        // THE HOLD FIRST, and nothing is spawned without it. Exactly one person
+        // holds a flight at a time, and the refusal names who - which is the whole
+        // difference between a portable handoff and two people editing divergent
+        // copies of the same work.
+        if (_claim is not null && Refusal(_claim(request.FlightNumber)) is { } refused)
+        {
+            return new TakeResult
+            {
+                Held = TimeSpan.Zero,
+                Placement = new SeedPlacement.File("", "no claim was made"),
+                Diagnosis = refused,
+            };
+        }
 
         var placement = SeedPlacer.Place(
             TakeSeedComposer.Render(request.Seed), _clipboard, request.TreePath);

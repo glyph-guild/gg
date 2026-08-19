@@ -12,7 +12,22 @@ namespace Gg.Console;
 /// </remarks>
 public static class ConsoleStart
 {
-    public static async Task<AppState> LoadAsync(ConsoleData data, CancellationToken cancellationToken = default)
+    /// <param name="principal">
+    /// Whose session this console is running under.
+    /// </param>
+    /// <remarks>
+    /// <b>Passed rather than loaded, and the guard beside this is why.</b> Every
+    /// public read on <c>ConsoleData</c> returns a <c>VerbResult</c>, so what a pane
+    /// shows is what <c>--json</c> would print. The principal is not a read: it is
+    /// already in the stored session, and routing it through the data layer would
+    /// have made it the one value the console could show and a verb could not.
+    /// <para>
+    /// It is here at all because a takeover is an attributed act - the console has
+    /// to know whose session it is before it offers the key.
+    /// </para>
+    /// </remarks>
+    public static async Task<AppState> LoadAsync(
+        ConsoleData data, string principal = "", CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -30,13 +45,42 @@ public static class ConsoleStart
                 }
             }
 
+            var queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value);
+
+            // THE PRINCIPAL AND THE SEED, which is what makes the takeover key do
+            // anything. Before this, ConsoleStart returned a queue and nothing
+            // else - AppState.TakeSeed and AppState.Principal were assigned nowhere
+            // outside tests - so ConsoleLoop.Took reached "this console is not
+            // configured to take flights over" on every real press, and
+            // HandedBack reached its twin. Eleventh instance of a thing being
+            // registered and never invoked.
+            //
+            // The seed for the FIRST row only, and that is deliberate: fetching one
+            // per flight would be a request per row on every load, for panes nobody
+            // has scrolled to. The selection moving is what fetches the next one.
+            var seed = queue.Count > 0
+                    && await data.SeedAsync(queue[0].FlightNumber, cancellationToken)
+                        is VerbResult.Taken taken
+                ? taken.Value
+                : null;
+
             return new AppState
             {
-                Queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value),
+                Queue = queue,
+                // From the stored session, never typed in. A takeover is an
+                // attributed act and this is who it is attributed to.
+                Principal = principal,
+                TakeSeed = seed,
+                // No tree, and its absence is not a gap. The branch is authoritative
+                // after slice seven; a local tree is a cache this console may not
+                // have, and a takeover that needed one could only ever happen on the
+                // machine that ran the flight.
+                TakeableTree = null,
             };
         }
         catch (Exception failure) when (failure is Gg.Client.NotSignedInException
                                             or Gg.Client.ProtocolTooOldException
+                                            or Gg.Client.FlightNotFoundException
                                             or HttpRequestException)
         {
             // Named exceptions only. Swallowing everything here would turn a

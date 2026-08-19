@@ -46,6 +46,19 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>Degradations whoami reports for this tenant.</summary>
     public IReadOnlyList<TenantNotice> Notices { get; set; } = [];
 
+    /// <summary>
+    /// When set, a takeover claim is refused and this is who holds it.
+    /// </summary>
+    /// <remarks>
+    /// Null means the claim is granted. Two people looking at one stopped flight is
+    /// the ordinary case the verb exists for, so the refusal is a state this stub
+    /// can be put in rather than a fault it can be made to throw.
+    /// </remarks>
+    public TakeoverHeld? TakeoverHeldBy { get; set; }
+
+    /// <summary>Whether the last return was accepted. Read by tests.</summary>
+    public bool TakeoverReturned { get; private set; }
+
     /// <summary>Where this stub claims the control plane exports to, if anywhere.</summary>
     public string? TelemetryDestination { get; set; }
 
@@ -460,6 +473,43 @@ public sealed class StubControlPlane : IAsyncDisposable
                 await WriteAsync(context, 404, "");
                 return;
 
+            case var _ when path.EndsWith("/takeover:claim", StringComparison.Ordinal):
+                if (TakeoverHeldBy is { } holder)
+                {
+                    // 409 with a body naming the holder. The refusal is the product
+                    // here: a name and two instants tell a person whether to wait.
+                    await WriteJsonAsync(context, 409, holder);
+                    return;
+                }
+
+                await WriteJsonAsync(context, 200, new TakeoverClaimed
+                {
+                    Generation = 1,
+                    HeldUntil = new DateTimeOffset(2026, 8, 19, 10, 0, 0, TimeSpan.Zero),
+                    RenewWithinSeconds = 600,
+                });
+                return;
+
+            case var _ when path.EndsWith("/takeover:renew", StringComparison.Ordinal):
+                await WriteJsonAsync(context, 200, new TakeoverRenewed
+                {
+                    Generation = 1,
+                    HeldUntil = new DateTimeOffset(2026, 8, 19, 10, 30, 0, TimeSpan.Zero),
+                });
+                return;
+
+            case var _ when path.EndsWith("/takeover:return", StringComparison.Ordinal):
+                TakeoverReturned = true;
+                // 202, because the record is dispatched and what a person needs is
+                // on the flight log a moment later.
+                await WriteAsync(context, 202, "");
+                return;
+
+            case var _ when path.EndsWith("/seed", StringComparison.Ordinal)
+                         && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
+                await WriteJsonAsync(context, 200, ASeed());
+                return;
+
             case var _ when path.EndsWith("/log", StringComparison.Ordinal)
                          && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
                 await WriteJsonAsync(context, 200, new FlightLog
@@ -487,6 +537,39 @@ public sealed class StubControlPlane : IAsyncDisposable
                 return;
         }
     }
+
+    /// <summary>
+    /// A seed with a transcript on another machine, which is the interesting case.
+    /// </summary>
+    /// <remarks>
+    /// The locator is an absolute path on somebody's runner, because that is what a
+    /// runner-local locator IS - and a test asserting the RENDERED seed carries no
+    /// machine path has to be given one to fail on. A stub that served a tidy
+    /// relative path would let that assertion pass for the wrong reason.
+    /// </remarks>
+    private static TakeSeed ASeed() => TakeSeedComposer.Compose(
+        FlightRef.Format(42),
+        StubFlightId,
+        new LoopDigest
+        {
+            LoopId = "implement",
+            FilesReadNotEdited = ["config/settings.yaml"],
+            FilesEdited = ["src/orders.py"],
+            Searches = ["rounding"],
+            Errors = [],
+            RefusedMoves = [],
+            Attempts = 4,
+            StopReason = LoopOutcomes.Exhausted,
+        },
+        account: "I stopped at the rounding boundary and did not switch to Decimal.",
+        transcript: new ArtifactReference
+        {
+            Locator = "/home/runner/.local/state/gg/transcripts/019ff8aa/implement.ndjson",
+            Sha256 = new string('c', 64),
+            Bytes = 91_240,
+            MediaType = "application/x-ndjson",
+            Scope = ArtifactScopes.RunnerLocal,
+        });
 
     private static async Task WriteJsonAsync<T>(HttpListenerContext context, int status, T body)
     {

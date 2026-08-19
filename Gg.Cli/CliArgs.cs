@@ -80,6 +80,20 @@ public abstract record CliAction
     public sealed record Why(string Flight, string? Obligation, bool Json) : CliAction, IEmitsResult;
 
     /// <summary>
+    /// Take a stopped flight over, or hand it back with a decision.
+    /// </summary>
+    /// <remarks>
+    /// <b>One verb, two arms, because they are two halves of one act.</b>
+    /// <c>gg take GG-42</c> claims the flight and prints what it tried and ruled
+    /// out; <c>gg take GG-42 --return completed</c> gives it back. Splitting them
+    /// into two verbs would let somebody return a flight they never claimed, which
+    /// the control plane refuses anyway and which a person should not be invited to
+    /// try.
+    /// </remarks>
+    public sealed record Take(
+        string Reference, string? Return, string? Note, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>
     /// What is waiting on a person.
     /// </summary>
     /// <remarks>
@@ -198,6 +212,18 @@ public static class CliArgs
             ["gates"] => new CliAction.Gates(json),
             ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
             ["why", var flight] => new CliAction.Why(flight, null, json),
+
+            // The return arms first: a longer match has to be tried before the
+            // shorter one it starts with, or `gg take GG-42 --return completed`
+            // parses as a take with two stray options.
+            ["take", var reference, "--return", var outcome, "--note", var note] =>
+                new CliAction.Take(reference, outcome, note, json),
+            ["take", var reference, "--return", var outcome] =>
+                new CliAction.Take(reference, outcome, null, json),
+            ["take", var reference] => new CliAction.Take(reference, null, null, json),
+            ["take"] => Unknown(
+                "gg take needs a flight: gg take GG-42, or the id. Add --return <outcome> to hand "
+              + "it back."),
             ["why"] => Unknown(
                 "gg why needs a flight: gg why GG-42, or gg why GG-42 <obligation>."),
             ["envelope", "show"] => new CliAction.EnvelopeShow(json),

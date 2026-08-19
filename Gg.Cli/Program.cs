@@ -7,6 +7,12 @@ using Gg.Console;
 return CliArgs.Parse(args) switch
 {
     CliAction.LaunchConsole => LaunchConsole(),
+    // Taking a flight over runs in the DEVELOPER role like every other verb here,
+    // and deliberately not in the console: a headless machine has no terminal, and
+    // that is the whole point of it being a verb.
+    CliAction.Take take => await TakeAsync(take.Json, commands => take.Return is { } outcome
+        ? commands.ReturnAsync(take.Reference, outcome, take.Note)
+        : commands.TakeAsync(take.Reference)),
     CliAction.PrintVersion => PrintVersion(),
     CliAction.Login => await AuthAsync(commands => commands.LoginAsync(Environment.MachineName)),
     CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
@@ -210,6 +216,55 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
 }
 
 /// <summary>
+/// Runs a takeover verb and prints what came back.
+/// </summary>
+/// <remarks>
+/// <b>Its own emitter for one reason: the refusal.</b> Somebody else holding the
+/// flight is the ordinary case this verb exists for, not a fault - so it is caught
+/// and printed as a sentence with a non-zero code, rather than reaching the
+/// unhandled path as a stack trace and exit 134, which is what gg looks like when
+/// it breaks.
+/// </remarks>
+static async Task<int> TakeAsync(bool json, Func<TakeCommands, Task<VerbResult>> run)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var commands = new TakeCommands(new ControlPlaneClient(http), new FileSessionStore());
+
+    try
+    {
+        var result = await run(commands);
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+        return ExitCodes.For(result);
+    }
+    catch (TakeoverRefusedException refused)
+    {
+        // REFUSED, not unavailable. A script can tell "somebody has it" from "the
+        // control plane is down", and one non-zero cannot carry both.
+        return Fail(refused.Message);
+    }
+    catch (ArgumentException refused)
+    {
+        return Fail(refused.Message);
+    }
+    catch (NotSignedInException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (ProtocolTooOldException refusal)
+    {
+        Console.Error.WriteLine(refusal.Message);
+        return ExitCodes.Unavailable;
+    }
+    catch (HttpRequestException failure)
+    {
+        Console.Error.WriteLine(
+            $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
+        return ExitCodes.Unavailable;
+    }
+}
+
+/// <summary>
 /// Runs a credential verb, in the credential-broker role.
 /// </summary>
 /// <remarks>
@@ -334,17 +389,42 @@ static int LaunchConsole()
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
     var client = new ControlPlaneClient(http);
     var sessions = new FileSessionStore();
+    var takes = new TakeCommands(client, sessions);
     var data = new ConsoleData(
         new FlightCommands(client, sessions),
         // The console can read the credential references and forget one. It
         // cannot add one: that needs a secret typed at a prompt, and a prompt
         // inside a Terminal.Gui modal is a keyboard path with its own
         // escape-hatch rules. Registering stays a command-line act.
-        new CredentialCommands(client, sessions, new FileCredentialStore(), new ConsoleSecretPrompt()));
+        new CredentialCommands(client, sessions, new FileCredentialStore(), new ConsoleSecretPrompt()),
+        takes);
 
-    var initial = ConsoleStart.LoadAsync(data).GetAwaiter().GetResult();
+    var initial = ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult();
 
-    var final = new ConsoleLoop(new TerminalGuiSession(), new EditorSession()).Run(initial);
+    // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
+    // arguments that only tests ever supplied, so the console's takeover key
+    // answered "this console is not configured to take flights over" for the whole
+    // of slices five and six while every piece of the machinery underneath was
+    // written and tested.
+    //
+    // TakeSession is given a CLAIM rather than only a command to spawn. A console
+    // that handed over a terminal without claiming would reintroduce the failure
+    // slice seven exists to remove: two people on two machines both working one
+    // flight, each believing they hold it.
+    //
+    // HAND IS STILL NOT PASSED, and that is a stated gap rather than an oversight.
+    // HandSession needs two ports the product does not have: an `infer` that spawns
+    // an agent to propose what appears to have been done, and an `ask` that reads a
+    // confirmation from the terminal. Building the first means invoking an executor
+    // from the console, which is a boundary slice seven does not touch. So the
+    // hand-back key still answers "this console is not configured to hand flights
+    // back", and gg:ConsoleTakeWiringTests says so out loud rather than asserting a
+    // wiring that would have to be faked to pass.
+    var final = new ConsoleLoop(
+        new TerminalGuiSession(),
+        new EditorSession(),
+        new TakeSession(claim: reference =>
+            takes.ClaimAsync(reference).GetAwaiter().GetResult())).Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.
     var dumpPath = Environment.GetEnvironmentVariable("GG_STATE_DUMP");

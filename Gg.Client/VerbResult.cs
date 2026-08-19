@@ -151,6 +151,22 @@ public abstract record VerbResult
     {
         public override string Kind => VerbResultKinds.Decided;
     }
+
+    /// <summary>
+    /// A flight taken over: what it tried and ruled out, plus this hold's terms.
+    /// </summary>
+    /// <remarks>
+    /// <b>The notes are not in the document, deliberately, and it is the same
+    /// arrangement <see cref="EnvelopeApplied"/> uses.</b> The seed is a fact about
+    /// the FLIGHT; when this invocation's hold lapses and how soon to renew are
+    /// facts about this invocation. A result read back from JSON has no notes,
+    /// because inventing them would make a re-rendered payload claim a hold the
+    /// process re-rendering it never took.
+    /// </remarks>
+    public sealed record Taken(TakeSeed Value, IReadOnlyList<string> Notes) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Taken;
+    }
 }
 
 /// <summary>The shapes a verb may produce.</summary>
@@ -174,6 +190,7 @@ public static class VerbResultKinds
     public const string Why = "why";
     public const string Gates = "gates";
     public const string Decided = "decided";
+    public const string Taken = "taken";
 }
 
 [JsonSourceGenerationOptions(
@@ -198,6 +215,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(DecisionReport))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
+[JsonSerializable(typeof(TakeSeed))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -254,6 +272,7 @@ public static class VerbOutput
         VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
         VerbResult.Gates r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.GateList),
         VerbResult.Decided r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DecisionReport),
+        VerbResult.Taken r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.TakeSeed),
         VerbResult.EnvelopeApplied r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
@@ -295,6 +314,10 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeApplied)), []),
         VerbResultKinds.EnvelopeValidated => new VerbResult.EnvelopeValidated(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeValidation))),
+        // No notes, for the reason written on the record: they described this
+        // invocation's hold, and a payload re-rendered somewhere else holds nothing.
+        VerbResultKinds.Taken => new VerbResult.Taken(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.TakeSeed)), []),
         _ => throw Unknown(kind),
     };
 
@@ -326,8 +349,37 @@ public static class VerbOutput
         VerbResult.Decided r => DecidedText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
+        VerbResult.Taken r => TakenText(r.Value, r.Notes),
         _ => throw Unknown(result?.Kind),
     };
+
+    /// <summary>
+    /// The seed as its own composer renders it, with this hold's terms after.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered by the CONTRACT's composer rather than here.</b> The same text
+    /// reaches a person at a terminal and an agent reading declared context, and
+    /// two renderings of one document would drift on the first change to either.
+    /// </remarks>
+    private static string TakenText(TakeSeed seed, IReadOnlyList<string> notes)
+    {
+        var text = new StringBuilder(TakeSeedComposer.Render(seed));
+
+        if (notes.Count == 0)
+        {
+            return text.ToString();
+        }
+
+        text.AppendLine();
+        text.AppendLine();
+
+        foreach (var note in notes)
+        {
+            text.AppendLine(note);
+        }
+
+        return text.ToString().TrimEnd();
+    }
 
     /// <summary>
     /// The envelope, as its canonical text, with the version above it.

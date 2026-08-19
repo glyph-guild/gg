@@ -26,10 +26,12 @@ namespace Gg.Console;
 /// data.
 /// </para>
 /// </remarks>
-public sealed class ConsoleData(FlightCommands commands, CredentialCommands credentials)
+public sealed class ConsoleData(
+    FlightCommands commands, CredentialCommands credentials, TakeCommands takes)
 {
     private readonly FlightCommands _commands = commands;
     private readonly CredentialCommands _credentials = credentials;
+    private readonly TakeCommands _takes = takes;
 
     /// <summary>
     /// `gg bundle`, from the state the console is holding.
@@ -147,6 +149,33 @@ public sealed class ConsoleData(FlightCommands commands, CredentialCommands cred
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);
+
+    /// <summary>
+    /// What a flight tried and ruled out, for the pane a person reads before
+    /// taking it over.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read rather than composed, which is the whole of slice seven.</b> The
+    /// console used to have no way to get a seed at all - AppState.TakeSeed was
+    /// assigned nowhere outside tests - so the takeover key answered "this console
+    /// is not configured to take flights over" on every real press.
+    /// </remarks>
+    /// <remarks>
+    /// <b>A <c>VerbResult</c>, because everything the console loads is one.</b> The
+    /// existing guard is right and worth conforming to rather than widening: what a
+    /// pane shows has to be what <c>--json</c> would print, or the console becomes a
+    /// second view with its own data path. So a seed read WITHOUT a hold comes back
+    /// as a Taken with no notes - there are no hold terms to report, because reading
+    /// is not taking.
+    /// </remarks>
+    public async Task<VerbResult> SeedAsync(
+        string reference, CancellationToken cancellationToken = default) =>
+        new VerbResult.Taken(
+            await _takes.SeedAsync(reference, cancellationToken)
+                ?? throw new FlightNotFoundException(
+                    $"No flight {reference}. Run gg flights to see what is there."),
+            []);
+
 }
 
 /// <summary>

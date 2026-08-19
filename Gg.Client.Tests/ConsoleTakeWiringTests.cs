@@ -43,8 +43,20 @@ public class ConsoleTakeWiringTests
         await Assert.That(program).Contains("new TakeSession")
             .Because("without this the key answers 'this console is not configured to take flights "
                    + "over', which is what it did for the whole of slices five and six.");
-        await Assert.That(program).Contains("new HandSession")
-            .Because("and its twin, for the same reason - HandedBack reached the same dead end.");
+        // AND ITS TWIN IS STILL NOT PASSED, asserted as absent rather than left
+        // ambiguous. HandSession needs an `infer` that spawns an agent to propose
+        // what appears to have been done and an `ask` that reads a terminal
+        // confirmation; the first means invoking an executor from the console,
+        // which is a boundary slice seven does not touch.
+        //
+        // So HandedBack still answers "this console is not configured to hand
+        // flights back". Asserting the absence is the honest version: a criterion
+        // that quietly covered both would report a feature this console does not
+        // have, which is the exact failure step 0 spent its time uncovering.
+        await Assert.That(program).DoesNotContain("new HandSession")
+            .Because("hand-back is unwired and named as such. When somebody wires it, this "
+                   + "assertion fails and they flip it - which is what stops the gap being "
+                   + "forgotten rather than closed.");
     }
 
     [Test]

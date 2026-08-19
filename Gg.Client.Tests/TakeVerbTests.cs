@@ -59,7 +59,7 @@ public class TakeVerbTests
         // afterwards would hand somebody the work of a flight they are then told
         // they cannot have - and worse, would do it while a colleague was already
         // working it.
-        await using var stub = await StubControlPlane.StartAsync();
+        await using var stub = new StubControlPlane();
         var commands = Commands(stub);
 
         var result = await commands.TakeAsync("GG-42");
@@ -83,7 +83,7 @@ public class TakeVerbTests
     {
         // The ordinary case, not an error path: two people looking at the same
         // stopped flight. What a person needs is who to ask.
-        await using var stub = await StubControlPlane.StartAsync();
+        await using var stub = new StubControlPlane();
         stub.TakeoverHeldBy = new TakeoverHeld
         {
             By = "Ada",
@@ -110,7 +110,7 @@ public class TakeVerbTests
     {
         // The whole point of the slice, asserted at the surface a person actually
         // meets rather than only on the wire type.
-        await using var stub = await StubControlPlane.StartAsync();
+        await using var stub = new StubControlPlane();
 
         var result = (VerbResult.Taken)await Commands(stub).TakeAsync("GG-42");
         var rendered = VerbOutput.ToText(result);
@@ -128,12 +128,15 @@ public class TakeVerbTests
         // document is the seed; when the hold expires and how often to renew are
         // facts about this invocation, not about the flight - so they are notes,
         // and a result read back from JSON has none. Honest rather than lossy.
-        await using var stub = await StubControlPlane.StartAsync();
+        await using var stub = new StubControlPlane();
 
         var result = (VerbResult.Taken)await Commands(stub).TakeAsync("GG-42");
 
         await Assert.That(result.Notes).IsNotEmpty();
-        await Assert.That(string.Join(" ", result.Notes)).Contains("renew");
+        await Assert.That(string.Join(" ", result.Notes).ToLowerInvariant()).Contains("renew")
+            .Because("a hold a person does not know to renew is a hold that lapses while they are "
+                   + "working. Case-insensitive: the assertion is about the fact being said, not "
+                   + "about where the sentence starts.");
 
         var roundTripped = VerbOutput.Parse(result.Kind, VerbOutput.ToJson(result));
 
@@ -153,7 +156,7 @@ public class TakeVerbTests
         // holder and refused to anybody else - and being refused here is exactly
         // right, because a decision recorded against somebody else's hold would
         // attribute their work to this person.
-        await using var stub = await StubControlPlane.StartAsync();
+        await using var stub = new StubControlPlane();
 
         var result = await Commands(stub).ReturnAsync(
             "GG-42", TakeoverOutcomes.Completed, note: "rounding moved to the boundary");
@@ -174,7 +177,7 @@ public class TakeVerbTests
         // Refused HERE as well as there. Both sides fail closed on their own
         // format, which is the same arrangement the envelope has - and it means a
         // typo costs a diagnosis rather than a round trip.
-        await using var stub = await StubControlPlane.StartAsync();
+        await using var stub = new StubControlPlane();
 
         await Assert.ThrowsAsync<ArgumentException>(
             async () => await Commands(stub).ReturnAsync("GG-42", "probably-fine"));
@@ -193,5 +196,6 @@ public class TakeVerbTests
     };
 
     private static TakeCommands Commands(StubControlPlane stub) =>
-        new(new ControlPlaneClient(stub.BaseAddress), new HeldSessionStore(ASession()));
+        new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
+            new HeldSessionStore(ASession()));
 }

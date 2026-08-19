@@ -47,68 +47,6 @@ public class TwoGateTests
     /// <c>RealRemoteGateTests</c>, which is where the property was originally
     /// established and where it has to stay established.
     /// </remarks>
-    private sealed class RecordingDestination(bool pushSucceeds = true, bool proposeSucceeds = true)
-        : IDestinationAdapter
-    {
-        public string Provider { get; } = AuthenticatingProvider.Key;
-
-        public List<string> Calls { get; } = [];
-
-        public Task<PushOutcome> PushAsync(
-            LandingRequest request, CancellationToken cancellationToken = default)
-        {
-            Calls.Add($"push:{request.Branch}");
-
-            return Task.FromResult<PushOutcome>(pushSucceeds
-                ? new PushOutcome.Pushed(request.Branch, new string('a', 40))
-                : new PushOutcome.Refused(request.Slug, "the remote said no"));
-        }
-
-        public Task<LandingOutcome> ProposeAsync(
-            LandingRequest request, CancellationToken cancellationToken = default)
-        {
-            Calls.Add($"propose:{request.Branch}");
-
-            return Task.FromResult<LandingOutcome>(proposeSucceeds
-                ? new LandingOutcome.Landed(request.Branch, "https://forge.invalid/pr/1", 1)
-                : new LandingOutcome.Unsupported("no proposal"));
-        }
-    }
-
-    /// <summary>
-    /// A provider that authenticates, wrapping the local one that does not.
-    /// </summary>
-    /// <remarks>
-    /// <b>Needed because the local adapter refuses a credential outright</b> - file://
-    /// has nothing to authenticate to, so a secret offered to it is a secret handed
-    /// to a path. That refusal is correct and it means a lease carrying a credential
-    /// for a local repository cannot even materialise, which is how the first run of
-    /// this file reached the adapter zero times and looked like a gating bug.
-    /// </remarks>
-    private sealed class AuthenticatingProvider(LocalVcsAdapter inner) : IVcsAdapter
-    {
-        internal const string Key = "fixture";
-
-        public string Provider => Key;
-
-        public VcsCapabilities Capabilities => inner.Capabilities;
-
-        public RefResolution Resolve(string pinnedRef) => inner.Resolve(pinnedRef);
-
-        // The secret is accepted and dropped: what matters here is that offering one
-        // is legitimate for this provider, which is what makes the credential - and
-        // therefore the write scope - meaningful.
-        public Task<CloneOutcome> CloneAsync(
-            RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
-            CancellationToken cancellationToken = default) =>
-            inner.CloneAsync(target, resolvedRef, intoDirectory, secret: null, cancellationToken);
-
-        public Task<string> FetchAlsoAsync(
-            RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
-            CancellationToken cancellationToken = default) =>
-            inner.FetchAlsoAsync(target, resolvedRef, intoDirectory, secret: null, cancellationToken);
-    }
-
     private static LeaseGranted ALeaseFor(GitFixture fixture) => new()
     {
         LeaseId = "lease-1",

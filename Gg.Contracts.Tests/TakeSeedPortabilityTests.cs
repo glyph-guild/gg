@@ -113,6 +113,46 @@ public class TakeSeedPortabilityTests
     }
 
     [Test]
+    public async Task Two_seeds_composed_from_one_digest_measure_the_same_thing()
+    {
+        // FOUND, not predicted. TakeMeasurements is a record, and a record
+        // compares IReadOnlyList<T> members by REFERENCE - so two measurements
+        // built from one digest were unequal, and the parity check that a
+        // control-plane seed measures what a local one would have could not pass
+        // however correct both composers were. LoopDigest documents this exact
+        // trap for this exact reason; the type made OF digests inherited it.
+        var digest = Digest();
+
+        var one = TakeSeedComposer.Compose(
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001", digest, account: null);
+        var other = TakeSeedComposer.Compose(
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001", digest, account: null);
+
+        await Assert.That(one.Measurements).IsEqualTo(other.Measurements);
+        await Assert.That(one.Measurements.GetHashCode())
+            .IsEqualTo(other.Measurements.GetHashCode())
+            .Because("equal values with different hashes are worse than unequal values: they work "
+                   + "until something puts them in a dictionary.");
+    }
+
+    [Test]
+    public async Task Measurements_that_differ_are_still_unequal()
+    {
+        // The poison twin. Value equality that returned true for everything
+        // would satisfy the assertion above and destroy the comparison it exists
+        // to enable.
+        var mine = TakeSeedComposer.Compose(
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001", Digest(), account: null);
+        var thinner = TakeSeedComposer.Compose(
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001",
+            Digest() with { FilesReadNotEdited = [] }, account: null);
+
+        await Assert.That(mine.Measurements).IsNotEqualTo(thinner.Measurements)
+            .Because("filesReadNotEdited is the closest thing the stream holds to 'considered and "
+                   + "ruled out', so losing it must be detectable.");
+    }
+
+    [Test]
     public async Task A_flight_killed_before_it_measured_anything_still_gets_a_seed()
     {
         // Carried forward from the local composer, and it matters more now: the

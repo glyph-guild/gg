@@ -91,6 +91,48 @@ public sealed record TakeMeasurements
 
     /// <summary>What the obligation decided, when one was evaluated.</summary>
     public string? Verdict { get; init; }
+
+    /// <summary>
+    /// Value equality over the lists, because that is what this record is for.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same defect <see cref="LoopDigest"/> documents, one type along, and
+    /// it was found rather than predicted.</b> A record compares
+    /// <see cref="IReadOnlyList{T}"/> members by REFERENCE, so two measurements
+    /// composed from one digest come out unequal - and the thing that noticed was
+    /// the parity check asserting that a seed composed control-plane-side measures
+    /// what a local one would have. Without this, that check cannot pass however
+    /// correct both composers are, and the honest-looking fix would have been to
+    /// weaken it to comparing field by field, which is the same assertion with
+    /// somewhere new to forget a field.
+    /// </remarks>
+    public bool Equals(TakeMeasurements? other) =>
+        other is not null
+        && Attempts == other.Attempts
+        && string.Equals(StopReason, other.StopReason, StringComparison.Ordinal)
+        && string.Equals(Verdict, other.Verdict, StringComparison.Ordinal)
+        && FilesEdited.SequenceEqual(other.FilesEdited, StringComparer.Ordinal)
+        && FilesReadNotEdited.SequenceEqual(other.FilesReadNotEdited, StringComparer.Ordinal)
+        && Searches.SequenceEqual(other.Searches, StringComparer.Ordinal)
+        && Errors.SequenceEqual(other.Errors, StringComparer.Ordinal)
+        && UndeclaredMovesUsed.SequenceEqual(other.UndeclaredMovesUsed, StringComparer.Ordinal);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Attempts);
+        hash.Add(StopReason, StringComparer.Ordinal);
+        hash.Add(Verdict, StringComparer.Ordinal);
+
+        foreach (var value in FilesEdited
+            .Concat(FilesReadNotEdited).Concat(Searches).Concat(Errors)
+            .Concat(UndeclaredMovesUsed))
+        {
+            hash.Add(value, StringComparer.Ordinal);
+        }
+
+        return hash.ToHashCode();
+    }
 }
 
 /// <summary>

@@ -21,6 +21,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightLog))]
+[JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(TelemetryDisclosure))]
 [JsonSerializable(typeof(CredentialRegistrationRequest))]
@@ -310,6 +311,33 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FlightSummary, cancellationToken);
+    }
+
+    /// <summary>
+    /// What a flight tried and ruled out, or null if the reference names none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched rather than composed here, and that is the whole change.</b> The
+    /// seed used to be built on the machine that ran the flight, from a digest on
+    /// its own disk, which is why a stopped flight was resumable by whoever was
+    /// sitting at that keyboard and by nobody else. It is composed from facts the
+    /// control plane already holds now, so any machine can ask.
+    /// </remarks>
+    public async Task<TakeSeed?> GetSeedAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/flights/{reference}/seed", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.TakeSeed, cancellationToken);
     }
 
     /// <summary>A flight's log, or null if the reference names no flight.</summary>

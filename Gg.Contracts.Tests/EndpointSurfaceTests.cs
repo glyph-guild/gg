@@ -102,8 +102,19 @@ public class EndpointSurfaceTests
         // Moved for ADR-0012 B2: the decisions route answers 202 with no body
         // rather than 200 with a DecisionRecorded, because the write became a
         // command and answering inline would mean waiting for its own event.
+        // Moved for slice seven step 1: GET /v1/flights/{ref}/seed arrives, and it
+        // is the route that stops handoff being machine-local. The seed was
+        // composed on the machine that ran the flight, from a digest on that
+        // machine's disk, and placed on that machine's clipboard - so "any flight
+        // resumable by anyone" held only for whoever was at that keyboard.
+        //
+        // Developer audience, and the consequence is deliberate rather than an
+        // oversight: a runner cannot fetch a seed, because one that could would
+        // read what every flight in the tenant tried and ruled out from a
+        // credential meant only to let it hold one lease. A resuming loop is
+        // handed its seed on the lease instead.
         await Assert.That(Fingerprint())
-            .IsEqualTo("03795af44d08a35c685fb382692dbe81d1e66d10b7e25616aa6946f74fa07966")
+            .IsEqualTo("3042d22f3dfaab4124c8f96a0df5da22f38c298dfa6266bf1fe7da0f9d7b689f")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

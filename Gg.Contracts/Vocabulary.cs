@@ -86,6 +86,8 @@ public static class Vocabulary
         typeof(ObligationAttribution),
         typeof(TakeoverRecord),
         typeof(TakeoverReturn),
+        typeof(TakeSeed),
+        typeof(TakeMeasurements),
         typeof(DigestError),
         typeof(DestinationAdmission),
         typeof(ArtifactReference),

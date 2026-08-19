@@ -41,8 +41,9 @@ public class TakeContextTests
 
     private static TakeSeed Seed(string? account, LoopDigest? digest = null) =>
         TakeSeedComposer.Compose(
-            "GG-42", "019ff8aa-1111-7000-8000-000000000001", "/work/tree",
-            digest ?? ADigest(), account, verdict: "violated: etc/passwd is outside src/**");
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001",
+            digest ?? ADigest(), account,
+            verdict: "violated: etc/passwd is outside src/**");
 
     // ---- measurements are required; the account is not ----
 
@@ -74,7 +75,7 @@ public class TakeContextTests
         // that quietly supplies the thing being tested for absence is how a test
         // passes without testing.
         var seed = TakeSeedComposer.Compose(
-            "GG-42", "019ff8aa-1111-7000-8000-000000000001", "/work/tree",
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001",
             digest: null, account: null);
 
         await Assert.That(seed.Measurements.FilesEdited).IsEmpty();
@@ -123,7 +124,7 @@ public class TakeContextTests
         // stopped mid-sentence.
         var seed = Seed(new string('x', TakeSeedComposer.MaxAccount + 500));
 
-        await Assert.That(seed.AccountState).IsEqualTo(AccountState.Truncated);
+        await Assert.That(seed.AccountState).IsEqualTo(AccountStates.Truncated);
         await Assert.That(TakeSeedComposer.Render(seed)).Contains("truncated");
         await Assert.That(seed.Account!.Length).IsEqualTo(TakeSeedComposer.MaxAccount);
     }
@@ -162,7 +163,7 @@ public class TakeContextTests
         var poisoned = $"{Esc}]0;pwned{Bel}the agent said {Esc}[31mthis{Esc}[0m";
 
         var seed = TakeSeedComposer.Compose(
-            "GG-42", "flight-1", "/work/tree",
+            "GG-42", "flight-1",
             ADigest() with
             {
                 FilesEdited = [$"src/{Esc}[31mgreet.py"],

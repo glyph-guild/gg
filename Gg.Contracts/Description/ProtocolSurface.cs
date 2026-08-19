@@ -409,6 +409,30 @@ public static class ProtocolSurface
         },
         new()
         {
+            // WHERE THE HANDOFF LIVES NOW. The seed used to be composed on the
+            // machine that ran the flight, from a digest on its disk, and placed on
+            // that machine's clipboard - so a flight was resumable by whoever was
+            // sitting at that keyboard and by nobody else. Composed control-plane
+            // side from facts already held, it is resumable by anyone.
+            //
+            // DEVELOPER, and the consequence is deliberate: a runner cannot fetch a
+            // seed. One that could would be able to read what every flight in the
+            // tenant tried and ruled out, from a credential meant only to let it
+            // hold one lease. So a resuming loop is HANDED its seed on the lease
+            // rather than asking for one.
+            Method = "GET",
+            Path = "/v1/flights/{ref}/seed",
+            Audience = Audience.Developer,
+            Response = typeof(TakeSeed),
+            // 404 for a flight nobody has and for another tenant's alike, the same
+            // rule GET /v1/flights/{ref} follows. There is no "nothing to resume"
+            // status: a flight that ran and measured nothing still has a seed, and
+            // empty measurements are measurements.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/flights/{ref}/log",
             Audience = Audience.Developer,
@@ -591,6 +615,13 @@ public static class ProtocolSurface
             [typeof(TakeoverRecord)] =
                 ["by", "startedAt", "heldForMs", "outcome", "diagnosis", "note"],
             [typeof(TakeoverReturn)] = ["flightId", "outcome", "note"],
+            [typeof(TakeSeed)] =
+                ["revision", "flightNumber", "flightId", "measurements", "account", "accountState",
+                 "accountBytes", "accountAbsence", "transcript", "transcriptState",
+                 "transcriptAbsence", "priorHuman"],
+            [typeof(TakeMeasurements)] =
+                ["filesEdited", "filesReadNotEdited", "searches", "errors", "undeclaredMovesUsed",
+                 "attempts", "stopReason", "verdict"],
             [typeof(HumanAccount)] =
                 ["by", "statement", "confirmation", "confirmedAt", "wasProposed"],
             [typeof(LoopDigest)] =

@@ -321,7 +321,7 @@ public class HandTests
             T0).Account;
 
         var seed = TakeSeedComposer.Compose(
-            "GG-12", "019ff8cc-1111-7000-8000-00000000000c", "/work/tree",
+            "GG-12", "019ff8cc-1111-7000-8000-00000000000c",
             new LoopDigest
             {
                 LoopId = "implement",
@@ -363,7 +363,8 @@ public class HandTests
     public async Task A_seed_with_no_prior_human_account_does_not_pretend_there_is_one()
     {
         var rendered = TakeSeedComposer.Render(TakeSeedComposer.Compose(
-            "GG-12", "flight-1", "/work/tree", digest: null, account: null));
+            "GG-12", "flight-1",
+            digest: null, account: null));
 
         await Assert.That(rendered).DoesNotContain("A PERSON WORKED ON THIS");
     }

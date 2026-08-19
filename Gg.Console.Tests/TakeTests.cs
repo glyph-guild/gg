@@ -48,7 +48,7 @@ public class TakeTests
         Notes = "what I was thinking before any of this",
         TakeableTree = tree,
         TakeSeed = TakeSeedComposer.Compose(
-            "GG-42", "019ff8aa-1111-7000-8000-000000000001", tree,
+            "GG-42", "019ff8aa-1111-7000-8000-000000000001",
             new LoopDigest
             {
                 LoopId = "implement",

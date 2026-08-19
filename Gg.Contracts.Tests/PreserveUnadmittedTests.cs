@@ -125,6 +125,15 @@ public class PreserveUnadmittedTests
         await Assert.That(DestinationBranch.IsOurs(DestinationBranch.ForHandoff("GG-42"))).IsTrue()
             .Because("it is still a branch this platform created, so whatever cleans those up has "
                    + "to see it.");
+
+        // AND IT IS RECOGNISABLE AS ONE, so a runner can report which kind of push
+        // it made without inferring a governance answer from a string it matched
+        // itself. The control plane chooses the branch; the runner says what it did.
+        await Assert.That(DestinationBranch.IsHandoff(DestinationBranch.ForHandoff("GG-42")))
+            .IsTrue();
+        await Assert.That(DestinationBranch.IsHandoff(DestinationBranch.For("GG-42"))).IsFalse()
+            .Because("an ordinary landing branch is not a preservation, and a check that said yes "
+                   + "to both would mark every push as kept rather than offered.");
     }
 
     [Test]

@@ -292,6 +292,17 @@ public static class DestinationBranch
     public static string ForHandoff(string flightNumber) =>
         Prefix + "handoff/" + Safe(flightNumber);
 
+    /// <summary>Whether this branch is one kept for a handoff rather than offered.</summary>
+    /// <remarks>
+    /// <b>So a runner reports what it was told to push rather than deciding.</b> The
+    /// control plane chooses the branch; this lets the runner say which KIND of push
+    /// it made without inferring a governance answer from a string it matched itself.
+    /// A prefix check written at the call site would be the runner deriving policy,
+    /// which is the thing Article IX is about.
+    /// </remarks>
+    public static bool IsHandoff(string branch) =>
+        branch is not null && branch.StartsWith(Prefix + "handoff/", StringComparison.Ordinal);
+
     /// <summary>Whether this is a branch this platform would have created.</summary>
     public static bool IsOurs(string branch) =>
         branch is not null && branch.StartsWith(Prefix, StringComparison.Ordinal);

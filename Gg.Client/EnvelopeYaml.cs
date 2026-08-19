@@ -335,15 +335,42 @@ public static class EnvelopeYaml
         };
     }
 
+    /// <summary>
+    /// A boolean, or a refusal naming what was there instead.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two spellings only, and never a coercion.</b> YAML readers accept `yes`,
+    /// `on`, `y` and more as truth, and a governance permission read from a
+    /// dialect-dependent value is a permission whose meaning depends on which
+    /// parser opened the file. So this is `true` or `false` and anything else is a
+    /// diagnosis - which matters most in the direction that grants something.
+    /// </remarks>
+    private static bool Flag(Node node, string path) =>
+        RequireScalar(node, path) switch
+        {
+            "true" => true,
+            "false" => false,
+            var other => throw new EnvelopeSyntaxException(
+                $"{path} is '{other}', and this reads only 'true' or 'false'. A permission whose "
+              + "meaning depends on which YAML dialect opened the file is not a permission."),
+        };
+
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "kind", "requires");
+        Closed(entry.Body, "kind", "requires", "preserve-unadmitted");
 
         return new Destination
         {
             Id = entry.Id,
             Kind = RequireScalar(Require(entry.Body, "kind"), $"{entry.Body.Path}.kind"),
             Requires = Strings(Require(entry.Body, "requires"), $"{entry.Body.Path}.requires"),
+            // ABSENT STAYS ABSENT. Reading a missing key back as false would be the
+            // same value to the engine and a different document on disk, so
+            // `envelope show` after `envelope apply` would not round trip.
+            PreserveUnadmitted =
+                entry.Body.Entries.TryGetValue("preserve-unadmitted", out var preserve)
+                    ? Flag(preserve, $"{entry.Body.Path}.preserve-unadmitted")
+                    : null,
         };
     }
 

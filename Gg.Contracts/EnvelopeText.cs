@@ -151,6 +151,16 @@ public static class EnvelopeText
             text.Append($"{Indent}{Scalar(destination.Id)}:\n");
             text.Append($"{Indent}{Indent}kind: {Scalar(destination.Kind)}\n");
             Sequence(text, "requires", destination.Requires, depth: 2);
+            // WRITTEN ONLY WHEN DECLARED. Emitting `preserve-unadmitted: false` for
+            // every destination that omits it would rewrite every tenant's document
+            // on the next show, and a diff nobody made is how a review practice
+            // gets abandoned.
+            if (destination.PreserveUnadmitted is { } preserve)
+            {
+                text.Append(
+                    $"{Indent}{Indent}preserve-unadmitted: {(preserve ? "true" : "false")}\n");
+            }
+
         }
 
         return text.ToString();

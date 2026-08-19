@@ -489,6 +489,39 @@ public sealed record Destination
 
     /// <summary>Obligation ids that must hold before anything is written here.</summary>
     public required IReadOnlyList<string> Requires { get; init; }
+
+    /// <summary>
+    /// Whether work that was NOT admitted may still be pushed here, so somebody
+    /// can take the flight over from another machine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A flight that halted, violated or exhausted has no branch anywhere</b>,
+    /// and the work exists only in a tree on the machine that ran it - which is
+    /// precisely the flight somebody wants to take over, and precisely the one that
+    /// cannot be taken over from anywhere else. This is the permission to leave it
+    /// on the remote instead.
+    /// </para>
+    /// <para>
+    /// <b>Null and false are one answer, and the absence is load-bearing.</b> The
+    /// failure mode is a tenant discovering that every abandoned agent attempt is a
+    /// branch on their default remote - so an envelope that does not name this
+    /// pushes nothing, which is also what every envelope written before this member
+    /// existed continues to mean. Article XI, and the same reason an unknown
+    /// predicate halts rather than evaluating false.
+    /// </para>
+    /// <para>
+    /// <b>A push here is not a proposal.</b> Admission is still decided the way it
+    /// always was; this separates <i>may the work be kept somewhere fetchable</i>
+    /// from <i>may it be offered for merge</i>, which were one permission because
+    /// only one of them had ever been asked for.
+    /// </para>
+    /// <para>
+    /// <b>A MEMBER, so this half costs nothing.</b> A member may be added freely and
+    /// a value may not - the reasoning written on <see cref="LoopBudget.Attempts"/>.
+    /// </para>
+    /// </remarks>
+    public bool? PreserveUnadmitted { get; init; }
 }
 
 /// <summary>
@@ -745,6 +778,19 @@ public sealed record Envelope
             {
                 return $"Unknown kind '{kind}' on destination '{destination.Id}'. Expected one of: "
                      + string.Join(", ", DestinationKinds.All) + ".";
+            }
+
+            // REFUSED RATHER THAN IGNORED. An envelope-change destination has no
+            // branch and no repository, so "preserve the work there" names nothing -
+            // and a knob that silently does nothing on one kind of destination is a
+            // governance permission somebody sets and believes they granted.
+            if (destination.PreserveUnadmitted is not null
+                && !string.Equals(
+                    destination.Kind, DestinationKinds.PullRequest, StringComparison.Ordinal))
+            {
+                return $"Destination '{destination.Id}' declares preserve-unadmitted and is a "
+                     + $"'{destination.Kind}'. There is no branch to preserve work on: that "
+                     + $"permission only means anything for a '{DestinationKinds.PullRequest}'.";
             }
 
             foreach (var required in destination.Requires)

@@ -669,7 +669,7 @@ public static class ProtocolSurface
             [typeof(DigestError)] = ["source", "detail"],
             [typeof(DestinationLanded)] =
                 ["destinationId", "branch", "pullRequestUri", "pullRequestNumber"],
-            [typeof(DestinationPushed)] = ["slug", "branch", "commit"],
+            [typeof(DestinationPushed)] = ["slug", "branch", "commit", "preserved"],
             [typeof(DestinationAdmission)] =
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
@@ -682,7 +682,7 @@ public static class ProtocolSurface
             [typeof(LoopBudget)] = ["wallClock", "attempts"],
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
-            [typeof(Destination)] = ["id", "kind", "requires"],
+            [typeof(Destination)] = ["id", "kind", "requires", "preserveUnadmitted"],
             [typeof(Envelope)] = ["context", "obligations", "loops", "destinations"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed"],

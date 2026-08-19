@@ -135,6 +135,22 @@ public sealed record DestinationPushed
     /// <summary>The commit the branch is at.</summary>
     public required string Commit { get; init; }
 
+    /// <summary>
+    /// Whether this push is work KEPT rather than work offered.
+    /// </summary>
+    /// <remarks>
+    /// <b>A <c>gg/</c> branch with no pull request is not a proposal, and the fact
+    /// that names it has to say so.</b> Otherwise a reader counting this platform's
+    /// branches cannot tell work that was admitted from work that was merely
+    /// preserved so somebody could take the flight over - and the two mean opposite
+    /// things about whether anybody is expected to review it.
+    /// <para>
+    /// Null means what it always meant: a push on the ordinary landing path, with
+    /// or without a proposal following it.
+    /// </para>
+    /// </remarks>
+    public bool? Preserved { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(DestinationPushed pushed)
     {
@@ -259,6 +275,22 @@ public static class DestinationBranch
     /// ever delete.
     /// </remarks>
     public static string For(string flightNumber) => Prefix + Safe(flightNumber);
+
+    /// <summary>
+    /// The branch for work KEPT so somebody can take the flight over.
+    /// </summary>
+    /// <remarks>
+    /// <b>A different name from <see cref="For"/>, because they are different
+    /// facts.</b> A flight preserved for handoff and the same flight later admitted
+    /// must not fight over one ref: the second push would either be refused as an
+    /// existing branch or would overwrite the thing somebody was about to take over.
+    /// <para>
+    /// Still under <see cref="Prefix"/>, so whatever cleans up this platform's
+    /// branches still sees it. A branch nobody recognises is a branch nobody deletes.
+    /// </para>
+    /// </remarks>
+    public static string ForHandoff(string flightNumber) =>
+        Prefix + "handoff/" + Safe(flightNumber);
 
     /// <summary>Whether this is a branch this platform would have created.</summary>
     public static bool IsOurs(string branch) =>

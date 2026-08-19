@@ -57,7 +57,16 @@ public class SeedDeclarationTests
         // conversation both sides are having; this says what shape the document an
         // AGENT reads as context is in. A seed whose shape changed silently would
         // change what every future resumption knows, with nothing to point at.
-        await Assert.That(TakeSeed.CurrentRevision).IsGreaterThan(0);
+        // Read rather than referenced, because the analyzer is right that
+        // asserting a constant asserts nothing about a running build - and what
+        // is actually claimed here is that the constant EXISTS to be read.
+        var current = typeof(TakeSeed)
+            .GetField(nameof(TakeSeed.CurrentRevision), BindingFlags.Public | BindingFlags.Static);
+
+        await Assert.That(current).IsNotNull()
+            .Because("a build has to say what shape it composes, or a reader is comparing a "
+                   + "payload against nothing.");
+        await Assert.That((int)current!.GetRawConstantValue()!).IsGreaterThan(0);
 
         var revision = typeof(TakeSeed).GetProperty("Revision");
 

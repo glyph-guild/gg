@@ -95,7 +95,11 @@ public interface IRunnerObserver
     /// in a customer's environment deliberately, and a retention policy nobody
     /// has a number for is a guess.
     /// </remarks>
-    void Held(string flightNumber, string path, long bytes);
+    /// <param name="preserved">
+    /// Whether the work also reached a handoff branch, making this tree a cache
+    /// rather than the only copy.
+    /// </param>
+    void Held(string flightNumber, string path, long bytes, bool preserved = false);
 
     /// <summary>
     /// A credential the lease named could not be read here.
@@ -124,7 +128,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) { }
     public void MoveRefused(string diagnosis) { }
     public void Landed(string outcome, string detail) { }
-    public void Held(string flightNumber, string path, long bytes) { }
+    public void Held(string flightNumber, string path, long bytes, bool preserved = false) { }
 }
 
 /// <summary>
@@ -318,10 +322,20 @@ public sealed class RunnerLoop(
                     }
                     else if (_workspace.Hold(lease.FlightId) is { } held)
                     {
-                        _observer.Held(lease.FlightNumber, held.Path, held.Bytes);
+                        // PRESERVED SAYS THE TREE IS A CACHE. This slice's first
+                        // danger is two trees, one branch, and the loser silent:
+                        // after the work reaches a handoff branch this machine still
+                        // holds a copy, and nothing had told it so. The line a person
+                        // reads is where that is said, because there is no reader for
+                        // a staleness flag and a value nothing consults is not a
+                        // warning.
+                        _observer.Held(
+                            lease.FlightNumber, held.Path, held.Bytes,
+                            _preserved.Contains(lease.FlightId));
                     }
 
                     _landed.Remove(lease.FlightId);
+                    _preserved.Remove(lease.FlightId);
                 }
             }
         }
@@ -851,22 +865,49 @@ public sealed class RunnerLoop(
             return;
         }
 
+        // WHICH KIND OF PUSH THIS WAS, from what the control plane told us to push.
+        // The branch is its answer - gg/handoff/GG-42 rather than gg/GG-42 - and
+        // DestinationBranch.IsHandoff is in the contract so this reads it rather
+        // than matching a prefix here. A runner deriving a governance answer from a
+        // string is what Article IX is about.
+        var preserved = DestinationBranch.IsHandoff(push.Branch);
+
+        if (preserved)
+        {
+            // Remembered on the loop rather than passed down, for the same reason
+            // _landed is: the block that holds the tree runs in a finally after this
+            // method has returned, and cannot see its locals.
+            _preserved.Add(lease.FlightId);
+        }
+
         // KEYED ON THE PUSH, not on the proposal. The work is on the remote, so the
         // tree is finished with - and a gated flight releases its tree for the same
         // reason a landed one does. Keying this on the proposal would hold every
         // gated flight's tree forever; keying it on "we tried" would release the
         // only copy of work that failed to push.
-        _landed.Add(lease.FlightId);
+        //
+        // EXCEPT FOR A PRESERVATION, and the exception is about the transcript
+        // rather than about the code. The branch is authoritative for what was
+        // written; the transcript is runner-local, ArtifactScopes has one value, and
+        // the seed can only ever POINT at it. Releasing this tree would destroy the
+        // one artifact somebody taking the flight over might walk to another machine
+        // for - and it is the flight most likely to need taking over, because it
+        // failed a check.
+        if (!preserved)
+        {
+            _landed.Add(lease.FlightId);
+        }
 
         _observer.Landed(
             pushed is PushOutcome.AlreadyThere ? "pushed" : "pushed",
-            $"{push.Branch} at {commit[..Math.Min(7, commit.Length)]}");
+            $"{push.Branch} at {commit[..Math.Min(7, commit.Length)]}"
+          + (preserved ? " (preserved for handoff; no proposal follows)" : ""));
 
         // REPORTED AS A PUSH, always, and before any proposal. Two events, neither
         // overwriting the other: this one says a branch reached the remote at a
         // commit, and it is true whether or not a proposal follows. A gated flight
         // produces only this, and it is what the pending decision is about.
-        await ReportPushAsync(lease, push.Slug, push.Branch, commit, cancellationToken);
+        await ReportPushAsync(lease, push.Slug, push.Branch, commit, preserved, cancellationToken);
 
         if (admission is null)
         {
@@ -911,11 +952,24 @@ public sealed class RunnerLoop(
     /// pushed branch with one are the same fact kind with a different disposition,
     /// and two call sites building it would eventually disagree about the commit.
     /// </remarks>
+    /// <summary>
+    /// Flights whose push was a preservation rather than a landing.
+    /// </summary>
+    /// <remarks>
+    /// Beside <c>_landed</c> and for the same reason: the tree is dealt with in a
+    /// finally block, after the method that knows which kind of push happened has
+    /// returned. Two sets rather than one tri-state, because the questions are
+    /// different - one asks whether to release the tree and the other asks what to
+    /// tell a person about the one that stayed.
+    /// </remarks>
+    private readonly HashSet<string> _preserved = new(StringComparer.Ordinal);
+
     private Task ReportPushAsync(
         LeaseGranted lease,
         string slug,
         string branch,
         string commit,
+        bool preserved,
         CancellationToken cancellationToken) =>
         _protocol.ShipFactsAsync(
             lease.LeaseId, lease.Generation,
@@ -930,6 +984,18 @@ public sealed class RunnerLoop(
                         Slug = slug,
                         Branch = branch,
                         Commit = commit,
+
+                        // WHETHER A PROPOSAL FOLLOWS. A gg/ branch with no pull
+                        // request is not a proposal, and a reader counting this
+                        // platform's branches has to be able to tell work that was
+                        // admitted from work that was merely kept - they mean
+                        // opposite things about whether anybody is expected to look
+                        // at it.
+                        //
+                        // Null on the ordinary path rather than false, because
+                        // absent is what every push before this reported and a
+                        // reader of an older fact must not have to guess.
+                        Preserved = preserved ? true : null,
                     })])),
                     lease.FlightId, _clock.UtcNow),
                 lease.ClassificationCeiling),

@@ -70,9 +70,20 @@ internal sealed class ConsoleObserver : IRunnerObserver
     /// <summary>
     /// Said out loud, because a kept tree is disk this process decided to spend.
     /// </summary>
-    public void Held(string flightNumber, string path, long bytes) =>
+    /// <remarks>
+    /// <b>And a PRESERVED tree says it is a cache.</b> Once the work has also
+    /// reached a handoff branch, the branch is authoritative for the code and this
+    /// tree is only where the transcript still is. Somebody who reuses it without
+    /// knowing that is the second failure mode of a portable handoff: two people
+    /// confidently editing divergent copies of one flight.
+    /// </remarks>
+    public void Held(string flightNumber, string path, long bytes, bool preserved = false) =>
         System.Console.WriteLine(
-            $"kept {flightNumber}'s tree for handoff: {bytes / 1024} KiB at {path}");
+            $"kept {flightNumber}'s tree for handoff: {bytes / 1024} KiB at {path}"
+          + (preserved
+              ? " - preserved: the branch has the code, so this tree is a cache and only the "
+              + "transcript is unique to it"
+              : ""));
 
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
         System.Console.WriteLine(

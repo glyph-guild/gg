@@ -265,8 +265,14 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Landed(string outcome, string detail) =>
         Record($"landed:{outcome}", lifecycle: false);
 
-    public void Held(string flightNumber, string path, long bytes) =>
-        Record($"held:{flightNumber}:{bytes}", lifecycle: false);
+    /// <summary>
+    /// The flag is recorded, because whether a held tree is a CACHE is the whole
+    /// content of the report after a preservation.
+    /// </summary>
+    public void Held(string flightNumber, string path, long bytes, bool preserved = false) =>
+        Record(
+            $"held:{flightNumber}:{bytes}" + (preserved ? ":preserved" : ""),
+            lifecycle: false);
 }
 
 internal static class Leases

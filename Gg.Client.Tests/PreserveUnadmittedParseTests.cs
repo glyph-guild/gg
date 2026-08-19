@@ -65,7 +65,7 @@ public class PreserveUnadmittedParseTests
 
         await Assert.That(parsed.Diagnosis).IsNull()
             .Because($"the canonical form must parse: {parsed.Diagnosis}");
-        await Assert.That(parsed.Envelope!.Destinations[0].PreserveUnadmitted).IsEqualTo(true);
+        await Assert.That(parsed.Envelope!.Destinations[0].PreserveUnadmitted).IsTrue();
 
         await Assert.That(EnvelopeText.Render(parsed.Envelope)).IsEqualTo(text)
             .Because("a second render must produce the same document, or applying what "

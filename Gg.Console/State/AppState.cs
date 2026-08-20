@@ -216,6 +216,21 @@ public sealed record AppState
     /// </remarks>
     public GateEvidencePayload? Payload { get; init; }
 
+    /// <summary>
+    /// What is waiting on a person, exactly as `gg gates` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The list, and the selected row picks one out of it.</b> Storing the single
+    /// gate instead would make the model depend on which row the cursor was on when
+    /// it was fetched, and moving the cursor would then need a round trip.
+    /// <para>
+    /// Without this the gate modal had the evidence and not the QUESTION: no
+    /// obligation id, so nothing could be answered even once the keys reached the
+    /// shell. It is what made ApproveGate a dead key rather than an unwired one.
+    /// </para>
+    /// </remarks>
+    public GateList? Gates { get; init; }
+
     /// <summary>The selected flight, exactly as `gg show` returned it.</summary>
     public FlightSummary? Flight { get; init; }
 
@@ -302,6 +317,14 @@ public sealed record AppState
     /// <summary>What the last hand-back ended with, for the pane to say.</summary>
     public string? LastHandBack { get; init; }
 
+    /// <summary>What came of the last gate this console answered.</summary>
+    /// <remarks>
+    /// The sentence a person reads after pressing the key, and the only thing the
+    /// console keeps: what the gate BECAME is the control plane's answer, arriving
+    /// on the next load.
+    /// </remarks>
+    public string? LastDecision { get; init; }
+
     /// <summary>
     /// How often a proposal was kept, per flight. Exported nowhere.
     /// </summary>
@@ -325,6 +348,19 @@ public sealed record AppState
     public string? Diagnosis { get; init; }
 
     /// <summary>The flight the cursor is on, or null when the queue is empty.</summary>
+    /// <summary>
+    /// The gate waiting on the selected flight, when one is.
+    /// </summary>
+    /// <remarks>
+    /// Derived, so moving the cursor needs no round trip and the model holds one
+    /// copy of the list rather than a copy per row.
+    /// </remarks>
+    public PendingGate? SelectedGate =>
+        Selected is { } row && Gates is { } gates
+            ? gates.Gates.FirstOrDefault(g => string.Equals(
+                g.FlightNumber, row.FlightNumber, StringComparison.Ordinal))
+            : null;
+
     public QueueRow? Selected =>
         Queue.Count == 0 ? null : Queue[Math.Clamp(SelectedRow, 0, Queue.Count - 1)];
 }

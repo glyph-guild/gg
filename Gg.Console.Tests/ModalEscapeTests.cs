@@ -28,9 +28,12 @@ public class ModalEscapeTests
         var context = new KeymapContext(state.Mode, state.LiveVisible, state.Frozen);
         var command = Keymap.Resolve(key, context);
 
-        // Quit and OpenEditor end the session rather than changing the model,
-        // exactly as the shell handles them.
-        return command is null or Command.Quit or Command.OpenEditor
+        // THE SAME DECLARATION THE SCREEN READS. This held a third literal copy of
+        // the list, which is worth naming: a property proven over 500 generated key
+        // sequences is worth exactly as much as the dispatch it models, and a copy
+        // that drifted would keep proving something about a console that no longer
+        // exists.
+        return command is null || ShellCommands.Handled.Contains(command.Value)
             ? state
             : Reducer.Reduce(state, command.Value);
     }

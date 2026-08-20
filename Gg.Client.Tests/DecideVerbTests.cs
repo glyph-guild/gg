@@ -109,10 +109,21 @@ public class DecideVerbTests
 
         await Assert.That(files).IsEquivalentTo((string[])
             [
-                // The console's data path, wired to no key. Present for parity so the
-                // modal step 6 adds cannot introduce a SECOND way to decide - which is
-                // the failure this count exists to catch.
+                // The console's data path. It WAS wired to no key, and this comment
+                // used to say so - "present for parity so the modal step 6 adds
+                // cannot introduce a SECOND way to decide". The modal existed the
+                // whole time; what was missing is that ConsoleScreen ended the UI
+                // session for only Quit and OpenEditor, so ApproveGate reached the
+                // reducer, which deliberately returns the state unchanged, and
+                // nothing ever posted.
                 "ConsoleData.cs",
+
+                // The caller that finally presses it, between UI sessions with the
+                // terminal free. A fourth FILE and not a fourth PATH: it reaches
+                // ConsoleData, which reaches the verb, which reaches the transport.
+                // This count exists to catch a second poster rather than to forbid
+                // callers, which is what the comment below has always said.
+                "VerbConsoleActions.cs",
 
                 // The transport.
                 "ControlPlaneClient.cs",

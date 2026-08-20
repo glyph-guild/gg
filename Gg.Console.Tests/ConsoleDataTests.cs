@@ -123,16 +123,26 @@ public class ConsoleDataTests
             .Select(m => m.Name)
             .ToHashSet();
 
-        // Named rather than silently skipped, so each exemption is visible.
-        // FlyAsync is a WRITE belonging to slice two's take/attach work.
-        // AddAsync needs a secret typed at a prompt, and a prompt inside a
-        // Terminal.Gui modal is a keyboard path with its own escape-hatch
-        // rules - it is credential-broker work the console does not do.
-        // InviteAsync is a write for the same reason FlyAsync is, and it
-        // produces a value whose whole purpose is to be COPIED somewhere else.
-        // A link a person cannot select out of a Terminal.Gui view is worse
-        // than no link at all, and clipboard access is its own piece of work.
-        var exempt = (string[])["FlyAsync", "AddAsync", "InviteAsync"];
+        // ALL THREE EXEMPTIONS ARE GONE, and what removed them was answering the
+        // objection rather than overruling it.
+        //
+        // Each reason was about a MODAL. "A prompt inside a Terminal.Gui modal is a
+        // keyboard path with its own escape-hatch rules"; "a link a person cannot
+        // select out of a Terminal.Gui view is worse than no link at all". Both are
+        // still true, and neither applies: these run in the shell, between UI
+        // lifetimes, with the terminal provably free - the same arrangement $EDITOR
+        // has always used. No modal is added and no escape hatch is needed.
+        //
+        // The clipboard was the other half of the invite objection - "clipboard
+        // access is its own piece of work" - and slice seven did that work:
+        // IClipboard, SystemClipboard and SeedPlacer, which places a value on the
+        // clipboard or in a named file and never fails.
+        //
+        // And the secret is narrower than the objection assumed. CredentialCommands
+        // prompts for the value itself, so it is never a parameter, a return value
+        // or a local anywhere in Gg.Console - which matters because AppState is
+        // written to disk under GG_STATE_DUMP and handed to the diagnostics bundle.
+        var exempt = Array.Empty<string>();
         var expected = verbs.Where(v => !exempt.Contains(v)).ToList();
         var missing = expected.Where(v => !console.Contains(v)).ToList();
 

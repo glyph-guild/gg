@@ -197,6 +197,46 @@ public class ConsoleWriteVerbsTests
         await Assert.That(PaneText.Activity(after)).IsEmpty();
     }
 
+    [Test]
+    public async Task An_invitation_does_not_overwrite_a_takeover_seed()
+    {
+        // FOUND BY RUNNING IT. SeedPlacer hardcoded gg-takeover-seed.txt, which was
+        // right while a takeover was its only caller. The console's invitation is
+        // the second, and both pass a temp directory - so an invitation issued while
+        // somebody had a seed waiting destroyed the document they needed to pick the
+        // flight up. Both were "working" and no unit test would have shown it.
+        await Assert.That(SeedPlacer.InvitationFile)
+            .IsNotEqualTo(SeedPlacer.TakeoverSeedFile);
+
+        var into = Path.Combine(Path.GetTempPath(), $"gg-placer-{Guid.NewGuid():N}");
+
+        try
+        {
+            var seed = SeedPlacer.Place("the seed", new NoClipboardHere(), into);
+            var invite = SeedPlacer.Place(
+                "the invitation", new NoClipboardHere(), into, SeedPlacer.InvitationFile);
+
+            var seedPath = ((SeedPlacement.File)seed).Path;
+
+            await Assert.That(((SeedPlacement.File)invite).Path).IsNotEqualTo(seedPath);
+            await Assert.That(File.ReadAllText(seedPath)).IsEqualTo("the seed")
+                .Because("the seed is what somebody reads to take a flight over, and losing it to "
+                       + "an unrelated key press is losing the handoff.");
+        }
+        finally
+        {
+            if (Directory.Exists(into))
+            {
+                Directory.Delete(into, recursive: true);
+            }
+        }
+    }
+
+    private sealed class NoClipboardHere : IClipboard
+    {
+        public string? Copy(string text) => "no clipboard in a test";
+    }
+
     // ---- doubles ----
 
     /// <summary>A UI session that exits once with the given command, then quits.</summary>

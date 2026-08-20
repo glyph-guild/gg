@@ -99,22 +99,50 @@ public sealed class SystemClipboard : IClipboard
 /// </summary>
 public static class SeedPlacer
 {
+    /// <summary>Where a takeover seed goes when there is no clipboard.</summary>
+    public const string TakeoverSeedFile = "gg-takeover-seed.txt";
+
+    /// <summary>Where an invitation goes when there is no clipboard.</summary>
+    /// <remarks>
+    /// A name of its own, because the two must not share one: an invitation written
+    /// over a takeover seed destroys the document somebody needs to pick a flight up.
+    /// </remarks>
+    public const string InvitationFile = "gg-invitation.txt";
+
     /// <summary>Clipboard first, a named file otherwise.</summary>
     /// <remarks>
+    /// <para>
     /// <b>Never fails.</b> A takeover that refused to start because a clipboard
     /// helper was missing would be a feature defeated by its own convenience.
+    /// </para>
+    /// <para>
+    /// <b>The filename is a parameter, and it was not.</b> It was
+    /// <c>gg-takeover-seed.txt</c> for every caller, which was fine while a takeover
+    /// was the only one - and stopped being fine the moment the console placed an
+    /// invitation. Two callers sharing one path is one of them overwriting the
+    /// other's file, and the pair here is the bad pair: an invitation landing on a
+    /// takeover seed destroys what somebody was about to read in order to pick up
+    /// a flight.
+    /// </para>
+    /// <para>
+    /// Found by driving the console against a live control plane and reading the
+    /// path it printed, which no unit test would have shown - both callers pass a
+    /// temp directory and both were "working".
+    /// </para>
     /// </remarks>
-    public static SeedPlacement Place(string seed, IClipboard clipboard, string directory)
+    public static SeedPlacement Place(
+        string seed, IClipboard clipboard, string directory, string fileName = TakeoverSeedFile)
     {
         ArgumentNullException.ThrowIfNull(seed);
         ArgumentNullException.ThrowIfNull(clipboard);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
 
         if (clipboard.Copy(seed) is not { Length: > 0 } why)
         {
             return new SeedPlacement.Clipboard();
         }
 
-        var path = System.IO.Path.Combine(directory, "gg-takeover-seed.txt");
+        var path = System.IO.Path.Combine(directory, fileName);
 
         System.IO.Directory.CreateDirectory(directory);
         System.IO.File.WriteAllText(path, seed);

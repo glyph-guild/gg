@@ -194,8 +194,12 @@ public sealed class VerbConsoleActions(
                 return "An invitation was issued.";
             }
 
+            // ITS OWN FILE. Sharing the takeover seed's name would have an
+            // invitation overwrite the document somebody was about to read in order
+            // to pick a flight up, which is the one collision that costs work.
             var placed = SeedPlacer.Place(
-                invitation.Value.InvitationUrl, _clipboard, Path.GetTempPath());
+                invitation.Value.InvitationUrl, _clipboard, Path.GetTempPath(),
+                SeedPlacer.InvitationFile);
 
             return placed switch
             {

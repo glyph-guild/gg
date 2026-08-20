@@ -59,3 +59,45 @@ public enum Command
     /// </remarks>
     HandBack,
 }
+
+/// <summary>
+/// Which commands the shell performs, rather than the reducer.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One declaration, because two lists drifted.</b> <c>ConsoleScreen</c> ended
+/// the UI session for a literal <c>Quit or OpenEditor</c> while <c>ConsoleLoop</c>
+/// had arms for <c>TakeFlight</c> and <c>HandBack</c>. Each was right about its own
+/// half and neither knew about the other, so four bound, advertised keys resolved
+/// to a command, reached the reducer, and returned the state unchanged.
+/// </para>
+/// <para>
+/// <b>What being here MEANS.</b> The UI session ends, the terminal is provably
+/// free, the shell does the work, and the next session is rebuilt from the model
+/// alone. That is the console's whole architecture - the same lifetime
+/// <c>$EDITOR</c> has always used - and it is why an effect that talks to the
+/// control plane or spawns a child belongs here rather than in a pure reducer.
+/// </para>
+/// <para>
+/// <b>Every command in here needs an arm in <c>ConsoleLoop</c></b>, which throws on
+/// one it does not recognise. <c>ShellHandledTests</c> checks that, and checks that
+/// the screen and the generated key walk both read this rather than restating it.
+/// </para>
+/// </remarks>
+public static class ShellCommands
+{
+    /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
+    public static IReadOnlySet<Command> Handled { get; } = new HashSet<Command>
+    {
+        // Always were. Quit returns the model; the editor is the original
+        // terminal-release effect.
+        Command.Quit,
+        Command.OpenEditor,
+
+        // Bound and inert until this declaration existed.
+        Command.TakeFlight,
+        Command.HandBack,
+        Command.ApproveGate,
+        Command.RejectGate,
+    };
+}

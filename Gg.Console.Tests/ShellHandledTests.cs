@@ -125,8 +125,17 @@ public class ShellHandledTests
         // the control plane's record two answers to one question.
         var reducer = Source("Gg.Console", Path.Combine("State", "Reducer.cs"));
 
+        // LINE BY LINE, because a lookahead after `\s*` backtracks: `\s*` matches
+        // zero spaces, the lookahead then sees " state," rather than "state," and
+        // succeeds. My first version of this flagged three commands that were
+        // written correctly, which is the wrong direction for a guard to fail in -
+        // it would have been "fixed" by loosening it.
         var mutating = ShellCommands.Handled
-            .Where(c => Regex.IsMatch(reducer, $@"Command\.{c}\s*=>\s*(?!state,)(?!state$)"))
+            .Where(c => reducer.Split('\n')
+                .Where(line => Regex.IsMatch(line, $@"Command\.{c}\b")
+                            && line.Contains("=>", StringComparison.Ordinal))
+                .Any(line => line[(line.IndexOf("=>", StringComparison.Ordinal) + 2)..].Trim()
+                    is not ("state" or "state,")))
             .ToList();
 
         await Assert.That(mutating).IsEmpty()

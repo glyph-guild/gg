@@ -7,7 +7,11 @@ namespace Gg.Console;
 /// thing that survives.
 /// </summary>
 public sealed class ConsoleLoop(
-    IUiSession ui, IEditorSession editor, ITakeSession? take = null, IHandSession? hand = null)
+    IUiSession ui,
+    IEditorSession editor,
+    ITakeSession? take = null,
+    IHandSession? hand = null,
+    IConsoleActions? actions = null)
 {
     public AppState Run(AppState initial)
     {
@@ -36,6 +40,17 @@ public sealed class ConsoleLoop(
                     state = HandedBack(state, hand);
                     break;
 
+                case Command.ApproveGate:
+                case Command.RejectGate:
+                    // THE WRITE THE REDUCER DELIBERATELY DOES NOT DO. It returns the
+                    // state unchanged for both answers and says why: answering posts,
+                    // and what closes the modal is what the control plane sends back.
+                    // That was right and the loop never saw the command, so nothing
+                    // posted at all - the console had no write path.
+                    state = Decided(
+                        state, actions, editor, outcome.Exit == Command.ApproveGate);
+                    break;
+
                 case Command.TakeFlight:
                     // The same shape, against something much larger: a person
                     // holds the terminal for minutes rather than an editor for
@@ -51,6 +66,64 @@ public sealed class ConsoleLoop(
                         $"UI session exited with {outcome.Exit}, which the shell does not handle");
             }
         }
+    }
+
+    /// <summary>
+    /// Sends the answer, and folds what was sent into the model.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The modal is not closed here.</b> What a gate BECAME is the control
+    /// plane's answer - the decision is recorded, the Engine re-evaluates, and the
+    /// next load carries the result. A console that closed the modal on the
+    /// keystroke would be reporting its own optimism, which is Article IX in its
+    /// softest clothing because the demo works.
+    /// </para>
+    /// <para>
+    /// <b>Everything that can go wrong leaves the model intact and says so</b>, the
+    /// same shape the takeover has: no actions configured, no gate on this row, or a
+    /// refusal from the far side.
+    /// </para>
+    /// </remarks>
+    private static AppState Decided(
+        AppState state, IConsoleActions? actions, IEditorSession editor, bool approved)
+    {
+        if (actions is null || state.SelectedGate is not { } gate)
+        {
+            return state with
+            {
+                LastDecision = actions is null
+                    ? "This console is not configured to answer gates."
+                    : "Nothing on this flight is waiting on a decision.",
+            };
+        }
+
+        // A REJECTION NEEDS A REASON, and the verb refuses one without it - the loop
+        // runs again with the reason, so a rejection that says nothing sends the work
+        // back to be done the same way. The console has no text field, and the answer
+        // is the one it has always used for text: release the terminal to $EDITOR.
+        //
+        // Refused HERE as well as there, so a person who changes their mind by
+        // saving an empty buffer has not answered a gate by accident.
+        string? reason = null;
+        if (!approved)
+        {
+            reason = editor.Edit("").Trim();
+
+            if (reason.Length == 0)
+            {
+                return state with
+                {
+                    LastDecision = $"{gate.FlightNumber}: nothing was sent. Rejecting needs a "
+                                 + "reason - the loop runs again with it.",
+                };
+            }
+        }
+
+        return state with
+        {
+            LastDecision = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason),
+        };
     }
 
     /// <summary>

@@ -131,7 +131,9 @@ public sealed class ConsoleScreen : Window
         }
 
         key.Handled = true;
-        if (command is Command.Quit or Command.OpenEditor)
+        // ONE DECLARATION, READ HERE. A literal list is what this was, and it
+        // silently excluded four commands the shell already had arms for.
+        if (ShellCommands.Handled.Contains(command.Value))
         {
             ExitCommand = command.Value;
             _app.RequestStop(this);

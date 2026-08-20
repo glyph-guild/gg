@@ -47,6 +47,14 @@ public static class ConsoleStart
 
             var queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value);
 
+            // WHAT IS WAITING ON A PERSON. Without it the gate modal had the
+            // evidence and not the question - no obligation id - so pressing
+            // approve could not have posted anything even once the key reached the
+            // shell. The list, because the selected row picks one out of it.
+            var gates = await data.GatesAsync(cancellationToken) is VerbResult.Gates waiting
+                ? waiting.Value
+                : null;
+
             // THE PRINCIPAL AND THE SEED, which is what makes the takeover key do
             // anything. Before this, ConsoleStart returned a queue and nothing
             // else - AppState.TakeSeed and AppState.Principal were assigned nowhere
@@ -67,6 +75,7 @@ public static class ConsoleStart
             return new AppState
             {
                 Queue = queue,
+                Gates = gates,
                 // From the stored session, never typed in. A takeover is an
                 // attributed act and this is who it is attributed to.
                 Principal = principal,

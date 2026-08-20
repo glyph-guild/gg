@@ -424,7 +424,12 @@ static int LaunchConsole()
         new TerminalGuiSession(),
         new EditorSession(),
         new TakeSession(claim: reference =>
-            takes.ClaimAsync(reference).GetAwaiter().GetResult())).Run(initial);
+            takes.ClaimAsync(reference).GetAwaiter().GetResult()),
+        hand: null,
+        // THE WRITE PATH. Async verbs, a synchronous shell, and the bridge at the
+        // edge - the same one ConsoleStart.LoadAsync uses two lines up. Without
+        // this the gate keys resolved, reached the reducer and did nothing.
+        actions: new VerbConsoleActions(data)).Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.
     var dumpPath = Environment.GetEnvironmentVariable("GG_STATE_DUMP");

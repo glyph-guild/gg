@@ -37,6 +37,7 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _modal;
     private readonly Label _modalBody;
     private readonly Label _hints;
+    private readonly Label _activity;
 
     public AppState State { get; private set; }
 
@@ -102,6 +103,10 @@ public sealed class ConsoleScreen : Window
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
+        // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
+        // indistinguishable from a key that does nothing.
+        _activity = new Label { X = 0, Y = Pos.AnchorEnd(2), Width = Dim.Fill() };
+
         _modal = new FrameView
         {
             X = Pos.Center(),
@@ -113,7 +118,7 @@ public sealed class ConsoleScreen : Window
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
         _modal.Add(_modalBody);
 
-        Add(_queuePane, _flightPane, _evidencePane, _livePane, _hints, _modal);
+        Add(_queuePane, _flightPane, _evidencePane, _livePane, _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
@@ -188,6 +193,7 @@ public sealed class ConsoleScreen : Window
         _modal.Title = State.Mode.ToString();
         _modalBody.Text = PaneText.Modal(State);
 
+        _activity.Text = PaneText.Activity(State);
         _hints.Text = Keymap.Hints(Context());
 
         Focus();

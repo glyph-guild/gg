@@ -161,9 +161,40 @@ public class ConsoleWriteVerbsTests
         var after = loop.Run(new AppState());
 
         await Assert.That(after.LastFlightOpened).IsNotNull();
-        await Assert.That(after.LastFlightOpened!).Contains("nothing")
+        await Assert.That(after.LastFlightOpened!.ToLowerInvariant()).Contains("nothing")
             .Because("an empty buffer is a person changing their mind, and it has to read as "
                    + "that rather than as silence.");
+    }
+
+    [Test]
+    public async Task Every_write_says_what_it_did_on_a_line_a_person_sees()
+    {
+        // THE HALF THAT WAS MISSING EVEN AFTER THE KEYS WORKED. LastTakeover and
+        // LastHandBack were written, asserted in tests, and rendered by no view - so
+        // a working key produced silence, which a person cannot tell from a key that
+        // does nothing. That is the same defect one layer out.
+        foreach (var command in (Command[])
+            [Command.OpenFlight, Command.AddCredential, Command.Invite])
+        {
+            var after = new ConsoleLoop(
+                new PressesThen(command), new NoEditing(), actions: new Recording())
+                .Run(new AppState());
+
+            await Assert.That(PaneText.Activity(after)).IsNotEmpty()
+                .Because($"{command} did something and the screen has to say so.");
+        }
+    }
+
+    [Test]
+    public async Task A_key_that_changes_nothing_says_nothing_new()
+    {
+        // The twin. An activity line that always had something in it would be
+        // furniture rather than information, and quitting is not an event.
+        var after = new ConsoleLoop(
+            new PressesThen(Command.Quit), new NoEditing(), actions: new Recording())
+            .Run(new AppState());
+
+        await Assert.That(PaneText.Activity(after)).IsEmpty();
     }
 
     // ---- doubles ----

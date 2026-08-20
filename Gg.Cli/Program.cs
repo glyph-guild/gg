@@ -429,7 +429,12 @@ static int LaunchConsole()
         // THE WRITE PATH. Async verbs, a synchronous shell, and the bridge at the
         // edge - the same one ConsoleStart.LoadAsync uses two lines up. Without
         // this the gate keys resolved, reached the reducer and did nothing.
-        actions: new VerbConsoleActions(data)).Run(initial);
+        // The prompt is the one the credential verb already uses on the command
+        // line. It runs here with the UI torn down and the terminal free, which is
+        // what answers the old objection to registering from a console: the
+        // escape-hatch rules a modal would need do not apply to a process that owns
+        // the screen.
+        actions: new VerbConsoleActions(data, new ConsoleSecretPrompt())).Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.
     var dumpPath = Environment.GetEnvironmentVariable("GG_STATE_DUMP");

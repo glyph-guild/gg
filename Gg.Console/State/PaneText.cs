@@ -317,6 +317,21 @@ public static class PaneText
     };
 
     /// <summary>Whatever modal is open.</summary>
+    /// <summary>
+    /// The line that says what the last key press did, or nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own line, above the hints.</b> Sharing one would make a long outcome
+    /// truncate the list of keys or the other way round, and both are things a person
+    /// is reading at the moment they need them.
+    /// </remarks>
+    public static string Activity(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.LastAction is { Length: > 0 } said ? Clean(said) : "";
+    }
+
     public static string Modal(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

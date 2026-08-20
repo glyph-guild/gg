@@ -39,4 +39,26 @@ public interface IConsoleActions
     /// be done the same way.
     /// </param>
     string Decide(string flight, string obligation, bool approved, string? reason);
+
+    /// <summary>Opens a flight from intent text, and says what happened.</summary>
+    string Fly(string intent);
+
+    /// <summary>
+    /// Registers a credential, prompting for the repository and the value.
+    /// </summary>
+    /// <remarks>
+    /// <b>No parameters, deliberately.</b> A secret crossing this boundary would be a
+    /// secret in a frame the console owns, and the console is the thing that
+    /// serializes itself to disk. What comes back names the reference and never its
+    /// value.
+    /// </remarks>
+    string AddCredential();
+
+    /// <summary>
+    /// Issues an invitation and places the link, returning WHERE it went.
+    /// </summary>
+    /// <remarks>
+    /// Never the link. Whoever holds it becomes a principal in this tenant.
+    /// </remarks>
+    string Invite();
 }

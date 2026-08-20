@@ -21,6 +21,8 @@ public sealed class ConsoleLoop(
             var outcome = ui.Run(state);
             state = outcome.State;
 
+            var before = state;
+
             switch (outcome.Exit)
             {
                 case Command.Quit:
@@ -38,6 +40,31 @@ public sealed class ConsoleLoop(
                     // tree, a person answers, and the model is the only thing
                     // that crosses back.
                     state = HandedBack(state, hand);
+                    break;
+
+                case Command.OpenFlight:
+                    state = Opened(state, actions, editor);
+                    break;
+
+                case Command.AddCredential:
+                    // The value is read by CredentialCommands, inside the action.
+                    // Nothing here holds it, which is the point: this record is
+                    // serialized to disk under GG_STATE_DUMP.
+                    state = state with
+                    {
+                        LastCredential = actions is null
+                            ? "This console is not configured to register credentials."
+                            : actions.AddCredential(),
+                    };
+                    break;
+
+                case Command.Invite:
+                    state = state with
+                    {
+                        LastInvite = actions is null
+                            ? "This console is not configured to issue invitations."
+                            : actions.Invite(),
+                    };
                     break;
 
                 case Command.ApproveGate:
@@ -65,7 +92,69 @@ public sealed class ConsoleLoop(
                     throw new InvalidOperationException(
                         $"UI session exited with {outcome.Exit}, which the shell does not handle");
             }
+
+            // WHAT JUST HAPPENED, in one slot, derived rather than set six times.
+            // Each arm above already records its outcome per kind; this is the line a
+            // person reads, and taking it from whichever field the arm changed means a
+            // new arm cannot forget to say anything.
+            state = state with { LastAction = Said(before, state) };
         }
+    }
+
+    /// <summary>
+    /// The outcome this pass produced, whichever field carried it.
+    /// </summary>
+    /// <remarks>
+    /// Compared rather than assigned, so an arm that records an outcome cannot also
+    /// forget to surface it. Quit and the editor change nothing a person needs told.
+    /// </remarks>
+    private static string? Said(AppState before, AppState after) =>
+        after.LastFlightOpened != before.LastFlightOpened ? after.LastFlightOpened
+        : after.LastCredential != before.LastCredential ? after.LastCredential
+        : after.LastInvite != before.LastInvite ? after.LastInvite
+        : after.LastDecision != before.LastDecision ? after.LastDecision
+        : after.LastTakeover != before.LastTakeover ? after.LastTakeover
+        : after.LastHandBack != before.LastHandBack ? after.LastHandBack
+        : before.LastAction;
+
+    /// <summary>
+    /// Takes the intent and opens a flight, or opens nothing and says so.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A prompt with an escape to <c>$EDITOR</c>, and it is ONE field.</b> The
+    /// prompt's answer seeds the editor rather than competing with it, so there is a
+    /// single value with somewhere to grow - two input paths to one field is how they
+    /// drift, and an intent that came from either is the same intent.
+    /// </para>
+    /// <para>
+    /// <b>Nothing typed opens nothing.</b> A flight opened by accident is a record
+    /// somebody has to explain and a number that is now taken, so an empty answer
+    /// says it changed nothing rather than falling silent.
+    /// </para>
+    /// </remarks>
+    private static AppState Opened(
+        AppState state, IConsoleActions? actions, IEditorSession editor)
+    {
+        if (actions is null)
+        {
+            return state with
+            {
+                LastFlightOpened = "This console is not configured to open flights.",
+            };
+        }
+
+        // The editor IS the prompt at this cardinality: it opens on an empty buffer,
+        // a person types a line or a paragraph, and saving is the answer. Adding a
+        // separate one-line reader would be the second path this comment warns about.
+        var intent = editor.Edit("").Trim();
+
+        return state with
+        {
+            LastFlightOpened = intent.Length == 0
+                ? "Nothing was opened: no intent was written."
+                : actions.Fly(intent),
+        };
     }
 
     /// <summary>

@@ -116,6 +116,13 @@ public static class Keymap
                 ? (KeyBinding[])[new(KeyStroke.Char('h'), Command.HandBack, "hand back")]
                 : [],
             new(KeyStroke.Char('e'), Command.OpenEditor, "edit notes"),
+
+            // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
+            // while it is open, and one of these reachable from a gate decision
+            // would be a key doing something unrelated to the question on screen.
+            new(KeyStroke.Char('n'), Command.OpenFlight, "new flight"),
+            new(KeyStroke.Char('c'), Command.AddCredential, "add credential"),
+            new(KeyStroke.Char('i'), Command.Invite, "invite"),
         ],
     };
 

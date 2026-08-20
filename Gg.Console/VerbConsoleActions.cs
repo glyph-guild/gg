@@ -22,9 +22,24 @@ namespace Gg.Console;
 /// HTTP at all.
 /// </para>
 /// </remarks>
-public sealed class VerbConsoleActions(ConsoleData data) : IConsoleActions
+public sealed class VerbConsoleActions(
+    ConsoleData data, ISecretPrompt prompt, IClipboard? clipboard = null) : IConsoleActions
 {
     private readonly ConsoleData _data = data;
+
+    /// <summary>
+    /// Asks for the things a person types. Runs in the shell, never in a modal.
+    /// </summary>
+    /// <remarks>
+    /// The console's old objection to registering a credential was that a prompt
+    /// inside a Terminal.Gui modal is a keyboard path with its own escape-hatch
+    /// rules. It is; this is not one. By the time this is called the UI session is
+    /// over and the terminal belongs to this process alone, which is the same
+    /// arrangement $EDITOR has always had.
+    /// </remarks>
+    private readonly ISecretPrompt _prompt = prompt;
+
+    private readonly IClipboard _clipboard = clipboard ?? new SystemClipboard();
 
     /// <summary>
     /// Posts the answer and says what was sent.
@@ -91,4 +106,127 @@ public sealed class VerbConsoleActions(ConsoleData data) : IConsoleActions
             return $"{flight}: {obligation} was not answered — {refusal.Message}";
         }
     }
+
+    /// <summary>Opens a flight, and says what came back.</summary>
+    /// <remarks>
+    /// The number is not here. `gg fly` answers 202 - the flight is materialized
+    /// asynchronously, so at the moment this returns nobody knows what it will be
+    /// called. Saying so beats printing a blank where a name goes.
+    /// </remarks>
+    public string Fly(string intent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(intent);
+
+        try
+        {
+            var opened = _data.FlyAsync(intent).GetAwaiter().GetResult();
+
+            return opened is VerbResult.Launched launched
+                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
+                + "so it appears on the next refresh."
+                : "The flight was accepted.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return $"Nothing was opened — {refusal.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Registers a credential for a repository somebody names.
+    /// </summary>
+    /// <remarks>
+    /// <b>The value never passes through here.</b> The repository is a fact and is
+    /// read with <c>ReadLine</c>; the identity and the secret are read by
+    /// <c>CredentialCommands</c> itself, with the echo off for the one that needs it.
+    /// So there is no frame in this project holding it, which is what makes this
+    /// safe in a console whose model is written to disk.
+    /// </remarks>
+    public string AddCredential()
+    {
+        try
+        {
+            var repo = _prompt.ReadLine("Which repository is this credential for? ").Trim();
+
+            if (repo.Length == 0)
+            {
+                return "Nothing was registered: no repository was named.";
+            }
+
+            var added = _data.AddAsync(repo).GetAwaiter().GetResult();
+
+            // THE REFERENCE, which is what crosses the wire anyway: kind, locator,
+            // identity and scopes. Never the value, and there is nothing here that
+            // could carry it.
+            return added is VerbResult.CredentialAdded registered
+                ? $"Registered {registered.Value.Reference.Locator} as "
+                + $"{registered.Value.Reference.Identity}, scopes "
+                + string.Join(",", registered.Value.Reference.Scopes) + "."
+                : $"A credential for {repo} was registered.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            // THE MESSAGE IS SHOWN, KEPT, DUMPED AND BUNDLED, so what it may contain
+            // matters more here than anywhere else in this file. It carries the
+            // refusal's own words, and the refusal never saw the value.
+            return $"Nothing was registered — {refusal.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Issues an invitation and puts the link where a person can get at it.
+    /// </summary>
+    /// <remarks>
+    /// <b>WHERE, never what.</b> Whoever holds the link becomes a principal in this
+    /// tenant, so it is a capability - and this returns a sentence that goes into a
+    /// model which is serialized to disk under <c>GG_STATE_DUMP</c> and handed to the
+    /// diagnostics bundle. <c>SeedPlacer</c> is the piece the original exemption said
+    /// did not exist yet: clipboard first, a named file otherwise, never failing.
+    /// </remarks>
+    public string Invite()
+    {
+        try
+        {
+            var issued = _data.InviteAsync().GetAwaiter().GetResult();
+
+            if (issued is not VerbResult.Invited invitation)
+            {
+                return "An invitation was issued.";
+            }
+
+            var placed = SeedPlacer.Place(
+                invitation.Value.InvitationUrl, _clipboard, Path.GetTempPath());
+
+            return placed switch
+            {
+                SeedPlacement.Clipboard =>
+                    "An invitation is on your clipboard. It expires "
+                  + $"{invitation.Value.ExpiresAt:yyyy-MM-dd HH:mm} UTC.",
+                SeedPlacement.File(var path, var why) =>
+                    $"No clipboard here ({why}). The invitation is at {path}, and it expires "
+                  + $"{invitation.Value.ExpiresAt:yyyy-MM-dd HH:mm} UTC.",
+                _ => "An invitation was issued.",
+            };
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return $"No invitation was issued — {refusal.Message}";
+        }
+    }
+
+    /// <summary>
+    /// The refusals a console carries on from, rather than dying on.
+    /// </summary>
+    /// <remarks>
+    /// Named, because swallowing everything would turn a bug into a console that
+    /// looks like it worked - the exact shape this whole change exists to remove.
+    /// </remarks>
+    private static bool Expected(Exception failure) =>
+        failure is NotSignedInException
+                or FlightIntentException
+                or FlightNotFoundException
+                or CredentialScopeException
+                or DecisionRefusedException
+                or ProtocolTooOldException
+                or HttpRequestException;
 }

@@ -118,6 +118,32 @@ public sealed class ConsoleData(
             reference, obligation, outcome, observations, reason,
             cancellationToken: cancellationToken);
 
+    /// <summary>`gg fly`.</summary>
+    /// <remarks>
+    /// Text only. A uri intent is a different shape with different refusals, and
+    /// offering one from a prompt would be two things behind one key.
+    /// </remarks>
+    public Task<VerbResult> FlyAsync(
+        string text, CancellationToken cancellationToken = default) =>
+        _commands.FlyAsync(text, uri: null, name: null, cancellationToken);
+
+    /// <summary>`gg invite`.</summary>
+    public Task<VerbResult> InviteAsync(CancellationToken cancellationToken = default) =>
+        _commands.InviteAsync(cancellationToken);
+
+    /// <summary>
+    /// `gg credential add`, read-only scope.
+    /// </summary>
+    /// <remarks>
+    /// <b>The value is not a parameter.</b> <c>CredentialCommands</c> prompts for it,
+    /// so it is never held anywhere in this project - which is what makes registering
+    /// from a console safe at all, given that this model serializes itself to disk.
+    /// </remarks>
+    public Task<VerbResult> AddAsync(
+        string repo, CancellationToken cancellationToken = default) =>
+        _credentials.AddAsync(repo, CredentialScopes.Read is { } read ? [read] : [], null,
+            cancellationToken);
+
     public Task<VerbResult> WhyAsync(
         string reference, string? obligation = null, CancellationToken cancellationToken = default) =>
         _commands.WhyAsync(reference, obligation, cancellationToken);

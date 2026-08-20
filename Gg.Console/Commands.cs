@@ -58,6 +58,40 @@ public enum Command
     /// the next reader finds, which is the next takeover.
     /// </remarks>
     HandBack,
+
+    /// <summary>
+    /// Open a flight: take the intent, submit it, come back to the same state.
+    /// </summary>
+    /// <remarks>
+    /// A write, so the shell does it with the terminal free. The intent is taken the
+    /// way this console has always taken text - a prompt, with $EDITOR for more than
+    /// a line - because a modal that read text would be a new keyboard path needing
+    /// its own escape hatch.
+    /// </remarks>
+    OpenFlight,
+
+    /// <summary>
+    /// Register a credential for a repository. The value is prompted for and never
+    /// held here.
+    /// </summary>
+    /// <remarks>
+    /// The console used to refuse this on the grounds that a prompt inside a modal
+    /// has its own escape-hatch rules. It does; this is not one. The prompt runs in
+    /// the shell, and the value is read by <c>CredentialCommands</c> rather than by
+    /// anything in this project - which matters, because <c>AppState</c> serializes
+    /// itself to disk.
+    /// </remarks>
+    AddCredential,
+
+    /// <summary>
+    /// Issue an invitation, and put the link where a person can get at it.
+    /// </summary>
+    /// <remarks>
+    /// Whoever holds the link becomes a principal in this tenant, so it is a
+    /// capability: it goes to the clipboard or to a named file through
+    /// <c>SeedPlacer</c>, and the model records WHERE rather than WHAT.
+    /// </remarks>
+    Invite,
 }
 
 /// <summary>
@@ -99,5 +133,10 @@ public static class ShellCommands
         Command.HandBack,
         Command.ApproveGate,
         Command.RejectGate,
+
+        // The three the parity guard used to exempt. Writes, so the shell does them.
+        Command.OpenFlight,
+        Command.AddCredential,
+        Command.Invite,
     };
 }

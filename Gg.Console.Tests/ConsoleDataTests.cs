@@ -142,7 +142,42 @@ public class ConsoleDataTests
         // prompts for the value itself, so it is never a parameter, a return value
         // or a local anywhere in Gg.Console - which matters because AppState is
         // written to disk under GG_STATE_DUMP and handed to the diagnostics bundle.
-        var exempt = Array.Empty<string>();
+        // ONE EXEMPTION, and it is a READ rather than a write. `envelope show`
+        // renders the rules governing a tenant's flights, and no pane does - so a
+        // person can answer a gate in this console without being able to read what
+        // governs it. That is a real gap and it is recorded here rather than left
+        // invisible; it needs none of the machinery the three writes needed, which
+        // is exactly why it did not come with them.
+        var exempt = (string[])
+        [
+            // A READ, and a real gap rather than a decision: no pane renders the
+            // rules governing a tenant's flights, so a person can answer a gate in
+            // this console without being able to read what governs it. Recorded here
+            // instead of left invisible. It needs none of the machinery the three
+            // writes needed, which is why it did not arrive with them.
+            "ShowAsync",
+
+            // Editing an envelope is the write half of that read, and it cannot come
+            // first: you do not edit what you cannot see. When the pane exists this
+            // is $EDITOR seeded with the canonical text and applied back - the same
+            // shape as opening a flight, one document larger.
+            "ApplyAsync",
+
+            // The console DOES take a flight over, through ITakeSession, and it
+            // reaches the same claim: Program.cs hands TakeSession
+            // TakeCommands.ClaimAsync, so there is one path to the hold. What differs
+            // is the composition - the verb claims and prints a seed, the console
+            // claims and hands a person the terminal - and those are two ways of
+            // spending a hold rather than two ways of taking one.
+            "TakeAsync",
+
+            // Handing back needs an `infer` port that spawns an agent to propose an
+            // account of what somebody did, and building that means invoking an
+            // executor from the console. The key exists and answers "this console is
+            // not configured to hand flights back", which is asserted deliberately in
+            // gg:ConsoleTakeWiringTests rather than left ambiguous.
+            "ReturnAsync",
+        ];
         var expected = verbs.Where(v => !exempt.Contains(v)).ToList();
         var missing = expected.Where(v => !console.Contains(v)).ToList();
 
@@ -161,7 +196,37 @@ public class ConsoleDataTests
     /// not reach, so the count is asserted too.
     /// </remarks>
     private static IReadOnlyList<Type> VerbClasses { get; } =
-        [typeof(FlightCommands), typeof(CredentialCommands)];
+        [typeof(FlightCommands), typeof(CredentialCommands),
+         typeof(EnvelopeCommands), typeof(TakeCommands)];
+
+    [Test]
+    public async Task Every_class_that_holds_verbs_is_in_that_list()
+    {
+        // THE COUNT THE COMMENT ABOVE ALWAYS CLAIMED WAS ASSERTED. It was not, and
+        // two classes had walked past the equivalence rule as a result: EnvelopeCommands
+        // since it was written, and TakeCommands when slice seven added it. A verb
+        // surface the rule does not reach is a whole capability the console can
+        // silently not grow.
+        //
+        // Discovered by shape and compared to the list, rather than replacing the
+        // list with discovery: "every public class returning VerbResult" would
+        // silently include a helper somebody wrote in a test, which is the reason
+        // the list exists at all.
+        var holders = typeof(FlightCommands).Assembly.GetExportedTypes()
+            .Where(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Any(m => !m.IsSpecialName && m.ReturnType == typeof(Task<VerbResult>)))
+            .OrderBy(t => t.Name, StringComparer.Ordinal)
+            .ToList();
+
+        var missing = holders.Where(t => !VerbClasses.Contains(t)).Select(t => t.Name).ToList();
+
+        await Assert.That(missing).IsEmpty()
+            .Because("a class holding verbs that this list does not name is a surface the console "
+                   + "equivalence rule never sees. Found: " + string.Join(", ", missing));
+
+        await Assert.That(VerbClasses.Count).IsEqualTo(holders.Count)
+            .Because("and a name in the list that holds no verbs is a rule pointed at nothing.");
+    }
 
     [Test]
     public async Task Applying_a_verb_result_is_the_only_way_flight_data_enters_the_model()

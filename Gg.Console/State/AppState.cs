@@ -325,6 +325,49 @@ public sealed record AppState
     /// </remarks>
     public string? LastDecision { get; init; }
 
+    /// <summary>What came of the last flight this console opened.</summary>
+    public string? LastFlightOpened { get; init; }
+
+    /// <summary>
+    /// What came of the last credential this console registered.
+    /// </summary>
+    /// <remarks>
+    /// The REFERENCE, never the value: kind, locator, identity and scopes are what
+    /// crosses the wire anyway. This record is serialized to disk under
+    /// <c>GG_STATE_DUMP</c> and handed to the diagnostics bundle, so a secret here
+    /// would be a secret in both.
+    /// </remarks>
+    public string? LastCredential { get; init; }
+
+    /// <summary>
+    /// Where the last invitation link was put.
+    /// </summary>
+    /// <remarks>
+    /// WHERE, not what. Whoever holds the link becomes a principal in this tenant,
+    /// so it is a capability and belongs nowhere that is dumped or bundled.
+    /// </remarks>
+    public string? LastInvite { get; init; }
+
+    /// <summary>
+    /// What the last key a person pressed actually did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One slot, overwritten, because it is a timeline of length one.</b> The
+    /// fields above record an outcome per KIND, which is what a bundle and a test
+    /// want; a person watching the screen wants the most recent thing, and picking
+    /// that out of six fields needs an ordering the model does not have.
+    /// </para>
+    /// <para>
+    /// <b>It exists because the console used to do work and say nothing.</b>
+    /// <c>LastTakeover</c> and <c>LastHandBack</c> were written, asserted in tests,
+    /// and rendered by no view - so even once the keys worked, pressing one produced
+    /// silence. A write a person cannot see is indistinguishable from a key that
+    /// does nothing, which is the whole defect this change is about.
+    /// </para>
+    /// </remarks>
+    public string? LastAction { get; init; }
+
     /// <summary>
     /// How often a proposal was kept, per flight. Exported nowhere.
     /// </summary>

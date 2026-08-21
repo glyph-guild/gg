@@ -144,7 +144,9 @@ public class ContinuationCheckoutTests
         GitFixture.Run(tree.Path, "add", "--all");
         GitFixture.Run(tree.Path, "-c", "user.name=gg", "-c", "user.email=gg@localhost",
             "commit", "-m", "second attempt");
-        GitFixture.Run(tree.Path, "push", "origin", "HEAD:refs/heads/gg/GG-7");
+        // By explicit url, which is what the product's push path does - the
+        // materialized tree is built by init-and-fetch and has no origin remote.
+        GitFixture.Run(tree.Path, "push", fixture.BarePath, "HEAD:refs/heads/gg/GG-7");
 
         var remoteHead = GitFixture.Run(
             fixture.BarePath, "rev-parse", "refs/heads/gg/GG-7").Trim();

@@ -79,18 +79,33 @@ internal sealed class AttemptFixture : IDisposable
         GitFixture.Run(_work, "push", "origin", Branch);
         FirstAttemptCommit = GitFixture.Run(_work, "rev-parse", "HEAD").Trim();
 
-        Commit("second attempt", secondAttempt);
-        GitFixture.Run(_work, "push", "origin", Branch);
+        // ATTEMPT TWO IS AN EDIT TO THE MATERIALIZED TREE, not a commit that
+        // pre-exists it. This fixture used to commit both attempts to the branch
+        // and pin the branch, so the clone happened to contain the prior work -
+        // which is exactly the arrangement that hid the checkout defect: in
+        // production the pinned ref is the base, and the only way attempt one's
+        // work reaches attempt two's tree is the continuation being CHECKED OUT.
+        // Staging it this way is what makes these tests run the same path a real
+        // second attempt runs.
+        var tree = Materialize(continuesFrom: FirstAttemptCommit);
 
-        return Extract(continuesFrom: FirstAttemptCommit);
+        var edited = Path.Combine(
+            tree.Path, secondAttempt.Path.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(edited)!);
+        File.WriteAllText(edited, secondAttempt.Content);
+
+        return ChangeExtractor.Extract(tree, ClassificationRules.Default);
     }
 
-    private ChangeManifest? Extract(string? continuesFrom)
+    private ChangeManifest? Extract(string? continuesFrom) =>
+        ChangeExtractor.Extract(Materialize(continuesFrom), ClassificationRules.Default);
+
+    private Materialized Materialize(string? continuesFrom)
     {
         var adapter = new LocalVcsAdapter(_root);
         var materializer = new Materializer(adapter, new WorkingTreeRoot(_trees));
 
-        var tree = materializer.MaterializeAsync(
+        return materializer.MaterializeAsync(
             "flight-1",
             new RepoTarget
             {
@@ -100,8 +115,6 @@ internal sealed class AttemptFixture : IDisposable
                 ContinuesFrom = continuesFrom,
             },
             secret: null).GetAwaiter().GetResult();
-
-        return ChangeExtractor.Extract(tree, ClassificationRules.Default);
     }
 
     private void Commit(string message, (string Path, string Content) change)

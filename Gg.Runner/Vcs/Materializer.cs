@@ -119,18 +119,26 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
         var baseCommit = outcome.HeadCommit;
         var basis = DiffBasis.TwoPoint;
 
+        var headCommit = outcome.HeadCommit;
+
         if (target.ContinuesFrom is { Length: > 0 } priorAttempt)
         {
-            // ATTEMPT TWO CONTINUES. The base is the commit the last attempt pushed, so
-            // the manifest describes what THIS attempt did rather than re-reporting
-            // everything already on the branch - which would make the second gate louder
-            // than the first about work nobody changed.
+            // ATTEMPT TWO CONTINUES, and continuing means the tree IS the prior
+            // attempt. The feedback this attempt acts on references files the last
+            // one pushed; its next commit has to sit on top of that work so the push
+            // fast-forwards; and the manifest describes what THIS attempt did from
+            // there rather than re-reporting everything already on the branch -
+            // which would make the second gate louder than the first about work
+            // nobody changed.
             //
-            // Fetched into the same tree the same way the flight's base is, because it is
-            // the same question: a commit this diff needs and a shallow clone does not
-            // have.
+            // It was fetched WITHOUT being checked out once, and the head and the
+            // base disagreed: the manifest measured from the prior commit while the
+            // agent worked in a tree from before the work existed, so attempt one's
+            // files read as deletions and attempt two's push was a second root the
+            // remote refused.
             baseCommit = await _adapter.FetchAlsoAsync(
                 target, priorAttempt, directory, secret, cancellationToken);
+            headCommit = baseCommit;
             basis = DiffBasis.PriorAttempt;
         }
 
@@ -140,7 +148,7 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
             Path = directory,
             RequestedRef = target.PinnedRef,
             ResolvedRef = resolved.Value,
-            HeadCommit = outcome.HeadCommit,
+            HeadCommit = headCommit,
             BaseCommit = baseCommit,
             Basis = basis,
             HeadIsFork = origin is not null,

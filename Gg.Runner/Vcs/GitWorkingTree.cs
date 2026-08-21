@@ -61,6 +61,23 @@ internal static class GitWorkingTree
     {
         await GitInvocation.Fetch(url, resolvedRef, secret).RunAsync(intoDirectory, cancellationToken);
 
+        // CHECKED OUT, not only fetched, and the difference is what the agent sees.
+        // This is only ever called for a continuation - the commit a prior attempt
+        // pushed - and an attempt that continues works ON that tree: the feedback it
+        // is acting on references files in it, its next commit has to sit on top of
+        // it so the push fast-forwards, and its manifest measures what THIS attempt
+        // did from there. Fetch-without-checkout gave the manifest its base and gave
+        // the agent a tree from before the work existed.
+        //
+        // Detached HEAD, deliberately: the push path creates its branch with
+        // `checkout -b` when it commits, so nothing here needs a name. And no
+        // --force, also deliberately: this runs against a tree the materializer
+        // just built, which is clean by construction - and the runner carries a
+        // structural guard that refuses the word, because a flag that can rewrite
+        // work must not exist anywhere a refactor could move it in front of a push.
+        await GitInvocation.Plain("checkout", "FETCH_HEAD")
+            .RunAsync(intoDirectory, cancellationToken);
+
         return (await GitInvocation.Plain("rev-parse", "FETCH_HEAD")
             .RunAsync(intoDirectory, cancellationToken)).Trim();
     }

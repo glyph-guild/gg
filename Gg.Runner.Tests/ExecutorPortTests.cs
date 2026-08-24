@@ -69,21 +69,21 @@ public class ExecutorPortTests
     // ---- the budget ----
 
     [Test]
-    public async Task A_loop_that_runs_out_of_budget_is_waiting_for_a_person_rather_than_failed()
+    public async Task A_loop_that_runs_out_of_budget_is_exhausted_rather_than_failed()
     {
-        // A REAL STATE, not an error. on-exhaustion: handoff-to-human has
-        // nowhere to hand off to until gg take exists, so this is where a
-        // flight rests until one does - and a console queue shows it to
-        // somebody. Calling it failed would put it in the same bucket as a
-        // crash, and those need different people.
+        // A REAL STATE, not an error. Calling it failed would put it in the
+        // same bucket as a crash, and those need different people. Who the
+        // flight waits for next is the envelope's sentence, appended by the
+        // runner - ExhaustionReasonTests pins that - so the factory's reason is
+        // the measurement and only the measurement.
         var run = ExecutorRun.Exhausted(
             loopId: "implement", after: TimeSpan.FromMinutes(30), movesUsed: ["read"]);
 
         await Assert.That(run.Outcome).IsEqualTo(LoopOutcomes.Exhausted);
         await Assert.That(run.Outcome).IsNotEqualTo(LoopOutcomes.Failed);
-        await Assert.That(run.Reason.ToLowerInvariant()).Contains("waiting for a person")
-            .Because("the log should say so in those words - it is the state, not a description "
-                   + "of one.");
+        await Assert.That(run.Reason.ToLowerInvariant()).Contains("wall-clock budget")
+            .Because("the reason states what was measured; the disposition arrives from the "
+                   + "envelope, where it is known.");
     }
 
     [Test]

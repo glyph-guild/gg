@@ -4,10 +4,11 @@ namespace Gg.Contracts;
 /// <remarks>
 /// <para>
 /// Three, and the third is not a failure. <c>exhausted</c> means the loop ran
-/// out of budget and is <b>waiting for a person</b> - a real state, not an
-/// error, and the one a console queue should show somebody. Calling it failed
-/// would put it in the same bucket as a crash, and those need different
-/// people.
+/// out of budget and is <b>waiting for whoever the envelope's
+/// <c>on-exhaustion</c> names</b> - a person, or another agent - a real state,
+/// not an error, and the one a console queue should show somebody. Calling it
+/// failed would put it in the same bucket as a crash, and those need
+/// different people.
 /// </para>
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Fact)]
@@ -20,12 +21,9 @@ public static class LoopOutcomes
     public const string Failed = "failed";
 
     /// <summary>
-    /// It ran out of budget. Waiting for a person, not broken.
+    /// It ran out of budget. Waiting, not broken - and for whom is the
+    /// envelope's <c>on-exhaustion</c> to say.
     /// </summary>
-    /// <remarks>
-    /// <c>on-exhaustion: handoff-to-human</c> has nowhere to hand off to until
-    /// <c>gg take</c> exists, so this is where a flight rests until one does.
-    /// </remarks>
     public const string Exhausted = "exhausted";
 
     public static IReadOnlyList<string> All { get; } = [Completed, Failed, Exhausted];

@@ -162,7 +162,9 @@ public class AgainstRealAgentTests
             .ExecuteAsync(Request(tree, transcript, TimeSpan.FromSeconds(3)), CancellationToken.None);
 
         await Assert.That(run.Outcome).IsEqualTo(LoopOutcomes.Exhausted);
-        await Assert.That(run.Reason.ToLowerInvariant()).Contains("waiting for a person");
+        await Assert.That(run.Reason.ToLowerInvariant()).Contains("wall-clock budget")
+            .Because("the executor reports the measurement; who the flight waits for is the "
+                   + "envelope's sentence, appended by the runner.");
         await Assert.That(run.Transcript).IsNotNull()
             .Because("what it managed to say before the budget ran out is still the record of it.");
     }

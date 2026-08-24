@@ -595,6 +595,22 @@ public sealed class RunnerLoop(
             },
             cancellationToken);
 
+        // THE ENVELOPE'S SENTENCE, appended where the envelope is known. The
+        // executor measured the stop; who the flight waits for next is policy,
+        // and a constant in the factory once told every reader a person was
+        // waiting on a flight the control plane was about to requeue for an
+        // agent.
+        if (string.Equals(run.Outcome, LoopOutcomes.Exhausted, StringComparison.Ordinal))
+        {
+            run = run with
+            {
+                Reason = run.Reason + " " + (string.Equals(
+                        loop.OnExhaustion, ExhaustionPolicies.HandoffToAgent, StringComparison.Ordinal)
+                    ? "This flight is queued for another agent."
+                    : "This flight is waiting for a person."),
+            };
+        }
+
         _observer.LoopFinished(run.LoopId, run.Outcome, run.Attempts, run.MovesUsed);
 
         // WHAT WAS NEEDED AND WHERE TO ADD IT. A refusal that only says no teaches

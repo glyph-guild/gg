@@ -287,13 +287,16 @@ public sealed record ExecutorRun
         };
 
     /// <summary>
-    /// Out of budget, and waiting for a person.
+    /// Out of budget - a real state rather than an error.
     /// </summary>
     /// <remarks>
-    /// A real state rather than an error, and the reason says so in those
-    /// words because that is what a console queue shows somebody.
-    /// <c>on-exhaustion: handoff-to-human</c> has nowhere to hand off to until
-    /// <c>gg take</c> exists, so this is where a flight rests until one does.
+    /// The reason here is the measurement and only the measurement. Who the
+    /// flight waits for next is the envelope's knowledge - on-exhaustion names
+    /// a person or another agent - and this factory has never seen the
+    /// envelope, so the runner appends that sentence where the envelope is
+    /// known. A constant here once claimed a person was waiting, written when
+    /// handoff-to-human was the only value, and it survived a second value
+    /// arriving.
     /// </remarks>
     public static ExecutorRun Exhausted(
         string loopId, TimeSpan after, IReadOnlyList<string> movesUsed) =>
@@ -301,8 +304,7 @@ public sealed record ExecutorRun
         {
             LoopId = loopId,
             Outcome = LoopOutcomes.Exhausted,
-            Reason = $"The loop used its whole wall-clock budget of {Describe(after)} and stopped. "
-                   + "This flight is waiting for a person.",
+            Reason = $"The loop used its whole wall-clock budget of {Describe(after)} and stopped.",
             Attempts = 0,
             DurationMs = (long)after.TotalMilliseconds,
             MovesUsed = Distinct(movesUsed),

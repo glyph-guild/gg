@@ -105,5 +105,11 @@ public static class Vocabulary
         typeof(Composition),
         typeof(EnvelopeState),
         typeof(EnvelopeApplied),
+        typeof(ChartEnvironmentRequest),
+        typeof(EnvironmentCharted),
+        typeof(EnvironmentChart),
+        typeof(AdvertisedLabel),
+        typeof(ChecklistItem),
+        typeof(Checklist),
     ];
 }

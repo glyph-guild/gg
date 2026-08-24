@@ -127,7 +127,7 @@ public static class ProtocolSurface
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
         ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials",
-         "/v1/envelope", "/v1/invitations"];
+         "/v1/envelope", "/v1/invitations", "/v1/environments"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -563,6 +563,63 @@ public static class ProtocolSurface
             Statuses = [200, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        new()
+        {
+            // THE CHART. What an envelope may select, and the registry the
+            // "uncharted" refusal points at. Charting in v0 is unrestricted
+            // AND attributed - who may chart is an open question elsewhere;
+            // that it is logged is not.
+            Method = "POST",
+            Path = "/v1/environments",
+            Audience = Audience.Developer,
+            Request = typeof(ChartEnvironmentRequest),
+            Response = typeof(EnvironmentCharted),
+            // 400 is a malformed name, refused with a diagnosis rather than
+            // stored - the registry is what apply refusals point people at,
+            // and a chart that could hold a blank line would make that advice
+            // a trap.
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/environments",
+            Audience = Audience.Developer,
+            Response = typeof(EnvironmentChart),
+            // An empty chart is 200 with nothing in it, not 404: a tenant that
+            // has charted nothing is set up and has said nothing, which is a
+            // different fact from a tenant that does not exist.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            // THE TENANT-LEVEL PLAN: what WOULD a flight under the current
+            // envelope need, priced against the fleet the moment somebody
+            // asks. Reads facts, exercises nothing.
+            Method = "GET",
+            Path = "/v1/envelope/plan",
+            Audience = Audience.Developer,
+            Response = typeof(Checklist),
+            // 404 is a tenant that has never applied an envelope - a different
+            // answer from a plan with nothing on it, the same split GET
+            // /v1/envelope draws.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            // The per-flight checklist, pinned to what THAT flight compiled at
+            // creation - applying a new envelope later does not retarget it,
+            // the same rule as the envelope version pin.
+            Method = "GET",
+            Path = "/v1/flights/{ref}/checklist",
+            Audience = Audience.Developer,
+            Response = typeof(Checklist),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
     ];
 
     /// <summary>
@@ -683,7 +740,8 @@ public static class ProtocolSurface
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
             [typeof(Destination)] = ["id", "kind", "requires", "preserveUnadmitted"],
-            [typeof(Envelope)] = ["context", "obligations", "loops", "destinations"],
+            [typeof(Envelope)] =
+                ["context", "obligations", "loops", "destinations", "environment", "repository"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed"],
             [typeof(ProtocolHello)] = ["protocolVersion", "component", "componentVersion"],
@@ -728,13 +786,24 @@ public static class ProtocolSurface
                 ["flightId", "flightNumber", "name", "intent", "createdAt",
                  "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion",
                  "attempts",
-                 "facts"],
+                 "facts",
+                 "requiredLabels", "waiting"],
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
             [typeof(RunnerSummary)] =
-                ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt"],
+                ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
+                 "labels"],
             [typeof(RunnerList)] = ["runners"],
+            [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
+            [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],
+            [typeof(EnvironmentChart)] = ["environments"],
+            [typeof(AdvertisedLabel)] = ["name", "disposition"],
+            [typeof(ChecklistItem)] =
+                ["requirement", "verification", "satisfier", "whenUnmet", "disposition"],
+            [typeof(Checklist)] =
+                ["envelopeVersion", "flightNumber", "environment", "repository", "requiredLabels",
+                 "items"],
             [typeof(TelemetryDisclosure)] = ["exporting", "destination"],
             // Four members, and none of them a secret. Declared here as well
             // as asserted over the type, because a [JsonPropertyName] can add

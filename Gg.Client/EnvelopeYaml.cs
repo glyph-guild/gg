@@ -241,7 +241,8 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, "context", "obligations", "loops", "destinations");
+        Closed(root, "context", "environment", "repository", "obligations", "loops",
+               "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
@@ -253,6 +254,18 @@ public static class EnvelopeYaml
                 Scope = RequireScalar(Require(context, "scope"), "context.scope"),
                 Constitution = RequireScalar(Require(context, "constitution"), "context.constitution"),
             },
+            // THE SELECTIONS. Root keys beside context:, not members of it -
+            // the context block is what a flight is bound to, a selection is
+            // what a flight is ABOUT. Absent stays absent: reading a missing
+            // key back as "" would be a different document on disk and the
+            // same value to the engine, so show-after-apply would not round
+            // trip.
+            Environment = root.Entries.TryGetValue("environment", out var environment)
+                ? RequireScalar(environment, "environment")
+                : null,
+            Repository = root.Entries.TryGetValue("repository", out var repository)
+                ? RequireScalar(repository, "repository")
+                : null,
             Obligations = [.. Named(root, "obligations").Select(MapObligation)],
             Loops = [.. Named(root, "loops").Select(MapLoop)],
             Destinations = [.. Named(root, "destinations").Select(MapDestination)],

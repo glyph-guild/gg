@@ -208,6 +208,26 @@ public sealed record FlightSummary
     /// of the control plane could have known.
     /// </remarks>
     public required IReadOnlyList<FactEnvelope> Facts { get; init; }
+
+    /// <summary>
+    /// The labels this flight's lease requires, exactly as the matcher reads
+    /// them. Empty for a flight created under an envelope that selects nothing
+    /// - which is every flight created before selections existed.
+    /// </summary>
+    public IReadOnlyList<string> RequiredLabels { get; init; } = [];
+
+    /// <summary>
+    /// Why this flight cannot start, by name - or null when it is not waiting.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refusal at apply, waiting at flight.</b> Apply has an actor at the
+    /// keyboard to inform; a queued flight has nobody, so it waits loudly
+    /// instead of dying quietly. The sentence names the labels no live runner
+    /// advertises, because a name is what somebody can act on. Null means not
+    /// waiting - the <see cref="LeaseClaimStatus.Lease"/> absence rule -
+    /// and "waiting: nothing" is not a state this member can express.
+    /// </remarks>
+    public string? Waiting { get; init; }
 }
 
 /// <summary>
@@ -294,6 +314,17 @@ public sealed record RunnerSummary
     /// threshold.
     /// </remarks>
     public DateTimeOffset? LastHeartbeatAt { get; init; }
+
+    /// <summary>
+    /// What this runner advertises, each label with its disposition beside it.
+    /// </summary>
+    /// <remarks>
+    /// From the labels the runner heartbeats, so a runner that stops
+    /// advertising something stops listing it within a beat. Empty for a
+    /// runner that advertises nothing - which is every runner registered
+    /// before labels were persisted.
+    /// </remarks>
+    public IReadOnlyList<AdvertisedLabel> Labels { get; init; } = [];
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

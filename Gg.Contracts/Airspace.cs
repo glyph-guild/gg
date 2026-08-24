@@ -258,6 +258,26 @@ public sealed record EnvelopeTopology
     public required IReadOnlyList<TopologyName> Names { get; init; }
 }
 
+/// <summary>What a registered repository authenticates with.</summary>
+/// <remarks>
+/// Two, and the second exists because a walk found the flight it forbids.
+/// <c>required</c> is every registration written before this vocabulary
+/// existed; <c>none</c> is the registrar asserting there is nothing to
+/// authenticate to, so the claim stops demanding what nobody could use.
+/// A third disposition is a contract version, not a string.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class RepositoryCredentialModes
+{
+    /// <summary>A credential reference is demanded before a lease completes. The default, and absence's meaning.</summary>
+    public const string Required = "required";
+
+    /// <summary>Nothing to authenticate to. The claim demands no reference for this repository.</summary>
+    public const string None = "none";
+
+    public static IReadOnlyList<string> All { get; } = [Required, None];
+}
+
 /// <summary>Ask the control plane to register a repository name.</summary>
 /// <remarks>
 /// <para>
@@ -288,6 +308,26 @@ public sealed record RegisterRepositoryRequest
 
     /// <summary>The display path, e.g. acme/payments-service. A label that may drift.</summary>
     public required string Path { get; init; }
+
+    /// <summary>
+    /// What this repository authenticates with: <see cref="RepositoryCredentialModes"/>,
+    /// or null - and <b>null means required</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The registrar's assertion, not the control plane learning what a
+    /// provider key means. A repository a runner reaches over <c>file://</c> -
+    /// an air-gapped mirror, a bind-mounted checkout - has nothing to
+    /// authenticate to, and demanding a credential for it produced a flight
+    /// that could not be flown: the claim demanded a reference, the runner
+    /// refused an empty secret, and the local adapter refused any secret.
+    /// </para>
+    /// <para>
+    /// Absence means required, the unadmitted-push rule again: a registration
+    /// written before this member existed means exactly what it meant.
+    /// </para>
+    /// </remarks>
+    public string? Credential { get; init; }
 }
 
 /// <summary>One registered repository, and who made it nameable.</summary>
@@ -302,6 +342,17 @@ public sealed record RepositoryRegistered
     public required string Id { get; init; }
 
     public required string Path { get; init; }
+
+    /// <summary>
+    /// The resolved credential mode, said out loud.
+    /// </summary>
+    /// <remarks>
+    /// Required here and nullable on the request, because the reader of a
+    /// registration must not need the defaulting rule: an absent declaration
+    /// and a declared <c>required</c> are the same fact, and they read the
+    /// same on the way out.
+    /// </remarks>
+    public required string Credential { get; init; }
 
     /// <summary>Who registered it - a display a person can read, not an id.</summary>
     public required string RegisteredBy { get; init; }

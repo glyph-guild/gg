@@ -310,6 +310,39 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));
 
     /// <summary>
+    /// The checklist: the tenant-level plan, or one flight's when a reference
+    /// is given.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched, never derived.</b> The satisfier is the lease matcher's own
+    /// containment run control-plane-side; a client that worked out
+    /// satisfiability from a runner list would be the second evaluator the
+    /// design forbids, one process further out.
+    /// </remarks>
+    public async Task<VerbResult> PlanAsync(
+        string? reference, CancellationToken cancellationToken = default)
+    {
+        var token = Session();
+
+        if (reference is { Length: > 0 })
+        {
+            return new VerbResult.Plan(
+                await _client.GetChecklistAsync(token, Readable(reference), cancellationToken)
+                ?? throw NoSuchFlight(reference));
+        }
+
+        return new VerbResult.Plan(
+            await _client.GetPlanAsync(token, cancellationToken)
+            ?? throw new NoEnvelopeException(
+                "No envelope has been applied, so there is nothing to plan against. "
+              + "gg envelope apply is where the rules come from."));
+    }
+
+    /// <summary>Every runner's advertised labels, each with its disposition.</summary>
+    public async Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.RunnerLabels(await _client.ListRunnersAsync(Session(), cancellationToken));
+
+    /// <summary>
     /// Invites somebody into the caller's tenant.
     /// </summary>
     /// <remarks>

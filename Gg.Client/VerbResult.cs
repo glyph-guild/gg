@@ -58,6 +58,22 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Invited;
     }
 
+    /// <summary>The checklist: what a flight would need, and who could satisfy it.</summary>
+    public sealed record Plan(Checklist Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Plan;
+    }
+
+    /// <summary>
+    /// The fleet's advertised labels, each with its disposition. The same wire
+    /// document as <see cref="Runners"/>, rendered per label - one document,
+    /// two views, the FlightSummary-facts precedent.
+    /// </summary>
+    public sealed record RunnerLabels(RunnerList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RunnerLabels;
+    }
+
     public sealed record Diagnosis(DoctorReport Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Diagnosis;
@@ -187,6 +203,9 @@ public static class VerbResultKinds
     public const string EnvelopeApplied = "envelope-applied";
     public const string EnvelopeValidated = "envelope-validated";
 
+    public const string Plan = "plan";
+    public const string RunnerLabels = "runner-labels";
+
     public const string Why = "why";
     public const string Gates = "gates";
     public const string Decided = "decided";
@@ -216,6 +235,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
 [JsonSerializable(typeof(TakeSeed))]
+[JsonSerializable(typeof(Checklist))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -277,6 +297,9 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeValidation),
+        VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
+        VerbResult.RunnerLabels r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -316,6 +339,10 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeValidation))),
         // No notes, for the reason written on the record: they described this
         // invocation's hold, and a payload re-rendered somewhere else holds nothing.
+        VerbResultKinds.Plan => new VerbResult.Plan(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.Checklist))),
+        VerbResultKinds.RunnerLabels => new VerbResult.RunnerLabels(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Taken => new VerbResult.Taken(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.TakeSeed)), []),
         _ => throw Unknown(kind),
@@ -350,6 +377,8 @@ public static class VerbOutput
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
+        VerbResult.Plan r => PlanText(r.Value),
+        VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -496,6 +525,14 @@ public static class VerbOutput
         foreach (var flight in list.Flights)
         {
             text.AppendLine($"{Clean(flight.FlightNumber),-10}  {flight.CreatedAt:u}  {Clean(flight.Name)}");
+
+            // ONLY when it is waiting. A waiting column on every healthy
+            // flight is noise somebody learns to skip, and null means not
+            // waiting - the LeaseClaimStatus.Lease absence rule.
+            if (flight.Waiting is { Length: > 0 } waiting)
+            {
+                text.AppendLine($"            {Clean(waiting)}");
+            }
         }
         return text.ToString().TrimEnd();
     }
@@ -513,6 +550,12 @@ public static class VerbOutput
         text.AppendLine($"  vocabulary  {Clean(flight.FactVocabularyVersion)}");
         text.AppendLine($"  constitution {Clean(flight.ConstitutionVersion)}");
         text.AppendLine($"  envelope    {Clean(flight.EnvelopeVersion)}");
+
+        // The reason it cannot start, by name, only when there is one.
+        if (flight.Waiting is { Length: > 0 } waiting)
+        {
+            text.AppendLine($"  {Clean(waiting)}");
+        }
 
         // HOW MANY TIMES THIS HAS BEEN ROUND. Nothing enforces a ceiling - budget.attempts
         // does not exist yet - so a person deciding is the only thing that stops a
@@ -688,8 +731,100 @@ public static class VerbOutput
         {
             var on = runner.CurrentFlightNumber is { Length: > 0 } number ? $"  on {Clean(number)}" : "";
             var beat = runner.LastHeartbeatAt is { } at ? $"  last seen {at:u}" : "  never seen";
-            text.AppendLine($"{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}");
+            // The labels are on the row because this listing is where somebody
+            // looks when a flight is waiting, and the label is what they are
+            // looking for. The dispositions stay with gg runner labels.
+            var labels = runner.Labels.Count > 0
+                ? $"  [{string.Join(", ", runner.Labels.Select(l => Clean(l.Name)))}]"
+                : "";
+            text.AppendLine($"{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{labels}");
         }
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The checklist, one row per requirement.
+    /// </summary>
+    /// <remarks>
+    /// The satisfier column renders exactly two sentences in this slice -
+    /// already true via matching, and nobody: declared capability gap -
+    /// because strategies do not exist yet, and rendering a placeholder for
+    /// machinery that does not exist would be the checklist containing a
+    /// promise. The wire carries the closed vocabulary; the sentence is this
+    /// rendering's.
+    /// </remarks>
+    private static string PlanText(Checklist plan)
+    {
+        var text = new StringBuilder();
+        var about = plan.FlightNumber is { Length: > 0 } flight
+            ? $"{Clean(flight)} (envelope {Clean(plan.EnvelopeVersion)})"
+            : $"envelope {Clean(plan.EnvelopeVersion)}";
+        text.AppendLine($"  checklist for {about}");
+
+        if (plan.Environment is { Length: > 0 } environment)
+        {
+            text.AppendLine($"  environment {Clean(environment)}");
+        }
+
+        if (plan.Repository is { Length: > 0 } repository)
+        {
+            text.AppendLine($"  repository  {Clean(repository)}");
+        }
+
+        if (plan.Items.Count == 0)
+        {
+            // Said out loud: an empty checklist and one that failed to render
+            // look identical otherwise, and only one means "start any time".
+            text.AppendLine("  nothing must hold first - this envelope selects no environment");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var item in plan.Items)
+        {
+            var satisfier = item.Satisfier switch
+            {
+                ChecklistSatisfiers.MatchingRunner => "already true via matching",
+                ChecklistSatisfiers.Nobody => "nobody: declared capability gap",
+                var other => Clean(other ?? ""),
+            };
+            text.AppendLine($"  {Clean(item.Requirement),-36}  {satisfier}  ({Clean(item.Disposition)})");
+
+            if (item.WhenUnmet is { Length: > 0 } unmet)
+            {
+                text.AppendLine($"    {Clean(unmet)}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>Every advertised label, with the word that says what the claim is worth.</summary>
+    private static string RunnerLabelsText(RunnerList list)
+    {
+        if (list.Runners.Count == 0)
+        {
+            return "No runners registered. Run gg runner up on a machine that should take work.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var runner in list.Runners)
+        {
+            text.AppendLine($"{Clean(runner.State),-8}  {Clean(runner.Label)}");
+
+            if (runner.Labels.Count == 0)
+            {
+                // A fact somebody diagnosing a waiting flight needs, not an
+                // absence to hide.
+                text.AppendLine("          (advertises nothing)");
+                continue;
+            }
+
+            foreach (var label in runner.Labels)
+            {
+                text.AppendLine($"          {Clean(label.Name),-36}  {Clean(label.Disposition)}");
+            }
+        }
+
         return text.ToString().TrimEnd();
     }
 

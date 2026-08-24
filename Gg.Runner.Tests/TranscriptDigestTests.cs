@@ -109,6 +109,29 @@ public class TranscriptDigestTests
         }
     }
 
+    [Test]
+    public async Task A_cwd_relative_spelling_is_the_same_file()
+    {
+        // FOUND BY A REAL RUN, 2026-08-24: an agent working with the tree as its
+        // working directory names files './src/config.py', and the digest carried
+        // that spelling verbatim. 'src/config.py' and './src/config.py' are one
+        // file, and a digest exists so paths compare across flights - two
+        // spellings of one path quietly end the comparison, and every consumer
+        // of filesEdited (a seed, a takeover pane, a test) misses the file.
+        var lines =
+            """
+            {"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"./ISSUE.md"}}]}}
+            {"type":"assistant","message":{"content":[{"type":"tool_use","id":"t2","name":"Edit","input":{"file_path":"./src/config.py"}}]}}
+            """;
+
+        var digest = TranscriptDigest.Extract(
+            lines, "implement", ["/work/tree"], LoopOutcomes.Completed, declared: LoopMoves.All);
+
+        await Assert.That(digest.FilesEdited).IsEquivalentTo((string[])["src/config.py"]);
+        await Assert.That(digest.FilesReadNotEdited).IsEquivalentTo((string[])["ISSUE.md"])
+            .Because("the './' is the agent's spelling of 'here', not part of the path.");
+    }
+
     // ---- what it went looking for ----
 
     [Test]

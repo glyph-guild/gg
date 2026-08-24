@@ -225,11 +225,20 @@ public class ResumedFlightTests
         await Assert.That(outcome.GetProperty("outcome").GetString())
             .IsEqualTo(LoopOutcomes.Completed);
 
-        // ---- 4. NOTHING MACHINE-SHAPED CROSSED BACK. The seed carried no path
-        // and no hostname in; the facts shipped out carry none either.
-        await Assert.That(shipped).DoesNotContain(fixture.Directory)
-            .Because("a fact naming this machine's disk would re-couple the flight to the "
-                   + "machine the whole slice exists to decouple it from.");
+        // ---- 4. NOTHING MACHINE-SHAPED IN THE FACTS A SEED IS COMPOSED FROM.
+        // Scoped to the loop facts rather than the whole batch, because the
+        // local provider's slug IS a path by design (the deployment names the
+        // subtree, so the control plane can only ask for what it was told) -
+        // but the digest and the outcome are what a NEXT seed renders, and a
+        // machine detail there would ride every handoff after this one.
+        var outcomeFact = Facts(shipped, FactKinds.LoopOutcome)!.Value.ToString();
+        foreach (var crossing in (string[])[digest.ToString(), outcomeFact])
+        {
+            await Assert.That(crossing).DoesNotContain(fixture.Directory);
+            await Assert.That(crossing).DoesNotContain(tree!)
+                .Because("the next seed is composed from these facts, and a path in them "
+                       + "re-couples the flight to the machine the slice decoupled it from.");
+        }
     }
 
     /// <summary>The first fact of a kind, from what really went on the wire.</summary>

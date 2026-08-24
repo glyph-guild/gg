@@ -627,6 +627,31 @@ public static class ProtocolSurface
         },
         new()
         {
+            // Registration is what makes a repository nameable at all - a
+            // flight whose intent names an unregistered repository is refused
+            // pointing HERE. v0 unrestricted and attributed, the chart's
+            // shape. No credential and no host cross this wire, by design.
+            Method = "POST",
+            Path = "/v1/airspace/repositories",
+            Audience = Audience.Developer,
+            Request = typeof(RegisterRepositoryRequest),
+            Response = typeof(RepositoryRegistered),
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/repositories",
+            Audience = Audience.Developer,
+            Response = typeof(RegisteredRepositories),
+            // Empty is 200 with nothing in it: a tenant that registered
+            // nothing is set up and has said nothing.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // THE TENANT-LEVEL PLAN: what WOULD a flight under the current
             // envelope need, priced against the fleet the moment somebody
             // asks. Reads facts, exercises nothing.
@@ -835,6 +860,10 @@ public static class ProtocolSurface
             [typeof(TopologyName)] =
                 ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],
             [typeof(EnvelopeTopology)] = ["names"],
+            [typeof(RegisterRepositoryRequest)] = ["name", "provider", "id", "path"],
+            [typeof(RepositoryRegistered)] =
+                ["name", "provider", "id", "path", "registeredBy", "registeredAt"],
+            [typeof(RegisteredRepositories)] = ["repositories"],
             [typeof(AdvertisedLabel)] = ["name", "disposition"],
             [typeof(ChecklistItem)] =
                 ["requirement", "verification", "satisfier", "whenUnmet", "disposition"],

@@ -583,6 +583,9 @@ public sealed class RunnerLoop(
                 // and does not derive anything from it: it hands the agent what a person
                 // said and lets the envelope keep deciding what may happen.
                 Feedback = lease.Feedback,
+                // THE SAME DISPOSITION. Already rendered by the contract; the runner
+                // hands it over and the prompt says whose words it holds.
+                ResumesFrom = loop.ResumesFrom,
                 WorkingDirectory = workspace.Trees[0].Path,
                 LoopId = loop.LoopId,
                 IntentUri = intent,

@@ -153,6 +153,33 @@ public sealed record ExecutorRequest
     public LeaseFeedback? Feedback { get; init; }
 
     /// <summary>
+    /// The rendered handoff record of the attempt this loop resumes, when there
+    /// was one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Advice, never authority</b> - the same disposition as
+    /// <see cref="Feedback"/>. It reaches the agent's context and changes nothing
+    /// the flight is permitted to do: the moves, the tree, the budget and the
+    /// scope all come from the envelope, and this record carries none of them.
+    /// </para>
+    /// <para>
+    /// <b>Two kinds of claim in one document.</b> Its measured sections are the
+    /// platform's own account of the prior run, counted from that run's event
+    /// stream; its agent's-own-account section is the prior agent's words about
+    /// itself. The prompt marks which is which, because the account must not
+    /// borrow the measurement's authority.
+    /// </para>
+    /// <para>
+    /// <b>Null on a first attempt</b>, which is the ordinary case. Already
+    /// rendered: the contract renders the seed once, control-plane-side, and a
+    /// runner that re-rendered it would be a second implementation of the same
+    /// document.
+    /// </para>
+    /// </remarks>
+    public string? ResumesFrom { get; init; }
+
+    /// <summary>
     /// Where to append the live view, when one is wanted.
     /// </summary>
     /// <remarks>

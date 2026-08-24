@@ -146,8 +146,16 @@ public class EndpointSurfaceTests
         // envelopes can REACH, the /v1/environments argument one level up.
         // Both Developer: a runner is leased onto work, it never reshapes the
         // estate.
+        // Moved for slice nine's registry: POST and GET
+        // /v1/airspace/repositories, under the already-governed prefix.
+        // Registration is what makes a repository nameable at all and what
+        // takes the host out of the flight's request path - the control plane
+        // stops deriving a provider from whatever URI opened a flight, and
+        // resolves identity through the registered entry instead. Both
+        // Developer: a runner receives a provider KEY on its lease and maps
+        // it to a host of its own; it never reads the registry.
         await Assert.That(Fingerprint())
-            .IsEqualTo("1d67cc4e1443cd0cf966c64d9dc54494cd4c086ce14c7dc3cdd85f5993292ca1")
+            .IsEqualTo("34001f9f432adff95c35793f4a32d718ab26f84f37e7c5d96c5c51eaec54da54")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

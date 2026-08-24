@@ -257,3 +257,61 @@ public sealed record EnvelopeTopology
 {
     public required IReadOnlyList<TopologyName> Names { get; init; }
 }
+
+/// <summary>Ask the control plane to register a repository name.</summary>
+/// <remarks>
+/// <para>
+/// <b>Registration is what makes a repository nameable at all</b> - a flight
+/// whose intent names an unregistered repository is refused pointing here -
+/// so it widens what every envelope layer beneath can reach. v0 is
+/// unrestricted and logged, the chart's shape; who MAY register stays with
+/// ADR-0016's closure set.
+/// </para>
+/// <para>
+/// <b>No credential, no host.</b> The provider is a KEY the registrar chose
+/// and the runner maps to a host of its own; the id is the forge's immutable
+/// identifier; the path is a display label that may drift. Which host a
+/// customer's credential goes to must never be a policy edit here.
+/// </para>
+/// </remarks>
+[PinnedId("6e2d63b0-8a13-4561-8cd5-673b4831278a")]
+public sealed record RegisterRepositoryRequest
+{
+    /// <summary>The name envelopes and flights refer to, e.g. payments.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The provider key a runner resolves, e.g. a forge host. Never derived from a URI.</summary>
+    public required string Provider { get; init; }
+
+    /// <summary>The forge's immutable identifier for the repository.</summary>
+    public required string Id { get; init; }
+
+    /// <summary>The display path, e.g. acme/payments-service. A label that may drift.</summary>
+    public required string Path { get; init; }
+}
+
+/// <summary>One registered repository, and who made it nameable.</summary>
+[PinnedId("ee1d0c6d-c310-4042-a57e-f750722c8c01")]
+public sealed record RepositoryRegistered
+{
+    public required string Name { get; init; }
+
+    public required string Provider { get; init; }
+
+    /// <summary>The forge's immutable identifier - what flight identity resolves through.</summary>
+    public required string Id { get; init; }
+
+    public required string Path { get; init; }
+
+    /// <summary>Who registered it - a display a person can read, not an id.</summary>
+    public required string RegisteredBy { get; init; }
+
+    public required DateTimeOffset RegisteredAt { get; init; }
+}
+
+/// <summary>The tenant's registered repositories: everything a flight can be about.</summary>
+[PinnedId("8d944deb-547b-44b4-bd73-5becda1db94a")]
+public sealed record RegisteredRepositories
+{
+    public required IReadOnlyList<RepositoryRegistered> Repositories { get; init; }
+}

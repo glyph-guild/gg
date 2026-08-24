@@ -30,14 +30,14 @@ public class RepositoryRegistrySurfaceTests
         var registered = new RepositoryRegistered
         {
             Name = "payments",
-            Provider = "github.com",
-            Id = "R_kgDOL8x1Ag",
+            Provider = "forge.example",
+            Id = "F_a1b2c3d4",
             Path = "acme/payments-service",
             RegisteredBy = "kevin",
             RegisteredAt = DateTimeOffset.UnixEpoch,
         };
 
-        await Assert.That(registered.Id).IsEqualTo("R_kgDOL8x1Ag")
+        await Assert.That(registered.Id).IsEqualTo("F_a1b2c3d4")
             .Because("the id is the forge's immutable identifier; the path is a label that "
                    + "may drift, kept for people.");
         await Assert.That(typeof(RepositoryRegistered).GetProperties().Select(p => p.Name))

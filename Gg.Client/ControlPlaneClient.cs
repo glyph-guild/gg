@@ -35,6 +35,10 @@ namespace Gg.Client;
 [JsonSerializable(typeof(DecisionRequest))]
 [JsonSerializable(typeof(DecisionRecorded))]
 [JsonSerializable(typeof(EnvelopeApplied))]
+[JsonSerializable(typeof(Checklist))]
+[JsonSerializable(typeof(ChartEnvironmentRequest))]
+[JsonSerializable(typeof(EnvironmentCharted))]
+[JsonSerializable(typeof(EnvironmentChart))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -293,6 +297,46 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
             ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>
+    /// The tenant-level plan: what a flight opened now would need, priced
+    /// against the live fleet. Null when no envelope has ever been applied.
+    /// </summary>
+    public async Task<Checklist?> GetPlanAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/envelope/plan", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.Checklist, cancellationToken);
+    }
+
+    /// <summary>One flight's checklist, from the envelope version it pinned, or null.</summary>
+    public async Task<Checklist?> GetChecklistAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get, $"/v1/flights/{reference}/checklist", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.Checklist, cancellationToken);
     }
 
     /// <summary>One flight, or null if the reference names none.</summary>

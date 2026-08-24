@@ -41,6 +41,21 @@ public abstract record CliAction
 
     public sealed record Runners(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// The checklist: the tenant-level plan, or one flight's when a reference
+    /// is given.
+    /// </summary>
+    /// <remarks>
+    /// Reads facts and exercises nothing - the passive fourth beside doctor,
+    /// strategy health (which does not exist yet) and the routine actions
+    /// (which do not either). What a flight opened now would need, priced
+    /// against the fleet the moment somebody asks.
+    /// </remarks>
+    public sealed record Plan(string? Flight, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Every runner's advertised labels, each with its disposition.</summary>
+    public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
+
     public sealed record Invite(bool Json) : CliAction, IEmitsResult;
 
     public sealed record Doctor(bool Json) : CliAction, IEmitsResult;
@@ -151,6 +166,8 @@ public static class CliArgs
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
         "gg runners                     the runners this tenant has",
+        "gg plan [flight]               what must hold before a flight can start",
+        "gg runner labels               what each runner advertises, with its disposition",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
@@ -191,9 +208,12 @@ public static class CliArgs
             ["whoami"] => new CliAction.WhoAmI(),
             ["runner", "up"] => new CliAction.RunnerUp(),
             ["runner", "serve"] => new CliAction.RunnerServe(),
+            ["runner", "labels"] => new CliAction.RunnerLabels(json),
 
             ["flights"] => new CliAction.Flights(json),
             ["runners"] => new CliAction.Runners(json),
+            ["plan"] => new CliAction.Plan(null, json),
+            ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),
             ["doctor"] => new CliAction.Doctor(json),
             ["bundle"] => new CliAction.Bundle(json),

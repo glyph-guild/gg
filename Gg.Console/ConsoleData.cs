@@ -71,6 +71,15 @@ public sealed class ConsoleData(
     public Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
         _commands.ListAsync(cancellationToken);
 
+    /// <summary>`gg plan` - the same fetch, the same checklist.</summary>
+    public Task<VerbResult> PlanAsync(
+        string? reference = null, CancellationToken cancellationToken = default) =>
+        _commands.PlanAsync(reference, cancellationToken);
+
+    /// <summary>`gg runner labels` - the fleet's claims, with their dispositions.</summary>
+    public Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
+        _commands.RunnerLabelsAsync(cancellationToken);
+
     /// <summary>
     /// `gg why` — why each obligation applied to a flight, or did not.
     /// </summary>

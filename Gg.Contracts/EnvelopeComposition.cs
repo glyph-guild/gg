@@ -1,20 +1,32 @@
+using System.Reflection;
+
 namespace Gg.Contracts;
 
-/// <summary>One layer's document, and where it sat.</summary>
+/// <summary>One layer's document, and where it sits in the topology.</summary>
 /// <remarks>
-/// <b>The layer is beside the document, never inside it.</b> A composer that read
-/// the layer out of the document would let a flight-level file claim <c>org</c>,
-/// which is the governed thing describing its own authority - the rule that says
-/// no envelope arrives from a runner, one level up.
+/// <b>The role and the name are beside the document, never inside it.</b> A
+/// composer that read them out of the document would let a narrowing claim
+/// the floor's authority - the rule that says no envelope arrives from a
+/// runner, one level up. The parent is what lets <see cref="EnvelopeComposition.Compose"/>
+/// verify the chain it was handed rather than trusting the caller's ordering.
 /// </remarks>
 [PinnedId("7a3e19c4-6b02-4d58-9f31-8c04e7b25d6a")]
 public sealed record EnvelopeLayer
 {
-    /// <summary>One of <see cref="ObligationProvenances"/>. Assigned by whoever held the file.</summary>
-    public required string Layer { get; init; }
+    /// <summary>One of <see cref="Roles"/>. Assigned by the topology, never the document.</summary>
+    public required string Role { get; init; }
 
-    /// <summary>What that layer's authors wrote.</summary>
-    public required Envelope Document { get; init; }
+    /// <summary>The document's name. <c>root</c> for the floor, open otherwise.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The name this one sits under. Null only for root.</summary>
+    public string? Parent { get; init; }
+
+    /// <summary>The full document, for root and work kinds. Null for a narrowing.</summary>
+    public Envelope? Document { get; init; }
+
+    /// <summary>The partial document, for narrowings. Null otherwise.</summary>
+    public EnvelopeNarrowing? Narrowing { get; init; }
 
     /// <summary>The version of that document, so the composition is reproducible.</summary>
     public required string Version { get; init; }
@@ -27,141 +39,427 @@ public sealed record Composition
     /// <summary>The single envelope evaluation sees, or null when refused.</summary>
     public Envelope? Composed { get; init; }
 
-    /// <summary>What was wrong, naming the layer and the obligation.</summary>
+    /// <summary>What was wrong, naming the layer and the field.</summary>
     public string? Refused { get; init; }
 }
 
 /// <summary>
-/// Layers into the one envelope evaluation reads.
+/// Layers into the one envelope evaluation reads - generic over the operator
+/// table, which is data on the schema.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Add-only, which is decidable, rather than narrow-only, which is not.</b> The
-/// design says a lower layer may only narrow and never widen. General widening
-/// detection over predicates is undecidable, and every approximation is wrong in
-/// ways nobody can characterise - so what is implemented is the rule that has the
-/// same effect and a yes-or-no answer: <b>a lower layer may add its own
-/// obligations and may not touch a higher layer's.</b> No modification, no
-/// removal, no weakening.
+/// <b>Order-freedom is a property of the operators, not a claim about the
+/// code.</b> The predecessor composed by a ranking (<c>ordered[0]</c> took
+/// five fields wholesale), and ADR-0014 records that reasoning as wrong: it
+/// was an artifact of replacement semantics. <c>intersect</c>, <c>min</c> and
+/// <c>union</c> are commutative and associative, and the two <c>-only</c>
+/// operators name a single role - so there is no ordering to consult and a
+/// caller cannot change what governs a flight by shuffling a list.
 /// </para>
 /// <para>
-/// <b>Strengthening needs no primitive, because strengthening is adding.</b> If
-/// org declares <c>check: agent</c> and a flight wants a person to look as well,
-/// the flight ADDS its own obligation. The org's stays exactly as org wrote it,
-/// both attach, and the stricter one binds because both must hold. That removes
-/// the only case that looked like it needed an edit - and it means the envelope
-/// has no edit-a-higher-layer operation to secure, which is a better outcome than
-/// securing one.
+/// <b>A document declaring a field it may not MOVE is refused, not
+/// ignored.</b> The old wholesale-take silently discarded a lower layer's
+/// context, loops and destinations; at chain depth four that is three
+/// documents silently dropped - the silent-no-op class this product exists
+/// to name, arriving through the layering machinery itself. An ECHO of the
+/// governing value is not a move: work kinds are full envelopes and
+/// <c>Validate</c> requires their members.
 /// </para>
 /// <para>
-/// <b>Order-independent.</b> Layers are composed by their declared ranking rather
-/// than by the order they were handed over, so a caller cannot change what
-/// governs a flight by shuffling a list.
+/// <b>One layer supplies the sets. Everything below it is a meet.</b> Which
+/// loops and destinations EXIST comes from the work kind when one is present
+/// and from root otherwise; you pick sets, you do not narrow them into
+/// being. Everything else composes by its declared operator.
 /// </para>
 /// </remarks>
 public static class EnvelopeComposition
 {
-    /// <summary>
-    /// The composed envelope, with every obligation carrying the layer that
-    /// introduced it.
-    /// </summary>
+    /// <summary>The operator table: field to operator, read off the schema.</summary>
     /// <remarks>
-    /// The context, loops and destinations come from the highest layer present.
-    /// Only obligations compose in this step: a second binding, a second loop and
-    /// a second destination are all cardinality this slice does not move.
+    /// Built by reflection in the static constructor, which THROWS on a field
+    /// that neither declares an operator nor carries a written exemption - so
+    /// a new schema member fails the build's first composition test until
+    /// somebody decides how it composes. The drift guard the fact vocabulary
+    /// has, applied here.
     /// </remarks>
+    public static IReadOnlyDictionary<string, string> Operators { get; }
+
+    /// <summary>The fields that deliberately have no operator, each with its reason.</summary>
+    public static IReadOnlyDictionary<string, string> OperatorExemptions { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [$"{nameof(Envelope)}.{nameof(Envelope.Context)}"] =
+                "a container; its leaves declare (scope intersects, constitution is root-only)",
+            [$"{nameof(Loop)}.{nameof(Loop.Id)}"] =
+                "identity, not policy - it is the key the set is a set OF",
+            [$"{nameof(Loop)}.{nameof(Loop.Discharges)}"] =
+                "intra-document wiring: it names its own document's obligations and travels "
+              + "with its loop, which the sets' operator owns",
+            [$"{nameof(Loop)}.{nameof(Loop.Budget)}"] =
+                "a container; its leaves declare (wall-clock and attempts are min)",
+            [$"{nameof(Destination)}.{nameof(Destination.Id)}"] =
+                "identity, not policy",
+            [$"{nameof(Destination)}.{nameof(Destination.Kind)}"] =
+                "what the destination IS; membership in the set is the composable thing, "
+              + "and the sets' operator owns it",
+            [$"{nameof(Destination)}.{nameof(Destination.PreserveUnadmitted)}"] =
+                "ADR-0014's one undecided operator: no established safe direction (is "
+              + "discarding unadmitted work stricter, or is destroying work under review "
+              + "its own harm?). Kept visibly open rather than closed by a default; a "
+              + "narrowing cannot express a destination at all, so nothing can move it "
+              + "meanwhile",
+        };
+
+    static EnvelopeComposition()
+    {
+        var operators = new Dictionary<string, string>(StringComparer.Ordinal);
+        Walk(typeof(Envelope), operators);
+        Walk(typeof(ContextBinding), operators);
+        Walk(typeof(Loop), operators);
+        Walk(typeof(LoopBudget), operators);
+        Walk(typeof(Destination), operators);
+        Walk(typeof(EnvelopeNarrowing), operators);
+
+        Operators = operators;
+    }
+
+    /// <summary>One schema type's properties into the table - or the throw that is the guard.</summary>
+    private static void Walk(
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties)]
+        Type type,
+        Dictionary<string, string> operators)
+    {
+        {
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                var field = $"{type.Name}.{property.Name}";
+                var declared = property.GetCustomAttribute<ComposesAttribute>();
+
+                if (declared is null && !OperatorExemptions.ContainsKey(field))
+                {
+                    throw new InvalidOperationException(
+                        $"{field} declares no merge operator and carries no exemption. A field "
+                        + "nobody decided an operator for would compose by accident - declare "
+                        + "one of: " + string.Join(", ", MergeOperators.All)
+                        + ", or write the exemption down with its reason.");
+                }
+
+                if (declared is not null && OperatorExemptions.ContainsKey(field))
+                {
+                    throw new InvalidOperationException(
+                        $"{field} declares an operator AND carries an exemption; one of the two "
+                        + "is stale.");
+                }
+
+                if (declared is not null)
+                {
+                    if (!MergeOperators.All.Contains(declared.Operator, StringComparer.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"{field} declares operator '{declared.Operator}', which is not one "
+                            + "of: " + string.Join(", ", MergeOperators.All) + ".");
+                    }
+
+                    operators[field] = declared.Operator;
+                }
+            }
+        }
+    }
+
+    private static string Op(string type, string member) => Operators[$"{type}.{member}"];
+
+    /// <summary>
+    /// The composed envelope, with every obligation carrying (role, name).
+    /// </summary>
     public static Composition Compose(IReadOnlyList<EnvelopeLayer> layers)
     {
         ArgumentNullException.ThrowIfNull(layers);
 
-        if (layers.Count == 0)
+        if (Verify(layers) is { } broken)
         {
-            return new Composition { Refused = "No layers to compose. A flight governed by "
-                                             + "nothing is a real state and it is not this one." };
+            return new Composition { Refused = broken };
         }
 
-        if (layers.Select(l => l.Layer).Distinct(StringComparer.Ordinal).Count() != layers.Count)
-        {
-            return new Composition { Refused = "Two documents claim the same layer. Which one "
-                                             + "governs would be decided by list order, and a "
-                                             + "list order is not an ownership model." };
-        }
+        var root = layers.FirstOrDefault(l => string.Equals(l.Role, Roles.Root, StringComparison.Ordinal));
+        var workKind = layers.FirstOrDefault(l => string.Equals(l.Role, Roles.WorkKind, StringComparison.Ordinal));
 
-        foreach (var layer in layers)
-        {
-            if (!ObligationProvenances.All.Contains(layer.Layer, StringComparer.Ordinal))
-            {
-                return new Composition
-                {
-                    Refused = $"'{layer.Layer}' is not a layer this version knows. Expected one "
-                            + $"of: {string.Join(", ", ObligationProvenances.All)}.",
-                };
-            }
-        }
+        // ONE LAYER SUPPLIES THE SETS: the work kind when present, the floor
+        // otherwise. Everything the base carries that another layer may not
+        // move is checked below, field by field, from the table.
+        var @base = workKind ?? root!;
+        var baseDocument = @base.Document!;
 
-        // BY THE DECLARED RANKING, never by how the caller happened to order the
-        // list. Composition that depended on argument order would let whoever
-        // assembles the call decide which layer outranks which.
-        var ordered = layers
-            .OrderBy(l => ObligationProvenances.All.ToList().IndexOf(l.Layer))
-            .ToList();
-
+        // The obligations, from EVERY layer: union keyed by id, a collision
+        // refused naming both documents - shadowing is removal with extra
+        // steps, and refusing the collision is worth more than the add-only
+        // rule it protects.
         var composed = new List<Obligation>();
         var introducedBy = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var layer in ordered)
+        foreach (var layer in layers)
         {
-            foreach (var obligation in layer.Document.Obligations)
+            var obligations = layer.Document?.Obligations ?? layer.Narrowing!.Obligations;
+            foreach (var obligation in obligations)
             {
-                if (introducedBy.TryGetValue(obligation.Id, out var higher))
+                if (introducedBy.TryGetValue(obligation.Id, out var other))
                 {
-                    // THE ONE REFUSAL, and it names the layer rather than the rule.
-                    // "Obligation redefined" would send somebody reading their own
-                    // file for a mistake that is in somebody else's.
                     return new Composition
                     {
-                        Refused = $"The {layer.Layer} layer declares obligation "
-                                + $"'{obligation.Id}', which the {higher} layer introduced. A "
-                                + "lower layer may add its own obligations and may not touch a "
-                                + "higher layer's - no modification, no removal, no weakening. "
-                                + "To require MORE than "
+                        Refused = $"Both '{other}' and '{layer.Name}' declare obligation "
+                                + $"'{obligation.Id}'. Two documents' rules under one name would "
+                                + "compose to whichever was read second - to require MORE than "
                                 + $"'{obligation.Id}' asks, add an obligation of your own: both "
                                 + "attach, both must hold, and the stricter one binds.",
                     };
                 }
 
-                introducedBy[obligation.Id] = layer.Layer;
+                introducedBy[obligation.Id] = layer.Name;
 
-                // ASSIGNED FROM WHERE THE DOCUMENT SAT. Whatever the document says
-                // about its own provenance is discarded here, and the parser refuses
-                // a document that tries to say anything at all.
-                composed.Add(obligation with { Provenance = layer.Layer });
+                // ASSIGNED FROM WHERE THE DOCUMENT SAT. Whatever the document
+                // says about its own provenance is discarded here, and the
+                // parser refuses a document that tries to say anything at all.
+                composed.Add(obligation with
+                {
+                    Provenance = new ObligationProvenance { Role = layer.Role, Name = layer.Name },
+                });
             }
         }
 
-        var highest = ordered[0].Document;
+        // THE ROOT-ONLY FIELDS AND THE MEETS, from the table. Only full
+        // envelopes carry them - a narrowing cannot express any of this, which
+        // is the strongest form of the operator table.
+        var context = baseDocument.Context;
+        var environment = baseDocument.Environment;
+        var repository = baseDocument.Repository;
+
+        if (root is not null && !ReferenceEquals(@base, root))
+        {
+            var floor = root.Document!;
+
+            if (Moved(@base, floor.Context.Constitution, baseDocument.Context.Constitution,
+                    $"{nameof(ContextBinding)}.{nameof(ContextBinding.Constitution)}".ToLowerInvariant(),
+                    Op(nameof(ContextBinding), nameof(ContextBinding.Constitution))) is { } constitution)
+            {
+                return new Composition { Refused = constitution };
+            }
+
+            if (Moved(@base, floor.Environment, baseDocument.Environment, "environment",
+                    Op(nameof(Envelope), nameof(Envelope.Environment))) is { } environmentMoved)
+            {
+                return new Composition { Refused = environmentMoved };
+            }
+
+            if (Moved(@base, floor.Repository, baseDocument.Repository, "repository",
+                    Op(nameof(Envelope), nameof(Envelope.Repository))) is { } repositoryMoved)
+            {
+                return new Composition { Refused = repositoryMoved };
+            }
+
+            environment = floor.Environment;
+            repository = floor.Repository;
+
+            // SCOPE INTERSECTS, and an intersection nobody can express as one
+            // glob is a refusal naming both rather than a silent pick.
+            switch (IntersectScope(floor.Context.Scope, baseDocument.Context.Scope))
+            {
+                case (null, { } undecidable):
+                    return new Composition { Refused = undecidable };
+                case ({ } met, _):
+                    context = baseDocument.Context with
+                    {
+                        Scope = met,
+                        Constitution = floor.Context.Constitution,
+                    };
+                    break;
+            }
+        }
 
         return new Composition
         {
-            Composed = highest with { Obligations = composed },
+            Composed = baseDocument with
+            {
+                Context = context,
+                Environment = environment,
+                Repository = repository,
+                Obligations = composed,
+            },
         };
     }
 
     /// <summary>
-    /// Whether a lower layer's document may be applied over what is already there.
+    /// Whether a lower layer's document may be applied over what is already
+    /// there - the same rule as <see cref="Compose"/>, asked before anything
+    /// is stored.
     /// </summary>
-    /// <remarks>
-    /// The same rule as <see cref="Compose"/>, asked before anything is stored
-    /// rather than at evaluation - so an author finds out when they apply rather
-    /// than when a flight runs.
-    /// </remarks>
-    public static string? MayApply(
-        string layer, Envelope document, IReadOnlyList<EnvelopeLayer> existing)
+    public static string? MayApply(EnvelopeLayer candidate, IReadOnlyList<EnvelopeLayer> existing)
     {
-        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(candidate);
         ArgumentNullException.ThrowIfNull(existing);
 
-        return Compose([.. existing.Where(e => !string.Equals(e.Layer, layer, StringComparison.Ordinal)),
-            new EnvelopeLayer { Layer = layer, Document = document, Version = "pending" }]).Refused;
+        return Compose([
+            .. existing.Where(e => !string.Equals(e.Name, candidate.Name, StringComparison.Ordinal)),
+            candidate]).Refused;
+    }
+
+    private static string? Verify(IReadOnlyList<EnvelopeLayer> layers)
+    {
+        if (layers.Count == 0)
+        {
+            return "No layers to compose. A flight governed by nothing is a real state and it "
+                 + "is not this one.";
+        }
+
+        foreach (var layer in layers)
+        {
+            if (!Roles.All.Contains(layer.Role, StringComparer.Ordinal))
+            {
+                return $"'{layer.Role}' is not a role this version knows. Expected one of: "
+                     + string.Join(", ", Roles.All) + ".";
+            }
+
+            var isFull = string.Equals(layer.Role, Roles.Narrowing, StringComparison.Ordinal)
+                ? layer.Narrowing is not null && layer.Document is null
+                : layer.Document is not null && layer.Narrowing is null;
+            if (!isFull)
+            {
+                return $"'{layer.Name}' carries the wrong document shape for the "
+                     + $"'{layer.Role}' role. Root and work kinds carry the full envelope; a "
+                     + "narrowing carries the partial document that cannot express what its "
+                     + "role may not move.";
+            }
+        }
+
+        if (layers.Select(l => l.Name).Distinct(StringComparer.Ordinal).Count() != layers.Count)
+        {
+            var doubled = layers.GroupBy(l => l.Name, StringComparer.Ordinal)
+                .First(g => g.Count() > 1).Key;
+            return $"Two documents claim the name '{doubled}'. Which one governs would be "
+                 + "decided by list order, and a list order is not an ownership model.";
+        }
+
+        var roots = layers.Where(l => string.Equals(l.Role, Roles.Root, StringComparison.Ordinal)).ToList();
+        if (roots.Count > 1)
+        {
+            return "Two documents claim the root role. The floor is exactly one document, "
+                 + "always.";
+        }
+
+        foreach (var layer in layers)
+        {
+            var isRoot = string.Equals(layer.Role, Roles.Root, StringComparison.Ordinal);
+            var namedRoot = string.Equals(layer.Name, Roles.Root, StringComparison.Ordinal);
+
+            if (isRoot && (!namedRoot || layer.Parent is not null))
+            {
+                return $"The root role belongs to the name 'root' and sits under nothing; "
+                     + $"'{layer.Name}' claims it. root is a reserved name, never a pointer - "
+                     + "repointing the floor is a gated envelope change, not a relabeling.";
+            }
+
+            if (!isRoot && namedRoot)
+            {
+                return $"'{Roles.Root}' is the floor's name and this document claims the "
+                     + $"'{layer.Role}' role under it.";
+            }
+
+            // THE CHAIN: every non-root layer names a parent that is present.
+            // Verified from what was handed rather than trusted from the
+            // caller's ordering - which is what lets order-freedom survive
+            // losing the enum.
+            if (!isRoot)
+            {
+                if (layer.Parent is not { Length: > 0 } parent)
+                {
+                    return $"'{layer.Name}' names no parent. Only root sits under nothing.";
+                }
+
+                if (!layers.Any(l => string.Equals(l.Name, parent, StringComparison.Ordinal)))
+                {
+                    return $"'{layer.Name}' names '{parent}' as its parent, and no document by "
+                         + "that name is in this composition - a chain is verified from the "
+                         + "floor up, and a link to a missing document is not a chain.";
+                }
+            }
+        }
+
+        if (roots.Count == 0)
+        {
+            // Reached only when every parent resolves, which with no root
+            // means a cycle.
+            return "No document in this composition plays root, and every parent resolves - "
+                 + "which is a cycle. A chain reaches the floor or it is not a chain.";
+        }
+
+        var workKinds = layers.Where(l => string.Equals(l.Role, Roles.WorkKind, StringComparison.Ordinal)).ToList();
+        if (workKinds.Count > 1)
+        {
+            return "Two documents claim the work-kind role. One layer supplies the sets - a "
+                 + "flight is FOR one thing, declared at creation.";
+        }
+
+        return null;
+    }
+
+    /// <summary>An echo of the governing value is not a move; anything else is.</summary>
+    private static string? Moved(
+        EnvelopeLayer layer, string? governing, string? declared, string field, string @operator) =>
+        string.Equals(governing, declared, StringComparison.Ordinal)
+            ? null
+            : $"'{layer.Name}' moves {field} from '{governing ?? "nothing"}' to "
+            + $"'{declared ?? "nothing"}', and {field} is {@operator}: only the root document "
+            + "may move it. Echoing the governing value is allowed; moving it is asking for "
+            + "the floor's authority.";
+
+    /// <summary>
+    /// The meet of two scopes, when one contains the other - or why there is
+    /// no expressible meet.
+    /// </summary>
+    /// <remarks>
+    /// Glob containment is decidable for the shapes this schema uses: equal
+    /// scopes, the universal scope, and prefix globs (<c>dir/**</c>). Two
+    /// scopes where neither contains the other have a real intersection that
+    /// no single glob expresses, and inventing one would silently change what
+    /// governs work - refused naming both.
+    /// </remarks>
+    private static (string? Met, string? Refused) IntersectScope(string wider, string narrower)
+    {
+        if (string.Equals(wider, narrower, StringComparison.Ordinal))
+        {
+            return (wider, null);
+        }
+
+        if (Contains(wider, narrower))
+        {
+            return (narrower, null);
+        }
+
+        if (Contains(narrower, wider))
+        {
+            return (wider, null);
+        }
+
+        return (null,
+            $"scope '{wider}' and scope '{narrower}' have no expressible intersection - "
+          + "neither contains the other, and a glob nobody wrote deciding what governs work "
+          + "is worse than a refusal. Narrow one until it sits inside the other.");
+    }
+
+    private static bool Contains(string outer, string inner)
+    {
+        if (string.Equals(outer, "**", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (!outer.EndsWith("/**", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var prefix = outer[..^2];
+
+        return inner.StartsWith(prefix, StringComparison.Ordinal);
     }
 }

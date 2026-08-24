@@ -387,7 +387,18 @@ public static class TranscriptDigest
             .OrderByDescending(r => r.Length)
             .FirstOrDefault();
 
-        return matched is not null ? clean[(matched.Length + 1)..] : clean.TrimStart('/');
+        var relative = matched is not null ? clean[(matched.Length + 1)..] : clean.TrimStart('/');
+
+        // A CWD-RELATIVE SPELLING IS THE SAME FILE. An agent whose working
+        // directory is the tree writes './src/config.py'; the './' is its
+        // spelling of "here", not part of the path, and two spellings of one
+        // path end the cross-flight comparison this fact exists for.
+        while (relative.StartsWith("./", StringComparison.Ordinal))
+        {
+            relative = relative[2..];
+        }
+
+        return relative;
     }
 
     /// <summary>

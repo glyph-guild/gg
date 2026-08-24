@@ -1,4 +1,3 @@
-using Gg.Cli;
 using Gg.Contracts;
 
 namespace Gg.Client.Tests;
@@ -46,21 +45,6 @@ public class AirspaceShowVerbTests
             },
         ],
     };
-
-    [Test]
-    public async Task The_parse_arm_exists_and_names_its_one_subcommand()
-    {
-        await Assert.That(CliArgs.Parse(["airspace", "show"]))
-            .IsEqualTo(new CliAction.AirspaceShow(false));
-        await Assert.That(CliArgs.Parse(["airspace", "show", "--json"]))
-            .IsEqualTo(new CliAction.AirspaceShow(true));
-
-        var bare = CliArgs.Parse(["airspace"]) as CliAction.Unknown;
-        await Assert.That(bare).IsNotNull();
-        await Assert.That(bare!.Message).Contains("show")
-            .Because("an error that names the subcommand is the difference between a verb "
-                   + "somebody uses and one they give up on.");
-    }
 
     [Test]
     public async Task The_topology_renders_root_first_with_role_and_parent()

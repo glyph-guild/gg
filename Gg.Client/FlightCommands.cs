@@ -338,6 +338,10 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
               + "gg envelope apply is where the rules come from."));
     }
 
+    /// <summary>The topology: every envelope name that exists, root included.</summary>
+    public async Task<VerbResult> AirspaceAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.AirspaceTopology(await _client.GetTopologyAsync(Session(), cancellationToken));
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public async Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.RunnerLabels(await _client.ListRunnersAsync(Session(), cancellationToken));

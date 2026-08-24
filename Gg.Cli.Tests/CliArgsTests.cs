@@ -212,4 +212,19 @@ public class CliArgsTests
         await Assert.That(((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message)
             .Contains("frobnicate");
     }
+
+    [Test]
+    public async Task The_parse_arm_exists_and_names_its_one_subcommand()
+    {
+        await Assert.That(CliArgs.Parse(["airspace", "show"]))
+            .IsEqualTo(new CliAction.AirspaceShow(false));
+        await Assert.That(CliArgs.Parse(["airspace", "show", "--json"]))
+            .IsEqualTo(new CliAction.AirspaceShow(true));
+
+        var bare = CliArgs.Parse(["airspace"]) as CliAction.Unknown;
+        await Assert.That(bare).IsNotNull();
+        await Assert.That(bare!.Message).Contains("show")
+            .Because("an error that names the subcommand is the difference between a verb "
+                   + "somebody uses and one they give up on.");
+    }
 }

@@ -136,8 +136,18 @@ public class EndpointSurfaceTests
         // live fleet; GET /v1/flights/{ref}/checklist renders the one this flight
         // compiled at creation. All Developer: a runner is matched on labels, it
         // never reads the chart or prices an envelope.
+        // Moved for slice nine: the topology's two routes and a prefix close.
+        // POST /v1/airspace/names is the door the "no topology entry" apply
+        // refusal points people at - a name is unreachable until declared, so
+        // the door ships in the same contract as the refusal. GET
+        // /v1/airspace/topology is what gg airspace show renders, root always
+        // included because root is synthesized by the read. /v1/airspace
+        // joins GovernedPrefixes because the topology decides what a tenant's
+        // envelopes can REACH, the /v1/environments argument one level up.
+        // Both Developer: a runner is leased onto work, it never reshapes the
+        // estate.
         await Assert.That(Fingerprint())
-            .IsEqualTo("e38aaa9d608e8deb537b7c9f5c1dd4af4610cb1b72e64fc3249110351e88971b")
+            .IsEqualTo("1d67cc4e1443cd0cf966c64d9dc54494cd4c086ce14c7dc3cdd85f5993292ca1")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -127,7 +127,12 @@ public static class ProtocolSurface
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
         ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials",
-         "/v1/envelope", "/v1/invitations", "/v1/environments"];
+         "/v1/envelope", "/v1/invitations", "/v1/environments",
+         // The topology decides which envelope names are REACHABLE, so an
+         // undeclared route under it would be an unaudited way to widen what
+         // every tenant's envelopes can reach - the /v1/environments
+         // argument, one level up.
+         "/v1/airspace"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -595,6 +600,33 @@ public static class ProtocolSurface
         },
         new()
         {
+            // Declaring a name is what makes it reachable at all: an envelope
+            // applied to an undeclared name is refused pointing HERE, so the
+            // door ships in the same contract as the refusal. v0 is
+            // unrestricted and attributed, the chart's shape.
+            Method = "POST",
+            Path = "/v1/airspace/names",
+            Audience = Audience.Developer,
+            Request = typeof(DeclareNameRequest),
+            Response = typeof(TopologyName),
+            // 400 is a malformed or reserved name, a missing parent, or an
+            // unknown role - each refused with a diagnosis rather than stored.
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/topology",
+            Audience = Audience.Developer,
+            Response = typeof(EnvelopeTopology),
+            // Never empty and never 404: root is synthesized by the read, so
+            // the floor is in the answer before anything is declared.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // THE TENANT-LEVEL PLAN: what WOULD a flight under the current
             // envelope need, priced against the fleet the moment somebody
             // asks. Reads facts, exercises nothing.
@@ -798,6 +830,10 @@ public static class ProtocolSurface
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],
             [typeof(EnvironmentChart)] = ["environments"],
+            [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
+            [typeof(TopologyName)] =
+                ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],
+            [typeof(EnvelopeTopology)] = ["names"],
             [typeof(AdvertisedLabel)] = ["name", "disposition"],
             [typeof(ChecklistItem)] =
                 ["requirement", "verification", "satisfier", "whenUnmet", "disposition"],

@@ -76,6 +76,10 @@ public sealed class ConsoleData(
         string? reference = null, CancellationToken cancellationToken = default) =>
         _commands.PlanAsync(reference, cancellationToken);
 
+    /// <summary>`gg airspace show` - the topology, root always included.</summary>
+    public Task<VerbResult> AirspaceAsync(CancellationToken cancellationToken = default) =>
+        _commands.AirspaceAsync(cancellationToken);
+
     /// <summary>`gg runner labels` - the fleet's claims, with their dispositions.</summary>
     public Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnerLabelsAsync(cancellationToken);

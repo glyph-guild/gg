@@ -301,52 +301,112 @@ public static class AttachmentConditions
 }
 
 /// <summary>
-/// Which layer an obligation came from, highest authority first.
+/// The roles a named envelope document can play.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A RANKING, not a set, and the attribute has to say so.</b>
-/// <c>ClosedVocabularies.Lines</c> sorts a vocabulary's values before hashing
-/// unless it is declared ordered - correct for <c>LoopMoves</c>, where the order
-/// is how somebody typed a list, and wrong here, where the order IS the content.
-/// Sorted, swapping org and flight would change which layer outranks which and
-/// move no fingerprint at all. That defect was found once already on the egress
-/// levels; this is the second place it could have happened.
+/// <b>A set, deliberately NOT a ranking.</b> The predecessor vocabulary
+/// (<c>ObligationProvenances</c>) did two jobs - the list of layers and the
+/// ranking - and the ranking is what ADR-0014 recorded as wrongly reasoned:
+/// it was an artifact of replacement semantics. Once every lower-layer
+/// operation is a meet, order cannot matter, so the roles are unordered and
+/// which role may move which field is per-field data (<see cref="ComposesAttribute"/>),
+/// never list position.
 /// </para>
 /// <para>
-/// <b>Derived, never declared.</b> A document does not say which layer it is - the
-/// composer assigns it from where the document sat, and the parser refuses an
-/// obligation that tries to say. A flight-level document claiming <c>org</c> would
-/// be the governed thing describing its own authority, which is the same rule as
-/// <i>no envelope arrives from a runner</i>.
-/// </para>
-/// <para>
-/// <b>No <c>team</c>, deliberately.</b> The design has three layers and this step
-/// ships two; a value nothing can produce is a value nobody maintains, and the
-/// day a third layer arrives it is a version move, which is honest. Its absence
-/// is asserted so that day is visible.
+/// <b>Derived, never declared.</b> A document does not say which role it
+/// plays - the role comes from the topology entry of the name it was applied
+/// to, and the parser refuses an obligation that tries to say. The same rule
+/// as <i>no envelope arrives from a runner</i>, one level up.
 /// </para>
 /// </remarks>
-[VocabularyOf(VocabularyFingerprints.Contract, Ordered = true)]
-public static class ObligationProvenances
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class Roles
 {
-    /// <summary>The higher layer. A lower one may not touch what it declared.</summary>
-    public const string Org = "org";
+    /// <summary>The tenant floor. Exactly one, named root, always applies.</summary>
+    public const string Root = "root";
 
-    /// <summary>The lower layer. It may add its own and remove its own.</summary>
-    public const string Flight = "flight";
+    /// <summary>What a flight is for: the layer that supplies the sets.</summary>
+    public const string WorkKind = "work-kind";
 
-    /// <summary>Highest authority first. The order is the ranking.</summary>
-    public static IReadOnlyList<string> All { get; } = [Org, Flight];
+    /// <summary>Constraints only: obligations and narrower values, any number.</summary>
+    public const string Narrowing = "narrowing";
 
-    /// <summary>Whether the first outranks the second.</summary>
-    /// <remarks>
-    /// Read from <see cref="All"/> rather than from a comparison somebody wrote,
-    /// so the ranking has one definition and reordering the list is what changes
-    /// it - which is exactly what the fingerprint now notices.
-    /// </remarks>
-    public static bool Outranks(string layer, string other) =>
-        All.ToList().IndexOf(layer) < All.ToList().IndexOf(other);
+    public static IReadOnlyList<string> All { get; } = [Root, WorkKind, Narrowing];
+}
+
+/// <summary>
+/// How one envelope field composes across layers.
+/// </summary>
+/// <remarks>
+/// <b>Order-freedom is a property of the operators, not a claim about the
+/// code.</b> <c>intersect</c>, <c>min</c> and <c>union</c> are commutative
+/// and associative; the two <c>-only</c> members name the single role that
+/// may move a field, so there is nothing to order. Declared per field as
+/// data (<see cref="ComposesAttribute"/>) so composition is generic and a
+/// new field with no declared operator fails the build.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class MergeOperators
+{
+    /// <summary>Only root may move it; a lower layer may echo, never move.</summary>
+    public const string RootOnly = "root-only";
+
+    /// <summary>The work kind supplies it: the sets are picked, not narrowed into being.</summary>
+    public const string WorkKindOnly = "work-kind-only";
+
+    /// <summary>The meet of what every layer allows.</summary>
+    public const string Intersect = "intersect";
+
+    /// <summary>The tightest budget wins.</summary>
+    public const string Min = "min";
+
+    /// <summary>Everything every layer declared, keyed where the field says.</summary>
+    public const string Union = "union";
+
+    public static IReadOnlyList<string> All { get; } =
+        [RootOnly, WorkKindOnly, Intersect, Min, Union];
+}
+
+/// <summary>
+/// Which document an obligation came from: a role that is closed and a name
+/// that is not.
+/// </summary>
+/// <remarks>
+/// <b>"Why did this gate appear" answers with a word a person recognises.</b>
+/// Assigned by the composer from where the document sat - a document that
+/// tries to declare it is refused at parse, the rule the string provenance
+/// carried before it.
+/// </remarks>
+[PinnedId("0bc413ce-2103-40b1-8cb7-c53838a56d80")]
+public sealed record ObligationProvenance
+{
+    /// <summary>One of <see cref="Roles"/>.</summary>
+    public required string Role { get; init; }
+
+    /// <summary>The document's name in the topology.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The floor's own provenance - the default a parsed document carries.</summary>
+    public static ObligationProvenance AtRoot { get; } = new() { Role = Roles.Root, Name = Roles.Root };
+}
+
+/// <summary>
+/// Declares how a field composes across layers - the operator table, as data
+/// on the schema.
+/// </summary>
+/// <remarks>
+/// The fact-vocabulary drift-guard shape, applied to composition: the
+/// composer builds its table by reflecting over the schema, so a new field
+/// with no declared operator (and no written exemption) throws before
+/// anything composes. A table in an ADR cannot force that decision; an
+/// attribute the composer reads can.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property)]
+public sealed class ComposesAttribute(string @operator) : Attribute
+{
+    /// <summary>One of <see cref="MergeOperators"/>.</summary>
+    public string Operator { get; } = @operator;
 }
 
 /// <summary>What the flight is bound to.</summary>
@@ -354,9 +414,11 @@ public static class ObligationProvenances
 public sealed record ContextBinding
 {
     /// <summary>A glob. Load-bearing: the obligation reads it.</summary>
+    [Composes(MergeOperators.Intersect)]
     public required string Scope { get; init; }
 
     /// <summary>Which constitution governs, by version.</summary>
+    [Composes(MergeOperators.RootOnly)]
     public required string Constitution { get; init; }
 }
 
@@ -441,8 +503,8 @@ public sealed record Obligation
     /// </remarks>
     public string? When { get; init; }
 
-    /// <summary>Which layer it came from.</summary>
-    public string Provenance { get; init; } = ObligationProvenances.Org;
+    /// <summary>Which document it came from: (role, name), assigned by the composer.</summary>
+    public ObligationProvenance Provenance { get; init; } = ObligationProvenance.AtRoot;
 }
 
 /// <summary>What a loop may spend.</summary>
@@ -454,6 +516,7 @@ public sealed record Obligation
 public sealed record LoopBudget
 {
     /// <summary>A duration, as <see cref="EnvelopeDurations"/> reads it.</summary>
+    [Composes(MergeOperators.Min)]
     public required string WallClock { get; init; }
 
     /// <summary>
@@ -478,6 +541,7 @@ public sealed record LoopBudget
     /// value may not. The version this rides on is the <c>write</c> move's.
     /// </para>
     /// </remarks>
+    [Composes(MergeOperators.Min)]
     public int? Attempts { get; init; }
 }
 
@@ -488,17 +552,20 @@ public sealed record Loop
     public required string Id { get; init; }
 
     /// <summary>One of <see cref="ExecutorRungs"/>.</summary>
+    [Composes(MergeOperators.RootOnly)]
     public required string Executor { get; init; }
 
     /// <summary>Obligation ids this loop satisfies.</summary>
     public required IReadOnlyList<string> Discharges { get; init; }
 
     /// <summary>Moves from <see cref="LoopMoves"/>. Recorded, not enforced.</summary>
+    [Composes(MergeOperators.Intersect)]
     public required IReadOnlyList<string> Moves { get; init; }
 
     public required LoopBudget Budget { get; init; }
 
     /// <summary>One of <see cref="ExhaustionPolicies"/>.</summary>
+    [Composes(MergeOperators.RootOnly)]
     public required string OnExhaustion { get; init; }
 }
 
@@ -517,6 +584,7 @@ public sealed record Destination
     public required string Kind { get; init; }
 
     /// <summary>Obligation ids that must hold before anything is written here.</summary>
+    [Composes(MergeOperators.Union)]
     public required IReadOnlyList<string> Requires { get; init; }
 
     /// <summary>
@@ -577,10 +645,13 @@ public sealed record Envelope
 {
     public required ContextBinding Context { get; init; }
 
+    [Composes(MergeOperators.Union)]
     public required IReadOnlyList<Obligation> Obligations { get; init; }
 
+    [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Loop> Loops { get; init; }
 
+    [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Destination> Destinations { get; init; }
 
     /// <summary>
@@ -597,6 +668,7 @@ public sealed record Envelope
     /// the shape: membership is the control plane's question, because the
     /// control plane has the chart.
     /// </remarks>
+    [Composes(MergeOperators.RootOnly)]
     public string? Environment { get; init; }
 
     /// <summary>
@@ -610,6 +682,7 @@ public sealed record Envelope
     /// there - it never compiles to a runner label, because a runner does not
     /// advertise a repository; credentials already carry that.
     /// </remarks>
+    [Composes(MergeOperators.RootOnly)]
     public string? Repository { get; init; }
 
     /// <summary>
@@ -900,10 +973,17 @@ public sealed record Envelope
                  + "answer that removes the obligation, and nothing would be recorded.";
         }
 
-        if (Unknown(obligation.Provenance, ObligationProvenances.All) is { } provenance)
+        if (Unknown(obligation.Provenance.Role, Roles.All) is { } role)
         {
-            return $"Unknown provenance '{provenance}' on obligation '{obligation.Id}'. "
-                 + "Expected one of: " + string.Join(", ", ObligationProvenances.All) + ".";
+            return $"Unknown provenance role '{role}' on obligation '{obligation.Id}'. "
+                 + "Expected one of: " + string.Join(", ", Roles.All) + ".";
+        }
+
+        if (string.IsNullOrWhiteSpace(obligation.Provenance.Name))
+        {
+            return $"Obligation '{obligation.Id}' carries a provenance with no name. Provenance "
+                 + "answers 'why did this gate appear' with a name a person recognises, and a "
+                 + "blank answers nothing.";
         }
 
         return null;
@@ -1029,6 +1109,7 @@ public static class EnvelopeDurations
 public sealed record EnvelopeNarrowing
 {
     /// <summary>What this layer adds. Never what it changes - there is no such member.</summary>
+    [Composes(MergeOperators.Union)]
     public required IReadOnlyList<Obligation> Obligations { get; init; }
 
     /// <summary>Null when valid, or one diagnosis.</summary>

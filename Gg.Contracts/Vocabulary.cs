@@ -102,6 +102,7 @@ public static class Vocabulary
         typeof(Destination),
         typeof(Envelope),
         typeof(EnvelopeNarrowing),
+        typeof(ObligationProvenance),
         typeof(EnvelopeLayer),
         typeof(Composition),
         typeof(EnvelopeState),

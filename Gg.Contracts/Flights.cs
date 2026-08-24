@@ -119,6 +119,32 @@ public sealed record FlightLaunchRequest
 
     /// <summary>Why the flight exists.</summary>
     public required FlightIntent Intent { get; init; }
+
+    /// <summary>
+    /// What the flight is FOR - a work-kind name in the tenant's topology.
+    /// Null means implement, the kind every flight before kinds existed was.
+    /// </summary>
+    /// <remarks>
+    /// Knowable at the start, which is what reconciled declaring it with the
+    /// classification rejection: "am I researching or implementing" cannot
+    /// change mid-flight, and what the work turns out to TOUCH stays a
+    /// narrowing attached from facts (ADR-0014). A wrong kind is a mistake
+    /// and not a hole - it can only narrow root, so choosing wrong grants
+    /// nothing root withheld.
+    /// </remarks>
+    public string? WorkKind { get; init; }
+
+    /// <summary>
+    /// Where the flight runs, validated against the composed envelope's bound.
+    /// Null inherits the bound.
+    /// </summary>
+    public string? Environment { get; init; }
+
+    /// <summary>
+    /// Which repository the flight is about, validated the same way. Null
+    /// inherits.
+    /// </summary>
+    public string? Repository { get; init; }
 }
 
 /// <summary>The flight that was opened.</summary>

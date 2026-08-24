@@ -59,6 +59,12 @@ public abstract record VerbResult
     }
 
     /// <summary>The checklist: what a flight would need, and who could satisfy it.</summary>
+    /// <summary>The topology, root first - what gg airspace show renders.</summary>
+    public sealed record AirspaceTopology(EnvelopeTopology Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.AirspaceTopology;
+    }
+
     public sealed record Plan(Checklist Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Plan;
@@ -204,6 +210,7 @@ public static class VerbResultKinds
     public const string EnvelopeValidated = "envelope-validated";
 
     public const string Plan = "plan";
+    public const string AirspaceTopology = "airspace-topology";
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
@@ -236,6 +243,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(EnvelopeValidation))]
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
+[JsonSerializable(typeof(EnvelopeTopology))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -298,6 +306,8 @@ public static class VerbOutput
         VerbResult.EnvelopeValidated r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeValidation),
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
+        VerbResult.AirspaceTopology r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
@@ -341,6 +351,8 @@ public static class VerbOutput
         // invocation's hold, and a payload re-rendered somewhere else holds nothing.
         VerbResultKinds.Plan => new VerbResult.Plan(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.Checklist))),
+        VerbResultKinds.AirspaceTopology => new VerbResult.AirspaceTopology(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeTopology))),
         VerbResultKinds.RunnerLabels => new VerbResult.RunnerLabels(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Taken => new VerbResult.Taken(Require(
@@ -378,6 +390,7 @@ public static class VerbOutput
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
+        VerbResult.AirspaceTopology r => AirspaceText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
@@ -753,6 +766,38 @@ public static class VerbOutput
     /// promise. The wire carries the closed vocabulary; the sentence is this
     /// rendering's.
     /// </remarks>
+    /// <summary>
+    /// The topology as a table: name, role, parent, and who declared it.
+    /// </summary>
+    /// <remarks>
+    /// In the server's order - root first, then declaration order - because
+    /// the reading order is the authority order: everything below the floor
+    /// narrows it.
+    /// </remarks>
+    private static string AirspaceText(EnvelopeTopology topology)
+    {
+        var text = new System.Text.StringBuilder();
+
+        foreach (var name in topology.Names)
+        {
+            text.Append(name.Name).Append("  role=").Append(name.Role);
+            if (name.Parent is { Length: > 0 } parent)
+            {
+                text.Append("  under=").Append(parent);
+            }
+
+            if (name.SubjectBinding is { Length: > 0 } binding)
+            {
+                text.Append("  subject=").Append(binding);
+            }
+
+            text.Append("  declared by ").Append(name.DeclaredBy);
+            text.AppendLine();
+        }
+
+        return text.ToString();
+    }
+
     private static string PlanText(Checklist plan)
     {
         var text = new StringBuilder();

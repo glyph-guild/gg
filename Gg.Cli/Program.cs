@@ -25,6 +25,7 @@ return CliArgs.Parse(args) switch
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Plan plan => await EmitAsync(plan.Json, c => c.PlanAsync(plan.Flight)),
+    CliAction.AirspaceShow airspace => await EmitAsync(airspace.Json, c => c.AirspaceAsync()),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),

@@ -39,6 +39,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(ChartEnvironmentRequest))]
 [JsonSerializable(typeof(EnvironmentCharted))]
 [JsonSerializable(typeof(EnvironmentChart))]
+[JsonSerializable(typeof(DeclareNameRequest))]
+[JsonSerializable(typeof(TopologyName))]
+[JsonSerializable(typeof(EnvelopeTopology))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -318,6 +321,21 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.Checklist, cancellationToken);
+    }
+
+    /// <summary>The tenant's topology: every envelope name that exists, root first.</summary>
+    /// <remarks>Never null and never empty - root is synthesized by the read.</remarks>
+    public async Task<EnvelopeTopology> GetTopologyAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/topology", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeTopology, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered with no topology.");
     }
 
     /// <summary>One flight's checklist, from the envelope version it pinned, or null.</summary>

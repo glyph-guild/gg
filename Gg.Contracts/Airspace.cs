@@ -195,3 +195,65 @@ public sealed record Checklist
 
     public required IReadOnlyList<ChecklistItem> Items { get; init; }
 }
+
+/// <summary>Ask the control plane to declare an envelope name in the topology.</summary>
+/// <remarks>
+/// <para>
+/// <b>Declaring is what makes a name reachable at all</b> - an envelope
+/// applied to an undeclared name is refused pointing here, which only works
+/// because the door ships in the same release as the refusal. v0 declaring
+/// is unrestricted and logged, the chart's shape; who MAY declare stays an
+/// open question elsewhere.
+/// </para>
+/// <para>
+/// <b><c>root</c> is refused, deliberately.</b> The floor exists for every
+/// tenant without being declared - never a row, never a pointer - so a
+/// request naming it is answered with why, not stored.
+/// </para>
+/// </remarks>
+[PinnedId("4e9b0ebc-856e-48a8-9ab0-56c1400d34d2")]
+public sealed record DeclareNameRequest
+{
+    /// <summary>The name envelopes may then be applied to, e.g. payments.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>What the name plays: work-kind or narrowing. Root cannot be claimed.</summary>
+    public required string Role { get; init; }
+
+    /// <summary>The name this one sits under. Root for a work kind.</summary>
+    public required string Parent { get; init; }
+
+    /// <summary>What the name governs, when it binds to something concrete.</summary>
+    public string? SubjectBinding { get; init; }
+}
+
+/// <summary>One envelope name in the topology, and who put it there.</summary>
+[PinnedId("5545ad96-a502-461f-8192-8d82b0ce70a6")]
+public sealed record TopologyName
+{
+    public required string Name { get; init; }
+
+    public required string Role { get; init; }
+
+    /// <summary>Null only for root, which sits under nothing.</summary>
+    public string? Parent { get; init; }
+
+    public string? SubjectBinding { get; init; }
+
+    /// <summary>Who declared it - a display a person can read, not an id.</summary>
+    public required string DeclaredBy { get; init; }
+
+    public required DateTimeOffset DeclaredAt { get; init; }
+}
+
+/// <summary>The tenant's topology: every envelope name that exists, root first.</summary>
+/// <remarks>
+/// Root is always present and never declared - it is synthesized by the
+/// read, so a topology with no entries still has a floor. An envelope rather
+/// than a bare array, the <see cref="EnvironmentChart"/> reason.
+/// </remarks>
+[PinnedId("1d62c2e1-ba48-4960-88e5-392ef6ab91ef")]
+public sealed record EnvelopeTopology
+{
+    public required IReadOnlyList<TopologyName> Names { get; init; }
+}

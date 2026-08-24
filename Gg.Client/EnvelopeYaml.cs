@@ -24,6 +24,26 @@ public sealed record EnvelopeParse
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
+
+/// <summary>What reading a narrowing produced.</summary>
+/// <remarks>
+/// A separate result for a separate door. The role is chosen by the caller -
+/// there is no <c>kind:</c> discriminator, because a document that could name
+/// its own role is the governed thing describing its own authority, the same
+/// rule as <c>layer:</c> and <c>provenance:</c>.
+/// </remarks>
+public sealed record EnvelopeNarrowingParse
+{
+    /// <summary>The narrowing, or null when there is a diagnosis.</summary>
+    public EnvelopeNarrowing? Narrowing { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+
+    /// <summary>Facts about what the round trip did. Comments are the only one today.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
+}
+
 /// <summary>
 /// Envelope YAML to model. The only YAML parser in the product.
 /// </summary>
@@ -101,6 +121,59 @@ public static class EnvelopeYaml
         }
 
         return new EnvelopeParse { Envelope = envelope, Notes = Notes(text) };
+    }
+
+
+    /// <summary>Reads narrowing text, or says what is wrong with it.</summary>
+    /// <remarks>
+    /// The same reader, the same obligation mapping, a root closed to exactly
+    /// one key - so <c>loops:</c>, <c>destinations:</c>, <c>context:</c> and a
+    /// selection are refused by name rather than parsed and silently dropped
+    /// by composition, which is the silent-no-op class this slice deletes.
+    /// </remarks>
+    public static EnvelopeNarrowingParse ParseNarrowing(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new EnvelopeNarrowingParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new EnvelopeNarrowingParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        EnvelopeNarrowing narrowing;
+        try
+        {
+            var root = RequireMap(document, "");
+            Closed(root, "obligations");
+            narrowing = new EnvelopeNarrowing
+            {
+                Obligations = [.. Named(root, "obligations").Select(MapObligation)],
+            };
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new EnvelopeNarrowingParse { Diagnosis = refusal.Message };
+        }
+
+        if (EnvelopeNarrowing.Validate(narrowing) is { } invalid)
+        {
+            return new EnvelopeNarrowingParse { Diagnosis = invalid };
+        }
+
+        return new EnvelopeNarrowingParse { Narrowing = narrowing, Notes = Notes(text) };
     }
 
     /// <summary>A refusal that already knows how to explain itself.</summary>
@@ -331,7 +404,7 @@ public static class EnvelopeYaml
         Closed(entry.Body, "executor", "discharges", "moves", "budget", "on-exhaustion");
 
         var budget = RequireMap(Require(entry.Body, "budget"), $"{entry.Body.Path}.budget");
-        Closed(budget, "wall-clock");
+        Closed(budget, "wall-clock", "attempts");
 
         return new Loop
         {
@@ -342,6 +415,13 @@ public static class EnvelopeYaml
             Budget = new LoopBudget
             {
                 WallClock = RequireScalar(Require(budget, "wall-clock"), $"{budget.Path}.wall-clock"),
+                // ABSENT STAYS ABSENT - null is unbounded, and a number nobody
+                // chose would be a termination condition nobody agreed to. This
+                // key parsed nowhere while the wire accepted it, which is the
+                // evidence: defect through the other door; fixed together.
+                Attempts = budget.Entries.TryGetValue("attempts", out var attempts)
+                    ? WholeNumber(attempts, $"{budget.Path}.attempts")
+                    : null,
             },
             OnExhaustion = RequireScalar(
                 Require(entry.Body, "on-exhaustion"), $"{entry.Body.Path}.on-exhaustion"),
@@ -358,6 +438,23 @@ public static class EnvelopeYaml
     /// parser opened the file. So this is `true` or `false` and anything else is a
     /// diagnosis - which matters most in the direction that grants something.
     /// </remarks>
+    /// <summary>A positive whole number, or a refusal naming what was there.</summary>
+    /// <remarks>
+    /// Digits only, no YAML dialect coercion - the same rule as
+    /// <see cref="Flag"/>, on the member that bounds how many times work may
+    /// re-run.
+    /// </remarks>
+    private static int WholeNumber(Node node, string path)
+    {
+        var value = RequireScalar(node, path);
+
+        return int.TryParse(value, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed > 0
+            ? parsed
+            : throw new EnvelopeSyntaxException(
+                $"{path} is '{value}', and this reads only a positive whole number of runs.");
+    }
+
     private static bool Flag(Node node, string path) =>
         RequireScalar(node, path) switch
         {

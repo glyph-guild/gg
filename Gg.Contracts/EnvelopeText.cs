@@ -107,45 +107,7 @@ public static class EnvelopeText
         // that two lines were swapped.
         foreach (var obligation in envelope.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal))
         {
-            text.Append($"{Indent}{Scalar(obligation.Id)}:\n");
-            text.Append($"{Indent}{Indent}check: {Scalar(obligation.Check)}\n");
-
-            // Before the rule, because it reads as a sentence in that order:
-            // WHEN this is true, the rule applies. Emitted only when there is
-            // one, so an always-attaching obligation does not carry a line
-            // saying so - and an absent line means always, which is the only
-            // thing it is allowed to mean.
-            if (obligation.When is { Length: > 0 } condition)
-            {
-                text.Append($"{Indent}{Indent}when: {Scalar(condition)}\n");
-            }
-
-            // Emitted only when there is one. A human check has no rule, and
-            // `rule: ""` would be a predicate that exists and says nothing -
-            // which the parser would then have to refuse on the way back in.
-            if (obligation.Rule is { Length: > 0 } rule)
-            {
-                text.Append($"{Indent}{Indent}rule: {Scalar(rule)}\n");
-            }
-
-            // The approver, for a human check, after the rule slot it replaces.
-            if (obligation.Approver is { Length: > 0 } approver)
-            {
-                text.Append($"{Indent}{Indent}approver: {Scalar(approver)}\n");
-            }
-            // THE AUTHORED FORM CARRIES NO PROVENANCE, because an author does not
-            // write it - the composer assigns it from where the document sat, and
-            // the parser refuses a document that tries to say. Rendering it here
-            // would emit a line that cannot be read back, which is a round trip
-            // that fails on its own output.
-            //
-            // RenderComposed is where it appears, and that render is a REPORT
-            // rather than a document: it answers "what governs this flight and
-            // which layer said so", and it is deliberately not authorable.
-            if (withLayers)
-            {
-                text.Append($"{Indent}{Indent}# layer: {obligation.Provenance}\n");
-            }
+            ObligationBlock(text, obligation, withLayers);
         }
 
         text.Append("loops:\n");
@@ -157,6 +119,14 @@ public static class EnvelopeText
             Sequence(text, "moves", loop.Moves, depth: 2);
             text.Append($"{Indent}{Indent}budget:\n");
             text.Append($"{Indent}{Indent}{Indent}wall-clock: {Scalar(loop.Budget.WallClock)}\n");
+            // The other member this emitter dropped: stored via the wire,
+            // invisible in show, and refused by the parser on the way back in.
+            // Written only when declared, digits only - null is unbounded and
+            // stays unwritten.
+            if (loop.Budget.Attempts is { } attempts)
+            {
+                text.Append($"{Indent}{Indent}{Indent}attempts: {attempts.ToString(System.Globalization.CultureInfo.InvariantCulture)}\n");
+            }
             text.Append($"{Indent}{Indent}on-exhaustion: {Scalar(loop.OnExhaustion)}\n");
         }
 
@@ -176,6 +146,100 @@ public static class EnvelopeText
                     $"{Indent}{Indent}preserve-unadmitted: {(preserve ? "true" : "false")}\n");
             }
 
+        }
+
+        return text.ToString();
+    }
+
+
+    /// <summary>
+    /// One obligation's block, shared by every render path.
+    /// </summary>
+    /// <remarks>
+    /// EXTRACTED, NOT COPIED, when the narrowing arrived: two emitters with
+    /// two obligation blocks would disagree about the canonical form the day
+    /// one of them gained a member - which is how <c>evidence:</c> vanished
+    /// from the first one.
+    /// </remarks>
+    private static void ObligationBlock(StringBuilder text, Obligation obligation, bool withLayers)
+    {
+        text.Append($"{Indent}{Scalar(obligation.Id)}:\n");
+        text.Append($"{Indent}{Indent}check: {Scalar(obligation.Check)}\n");
+
+        // Before the rule, because it reads as a sentence in that order:
+        // WHEN this is true, the rule applies. Emitted only when there is
+        // one, so an always-attaching obligation does not carry a line
+        // saying so - and an absent line means always, which is the only
+        // thing it is allowed to mean.
+        if (obligation.When is { Length: > 0 } condition)
+        {
+            text.Append($"{Indent}{Indent}when: {Scalar(condition)}\n");
+        }
+
+        // Emitted only when there is one. A human check has no rule, and
+        // `rule: ""` would be a predicate that exists and says nothing -
+        // which the parser would then have to refuse on the way back in.
+        if (obligation.Rule is { Length: > 0 } rule)
+        {
+            text.Append($"{Indent}{Indent}rule: {Scalar(rule)}\n");
+        }
+
+        // The approver, for a human check, after the rule slot it replaces.
+        if (obligation.Approver is { Length: > 0 } approver)
+        {
+            text.Append($"{Indent}{Indent}approver: {Scalar(approver)}\n");
+        }
+
+        // WHAT THE GATE NEEDS, last, as the sentence's coda: when this holds,
+        // this rule or this person answers, given this evidence. Last is also
+        // what keeps every evidence-less document's bytes exactly where they
+        // were - absent stays absent, the preserve-unadmitted rule. This
+        // member was authorable and load-bearing for three contract versions
+        // while this emitter never wrote it, and show -> edit -> apply
+        // silently removed a gate's evidence requirement (slice nine, step 0,
+        // fired live). A member is decided here or it is not authorable.
+        if (obligation.Evidence.Count > 0)
+        {
+            Sequence(text, "evidence", obligation.Evidence, depth: 2);
+        }
+
+        // THE AUTHORED FORM CARRIES NO PROVENANCE, because an author does not
+        // write it - the composer assigns it from where the document sat, and
+        // the parser refuses a document that tries to say. Rendering it here
+        // would emit a line that cannot be read back, which is a round trip
+        // that fails on its own output.
+        //
+        // RenderComposed is where it appears, and that render is a REPORT
+        // rather than a document: it answers "what governs this flight and
+        // which layer said so", and it is deliberately not authorable.
+        if (withLayers)
+        {
+            text.Append($"{Indent}{Indent}# layer: {obligation.Provenance}\n");
+        }
+    }
+
+
+    /// <summary>
+    /// The narrowing's canonical text: its obligations, and nothing else to
+    /// write.
+    /// </summary>
+    /// <remarks>
+    /// The second render path, forked by ROLE and sharing the obligation
+    /// block - both carry the model-preservation round trip from their first
+    /// commit, because one emitter with an unproven round trip already
+    /// stripped a governance declaration and two would be that defect
+    /// squared.
+    /// </remarks>
+    public static string Render(EnvelopeNarrowing narrowing)
+    {
+        ArgumentNullException.ThrowIfNull(narrowing);
+
+        var text = new StringBuilder();
+
+        text.Append("obligations:\n");
+        foreach (var obligation in narrowing.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal))
+        {
+            ObligationBlock(text, obligation, withLayers: false);
         }
 
         return text.ToString();

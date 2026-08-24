@@ -101,6 +101,7 @@ public static class Vocabulary
         typeof(Loop),
         typeof(Destination),
         typeof(Envelope),
+        typeof(EnvelopeNarrowing),
         typeof(EnvelopeLayer),
         typeof(Composition),
         typeof(EnvelopeState),

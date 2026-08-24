@@ -529,7 +529,21 @@ public sealed class RunnerLoop(
         // for a new reason now - the manifest is extracted AFTER the agent has
         // worked, so what ships is a measurement of the agent's own edits
         // rather than of the tree it was handed.
-        var run = await InvokeAsync(lease, workspace, cancellationToken);
+        //
+        // RENEWED WHILE IT WORKS, because the work is the one time the lease
+        // actually needs to stay alive. A lease lasts sixty seconds and the
+        // agent may hold this await for minutes; renewing only while HOLDING
+        // - which is what this loop did - meant the first real flight's facts
+        // were refused as fenced, and the unhandled refusal killed the
+        // process. A fence answered mid-work means the flight is somebody
+        // else's now: the work is cancelled, nothing ships, and the loop goes
+        // back to claiming.
+        var (run, lost) = await InvokeRenewingAsync(lease, workspace, cancellationToken);
+        if (lost)
+        {
+            _observer.Fenced(lease.LeaseId);
+            return;
+        }
 
         // THE TREE IS HELD ACROSS THIS ROUND TRIP, and that is new. Until this
         // step the tree died as soon as facts were shipped; the landing
@@ -548,6 +562,74 @@ public sealed class RunnerLoop(
         await LandAsync(lease, workspace, decision, secretsByLocator, cancellationToken);
 
         await HoldAsync(runnerId, labels, lease, cancellationToken);
+    }
+
+    /// <summary>
+    /// The loop's invocation with the lease kept alive under it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Renewal is decided against the control plane's expiry, the same rule
+    /// as <see cref="HoldAsync"/> - and an expiry the control plane has put
+    /// effectively out of reach means there is nothing left to keep alive, so
+    /// the keeper stands down rather than spinning toward it.
+    /// </para>
+    /// <para>
+    /// Returns <c>lost: true</c> when a renewal was fenced: the agent's token
+    /// is cancelled, its cancellation is absorbed here, and the caller ships
+    /// nothing - a fact batch on a dead generation is a refusal, and it was
+    /// an unhandled one once.
+    /// </para>
+    /// </remarks>
+    private async Task<(ExecutorRun? Run, bool Lost)> InvokeRenewingAsync(
+        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+    {
+        using var working = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        var work = InvokeAsync(lease, workspace, working.Token);
+        var expiresAt = lease.ExpiresAt;
+        var fenced = false;
+
+        while (!work.IsCompleted)
+        {
+            if (expiresAt - _clock.UtcNow > TimeSpan.FromDays(1))
+            {
+                break;
+            }
+
+            var renewAt = expiresAt - TimeSpan.FromSeconds(lease.RenewWithinSeconds);
+            if (_clock.UtcNow >= renewAt)
+            {
+                switch (await _protocol.RenewAsync(lease.LeaseId, lease.Generation, cancellationToken))
+                {
+                    case RenewResult.Renewed renewed:
+                        expiresAt = renewed.ExpiresAt;
+                        _observer.Renewed(lease.LeaseId, expiresAt);
+                        continue;
+
+                    case RenewResult.Fenced:
+                        fenced = true;
+                        await working.CancelAsync();
+                        break;
+                }
+
+                break;
+            }
+
+            // Wake at the renew window or when the work ends, whichever is
+            // first. The delay is the injected one, so a test's clock moves
+            // and a real one waits.
+            await Task.WhenAny(work, _delay(renewAt - _clock.UtcNow, working.Token));
+        }
+
+        try
+        {
+            return (await work, false);
+        }
+        catch (OperationCanceledException) when (fenced && !cancellationToken.IsCancellationRequested)
+        {
+            return (null, true);
+        }
     }
 
     /// <summary>

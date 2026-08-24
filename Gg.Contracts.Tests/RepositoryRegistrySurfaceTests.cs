@@ -33,6 +33,7 @@ public class RepositoryRegistrySurfaceTests
             Provider = "forge.example",
             Id = "F_a1b2c3d4",
             Path = "acme/payments-service",
+            Credential = RepositoryCredentialModes.Required,
             RegisteredBy = "kevin",
             RegisteredAt = DateTimeOffset.UnixEpoch,
         };
@@ -57,9 +58,9 @@ public class RepositoryRegistrySurfaceTests
                    + "route under it would be an unaudited way to widen what envelopes reach.");
 
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisterRepositoryRequest)])
-            .IsEquivalentTo((string[])["name", "provider", "id", "path"]);
+            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RepositoryRegistered)])
-            .IsEquivalentTo((string[])["name", "provider", "id", "path", "registeredBy", "registeredAt"]);
+            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential", "registeredBy", "registeredAt"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisteredRepositories)])
             .IsEquivalentTo((string[])["repositories"]);
     }

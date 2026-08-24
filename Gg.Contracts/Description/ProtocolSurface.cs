@@ -860,9 +860,9 @@ public static class ProtocolSurface
             [typeof(TopologyName)] =
                 ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],
             [typeof(EnvelopeTopology)] = ["names"],
-            [typeof(RegisterRepositoryRequest)] = ["name", "provider", "id", "path"],
+            [typeof(RegisterRepositoryRequest)] = ["name", "provider", "id", "path", "credential"],
             [typeof(RepositoryRegistered)] =
-                ["name", "provider", "id", "path", "registeredBy", "registeredAt"],
+                ["name", "provider", "id", "path", "credential", "registeredBy", "registeredAt"],
             [typeof(RegisteredRepositories)] = ["repositories"],
             [typeof(AdvertisedLabel)] = ["name", "disposition"],
             [typeof(ChecklistItem)] =

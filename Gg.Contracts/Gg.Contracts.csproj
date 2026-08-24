@@ -14,7 +14,7 @@
          Pre-1.0: any wire change is a minor bump, and there is no compatibility
          promise. GgVersions.Protocol is a different number and moves only when
          the protocol itself becomes incompatible. -->
-    <Version>0.48.0</Version>
+    <Version>0.49.0</Version>
 
     <!-- AssemblyVersion is NOT pinned any more, and that is the point.
 

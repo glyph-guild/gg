@@ -1,5 +1,7 @@
 namespace Gg.Contracts.Tests;
 
+using Gg.Contracts.Description;
+
 /// <summary>
 /// Flight creation declares what the flight is FOR, and where it will run.
 /// </summary>

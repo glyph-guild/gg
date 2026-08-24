@@ -656,103 +656,9 @@ public sealed record Envelope
 
         foreach (var obligation in envelope.Obligations)
         {
-            if (string.IsNullOrWhiteSpace(obligation.Id))
+            if (ValidateObligation(obligation) is { } refused)
             {
-                return "An obligation must be named: the loop that discharges it refers to it by id.";
-            }
-
-            if (Unknown(obligation.Check, ObligationChecks.All) is { } check)
-            {
-                return $"Unknown check '{check}' on obligation '{obligation.Id}'. Expected one of: "
-                     + string.Join(", ", ObligationChecks.All) + ".";
-            }
-
-            // THE TWO ROUTES, each closed. Which fields an obligation carries is
-            // determined by its check, and one carrying the other route's fields is
-            // refused rather than half-interpreted.
-            if (string.Equals(obligation.Check, ObligationChecks.Human, StringComparison.Ordinal))
-            {
-                if (obligation.Approver is not { Length: > 0 }
-                    || obligation.Approver.All(char.IsWhiteSpace))
-                {
-                    return $"Obligation '{obligation.Id}' is checked by a human and names no "
-                         + "approver. A gate nobody was named to answer is a flight that waits "
-                         + "forever - and it would wait looking exactly like a flight that is "
-                         + "still working.";
-                }
-
-                if (obligation.Rule is not null)
-                {
-                    return $"Obligation '{obligation.Id}' is checked by a human and also carries "
-                         + $"rule '{obligation.Rule}'. That is two answers to one question, and "
-                         + "the Engine would have to choose which one counts.";
-                }
-            }
-            else
-            {
-                if (obligation.Rule is null)
-                {
-                    return $"Obligation '{obligation.Id}' is checked by a machine and names no "
-                         + "rule. An obligation nothing can evaluate reports satisfied by never "
-                         + "running, which is worse than no obligation at all.";
-                }
-
-                if (obligation.Approver is not null)
-                {
-                    return $"Obligation '{obligation.Id}' is checked by a machine and names "
-                         + $"approver '{obligation.Approver}'. Nobody will ever be asked, so the "
-                         + "field records a person as responsible for something that will not "
-                         + "reach them - and somebody would read it as a gate.";
-                }
-
-                if (Unknown(obligation.Rule, ObligationPredicates.All) is { } rule)
-                {
-                    // Article XI, at the earliest point it can be caught. A rule
-                    // nothing can evaluate must never become an obligation that
-                    // reports satisfied by never running.
-                    return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one "
-                         + "of: " + string.Join(", ", ObligationPredicates.All) + ".";
-                }
-            }
-
-            if (obligation.When is { } condition && !AttachmentConditions.IsKnown(condition))
-            {
-                // Article XI at the earliest point it can be caught, on the field
-                // where getting it wrong is invisible: an unrecognised condition
-                // must never be read as false, because false is the answer that
-                // makes the obligation vanish without a trace.
-                // Naming the key as well as the value: a diagnosis quoting only
-                // the condition sends somebody looking for it without saying
-                // which line of the obligation it came from.
-                // NAMED SPECIFICALLY, because this one is not a typo. It is THE
-                // canonical gate trigger in the design documents, so somebody will
-                // type it, and a generic "not understood" would read as a version
-                // that has not got round to it yet - which is how an ordering
-                // escape hatch ships as unsupported-but-authorable.
-                if (condition.StartsWith("obligations.", StringComparison.Ordinal))
-                {
-                    return $"'{condition}' cites a VERDICT, at obligations.{obligation.Id}.when, "
-                         + "and this version refuses it rather than leaving it authorable. It "
-                         + "makes one obligation's attachment depend on another's outcome, which "
-                         + "turns evaluation into a fixed point and reintroduces the ordering "
-                         + "dependence the Engine proved absent. The open question it needs an "
-                         + "answer to is whether an attribution may cite a verdict: the line is "
-                         + "not how many things evaluation may read, it is that none of them may "
-                         + "be something evaluation produced. Until that is decided, express the "
-                         + "rule as a condition over facts.";
-                }
-
-                return $"'{condition}' is not a condition this version understands, at "
-                     + $"obligations.{obligation.Id}.when. Expected one of: "
-                     + string.Join(", ", AttachmentConditions.Forms)
-                     + ". A condition nothing recognises cannot be treated as false - false is the "
-                     + "answer that removes the obligation, and nothing would be recorded.";
-            }
-
-            if (Unknown(obligation.Provenance, ObligationProvenances.All) is { } provenance)
-            {
-                return $"Unknown provenance '{provenance}' on obligation '{obligation.Id}'. "
-                     + "Expected one of: " + string.Join(", ", ObligationProvenances.All) + ".";
+                return refused;
             }
         }
 
@@ -890,6 +796,119 @@ public sealed record Envelope
     /// a second loop or a second destination.
     /// </para>
     /// </remarks>
+
+    /// <summary>One obligation's rules, or why it is refused.</summary>
+    /// <remarks>
+    /// SHARED with <see cref="EnvelopeNarrowing.Validate"/>, extracted rather
+    /// than copied, so the full envelope and the narrowing cannot drift about
+    /// what a well-formed obligation is. Everything here is per-obligation on
+    /// purpose: the cross-references (a loop discharging an obligation) stay
+    /// with the document that has loops.
+    /// </remarks>
+    internal static string? ValidateObligation(Obligation obligation)
+    {
+        if (string.IsNullOrWhiteSpace(obligation.Id))
+        {
+            return "An obligation must be named: the loop that discharges it refers to it by id.";
+        }
+
+        if (Unknown(obligation.Check, ObligationChecks.All) is { } check)
+        {
+            return $"Unknown check '{check}' on obligation '{obligation.Id}'. Expected one of: "
+                 + string.Join(", ", ObligationChecks.All) + ".";
+        }
+
+        // THE TWO ROUTES, each closed. Which fields an obligation carries is
+        // determined by its check, and one carrying the other route's fields is
+        // refused rather than half-interpreted.
+        if (string.Equals(obligation.Check, ObligationChecks.Human, StringComparison.Ordinal))
+        {
+            if (obligation.Approver is not { Length: > 0 }
+                || obligation.Approver.All(char.IsWhiteSpace))
+            {
+                return $"Obligation '{obligation.Id}' is checked by a human and names no "
+                     + "approver. A gate nobody was named to answer is a flight that waits "
+                     + "forever - and it would wait looking exactly like a flight that is "
+                     + "still working.";
+            }
+
+            if (obligation.Rule is not null)
+            {
+                return $"Obligation '{obligation.Id}' is checked by a human and also carries "
+                     + $"rule '{obligation.Rule}'. That is two answers to one question, and "
+                     + "the Engine would have to choose which one counts.";
+            }
+        }
+        else
+        {
+            if (obligation.Rule is null)
+            {
+                return $"Obligation '{obligation.Id}' is checked by a machine and names no "
+                     + "rule. An obligation nothing can evaluate reports satisfied by never "
+                     + "running, which is worse than no obligation at all.";
+            }
+
+            if (obligation.Approver is not null)
+            {
+                return $"Obligation '{obligation.Id}' is checked by a machine and names "
+                     + $"approver '{obligation.Approver}'. Nobody will ever be asked, so the "
+                     + "field records a person as responsible for something that will not "
+                     + "reach them - and somebody would read it as a gate.";
+            }
+
+            if (Unknown(obligation.Rule, ObligationPredicates.All) is { } rule)
+            {
+                // Article XI, at the earliest point it can be caught. A rule
+                // nothing can evaluate must never become an obligation that
+                // reports satisfied by never running.
+                return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one "
+                     + "of: " + string.Join(", ", ObligationPredicates.All) + ".";
+            }
+        }
+
+        if (obligation.When is { } condition && !AttachmentConditions.IsKnown(condition))
+        {
+            // Article XI at the earliest point it can be caught, on the field
+            // where getting it wrong is invisible: an unrecognised condition
+            // must never be read as false, because false is the answer that
+            // makes the obligation vanish without a trace.
+            // Naming the key as well as the value: a diagnosis quoting only
+            // the condition sends somebody looking for it without saying
+            // which line of the obligation it came from.
+            // NAMED SPECIFICALLY, because this one is not a typo. It is THE
+            // canonical gate trigger in the design documents, so somebody will
+            // type it, and a generic "not understood" would read as a version
+            // that has not got round to it yet - which is how an ordering
+            // escape hatch ships as unsupported-but-authorable.
+            if (condition.StartsWith("obligations.", StringComparison.Ordinal))
+            {
+                return $"'{condition}' cites a VERDICT, at obligations.{obligation.Id}.when, "
+                     + "and this version refuses it rather than leaving it authorable. It "
+                     + "makes one obligation's attachment depend on another's outcome, which "
+                     + "turns evaluation into a fixed point and reintroduces the ordering "
+                     + "dependence the Engine proved absent. The open question it needs an "
+                     + "answer to is whether an attribution may cite a verdict: the line is "
+                     + "not how many things evaluation may read, it is that none of them may "
+                     + "be something evaluation produced. Until that is decided, express the "
+                     + "rule as a condition over facts.";
+            }
+
+            return $"'{condition}' is not a condition this version understands, at "
+                 + $"obligations.{obligation.Id}.when. Expected one of: "
+                 + string.Join(", ", AttachmentConditions.Forms)
+                 + ". A condition nothing recognises cannot be treated as false - false is the "
+                 + "answer that removes the obligation, and nothing would be recorded.";
+        }
+
+        if (Unknown(obligation.Provenance, ObligationProvenances.All) is { } provenance)
+        {
+            return $"Unknown provenance '{provenance}' on obligation '{obligation.Id}'. "
+                 + "Expected one of: " + string.Join(", ", ObligationProvenances.All) + ".";
+        }
+
+        return null;
+    }
+
     private static string? Cardinality(Envelope envelope) =>
         envelope.Obligations.Count < 1
             ? "An envelope carries at least one obligation, and this one has none. An envelope "
@@ -974,5 +993,69 @@ public static class EnvelopeDurations
         };
 
         return duration != default || value == 0;
+    }
+}
+
+/// <summary>
+/// A narrowing: the role-shaped document for layers that may only add
+/// obligations.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One member, and the absence of the others is the design.</b> The
+/// operator table says a narrowing may not move the context, the loops, the
+/// destinations or a selection - and the strongest form of that table is one
+/// a document cannot express, rather than one it gets told off for
+/// expressing. There is no <c>Validate</c> refusal for a loop set here
+/// because there is no loop set here.
+/// </para>
+/// <para>
+/// <b>No role discriminator, no parent, deliberately.</b> Which role a
+/// document plays comes from which door it was handed to - the same rule as
+/// <c>layer:</c> and <c>provenance:</c> - and its place in the topology is
+/// the topology's to say. A parent reference is a free member addition the
+/// day narrowings-by-name land; carrying one now would be a claim nothing
+/// verifies.
+/// </para>
+/// <para>
+/// <b>Nothing constructs it in production yet.</b> Narrowings by name are
+/// the slice's pre-committed cut; until they land this type is kept live by
+/// the vocabulary and surface fingerprints and by the round-trip suites,
+/// and the 0.44.0 ledger note says so rather than letting the type read as
+/// served.
+/// </para>
+/// </remarks>
+[PinnedId("61032bda-f8f9-4216-a1b3-6e7ad55841f5")]
+public sealed record EnvelopeNarrowing
+{
+    /// <summary>What this layer adds. Never what it changes - there is no such member.</summary>
+    public required IReadOnlyList<Obligation> Obligations { get; init; }
+
+    /// <summary>Null when valid, or one diagnosis.</summary>
+    /// <remarks>
+    /// The per-obligation rules are <see cref="Envelope.ValidateObligation"/>,
+    /// shared rather than copied, so the two documents cannot disagree about
+    /// what a well-formed obligation is.
+    /// </remarks>
+    public static string? Validate(EnvelopeNarrowing narrowing)
+    {
+        ArgumentNullException.ThrowIfNull(narrowing);
+
+        if (narrowing.Obligations.Count == 0)
+        {
+            return "A narrowing declares at least one obligation. One that narrows nothing is "
+                 + "a document with no reason to exist, and every version it minted would "
+                 + "govern nothing.";
+        }
+
+        foreach (var obligation in narrowing.Obligations)
+        {
+            if (Envelope.ValidateObligation(obligation) is { } refused)
+            {
+                return refused;
+            }
+        }
+
+        return null;
     }
 }

@@ -140,7 +140,7 @@ public class EnvelopeModelRoundTripTests
         var destination = back.Destinations.Single();
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.PullRequest);
         await Assert.That(destination.Requires).IsEquivalentTo(original.Destinations[0].Requires);
-        await Assert.That(destination.PreserveUnadmitted).IsEqualTo(true);
+        await Assert.That(destination.PreserveUnadmitted!.Value).IsTrue();
     }
 
     [Test]

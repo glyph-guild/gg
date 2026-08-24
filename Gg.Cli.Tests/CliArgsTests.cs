@@ -104,6 +104,8 @@ public class CliArgsTests
     public async Task FlightsListsThem()
     {
         await Assert.That(CliArgs.Parse(["flights"])).IsTypeOf<CliAction.Flights>();
+        await Assert.That(CliArgs.Parse(["plan"])).IsTypeOf<CliAction.Plan>();
+        await Assert.That(CliArgs.Parse(["runner", "labels"])).IsTypeOf<CliAction.RunnerLabels>();
     }
 
     // ---- --json, on every verb that produces a result ----

@@ -125,8 +125,19 @@ public class EndpointSurfaceTests
         // shape somebody will build against. It was reachable only through a client
         // method nothing in the product called, because nothing in the product ever
         // took a flight over.
+        //
+        // Moved for slice eight: four reads arrive and a prefix closes. POST and
+        // GET /v1/environments are the chart - what an envelope may select, and
+        // the registry the "uncharted" apply refusal points people at - and
+        // /v1/environments joins GovernedPrefixes because the chart decides what
+        // every envelope may say, so an undeclared route under it would be an
+        // unaudited way to widen every envelope (the /v1/credentials argument).
+        // GET /v1/envelope/plan renders the tenant-level checklist against the
+        // live fleet; GET /v1/flights/{ref}/checklist renders the one this flight
+        // compiled at creation. All Developer: a runner is matched on labels, it
+        // never reads the chart or prices an envelope.
         await Assert.That(Fingerprint())
-            .IsEqualTo("5d6668990c921da2679b7306d344bdb012f7ebd35ef8b81c084e4b376406dc39")
+            .IsEqualTo("e38aaa9d608e8deb537b7c9f5c1dd4af4610cb1b72e64fc3249110351e88971b")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

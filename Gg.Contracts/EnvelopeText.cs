@@ -79,6 +79,21 @@ public static class EnvelopeText
         text.Append($"{Indent}scope: {Scalar(envelope.Context.Scope)}\n");
         text.Append($"{Indent}constitution: {Scalar(envelope.Context.Constitution)}\n");
 
+        // THE SELECTIONS, after the binding they sit beside and only when
+        // declared. Emitting `environment:` for an envelope that never
+        // selected one would rewrite every tenant's document on the next
+        // show, and a diff nobody made is how a review practice gets
+        // abandoned - the preserve-unadmitted rule, applied at the root.
+        if (envelope.Environment is { Length: > 0 } environment)
+        {
+            text.Append($"environment: {Scalar(environment)}\n");
+        }
+
+        if (envelope.Repository is { Length: > 0 } repository)
+        {
+            text.Append($"repository: {Scalar(repository)}\n");
+        }
+
         text.Append("obligations:\n");
 
         // BY ID, ORDINAL, AND SAID SO. The emitter used to iterate the collection

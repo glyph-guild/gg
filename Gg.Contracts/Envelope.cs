@@ -584,6 +584,35 @@ public sealed record Envelope
     public required IReadOnlyList<Destination> Destinations { get; init; }
 
     /// <summary>
+    /// The environment this envelope's flights are about: a charted name, or
+    /// null when unselected.
+    /// </summary>
+    /// <remarks>
+    /// <b>A selection, not a bound.</b> Every other field composes across
+    /// layers through a merge operator; this one gets none, deliberately. Two
+    /// layers naming different environments is not an empty intersection - it
+    /// is a mistake, and the composer refuses it rather than merging it. A
+    /// selection is declared once, validated for MEMBERSHIP at apply against
+    /// the tenant's chart, and never merged. What Validate owns here is only
+    /// the shape: membership is the control plane's question, because the
+    /// control plane has the chart.
+    /// </remarks>
+    public string? Environment { get; init; }
+
+    /// <summary>
+    /// The repository this envelope's flights are about: a slug, or null when
+    /// unconstrained.
+    /// </summary>
+    /// <remarks>
+    /// The same selection shape as <see cref="Environment"/>, resolved
+    /// differently: a repository was always a subject declared at flight
+    /// creation, so this selection is validated against the flight's intent
+    /// there - it never compiles to a runner label, because a runner does not
+    /// advertise a repository; credentials already carry that.
+    /// </remarks>
+    public string? Repository { get; init; }
+
+    /// <summary>
     /// The diagnosis, or null when there is nothing wrong.
     /// </summary>
     /// <remarks>
@@ -611,6 +640,16 @@ public sealed record Envelope
         {
             return "context.constitution is empty. A flight that cannot say which constitution "
                  + "governed it is one nobody can act on later.";
+        }
+
+        if (Selection(envelope.Environment, "environment") is { } environment)
+        {
+            return environment;
+        }
+
+        if (Selection(envelope.Repository, "repository") is { } repository)
+        {
+            return repository;
         }
 
         var obligationIds = envelope.Obligations.Select(o => o.Id).ToList();
@@ -864,6 +903,25 @@ public sealed record Envelope
 
     private static string? Unknown(string value, IReadOnlyList<string> known) =>
         known.Contains(value, StringComparer.Ordinal) ? null : value;
+
+    /// <summary>The shape a selection must have, or the diagnosis naming the key.</summary>
+    /// <remarks>
+    /// Null is unselected and valid. Blank is NOT unselected: "environment: "
+    /// reads as a selection to the person who typed it, and admitting it as
+    /// nothing would make a typo mean the opposite of the line. One line only,
+    /// because the name becomes a label the queue matches on, and a newline in
+    /// the middle of that is an injection or a paste accident.
+    /// </remarks>
+    private static string? Selection(string? value, string key) =>
+        value is null
+            ? null
+        : string.IsNullOrWhiteSpace(value)
+            ? $"{key} is blank. Select a name, or remove the line - a blank selection is a "
+            + "typo wearing a selection's clothes, not an absence."
+        : value.Contains('\n', StringComparison.Ordinal) || value.Contains('\r', StringComparison.Ordinal)
+            ? $"{key} spans more than one line. A selection is one name; the label the fleet "
+            + "matches on cannot carry a line break."
+            : null;
 }
 
 /// <summary>

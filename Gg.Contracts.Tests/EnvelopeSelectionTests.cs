@@ -70,7 +70,9 @@ public class EnvelopeSelectionTests
 
         var text = EnvelopeText.Render(envelope);
         await Assert.That(text).Contains("environment: aspire-payments\n");
-        await Assert.That(text).Contains("repository: acme/payments\n");
+        // Quoted by the canonical form's allow-list: '/' is not on it, and
+        // every mistake that list makes is an extra pair of quotes.
+        await Assert.That(text).Contains("repository: \"acme/payments\"\n");
     }
 
     [Test]

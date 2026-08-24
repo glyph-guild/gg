@@ -98,9 +98,13 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.FromResult(Claims.Count > 0 ? Claims.Dequeue() : new ClaimResult.Nothing());
     }
 
+    /// <summary>Fires on every renewal, so a test can hold work open until one lands.</summary>
+    internal Action? OnRenew { get; set; }
+
     public Task<RenewResult> RenewAsync(string leaseId, int generation, CancellationToken cancellationToken = default)
     {
         Calls.Add($"renew:{generation}");
+        OnRenew?.Invoke();
         Record(new LeaseRenewalRequest { Generation = generation });
         return Task.FromResult(Renewals.Count > 0 ? Renewals.Dequeue() : new RenewResult.Renewed(DateTimeOffset.MaxValue));
     }

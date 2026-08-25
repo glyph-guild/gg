@@ -33,10 +33,18 @@ public class DockerPoolAdapterTests
     private static DockerPoolAdapter Adapter() =>
         new(new HttpClient { BaseAddress = new Uri(Endpoint) });
 
+    /// <summary>A member from a previous run is a different test's state, not this one's.</summary>
+    private static async Task ClearAsync(string member)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(Endpoint) };
+        using var _ = await http.DeleteAsync($"/containers/{member}?force=true");
+    }
+
     [Test]
     public async Task Refresh_creates_an_absent_member_and_reports_it_fresh()
     {
         var adapter = Adapter();
+        await ClearAsync("gg-e2e-pool-1");
 
         var observation = await adapter.RefreshAsync(
             "gg-e2e-pool", "gg-e2e-pool-1", Image);
@@ -52,6 +60,7 @@ public class DockerPoolAdapterTests
     public async Task Reset_destroys_and_recreates_from_the_pinned_image()
     {
         var adapter = Adapter();
+        await ClearAsync("gg-e2e-pool-2");
         _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-2", Image);
         var before = await adapter.VerifyAsync(new PoolMember { Name = "gg-e2e-pool-2" });
 

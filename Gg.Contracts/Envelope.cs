@@ -252,6 +252,19 @@ public static class DestinationKinds
     /// </remarks>
     public const string EnvelopeChange = "envelope-change";
 
+    /// <summary>
+    /// A tenant's airspace registries: the chart, the topology, the
+    /// repository list. What lands here is a registration, and landing it is
+    /// what makes the name reachable.
+    /// </summary>
+    /// <remarks>
+    /// The <see cref="EnvelopeChange"/> shape again, because a registration
+    /// IS an envelope-adjacent widening: reach that did not exist before.
+    /// Admission blocks on the widens-designated obligations of the envelope
+    /// in force, so a registration cannot land past its own open gate.
+    /// </remarks>
+    public const string AirspaceRegistration = "airspace-registration";
+
     public static IReadOnlyList<string> All { get; } = [PullRequest, EnvelopeChange];
 }
 

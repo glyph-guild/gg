@@ -154,8 +154,13 @@ public class EndpointSurfaceTests
         // resolves identity through the registered entry instead. Both
         // Developer: a runner receives a provider KEY on its lease and maps
         // it to a host of its own; it never reads the registry.
+        // Moved for slice ten: the three registration doors gain 202 - the
+        // gated path. A registration widens what the tenant can reach, so it
+        // may ride a flight, and the pending answer names the flight, the
+        // approver and what widens. Nothing moved paths or audiences; only
+        // the statuses grew.
         await Assert.That(Fingerprint())
-            .IsEqualTo("34001f9f432adff95c35793f4a32d718ab26f84f37e7c5d96c5c51eaec54da54")
+            .IsEqualTo("1f8086cc82f814d2847d17e88ba5aac00a4ab64767a480c99496fa706aeda783")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

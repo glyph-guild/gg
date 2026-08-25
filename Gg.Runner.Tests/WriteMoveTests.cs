@@ -133,10 +133,19 @@ public class WriteMoveTests
         var observed = EnvironmentSurvey.Observe(
             treePath: null,
             provenance: EnvironmentProvenance.Fresh,
-            bound: (MoveEnforcements.PerTool, ["Write"]));
+            probe: new Execution.ProbeResult
+            {
+                Bound = true,
+                Diagnosis = "held",
+                Took = TimeSpan.FromSeconds(17),
+                MeasuredAt = new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero),
+                Workspace = "/tmp/probe",
+                Held = ["Edit", "Write"],
+                Broke = [],
+            });
 
         await Assert.That(observed.MoveEnforcement).IsEqualTo(MoveEnforcements.PerTool);
-        await Assert.That(observed.MovesProbed).IsEquivalentTo((string[])["Write"]);
+        await Assert.That(observed.MovesProbed).IsEquivalentTo((string[])["Edit", "Write"]);
 
         // The member that is NOT there, and its absence is the point: whether the
         // bound held is constant across every flight that exists, because a runner

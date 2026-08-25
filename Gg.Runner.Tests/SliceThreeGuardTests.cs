@@ -176,7 +176,7 @@ public class SliceThreeGuardTests
         await Assert.That(declared).IsEquivalentTo(new[]
         {
             "Rung", "ReportsAttempts", "ReportsDuration", "ReportsMovesUsed", "ReportsTokens",
-            "EnforcesMoves", "AttributesEditsToTools", "Gaps",
+            "DeclaredMoveEnforcement", "AttributesEditsToTools", "Gaps",
         }.Order(StringComparer.Ordinal).ToList())
             .Because("a new capability would appear here first, and appearing here is how a slice "
                    + "quietly becomes a different slice.");

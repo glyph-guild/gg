@@ -170,22 +170,19 @@ public static class RunnerHost
             System.Console.WriteLine($"swept {swept} working tree(s) left by a previous run");
         }
 
-        // BEFORE ANY WORK IS CLAIMED, and only when this runner can run a loop.
-        // A runner with no executor cannot invoke an agent, so it cannot break a
-        // move bound and has nothing to prove; one that can has to prove it here,
-        // because a governed flight on a machine where moves are not enforceable
-        // is not governed, and flying one anyway makes the claim
-        // this product is sold on false on somebody's laptop.
-        // What the probe proved, carried onto every fact set this runner ships.
-        (string Enforcement, IReadOnlyList<string> Withheld)? bound = null;
-
+        // BEFORE ANY WORK IS CLAIMED, and only when this runner can run a loop -
+        // FAIL-FAST ONLY now. A misconfigured machine never claims, never clones
+        // and never invokes; but nothing from this run crosses on facts, because
+        // the control is the SESSION's probe (RunnerLoop runs one before every
+        // invocation, ambient settings act on the session), and a startup
+        // measurement measures the machine as it was before any session existed.
+        // The capability read that stood here - a compile-time constant standing
+        // where a measurement belonged - died with it.
         if (Execution.MoveBoundProbe.Required(executor) is { } why)
         {
             System.Console.WriteLine($"probing whether declared moves bound this executor. {why}");
 
             var probe = await Execution.MoveBoundProbe.RunAsync(executor!, cancellationToken);
-            bound = (Execution.MoveEnforcementNames.Of(executor!.Capabilities.EnforcesMoves),
-                     probe.Held);
 
             System.Console.WriteLine(
                 $"move bound: {(probe.Bound ? "held" : "NOT HELD")} "
@@ -208,8 +205,7 @@ public static class RunnerHost
             credentials,
             workspace,
             executor,
-            destinations: destinations,
-            moveBound: bound)
+            destinations: destinations)
         {
             HoldFor = holdFor,
         };

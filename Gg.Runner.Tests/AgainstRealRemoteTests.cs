@@ -312,7 +312,7 @@ public class AgainstRealRemoteTests
         public Execution.ExecutorCapabilities Capabilities => new()
         {
             Rung = "fixture-agent",
-            EnforcesMoves = MoveEnforcement.PerTool,
+            DeclaredMoveEnforcement = MoveEnforcement.PerTool,
             ReportsAttempts = true,
             ReportsTokens = false,
             ReportsDuration = true,

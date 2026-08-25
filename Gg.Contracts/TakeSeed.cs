@@ -78,9 +78,11 @@ public sealed record TakeMeasurements
     /// <remarks>
     /// <b>Used, not refused, and the difference is not cosmetic.</b> This was called
     /// <c>RefusedMoves</c> and rendered as "moves refused", which says the system
-    /// stopped something. It did not: the allow-list passed to the executor does not
-    /// bind - measured, both directions, in <c>EnforcesMovesTests</c> - so these are
-    /// tools the agent reached for, was not declared for, and used anyway.
+    /// stopped something. The bound is real for the write-shaped tools now -
+    /// measured, and proven per session by the probe - but Read and Bash are not
+    /// bound, so a tool can still be reached for, undeclared, and used; these are
+    /// those, and a seed that called them refused would tell the next person the
+    /// system stopped what it did not.
     /// </remarks>
     public required IReadOnlyList<string> UndeclaredMovesUsed { get; init; }
 

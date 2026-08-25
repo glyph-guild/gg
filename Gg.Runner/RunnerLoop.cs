@@ -171,8 +171,7 @@ public sealed class RunnerLoop(
     IWorkspace workspace,
     IExecutorPort? executor = null,
     TranscriptStore? transcripts = null,
-    IReadOnlyList<IDestinationAdapter>? destinations = null,
-    (string Enforcement, IReadOnlyList<string> Withheld)? moveBound = null)
+    IReadOnlyList<IDestinationAdapter>? destinations = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -207,16 +206,6 @@ public sealed class RunnerLoop(
     /// surviving as the default.
     /// </remarks>
     private readonly IReadOnlyList<IDestinationAdapter> _destinations = destinations ?? [];
-
-    /// <summary>
-    /// What this machine's executor was proven to bound, from the startup probe.
-    /// </summary>
-    /// <remarks>
-    /// Measured once, before any work was claimed, and carried onto every fact
-    /// set this runner ships - so a flight's record says what actually held on
-    /// the machine that ran it rather than what an adapter claimed about itself.
-    /// </remarks>
-    private readonly (string Enforcement, IReadOnlyList<string> Withheld)? _moveBound = moveBound;
 
     /// <summary>
     /// Flights whose work reached a remote, so their tree is finished with.
@@ -580,7 +569,7 @@ public sealed class RunnerLoop(
         // still be holding what it would push when the answer comes back. Said
         // out loud because it is the mechanism rather than an incidental
         // consequence of where the release happens to sit.
-        await ShipAsync(lease, workspace, run, cancellationToken);
+        await ShipAsync(lease, workspace, run, probe, cancellationToken);
 
         // AND THEN IT ASKS, because shipping is accepted rather than answered.
         // The control plane records the batch and evaluates afterwards, so the
@@ -790,7 +779,7 @@ public sealed class RunnerLoop(
     /// </remarks>
     private async Task ShipAsync(
         LeaseGranted lease, WorkspaceResult workspace, ExecutorRun? run,
-        CancellationToken cancellationToken)
+        Execution.ProbeResult? probe, CancellationToken cancellationToken)
     {
         var payloads = new List<FactPayload>
         {
@@ -800,7 +789,7 @@ public sealed class RunnerLoop(
                 // nothing to hash and the fact is about the machine alone.
                 workspace.Trees.Count > 0 ? workspace.Trees[0].Path : null,
                 workspace.Reused ? EnvironmentProvenance.Reused : EnvironmentProvenance.Fresh,
-                bound: _moveBound)),
+                probe: probe)),
         };
 
         foreach (var tree in workspace.Trees)

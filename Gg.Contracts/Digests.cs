@@ -74,11 +74,14 @@ public sealed record LoopDigest
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The name is wrong and is kept deliberately.</b> Nothing refused these: the
-    /// allow-list this runner passes to its executor does not bind, measured both
-    /// directions in <c>EnforcesMovesTests</c>. So this is where the agent worked
-    /// outside what the envelope declared - which is still exactly the signal
-    /// somebody wants, and is a different claim from "we stopped it".
+    /// <b>The name is HALF wrong now, and still kept deliberately.</b> When this
+    /// was written nothing refused anything; slice three's re-measurement found
+    /// the bound real for the write-shaped tools (refused at the call when not
+    /// granted, with setting sources cleared), and slice eleven's probe proves
+    /// it per session. What stays true: Read and Bash are not bound, so an
+    /// entry here can be a tool that was genuinely refused OR one the agent
+    /// used outside its declaration - the signal somebody wants either way,
+    /// and still a different claim from "we stopped all of it".
     /// </para>
     /// <para>
     /// Renaming a member on a pinned fact type is a vocabulary event, so the wire

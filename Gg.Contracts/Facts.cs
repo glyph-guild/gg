@@ -264,7 +264,24 @@ public static class FactVocabulary
     /// ONE BUMP FOR BOTH, because two would mean two ledger entries, two release
     /// assets and two re-pins - and the second re-pin conflicts with the first in
     /// the two files every step already touches.
-    public const string Version = "0.15.0";
+    /// 0.16.0 ADDS probedAt TO environment.identity, AND TWO MEMBERS CHANGE
+    /// MEANING WITHOUT MOVING. A member add is the free kind; the ledger entry
+    /// is the record of the day the semantics moved, which is the expensive
+    /// part nobody can diff. moveEnforcement was the executor's compile-time
+    /// capability; it is now DERIVED from the session's own probe, so a value
+    /// on the wire is something a probe proved rather than something an
+    /// adapter declared - slice two's moves row taking its third correction,
+    /// upward, on a measurement rather than a flag. movesProbed was a
+    /// hardcoded [Write] from one startup run; it is now the set the session's
+    /// probe actually held (Edit and Write, each against its own artifact).
+    /// probedAt is what makes "a measurement of THIS session" auditable:
+    /// the probe runs before every invocation now, because ambient settings
+    /// act on the session and the family has five members (acceptEdits
+    /// defeats the bound even with setting sources cleared, measured at slice
+    /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
+    /// none still never crosses from a working runner - a broken bound
+    /// releases the lease with the diagnosis instead of shipping anything.
+    public const string Version = "0.16.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -459,6 +476,18 @@ public sealed record EnvironmentIdentity
     /// failure is silent. Empty when nothing was probed.
     /// </remarks>
     public IReadOnlyList<string> MovesProbed { get; init; } = [];
+
+    /// <summary>
+    /// When this session's probe measured the bound, or null when this runner
+    /// has no executor.
+    /// </summary>
+    /// <remarks>
+    /// The member that makes "a measurement of this session" auditable rather
+    /// than asserted: the probe runs before every invocation (ambient settings
+    /// act on the session), and a fact whose probedAt sits outside its own
+    /// lease's window is a claim about some other session.
+    /// </remarks>
+    public DateTimeOffset? ProbedAt { get; init; }
 }
 
 /// <summary>

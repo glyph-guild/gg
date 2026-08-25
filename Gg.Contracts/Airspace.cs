@@ -36,13 +36,14 @@ public static class LabelDispositions
 /// exist yet.
 /// </summary>
 /// <remarks>
-/// <b>Closed at two, and the closure is the design.</b> In this slice a
-/// requirement is either already true via matching or nobody in the fleet can
-/// satisfy it. Strategy actions and human assists arrive with the phases that
-/// own them; a rendered placeholder for machinery that does not exist would be
-/// the checklist containing a promise, which is the same defect as containing
-/// a procedure. A third value here means a strategy exists - a design event
-/// that arrives as a deliberate contract change.
+/// <b>Closed at three, and the third is the design event the closure
+/// prophesied.</b> Slice eight closed this at two with the note that a third
+/// value here means a strategy exists — a design event that arrives as a
+/// deliberate contract change. Slice twelve is that event:
+/// <see cref="DeclinedByBound"/> marks a requirement a strategy manages and a
+/// declared bound currently declines, which is neither already-true nor a
+/// capability gap — the same silence with the opposite remedy, and the whole
+/// reason it must not wear either of the other words.
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ChecklistSatisfiers
@@ -53,7 +54,10 @@ public static class ChecklistSatisfiers
     /// <summary>No runner in the fleet advertises it: a declared capability gap.</summary>
     public const string Nobody = "nobody-declared-capability-gap";
 
-    public static IReadOnlyList<string> All { get; } = [MatchingRunner, Nobody];
+    /// <summary>A strategy manages it and a declared bound currently declines it.</summary>
+    public const string DeclinedByBound = "declined-by-bound";
+
+    public static IReadOnlyList<string> All { get; } = [MatchingRunner, Nobody, DeclinedByBound];
 }
 
 /// <summary>Ask the control plane to add an environment name to the chart.</summary>

@@ -834,6 +834,7 @@ public static class VerbOutput
             {
                 ChecklistSatisfiers.MatchingRunner => "already true via matching",
                 ChecklistSatisfiers.Nobody => "nobody: declared capability gap",
+                ChecklistSatisfiers.DeclinedByBound => "declined by bound",
                 var other => Clean(other ?? ""),
             };
             text.AppendLine($"  {Clean(item.Requirement),-36}  {satisfier}  ({Clean(item.Disposition)})");

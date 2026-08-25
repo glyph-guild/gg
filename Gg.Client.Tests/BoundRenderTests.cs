@@ -79,6 +79,7 @@ public class BoundRenderTests
         {
             EnvelopeVersion = "v3",
             Environment = "aspire-payments",
+            RequiredLabels = ["environment=aspire-payments"],
             Items =
             [
                 new ChecklistItem

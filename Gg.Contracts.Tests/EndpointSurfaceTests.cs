@@ -165,8 +165,13 @@ public class EndpointSurfaceTests
         // answering the envelope's own EnvelopeApplied. Developer all three:
         // a resident runner pulls pool work, it never authors the policy
         // that governs it.
+        // Moved again for slice twelve's pools surface: the pull point (GET
+        // actions, Runner - serving is the claim), the attestation (POST,
+        // Runner, 202 because the write is a command), and the ledger read
+        // (GET /v1/pools, Developer). /v1/pools joins the governed prefixes
+        // so a runner-audience route nobody declared cannot exist under it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("17998ed90dcbce5a51c79b6ca477a6d6ea589589ff37127e69186acc2ab64aa0")
+            .IsEqualTo("ac030a8a6460e366619e7e9527b7f028bde6db4792c81c7dbce5438401be88c0")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

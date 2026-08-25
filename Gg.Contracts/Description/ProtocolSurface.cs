@@ -143,7 +143,12 @@ public static class ProtocolSurface
          // undeclared route under it would be an unaudited way to widen what
          // every tenant's envelopes can reach - the /v1/environments
          // argument, one level up.
-         "/v1/airspace"];
+         "/v1/airspace",
+         // The pools surface: what a resident runner pulls and attests, and
+         // what a person reads about a managed pool. Governed for the lease
+         // prefix's reason - a runner-audience route nobody declared would be
+         // an unaudited way for a runner to reach the control plane.
+         "/v1/pools"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -653,6 +658,42 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE PULL POINT. Serving is the claim, control-plane-side: a
+            // decided action appears in exactly one answer, so two resident
+            // runners polling one pool get disjoint sets.
+            Method = "GET",
+            Path = "/v1/pools/{pool}/actions",
+            Audience = Audience.Runner,
+            Response = typeof(PoolActionList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            // THE ATTESTATION. 202 because the write is a command; the row it
+            // becomes is a query resource. 400 is the contract's own Validate
+            // refusal - both sides fail closed on their own format.
+            Method = "POST",
+            Path = "/v1/pools/{pool}/attestations",
+            Audience = Audience.Runner,
+            Request = typeof(PoolAttestation),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/pools",
+            Audience = Audience.Developer,
+            Response = typeof(PoolLedger),
+            // An empty ledger is 200 with nothing in it: a tenant whose pools
+            // have never attested is the null strategy or a pool that has not
+            // come up - states, not errors, and the checklist tells them apart.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // Declaring a name is what makes it reachable at all: an envelope
             // applied to an undeclared name is refused pointing HERE, so the
             // door ships in the same contract as the refusal. v0 is
@@ -927,6 +968,18 @@ public static class ProtocolSurface
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],
             [typeof(StrategyList)] = ["strategies"],
+            // The pools surface. Digests, hashes and stamps only, asserted
+            // over the shape as well as declared.
+            [typeof(PoolAttestation)] =
+                ["attestationId", "pool", "action", "actionId", "outcome", "imageDigest",
+                 "locks", "provenance", "scopeProbedAt", "measuredAt", "diagnosis"],
+            [typeof(PoolAction)] =
+                ["actionId", "pool", "action", "image", "strategyVersion", "decidedAt"],
+            [typeof(PoolActionList)] = ["actions"],
+            [typeof(PoolStatus)] =
+                ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",
+                 "diagnosis"],
+            [typeof(PoolLedger)] = ["pools"],
             [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
             [typeof(TopologyName)] =
                 ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],

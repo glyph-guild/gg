@@ -781,9 +781,24 @@ public sealed record Envelope
     /// out which of nine things went wrong, which is how a schema stops being
     /// adopted.
     /// </remarks>
-    public static string? Validate(Envelope envelope)
+    public static string? Validate(Envelope envelope) => Validate(envelope, MoveKinds.Of);
+
+    /// <summary>
+    /// The same validation with the move classification injectable.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public because the enforced set is correctly empty.</b> The
+    /// outward-act refusal below is unreachable with honest inputs - every
+    /// real move is record-only, and a fake one dies at the unknown-move
+    /// refusal first - so a branch that must still be provable live needs a
+    /// seam, and a planted classification through the REAL validate is the
+    /// honest alternative to reflection. Production callers use the
+    /// one-argument form, which supplies <see cref="MoveKinds.Of"/>.
+    /// </remarks>
+    public static string? Validate(Envelope envelope, Func<string, string> moveKindOf)
     {
         ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(moveKindOf);
 
         if (Cardinality(envelope) is { } slipped)
         {
@@ -847,6 +862,22 @@ public sealed record Envelope
                 {
                     return $"Unknown move '{unknownMove}' on loop '{loop.Id}'. Expected one of: "
                          + string.Join(", ", LoopMoves.All) + ".";
+                }
+
+                // AN OUTWARD ACT NOTHING CAN CONFIRM, refused where an author
+                // can still act. The probe confirms withholding of tools that
+                // were NOT granted; an outward move's bound would have to hold
+                // WHILE GRANTED, which nothing today can measure - so a declared
+                // outward act would be granted by the envelope and shown
+                // enforceable by nothing. Unreachable with honest inputs while
+                // the enforced set is correctly empty; the planted twin in
+                // MoveKindsTests keeps it provably alive.
+                if (string.Equals(moveKindOf(move), MoveKinds.OutwardAct, StringComparison.Ordinal))
+                {
+                    return $"Loop '{loop.Id}' declares move '{move}', which is an outward act: "
+                         + "using it is itself the act, and nothing can take it back. No "
+                         + "executor this product has lets a probe confirm that bound, so the "
+                         + "envelope would grant what nothing can be shown to withhold.";
                 }
             }
 

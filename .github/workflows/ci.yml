@@ -26,7 +26,7 @@ jobs:
       # The parentheses are load-bearing: without them the expression matches
       # NOTHING and CI passes having run zero tests, which is the worst possible
       # failure mode for a filter. Measured before it was committed.
-      - run: dotnet test -c Release -- --treenode-filter '/*/*/*[(Category!=RealAgent)&(Category!=RealRemote)]/*'
+      - run: dotnet test -c Release -- --treenode-filter '/*/*/*[(Category!=RealAgent)&(Category!=RealRemote)&(Category!=RealDocker)]/*'
 
   aot:
     name: aot

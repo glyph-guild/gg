@@ -181,7 +181,7 @@ public static class RunnerHost
 
             var probe = await Execution.MoveBoundProbe.RunAsync(executor!, cancellationToken);
             bound = (Execution.MoveEnforcementNames.Of(executor!.Capabilities.EnforcesMoves),
-                     probe.Withheld);
+                     probe.Held);
 
             System.Console.WriteLine(
                 $"move bound: {(probe.Bound ? "held" : "NOT HELD")} "

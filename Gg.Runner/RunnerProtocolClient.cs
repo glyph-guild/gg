@@ -22,6 +22,8 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(FactBatch))]
 [JsonSerializable(typeof(FactBatchAccepted))]
 [JsonSerializable(typeof(LandingDecision))]
+[JsonSerializable(typeof(PoolActionList))]
+[JsonSerializable(typeof(PoolAttestation))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -39,7 +41,8 @@ public sealed partial class RunnerJsonContext : JsonSerializerContext;
 /// conformance tests instead of failing at a customer.
 /// </para>
 /// </remarks>
-public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerToken) : IRunnerProtocol
+public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerToken)
+    : IRunnerProtocol, Pools.IPoolProtocol
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly string _runnerToken = runnerToken;
@@ -231,6 +234,48 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         return await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.FactBatchAccepted, cancellationToken)
             ?? throw new InvalidOperationException("Control plane accepted facts with no answer.");
+    }
+
+    /// <summary>The pools half: decided actions for this pool. Serving is the claim.</summary>
+    public async Task<PoolActionList> PullActionsAsync(
+        string pool, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get, $"/v1/pools/{Uri.EscapeDataString(pool)}/actions");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.PoolActionList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered nothing for the pull.");
+    }
+
+    /// <summary>Attests one action's outcome. Idempotent on the attestation id.</summary>
+    public async Task AttestAsync(
+        string pool, PoolAttestation attestation, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attestation);
+
+        using var request = Request(
+            HttpMethod.Post, $"/v1/pools/{Uri.EscapeDataString(pool)}/attestations");
+        request.Content = JsonContent.Create(
+            attestation, RunnerJsonContext.Default.PoolAttestation);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // The contract's own Validate, applied on the other side - both
+            // halves fail closed on their own format, the envelope's rule.
+            throw new InvalidOperationException(
+                "The attestation was refused: "
+              + await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     /// <summary>

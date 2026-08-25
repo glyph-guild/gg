@@ -30,6 +30,9 @@ public abstract record CliAction
 
     public sealed record RunnerServe : CliAction;
 
+    /// <summary>The resident runner: pull decided pool actions, act, attest.</summary>
+    public sealed record RunnerMaintain(string Pool) : CliAction;
+
     /// <summary>Opens a flight. Exactly one of <see cref="Text"/> and <see cref="Uri"/>.</summary>
     public sealed record Fly(string? Text, string? Uri, bool Json) : CliAction, IEmitsResult;
 
@@ -48,8 +51,8 @@ public abstract record CliAction
     /// <remarks>
     /// Reads facts and exercises nothing - the passive fourth beside doctor,
     /// strategy health (which does not exist yet) and the routine actions
-    /// (which do not either). What a flight opened now would need, priced
-    /// against the fleet the moment somebody asks.
+    /// (which do now: gg runner maintain, slice twelve). What a flight opened
+    /// now would need, priced against the fleet the moment somebody asks.
     /// </remarks>
     public sealed record Plan(string? Flight, bool Json) : CliAction, IEmitsResult;
 
@@ -186,6 +189,7 @@ public static class CliArgs
         "gg bundle                      a redacted diagnostics bundle to send us",
         "gg login | logout | whoami     identity",
         "gg runner up                   take work on this machine",
+        "gg runner maintain <pool>      keep a managed pool warm, reset and attested",
         "gg version                     binary, protocol and fact vocabulary",
     ];
 
@@ -215,6 +219,7 @@ public static class CliArgs
             ["whoami"] => new CliAction.WhoAmI(),
             ["runner", "up"] => new CliAction.RunnerUp(),
             ["runner", "serve"] => new CliAction.RunnerServe(),
+            ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
 
             ["flights"] => new CliAction.Flights(json),

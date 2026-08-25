@@ -18,6 +18,7 @@ return CliArgs.Parse(args) switch
     CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
     CliAction.WhoAmI => await AuthAsync(commands => commands.WhoAmIAsync()),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
+    CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
 
     CliAction.Fly fly => await EmitAsync(fly.Json, c => c.FlyAsync(fly.Text, fly.Uri)),
     CliAction.Flights flights => await EmitAsync(flights.Json, c => c.ListAsync()),
@@ -577,6 +578,43 @@ static async Task<int> RunnerUpAsync()
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
         destinations: destinations, executor: executor);
+}
+
+static async Task<int> RunnerMaintainAsync(string pool)
+{
+    var baseAddress = ControlPlaneAddress();
+
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
+    }
+
+    // The scope-enforcing proxy, or nothing. A resident runner with no
+    // endpoint is not a resident, and guessing a socket path here would be
+    // the exact reach § 12 forbids - refused loudly, naming the variable.
+    var configuration = Gg.Runner.Pools.PoolConfiguration.FromEnvironment();
+    if (configuration is null)
+    {
+        return Fail("GG_POOL_ENDPOINT is not set. The resident runner acts only through the "
+                  + "scope-enforcing proxy; point this at it (never at the raw socket).");
+    }
+
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var registered = await new ControlPlaneClient(http)
+        .RegisterRunnerAsync(session.SessionToken, Environment.MachineName + ":maintain");
+
+    using var stopping = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
+
+    var protocol = new Gg.Runner.RunnerProtocolClient(http, registered.RunnerToken);
+    var adapter = new Gg.Runner.Pools.DockerPoolAdapter(
+        new HttpClient { BaseAddress = new Uri(configuration.Endpoint) });
+
+    var loop = new Gg.Runner.Pools.MaintainLoop(
+        protocol, adapter, new Gg.Runner.SystemClock(), Task.Delay);
+
+    return await loop.RunAsync(pool, stopping.Token);
 }
 
 static int Fail(string message)

@@ -38,6 +38,19 @@ public class RegistrationPendingTests
                    + "the widens-designated gate, and a kind nobody declared cannot be one.");
     }
 
+    /// <summary>
+    /// Slice twelve's step 0 found the kind declared but absent from the
+    /// membership list, so an envelope declaring it was refused by the very
+    /// vocabulary that declared it — a value made unreachable by its own list.
+    /// </summary>
+    [Test]
+    public async Task The_declared_kind_is_also_a_member_of_its_own_vocabulary()
+    {
+        await Assert.That(DestinationKinds.All).Contains(DestinationKinds.AirspaceRegistration)
+            .Because("a declared value outside its own All is refused by the membership "
+                   + "check that exists to admit it - the exact shape PoolActions must not copy.");
+    }
+
     [Test]
     public async Task Every_registration_door_may_answer_pending_with_a_flight_and_an_approver()
     {

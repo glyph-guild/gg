@@ -103,12 +103,6 @@ public static class EnvelopeComposition
             [$"{nameof(Destination)}.{nameof(Destination.Kind)}"] =
                 "what the destination IS; membership in the set is the composable thing, "
               + "and the sets' operator owns it",
-            [$"{nameof(Destination)}.{nameof(Destination.PreserveUnadmitted)}"] =
-                "ADR-0014's one undecided operator: no established safe direction (is "
-              + "discarding unadmitted work stricter, or is destroying work under review "
-              + "its own harm?). Kept visibly open rather than closed by a default; a "
-              + "narrowing cannot express a destination at all, so nothing can move it "
-              + "meanwhile",
         };
 
     static EnvelopeComposition()
@@ -198,7 +192,11 @@ public static class EnvelopeComposition
         var composed = new List<Obligation>();
         var introducedBy = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var layer in layers)
+        // BY NAME, so the composed sequence is the composer's rather than the
+        // caller's: composition is order-free in content, but the composed
+        // obligations keep an order and a pin's digest is over the bytes.
+        // Two callers composing the same layers must hash the same bytes.
+        foreach (var layer in layers.OrderBy(l => l.Name, StringComparer.Ordinal))
         {
             var obligations = layer.Document?.Obligations ?? layer.Narrowing!.Obligations;
             foreach (var obligation in obligations)

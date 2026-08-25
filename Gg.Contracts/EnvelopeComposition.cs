@@ -444,6 +444,10 @@ public static class EnvelopeComposition
           + "is worse than a refusal. Narrow one until it sits inside the other.");
     }
 
+    /// <summary>Glob containment: does <paramref name="outer"/> allow everything <paramref name="inner"/> does?</summary>
+    /// <remarks>Internal so direction shares the one primitive scope ordering has.</remarks>
+    internal static bool ScopeContains(string outer, string inner) => Contains(outer, inner);
+
     private static bool Contains(string outer, string inner)
     {
         if (string.Equals(outer, "**", StringComparison.Ordinal))

@@ -124,8 +124,11 @@ public class ResumptionContextTests
     {
         var executor = await FlyAsync(Seed);
 
-        await Assert.That(executor.Requests).Count().IsEqualTo(1);
-        await Assert.That(executor.Requests[0].ResumesFrom).IsEqualTo(Seed)
+        // The session's probe invokes the executor too (slice eleven); the
+        // request under test is the WORK's.
+        var work = executor.Requests.Where(r => r.LoopId != "gg-move-bound-probe").ToList();
+        await Assert.That(work).Count().IsEqualTo(1);
+        await Assert.That(work[0].ResumesFrom).IsEqualTo(Seed)
             .Because("the seed is a rendered document; a runner that re-worded or trimmed it "
                    + "would be a second implementation of what the contract renders once.");
     }
@@ -135,8 +138,9 @@ public class ResumptionContextTests
     {
         var executor = await FlyAsync(resumesFrom: null);
 
-        await Assert.That(executor.Requests).Count().IsEqualTo(1);
-        await Assert.That(executor.Requests[0].ResumesFrom).IsNull()
+        var work = executor.Requests.Where(r => r.LoopId != "gg-move-bound-probe").ToList();
+        await Assert.That(work).Count().IsEqualTo(1);
+        await Assert.That(work[0].ResumesFrom).IsNull()
             .Because("no prior attempt and a prior attempt are different states, and the "
                    + "ordinary first attempt must not grow a synthesized record.");
     }

@@ -82,13 +82,20 @@ public sealed record ProbeResult
 /// the flags it will really pass.
 /// </para>
 /// <para>
-/// <b>What it costs.</b> One real agent invocation per runner process, at
-/// startup: roughly ten to thirty seconds and one small request, once, against a
-/// runner that then serves flights for as long as it lives. Per-flight would be
-/// honest about drift and would put an invocation in front of every piece of
-/// work, which is a tax on the thing the product is for. Startup is the trade,
-/// and the drift it cannot see - a machine reconfigured while a runner is up - is
-/// named here rather than left for somebody to discover.
+/// <b>What it costs, and why the cost is paid per session now.</b> One real
+/// agent invocation before every lease's work: 15 to 21 seconds and one small
+/// request (re-measured at slice eleven's step 0), in front of a session that
+/// spends minutes of agent time. The startup-only trade this paragraph used
+/// to argue named its own gap - "the drift it cannot see, a machine
+/// reconfigured while a runner is up" - and step 0 made the gap concrete:
+/// ambient settings act on the SESSION, the family has five members now
+/// (--permission-mode acceptEdits defeats the bound even with setting sources
+/// cleared), and any of them can arrive between a runner's startup and its
+/// tenth flight. A measurement taken before the session is a measurement of
+/// something else; what the tax buys is the product's only claim, that the
+/// measurement measures the session it governs. The startup run remains as
+/// fail-fast - a misconfigured machine never claims - and contributes nothing
+/// to facts.
 /// </para>
 /// </remarks>
 public static class MoveBoundProbe

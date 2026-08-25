@@ -1,6 +1,8 @@
 using Gg.Contracts;
 using Gg.Runner;
 using Gg.Runner.Execution;
+using Gg.Contracts.Description;
+using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
 
@@ -151,9 +153,8 @@ public class ProbePerSessionTests
         var (executor, _, _) = await RunAsync(new SessionExecutor(), leases: 2,
             stopAfterReleases: 2);
 
-        await Assert.That(executor.Sequence)
-            .IsEquivalentTo((string[])["probe", "work", "probe", "work"],
-                CollectionOrdering.Matching)
+        await Assert.That(string.Join(",", executor.Sequence))
+            .IsEqualTo("probe,work,probe,work")
             .Because("one startup probe answering for every later session is a measurement "
                    + "of something else - ambient settings act on the session, and the "
                    + "family has five members now (acceptEdits joined at step 0).");
@@ -166,8 +167,8 @@ public class ProbePerSessionTests
             new SessionExecutor { BreakOnProbe = n => n == 2 },
             leases: 2, stopAfterReleases: 3);
 
-        await Assert.That(executor.Sequence)
-            .IsEquivalentTo((string[])["probe", "work", "probe"], CollectionOrdering.Matching)
+        await Assert.That(string.Join(",", executor.Sequence))
+            .IsEqualTo("probe,work,probe")
             .Because("the second session's work never ran: the probe in front of it broke.");
 
         await Assert.That(protocol.Calls).Contains("release:2:failed")

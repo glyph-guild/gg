@@ -235,6 +235,8 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Renewed(string leaseId, DateTimeOffset expiresAt) => Record($"renewed:{leaseId}");
     public void Fenced(string leaseId) => Record($"fenced:{leaseId}");
     public void Released(string leaseId, string disposition) => Record($"released:{disposition}");
+
+    public void BoundBroken(string diagnosis) => Record($"bound-broke:{diagnosis}");
     public void Idle() => Record("idle");
 
     /// <summary>

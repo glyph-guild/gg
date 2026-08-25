@@ -271,6 +271,42 @@ public class EnvelopeDirectionTests
             .IsEqualTo("destinations.pull-request.preserve-unadmitted");
     }
 
+    [Test]
+    public async Task Adding_an_obligation_together_with_its_own_discharge_is_the_tightening_it_is()
+    {
+        // FOUND BY THE CONSUMER'S SUITE: Validate requires every obligation
+        // be discharged, so adding one FORCES adding its discharge - and a
+        // rule that widens on any discharges change makes "add an obligation
+        // through a full document" impossible, which the flight layer does
+        // as its ordinary day.
+        var applied = Doc();
+        var proposed = Doc(extraObligations: ["and-more"]);
+        proposed = proposed with
+        {
+            Loops = [proposed.Loops[0] with { Discharges = ["in-scope", "and-more"] }],
+        };
+
+        await Assert.That(EnvelopeDirection.Widening(applied, proposed)).IsNull()
+            .Because("the discharge is part of the obligation it discharges; refusing the "
+                   + "pair would refuse the tightening this comparator exists to wave through.");
+    }
+
+    [Test]
+    public async Task A_discharge_gained_for_a_pre_existing_obligation_still_widens()
+    {
+        // The twin that keeps the refinement honest: rewiring who answers an
+        // obligation that already existed has no declared order.
+        var applied = Doc(extraObligations: ["and-more"]);
+        var proposed = applied with
+        {
+            Loops = [applied.Loops[0] with { Discharges = ["in-scope", "and-more"] }],
+        };
+
+        var widening = EnvelopeDirection.Widening(applied, proposed);
+        await Assert.That(widening).IsNotNull();
+        await Assert.That(widening!.Field).IsEqualTo("loops.implement.discharges");
+    }
+
     // ---- the narrowing shape ----
 
     [Test]

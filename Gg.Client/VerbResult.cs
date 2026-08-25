@@ -542,9 +542,12 @@ public static class VerbOutput
             // ONLY when it is waiting. A waiting column on every healthy
             // flight is noise somebody learns to skip, and null means not
             // waiting - the LeaseClaimStatus.Lease absence rule.
-            if (flight.Waiting is { Length: > 0 } waiting)
+            if (flight.Waiting is { } waiting)
             {
-                text.AppendLine($"            {Clean(waiting)}");
+                // Derived from the kind - one grammar, contract-side. An
+                // unknown kind THROWS in Sentence: a render that shrugged
+                // would file a governed refusal under healthy.
+                text.AppendLine($"            {Clean(Reason.Sentence(waiting.Kind, waiting.Params))}");
             }
         }
         return text.ToString().TrimEnd();
@@ -564,10 +567,11 @@ public static class VerbOutput
         text.AppendLine($"  constitution {Clean(flight.ConstitutionVersion)}");
         text.AppendLine($"  envelope    {Clean(flight.EnvelopeVersion)}");
 
-        // The reason it cannot start, by name, only when there is one.
-        if (flight.Waiting is { Length: > 0 } waiting)
+        // The reason it cannot start, by name, only when there is one. The
+        // sentence derives from the kind; an unknown kind throws in Sentence.
+        if (flight.Waiting is { } waiting)
         {
-            text.AppendLine($"  {Clean(waiting)}");
+            text.AppendLine($"  {Clean(Reason.Sentence(waiting.Kind, waiting.Params))}");
         }
 
         // HOW MANY TIMES THIS HAS BEEN ROUND. Nothing enforces a ceiling - budget.attempts
@@ -834,9 +838,9 @@ public static class VerbOutput
             };
             text.AppendLine($"  {Clean(item.Requirement),-36}  {satisfier}  ({Clean(item.Disposition)})");
 
-            if (item.WhenUnmet is { Length: > 0 } unmet)
+            if (item.WhenUnmet is { } unmet)
             {
-                text.AppendLine($"    {Clean(unmet)}");
+                text.AppendLine($"    {Clean(Reason.Sentence(unmet.Kind, unmet.Params))}");
             }
         }
 

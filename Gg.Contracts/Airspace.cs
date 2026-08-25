@@ -149,10 +149,12 @@ public sealed record ChecklistItem
     public required string Satisfier { get; init; }
 
     /// <summary>
-    /// The waiting sentence, when nobody can satisfy this - or null when it is
-    /// already true. A sentence that is always present is one nobody reads.
+    /// Why this is unmet, when nobody can satisfy it - or null when it is
+    /// already true. A reason that is always present is one nobody reads.
+    /// A <see cref="Reason"/> since 0.54.0, the <c>FlightSummary.Waiting</c>
+    /// break: same wire name, loud type change, sentence derived.
     /// </summary>
-    public string? WhenUnmet { get; init; }
+    public Reason? WhenUnmet { get; init; }
 
     /// <summary>One of <see cref="LabelDispositions"/>.</summary>
     public required string Disposition { get; init; }

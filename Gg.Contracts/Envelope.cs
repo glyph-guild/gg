@@ -312,6 +312,28 @@ public static class AttachmentConditions
     /// </remarks>
     public const string Widens = "envelope widens";
 
+    /// <summary>
+    /// A recorded loop used the move. Written
+    /// <c>moves used include &lt;move&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first condition whose subject is an act.</b> It reads the
+    /// flight-wide union of every <c>loop.outcome</c>'s recorded moves -
+    /// monotone by construction, because an act cannot be un-happened - so a
+    /// gate attached by it does not detach when the evidence of the act is
+    /// deleted. ADR-0014's authoring rule in a form: if the concern is that
+    /// something happened, the condition reads this rather than the
+    /// manifest's residue.
+    /// </para>
+    /// <para>
+    /// Unlike the glob, the move value is the closed <see cref="LoopMoves"/>
+    /// vocabulary, so Validate refuses a typo where an author can still act
+    /// instead of shipping a gate that silently never attaches.
+    /// </para>
+    /// </remarks>
+    public const string MovesUsedPrefix = "moves used include ";
+
     /// <summary>Whether this is a condition this version can evaluate.</summary>
     /// <remarks>
     /// <b>Shape, not a list of values.</b> The glob varies, so an allow-list of
@@ -321,7 +343,9 @@ public static class AttachmentConditions
     public static bool IsKnown(string condition) =>
         string.Equals(condition, Widens, StringComparison.Ordinal)
         || (condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
-            && condition.Length > TouchesPrefix.Length);
+            && condition.Length > TouchesPrefix.Length)
+        || (condition.StartsWith(MovesUsedPrefix, StringComparison.Ordinal)
+            && condition.Length > MovesUsedPrefix.Length);
 
     /// <summary>The glob a touches-condition names, or null when it is not one.</summary>
     public static string? GlobOf(string condition) =>
@@ -330,8 +354,16 @@ public static class AttachmentConditions
             ? condition[TouchesPrefix.Length..].Trim()
             : null;
 
+    /// <summary>The move a moves-condition names, or null when it is not one.</summary>
+    public static string? MoveOf(string condition) =>
+        condition.StartsWith(MovesUsedPrefix, StringComparison.Ordinal)
+        && condition.Length > MovesUsedPrefix.Length
+            ? condition[MovesUsedPrefix.Length..].Trim()
+            : null;
+
     /// <summary>Every form this version understands, for a diagnosis to list.</summary>
-    public static IReadOnlyList<string> Forms { get; } = [TouchesPrefix + "<glob>", Widens];
+    public static IReadOnlyList<string> Forms { get; } =
+        [TouchesPrefix + "<glob>", Widens, MovesUsedPrefix + "<move>"];
 }
 
 /// <summary>
@@ -1000,6 +1032,19 @@ public sealed record Envelope
                  + "an envelope-change flight ships none, so this gate could never be opened "
                  + "and every widening would deadlock behind it. A widening gate is "
                  + "check: human.";
+        }
+
+        if (obligation.When is { } moves
+            && AttachmentConditions.MoveOf(moves) is { } named
+            && Unknown(named, LoopMoves.All) is { } unknownMove)
+        {
+            // The hazard the glob form cannot avoid, avoided where the value is
+            // closed: a condition over a move nobody records would silently
+            // never attach - a gate that looks authored and asks nobody, ever.
+            return $"'{moves}' names the move '{unknownMove}', at "
+                 + $"obligations.{obligation.Id}.when, and that is not a move this contract "
+                 + "declares. Expected one of: " + string.Join(", ", LoopMoves.All) + ". A "
+                 + "condition over a move nothing records would silently never attach.";
         }
 
         if (obligation.When is { } condition && !AttachmentConditions.IsKnown(condition))

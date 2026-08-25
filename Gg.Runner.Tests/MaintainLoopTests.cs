@@ -127,6 +127,28 @@ public class MaintainLoopTests
     }
 
     [Test]
+    public async Task An_empty_pool_announces_itself()
+    {
+        // THE FIRST ATTESTATION IS THE PULL POINT COMING UP. A pool with no
+        // members yet has nothing to verify member-by-member - but a loop
+        // that stays silent until a member exists can never recover the
+        // bring-up ask, and the decider will not decide an outward act toward
+        // a pool with no scope-probed attestation: the empty pool must say
+        // "I am here, probed, holding nothing" or the whole management story
+        // deadlocks at birth. Found live, by the walk.
+        var (loop, _, protocol, stop) = Rig(cyclesBeforeStop: 1);
+
+        _ = await loop.RunAsync("payments-pool", stop.Token);
+
+        var announced = protocol.Attested.Single(a =>
+            a.Action == PoolActions.Verify && a.Outcome == PoolOutcomes.Verified);
+        await Assert.That(announced.ScopeProbedAt).IsNotNull()
+            .Because("the announcement carries the session's scope probe - it is the "
+                   + "attestation everything downstream waits for.");
+        await Assert.That(announced.Diagnosis).IsNull();
+    }
+
+    [Test]
     public async Task The_session_probes_once_and_stamps_every_attestation()
     {
         var (loop, adapter, protocol, stop) = Rig(cyclesBeforeStop: 2);

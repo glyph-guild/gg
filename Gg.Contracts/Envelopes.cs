@@ -66,4 +66,21 @@ public sealed record EnvelopeApplied
     /// that ran under the same rules.
     /// </remarks>
     public required bool Changed { get; init; }
+
+    /// <summary>
+    /// The field a widening named, when this apply was diverted to a gate
+    /// instead of landing. Null on every apply that landed or was refused.
+    /// </summary>
+    /// <remarks>
+    /// Member additions, so an older reader keeps reading applies and a newer
+    /// one learns where the gate went. When set, <see cref="Version"/> is the
+    /// version still in force - nothing was minted.
+    /// </remarks>
+    public string? Widens { get; init; }
+
+    /// <summary>The flight the widening rides, when it was diverted.</summary>
+    public string? Flight { get; init; }
+
+    /// <summary>Who the gate awaits, when it was diverted.</summary>
+    public string? Awaiting { get; init; }
 }

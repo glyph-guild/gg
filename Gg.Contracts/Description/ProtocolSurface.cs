@@ -876,6 +876,7 @@ public static class ProtocolSurface
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],
             [typeof(RegistrationPending)] = ["flight", "awaiting", "widens"],
+            [typeof(Reason)] = ["family", "kind", "params"],
             [typeof(EnvironmentChart)] = ["environments"],
             [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
             [typeof(TopologyName)] =

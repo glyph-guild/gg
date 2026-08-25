@@ -45,7 +45,7 @@ public class PlanVerbTests
                 Requirement = "environment=aurora",
                 Verification = "a live runner's advertised labels contain it",
                 Satisfier = ChecklistSatisfiers.Nobody,
-                WhenUnmet = "waiting: no runner advertises environment=aurora",
+                WhenUnmet = Reason.For(ReasonKinds.NoRunnerAdvertises, ["environment=aurora"]),
                 Disposition = LabelDispositions.Stated,
             },
         ],

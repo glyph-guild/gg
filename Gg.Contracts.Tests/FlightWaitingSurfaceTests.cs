@@ -21,7 +21,7 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class FlightWaitingSurfaceTests
 {
-    private static FlightSummary Summary(string? waiting, IReadOnlyList<string>? labels = null) => new()
+    private static FlightSummary Summary(Reason? waiting, IReadOnlyList<string>? labels = null) => new()
     {
         FlightId = Guid.NewGuid().ToString(),
         FlightNumber = "GG-1042",
@@ -42,12 +42,14 @@ public class FlightWaitingSurfaceTests
     public async Task A_flight_nobody_can_lease_names_what_it_waits_for()
     {
         var waiting = Summary(
-            "waiting: no runner advertises environment=aspire-payments",
+            Reason.For(ReasonKinds.NoRunnerAdvertises, ["environment=aspire-payments"]),
             ["environment=aspire-payments"]);
 
-        await Assert.That(waiting.Waiting!).Contains("environment=aspire-payments")
+        await Assert.That(waiting.Waiting!.Params).Contains("environment=aspire-payments")
             .Because("a name is what somebody can act on; a count says only that something "
                    + "is wrong.");
+        await Assert.That(Reason.Sentence(waiting.Waiting.Kind, waiting.Waiting.Params))
+            .Contains("environment=aspire-payments");
         await Assert.That(waiting.RequiredLabels).Contains("environment=aspire-payments");
     }
 

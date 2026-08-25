@@ -248,12 +248,14 @@ public sealed record FlightSummary
     /// <remarks>
     /// <b>Refusal at apply, waiting at flight.</b> Apply has an actor at the
     /// keyboard to inform; a queued flight has nobody, so it waits loudly
-    /// instead of dying quietly. The sentence names the labels no live runner
-    /// advertises, because a name is what somebody can act on. Null means not
-    /// waiting - the <see cref="LeaseClaimStatus.Lease"/> absence rule -
-    /// and "waiting: nothing" is not a state this member can express.
+    /// instead of dying quietly. A <see cref="Reason"/> since 0.54.0 - the
+    /// wire NAME survives and the type changes, a loud break chosen over the
+    /// silent-health flip a rename would cause in old readers. The sentence
+    /// a person reads derives from the kind via <see cref="Reason.Sentence"/>.
+    /// Null means not waiting - the <see cref="LeaseClaimStatus.Lease"/>
+    /// absence rule - and "waiting: nothing" is not a state this can express.
     /// </remarks>
-    public string? Waiting { get; init; }
+    public Reason? Waiting { get; init; }
 }
 
 /// <summary>

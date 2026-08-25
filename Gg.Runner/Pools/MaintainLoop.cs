@@ -62,7 +62,22 @@ public sealed class MaintainLoop(
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            foreach (var member in await _adapter.ListAsync(pool, cancellationToken))
+            var members = await _adapter.ListAsync(pool, cancellationToken);
+
+            // THE EMPTY POOL ANNOUNCES ITSELF. The first attestation is the
+            // pull point coming up - it recovers bring-up, and it carries the
+            // scope stamp the decider requires before any outward act. A loop
+            // that stayed silent until a member existed deadlocked the whole
+            // management story at birth (found live, by the walk).
+            if (members.Count == 0)
+            {
+                await AttestAsync(pool, PoolActions.Verify, new PoolObservation
+                {
+                    Outcome = PoolOutcomes.Verified,
+                }, probe, actionId: null, cancellationToken);
+            }
+
+            foreach (var member in members)
             {
                 var observed = await _adapter.VerifyAsync(member, cancellationToken);
                 await AttestAsync(pool, PoolActions.Verify, observed, probe, actionId: null,

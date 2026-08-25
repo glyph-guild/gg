@@ -912,7 +912,7 @@ public static class ProtocolSurface
             [typeof(ToolVersion)] = ["name", "version"],
             [typeof(EnvironmentIdentity)] =
                 ["hostFingerprint", "imageDigest", "locks", "tools", "provenance",
-                 "moveEnforcement", "movesProbed"],
+                 "moveEnforcement", "movesProbed", "probedAt"],
             [typeof(SourceProvenance)] =
                 ["provider", "slug", "requestedRef", "resolvedRef", "headCommit",
                  "headIsFork", "forkSlug", "fileCount", "bytes"],

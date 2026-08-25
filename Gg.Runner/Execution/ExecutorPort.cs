@@ -112,7 +112,16 @@ public sealed record ExecutorCapabilities
     /// nearer the truth than true and it was still wrong, and being wrong in the
     /// safe direction is how a claim survives that long unfixed.
     /// </remarks>
-    public required MoveEnforcement EnforcesMoves { get; init; }
+    /// <remarks>
+    /// RENAMED from EnforcesMoves at slice eleven, the rename slice three
+    /// flagged three times: the old name read as the executor's property when
+    /// the truth was 'what the whole invocation shape can bound'. It is a
+    /// DECLARED HINT now - the probe measures the real thing per session, the
+    /// wire value derives from that measurement, and this member is read by
+    /// nothing on the fact path. Its remaining job is documentation and the
+    /// probe's diagnosis when declared and measured disagree.
+    /// </remarks>
+    public required MoveEnforcement DeclaredMoveEnforcement { get; init; }
 
     /// <summary>
     /// Whether it can say which tool call produced which file change.

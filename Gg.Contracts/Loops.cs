@@ -149,11 +149,14 @@ public sealed record LoopOutcome
     /// Which moves were actually used, from the tool calls it made.
     /// </summary>
     /// <remarks>
-    /// Recorded, never enforced. Recording which moves a flight used is what
-    /// makes bounding them designable later - a bound nobody has measured is a
-    /// bound nobody can set. The executor cannot restrict its own tool list, so
-    /// this is an observation rather than a guarantee, and the capability
-    /// declaration says so.
+    /// Recorded from the tool calls, beside a bound that is partly enforced
+    /// and measured per session: the write-shaped tools are refused at the
+    /// call when not granted, Read and Bash are not bound, and the probe
+    /// proves what held before every invocation. So this is an observation of
+    /// what the agent DID, sitting next to a measurement of what it could
+    /// have been stopped from doing - and the union of it across a flight is
+    /// what `moves used include` attaches on, because an act cannot be
+    /// un-happened.
     /// </remarks>
     public required IReadOnlyList<string> MovesUsed { get; init; }
 

@@ -54,7 +54,7 @@ public class EnforcesMovesTests
         // tools, no for those, and only while a flag holds". False was nearer the
         // truth than true and it was still wrong, and being wrong in the safe
         // direction is how a claim survives three flaggings without being fixed.
-        await Assert.That(ClaudeCodeExecutor.Capabilities.EnforcesMoves)
+        await Assert.That(ClaudeCodeExecutor.Capabilities.DeclaredMoveEnforcement)
             .IsEqualTo(MoveEnforcement.PerTool);
     }
 

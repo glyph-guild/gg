@@ -71,7 +71,7 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
         // NOT restore the bound - only clearing setting sources does, and why
         // that is so is not characterised. So this is declared as contingent and
         // MoveBoundProbe verifies it at startup rather than trusting it.
-        EnforcesMoves = MoveEnforcement.PerTool,
+        DeclaredMoveEnforcement = MoveEnforcement.PerTool,
         AttributesEditsToTools = false,
         Gaps =
         [
@@ -230,7 +230,7 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
                   // call and removes Grep from the tool list; it does not bind Read
                   // or Bash. It is also the whole of what makes the line above
                   // matter - clearing setting sources is what stops the operator's
-                  // own permissions applying instead. See EnforcesMoves above, and
+                  // own permissions applying instead. See DeclaredMoveEnforcement above, and
                   // MoveBoundProbe, which proves this rather than assuming it.
                   "--allowedTools", .. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)])
         {

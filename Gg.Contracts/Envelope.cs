@@ -142,9 +142,12 @@ public static class ObligationPredicates
 /// What a loop is permitted to do.
 /// </summary>
 /// <remarks>
-/// Declared and recorded; <b>not enforced</b>. Recording which moves a flight
-/// actually used is what makes enforcement designable later - a bound nobody
-/// has measured is a bound nobody can set.
+/// Declared, recorded, and <b>partly enforced - measured per session, not
+/// assumed</b>. The write-shaped tools are refused at the call when not
+/// granted; Read and Bash are measured unbound; and the runner's probe proves
+/// the bound before every invocation, so what a fact set claims about
+/// enforcement is what a probe demonstrated on that machine at that moment
+/// (environment.identity: moveEnforcement, movesProbed, probedAt).
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Fact)]
 public static class LoopMoves
@@ -638,7 +641,10 @@ public sealed record Loop
     /// <summary>Obligation ids this loop satisfies.</summary>
     public required IReadOnlyList<string> Discharges { get; init; }
 
-    /// <summary>Moves from <see cref="LoopMoves"/>. Recorded, not enforced.</summary>
+    /// <summary>
+    /// Moves from <see cref="LoopMoves"/>. Recorded, and partly enforced -
+    /// per-tool, proven by the session's own probe rather than assumed.
+    /// </summary>
     [Composes(MergeOperators.Intersect)]
     public required IReadOnlyList<string> Moves { get; init; }
 

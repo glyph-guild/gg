@@ -26,10 +26,13 @@ namespace Gg.Contracts.Tests;
 public class ChecklistSurfaceTests
 {
     [Test]
-    public async Task The_satisfier_column_has_exactly_two_values()
+    public async Task The_satisfier_column_has_exactly_three_values()
     {
+        // Two until slice twelve, whose closure comment prophesied the third:
+        // a strategy exists now, and declined-by-bound is its word.
         await Assert.That(ChecklistSatisfiers.All)
-            .IsEquivalentTo((string[])[ChecklistSatisfiers.MatchingRunner, ChecklistSatisfiers.Nobody]);
+            .IsEquivalentTo((string[])[ChecklistSatisfiers.MatchingRunner, ChecklistSatisfiers.Nobody,
+                ChecklistSatisfiers.DeclinedByBound]);
         await Assert.That(ChecklistSatisfiers.MatchingRunner).IsEqualTo("already-true-via-matching");
         await Assert.That(ChecklistSatisfiers.Nobody).IsEqualTo("nobody-declared-capability-gap");
     }

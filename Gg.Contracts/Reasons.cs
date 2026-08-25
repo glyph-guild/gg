@@ -85,6 +85,12 @@ public sealed record Reason
               + "(PUT /v1/envelope); its first version is the ratification and lands on "
               + "the owner's say-so.",
 
+            ReasonKinds.BlockedByBound => Bound(parameters),
+
+            ReasonKinds.PoolWarming =>
+                $"the pool '{First(parameters)}' is warming toward this flight's label; "
+              + "a runner advertising it clears this.",
+
             _ => throw new InvalidOperationException(
                 $"'{kind}' is not a reason kind this build knows. A sentence cannot be "
               + "derived for it, and deriving silence instead would read as health."),
@@ -92,6 +98,38 @@ public sealed record Reason
 
         static string First(IReadOnlyList<string> parameters) =>
             parameters.Count > 0 ? parameters[0] : "(unnamed)";
+
+        // The clearing is the sentence's other half - the remedy. An unknown
+        // clearing THROWS, one param deeper than an unknown kind, because a
+        // branch that blanked on a value nobody declared would read as
+        // health. The authority clearing arrives with the first metered
+        // strategy row; today it poisons here, deliberately.
+        static string Bound(IReadOnlyList<string> parameters)
+        {
+            var bound = parameters.Count > 0 ? parameters[0] : "(unnamed)";
+            var clearing = parameters.Count > 1 ? parameters[1] : "(none)";
+
+            if (string.Equals(clearing, BoundClearings.Capacity, StringComparison.Ordinal))
+            {
+                return $"declined by your own bound: {bound} is reached; clears when a "
+                     + "peer flight releases.";
+            }
+
+            if (string.Equals(clearing, BoundClearings.Schedule, StringComparison.Ordinal))
+            {
+                return parameters.Count > 2
+                    ? $"declined by your own bound: outside {bound}; opens {parameters[2]}."
+                    : throw new InvalidOperationException(
+                        $"A schedule clearing on '{bound}' carries no eta. A wait with no "
+                      + "end a reader can plan around is not a schedule - the producer "
+                      + "derives the opening time from the declared hours.");
+            }
+
+            throw new InvalidOperationException(
+                $"'{clearing}' is not a bound clearing this build knows. A sentence "
+              + "cannot be derived for it, and deriving silence instead would read as "
+              + "health.");
+        }
     }
 
     /// <summary>Null when coherent; the diagnosis otherwise.</summary>
@@ -147,19 +185,60 @@ public static class ReasonKinds
     /// <summary>A registration with no envelope in force to gate it - the floor refusal.</summary>
     public const string RegistrationIsAWidening = "registration-is-a-widening";
 
+    /// <summary>
+    /// A bound the tenant declared binds: the flight waits, naming the bound
+    /// and its clearing. THE DECLINED FAMILY'S FIRST KIND - slice ten
+    /// reserved exactly this ("its first kind arrives with the producer that
+    /// mints it"), and the producer is the control-plane decider, which
+    /// declines by not deciding. Params: [bound, clearing] or
+    /// [bound, clearing, eta]; the bound is the strategy field's own name
+    /// (pool-maximum, active-hours), the clearing one of
+    /// <see cref="BoundClearings"/>.
+    /// </summary>
+    public const string BlockedByBound = "blocked-by-bound";
+
+    /// <summary>
+    /// The pool is warming toward this flight's label. Neither a gap nor a
+    /// bound - without its own kind the state would have to wear one of
+    /// their clothes, and both remedies would be wrong. Params: [pool].
+    /// </summary>
+    public const string PoolWarming = "pool-warming";
+
     /// <summary>Every kind, for the closed-vocabulary fingerprint.</summary>
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
-         Uncharted, RegistrationIsAWidening];
+         Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
     {
-        NoRunnerAdvertises => ReasonFamilies.Failed,
+        NoRunnerAdvertises or PoolWarming => ReasonFamilies.Failed,
+        BlockedByBound => ReasonFamilies.Declined,
         CannotBeShownToTighten or WideningRequiresAGate or Uncharted
             or RegistrationIsAWidening => ReasonFamilies.Refused,
         _ => throw new InvalidOperationException(
             $"'{kind}' is not a reason kind this build knows - its family cannot be "
           + "derived, and guessing one would file a refusal under a wait."),
     };
+}
+
+/// <summary>
+/// How a bound clears — the remedy half of the declined sentence.
+/// </summary>
+/// <remarks>
+/// Closed at two, and the absence is the design: the <c>authority</c>
+/// clearing (a spend ceiling with no period — somebody must decide) arrives
+/// with the first metered strategy row, because docker-host meters no spend
+/// and a constant nothing produces is a promise nobody has to keep.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class BoundClearings
+{
+    /// <summary>Clears when a peer flight releases its environment.</summary>
+    public const string Capacity = "capacity";
+
+    /// <summary>Clears when the declared hours open; the sentence carries the eta.</summary>
+    public const string Schedule = "schedule";
+
+    public static IReadOnlyList<string> All { get; } = [Capacity, Schedule];
 }

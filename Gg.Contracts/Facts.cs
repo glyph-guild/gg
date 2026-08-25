@@ -339,8 +339,12 @@ public static class FactBudget
 
 /// <summary>Whether this environment was made for this flight or found.</summary>
 /// <remarks>
-/// A field, not a feature. Warm pools are years away; recording which of the
-/// two happened costs nothing now and is unrecoverable later.
+/// A field that became a feature: it shipped years ahead of warm pools ("a
+/// field, not a feature" was its whole argument), and slice twelve's strategy
+/// arrived to consume it - the pool attests this value on every routine
+/// action, and the next flight's identity carries it as the audit trail.
+/// Recording which of the two happened cost nothing then and is what makes
+/// fresh-or-reused answerable now.
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Fact)]
 public static class EnvironmentProvenance

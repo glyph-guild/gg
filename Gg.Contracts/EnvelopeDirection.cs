@@ -129,7 +129,10 @@ public static class EnvelopeDirection
             return obligations;
         }
 
-        if (Loops(applied.Loops, proposed.Loops) is { } loops)
+        var newObligations = proposed.Obligations.Select(o => o.Id)
+            .Except(applied.Obligations.Select(o => o.Id), StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        if (Loops(applied.Loops, proposed.Loops, newObligations) is { } loops)
         {
             return loops;
         }
@@ -211,7 +214,8 @@ public static class EnvelopeDirection
         return null;
     }
 
-    private static EnvelopeWidening? Loops(IReadOnlyList<Loop> applied, IReadOnlyList<Loop> proposed)
+    private static EnvelopeWidening? Loops(
+        IReadOnlyList<Loop> applied, IReadOnlyList<Loop> proposed, IReadOnlySet<string> newObligations)
     {
         if (IdSetMoved("loops", applied.Select(l => l.Id), proposed.Select(l => l.Id)) is { } set)
         {
@@ -242,15 +246,23 @@ public static class EnvelopeDirection
                   + "only ever narrow.");
             }
 
-            // discharges: intra-document wiring; a loop gaining one lets
-            // machine work answer a gate it did not, losing one has no
-            // declared direction. Equal, or widening.
-            if (!SetEqual(was.Discharges, now.Discharges))
+            // discharges: intra-document wiring. A discharge gained for an
+            // obligation NEW in this same document rides its tightening -
+            // Validate requires every obligation be discharged, so the pair
+            // arrives together or not at all. Anything else - a removal, or a
+            // discharge gained for a pre-existing obligation - rewires who
+            // answers an existing gate, which has no declared direction.
+            var lostDischarges = was.Discharges.Except(now.Discharges, StringComparer.Ordinal).ToList();
+            var gainedDischarges = now.Discharges.Except(was.Discharges, StringComparer.Ordinal)
+                .Where(id => !newObligations.Contains(id))
+                .ToList();
+            if (lostDischarges.Count > 0 || gainedDischarges.Count > 0)
             {
                 return Widen($"{at}.discharges",
                     $"loop '{was.Id}' rewired its discharges from "
-                  + $"[{string.Join(", ", was.Discharges)}] to [{string.Join(", ", now.Discharges)}], "
-                  + "and no order exists over what answers a gate.");
+                  + $"[{string.Join(", ", was.Discharges)}] to [{string.Join(", ", now.Discharges)}] "
+                  + "beyond the obligations this same change adds, and no order exists over "
+                  + "who answers an existing gate.");
             }
 
             // budget.wall-clock: min. Unparsable is widening - the comparator

@@ -800,7 +800,7 @@ public static class ProtocolSurface
             [typeof(Envelope)] =
                 ["context", "obligations", "loops", "destinations", "environment", "repository"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
-            [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed"],
+            [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed", "widens", "flight", "awaiting"],
             [typeof(ProtocolHello)] = ["protocolVersion", "component", "componentVersion"],
             [typeof(DeviceAuthorizationRequest)] = ["deviceLabel"],
             [typeof(DeviceAuthorizationStarted)] =

@@ -282,6 +282,21 @@ public static class AttachmentConditions
     /// </remarks>
     public const string TouchesPrefix = "change.manifest touches ";
 
+    /// <summary>
+    /// The change this document is asked to approve widens what is permitted.
+    /// </summary>
+    /// <remarks>
+    /// ADR-0016 § 6's designation, with no new primitive: an ordinary
+    /// <c>check: human</c> obligation carrying this condition is the widening
+    /// gate, attached from the RECORDED direction of a proposed change rather
+    /// than from a fact about the work. Registrations ride the same form -
+    /// a new name is reach that did not exist, a widening of the envelope's
+    /// reachable estate. A <c>check: machine</c> obligation may not carry it:
+    /// a machine predicate reads facts, an envelope-change flight ships none,
+    /// and the pair would be a gate no evaluation can ever open.
+    /// </remarks>
+    public const string Widens = "envelope widens";
+
     /// <summary>Whether this is a condition this version can evaluate.</summary>
     /// <remarks>
     /// <b>Shape, not a list of values.</b> The glob varies, so an allow-list of
@@ -289,15 +304,19 @@ public static class AttachmentConditions
     /// not this form halts rather than attaching or not attaching.
     /// </remarks>
     public static bool IsKnown(string condition) =>
-        condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
-        && condition.Length > TouchesPrefix.Length;
+        string.Equals(condition, Widens, StringComparison.Ordinal)
+        || (condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
+            && condition.Length > TouchesPrefix.Length);
 
     /// <summary>The glob a touches-condition names, or null when it is not one.</summary>
     public static string? GlobOf(string condition) =>
-        IsKnown(condition) ? condition[TouchesPrefix.Length..].Trim() : null;
+        condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
+        && condition.Length > TouchesPrefix.Length
+            ? condition[TouchesPrefix.Length..].Trim()
+            : null;
 
     /// <summary>Every form this version understands, for a diagnosis to list.</summary>
-    public static IReadOnlyList<string> Forms { get; } = [TouchesPrefix + "<glob>"];
+    public static IReadOnlyList<string> Forms { get; } = [TouchesPrefix + "<glob>", Widens];
 }
 
 /// <summary>
@@ -952,6 +971,20 @@ public sealed record Envelope
                 return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one "
                      + "of: " + string.Join(", ", ObligationPredicates.All) + ".";
             }
+        }
+
+        if (string.Equals(obligation.When, AttachmentConditions.Widens, StringComparison.Ordinal)
+            && string.Equals(obligation.Check, ObligationChecks.Machine, StringComparison.Ordinal))
+        {
+            // Refused where the author can still act. A machine predicate
+            // reads facts, an envelope-change flight ships none, and the pair
+            // would be a widening gate no evaluation can ever open - the
+            // permanent deadlock the no-break-glass rule refuses to build.
+            return $"Obligation '{obligation.Id}' pairs check: machine with "
+                 + $"when: {AttachmentConditions.Widens}. A machine predicate reads facts and "
+                 + "an envelope-change flight ships none, so this gate could never be opened "
+                 + "and every widening would deadlock behind it. A widening gate is "
+                 + "check: human.";
         }
 
         if (obligation.When is { } condition && !AttachmentConditions.IsKnown(condition))

@@ -27,6 +27,12 @@ public interface IRunnerObserver
 
     void Released(string leaseId, string disposition);
 
+    /// <summary>
+    /// A session's probe found the bound broken: the machine changed under a
+    /// live runner, and it is stopping.
+    /// </summary>
+    void BoundBroken(string diagnosis);
+
     void Idle();
 
     /// <summary>
@@ -119,6 +125,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void Renewed(string leaseId, DateTimeOffset expiresAt) { }
     public void Fenced(string leaseId) { }
     public void Released(string leaseId, string disposition) { }
+    public void BoundBroken(string diagnosis) { }
     public void Idle() { }
     public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
@@ -235,12 +242,12 @@ public sealed class RunnerLoop(
     public RunnerActivity Activity { get; private set; } = RunnerActivity.Claiming;
 
     /// <summary>Runs until cancelled.</summary>
-    public async Task RunAsync(
+    public async Task<int> RunAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
     {
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested && !_boundBroke)
             {
                 Activity = RunnerActivity.Claiming;
 
@@ -346,7 +353,15 @@ public sealed class RunnerLoop(
             // lease survives its holder and expires on the control plane's
             // clock is the point of the whole step.
         }
+
+        // The startup refusal's own exit, for the same finding mid-life: a
+        // broken bound is a property of the machine, not of the lease, and a
+        // runner that kept claiming would fly ungoverned flights on it.
+        return _boundBroke ? 69 : 0;
     }
+
+    /// <summary>Whether a session's probe found the bound broken.</summary>
+    private bool _boundBroke;
 
     /// <summary>
     /// Resolves every credential the lease named, or reports the first that
@@ -538,10 +553,24 @@ public sealed class RunnerLoop(
         // process. A fence answered mid-work means the flight is somebody
         // else's now: the work is cancelled, nothing ships, and the loop goes
         // back to claiming.
-        var (run, lost) = await InvokeRenewingAsync(lease, workspace, cancellationToken);
+        var (probe, run, lost) = await InvokeRenewingAsync(lease, workspace, cancellationToken);
         if (lost)
         {
             _observer.Fenced(lease.LeaseId);
+            return;
+        }
+
+        // THE SESSION'S OWN PROBE SAID NO. The lease goes back with the
+        // diagnosis - the named halt - and NO facts ship: a fact set for a
+        // session that never ran would be evidence of a flight that did not
+        // fly. The runner then stops taking work, because a broken bound is a
+        // property of the machine rather than of the lease, and the next claim
+        // would fly ungoverned on the same machine.
+        if (probe is { Bound: false })
+        {
+            _observer.BoundBroken(probe.Diagnosis);
+            await ReleaseAsync(lease, RunnerDisposition.Failed, probe.Diagnosis, cancellationToken);
+            _boundBroke = true;
             return;
         }
 
@@ -581,12 +610,13 @@ public sealed class RunnerLoop(
     /// an unhandled one once.
     /// </para>
     /// </remarks>
-    private async Task<(ExecutorRun? Run, bool Lost)> InvokeRenewingAsync(
-        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+    private async Task<(Execution.ProbeResult? Probe, ExecutorRun? Run, bool Lost)>
+        InvokeRenewingAsync(
+            LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
     {
         using var working = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        var work = InvokeAsync(lease, workspace, working.Token);
+        var work = ProbeThenInvokeAsync(lease, workspace, working.Token);
         var expiresAt = lease.ExpiresAt;
         var fenced = false;
 
@@ -624,12 +654,53 @@ public sealed class RunnerLoop(
 
         try
         {
-            return (await work, false);
+            var (probe, run) = await work;
+            return (probe, run, false);
         }
         catch (OperationCanceledException) when (fenced && !cancellationToken.IsCancellationRequested)
         {
-            return (null, true);
+            return (null, null, true);
         }
+    }
+
+    /// <summary>
+    /// The session's probe, then the session - in that order, under the same
+    /// renewal.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Per session, because ambient settings act on the session.</b> A
+    /// measurement taken at startup measures the machine as it was before this
+    /// session existed: step 0's re-measurement gave the ambient family its
+    /// fifth member (--permission-mode acceptEdits defeats the bound even with
+    /// setting sources cleared), and any of them can arrive between a runner's
+    /// startup and its tenth flight. The tax is the probe's measured cost -
+    /// 15 to 21 seconds and one small request, in front of a session that
+    /// spends minutes of agent time - and what it buys is the product's only
+    /// claim: that the measurement measures the session it governs.
+    /// </para>
+    /// <para>
+    /// A loop never outlives its invocation today; the day resume changes
+    /// that, the probe moves with it - per loop, as the slice doc records.
+    /// </para>
+    /// </remarks>
+    private async Task<(Execution.ProbeResult? Probe, ExecutorRun? Run)> ProbeThenInvokeAsync(
+        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+    {
+        if (_executor is null || lease.Loop is null)
+        {
+            // Nothing to govern: no agent will be invoked, so there is no
+            // session for a bound to hold over.
+            return (null, await InvokeAsync(lease, workspace, cancellationToken));
+        }
+
+        var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
+        if (!probe.Bound)
+        {
+            return (probe, null);
+        }
+
+        return (probe, await InvokeAsync(lease, workspace, cancellationToken));
     }
 
     /// <summary>

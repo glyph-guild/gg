@@ -18,6 +18,10 @@ internal sealed class ConsoleObserver : IRunnerObserver
     public void Released(string leaseId, string disposition) =>
         System.Console.WriteLine($"released {leaseId} as {disposition}");
 
+    public void BoundBroken(string diagnosis) =>
+        System.Console.Error.WriteLine(
+            $"move bound BROKE mid-life: {diagnosis} This runner will not take further work.");
+
     public void Idle() => System.Console.WriteLine("nothing ready");
 
     /// <summary>
@@ -214,7 +218,6 @@ public static class RunnerHost
             $"gg-runner {runnerId} (pid {Environment.ProcessId}) against {controlPlane} " +
             $"labels [{string.Join(", ", labels)}]");
 
-        await loop.RunAsync(runnerId, labels, cancellationToken);
-        return 0;
+        return await loop.RunAsync(runnerId, labels, cancellationToken);
     }
 }

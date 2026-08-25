@@ -270,7 +270,10 @@ public static class DestinationKinds
     /// </remarks>
     public const string AirspaceRegistration = "airspace-registration";
 
-    public static IReadOnlyList<string> All { get; } = [PullRequest, EnvelopeChange];
+    // Slice twelve's step 0 found AirspaceRegistration declared but absent
+    // here, so an envelope declaring it was refused by the very vocabulary
+    // that declared it. Repaired riding 0.59.0.
+    public static IReadOnlyList<string> All { get; } = [PullRequest, EnvelopeChange, AirspaceRegistration];
 }
 
 /// <summary>
@@ -401,7 +404,14 @@ public static class Roles
     /// <summary>Constraints only: obligations and narrower values, any number.</summary>
     public const string Narrowing = "narrowing";
 
-    public static IReadOnlyList<string> All { get; } = [Root, WorkKind, Narrowing];
+    /// <summary>
+    /// A management document: the pool its name governs is kept warm, reset
+    /// and healthy under it. Never composes - exactly one strategy governs
+    /// one name - and a flight cannot be FOR one.
+    /// </summary>
+    public const string Strategy = "strategy";
+
+    public static IReadOnlyList<string> All { get; } = [Root, WorkKind, Narrowing, Strategy];
 }
 
 /// <summary>

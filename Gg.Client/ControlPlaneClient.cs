@@ -36,6 +36,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(DecisionRecorded))]
 [JsonSerializable(typeof(EnvelopeApplied))]
 [JsonSerializable(typeof(Checklist))]
+[JsonSerializable(typeof(EnvironmentStrategy))]
+[JsonSerializable(typeof(EnvironmentStrategyState))]
+[JsonSerializable(typeof(StrategyList))]
 [JsonSerializable(typeof(ChartEnvironmentRequest))]
 [JsonSerializable(typeof(EnvironmentCharted))]
 [JsonSerializable(typeof(EnvironmentChart))]
@@ -299,6 +302,73 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>
+    /// Applies a strategy to its topology name. The wire is JSON for the same
+    /// reason the envelope's is - the text form and its parser stay on this
+    /// side of the boundary.
+    /// </summary>
+    public async Task<EnvelopeApplied> ApplyStrategyAsync(
+        string sessionToken, string name, EnvironmentStrategy strategy,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Put, $"/v1/airspace/strategies/{Uri.EscapeDataString(name)}", sessionToken);
+        request.Content = JsonContent.Create(strategy, ProtocolJsonContext.Default.EnvironmentStrategy);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // The control plane's own diagnosis, carried through unchanged -
+            // both sides fail closed on their own format.
+            throw new StrategyRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>The strategy in force for a name, or null when none is.</summary>
+    public async Task<EnvironmentStrategyState?> GetStrategyAsync(
+        string sessionToken, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get, $"/v1/airspace/strategies/{Uri.EscapeDataString(name)}", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvironmentStrategyState, cancellationToken);
+    }
+
+    /// <summary>Every strategy in force for the tenant.</summary>
+    public async Task<StrategyList> ListStrategiesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/strategies", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.StrategyList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
     }
 

@@ -160,7 +160,9 @@ public class ConsoleDataTests
             // Editing an envelope is the write half of that read, and it cannot come
             // first: you do not edit what you cannot see. When the pane exists this
             // is $EDITOR seeded with the canonical text and applied back - the same
-            // shape as opening a flight, one document larger.
+            // shape as opening a flight, one document larger. The name also covers
+            // StrategyCommands.ApplyAsync (slice twelve), the same document-edit
+            // shape one role over, with the same missing-pane reason.
             "ApplyAsync",
 
             // The console DOES take a flight over, through ITakeSession, and it
@@ -197,7 +199,7 @@ public class ConsoleDataTests
     /// </remarks>
     private static IReadOnlyList<Type> VerbClasses { get; } =
         [typeof(FlightCommands), typeof(CredentialCommands),
-         typeof(EnvelopeCommands), typeof(TakeCommands)];
+         typeof(EnvelopeCommands), typeof(TakeCommands), typeof(StrategyCommands)];
 
     [Test]
     public async Task Every_class_that_holds_verbs_is_in_that_list()

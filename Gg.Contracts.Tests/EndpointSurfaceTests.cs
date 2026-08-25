@@ -159,8 +159,14 @@ public class EndpointSurfaceTests
         // may ride a flight, and the pending answer names the flight, the
         // approver and what widens. Nothing moved paths or audiences; only
         // the statuses grew.
+        // Moved for slice twelve: the strategy door. PUT and two GETs under
+        // /v1/airspace/strategies - a management document applies to a name
+        // whose topology role is strategy, through the same per-name stream,
+        // answering the envelope's own EnvelopeApplied. Developer all three:
+        // a resident runner pulls pool work, it never authors the policy
+        // that governs it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("1f8086cc82f814d2847d17e88ba5aac00a4ab64767a480c99496fa706aeda783")
+            .IsEqualTo("17998ed90dcbce5a51c79b6ca477a6d6ea589589ff37127e69186acc2ab64aa0")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

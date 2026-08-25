@@ -364,8 +364,22 @@ public static class MergeOperators
     /// <summary>Everything every layer declared, keyed where the field says.</summary>
     public const string Union = "union";
 
+    /// <summary>
+    /// The meet of a two-point order: any layer may force the tight value,
+    /// none may force the loose one.
+    /// </summary>
+    /// <remarks>
+    /// ADR-0014's one undecided operator, decided 2026-08-24 by naming the
+    /// governed quantity - reach. For <c>preserve-unadmitted</c>, true means
+    /// unadmitted work leaves the machine for a fetchable remote and false
+    /// means it does not, so <c>and</c> makes composition the meet: a layer
+    /// can only ever remove reach. Absence stays what it always meant -
+    /// false, the tight end, not "no opinion".
+    /// </remarks>
+    public const string And = "and";
+
     public static IReadOnlyList<string> All { get; } =
-        [RootOnly, WorkKindOnly, Intersect, Min, Union];
+        [RootOnly, WorkKindOnly, Intersect, Min, Union, And];
 }
 
 /// <summary>
@@ -618,6 +632,7 @@ public sealed record Destination
     /// a value may not - the reasoning written on <see cref="LoopBudget.Attempts"/>.
     /// </para>
     /// </remarks>
+    [Composes(MergeOperators.And)]
     public bool? PreserveUnadmitted { get; init; }
 }
 

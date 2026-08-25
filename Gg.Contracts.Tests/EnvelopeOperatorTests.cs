@@ -137,10 +137,16 @@ public class EnvelopeOperatorTests
         await Assert.That(declared[$"{nameof(Destination)}.{nameof(Destination.Requires)}"])
             .IsEqualTo(MergeOperators.Union);
 
+        // ADR-0014's one undecided operator was decided 2026-08-24: and. The
+        // exemption retires rather than being reworded, because the drift
+        // guard is the stronger custodian - a field with an operator is
+        // inside the sweep, a field with an exemption is beside it.
+        await Assert.That(declared[$"{nameof(Destination)}.{nameof(Destination.PreserveUnadmitted)}"])
+            .IsEqualTo("and");
         await Assert.That(exempt.Keys)
-            .Contains($"{nameof(Destination)}.{nameof(Destination.PreserveUnadmitted)}")
-            .Because("ADR-0014's one undecided operator stays visibly undecided - an exemption "
-                   + "with the question written down, never a defaulted answer.");
+            .DoesNotContain($"{nameof(Destination)}.{nameof(Destination.PreserveUnadmitted)}")
+            .Because("an operator AND an exemption is the staleness the composer's own "
+                   + "constructor refuses; the question is answered and the entry is gone.");
 
         // LIVENESS: the walk covers the whole closed schema. Every public
         // property of every composable type is declared or exempted; a new
@@ -289,6 +295,25 @@ public class EnvelopeOperatorTests
     }
 
     [Test]
+    public async Task Composed_obligations_arrive_in_one_order_regardless_of_the_list_handed_in()
+    {
+        // THE PIN DIGEST'S REPRODUCIBILITY. Composition is order-free in
+        // CONTENT, but the composed obligations keep an order and a digest is
+        // over the bytes - so the composer owns a canonical order, rather
+        // than every caller pre-sorting and hoping the next one knows to.
+        EnvelopeLayer[] layers =
+            [Root(), Narrowing("pci", "root", "pci-review"), Narrowing("sox", "root", "sox-review")];
+        var forward = EnvelopeComposition.Compose(layers);
+        var backward = EnvelopeComposition.Compose([.. layers.Reverse()]);
+
+        await Assert.That(forward.Refused).IsNull();
+        await Assert.That(forward.Composed!.Obligations.Select(o => o.Id)
+                .SequenceEqual(backward.Composed!.Obligations.Select(o => o.Id))).IsTrue()
+            .Because("two callers composing the same layers must hash the same bytes, or a "
+                   + "pin's digest depends on who resolved it.");
+    }
+
+    [Test]
     public async Task Two_layers_declaring_one_obligation_id_are_refused_naming_both_names()
     {
         var collision = EnvelopeComposition.Compose(
@@ -310,6 +335,6 @@ public class EnvelopeOperatorTests
             .IsEquivalentTo((string[])[Roles.Root, Roles.WorkKind, Roles.Narrowing]);
         await Assert.That(MergeOperators.All).IsEquivalentTo((string[])
             [MergeOperators.RootOnly, MergeOperators.WorkKindOnly, MergeOperators.Intersect,
-             MergeOperators.Min, MergeOperators.Union]);
+             MergeOperators.Min, MergeOperators.Union, "and"]);
     }
 }

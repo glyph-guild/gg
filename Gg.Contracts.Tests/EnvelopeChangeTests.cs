@@ -90,9 +90,12 @@ public class EnvelopeChangeTests
     public async Task A_destination_that_is_not_a_repository_is_its_own_kind()
     {
         await Assert.That(DestinationKinds.All).Contains(DestinationKinds.EnvelopeChange);
-        await Assert.That(DestinationKinds.All.Count).IsEqualTo(2)
-            .Because("two, and the second one is deliberately not a repository - which is what "
-                   + "makes 'add a destination' a real answer rather than a restatement.");
+        await Assert.That(DestinationKinds.All.Count).IsEqualTo(3)
+            .Because("three: pull-request, and two that are deliberately not repositories - "
+                   + "which is what makes 'add a destination' a real answer rather than a "
+                   + "restatement. The third (airspace-registration) was declared in 0.53.0 "
+                   + "and left out of this list; slice twelve's step 0 found it refused by "
+                   + "its own vocabulary, repaired riding 0.59.0.");
     }
 
     // ---- what a human rung may not declare ----

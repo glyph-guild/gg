@@ -44,6 +44,25 @@ public sealed record EnvelopeNarrowingParse
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
+/// <summary>What reading a strategy produced.</summary>
+/// <remarks>
+/// A separate result for a separate door, the narrowing's rule: the caller
+/// decided this text is a strategy by which door it knocked on. <c>kind:</c>
+/// inside names the infrastructure row (docker-host), never the document's
+/// role.
+/// </remarks>
+public sealed record StrategyParse
+{
+    /// <summary>The strategy, or null when there is a diagnosis.</summary>
+    public EnvironmentStrategy? Strategy { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+
+    /// <summary>Facts about what the round trip did. Comments are the only one today.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
+}
+
 /// <summary>
 /// Envelope YAML to model. The only YAML parser in the product.
 /// </summary>
@@ -174,6 +193,114 @@ public static class EnvelopeYaml
         }
 
         return new EnvelopeNarrowingParse { Narrowing = narrowing, Notes = Notes(text) };
+    }
+
+    /// <summary>Reads strategy text, or says what is wrong with it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The closed key set is the containment.</b> <c>host:</c>,
+    /// <c>socket:</c>, <c>daemon:</c> and <c>credential:</c> are refused by
+    /// not being admitted - the resident runner's endpoint lives in its own
+    /// environment and nowhere in a policy document, so there is no key for
+    /// it to arrive through.
+    /// </para>
+    /// <para>
+    /// <b>A missing pull point is refused for its own reason</b>, before the
+    /// generic missing-key wording could claim it: a powered-off pool cannot
+    /// pull, and the author finds that out here rather than at 2 a.m.
+    /// </para>
+    /// </remarks>
+    public static StrategyParse ParseStrategy(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new StrategyParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new StrategyParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        EnvironmentStrategy strategy;
+        try
+        {
+            strategy = MapStrategy(document);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new StrategyParse { Diagnosis = refusal.Message };
+        }
+
+        // The SCHEMA's own rule, shared rather than reimplemented, so gg and
+        // the control plane cannot disagree about what a valid strategy is.
+        if (EnvironmentStrategy.Validate(strategy) is { } invalid)
+        {
+            return new StrategyParse { Diagnosis = invalid };
+        }
+
+        return new StrategyParse { Strategy = strategy, Notes = Notes(text) };
+    }
+
+    private static EnvironmentStrategy MapStrategy(Node document)
+    {
+        var root = RequireMap(document, "");
+        Closed(root, "kind", "environment", "inventory", "pull-point", "image", "bounds");
+
+        if (!root.Entries.ContainsKey("pull-point"))
+        {
+            throw new EnvelopeSyntaxException(
+                "This strategy names no pull point, and a powered-off pool cannot pull. "
+              + "Declare pull-point: " + PullPoints.ResidentRunner
+              + " - the refusal happens here, at authoring, not at 2 a.m.");
+        }
+
+        var inventory = RequireMap(Require(root, "inventory"), "inventory");
+        Closed(inventory, "pool", "size");
+        var size = WholeNumber(Require(inventory, "size"), "inventory.size");
+
+        // ABSENT BOUNDS DEFAULT TO THE INVENTORY, never to unbounded: the
+        // size is the outermost bound a pool can have, so an author who
+        // declares none has declared that one.
+        var bounds = new StrategyBounds { PoolMax = size, ActiveHours = null };
+        if (root.Entries.TryGetValue("bounds", out var declared))
+        {
+            var map = RequireMap(declared, "bounds");
+            Closed(map, "pool-max", "active-hours");
+            bounds = new StrategyBounds
+            {
+                PoolMax = map.Entries.TryGetValue("pool-max", out var poolMax)
+                    ? WholeNumber(poolMax, "bounds.pool-max")
+                    : size,
+                ActiveHours = map.Entries.TryGetValue("active-hours", out var hours)
+                    ? RequireScalar(hours, "bounds.active-hours")
+                    : null,
+            };
+        }
+
+        return new EnvironmentStrategy
+        {
+            Kind = RequireScalar(Require(root, "kind"), "kind"),
+            Environment = RequireScalar(Require(root, "environment"), "environment"),
+            Inventory = new StrategyInventory
+            {
+                Pool = RequireScalar(Require(inventory, "pool"), "inventory.pool"),
+                Size = size,
+            },
+            PullPoint = RequireScalar(Require(root, "pull-point"), "pull-point"),
+            Image = RequireScalar(Require(root, "image"), "image"),
+            Bounds = bounds,
+        };
     }
 
     /// <summary>A refusal that already knows how to explain itself.</summary>

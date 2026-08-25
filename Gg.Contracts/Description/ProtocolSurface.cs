@@ -614,6 +614,45 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE STRATEGY DOOR. A management document applies to a name whose
+            // topology role is strategy, through the same per-name stream and
+            // version counter as every other document. 400 is a refusal -
+            // EnvironmentStrategy.Validate's diagnosis, an uncharted furnished
+            // label, or an unknown name/role; 202 is an inventory extension
+            // diverted to the widening gate.
+            Method = "PUT",
+            Path = "/v1/airspace/strategies/{name}",
+            Audience = Audience.Developer,
+            Request = typeof(EnvironmentStrategy),
+            Response = typeof(EnvelopeApplied),
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/strategies/{name}",
+            Audience = Audience.Developer,
+            Response = typeof(EnvironmentStrategyState),
+            // 404 is a name with no strategy in force - different from a
+            // strategy that manages nothing, which cannot exist: the document
+            // requires its inventory.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/strategies",
+            Audience = Audience.Developer,
+            Response = typeof(StrategyList),
+            // An empty list is 200 with nothing in it: a tenant managing no
+            // pools is the null strategy, which is a state and not an error.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // Declaring a name is what makes it reachable at all: an envelope
             // applied to an undeclared name is refused pointing HERE, so the
             // door ships in the same contract as the refusal. v0 is
@@ -880,6 +919,14 @@ public static class ProtocolSurface
             [typeof(RegistrationPending)] = ["flight", "awaiting", "widens"],
             [typeof(Reason)] = ["family", "kind", "params"],
             [typeof(EnvironmentChart)] = ["environments"],
+            // The strategy document. No member a host, socket or credential
+            // could travel in, asserted over the shape as well as declared.
+            [typeof(StrategyInventory)] = ["pool", "size"],
+            [typeof(StrategyBounds)] = ["poolMax", "activeHours"],
+            [typeof(EnvironmentStrategy)] =
+                ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
+            [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],
+            [typeof(StrategyList)] = ["strategies"],
             [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
             [typeof(TopologyName)] =
                 ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],

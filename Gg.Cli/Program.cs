@@ -38,6 +38,9 @@ return CliArgs.Parse(args) switch
     CliAction.EnvelopeShow show => await EnvelopeAsync(show.Json, c => c.ShowAsync()),
     CliAction.EnvelopeApply apply =>
         await EnvelopeAsync(apply.Json, c => c.ApplyAsync(ReadEnvelope(apply.Source))),
+    CliAction.StrategyApply strategy =>
+        await StrategyAsync(strategy.Json,
+            c => c.ApplyAsync(strategy.Name, ReadEnvelope(strategy.Source))),
     // No client and no session: validate contacts nothing, so a syntax error
     // costs no round trip and works with no network at all.
     CliAction.EnvelopeValidate check => EmitLocal(check.Json, () =>
@@ -144,6 +147,36 @@ static async Task<int> EnvelopeAsync(bool json, Func<EnvelopeCommands, Task<Verb
         return Fail(unreadable.Message);
     }
     catch (EnvelopeRefusedException refused)
+    {
+        return Fail(refused.Message);
+    }
+    catch (IOException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+}
+
+static async Task<int> StrategyAsync(bool json, Func<StrategyCommands, Task<VerbResult>> run)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var commands = new StrategyCommands(new ControlPlaneClient(http), new FileSessionStore());
+
+    try
+    {
+        var result = await run(commands);
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+        return 0;
+    }
+    catch (NotSignedInException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (StrategyUnreadableException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+    catch (StrategyRefusedException refused)
     {
         return Fail(refused.Message);
     }

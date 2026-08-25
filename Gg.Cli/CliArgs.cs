@@ -139,6 +139,9 @@ public abstract record CliAction
     /// </remarks>
     public sealed record EnvelopeApply(string Source, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Apply a strategy document to its topology name.</summary>
+    public sealed record StrategyApply(string Name, string Source, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Checks an envelope without contacting anything.</summary>
     public sealed record EnvelopeValidate(string Source, bool Json) : CliAction, IEmitsResult;
 
@@ -176,6 +179,7 @@ public static class CliArgs
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
         "gg envelope show               the rules governing this tenant's flights",
+        "gg strategy apply <name> <file>  manage a pool under the named strategy",
         "gg envelope apply <file>|-     write them back",
         "gg envelope validate <file>|-  check a file without sending it anywhere",
         "gg doctor                      check what gg needs to work",
@@ -253,6 +257,8 @@ public static class CliArgs
                 "gg why needs a flight: gg why GG-42, or gg why GG-42 <obligation>."),
             ["envelope", "show"] => new CliAction.EnvelopeShow(json),
             ["envelope", "apply", var source] => new CliAction.EnvelopeApply(source, json),
+            ["strategy", "apply", var name, var source] =>
+                new CliAction.StrategyApply(name, source, json),
             ["envelope", "apply"] => Unknown(
                 "gg envelope apply needs a file, or - to read the envelope from stdin."),
             ["envelope", "validate", var source] => new CliAction.EnvelopeValidate(source, json),

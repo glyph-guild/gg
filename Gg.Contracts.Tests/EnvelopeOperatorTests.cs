@@ -332,7 +332,7 @@ public class EnvelopeOperatorTests
     public async Task Roles_are_a_closed_set_and_not_a_ranking()
     {
         await Assert.That(Roles.All)
-            .IsEquivalentTo((string[])[Roles.Root, Roles.WorkKind, Roles.Narrowing]);
+            .IsEquivalentTo((string[])[Roles.Root, Roles.WorkKind, Roles.Narrowing, Roles.Strategy]);
         await Assert.That(MergeOperators.All).IsEquivalentTo((string[])
             [MergeOperators.RootOnly, MergeOperators.WorkKindOnly, MergeOperators.Intersect,
              MergeOperators.Min, MergeOperators.Union, "and"]);

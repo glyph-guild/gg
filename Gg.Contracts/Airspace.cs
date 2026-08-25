@@ -330,6 +330,38 @@ public sealed record RegisterRepositoryRequest
     public string? Credential { get; init; }
 }
 
+/// <summary>
+/// A registration deferred to its gate: the flight that carries it, who the
+/// gate awaits, and what would widen.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One record for all three doors.</b> The done shapes carry required
+/// members a pending answer cannot honestly fill - who registered it and
+/// when, which have not happened yet - so the 202 body is its own type
+/// rather than a done shape with the truth left blank.
+/// </para>
+/// <para>
+/// <b>All three members are required.</b> A registration is a widening by
+/// definition - reach that did not exist before - so there is always a
+/// field to name, always a flight to point at, and always an approver the
+/// gate awaits; a pending answer missing any of them is a wait with no
+/// address.
+/// </para>
+/// </remarks>
+[PinnedId("e2c9f716-d78c-4d24-a1c7-8759cdfdbdf8")]
+public sealed record RegistrationPending
+{
+    /// <summary>The amend-envelope-shaped flight the registration rides.</summary>
+    public required string Flight { get; init; }
+
+    /// <summary>Who the gate awaits - a display a person can read, not an id.</summary>
+    public required string Awaiting { get; init; }
+
+    /// <summary>What the registration widens - the registry gaining a name.</summary>
+    public required string Widens { get; init; }
+}
+
 /// <summary>One registered repository, and who made it nameable.</summary>
 [PinnedId("ee1d0c6d-c310-4042-a57e-f750722c8c01")]
 public sealed record RepositoryRegistered

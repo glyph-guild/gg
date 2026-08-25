@@ -106,6 +106,7 @@ public static class Vocabulary
         typeof(EnvelopeLayer),
         typeof(Composition),
         typeof(EnvelopeWidening),
+        typeof(RegistrationPending),
         typeof(EnvelopeState),
         typeof(EnvelopeApplied),
         typeof(ChartEnvironmentRequest),

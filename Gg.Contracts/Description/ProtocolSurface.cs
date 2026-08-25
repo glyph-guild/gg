@@ -30,6 +30,17 @@ public sealed record Endpoint
     public Type? Response { get; init; }
 
     /// <summary>
+    /// Wire type of a 202 answer, when the endpoint may defer to a flight.
+    /// </summary>
+    /// <remarks>
+    /// A registration door's done shape carries required members a pending
+    /// answer cannot honestly fill - who registered it and when, which have
+    /// not happened yet - so the deferral is its own declared body rather
+    /// than a convention layered on the success type.
+    /// </remarks>
+    public Type? PendingResponse { get; init; }
+
+    /// <summary>
     /// Every status this endpoint may answer with. A client must handle all of
     /// them and a server must produce no others.
     /// </summary>
@@ -579,11 +590,14 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Request = typeof(ChartEnvironmentRequest),
             Response = typeof(EnvironmentCharted),
+            PendingResponse = typeof(RegistrationPending),
             // 400 is a malformed name, refused with a diagnosis rather than
             // stored - the registry is what apply refusals point people at,
             // and a chart that could hold a blank line would make that advice
             // a trap.
-            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            // 202 is the gated path: the registration widens what the tenant
+            // can reach, so it rides a flight and the answer says who decides.
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()
@@ -609,9 +623,12 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Request = typeof(DeclareNameRequest),
             Response = typeof(TopologyName),
+            PendingResponse = typeof(RegistrationPending),
             // 400 is a malformed or reserved name, a missing parent, or an
             // unknown role - each refused with a diagnosis rather than stored.
-            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            // 202 is the gated path: the registration widens what the tenant
+            // can reach, so it rides a flight and the answer says who decides.
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()
@@ -636,7 +653,10 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Request = typeof(RegisterRepositoryRequest),
             Response = typeof(RepositoryRegistered),
-            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            PendingResponse = typeof(RegistrationPending),
+            // 202 is the gated path: the registration widens what the tenant
+            // can reach, so it rides a flight and the answer says who decides.
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()
@@ -855,6 +875,7 @@ public static class ProtocolSurface
             [typeof(RunnerList)] = ["runners"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],
+            [typeof(RegistrationPending)] = ["flight", "awaiting", "widens"],
             [typeof(EnvironmentChart)] = ["environments"],
             [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
             [typeof(TopologyName)] =

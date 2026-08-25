@@ -261,7 +261,9 @@ public static class DestinationKinds
     /// The <see cref="EnvelopeChange"/> shape again, because a registration
     /// IS an envelope-adjacent widening: reach that did not exist before.
     /// Admission blocks on the widens-designated obligations of the envelope
-    /// in force, so a registration cannot land past its own open gate.
+    /// in force, so a registration cannot land past its own open gate - and
+    /// absence means no: a root that declares no such gate refuses every
+    /// registration naming the tightening that adds one.
     /// </remarks>
     public const string AirspaceRegistration = "airspace-registration";
 

@@ -98,6 +98,37 @@ public static class ObligationOutcomes
 }
 
 /// <summary>
+/// One change in whether an obligation applied, with when it happened.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>State changes only, derived rather than stored.</b> The control plane
+/// appends an attribution per evaluation pass; this is the fold's answer to
+/// "when did the answer CHANGE", so the common case is one entry and the
+/// interesting flight - attached, detached, attached again - is readable with
+/// its times. A gate that appeared and vanished is exactly what a reviewer
+/// needs to see (ADR-0014), and a log that serves only its latest row files
+/// that under never-asked.
+/// </para>
+/// <para>
+/// Derived server-side from a stream that predates this type, so history is
+/// retroactive: a flight that flew before transitions existed reads its own.
+/// </para>
+/// </remarks>
+[PinnedId("7ce6248b-a26c-4470-a2cd-725d52f0d41c")]
+public sealed record AttachmentTransition
+{
+    /// <summary>The state it changed to, from <see cref="Attachments"/>.</summary>
+    public required string To { get; init; }
+
+    /// <summary>When the evaluation that changed it ran.</summary>
+    public required DateTimeOffset At { get; init; }
+
+    /// <summary>The engine's reason for the new answer, when it gave one.</summary>
+    public string? Because { get; init; }
+}
+
+/// <summary>
 /// Why one obligation applied to a flight, or did not.
 /// </summary>
 /// <remarks>
@@ -155,6 +186,17 @@ public sealed record ObligationAttribution
     /// <summary>Why, in the Engine's words.</summary>
     public string? Diagnosis { get; init; }
 
+    /// <summary>
+    /// Every time the attachment answer changed, oldest first - the first
+    /// evaluation is the first entry.
+    /// </summary>
+    /// <remarks>
+    /// Defaulted empty rather than required: a control plane from before this
+    /// member serves none, and an empty history renders as nothing rather
+    /// than as a claim about times nobody recorded.
+    /// </remarks>
+    public IReadOnlyList<AttachmentTransition> Transitions { get; init; } = [];
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(ObligationAttribution attribution)
     {
@@ -169,6 +211,16 @@ public sealed record ObligationAttribution
         {
             return $"Unknown attachment state '{attribution.Attachment}'. Expected one of: "
                  + string.Join(", ", Attachments.All) + ".";
+        }
+
+        foreach (var transition in attribution.Transitions)
+        {
+            if (!Attachments.All.Contains(transition.To, StringComparer.Ordinal))
+            {
+                return $"A transition to '{transition.To}' is not a state this contract "
+                     + "declares. Expected one of: " + string.Join(", ", Attachments.All)
+                     + ". A fourth state in the history would make it unreadable.";
+            }
         }
 
         // The three states are only distinguishable if each carries what makes it

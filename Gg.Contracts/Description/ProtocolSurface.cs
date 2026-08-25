@@ -767,7 +767,9 @@ public static class ProtocolSurface
         new Dictionary<Type, IReadOnlyList<string>>
         {
             [typeof(ObligationAttribution)] =
-                ["obligationId", "attachment", "condition", "because", "outcome", "diagnosis"],
+                ["obligationId", "attachment", "condition", "because", "outcome", "diagnosis",
+                 "transitions"],
+            [typeof(AttachmentTransition)] = ["to", "at", "because"],
             [typeof(GateList)] = ["gates"],
             [typeof(DecisionObservations)] =
                 ["interactive", "evidenceRendered", "secondsToDecide"],

@@ -1064,6 +1064,16 @@ public static class VerbOutput
                 text.AppendLine("  when:     always (this obligation declares no condition)");
             }
 
+            if (obligation.Transitions.Count > 0)
+            {
+                // The answer's own history: when it attached, when it detached,
+                // when it came back - a gate that appeared and vanished is
+                // exactly what a reviewer needs to see, and only the times make
+                // the middle readable.
+                text.AppendLine("  history:  " + string.Join(" -> ", obligation.Transitions
+                    .Select(t => $"{Clean(t.To)} {t.At.UtcDateTime:HH':'mm}")));
+            }
+
             if (obligation.Because is { Length: > 0 } because)
             {
                 text.AppendLine($"  because:  {Clean(because, lines: true)}");

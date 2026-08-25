@@ -84,6 +84,7 @@ public static class Vocabulary
         typeof(PendingGate),
         typeof(BranchPush),
         typeof(ObligationAttribution),
+        typeof(AttachmentTransition),
         typeof(TakeoverClaimed),
         typeof(TakeoverHeld),
         typeof(TakeoverRenewalRequest),

@@ -444,11 +444,22 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE QUEUE MEANS WHAT ITS DESCRIPTION SAYS, since slice fourteen.
+            // This returned every flight the tenant had ever opened, which was
+            // the only thing it could return while nothing recorded an ending -
+            // so `gg flights` grew forever and the one-line description
+            // ("what's in the air") was aspirational.
+            //
+            // ?all= is a parameter rather than a second route because the
+            // question is the same one; what changed is that there is now an
+            // honest default answer to it. `unknown` stays in the default view
+            // deliberately: a flight nobody can account for is exactly what
+            // somebody should see.
             Method = "GET",
             Path = "/v1/flights",
             Audience = Audience.Developer,
             Response = typeof(FlightList),
-            Statuses = [200, 401, 403, ProtocolTooOld],
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()
@@ -1032,7 +1043,7 @@ public static class ProtocolSurface
                  "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion",
                  "attempts",
                  "facts",
-                 "requiredLabels", "waiting"],
+                 "requiredLabels", "waiting", "state"],
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],

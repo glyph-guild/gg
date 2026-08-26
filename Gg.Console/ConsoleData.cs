@@ -68,8 +68,17 @@ public sealed class ConsoleData(
     }
 
     /// <summary>`gg flights`.</summary>
+    /// <remarks>
+    /// <b>Everything, deliberately, where the verb now defaults to what is in
+    /// the air.</b> A flight LIST is not the queue - it is the raw material the
+    /// queue is derived from, by log entries rather than by any member of the
+    /// flight - so narrowing the fetch would narrow a derivation that was never
+    /// asking this question. What the console SHOWS is its own decision and is
+    /// unchanged by slice fourteen; whether it should now use the state
+    /// directly is a console question, and is deferred with the slice.
+    /// </remarks>
     public Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
-        _commands.ListAsync(cancellationToken);
+        _commands.ListAsync(all: true, cancellationToken);
 
     /// <summary>`gg plan` - the same fetch, the same checklist.</summary>
     public Task<VerbResult> PlanAsync(

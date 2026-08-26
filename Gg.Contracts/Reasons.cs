@@ -231,7 +231,8 @@ public static class ReasonKinds
     /// <summary>Every kind, for the closed-vocabulary fingerprint.</summary>
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
-         Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming];
+         Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
+         StaleWorkingCopy];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
@@ -239,7 +240,7 @@ public static class ReasonKinds
         NoRunnerAdvertises or PoolWarming => ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
         CannotBeShownToTighten or WideningRequiresAGate or Uncharted
-            or RegistrationIsAWidening => ReasonFamilies.Refused,
+            or RegistrationIsAWidening or StaleWorkingCopy => ReasonFamilies.Refused,
         _ => throw new InvalidOperationException(
             $"'{kind}' is not a reason kind this build knows - its family cannot be "
           + "derived, and guessing one would file a refusal under a wait."),

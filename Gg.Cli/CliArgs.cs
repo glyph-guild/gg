@@ -59,6 +59,16 @@ public abstract record CliAction
     /// <summary>gg airspace show: the topology, root first.</summary>
     public sealed record AirspaceShow(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Renders the whole estate into the working copy.
+    /// </summary>
+    /// <remarks>
+    /// The estate verb, and the scope half of the placement decision: what
+    /// <c>airspace</c> means is "all of it", while <c>envelope</c> and
+    /// <c>strategy</c> each mean one document of their own class.
+    /// </remarks>
+    public sealed record AirspacePull(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -225,7 +235,8 @@ public static class CliArgs
             ["flights"] => new CliAction.Flights(json),
             ["runners"] => new CliAction.Runners(json),
             ["airspace", "show"] => new CliAction.AirspaceShow(json),
-            ["airspace", ..] => new CliAction.Unknown("gg airspace takes show."),
+            ["airspace", "pull"] => new CliAction.AirspacePull(json),
+            ["airspace", ..] => Unknown("gg airspace takes show or pull."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),

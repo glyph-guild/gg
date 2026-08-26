@@ -342,6 +342,36 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
     public async Task<VerbResult> AirspaceAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.AirspaceTopology(await _client.GetTopologyAsync(Session(), cancellationToken));
 
+    /// <summary>
+    /// Renders the whole estate into the working copy, or refuses a dirty tree.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The refusal comes first, and it is not a warning.</b> Pull overwrites
+    /// files with canonical renderings, which is the point — but overwriting
+    /// formatting and overwriting somebody's unfinished edit are different acts,
+    /// and only one is intended. This is a git repository, so it behaves like
+    /// git: refuse, name the files, and let the person commit or discard.
+    /// </para>
+    /// <para>
+    /// <b>No merge strategy, no stash, no cleverness.</b> ADR-0016's zero-magic
+    /// commitment is what keeps the working copy replaceable by any forge or by
+    /// none, and a tool that resolved conflicts here would be the forge becoming
+    /// a pen by a different route.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> AirspacePullAsync(
+        string root, CancellationToken cancellationToken = default)
+    {
+        if (AirspaceTree.Dirty(root) is { Count: > 0 } dirty)
+        {
+            throw new DirtyWorkingCopyException(dirty);
+        }
+
+        var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
+        return new VerbResult.AirspacePulled(AirspaceTree.Write(root, estate));
+    }
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public async Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.RunnerLabels(await _client.ListRunnersAsync(Session(), cancellationToken));

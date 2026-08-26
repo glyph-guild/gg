@@ -407,7 +407,24 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
         var applied = new List<AppliedDocument>();
 
-        foreach (var document in AirspaceTree.Changed(tree, estate))
+        // IN THE SAFE ORDER. Tightenings first, so no intermediate state is
+        // looser than either endpoint - the interval between two gates is not
+        // a state anybody authored, and it is where an ungoverned capability
+        // would live.
+        var changed = AirspaceTree.Changed(tree, estate);
+        var ordered = Changeset.InSafeOrder(
+        [
+            .. changed.Select(d => new DocumentChange
+            {
+                Name = d.Name,
+                Path = d.Path,
+                Direction = Direction(d, estate),
+            }),
+        ]);
+
+        var byName = changed.ToDictionary(d => d.Name, StringComparer.Ordinal);
+
+        foreach (var document in ordered.Select(o => byName[o.Name]))
         {
             var answer = await _client.ApplyNamedAsync(
                 Session(), document.Name, Body(document), document.BasedOn, cancellationToken);
@@ -474,10 +491,38 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
 
         return new VerbResult.AirspaceDiffed(new EstateDiff
         {
-            Changes = changes,
+            // THE ORDER A PERSON READS IS THE ORDER THAT WILL HAPPEN. A diff
+            // listing changes in one order while apply ran them in another
+            // would be a review of something that never occurs.
+            Changes = Changeset.InSafeOrder(changes),
             Retiring = AirspaceTree.Retiring(tree, estate),
             Unreadable = [.. tree.Unreadable.Select(u => u.Path)],
         });
+    }
+
+    /// <summary>
+    /// Which way a document moves, from the contract's own comparator.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same computation the door will run.</b> A second opinion about
+    /// what tightens is the second source of truth about direction slice ten
+    /// refused a permission model for - so this asks the comparator rather than
+    /// deciding, and a document with no predecessor is a tightening because
+    /// genesis constrains nothing that was there before.
+    /// </remarks>
+    private static string Direction(TreeDocument document, AirspaceEstate estate)
+    {
+        var held = estate.Documents.FirstOrDefault(
+            d => string.Equals(d.Name, document.Name, StringComparison.Ordinal));
+
+        if (held?.Envelope is not { } applied || document.Envelope is not { } proposed)
+        {
+            return Changeset.Tightening;
+        }
+
+        return EnvelopeDirection.Widening(applied, proposed) is null
+            ? Changeset.Tightening
+            : Changeset.Widening;
     }
 
     private static NamedEnvelopeApply Body(TreeDocument document) =>

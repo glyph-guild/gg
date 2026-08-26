@@ -290,6 +290,36 @@ public sealed record FlightLogEntry
     public required string Detail { get; init; }
 }
 
+/// <summary>Why a flight's question stopped applying.</summary>
+/// <remarks>
+/// <para>
+/// <b>The reason is required, and that is the whole design.</b>
+/// <see cref="FlightStates.Withdrawn"/> is the most reachable sentence in the
+/// terminal vocabulary — <i>the question ceased to apply</i> fits almost
+/// anything somebody finds inconvenient — so the one thing standing between it
+/// and a garbage collector is having to say which question, and what stopped
+/// applying.
+/// </para>
+/// <para>
+/// <b>Who is not on this.</b> Article XII attributes the act to the
+/// authenticated principal, derived control-plane-side; a caller naming
+/// somebody else would be a caller choosing its own attribution, which is the
+/// one thing attribution may never be.
+/// </para>
+/// <para>
+/// <b>Withdrawing is not grounding.</b> Grounding is a person stopping work
+/// that could still have been done; withdrawing says the work no longer has a
+/// question to answer. They are told apart by what became untrue, which is why
+/// this record carries a reason and nothing else.
+/// </para>
+/// </remarks>
+[PinnedId("d5c1f0a7-3e62-4b19-8f0d-6a71c4e2b93f")]
+public sealed record FlightWithdrawalRequest
+{
+    /// <summary>What stopped applying. Not optional, deliberately.</summary>
+    public required string Because { get; init; }
+}
+
 /// <summary>A flight's log, oldest first.</summary>
 [PinnedId("bf4fdf2b-d551-4f8f-b18b-e81a01e51b6e")]
 public sealed record FlightLog

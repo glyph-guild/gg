@@ -453,6 +453,25 @@ public static class ProtocolSurface
         },
         new()
         {
+            // A PERSON WITHDRAWS A FLIGHT WHOSE QUESTION STOPPED APPLYING
+            // (ADR-0017). The system reaches this exit too - pool recovery
+            // withdraws the maintenance flight whose pull point came back up -
+            // and this is the door for the case only a person can see.
+            //
+            // NO 200, like the retirement door one estate over: the answer is
+            // that the flight is over, and what a caller does next is read it.
+            // 409 is a flight that has ALREADY ended, refused rather than
+            // silently accepted - accepting would let a withdrawal appear to
+            // rewrite an ending that already happened.
+            Method = "POST",
+            Path = "/v1/flights/{ref}/withdrawal",
+            Audience = Audience.Developer,
+            Request = typeof(FlightWithdrawalRequest),
+            Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/flights/{ref}",
             Audience = Audience.Developer,
@@ -1017,6 +1036,7 @@ public static class ProtocolSurface
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
+            [typeof(FlightWithdrawalRequest)] = ["because"],
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels"],

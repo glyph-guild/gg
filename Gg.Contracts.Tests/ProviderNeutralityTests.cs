@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Gg.Contracts.Tests;
 
 /// <summary>
@@ -14,6 +16,32 @@ public class ProviderNeutralityTests
 {
     private static readonly string[] ProviderNames =
         ["github", "entra", "okta", "auth0", "gitlab", "bitbucket"];
+
+    /// <summary>
+    /// A provider name, where a provider name can actually start.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The bare substring match forbade the English word "central".</b> It
+    /// contains <c>entra</c>, as do <i>concentrate</i>, <i>decentralised</i> and
+    /// every other word built on the same root — so the guard failed a build
+    /// over a doc comment, which teaches whoever hits it to reword rather than
+    /// to think about the boundary this exists to protect. A guard that cries
+    /// wolf is a guard people learn to route around.
+    /// </para>
+    /// <para>
+    /// <b>Narrowed at the front only, and that is deliberate.</b> Every real
+    /// reference starts where a word starts — <c>Entra</c>, <c>EntraAdapter</c>,
+    /// <c>entra_client_id</c>, <c>"entra"</c> — so requiring a non-letter before
+    /// it loses nothing. The END stays open, because <c>githubToken</c> and
+    /// <c>OktaOptions</c> are exactly what this hunts and a trailing boundary
+    /// would let both through. A word that merely BEGINS with a provider name
+    /// still trips, and should: without a dictionary that is indistinguishable
+    /// from the real thing.
+    /// </para>
+    /// </remarks>
+    private static bool Names(string text, string provider) =>
+        Regex.IsMatch(text, $@"(?<![A-Za-z]){Regex.Escape(provider)}", RegexOptions.IgnoreCase);
 
     private static DirectoryInfo RepoRoot()
     {
@@ -47,7 +75,7 @@ public class ProviderNeutralityTests
             var text = File.ReadAllText(file);
             foreach (var provider in ProviderNames)
             {
-                if (text.Contains(provider, StringComparison.OrdinalIgnoreCase))
+                if (Names(text, provider))
                 {
                     offenders.Add($"{Path.GetRelativePath(root, file)}: '{provider}'");
                 }
@@ -58,5 +86,45 @@ public class ProviderNeutralityTests
         await Assert.That(offenders).IsEmpty()
             .Because("gg talks only to the control plane; a provider name here means that boundary "
                    + "has leaked into a public binary." + detail);
+    }
+
+    [Test]
+    public async Task The_narrowing_still_catches_every_shape_a_leak_takes()
+    {
+        // THE HALF THAT MATTERS. The scan above is an absence, and narrowing an
+        // absence check is exactly the move that quietly turns a guard off - so
+        // the shapes a real leak takes are named here and asserted to still
+        // trip. All of them start where a word starts, which is why the front
+        // boundary costs nothing.
+        foreach (var leak in (string[])
+                 ["entra", "Entra", "ENTRA", "EntraAdapter", "entra_client_id",
+                  "\"entra\"", "var x = Entra.Thing;", "// use entra here",
+                  "githubToken", "OktaOptions", "https://gitlab.example",
+                  "auth0Domain", "bitbucket-server"])
+        {
+            var caught = ProviderNames.Any(p => Names(leak, p));
+
+            await Assert.That(caught).IsTrue()
+                .Because($"'{leak}' names a provider and the guard did not see it, which is the "
+                       + "failure the front-boundary narrowing must not have introduced.");
+        }
+    }
+
+    [Test]
+    public async Task Ordinary_english_no_longer_fails_a_build()
+    {
+        // THE POISON TWIN, in the other direction: these are words this
+        // repository is entitled to use, and every one of them failed a build
+        // until the match required a word boundary at the front.
+        foreach (var innocent in (string[])
+                 ["the product's central claim", "concentrate", "decentralised",
+                  "a concentration of flights"])
+        {
+            var caught = ProviderNames.Any(p => Names(innocent, p));
+
+            await Assert.That(caught).IsFalse()
+                .Because($"'{innocent}' names no provider, and a guard that fails a build over "
+                       + "it teaches people to reword rather than to think about the boundary.");
+        }
     }
 }

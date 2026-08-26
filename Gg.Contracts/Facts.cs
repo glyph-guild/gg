@@ -551,15 +551,12 @@ public static class ChangeKinds
 
     public const string Deleted = "deleted";
 
-    /// <summary>
-    /// Where a flight's work landed, once a destination admitted it.
-    /// </summary>
-    /// <remarks>
-    /// The first fact reporting something the runner WROTE rather than
-    /// something it observed. Recorded because it happened; the decision that
-    /// allowed it was made in the control plane before anything was pushed.
-    /// </remarks>
-    public const string DestinationLanded = "destination.landed";
+    // destination.landed was declared here too, and did not belong: it is a
+    // FACT kind, it already lives on FactKinds (which lists it), and inside this
+    // per-path vocabulary it was correctly absent from All - so no fingerprint
+    // ever saw it and nothing in either repository referenced it. Deleted rather
+    // than exempted, because the exemption would have recorded a duplicate as
+    // deliberate. Found by ClosedVocabularyTotalityTests on its first run.
 
     /// <summary>Every kind that validates.</summary>
     public static IReadOnlyList<string> All { get; } = [Added, Modified, Deleted];

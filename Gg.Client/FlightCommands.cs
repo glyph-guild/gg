@@ -372,6 +372,117 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         return new VerbResult.AirspacePulled(AirspaceTree.Write(root, estate));
     }
 
+    /// <summary>
+    /// Applies every changed document in the working copy — one flight each.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Per document, and that is ADR-0016 § 3 rather than convenience.</b> One
+    /// changed file, one flight, one gate, one minted version, one attribution. A
+    /// changeset spanning documents stays several applies and gains an ORDER
+    /// rather than atomicity — because a gate rejected mid-changeset leaves the
+    /// estate stricter than intended, which is safe, while atomicity would buy a
+    /// rollback protocol across per-name streams to prevent a failure that is
+    /// already safe in the only direction that matters.
+    /// </para>
+    /// <para>
+    /// <b>Unreadable files stop the whole apply.</b> Applying the rest and saying
+    /// nothing would land a partial changeset somebody believed was whole.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> AirspaceApplyAsync(
+        string root, CancellationToken cancellationToken = default)
+    {
+        var tree = AirspaceTree.Read(root);
+        if (tree.Unreadable.Count > 0)
+        {
+            throw new EnvelopeRefusedException(
+                "The working copy holds files that sit where a document goes and do not read "
+              + "as one. Nothing was applied, because applying the rest would land part of a "
+              + "changeset somebody meant as a whole:\n"
+              + string.Join(
+                  '\n', tree.Unreadable.Select(u => $"  {u.Path}: {u.Diagnosis}")));
+        }
+
+        var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
+        var applied = new List<AppliedDocument>();
+
+        foreach (var document in AirspaceTree.Changed(tree, estate))
+        {
+            var answer = await _client.ApplyNamedAsync(
+                Session(), document.Name, Body(document), document.BasedOn, cancellationToken);
+
+            applied.Add(new AppliedDocument
+            {
+                Name = document.Name,
+                Path = document.Path,
+                Version = answer.Version,
+                Changed = answer.Changed,
+                Flight = answer.Flight,
+                Awaiting = answer.Awaiting,
+                Widens = answer.Widens,
+            });
+        }
+
+        return new VerbResult.AirspaceApplied(new EstateApplied
+        {
+            Applied = applied,
+            Retiring = AirspaceTree.Retiring(tree, estate),
+        });
+    }
+
+    /// <summary>
+    /// What the working copy would change, per document.
+    /// </summary>
+    /// <remarks>
+    /// <b>Lines and direction, which is what decides whether an apply gates.</b>
+    /// Answering in CONSEQUENCES — replaying recent flights against the proposed
+    /// composition — is this slice's pre-committed cut: the apply flight is
+    /// already a gate with an evidence payload, so the plan delta reaches a
+    /// reviewer at the decision either way.
+    /// </remarks>
+    public async Task<VerbResult> AirspaceDiffAsync(
+        string root, CancellationToken cancellationToken = default)
+    {
+        var tree = AirspaceTree.Read(root);
+        var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
+
+        var held = estate.Documents.ToDictionary(d => d.Name, StringComparer.Ordinal);
+        var changes = new List<DocumentChange>();
+
+        foreach (var document in AirspaceTree.Changed(tree, estate))
+        {
+            // DIRECTION, from the comparator the control plane uses. It is the
+            // contract's, so a person is told the same thing the door will
+            // decide - never a second opinion about what tightens.
+            var widening =
+                document.Envelope is { } proposed
+                && held.TryGetValue(document.Name, out var current)
+                && current.Envelope is { } applied
+                    ? EnvelopeDirection.Widening(applied, proposed)
+                    : null;
+
+            changes.Add(new DocumentChange
+            {
+                Name = document.Name,
+                Path = document.Path,
+                Direction = widening is null ? "tightening" : "widening",
+                Field = widening?.Field,
+                Because = widening?.Because,
+            });
+        }
+
+        return new VerbResult.AirspaceDiffed(new EstateDiff
+        {
+            Changes = changes,
+            Retiring = AirspaceTree.Retiring(tree, estate),
+            Unreadable = [.. tree.Unreadable.Select(u => u.Path)],
+        });
+    }
+
+    private static NamedEnvelopeApply Body(TreeDocument document) =>
+        new() { Envelope = document.Envelope, Narrowing = document.Narrowing };
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public async Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.RunnerLabels(await _client.ListRunnersAsync(Session(), cancellationToken));

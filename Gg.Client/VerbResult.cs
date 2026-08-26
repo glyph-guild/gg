@@ -71,6 +71,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.AirspacePulled;
     }
 
+    /// <summary>What applying the working copy came to.</summary>
+    public sealed record AirspaceApplied(EstateApplied Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.AirspaceApplied;
+    }
+
+    /// <summary>What the working copy would change.</summary>
+    public sealed record AirspaceDiffed(EstateDiff Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.AirspaceDiffed;
+    }
+
     public sealed record Plan(Checklist Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Plan;
@@ -219,6 +231,10 @@ public static class VerbResultKinds
     public const string AirspaceTopology = "airspace-topology";
 
     public const string AirspacePulled = "airspace-pulled";
+
+    public const string AirspaceApplied = "airspace-applied";
+
+    public const string AirspaceDiffed = "airspace-diffed";
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
@@ -253,6 +269,8 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(EnvelopeTopology))]
 [JsonSerializable(typeof(TreeWritten))]
+[JsonSerializable(typeof(EstateApplied))]
+[JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -319,6 +337,10 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
         VerbResult.AirspacePulled r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.TreeWritten),
+        VerbResult.AirspaceApplied r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EstateApplied),
+        VerbResult.AirspaceDiffed r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EstateDiff),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
@@ -364,6 +386,10 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.Checklist))),
         VerbResultKinds.AirspacePulled => new VerbResult.AirspacePulled(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.TreeWritten))),
+        VerbResultKinds.AirspaceApplied => new VerbResult.AirspaceApplied(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EstateApplied))),
+        VerbResultKinds.AirspaceDiffed => new VerbResult.AirspaceDiffed(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EstateDiff))),
         VerbResultKinds.AirspaceTopology => new VerbResult.AirspaceTopology(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeTopology))),
         VerbResultKinds.RunnerLabels => new VerbResult.RunnerLabels(Require(
@@ -405,6 +431,8 @@ public static class VerbOutput
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
         VerbResult.AirspacePulled r => PulledText(r.Value),
+        VerbResult.AirspaceApplied r => AppliedText(r.Value),
+        VerbResult.AirspaceDiffed r => DiffText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
@@ -1267,6 +1295,81 @@ public static class VerbOutput
             text.Append(
                 $"  NOT WRITTEN: '{name}' is a name no file path can hold, so the tree "
               + "cannot carry it. Retire it and declare a name a path can hold.\n");
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>What an apply did, as a person reads it.</summary>
+    private static string AppliedText(EstateApplied applied)
+    {
+        var text = new StringBuilder();
+
+        if (applied.Applied.Count == 0)
+        {
+            text.Append("nothing to apply: the working copy matches the estate\n");
+        }
+
+        foreach (var document in applied.Applied)
+        {
+            if (document.Flight is { Length: > 0 } flight)
+            {
+                text.Append(
+                    $"{document.Name}: widens {document.Widens} - flight {flight} awaits "
+                  + $"{document.Awaiting}\n");
+            }
+            else if (document.Changed)
+            {
+                text.Append($"{document.Name}: applied as {document.Version}\n");
+            }
+            else
+            {
+                text.Append($"{document.Name}: nothing changed, still {document.Version}\n");
+            }
+        }
+
+        // AN INTENT, NOT AN ACT. There is no delete verb: retiring is a terminal
+        // version of the name, gated and attributed like any other change.
+        foreach (var name in applied.Retiring)
+        {
+            text.Append(
+                $"{name}: the tree no longer holds this document. Retiring a name is "
+              + "applying a terminal version of it, which is its own gated change.\n");
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>What a diff found, as a person reads it.</summary>
+    private static string DiffText(EstateDiff diff)
+    {
+        var text = new StringBuilder();
+
+        if (diff.Changes.Count == 0 && diff.Retiring.Count == 0 && diff.Unreadable.Count == 0)
+        {
+            text.Append("no changes: the working copy matches the estate\n");
+        }
+
+        foreach (var change in diff.Changes)
+        {
+            text.Append($"{change.Path}: {change.Direction}");
+            if (change.Field is { Length: > 0 } field)
+            {
+                // The field is what decides whether this gates, so it leads.
+                text.Append($" - {field} cannot be shown to tighten");
+            }
+
+            text.Append('\n');
+        }
+
+        foreach (var name in diff.Retiring)
+        {
+            text.Append($"{name}: missing from the tree - an intent to retire\n");
+        }
+
+        foreach (var path in diff.Unreadable)
+        {
+            text.Append($"{path}: does not read as a document\n");
         }
 
         return text.ToString();

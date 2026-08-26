@@ -32,6 +32,10 @@ return CliArgs.Parse(args) switch
     // down - and the ADR is explicit that the repository is just a repository.
     CliAction.AirspacePull pull => await EmitAsync(
         pull.Json, c => c.AirspacePullAsync(Directory.GetCurrentDirectory())),
+    CliAction.AirspaceDiff diff => await EmitAsync(
+        diff.Json, c => c.AirspaceDiffAsync(Directory.GetCurrentDirectory())),
+    CliAction.AirspaceApply apply => await EmitAsync(
+        apply.Json, c => c.AirspaceApplyAsync(Directory.GetCurrentDirectory())),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),

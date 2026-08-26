@@ -309,6 +309,54 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>
+    /// Applies a document to its topology name, optionally stating what it was
+    /// based on.
+    /// </summary>
+    /// <remarks>
+    /// <b>The precondition is a query parameter and never a body member.</b> The
+    /// body's stored form is the idempotence key, its field-by-field comparison
+    /// decides whether an apply gates, and its bytes are what the composition
+    /// digest hashes — so a member that changed on every pull would mint a
+    /// version per document per pull, divert every one to a gate, and move every
+    /// pin. It is stated by the applier rather than required of them: a
+    /// hand-written document has no version it was based on.
+    /// </remarks>
+    public async Task<EnvelopeApplied> ApplyNamedAsync(
+        string sessionToken,
+        string name,
+        NamedEnvelopeApply body,
+        string? basedOn = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"/v1/airspace/envelopes/{Uri.EscapeDataString(name)}";
+        if (basedOn is { Length: > 0 })
+        {
+            path += $"?based-on={Uri.EscapeDataString(basedOn)}";
+        }
+
+        using var request = Request(HttpMethod.Put, path, sessionToken);
+        request.Content = JsonContent.Create(body, ProtocolJsonContext.Default.NamedEnvelopeApply);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
+        {
+            // The control plane's own diagnosis, carried through unchanged - and
+            // a 409 is the stale-working-copy refusal, which names both versions
+            // because how far behind you are decides what you do next.
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>
     /// Applies a strategy to its topology name. The wire is JSON for the same
     /// reason the envelope's is - the text form and its parser stay on this
     /// side of the boundary.

@@ -232,11 +232,17 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         // Any other status means the server answered, which is the question.
     }
 
-    /// <summary>The tenant's flights.</summary>
+    /// <summary>The tenant's flights that are still in the air, or all of them.</summary>
+    /// <remarks>
+    /// The default is the queue's own question. Everything was the only answer
+    /// available while nothing recorded an ending, and it made this verb's
+    /// one-line description aspirational.
+    /// </remarks>
     public async Task<FlightList> ListFlightsAsync(
-        string sessionToken, CancellationToken cancellationToken = default)
+        string sessionToken, bool all = false, CancellationToken cancellationToken = default)
     {
-        using var request = Request(HttpMethod.Get, "/v1/flights", sessionToken);
+        using var request = Request(
+            HttpMethod.Get, all ? "/v1/flights?all=true" : "/v1/flights", sessionToken);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();

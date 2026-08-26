@@ -256,6 +256,26 @@ public sealed record FlightSummary
     /// absence rule - and "waiting: nothing" is not a state this can express.
     /// </remarks>
     public Reason? Waiting { get; init; }
+
+    /// <summary>How this flight stands: one of <see cref="FlightStates.All"/>.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Derived control-plane-side, like <see cref="RunnerSummary.State"/>,
+    /// and reported by nobody.</b> It is a function of what was recorded when
+    /// the flight ended, and of what can be derived at read for flights that
+    /// ended before there was anywhere to record one. Nothing on the wire may
+    /// SET it.
+    /// </para>
+    /// <para>
+    /// <b>Defaulted rather than required, deliberately.</b> A control plane
+    /// older than 0.70.0 answers without this member and its flights would
+    /// otherwise fail to deserialize, taking away the queue entirely to add a
+    /// column to it. <c>unknown</c> is the honest reading of a flight from a
+    /// build that could not say — which is the same sentence this member exists
+    /// to make sayable.
+    /// </para>
+    /// </remarks>
+    public string State { get; init; } = FlightStates.Unknown;
 }
 
 /// <summary>

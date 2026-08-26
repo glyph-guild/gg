@@ -36,7 +36,7 @@ public abstract record CliAction
     /// <summary>Opens a flight. Exactly one of <see cref="Text"/> and <see cref="Uri"/>.</summary>
     public sealed record Fly(string? Text, string? Uri, bool Json) : CliAction, IEmitsResult;
 
-    public sealed record Flights(bool Json) : CliAction, IEmitsResult;
+    public sealed record Flights(bool Json, bool All) : CliAction, IEmitsResult;
 
     public sealed record Show(string Reference, bool Json) : CliAction, IEmitsResult;
 
@@ -187,7 +187,7 @@ public static class CliArgs
     [
         "gg                             the console",
         "gg fly <text>|--uri <uri>      open a flight",
-        "gg flights                     list flights",
+        "gg flights [--all]             flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
         "gg runners                     the runners this tenant has",
@@ -224,7 +224,10 @@ public static class CliArgs
         // --json is position-independent, because a person will type it in
         // both places and being told off for one of them is not helpful.
         var json = args.Contains("--json", StringComparer.Ordinal);
-        var rest = args.Where(a => a != "--json").ToArray();
+        // --all is position-independent for --json's reason, and stripped the
+        // same way so it cannot be mistaken for a verb.
+        var all = args.Contains("--all", StringComparer.Ordinal);
+        var rest = args.Where(a => a != "--json" && a != "--all").ToArray();
 
         return rest switch
         {
@@ -238,7 +241,7 @@ public static class CliArgs
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
 
-            ["flights"] => new CliAction.Flights(json),
+            ["flights"] => new CliAction.Flights(json, all),
             ["runners"] => new CliAction.Runners(json),
             ["airspace", "show"] => new CliAction.AirspaceShow(json),
             ["airspace", "pull"] => new CliAction.AirspacePull(json),

@@ -194,8 +194,13 @@ public class EndpointSurfaceTests
         // that the flight is over. 409 is a flight that has ALREADY ended,
         // refused rather than accepted, because accepting would let a
         // withdrawal appear to rewrite an ending that already happened.
+        // Moved again for slice fourteen's queue: GET /v1/flights gains 400,
+        // for a ?all= it cannot read. The route returned every flight a tenant
+        // had ever opened, which was the only thing it COULD return while
+        // nothing recorded an ending - so the verb's own one-line description,
+        // "what's in the air", was aspirational for fourteen slices.
         await Assert.That(Fingerprint())
-            .IsEqualTo("0fd15894bf96e45fee5b4ec2648a035c2085a6bb373bbb4617ed64be1891089f")
+            .IsEqualTo("a4d982e9dd7a162367461848072359d778667f15313763e6670b53b7626f471a")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -579,7 +579,9 @@ public static class VerbOutput
         var text = new StringBuilder();
         foreach (var flight in list.Flights)
         {
-            text.AppendLine($"{Clean(flight.FlightNumber),-10}  {flight.CreatedAt:u}  {Clean(flight.Name)}");
+            text.AppendLine(
+                $"{Clean(flight.FlightNumber),-10}  {flight.CreatedAt:u}  "
+              + $"{Rendered(flight.State),-9}  {Clean(flight.Name)}");
 
             // ONLY when it is waiting. A waiting column on every healthy
             // flight is noise somebody learns to skip, and null means not
@@ -594,6 +596,31 @@ public static class VerbOutput
         }
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>How a flight's state prints, and what happens when it cannot.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Article XI, and RunnerSummary.State's throw one noun over.</b> A state
+    /// nothing can render halts rather than being shown as one that can. The
+    /// alternative is worse than it looks: the plausible default here is
+    /// <c>open</c>, and printing a flight that ended in a way this build does
+    /// not understand as one somebody is still working on is precisely the
+    /// confusion the whole vocabulary exists to remove.
+    /// </para>
+    /// <para>
+    /// <b><c>unknown</c> renders, deliberately.</b> It is a real state - a
+    /// flight nobody can account for - and it is exactly what somebody should
+    /// see. Only a value outside the vocabulary halts.
+    /// </para>
+    /// </remarks>
+    private static string Rendered(string state) =>
+        FlightStates.All.Contains(state, StringComparer.Ordinal)
+            ? state
+            : throw new InvalidOperationException(
+                $"Flight state '{state}' has no published name. A state nothing can render "
+              + "must not be shown as one that can - and the plausible guess here is "
+              + "'open', which would show a finished flight as one somebody is still "
+              + "working on.");
 
     private static string Flight(FlightSummary flight)
     {

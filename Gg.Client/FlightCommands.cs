@@ -40,8 +40,9 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
     private readonly ISessionStore _sessions = sessions;
 
     /// <summary>The tenant's flights.</summary>
-    public async Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
-        new VerbResult.Flights(await _client.ListFlightsAsync(Session(), cancellationToken));
+    public async Task<VerbResult> ListAsync(
+        bool all = false, CancellationToken cancellationToken = default) =>
+        new VerbResult.Flights(await _client.ListFlightsAsync(Session(), all, cancellationToken));
 
     /// <summary>One flight, by uuid or by the number a person typed.</summary>
     public async Task<VerbResult> ShowAsync(string reference, CancellationToken cancellationToken = default)

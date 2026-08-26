@@ -706,6 +706,24 @@ public static class ProtocolSurface
         },
         new()
         {
+            // RETIREMENT, AND IT IS A VERSION RATHER THAN A DELETION. ADR-0014:
+            // the only way to retire a name is to apply a terminal version of
+            // it, because retiring by deleting a topology entry is a
+            // governance-critical change wearing bookkeeping's clothes - the
+            // constraint stops attaching and no version records that it did.
+            //
+            // NO 200. A document that stops applying removes every constraint
+            // in it at once, so this is a widening by construction and always
+            // rides the gate - registration's rule in the other direction.
+            Method = "POST",
+            Path = "/v1/airspace/envelopes/{name}/retirement",
+            Audience = Audience.Developer,
+            Response = typeof(EnvelopeApplied),
+            Statuses = [202, 400, 401, 403, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // THE PULL POINT. Serving is the claim, control-plane-side: a
             // decided action appears in exactly one answer, so two resident
             // runners polling one pool get disjoint sets.

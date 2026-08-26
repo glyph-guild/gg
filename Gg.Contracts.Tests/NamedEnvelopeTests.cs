@@ -123,7 +123,7 @@ public class NamedEnvelopeTests
     }
 
     [Test]
-    public async Task The_three_doors_are_declared_where_both_sides_can_see_them()
+    public async Task Every_door_onto_a_named_document_is_declared_where_both_sides_can_see_it()
     {
         var declared = ProtocolSurface.Endpoints
             .Where(e => e.Path.StartsWith("/v1/airspace/envelopes", StringComparison.Ordinal))
@@ -135,6 +135,10 @@ public class NamedEnvelopeTests
         {
             "GET /v1/airspace/envelopes",
             "GET /v1/airspace/envelopes/{name}",
+            // Retirement is a door of its own rather than a shape of apply,
+            // because an empty body is refused: an absence is not a decision,
+            // and ending a document has to be something somebody meant.
+            "POST /v1/airspace/envelopes/{name}/retirement",
             "PUT /v1/airspace/envelopes/{name}",
         });
     }

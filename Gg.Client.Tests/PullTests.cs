@@ -108,9 +108,11 @@ public class PullTests
                 Path.Combine(root, "airspace", "narrowings", "pci.yaml"));
 
             await Assert.That(narrowing).IsEqualTo(
-                EnvelopeText.Render(Named("pci", Roles.Narrowing).Narrowing!))
-                .Because("pull renders the stream; it does not have a second opinion "
-                       + "about how a document is written down.");
+                "based-on: pci@v1\n"
+                + EnvelopeText.Render(Named("pci", Roles.Narrowing).Narrowing!))
+                .Because("pull renders the stream and states which version it rendered; "
+                       + "it has no second opinion about how the document itself is "
+                       + "written down.");
         }
         finally
         {

@@ -77,7 +77,7 @@ public static class AirspaceTree
                 continue;
             }
 
-            if (Rendered(root, document.Role, document.Name, text) is { } path)
+            if (Rendered(root, document.Role, document.Name, text, document.Version) is { } path)
             {
                 written.Add(path);
             }
@@ -89,8 +89,9 @@ public static class AirspaceTree
 
         foreach (var strategy in estate.Strategies)
         {
-            if (Rendered(root, Roles.Strategy, strategy.Name, EnvelopeText.Render(strategy.Strategy))
-                is { } path)
+            if (Rendered(
+                    root, Roles.Strategy, strategy.Name,
+                    EnvelopeText.Render(strategy.Strategy), strategy.Version) is { } path)
             {
                 written.Add(path);
             }
@@ -133,12 +134,19 @@ public static class AirspaceTree
     /// <summary>
     /// Writes one document, or answers null when its name cannot be a path.
     /// </summary>
-    private static string? Rendered(string root, string role, string name, string text)
+    private static string? Rendered(
+        string root, string role, string name, string text, string version)
     {
         if (AirspaceNames.Invalid(name) is not null)
         {
             return null;
         }
+
+        // THE PRECONDITION IS PULL'S TO WRITE. The renderer works from a model
+        // and a model has no version in it - deliberately, because the stored
+        // form is the idempotence key. Pull knows which version it rendered, so
+        // pull states it, and apply refuses when the stream has moved past it.
+        text = $"based-on: {version}\n{text}";
 
         var relative = $"{Directory}/{AirspaceNames.PathFor(role, name)}";
         var absolute = Path.Combine(root, Path.Combine(relative.Split('/')));

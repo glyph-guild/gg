@@ -176,8 +176,13 @@ public class EndpointSurfaceTests
         // governs it. The PUT answers 202 like the strategy door, and that 202
         // is the whole change in kind: before it, a widening of a NAMED
         // document was refused outright for want of a flight to ride.
+        // Moved again for slice thirteen: the named apply gains 409, the
+        // precondition refusal. based-on: travels as a query parameter rather
+        // than a body member because the body's stored form is the idempotence
+        // key - a member that changed on every pull would mint a version per
+        // document per pull and divert every one of them to a gate.
         await Assert.That(Fingerprint())
-            .IsEqualTo("b4486c14de98af37c692887b91992d70d6412a6d1cdd1f8592bfcd3619bb6df0")
+            .IsEqualTo("f0f6dc2a2f85111e364a00c93aabe02ff26fec7bd06eda97917d50dde4b8875e")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

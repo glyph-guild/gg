@@ -41,7 +41,8 @@ public class ConsumedKeyTests
         await Assert.That(parsed.Diagnosis).IsNull()
             .Because($"based-on is admitted, not refused: {parsed.Diagnosis}");
         await Assert.That(parsed.BasedOn).IsEqualTo("root@v4");
-        await Assert.That(parsed.Envelope).IsEqualTo(envelope)
+        await Assert.That(EnvelopeText.Render(parsed.Envelope!)).IsEqualTo(
+            EnvelopeText.Render(envelope))
             .Because("the precondition is consumed - what is left is the document, "
                    + "unchanged, or every pull-and-reapply would mint a version.");
     }
@@ -67,7 +68,8 @@ public class ConsumedKeyTests
 
         await Assert.That(parsed.Diagnosis).IsNull();
         await Assert.That(parsed.BasedOn).IsEqualTo("pci@v2");
-        await Assert.That(parsed.Narrowing).IsEqualTo(narrowing);
+        await Assert.That(EnvelopeText.Render(parsed.Narrowing!)).IsEqualTo(
+            EnvelopeText.Render(narrowing));
     }
 
     [Test]

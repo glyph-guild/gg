@@ -658,6 +658,50 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE ESTATE'S FIRST READ OF ITSELF. Rendering a working copy is a
+            // fan-out over the topology by construction - ADR-0014 accepted
+            // that cost when it chose a stream per name - so the fan-out
+            // happens here, once, rather than once per name across the wire.
+            Method = "GET",
+            Path = "/v1/airspace/envelopes",
+            Audience = Audience.Developer,
+            Response = typeof(NamedEnvelopeList),
+            // An empty list is 200: a tenant whose estate is root alone has an
+            // estate, and pull writes it a tree with one file in it.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/envelopes/{name}",
+            Audience = Audience.Developer,
+            Response = typeof(NamedEnvelopeState),
+            // 404 is a declared name with no document in force - reachable and
+            // empty, which is a different answer from undeclared.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            // APPLY BY NAME - the door slice nine deferred three times, and the
+            // floor the whole working copy stands on: without it, two of the
+            // four directories ADR-0016 draws cannot be written at all.
+            //
+            // 202 is a widening diverted to the gate. Before this door a
+            // widening of a NAMED document was refused outright, because there
+            // was no flight for it to ride - which made "retire and redeclare"
+            // the only path, and made retirement the thing you needed first.
+            Method = "PUT",
+            Path = "/v1/airspace/envelopes/{name}",
+            Audience = Audience.Developer,
+            Request = typeof(NamedEnvelopeApply),
+            Response = typeof(EnvelopeApplied),
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // THE PULL POINT. Serving is the claim, control-plane-side: a
             // decided action appears in exactly one answer, so two resident
             // runners polling one pool get disjoint sets.
@@ -967,6 +1011,10 @@ public static class ProtocolSurface
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],
+            [typeof(NamedEnvelopeState)] =
+                ["name", "role", "version", "envelope", "narrowing", "updatedAt", "updatedBy"],
+            [typeof(NamedEnvelopeList)] = ["documents"],
+            [typeof(NamedEnvelopeApply)] = ["envelope", "narrowing"],
             [typeof(StrategyList)] = ["strategies"],
             // The pools surface. Digests, hashes and stamps only, asserted
             // over the shape as well as declared.

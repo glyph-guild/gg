@@ -170,8 +170,14 @@ public class EndpointSurfaceTests
         // Runner, 202 because the write is a command), and the ledger read
         // (GET /v1/pools, Developer). /v1/pools joins the governed prefixes
         // so a runner-audience route nobody declared cannot exist under it.
+        // Moved for slice thirteen: the named document door. GET the estate, GET
+        // and PUT one named document - the routes slice nine deferred three
+        // times. Developer all three; a runner never authors the policy that
+        // governs it. The PUT answers 202 like the strategy door, and that 202
+        // is the whole change in kind: before it, a widening of a NAMED
+        // document was refused outright for want of a flight to ride.
         await Assert.That(Fingerprint())
-            .IsEqualTo("ac030a8a6460e366619e7e9527b7f028bde6db4792c81c7dbce5438401be88c0")
+            .IsEqualTo("b4486c14de98af37c692887b91992d70d6412a6d1cdd1f8592bfcd3619bb6df0")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -185,8 +185,17 @@ public class EndpointSurfaceTests
         // /v1/airspace/envelopes/{name}/retirement, Developer, and deliberately
         // WITHOUT 200 - there is no say-so path, because a document that stops
         // applying removes every constraint in it at once.
+        // Moved for slice fourteen's withdrawal door: POST
+        // /v1/flights/{ref}/withdrawal, Developer, carrying only a reason.
+        // ADR-0017 asked whether only the SYSTEM may withdraw a flight; a
+        // person may, so the exit needs a door rather than only counted
+        // callers - and the door carries what counted callers would have given
+        // for free. No 200, the retirement door's arrangement: the answer is
+        // that the flight is over. 409 is a flight that has ALREADY ended,
+        // refused rather than accepted, because accepting would let a
+        // withdrawal appear to rewrite an ending that already happened.
         await Assert.That(Fingerprint())
-            .IsEqualTo("abfab9cc020e63d3dc7a3866eeed09cb8c37c12d3b74fd4aca75526e9a0e8675")
+            .IsEqualTo("0fd15894bf96e45fee5b4ec2648a035c2085a6bb373bbb4617ed64be1891089f")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

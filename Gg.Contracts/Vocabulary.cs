@@ -40,6 +40,7 @@ public static class Vocabulary
         typeof(FlightList),
         typeof(FlightLogEntry),
         typeof(FlightLog),
+        typeof(FlightWithdrawalRequest),
         typeof(RunnerSummary),
         typeof(RunnerList),
         typeof(TelemetryDisclosure),

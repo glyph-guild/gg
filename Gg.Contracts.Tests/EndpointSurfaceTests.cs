@@ -181,8 +181,12 @@ public class EndpointSurfaceTests
         // than a body member because the body's stored form is the idempotence
         // key - a member that changed on every pull would mint a version per
         // document per pull and divert every one of them to a gate.
+        // Moved for slice thirteen's retirement door: POST
+        // /v1/airspace/envelopes/{name}/retirement, Developer, and deliberately
+        // WITHOUT 200 - there is no say-so path, because a document that stops
+        // applying removes every constraint in it at once.
         await Assert.That(Fingerprint())
-            .IsEqualTo("f0f6dc2a2f85111e364a00c93aabe02ff26fec7bd06eda97917d50dde4b8875e")
+            .IsEqualTo("abfab9cc020e63d3dc7a3866eeed09cb8c37c12d3b74fd4aca75526e9a0e8675")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

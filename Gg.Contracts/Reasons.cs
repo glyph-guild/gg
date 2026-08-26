@@ -68,6 +68,13 @@ public sealed record Reason
               + "to tighten, and what cannot be shown to tighten is treated as widening - "
               + "incomparable is not neutral. A widening lands only through its gate.",
 
+            ReasonKinds.FlightsInTheAir =>
+                $"refused: '{First(parameters)}' still governs flights that are in the "
+              + $"air — {Second(parameters)}. Retiring it now would leave them declared "
+              + "against a work kind that no longer exists, which is a flight nobody can "
+              + "finish and nobody can read the rules for. Let them land, or take them "
+              + "over, and retire it after.",
+
             ReasonKinds.StaleWorkingCopy =>
                 $"refused: this apply says it was based on {First(parameters)}, and the "
               + $"document in force is {Second(parameters)}. The stream moved after the "
@@ -203,6 +210,19 @@ public static class ReasonKinds
     /// </remarks>
     public const string StaleWorkingCopy = "stale-working-copy";
 
+    /// <summary>
+    /// A work kind cannot be retired while flights declared against it are
+    /// still running.
+    /// </summary>
+    /// <remarks>
+    /// The one refusal retirement needs that direction cannot supply. Retiring
+    /// a narrowing is a widening and rides its gate; retiring a WORK KIND is
+    /// not obviously a widening at all — removing the sets makes less possible
+    /// rather than more — and its real hazard was never direction. It is
+    /// orphaning a flight already declared against it.
+    /// </remarks>
+    public const string FlightsInTheAir = "flights-in-the-air";
+
     /// <summary>A selection of a name the chart does not hold.</summary>
     public const string Uncharted = "uncharted";
 
@@ -232,7 +252,7 @@ public static class ReasonKinds
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
          Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
-         StaleWorkingCopy];
+         StaleWorkingCopy, FlightsInTheAir];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
@@ -240,7 +260,8 @@ public static class ReasonKinds
         NoRunnerAdvertises or PoolWarming => ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
         CannotBeShownToTighten or WideningRequiresAGate or Uncharted
-            or RegistrationIsAWidening or StaleWorkingCopy => ReasonFamilies.Refused,
+            or RegistrationIsAWidening or StaleWorkingCopy or FlightsInTheAir =>
+            ReasonFamilies.Refused,
         _ => throw new InvalidOperationException(
             $"'{kind}' is not a reason kind this build knows - its family cannot be "
           + "derived, and guessing one would file a refusal under a wait."),

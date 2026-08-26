@@ -68,6 +68,12 @@ public sealed record Reason
               + "to tighten, and what cannot be shown to tighten is treated as widening - "
               + "incomparable is not neutral. A widening lands only through its gate.",
 
+            ReasonKinds.StaleWorkingCopy =>
+                $"refused: this apply says it was based on {First(parameters)}, and the "
+              + $"document in force is {Second(parameters)}. The stream moved after the "
+              + "working copy was rendered, so applying now would overwrite a change "
+              + "nobody here has read. Pull, look at what changed, and apply again.",
+
             ReasonKinds.WideningRequiresAGate =>
                 $"refused: this change widens {First(parameters)}, and the document in force "
               + $"declares no obligation with 'when: {AttachmentConditions.Widens}' to gate "
@@ -98,6 +104,12 @@ public sealed record Reason
 
         static string First(IReadOnlyList<string> parameters) =>
             parameters.Count > 0 ? parameters[0] : "(unnamed)";
+
+        // The second half of a two-version sentence. Named rather than
+        // indexed inline, so a reason that needs both cannot quietly render
+        // one and leave the reader to guess which.
+        static string Second(IReadOnlyList<string> parameters) =>
+            parameters.Count > 1 ? parameters[1] : "(unnamed)";
 
         // The clearing is the sentence's other half - the remedy. An unknown
         // clearing THROWS, one param deeper than an unknown kind, because a
@@ -178,6 +190,18 @@ public static class ReasonKinds
 
     /// <summary>A widening against a document that designates no gate. Absence means no.</summary>
     public const string WideningRequiresAGate = "widening-requires-a-gate";
+
+    /// <summary>
+    /// An apply whose stated precondition has been overtaken by the stream.
+    /// </summary>
+    /// <remarks>
+    /// The working copy's refusal, and the first reason kind about a
+    /// PRECONDITION rather than about a document. It names both versions
+    /// because the useful question is not "are you stale" but "how far" — a
+    /// person one version behind pulls and re-applies; a person eight versions
+    /// behind has a colleague to talk to.
+    /// </remarks>
+    public const string StaleWorkingCopy = "stale-working-copy";
 
     /// <summary>A selection of a name the chart does not hold.</summary>
     public const string Uncharted = "uncharted";

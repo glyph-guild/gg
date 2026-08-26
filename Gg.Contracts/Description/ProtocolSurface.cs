@@ -697,7 +697,11 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Request = typeof(NamedEnvelopeApply),
             Response = typeof(EnvelopeApplied),
-            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
+            // 409 is the precondition, stated as ?based-on= and overtaken by the
+            // stream. It is a query parameter rather than a body member because
+            // the body's stored form is the idempotence key: a member that
+            // changed on every pull would mint a version per document per pull.
+            Statuses = [200, 202, 400, 401, 403, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()

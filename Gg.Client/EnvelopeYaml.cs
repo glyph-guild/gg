@@ -7,6 +7,18 @@ namespace Gg.Client;
 /// <summary>What reading an envelope produced.</summary>
 public sealed record EnvelopeParse
 {
+    /// <summary>
+    /// The version the text says it was based on, or null when it says nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The third class of key: consumed.</b> Part of the document, refused, or
+    /// this — a precondition the applier states, honoured at apply and then gone.
+    /// It is deliberately not a member of the model: the stored form is the
+    /// idempotence key, so a key that changes on every pull would mint a version
+    /// per document per pull and divert every one of them to a gate.
+    /// </remarks>
+    public string? BasedOn { get; init; }
+
     /// <summary>The envelope, or null when there is a diagnosis.</summary>
     public Envelope? Envelope { get; init; }
 
@@ -34,6 +46,18 @@ public sealed record EnvelopeParse
 /// </remarks>
 public sealed record EnvelopeNarrowingParse
 {
+    /// <summary>
+    /// The version the text says it was based on, or null when it says nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The third class of key: consumed.</b> Part of the document, refused, or
+    /// this — a precondition the applier states, honoured at apply and then gone.
+    /// It is deliberately not a member of the model: the stored form is the
+    /// idempotence key, so a key that changes on every pull would mint a version
+    /// per document per pull and divert every one of them to a gate.
+    /// </remarks>
+    public string? BasedOn { get; init; }
+
     /// <summary>The narrowing, or null when there is a diagnosis.</summary>
     public EnvelopeNarrowing? Narrowing { get; init; }
 
@@ -53,6 +77,18 @@ public sealed record EnvelopeNarrowingParse
 /// </remarks>
 public sealed record StrategyParse
 {
+    /// <summary>
+    /// The version the text says it was based on, or null when it says nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The third class of key: consumed.</b> Part of the document, refused, or
+    /// this — a precondition the applier states, honoured at apply and then gone.
+    /// It is deliberately not a member of the model: the stored form is the
+    /// idempotence key, so a key that changes on every pull would mint a version
+    /// per document per pull and divert every one of them to a gate.
+    /// </remarks>
+    public string? BasedOn { get; init; }
+
     /// <summary>The strategy, or null when there is a diagnosis.</summary>
     public EnvironmentStrategy? Strategy { get; init; }
 
@@ -139,7 +175,10 @@ public static class EnvelopeYaml
             return new EnvelopeParse { Diagnosis = invalid };
         }
 
-        return new EnvelopeParse { Envelope = envelope, Notes = Notes(text) };
+        return new EnvelopeParse
+        {
+            Envelope = envelope, BasedOn = Consumed(document), Notes = Notes(text),
+        };
     }
 
 
@@ -176,7 +215,7 @@ public static class EnvelopeYaml
         try
         {
             var root = RequireMap(document, "");
-            Closed(root, "obligations");
+            Closed(root, BasedOnKey, "obligations");
             narrowing = new EnvelopeNarrowing
             {
                 Obligations = [.. Named(root, "obligations").Select(MapObligation)],
@@ -192,7 +231,10 @@ public static class EnvelopeYaml
             return new EnvelopeNarrowingParse { Diagnosis = invalid };
         }
 
-        return new EnvelopeNarrowingParse { Narrowing = narrowing, Notes = Notes(text) };
+        return new EnvelopeNarrowingParse
+        {
+            Narrowing = narrowing, BasedOn = Consumed(document), Notes = Notes(text),
+        };
     }
 
     /// <summary>Reads strategy text, or says what is wrong with it.</summary>
@@ -249,13 +291,16 @@ public static class EnvelopeYaml
             return new StrategyParse { Diagnosis = invalid };
         }
 
-        return new StrategyParse { Strategy = strategy, Notes = Notes(text) };
+        return new StrategyParse
+        {
+            Strategy = strategy, BasedOn = Consumed(document), Notes = Notes(text),
+        };
     }
 
     private static EnvironmentStrategy MapStrategy(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, "kind", "environment", "inventory", "pull-point", "image", "bounds");
+        Closed(root, BasedOnKey, "kind", "environment", "inventory", "pull-point", "image", "bounds");
 
         if (!root.Entries.ContainsKey("pull-point"))
         {
@@ -441,7 +486,7 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, "context", "environment", "repository", "obligations", "loops",
+        Closed(root, BasedOnKey, "context", "environment", "repository", "obligations", "loops",
                "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -622,6 +667,27 @@ public static class EnvelopeYaml
     /// AND what was expected: one of those tells somebody there is a problem,
     /// and both together tell them what to type.
     /// </remarks>
+    /// <summary>The one spelling of the consumed key.</summary>
+    /// <remarks>
+    /// Named once because it is admitted in three closed sets and read in three
+    /// mappers, and a key spelled six times is a key spelled five ways
+    /// eventually.
+    /// </remarks>
+    private const string BasedOnKey = "based-on";
+
+    /// <summary>
+    /// Reads the precondition out of a document root, if it states one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Consumed rather than mapped.</b> It is admitted by the closed key set
+    /// so it is not refused as unknown, read here so the applier can state it,
+    /// and never written into the model - which is the whole of the third class.
+    /// </remarks>
+    private static string? Consumed(Node document) =>
+        document is MapNode root && root.Entries.TryGetValue(BasedOnKey, out var stated)
+            ? RequireScalar(stated, BasedOnKey)
+            : null;
+
     private static void Closed(MapNode map, params string[] allowed)
     {
         foreach (var key in map.Entries.Keys)

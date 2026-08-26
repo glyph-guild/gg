@@ -371,6 +371,88 @@ public static class RunnerStates
     public static IReadOnlyList<string> All { get; } = [Offline, Busy, Idle];
 }
 
+/// <summary>The states a flight may be derived to be in.</summary>
+/// <remarks>
+/// <para>
+/// <b>ADR-0017, and the thing this platform did not have.</b> A flight ends when
+/// its destination admits, a person stops it, or its question ceases to apply —
+/// and none of those requires a runner to have touched it. Before this,
+/// termination was a property of the LEASE: <i>in the air</i> meant the newest
+/// lease's disposition was not terminal, so the three work kinds that are never
+/// leased were in the air permanently.
+/// </para>
+/// <para>
+/// <b>Derived, like <see cref="RunnerStates"/>, and reported by nobody.</b> It
+/// is a function of what the control plane recorded when the flight ended, and
+/// of what can be derived at read for flights that ended before there was
+/// anywhere to record it. Nothing on the wire may SET a flight's state.
+/// </para>
+/// <para>
+/// <b>Two of the six are readings rather than exits.</b> <c>open</c> is the
+/// absence of an ending and <c>unknown</c> is the absence of a record; neither
+/// happened to a flight, so neither is in <see cref="Exits"/> and neither may be
+/// written down as something that did.
+/// </para>
+/// <para>
+/// <b>Ending is not the same axis as stopping.</b> A flight that halted,
+/// exhausted its budget or was abandoned is <i>open</i> — it is stopped, and
+/// resumable, which is the product's central claim. There is deliberately no
+/// state here for any of them, and a terminal state must never be inferred from
+/// a flight having gone quiet.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class FlightStates
+{
+    /// <summary>No ending has been reached, and one still can be.</summary>
+    public const string Open = "open";
+
+    /// <summary>The destination admitted. Every work kind, runner or not.</summary>
+    public const string Landed = "landed";
+
+    /// <summary>A person stopped it.</summary>
+    public const string Grounded = "grounded";
+
+    /// <summary>The question ceased to apply.</summary>
+    /// <remarks>
+    /// The most reachable sentence in this vocabulary, and the one that will be
+    /// reached for whenever something is inconvenient — so it is attributed, it
+    /// states why, and the things that may write it are counted.
+    /// </remarks>
+    public const string Withdrawn = "withdrawn";
+
+    /// <summary>The work concluded without the destination admitting.</summary>
+    /// <remarks>
+    /// A conclusion a runner reached, not an interruption: handing the flight
+    /// out again would repeat the work. <c>abandoned</c> and <c>expired</c> are
+    /// the interruptions, they leave the work outstanding, and they are not
+    /// endings.
+    /// </remarks>
+    public const string Failed = "failed";
+
+    /// <summary>No ending was recorded and none can be derived.</summary>
+    /// <remarks>
+    /// Article XI, and the reason the fix for <c>disposition IS NULL</c> is not
+    /// to flip it. A flight nobody can account for is neither finished nor
+    /// working — it says so by name, because a terminality query that quietly
+    /// matched nothing would return the empty queue this whole design is trying
+    /// to produce.
+    /// </remarks>
+    public const string Unknown = "unknown";
+
+    public static IReadOnlyList<string> All { get; } =
+        [Open, Landed, Grounded, Withdrawn, Failed, Unknown];
+
+    /// <summary>The states that are endings, and the only ones a flight records.</summary>
+    /// <remarks>
+    /// What a work kind declares it can reach, and what the exit store accepts.
+    /// A kind that can reach none of these fails the build: an envelope that
+    /// cannot run is worse than one that does not exist, and a work kind whose
+    /// flights cannot finish is that defect wearing the lifecycle's clothes.
+    /// </remarks>
+    public static IReadOnlyList<string> Exits { get; } = [Landed, Grounded, Withdrawn, Failed];
+}
+
 /// <summary>The tenant's runners.</summary>
 [PinnedId("88e7bf83-738b-4258-8873-882fcf5a381e")]
 public sealed record RunnerList

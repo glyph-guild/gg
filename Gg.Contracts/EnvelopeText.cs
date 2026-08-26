@@ -246,6 +246,56 @@ public static class EnvelopeText
     }
 
     /// <summary>
+    /// The canonical text of a management document.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The third render path, and the one that did not exist.</b> A strategy
+    /// could be applied and never read back as text, so <c>strategies/</c> was a
+    /// directory a working copy could not fill. It carries the round trip from
+    /// its first commit for the reason the other two do: one emitter with an
+    /// unproven round trip already stripped a governance declaration, and a
+    /// third would be that defect cubed.
+    /// </para>
+    /// <para>
+    /// <b>Schema order, not alphabetical</b> — the same rule as the other paths,
+    /// and the same order the parser's closed key set declares, so a reader
+    /// moving between the two is never re-orienting.
+    /// </para>
+    /// <para>
+    /// <b>An absent bound stays absent.</b> Writing <c>active-hours:</c> with
+    /// nothing after it would parse back as a bound nobody declared, and a bound
+    /// nobody declared is a wait nobody can clear.
+    /// </para>
+    /// </remarks>
+    public static string Render(EnvironmentStrategy strategy)
+    {
+        ArgumentNullException.ThrowIfNull(strategy);
+
+        var text = new StringBuilder();
+
+        text.Append($"kind: {Scalar(strategy.Kind)}\n");
+        text.Append($"environment: {Scalar(strategy.Environment)}\n");
+
+        text.Append("inventory:\n");
+        text.Append($"  pool: {Scalar(strategy.Inventory.Pool)}\n");
+        text.Append($"  size: {strategy.Inventory.Size}\n");
+
+        text.Append($"pull-point: {Scalar(strategy.PullPoint)}\n");
+        text.Append($"image: {Scalar(strategy.Image)}\n");
+
+        text.Append("bounds:\n");
+        text.Append($"  pool-max: {strategy.Bounds.PoolMax}\n");
+
+        if (strategy.Bounds.ActiveHours is { Length: > 0 } hours)
+        {
+            text.Append($"  active-hours: {Scalar(hours)}\n");
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
     /// A block sequence, never a flow one.
     /// </summary>
     /// <remarks>

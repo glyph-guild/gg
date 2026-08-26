@@ -39,6 +39,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
 [JsonSerializable(typeof(StrategyList))]
+[JsonSerializable(typeof(NamedEnvelopeList))]
+[JsonSerializable(typeof(NamedEnvelopeState))]
+[JsonSerializable(typeof(NamedEnvelopeApply))]
 [JsonSerializable(typeof(ChartEnvironmentRequest))]
 [JsonSerializable(typeof(EnvironmentCharted))]
 [JsonSerializable(typeof(EnvironmentChart))]
@@ -358,6 +361,36 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>Every strategy in force for the tenant.</summary>
+    /// <summary>
+    /// Every named envelope document in force — what <c>pull</c> reads.
+    /// </summary>
+    /// <remarks>
+    /// Strategies are a second read, because they have their own door and their
+    /// own shape. <see cref="ReadEstateAsync"/> joins the two.
+    /// </remarks>
+    public async Task<NamedEnvelopeList> ListEnvelopesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/envelopes", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.NamedEnvelopeList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>The whole estate: every document class, in one answer.</summary>
+    public async Task<AirspaceEstate> ReadEstateAsync(
+        string sessionToken, CancellationToken cancellationToken = default) =>
+        new()
+        {
+            Documents = (await ListEnvelopesAsync(sessionToken, cancellationToken)).Documents,
+            Strategies = (await ListStrategiesAsync(sessionToken, cancellationToken)).Strategies,
+        };
+
     public async Task<StrategyList> ListStrategiesAsync(
         string sessionToken, CancellationToken cancellationToken = default)
     {

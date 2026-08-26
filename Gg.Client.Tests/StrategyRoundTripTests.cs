@@ -30,6 +30,45 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class StrategyRoundTripTests
 {
+    /// <summary>A whole strategy, for suites that need one to render.</summary>
+    internal static EnvironmentStrategy AStrategy() => Full();
+
+    /// <summary>A minimal valid envelope, for suites that need one to render.</summary>
+    internal static Envelope AnEnvelope() => new()
+    {
+        Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
+        Obligations =
+        [
+            new Obligation
+            {
+                Id = "in-scope",
+                Check = ObligationChecks.Machine,
+                Rule = ObligationPredicates.NoFileOutsideScope,
+            },
+        ],
+        Loops =
+        [
+            new Loop
+            {
+                Id = "implement",
+                Executor = ExecutorRungs.Frontier,
+                Discharges = ["in-scope"],
+                Moves = [LoopMoves.Read],
+                Budget = new LoopBudget { WallClock = "30m" },
+                OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+            },
+        ],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "pull-request",
+                Kind = DestinationKinds.PullRequest,
+                Requires = ["in-scope"],
+            },
+        ],
+    };
+
     private static EnvironmentStrategy Full() => new()
     {
         Kind = StrategyKinds.DockerHost,

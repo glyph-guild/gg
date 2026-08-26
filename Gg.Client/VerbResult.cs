@@ -65,6 +65,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.AirspaceTopology;
     }
 
+    /// <summary>What a pull did to the working copy.</summary>
+    public sealed record AirspacePulled(TreeWritten Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.AirspacePulled;
+    }
+
     public sealed record Plan(Checklist Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Plan;
@@ -211,6 +217,8 @@ public static class VerbResultKinds
 
     public const string Plan = "plan";
     public const string AirspaceTopology = "airspace-topology";
+
+    public const string AirspacePulled = "airspace-pulled";
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
@@ -244,6 +252,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(EnvelopeTopology))]
+[JsonSerializable(typeof(TreeWritten))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
 /// <para>
@@ -308,6 +317,8 @@ public static class VerbOutput
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
         VerbResult.AirspaceTopology r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
+        VerbResult.AirspacePulled r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.TreeWritten),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
@@ -351,6 +362,8 @@ public static class VerbOutput
         // invocation's hold, and a payload re-rendered somewhere else holds nothing.
         VerbResultKinds.Plan => new VerbResult.Plan(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.Checklist))),
+        VerbResultKinds.AirspacePulled => new VerbResult.AirspacePulled(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.TreeWritten))),
         VerbResultKinds.AirspaceTopology => new VerbResult.AirspaceTopology(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeTopology))),
         VerbResultKinds.RunnerLabels => new VerbResult.RunnerLabels(Require(
@@ -391,6 +404,7 @@ public static class VerbOutput
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
+        VerbResult.AirspacePulled r => PulledText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
@@ -1214,4 +1228,47 @@ public static class VerbOutput
 
     private static T Require<T>(T? value) where T : class =>
         value ?? throw new InvalidOperationException("The result document was empty.");
+
+    /// <summary>
+    /// What a pull did, as a person reads it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing to do is said out loud.</b> A pull that changed no file is the
+    /// common case once an estate settles, and silence would read as a failure -
+    /// the empty-list lesson the plan renderer already learned.
+    /// </remarks>
+    private static string PulledText(TreeWritten pulled)
+    {
+        var text = new StringBuilder();
+
+        if (pulled.Written.Count == 0 && pulled.Removed.Count == 0)
+        {
+            text.Append("the working copy already matches the estate\n");
+        }
+        else
+        {
+            text.Append($"{pulled.Written.Count} document(s) rendered\n");
+            foreach (var path in pulled.Written)
+            {
+                text.Append($"  {path}\n");
+            }
+
+            foreach (var path in pulled.Removed)
+            {
+                text.Append($"  removed {path}\n");
+            }
+        }
+
+        // NAMED, NEVER DROPPED. A document whose name no path can carry is one
+        // this estate predates the name rule for, and a file that cannot be
+        // written back is worse than a name a person can go and fix.
+        foreach (var name in pulled.Unrepresentable)
+        {
+            text.Append(
+                $"  NOT WRITTEN: '{name}' is a name no file path can hold, so the tree "
+              + "cannot carry it. Retire it and declare a name a path can hold.\n");
+        }
+
+        return text.ToString();
+    }
 }

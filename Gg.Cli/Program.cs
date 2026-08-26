@@ -27,6 +27,11 @@ return CliArgs.Parse(args) switch
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Plan plan => await EmitAsync(plan.Json, c => c.PlanAsync(plan.Flight)),
     CliAction.AirspaceShow airspace => await EmitAsync(airspace.Json, c => c.AirspaceAsync()),
+    // THE WORKING COPY IS WHERE YOU ARE. Nothing configurable, because a flag
+    // naming the tree would be a second place the estate's location is written
+    // down - and the ADR is explicit that the repository is just a repository.
+    CliAction.AirspacePull pull => await EmitAsync(
+        pull.Json, c => c.AirspacePullAsync(Directory.GetCurrentDirectory())),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
@@ -137,6 +142,12 @@ static async Task<int> EnvelopeAsync(bool json, Func<EnvelopeCommands, Task<Verb
     }
     catch (NotSignedInException refusal)
     {
+        return Fail(refusal.Message);
+    }
+    catch (DirtyWorkingCopyException refusal)
+    {
+        // The list is the actionable part, so it reaches the person whole
+        // rather than as "the tree is dirty".
         return Fail(refusal.Message);
     }
     catch (NoEnvelopeException missing)

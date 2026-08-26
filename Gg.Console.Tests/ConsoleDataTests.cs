@@ -157,6 +157,16 @@ public class ConsoleDataTests
             // writes needed, which is why it did not arrive with them.
             "ShowAsync",
 
+            // A WRITE TO A FILESYSTEM, and the one exemption here that is a
+            // decision rather than a gap. Pull renders the estate into a git
+            // working copy on the person's disk; a console pane has no working
+            // copy, no cwd a person chose, and nothing to refuse when the tree
+            // is dirty. The verb's whole subject is the thing the console does
+            // not have. If the console ever grows an estate pane it renders
+            // from the same read this calls - ReadEstateAsync - without needing
+            // the tree at all.
+            "AirspacePullAsync",
+
             // Editing an envelope is the write half of that read, and it cannot come
             // first: you do not edit what you cannot see. When the pane exists this
             // is $EDITOR seeded with the canonical text and applied back - the same

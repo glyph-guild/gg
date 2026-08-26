@@ -69,6 +69,12 @@ public abstract record CliAction
     /// </remarks>
     public sealed record AirspacePull(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Applies every changed document in the working copy.</summary>
+    public sealed record AirspaceApply(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>What the working copy would change, per document.</summary>
+    public sealed record AirspaceDiff(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -236,7 +242,9 @@ public static class CliArgs
             ["runners"] => new CliAction.Runners(json),
             ["airspace", "show"] => new CliAction.AirspaceShow(json),
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
-            ["airspace", ..] => Unknown("gg airspace takes show or pull."),
+            ["airspace", "apply"] => new CliAction.AirspaceApply(json),
+            ["airspace", "diff"] => new CliAction.AirspaceDiff(json),
+            ["airspace", ..] => Unknown("gg airspace takes show, pull, diff or apply."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),

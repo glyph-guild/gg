@@ -167,6 +167,14 @@ public class ConsoleDataTests
             // the tree at all.
             "AirspacePullAsync",
 
+            // THE OTHER TWO HALVES OF THE SAME SUBJECT. Diff compares a working
+            // copy against the estate and apply submits what differs; both take
+            // a directory as their argument and neither has one to take in a
+            // console. Same reason as pull, listed separately so that removing
+            // one exemption does not silently carry the others.
+            "AirspaceDiffAsync",
+            "AirspaceApplyAsync",
+
             // Editing an envelope is the write half of that read, and it cannot come
             // first: you do not edit what you cannot see. When the pane exists this
             // is $EDITOR seeded with the canonical text and applied back - the same

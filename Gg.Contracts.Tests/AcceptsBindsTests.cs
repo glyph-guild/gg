@@ -1,3 +1,5 @@
+using Gg.Contracts.Authoring;
+
 namespace Gg.Contracts.Tests;
 
 /// <summary>
@@ -129,6 +131,56 @@ public class AcceptsBindsTests
                    + "subjectless kind with nothing on the page saying which was meant, and "
                    + "both halves of ADR-0020's schema compute from the field.");
         await Assert.That(refusal!).Contains("accepts");
+    }
+
+    [Test]
+    public async Task The_field_survives_being_written_down_and_read_back()
+    {
+        // WHAT MY OWN FIRST RED MISSED, and it is the exact shape of the
+        // failure this repository has spent the most words on. `evidence:` was
+        // authorable, load-bearing at the gate, and emitted by neither render
+        // path - so an edit round trip stripped it and the gate assembled from
+        // an empty list. A field validated in memory and invisible to the
+        // emitter is that failure with a new name.
+        //
+        // `[]` IS THE VALUE THAT HAS TO SURVIVE. Null renders as nothing and
+        // parses back as null, which is easy; an empty list that renders as
+        // nothing parses back as null too, and a subjectless kind silently
+        // becomes a kind that never said.
+        foreach (var accepts in (IReadOnlyList<string>[])[[], [SubjectKinds.Repository]])
+        {
+            var scope = accepts.Count == 0 ? EnvelopeScopes.None : "src/**";
+            var written = EnvelopeText.Render(Kind(accepts, scope));
+            var read = EnvelopeYaml.Parse(written);
+
+            await Assert.That(read.Diagnosis).IsNull()
+                .Because($"the emitter's own output must parse. Wrote:\n{written}");
+            await Assert.That(read.Envelope!.Accepts).IsNotNull()
+                .Because($"accepts: {(accepts.Count == 0 ? "[]" : "[repository]")} was written "
+                       + "down and came back as nothing at all, which is a declaration turning "
+                       + "into an absence in a round trip nobody watched.");
+            await Assert.That(read.Envelope!.Accepts!).IsEquivalentTo(accepts);
+            await Assert.That(EnvelopeText.Render(read.Envelope!)).IsEqualTo(written)
+                .Because("parse(render(x)) == x is the property, and the second render is what "
+                       + "catches a value that survived the parse in a form that renders back "
+                       + "differently.");
+        }
+    }
+
+    [Test]
+    public async Task A_document_that_never_said_accepts_does_not_grow_the_line()
+    {
+        // THE POISON TWIN of the round trip above, and the reason the emitter
+        // cannot simply always write the key. Every envelope written before
+        // this field says nothing about subjects; emitting `accepts: []` for
+        // them would rewrite every tenant's document on the next show, and a
+        // diff nobody made is how a review practice gets abandoned.
+        var written = EnvelopeText.Render(Kind(accepts: null, "src/**"));
+
+        await Assert.That(written).DoesNotContain("accepts")
+            .Because("absent stays absent, which is the same rule environment: and "
+                   + "preserve-unadmitted are already held to.");
+        await Assert.That(EnvelopeYaml.Parse(written).Envelope!.Accepts).IsNull();
     }
 
     [Test]

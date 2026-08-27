@@ -158,6 +158,65 @@ public static class AirspaceNames
     }
 
     /// <summary>
+    /// The role a location implies, or null when it implies none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A different question from <see cref="NameFrom"/>, deliberately.</b>
+    /// That one answers <i>which document does this path name</i> and is exact:
+    /// two segments, a legal stem, a working copy's own layout. This one answers
+    /// <i>which rules should I read this file by</i>, and has to work for
+    /// <c>.goodgrief/narrowings/pci.yaml</c> in somebody else's repository,
+    /// where the depth is not ours to decide and the stem maps to a composed
+    /// name rather than to an estate one.
+    /// </para>
+    /// <para>
+    /// Slice thirteen's rule, third instance: one computation per KIND of
+    /// question, rather than one computation for everything spelled <i>path</i>.
+    /// Sharing <see cref="NameFrom"/> here would answer null for every service
+    /// repository there is.
+    /// </para>
+    /// <para>
+    /// <b>Null is "the location says nothing", not "refused".</b> A file
+    /// somebody keeps outside our layout still gets read - by its shape - or the
+    /// verb is useless to anyone not using our directory names.
+    /// </para>
+    /// </remarks>
+    public static string? RoleOfDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var parts = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return null;
+        }
+
+        if (string.Equals(parts[^1], RootFile, StringComparison.Ordinal))
+        {
+            return Roles.Root;
+        }
+
+        if (parts.Length < 2)
+        {
+            return null;
+        }
+
+        foreach (var (role, directory) in Tree)
+        {
+            if (string.Equals(parts[^2], directory, StringComparison.Ordinal))
+            {
+                return role;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The document a path names, or null when the path is not one.
     /// </summary>
     /// <remarks>

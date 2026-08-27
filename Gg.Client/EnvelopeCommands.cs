@@ -1,3 +1,4 @@
+using Gg.Contracts.Authoring;
 using Gg.Contracts;
 
 namespace Gg.Client;
@@ -82,21 +83,78 @@ public sealed class EnvelopeCommands(ControlPlaneClient client, ISessionStore se
     /// <c>apply</c> throws because there the document was in the way of doing
     /// something.
     /// </remarks>
-    public static VerbResult Validate(string text)
+    /// <param name="path">
+    /// Where the document lives, when it lives anywhere. The role is inferred
+    /// from the containing directory - <c>narrowings/</c> holds narrowings,
+    /// <c>work-kinds/</c> holds work kinds - which is what catches the file
+    /// somebody gets by copying <c>root.yaml</c> into a narrowings directory:
+    /// a legal document of the WRONG TYPE, which parses and validates and would
+    /// hand a team `scope:` and `constitution:` through a merge nobody gated.
+    /// Null for stdin, where the shape decides instead.
+    /// </param>
+    public static VerbResult Validate(string text, string? path = null)
     {
-        var parsed = EnvelopeYaml.Parse(text);
+        // THE LOCATION FIRST, THE SHAPE SECOND. Reading what a document claims
+        // to be would accept a complete envelope anywhere, which is precisely
+        // ADR-0018 § 7's fourth refusal - the one that is easy to miss because
+        // the document is not malformed, only misplaced.
+        //
+        // A location we do not recognise says nothing rather than refusing:
+        // `gg envelope validate -` is what CI pipes into, and a team keeping
+        // policy somewhere else entirely is not doing anything wrong.
+        var role = AirspaceNames.RoleOfDirectory(path) ?? ShapeOf(text);
 
-        return new VerbResult.EnvelopeValidated(new EnvelopeValidation
+        return new VerbResult.EnvelopeValidated(role switch
         {
-            Valid = parsed.Envelope is not null,
-            Diagnosis = parsed.Diagnosis,
-            Notes = parsed.Notes,
-            // The canonical form, so `validate` also answers "what will this
-            // look like once it has been through us" - which is the question
-            // somebody actually has when comments are about to disappear.
-            Canonical = parsed.Envelope is { } envelope ? EnvelopeText.Render(envelope) : null,
+            Roles.Narrowing => Answered(role, EnvelopeYaml.ParseNarrowing(text)),
+            Roles.Strategy => Answered(role, EnvelopeYaml.ParseStrategy(text)),
+            _ => Answered(role, EnvelopeYaml.Parse(text)),
         });
     }
+
+    /// <summary>What a document looks like, when its location says nothing.</summary>
+    /// <remarks>
+    /// Deliberately crude and deliberately last. A narrowing is the ONLY role
+    /// whose document cannot carry a complete envelope's keys, so the presence
+    /// of any of them settles it; anything else reads as root, which is what
+    /// every caller meant before this parameter existed.
+    /// </remarks>
+    private static string ShapeOf(string text) =>
+        EnvelopeYaml.ParseNarrowing(text).Narrowing is not null
+            ? Roles.Narrowing
+            : EnvelopeYaml.ParseStrategy(text).Strategy is not null
+                ? Roles.Strategy
+                : Roles.Root;
+
+    private static EnvelopeValidation Answered(string role, EnvelopeParse parsed) => new()
+    {
+        Role = role,
+        Valid = parsed.Envelope is not null,
+        Diagnosis = parsed.Diagnosis,
+        Notes = parsed.Notes,
+        // The canonical form, so `validate` also answers "what will this
+        // look like once it has been through us" - which is the question
+        // somebody actually has when comments are about to disappear.
+        Canonical = parsed.Envelope is { } envelope ? EnvelopeText.Render(envelope) : null,
+    };
+
+    private static EnvelopeValidation Answered(string role, EnvelopeNarrowingParse parsed) => new()
+    {
+        Role = role,
+        Valid = parsed.Narrowing is not null,
+        Diagnosis = parsed.Diagnosis,
+        Notes = parsed.Notes,
+        Canonical = parsed.Narrowing is { } narrowing ? EnvelopeText.Render(narrowing) : null,
+    };
+
+    private static EnvelopeValidation Answered(string role, StrategyParse parsed) => new()
+    {
+        Role = role,
+        Valid = parsed.Strategy is not null,
+        Diagnosis = parsed.Diagnosis,
+        Notes = parsed.Notes,
+        Canonical = parsed.Strategy is { } strategy ? EnvelopeText.Render(strategy) : null,
+    };
 
     private string Session() =>
         _sessions.Read()?.SessionToken
@@ -111,6 +169,17 @@ public sealed class EnvelopeCommands(ControlPlaneClient client, ISessionStore se
 /// </remarks>
 public sealed record EnvelopeValidation
 {
+    /// <summary>
+    /// Which role this was read as, one of <see cref="Roles"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Said out loud, because "valid" against the wrong rules is the failure
+    /// this exists to prevent.</b> A person who meant to write a narrowing and
+    /// gets `valid: true` against the complete-envelope rules has been told the
+    /// opposite of what they need to know.
+    /// </remarks>
+    public required string Role { get; init; }
+
     public required bool Valid { get; init; }
 
     /// <summary>What is wrong, when something is.</summary>

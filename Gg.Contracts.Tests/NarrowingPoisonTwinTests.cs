@@ -1,3 +1,4 @@
+using Gg.Contracts.Authoring;
 namespace Gg.Contracts.Tests;
 
 /// <summary>
@@ -58,16 +59,72 @@ public class NarrowingPoisonTwinTests
         # Our PCI narrowing. Touch payments and an auditor signs off.
         obligations:
 
-          - id:        pci-review
+          pci-review:
             check:     human
             approver:  an-auditor
             when:      "change.manifest touches payments/**"
             evidence:  [ change.manifest ]
 
-          - id:    in-scope
+          in-scope:
             check: machine
             rule:  no-file-outside-scope
         """;
+
+    /// <summary>
+    /// Whether two narrowings are the same document.
+    /// </summary>
+    /// <remarks>
+    /// <b>Element-wise, because record equality is not.</b>
+    /// <c>EnvelopeNarrowing.Obligations</c> is an
+    /// <c>IReadOnlyList&lt;Obligation&gt;</c>, and a positional record compares
+    /// a list member by REFERENCE - so <c>parsed == expected</c> is false for
+    /// two identical documents and true only for the same instance. Asserting
+    /// on it would have failed every round trip in this file for a reason that
+    /// has nothing to do with the round trip, which is worse than not asserting.
+    /// </remarks>
+    /// <remarks>
+    /// <b>Keyed by id rather than positional, and that is a claim not a
+    /// convenience.</b> Written positionally first, and it failed: the emitter
+    /// renders obligations in CANONICAL order, so a document whose author wrote
+    /// them in another order comes back rearranged. That is correct - two
+    /// callers rendering the same model must produce the same bytes - and it
+    /// means the round trip preserves the DOCUMENT and not the author's
+    /// ordering. Comparing by position would have asserted the wrong thing and
+    /// failed on every hand-written file.
+    /// </remarks>
+    private static bool Same(EnvelopeNarrowing? left, EnvelopeNarrowing? right) =>
+        left is not null && right is not null
+        && left.Obligations.Count == right.Obligations.Count
+        && left.Obligations.All(obligation =>
+            right.Obligations.SingleOrDefault(o => o.Id == obligation.Id) is { } match
+            && Same(obligation, match));
+
+    /// <summary>
+    /// Whether two obligations are the same, member by member, reflectively.
+    /// </summary>
+    /// <remarks>
+    /// <b>Reflective on purpose.</b> Listing the members by hand would be a
+    /// second place to remember a new one, and this suite's whole subject is
+    /// members that go missing without anything failing. A list member is
+    /// sequence-compared because record equality would compare the reference -
+    /// which is the same trap one level down from <c>Obligations</c> itself,
+    /// and it is <c>Evidence</c>: the exact member that was authorable,
+    /// load-bearing at the gate, and emitted by neither render path for three
+    /// contract versions.
+    /// </remarks>
+    private static bool Same(Obligation left, Obligation right) =>
+        typeof(Obligation).GetProperties().All(property =>
+        {
+            var a = property.GetValue(left);
+            var b = property.GetValue(right);
+
+            return (a, b) switch
+            {
+                (null, null) => true,
+                (IReadOnlyList<string> x, IReadOnlyList<string> y) => x.SequenceEqual(y),
+                _ => Equals(a, b),
+            };
+        });
 
     [Test]
     public async Task A_hand_formatted_narrowing_round_trips_at_the_model()
@@ -80,7 +137,7 @@ public class NarrowingPoisonTwinTests
         var twice = EnvelopeYaml.ParseNarrowing(EnvelopeText.Render(once.Narrowing!));
 
         await Assert.That(twice.Diagnosis).IsNull();
-        await Assert.That(twice.Narrowing).IsEqualTo(once.Narrowing)
+        await Assert.That(Same(twice.Narrowing, once.Narrowing)).IsTrue()
             .Because("what a team wrote and what we read back must be the same document, "
                    + "however they chose to lay it out.");
     }
@@ -94,7 +151,7 @@ public class NarrowingPoisonTwinTests
         var rendered = EnvelopeText.Render(parsed);
 
         await Assert.That(rendered).DoesNotContain("Touch payments");
-        await Assert.That(EnvelopeYaml.ParseNarrowing(rendered).Narrowing).IsEqualTo(parsed);
+        await Assert.That(Same(EnvelopeYaml.ParseNarrowing(rendered).Narrowing, parsed)).IsTrue();
     }
 
     [Test]
@@ -104,11 +161,14 @@ public class NarrowingPoisonTwinTests
         var parsed = EnvelopeYaml.ParseNarrowing(rendered);
 
         await Assert.That(parsed.Diagnosis).IsNull();
-        await Assert.That(parsed.Narrowing).IsEqualTo(Everything());
+        await Assert.That(Same(parsed.Narrowing, Everything())).IsTrue();
     }
 
+    // `id` is deliberately absent from this list, and its absence is a finding.
+    // An obligation renders as a MAP KEYED BY ID, so there is no `id:` line to
+    // delete - and the twin's own first assertion said so rather than passing
+    // quietly, which is exactly what a twin is for.
     [Test]
-    [Arguments("id")]
     [Arguments("check")]
     [Arguments("approver")]
     [Arguments("when")]
@@ -126,7 +186,7 @@ public class NarrowingPoisonTwinTests
 
         var parsed = EnvelopeYaml.ParseNarrowing(poisoned);
 
-        await Assert.That(parsed.Diagnosis is not null || parsed.Narrowing != Everything()).IsTrue()
+        await Assert.That(parsed.Diagnosis is not null || !Same(parsed.Narrowing, Everything())).IsTrue()
             .Because($"dropping '{key}' round-tripped clean, which is how a declaration goes "
                    + "missing without anything failing.");
     }

@@ -1,3 +1,4 @@
+using Gg.Contracts.Authoring;
 using Gg.Client;
 using Gg.Contracts;
 

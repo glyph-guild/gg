@@ -36,7 +36,7 @@ public class NarrowingRoleInferenceTests
 {
     private const string ANarrowing = """
         obligations:
-          - id: pci-review
+          pci-review:
             check: human
             approver: an-auditor
         """;
@@ -46,21 +46,25 @@ public class NarrowingRoleInferenceTests
           scope: "src/**"
           constitution: "1.0.0"
         obligations:
-          - id: in-scope
+          in-scope:
             check: machine
             rule: no-file-outside-scope
         loops:
-          - id: implement
+          implement:
             executor: frontier
-            discharges: [in-scope]
-            moves: [read, edit]
+            discharges:
+              - in-scope
+            moves:
+              - read
+              - edit
             budget:
-              wall-clock: 30m
+              wall-clock: "30m"
             on-exhaustion: handoff-to-human
         destinations:
-          - id: pull-request
+          pull-request:
             kind: pull-request
-            requires: [in-scope]
+            requires:
+              - in-scope
         """;
 
     private static EnvelopeValidation Validated(string text, string? path) =>

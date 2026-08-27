@@ -14,7 +14,7 @@
          Pre-1.0: any wire change is a minor bump, and there is no compatibility
          promise. GgVersions.Protocol is a different number and moves only when
          the protocol itself becomes incompatible. -->
-    <Version>0.74.0</Version>
+    <Version>0.75.0</Version>
 
     <!-- AssemblyVersion is NOT pinned any more, and that is the point.
 
@@ -34,5 +34,34 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
+
+  <!-- THE ONE PACKAGE REFERENCE THIS PROJECT HAS, and it was a deliberate
+       reversal rather than an oversight.
+
+       This project carried ZERO, asserted by ContractsDependencyTests, because
+       it is the public artifact a customer audits and should not inherit
+       anyone else's framework. EnvelopeContractsTests said the same thing from
+       the other side, in a test named "the emitter is here and the parser is
+       not": model -> text is deterministic and hand-written, text -> model
+       needs a grammar, and every grammar is a package.
+
+       ADR-0018 § 5 makes the control plane parse a repository's narrowing
+       ITSELF, because a runner reporting "no narrowing here" is a silent
+       weakening and Article IX admits no exception. The control plane
+       references this package and nothing else. So the parser has to be
+       reachable from here, and the alternatives - a second published asset, or
+       a third package holding only the parser - were weighed and declined.
+
+       What is bought: parse and render in ONE assembly, which is what
+       ADR-0013's `parse(render(x)) == x` obligation has always wanted. Their
+       being in two is how `evidence:` stayed authorable, load-bearing at the
+       gate, and emitted by neither path for three contract versions.
+
+       What is paid: a customer auditing this package now sees YamlDotNet. The
+       guards are amended rather than deleted - exactly one reference, named,
+       and a second one still fails. -->
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
 
 </Project>

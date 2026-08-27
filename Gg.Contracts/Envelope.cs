@@ -383,10 +383,14 @@ public static class AttachmentConditions
 /// was nothing.
 /// </para>
 /// <para>
-/// <b>One member, and the empty list is the interesting value.</b> A second
-/// kind is a protocol bump admitted on its own merits; what this vocabulary is
-/// for today is letting a work kind say it accepts NOTHING, which is a
-/// statement <c>[]</c> makes and no amount of optionality does.
+/// <b>Whether a kind has a TREE is the property the schema computes from</b>,
+/// which is why it is a member here rather than a rule elsewhere. ADR-0020
+/// § 1's table reads <c>[repo]</c> → a path glob, <c>[]</c> → <c>none</c>,
+/// <c>[envelope]</c> → <c>none</c>, <i>the subject is the bound</i>. So
+/// <c>none</c> is not the value for <i>no subject</i>: it is the value for
+/// <b>no tree</b>, and having no subject is one way of having no tree. A
+/// fourth kind then costs one classification rather than an edit to a
+/// refusal.
 /// </para>
 /// <para>
 /// <b>Closed for the reason every vocabulary here is closed.</b> An unknown
@@ -401,11 +405,43 @@ public static class SubjectKinds
     /// <summary>A repository the flight is working over: a tree, and a diff.</summary>
     public const string Repository = "repository";
 
-    public static IReadOnlyList<string> All { get; } = [Repository];
+    /// <summary>
+    /// A named envelope document the flight is about. The subject is the
+    /// bound, so there is nothing left for a path to select.
+    /// </summary>
+    /// <remarks>
+    /// Not hypothetical: an envelope-change flight is a work kind that already
+    /// ships, and it had no honest declaration available to it - <c>[]</c>
+    /// would say it is about nothing and <c>[repository]</c> would say it is
+    /// about a tree.
+    /// </remarks>
+    public const string Envelope = "envelope";
+
+    public static IReadOnlyList<string> All { get; } = [Repository, Envelope];
 
     /// <summary>Whether this is a subject kind this version understands.</summary>
     public static bool IsKnown(string? kind) =>
         kind is { Length: > 0 } && All.Contains(kind, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether work over this subject has paths for a glob to select.
+    /// </summary>
+    /// <remarks>
+    /// <b>Total, and it throws rather than defaulting.</b> A subject kind
+    /// nobody classified would fall through to whichever answer the default
+    /// happened to be, and that answer silently decides what scope its work
+    /// kinds may write - permissively in one direction and impossibly in the
+    /// other.
+    /// </remarks>
+    public static bool HasTree(string kind) => kind switch
+    {
+        Repository => true,
+        Envelope => false,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(kind), kind,
+            "No subject kind by this name is classified, so nothing can say whether work over "
+          + "it has paths to bound. Expected one of: " + string.Join(", ", All) + "."),
+    };
 }
 
 /// <summary>The <c>scope</c> values that are not globs.</summary>
@@ -1362,18 +1398,27 @@ public sealed record Envelope
                  + string.Join(", ", SubjectKinds.All) + ".";
         }
 
-        var subjectless = accepts.Count == 0;
+        // THE RULE IS ABOUT TREES, NOT ABOUT EMPTINESS, and the difference is
+        // ADR-0020 section 1's third row: `[envelope]` accepts a subject and
+        // still writes `none`, because the subject IS the bound. Reading the
+        // rule as "none if and only if accepts is empty" is right for a
+        // one-member vocabulary and wrong the moment there are two.
+        //
+        // ANY, rather than all: a kind accepting both a repository and an
+        // envelope has paths to select from, and refusing it a glob would
+        // leave the half that has a tree unbounded.
+        var hasTree = accepts.Any(SubjectKinds.HasTree);
         var bounded = !unbounded;
 
-        return subjectless == bounded
-            ? subjectless
-                ? $"accepts: is empty and context.scope is '{envelope.Context.Scope}'. Work with "
-                + $"no subject has no tree, so a path bound reads nothing: write "
-                + $"'{EnvelopeScopes.None}'."
-                : $"accepts: names {string.Join(", ", accepts)} and context.scope is "
-                + $"'{EnvelopeScopes.None}'. Work over a subject has a tree, so "
+        return hasTree == bounded
+            ? null
+            : hasTree
+                ? $"accepts: names {string.Join(", ", accepts)} and context.scope is "
+                + $"'{EnvelopeScopes.None}'. Work over a tree needs a path bound, so "
                 + $"'{EnvelopeScopes.None}' would leave it unbounded: write a path glob."
-            : null;
+                : $"accepts: names {(accepts.Count == 0 ? "nothing" : string.Join(", ", accepts))} "
+                + $"and context.scope is '{envelope.Context.Scope}'. None of those subjects has "
+                + $"a tree, so a path bound selects nothing: write '{EnvelopeScopes.None}'.";
     }
 }
 

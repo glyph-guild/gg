@@ -57,10 +57,19 @@ public class RepositoryRegistrySurfaceTests
             .Because("both live under /v1/airspace, which is already governed - an undeclared "
                    + "route under it would be an unaudited way to widen what envelopes reach.");
 
+        // `narrowings` joined both in 0.74.0: the directory a repository declares
+        // its narrowings under (ADR-0018). Pinned by an exact list rather than a
+        // Contains, deliberately - an undeclared member is one the control plane
+        // serializes and conformance refuses, and a declared member it does not
+        // have is a name it is required to emit and cannot.
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisterRepositoryRequest)])
-            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential"]);
+            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential", "narrowings"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RepositoryRegistered)])
-            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential", "registeredBy", "registeredAt"]);
+            .IsEquivalentTo((string[])
+            [
+                "name", "provider", "id", "path", "credential", "narrowings",
+                "registeredBy", "registeredAt",
+            ]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisteredRepositories)])
             .IsEquivalentTo((string[])["repositories"]);
     }

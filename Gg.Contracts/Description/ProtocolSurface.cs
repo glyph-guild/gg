@@ -944,7 +944,7 @@ public static class ProtocolSurface
         {
             [typeof(ObligationAttribution)] =
                 ["obligationId", "attachment", "condition", "because", "outcome", "diagnosis",
-                 "transitions"],
+                 "transitions", "inapplicable"],
             [typeof(AttachmentTransition)] = ["to", "at", "because"],
             [typeof(GateList)] = ["gates"],
             [typeof(DecisionObservations)] =

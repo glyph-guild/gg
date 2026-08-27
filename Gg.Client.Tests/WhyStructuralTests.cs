@@ -64,7 +64,18 @@ public class WhyStructuralTests
     {
         // THE POISON TWIN. A member that is always set is a member that says
         // nothing, and every rule in the estate would read as inapplicable.
-        var ordinary = Structural() with { Inapplicable = null, Because = "it did not touch db/**" };
+        //
+        // IT CARRIES A CONDITION, and my first draft did not - which Validate
+        // caught, correctly. An ordinary not-attached obligation is one whose
+        // condition was read and did not hold, so it HAS one; a structural
+        // answer is precisely the case that has none, which is why the rule
+        // needed the `Inapplicable` arm rather than a relaxation.
+        var ordinary = Structural() with
+        {
+            Inapplicable = null,
+            Condition = AttachmentConditions.TouchesPrefix + "db/**",
+            Because = "it did not touch db/**",
+        };
 
         await Assert.That(ordinary.Inapplicable).IsNull();
         await Assert.That(ObligationAttribution.Validate(ordinary)).IsNull();
@@ -103,7 +114,12 @@ public class WhyStructuralTests
         // The distinction on the surface, asserted from the other side. Both
         // are not-attached; only one of them could never have been otherwise.
         var rendered = VerbOutput.ToText(new VerbResult.Why(Attributed(
-            Structural() with { Inapplicable = null, Because = "it did not touch db/**" })));
+            Structural() with
+            {
+                Inapplicable = null,
+                Condition = AttachmentConditions.TouchesPrefix + "db/**",
+                Because = "it did not touch db/**",
+            })));
 
         await Assert.That(rendered).Contains("in-scope");
         await Assert.That(rendered).DoesNotContain("never")

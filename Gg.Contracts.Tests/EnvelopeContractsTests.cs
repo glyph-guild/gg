@@ -1,3 +1,4 @@
+using Gg.Contracts.Authoring;
 using System.Reflection;
 
 namespace Gg.Contracts.Tests;
@@ -226,23 +227,48 @@ public class EnvelopeContractsTests
     }
 
     [Test]
-    public async Task The_emitter_is_here_and_the_parser_is_not()
+    public async Task The_emitter_and_the_parser_are_both_here_and_nothing_else_is()
     {
-        // The split that lets the schema live in an assembly with no
-        // dependencies: model -> text is deterministic and hand-written; text
-        // -> model needs a grammar, and every grammar is a package.
+        // THIS TEST INVERTED IN SLICE FIFTEEN, and the old reasoning is worth
+        // keeping because it was right about the cost. It read "the emitter is
+        // here and the parser is not", for the split that let the schema live
+        // in an assembly with no dependencies: model -> text is deterministic
+        // and hand-written; text -> model needs a grammar, and every grammar is
+        // a package.
+        //
+        // ADR-0018 § 5 made the control plane parse a repository's narrowing
+        // itself, and the control plane references this package and nothing
+        // else. So the grammar came here, deliberately, and the package is no
+        // longer dependency-free - ContractsDependencyTests now names the one
+        // reference rather than asserting none.
+        //
+        // What is bought back: parse and render in ONE assembly, which is what
+        // ADR-0013's round-trip obligation has always wanted. Their being in
+        // two is how `evidence:` stayed authorable, load-bearing at the gate,
+        // and emitted by neither path for three contract versions.
         var assembly = typeof(Envelope).Assembly;
 
         await Assert.That(assembly.GetType("Gg.Contracts.EnvelopeText")).IsNotNull();
+        // Gg.Contracts.Authoring, not Gg.Contracts: parsing is authoring and its
+        // result types are never serialized, so they sit in a namespace the
+        // pinned-id and vocabulary rules exclude - the arrangement
+        // Gg.Contracts.Description has had all along.
+        await Assert.That(assembly.GetType("Gg.Contracts.Authoring.EnvelopeYaml")).IsNotNull()
+            .Because("the round trip is only one obligation when both halves are in one "
+                   + "place to hold to it.");
 
+        // AND NOTHING ELSE PARSER-SHAPED. One grammar is a decision; two is the
+        // drift the old test existed to prevent, and it still does.
         var parserish = assembly.GetExportedTypes()
             .Where(t => t.Name.Contains("Parser", StringComparison.Ordinal)
                      || t.Name.Contains("Yaml", StringComparison.Ordinal))
             .Select(t => t.Name)
+            .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(parserish).IsEmpty()
-            .Because("a parser here would be a package reference here. Found: "
+        await Assert.That(parserish).IsEquivalentTo((string[])["EnvelopeYaml"])
+            .Because("a SECOND parser here would be a second package reference here, which "
+                   + "is what the first version of this test was protecting. Found: "
                    + string.Join(", ", parserish));
     }
 }

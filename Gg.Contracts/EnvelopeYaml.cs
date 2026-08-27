@@ -1,8 +1,15 @@
-using Gg.Contracts;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 
-namespace Gg.Client;
+// PARSING IS AUTHORING, NOT WIRE. The result records below are never
+// serialized: they carry a model, a diagnosis and some notes back to whoever
+// asked, on the same machine. A pinned id on one would be a promise about
+// something that never crosses a boundary - which is the reason
+// Gg.Contracts.Description sits in its own namespace, and this is the same
+// reason one document class over.
+namespace Gg.Contracts.Authoring;
+
+using Gg.Contracts;
 
 /// <summary>What reading an envelope produced.</summary>
 public sealed record EnvelopeParse

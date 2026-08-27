@@ -5,10 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="YamlDotNet" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
   </ItemGroup>
 

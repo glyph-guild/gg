@@ -33,6 +33,7 @@ public class EnvelopeModelRoundTripTests
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.10" },
         Environment = "aspire-payments",
         Repository = "payments",
+        Accepts = [SubjectKinds.Repository],
         Obligations =
         [
             new Obligation
@@ -184,6 +185,7 @@ public class EnvelopeModelRoundTripTests
         string[] covered =
         [
             nameof(Envelope.Context), nameof(Envelope.Environment), nameof(Envelope.Repository),
+            nameof(Envelope.Accepts),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
             nameof(ContextBinding.Scope), nameof(ContextBinding.Constitution),
             nameof(Obligation.Id), nameof(Obligation.Check), nameof(Obligation.When),

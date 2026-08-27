@@ -94,6 +94,23 @@ public static class EnvelopeText
             text.Append($"repository: {Scalar(repository)}\n");
         }
 
+        // WRITTEN WHEN DECLARED, INCLUDING WHEN EMPTY - and those are not the
+        // same condition, which is the whole reason this line is not folded in
+        // with the selections above. `accepts: []` is a work kind saying it
+        // takes no subject; a missing line is a document that is not a work
+        // kind. Emitting nothing for the empty list would collapse the two on
+        // the way out, and the parse would read the declaration back as an
+        // absence - `evidence:` again, in the field that exists to stop
+        // absence and emptiness looking alike.
+        //
+        // Null still writes nothing, because every envelope written before
+        // this field says nothing about subjects and a diff nobody made is how
+        // a review practice gets abandoned.
+        if (envelope.Accepts is { } accepts)
+        {
+            Sequence(text, "accepts", accepts, depth: 0);
+        }
+
         text.Append("obligations:\n");
 
         // BY ID, ORDINAL, AND SAID SO. The emitter used to iterate the collection

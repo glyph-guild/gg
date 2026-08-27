@@ -414,6 +414,21 @@ public sealed record RepositoryRegistered
     /// </remarks>
     public required string Credential { get; init; }
 
+    /// <summary>
+    /// The directory under which every document in this repository is a
+    /// narrowing (ADR-0018), or null - and <b>null is off</b>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nullable, unlike <see cref="Credential"/> one member up, and the
+    /// asymmetry is the point.</b> There, an absent declaration and a declared
+    /// <c>required</c> are the same fact, so the answer is required and a reader
+    /// never needs the defaulting rule. Here they are different facts - off
+    /// versus on - so the absence survives the round trip as an absence, or a
+    /// reader cannot tell a repository that is not governed from one whose every
+    /// file is policy.
+    /// </remarks>
+    public string? Narrowings { get; init; }
+
     /// <summary>Who registered it - a display a person can read, not an id.</summary>
     public required string RegisteredBy { get; init; }
 

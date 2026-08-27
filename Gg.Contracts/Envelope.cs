@@ -372,6 +372,64 @@ public static class AttachmentConditions
         [TouchesPrefix + "<glob>", Widens, MovesUsedPrefix + "<move>"];
 }
 
+/// <summary>What a piece of work can be ABOUT.</summary>
+/// <remarks>
+/// <para>
+/// <b>It did not exist, and its absence is why ADR-0020's open question could
+/// not be answered.</b> What this codebase called a <i>subject</i> was a
+/// repository registry name; a launch request carries a work kind, an
+/// environment and a repository as three separate members with no kind between
+/// them. <see cref="Envelope.Accepts"/> has to range over something, and there
+/// was nothing.
+/// </para>
+/// <para>
+/// <b>One member, and the empty list is the interesting value.</b> A second
+/// kind is a protocol bump admitted on its own merits; what this vocabulary is
+/// for today is letting a work kind say it accepts NOTHING, which is a
+/// statement <c>[]</c> makes and no amount of optionality does.
+/// </para>
+/// <para>
+/// <b>Closed for the reason every vocabulary here is closed.</b> An unknown
+/// subject kind halts. The alternative reading - treat what we do not
+/// recognise as no constraint - turns a typo in <c>accepts:</c> into a kind
+/// that accepts everything, which is the permissive direction.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class SubjectKinds
+{
+    /// <summary>A repository the flight is working over: a tree, and a diff.</summary>
+    public const string Repository = "repository";
+
+    public static IReadOnlyList<string> All { get; } = [Repository];
+
+    /// <summary>Whether this is a subject kind this version understands.</summary>
+    public static bool IsKnown(string? kind) =>
+        kind is { Length: > 0 } && All.Contains(kind, StringComparer.Ordinal);
+}
+
+/// <summary>The <c>scope</c> values that are not globs.</summary>
+/// <remarks>
+/// <para>
+/// <b><c>none</c> is a value and <c>scope</c> stays required.</b> The
+/// alternative - making the field optional - fails the way <c>evidence:</c>
+/// did: a line that can be dropped is a constraint that can be dropped
+/// silently, and <i>nothing was written</i> would render identically to
+/// <i>nothing is bounded</i>.
+/// </para>
+/// <para>
+/// <b>And it is a tightening.</b> Before it, <c>"**"</c> was the only way to
+/// write unbounded and was indistinguishable from a bound somebody meant.
+/// After it, subjectless work says <c>none</c> and <c>"**"</c> goes back to
+/// meaning every path.
+/// </para>
+/// </remarks>
+public static class EnvelopeScopes
+{
+    /// <summary>There is no tree, so there is no path to bound.</summary>
+    public const string None = "none";
+}
+
 /// <summary>
 /// The roles a named envelope document can play.
 /// </summary>
@@ -752,6 +810,35 @@ public sealed record Envelope
     public required IReadOnlyList<Destination> Destinations { get; init; }
 
     /// <summary>
+    /// Which subject kinds this work kind takes. <c>[]</c> means none; null
+    /// means the document is not a work kind and has nothing to say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The floor both halves of ADR-0020's schema compute from.</b> § 1
+    /// derives which <c>scope</c> values are legal from it; § 2 derives which
+    /// fact families the kind can produce. Neither works if it is not there.
+    /// </para>
+    /// <para>
+    /// <b>Work-kind-only, like the sets it sits beside.</b> The floor governs
+    /// every kind at once and so has no single answer to give; a narrowing
+    /// tightens whatever it attaches to and does not choose a kind. Both are
+    /// refused for declaring it, which keeps the field from parsing somewhere
+    /// composition has nowhere to put it.
+    /// </para>
+    /// <para>
+    /// <b>Nullable so it can be ABSENT on the documents that must not carry
+    /// it</b>, never so a work kind can forget it. A work kind that omits it is
+    /// refused, because the tempting default - <i>no <c>accepts:</c> means a
+    /// repository, which is what every kind before this field meant</i> - puts
+    /// a subjectless kind one keystroke from a kind that takes a tree, with
+    /// nothing on the page saying which was meant.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public IReadOnlyList<string>? Accepts { get; init; }
+
+    /// <summary>
     /// The environment this envelope's flights are about: a charted name, or
     /// null when unselected.
     /// </summary>
@@ -794,6 +881,52 @@ public sealed record Envelope
     public static string? Validate(Envelope envelope) => Validate(envelope, MoveKinds.Of);
 
     /// <summary>
+    /// The same validation, plus the questions only the role can answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two overloads because the agreement is role-free and the absence is
+    /// not.</b> A document carrying <c>accepts:</c> is claiming to be a work
+    /// kind, so its two fields can be checked against each other with no
+    /// topology in front of them - which is what makes the check reachable
+    /// from a parse of a single file. Whether a work kind was ALLOWED to omit
+    /// the field, and whether root was allowed to declare it, are questions
+    /// about the role the document was applied to.
+    /// </para>
+    /// <para>
+    /// <b>The role is never read from the document.</b> It comes from the
+    /// topology entry of the name it was applied to, or - for a file on
+    /// somebody's laptop - from the directory it sits in. A document that
+    /// tried to declare its own role would be choosing which rules it is
+    /// subject to.
+    /// </para>
+    /// </remarks>
+    public static string? Validate(Envelope envelope, string role)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        if (Validate(envelope, MoveKinds.Of) is { } refused)
+        {
+            return refused;
+        }
+
+        var isWorkKind = string.Equals(role, Roles.WorkKind, StringComparison.Ordinal);
+
+        if (isWorkKind && envelope.Accepts is null)
+        {
+            return "A work kind must declare 'accepts:' - the subject kinds it takes, or '[]' "
+                 + "for none. It is not defaulted, because 'accepts: []' and a missing line "
+                 + "would then mean the same thing, and one of them is a decision.";
+        }
+
+        return !isWorkKind && envelope.Accepts is not null
+            ? $"A '{role}' declares 'accepts:', and only a '{Roles.WorkKind}' may. The floor "
+            + "governs every kind at once so it has no single answer to give, and a narrowing "
+            + "tightens whatever it attaches to without choosing a kind."
+            : null;
+    }
+
+    /// <summary>
     /// The same validation with the move classification injectable.
     /// </summary>
     /// <remarks>
@@ -825,6 +958,11 @@ public sealed record Envelope
         {
             return "context.constitution is empty. A flight that cannot say which constitution "
                  + "governed it is one nobody can act on later.";
+        }
+
+        if (Accepting(envelope) is { } accepting)
+        {
+            return accepting;
         }
 
         if (Selection(envelope.Environment, "environment") is { } environment)
@@ -1176,6 +1314,54 @@ public sealed record Envelope
             ? $"{key} spans more than one line. A selection is one name; the label the fleet "
             + "matches on cannot carry a line break."
             : null;
+
+    /// <summary>
+    /// Whether <c>accepts:</c> and <c>context.scope</c> agree — ADR-0020 § 1,
+    /// read in both directions.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One rule, two refusals, and neither is the other's contrapositive.</b>
+    /// A kind that works over a tree and bounds no path is not a subjectless
+    /// kind - it is a kind whose author wrote the wrong word, and the flight it
+    /// opens would be unbounded over a repository. A kind with no tree that
+    /// bounds a path has written a rule nothing can ever read, which is a gate
+    /// that reports satisfied by never running.
+    /// </para>
+    /// <para>
+    /// <b>Role-free, deliberately.</b> Carrying <c>accepts:</c> is itself the
+    /// claim to be a work kind, so this half is reachable from a parse of a
+    /// single file with no topology in front of it - which is what lets
+    /// <c>gg envelope validate</c> catch it before an apply ever happens.
+    /// </para>
+    /// </remarks>
+    private static string? Accepting(Envelope envelope)
+    {
+        if (envelope.Accepts is not { } accepts)
+        {
+            return null;
+        }
+
+        if (accepts.FirstOrDefault(k => !SubjectKinds.IsKnown(k)) is { } unknown)
+        {
+            return $"Unknown subject kind '{unknown}' in accepts:. Expected one of: "
+                 + string.Join(", ", SubjectKinds.All) + ".";
+        }
+
+        var subjectless = accepts.Count == 0;
+        var bounded = !string.Equals(
+            envelope.Context.Scope, EnvelopeScopes.None, StringComparison.Ordinal);
+
+        return subjectless == bounded
+            ? subjectless
+                ? $"accepts: is empty and context.scope is '{envelope.Context.Scope}'. Work with "
+                + $"no subject has no tree, so a path bound reads nothing: write "
+                + $"'{EnvelopeScopes.None}'."
+                : $"accepts: names {string.Join(", ", accepts)} and context.scope is "
+                + $"'{EnvelopeScopes.None}'. Work over a subject has a tree, so "
+                + $"'{EnvelopeScopes.None}' would leave it unbounded: write a path glob."
+            : null;
+    }
 }
 
 /// <summary>

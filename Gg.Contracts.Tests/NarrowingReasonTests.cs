@@ -105,10 +105,21 @@ public class NarrowingReasonTests
         {
             var sentence = Reason.Sentence(kind, parameters).ToLowerInvariant();
 
-            await Assert.That(sentence).DoesNotContain("no narrowings")
-                .Because($"'{kind}' means the answer is UNKNOWN, and a sentence saying there "
-                       + "are none is the one thing a read that did not happen must never say.");
-            await Assert.That(sentence).DoesNotContain("unconstrained");
+            // WRITTEN AS A WORD BAN FIRST, AND THAT WAS WRONG. It forbade
+            // "unconstrained" and caught the absent sentence, which says the
+            // flight will NOT fly unconstrained - the reassurance, not the
+            // claim. A guard that bans a word rather than a meaning fails on
+            // the sentence that says the right thing.
+            //
+            // What must not appear is the CLAIM that there are none.
+            foreach (var claim in (string[])
+                ["no narrowings", "constrains nothing", "has none", "flies unconstrained"])
+            {
+                await Assert.That(sentence).DoesNotContain(claim)
+                    .Because($"'{kind}' means the answer is UNKNOWN, and '{claim}' asserts "
+                           + "there are none - the one thing a read that did not happen must "
+                           + "never say.");
+            }
         }
     }
 
@@ -128,5 +139,19 @@ public class NarrowingReasonTests
             await Assert.That(sentence).IsNotEqualTo(kind);
             await Assert.That(sentence.Length).IsGreaterThan(60);
         }
+    }
+
+    [Test]
+    public async Task The_claim_scan_would_catch_a_sentence_that_made_the_claim()
+    {
+        // The liveness half, added when the check was narrowed from a word ban
+        // to a meaning ban: a narrower absence check that no longer catches
+        // anything is worse than the crude one it replaced.
+        const string bad = "this repository constrains nothing, so the flight flies on";
+
+        await Assert.That(bad).Contains("constrains nothing");
+        await Assert.That(
+            Reason.Sentence(ReasonKinds.DeclaredAndAbsent, ["payments", "x/"]).ToLowerInvariant())
+            .DoesNotContain("constrains nothing");
     }
 }

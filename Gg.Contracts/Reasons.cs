@@ -87,6 +87,20 @@ public sealed record Reason
               + "it. Declaring that obligation is itself a tightening and lands on the "
               + "owner's say-so; the widening then rides a flight to its approver.",
 
+            ReasonKinds.DeclaredAndAbsent =>
+                $"'{First(parameters)}' declares its narrowings at "
+              + $"'{Second(parameters)}', and there is no such directory at the commit this "
+              + "flight pinned. The layer is on and the rules cannot be read, so this flight "
+              + "waits rather than being measured against rules nobody could see. Commit the "
+              + "directory, or turn the declaration off - the directory often exists on a "
+              + "branch and not at the commit this flight is working from.",
+
+            ReasonKinds.ForgeUnreachable =>
+                $"'{First(parameters)}' could not be reached to read its narrowings. Nothing "
+              + "is wrong with what was set up: this flight cannot be evaluated because the "
+              + "policy it is governed by is somewhere nobody can currently ask about. It "
+              + "will be readable again when the forge is.",
+
             ReasonKinds.Uncharted =>
                 $"refused: '{First(parameters)}' is not in the environment chart - nothing "
               + "has charted it, so no envelope may select it. Chart it first "
@@ -223,6 +237,29 @@ public static class ReasonKinds
     /// </remarks>
     public const string FlightsInTheAir = "flights-in-the-air";
 
+    /// <summary>
+    /// A repository declares narrowings and there is no such directory at the
+    /// commit this flight pinned.
+    /// </summary>
+    /// <remarks>
+    /// <b>A MISCONFIGURATION, and it is usually a sequencing one.</b> The tap
+    /// was turned on before the team committed anything, or the directory
+    /// exists on somebody's branch and not at the commit this flight is
+    /// working from. ADR-0018 § 6: absent and <i>constrains nothing</i> must
+    /// not be the same answer, because the first is a mistake and the second is
+    /// a decision.
+    /// </remarks>
+    public const string DeclaredAndAbsent = "declared-and-absent";
+
+    /// <summary>The forge could not be asked at all.</summary>
+    /// <remarks>
+    /// <b>AN OUTAGE, and nothing for the tenant to fix.</b> Kept apart from
+    /// <see cref="DeclaredAndAbsent"/> deliberately: collapsing them makes a
+    /// forge incident look like somebody's mistake, and sends the person having
+    /// the outage to go and check a declaration that is perfectly correct.
+    /// </remarks>
+    public const string ForgeUnreachable = "forge-unreachable";
+
     /// <summary>A selection of a name the chart does not hold.</summary>
     public const string Uncharted = "uncharted";
 
@@ -252,12 +289,17 @@ public static class ReasonKinds
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
          Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
-         StaleWorkingCopy, FlightsInTheAir];
+         StaleWorkingCopy, FlightsInTheAir, DeclaredAndAbsent, ForgeUnreachable];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
     {
-        NoRunnerAdvertises or PoolWarming => ReasonFamilies.Failed,
+        // A HALT IS NOT A REFUSAL. Nothing was refused - the flight was
+        // admitted and cannot be evaluated - so filing these under `refused`
+        // would put a flight that is WAITING in the same bucket as a document
+        // somebody was told no about.
+        NoRunnerAdvertises or PoolWarming or DeclaredAndAbsent or ForgeUnreachable =>
+            ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
         CannotBeShownToTighten or WideningRequiresAGate or Uncharted
             or RegistrationIsAWidening or StaleWorkingCopy or FlightsInTheAir =>

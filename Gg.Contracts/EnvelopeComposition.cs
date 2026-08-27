@@ -274,6 +274,46 @@ public static class EnvelopeComposition
             }
         }
 
+        // A NARROWING'S OBLIGATIONS BIND, and this is where the operator table's
+        // union on Destination.Requires finally gets applied. It has been
+        // declared since slice nine and honoured by nothing: destinations came
+        // wholesale from the base and no lower layer touched them, so a
+        // narrowing added obligations that admission - which iterates `requires`
+        // and nothing else - never looked at.
+        //
+        // ADR-0014 names the cost: "a narrowing must be able to union
+        // `requires`, or it is decorative." A narrowing that may only add
+        // obligations blocks nothing and produces verdicts nobody has to honour.
+        //
+        // THE BINDING IS THE COMPOSER'S, not the author's, and that is the whole
+        // design. A member on EnvelopeNarrowing naming destination ids would be
+        // a cross-document reference that can dangle - naming an exit the work
+        // kind does not declare, or failing to name one it does. There is no
+        // such member, so neither failure is expressible.
+        //
+        // ROOT AND THE WORK KIND ARE NOT AUTO-BOUND. They author their own
+        // requires in the same document, and a floor that records an obligation
+        // without requiring it made that choice deliberately - "a destination
+        // requiring nothing is a real envelope" is a sentence in the admission
+        // engine. A narrowing has no field in which to make that choice, which
+        // is exactly why its default has to be the constraining one.
+        var bound = layers
+            .Where(l => string.Equals(l.Role, Roles.Narrowing, StringComparison.Ordinal))
+            .SelectMany(l => l.Narrowing!.Obligations)
+            .Select(o => o.Id)
+            .ToList();
+
+        var destinations = bound.Count == 0
+            ? baseDocument.Destinations
+            : [.. baseDocument.Destinations.Select(d => d with
+            {
+                // UNION rather than append: `requires` is iterated to build the
+                // refusal sentence, so the same id twice reads as two
+                // outstanding gates where there is one.
+                Requires = (IReadOnlyList<string>)
+                    [.. d.Requires.Concat(bound).Distinct(StringComparer.Ordinal)],
+            })];
+
         return new Composition
         {
             Composed = baseDocument with
@@ -282,6 +322,7 @@ public static class EnvelopeComposition
                 Environment = environment,
                 Repository = repository,
                 Obligations = composed,
+                Destinations = destinations,
             },
         };
     }

@@ -197,17 +197,23 @@ public class NarrowingBindsTests
     }
 
     [Test]
-    public async Task Binding_is_a_union_rather_than_an_append()
+    public async Task Binding_cannot_double_count_because_shadowing_is_already_refused()
     {
-        // The base already requires `in-scope`; a narrowing declaring an
-        // obligation with an id the base requires must not duplicate it. A
-        // duplicate is not merely untidy: `requires` is iterated to build a
-        // refusal sentence, and the same id twice reads as two outstanding
-        // gates where there is one.
-        var composed = Composed(Root(), Narrowing("dup", InScope));
+        // Written first as "the union deduplicates", which asserted a guarantee
+        // this composer does not need: two layers declaring one obligation id
+        // is refused OUTRIGHT, so a narrowing can never contribute an id the
+        // base already carries and the duplicate is unreachable rather than
+        // filtered.
+        //
+        // That matters more than tidiness. `requires` is iterated to build the
+        // refusal sentence, so one id twice would read as two outstanding gates
+        // where there is one - and the reason it cannot happen is a refusal a
+        // person sees at apply, not a Distinct() nobody reads.
+        var composition = EnvelopeComposition.Compose([Root(), Narrowing("dup", InScope)]);
 
-        await Assert.That(composed.Destinations.Single().Requires.Count(r => r == InScope))
-            .IsEqualTo(1);
+        await Assert.That(composition.Composed).IsNull();
+        await Assert.That(composition.Refused).Contains("'dup'").And.Contains("'root'")
+            .Because("the refusal names both documents, which is what makes it actionable.");
     }
 
     [Test]

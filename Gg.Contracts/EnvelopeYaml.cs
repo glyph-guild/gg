@@ -493,8 +493,8 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "context", "environment", "repository", "obligations", "loops",
-               "destinations");
+        Closed(root, BasedOnKey, "context", "environment", "repository", "accepts", "obligations",
+               "loops", "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
@@ -517,6 +517,14 @@ public static class EnvelopeYaml
                 : null,
             Repository = root.Entries.TryGetValue("repository", out var repository)
                 ? RequireScalar(repository, "repository")
+                : null,
+            // AND THE ONE WHOSE EMPTY VALUE MEANS SOMETHING. `accepts: []` is
+            // a work kind saying it takes no subject; a missing key is a
+            // document that is not a work kind. So absence maps to null and an
+            // empty sequence maps to an empty list, and the two never collapse
+            // into each other on either side of the round trip.
+            Accepts = root.Entries.TryGetValue("accepts", out var accepts)
+                ? Strings(accepts, "accepts")
                 : null,
             Obligations = [.. Named(root, "obligations").Select(MapObligation)],
             Loops = [.. Named(root, "loops").Select(MapLoop)],

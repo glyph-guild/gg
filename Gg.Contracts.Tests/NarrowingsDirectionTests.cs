@@ -10,8 +10,9 @@ namespace Gg.Contracts.Tests;
 /// splits the two authorities: Airspace decides whether a repository may speak,
 /// git decides what it says. This is the first half's payload — one path, under
 /// which every file is a narrowing — and it is also the only thing bounding what
-/// the control plane will ever ask a forge for, because GitHub has no
-/// path-scoped read.
+/// the control plane will ever ask a forge for, because a forge has no
+/// path-scoped read - an installation token that can read one file can read
+/// every file.
 /// </para>
 /// <para>
 /// <b>So a path that could reach outside the directory is refused here.</b> Not

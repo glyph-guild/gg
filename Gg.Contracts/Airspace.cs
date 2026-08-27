@@ -334,6 +334,28 @@ public sealed record RegisterRepositoryRequest
     /// </para>
     /// </remarks>
     public string? Credential { get; init; }
+
+    /// <summary>
+    /// The directory in this repository under which every document is a
+    /// narrowing (ADR-0018), or null - and <b>null is off</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Declaring it is a widening, and a registration always was one.</b>
+    /// ADR-0016 § 6: a registry entry is reach that did not exist a moment ago,
+    /// so there is no prior version to sit below and nothing to compute. Turning
+    /// this on lets a source contribute to composition that could not before,
+    /// which is the same sentence - so it takes the same gate with no new rule.
+    /// </para>
+    /// <para>
+    /// <b>Null is off, and off is not empty.</b> See
+    /// <see cref="RepositoryNarrowings"/>, which is where the rule lives and
+    /// where the refusal reads. A registration written before this member
+    /// existed means exactly what it meant, which is the same thing
+    /// <see cref="Credential"/>'s absence means one member up.
+    /// </para>
+    /// </remarks>
+    public string? Narrowings { get; init; }
 }
 
 /// <summary>

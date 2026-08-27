@@ -144,11 +144,67 @@ public class NameRuleTests
             .Where(m => m.GetParameters().Length == 1
                      && m.GetParameters()[0].ParameterType == typeof(string))
             .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+            .Where(n => !NotAboutNames.ContainsKey(n))
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
 
         await Assert.That(deciders).IsEquivalentTo(new[] { "AirspaceNames.Invalid" })
             .Because("one computation decides what a name may be, or the path mapping "
                    + "becomes the second source of identity ADR-0016 refuses");
+    }
+
+    /// <summary>
+    /// Refusals this scan sees and is not about, each with its reason.
+    /// </summary>
+    /// <remarks>
+    /// <b>Exempted by scope rather than by spelling.</b> The scan finds any
+    /// public static <c>Invalid(string)</c> in the contract, which is what makes
+    /// it worth having - a second NAME rule is exactly the drift it exists to
+    /// catch, and one added under a different method name would slip past a
+    /// narrower pattern. But a computation about something that is not a name
+    /// still matches, and the honest fix is to say which and why rather than to
+    /// rename it out of the way.
+    /// </remarks>
+    private static readonly Dictionary<string, string> NotAboutNames = new(StringComparer.Ordinal)
+    {
+        [$"{nameof(RepositoryNarrowings)}.{nameof(RepositoryNarrowings.Invalid)}"] =
+            "decides what a PATH may be, not what a name may be: a directory with separators "
+          + "inside somebody else's repository. AirspaceNames governs one path COMPONENT in a "
+          + "working copy and would refuse '.goodgrief/narrowings/' on its first character, so "
+          + "sharing the computation is the mistake rather than the fix. Slice thirteen's rule, "
+          + "which this file already carries: one computation per KIND of name.",
+    };
+
+    [Test]
+    public async Task Every_exemption_from_the_single_decider_scan_says_why()
+    {
+        foreach (var (decider, reason) in NotAboutNames)
+        {
+            await Assert.That(reason.Length).IsGreaterThan(60)
+                .Because($"'{decider}' is exempt from the one rule that stops a second name "
+                       + "computation existing, and a one-word reason is how the next one gets "
+                       + "waved through.");
+        }
+    }
+
+    [Test]
+    public async Task An_exemption_that_no_longer_names_anything_is_an_error()
+    {
+        // The staleness half. An exemption for a method somebody deleted is a
+        // hole standing open for whatever is written next under that name -
+        // StrategyRoundTripTests' ratchet carries the same check for covered
+        // members, and this file did not.
+        var present = typeof(AirspaceNames).Assembly.GetTypes()
+            .SelectMany(t => t.GetMethods(System.Reflection.BindingFlags.Public
+                                        | System.Reflection.BindingFlags.Static
+                                        | System.Reflection.BindingFlags.DeclaredOnly))
+            .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+            .ToHashSet(StringComparer.Ordinal);
+
+        var stale = NotAboutNames.Keys.Where(k => !present.Contains(k)).ToList();
+
+        await Assert.That(stale).IsEmpty()
+            .Because("an exemption naming nothing is a hole held open for whatever is written "
+                   + "next under that name. Found: " + string.Join(", ", stale));
     }
 }

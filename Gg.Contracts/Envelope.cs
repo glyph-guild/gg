@@ -1337,9 +1337,23 @@ public sealed record Envelope
     /// </remarks>
     private static string? Accepting(Envelope envelope)
     {
+        var unbounded = string.Equals(
+            envelope.Context.Scope, EnvelopeScopes.None, StringComparison.Ordinal);
+
         if (envelope.Accepts is not { } accepts)
         {
-            return null;
+            // THE TRAP THE MEET RULE OPENS IF THIS IS MISSING. Composition
+            // treats `none` as a domain mismatch and answers `none`, so a ROOT
+            // that said `scope: none` would bound every path-taking kind in
+            // the tenant to nothing - QUIETLY, where before the meet rule it
+            // produced a refusal. `none` says there is no tree, and only a
+            // document that declared it accepts no subject has standing to
+            // say so.
+            return unbounded
+                ? $"context.scope is '{EnvelopeScopes.None}' and this document declares no "
+                + $"'accepts:'. Only a work kind that accepts no subject may say there is no "
+                + $"tree - write a path glob, or declare 'accepts: []' and mean it."
+                : null;
         }
 
         if (accepts.FirstOrDefault(k => !SubjectKinds.IsKnown(k)) is { } unknown)
@@ -1349,8 +1363,7 @@ public sealed record Envelope
         }
 
         var subjectless = accepts.Count == 0;
-        var bounded = !string.Equals(
-            envelope.Context.Scope, EnvelopeScopes.None, StringComparison.Ordinal);
+        var bounded = !unbounded;
 
         return subjectless == bounded
             ? subjectless

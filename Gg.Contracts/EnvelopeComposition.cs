@@ -464,6 +464,31 @@ public static class EnvelopeComposition
     /// </remarks>
     private static (string? Met, string? Refused) IntersectScope(string wider, string narrower)
     {
+        // NONE IS A DOMAIN MISMATCH, NOT A NARROWER GLOB, and this branch is
+        // the whole of ADR-0020's unlisted question. A path bound is a
+        // statement about a tree; work that accepts no subject has no tree, so
+        // the floor's bound is not narrowed away and is not in conflict with
+        // anything - it does not apply, and that is decided from the documents
+        // alone without evaluating a fact.
+        //
+        // WITHOUT IT THE FIRST RESEARCH FLIGHT IS A REFUSAL. `src/**` and
+        // `none` fall through to "neither contains the other", which is
+        // correct for two globs and nonsense for a glob and a declaration that
+        // there is nothing to glob over.
+        //
+        // The computed value is what `none absorbs` would also produce, and
+        // that is worth saying rather than glossing: what differs is that the
+        // answer comes from a declaration rather than from a claim that
+        // nothing is narrower than something. Validate keeps `none` legal
+        // exactly where `accepts: []` is, so this branch is unreachable except
+        // by a document that declared it takes no subject - which is what
+        // makes the reasoning checkable instead of merely stated.
+        if (string.Equals(wider, EnvelopeScopes.None, StringComparison.Ordinal)
+            || string.Equals(narrower, EnvelopeScopes.None, StringComparison.Ordinal))
+        {
+            return (EnvelopeScopes.None, null);
+        }
+
         if (string.Equals(wider, narrower, StringComparison.Ordinal))
         {
             return (wider, null);

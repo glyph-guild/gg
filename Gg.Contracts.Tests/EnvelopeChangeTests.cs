@@ -90,12 +90,16 @@ public class EnvelopeChangeTests
     public async Task A_destination_that_is_not_a_repository_is_its_own_kind()
     {
         await Assert.That(DestinationKinds.All).Contains(DestinationKinds.EnvelopeChange);
-        await Assert.That(DestinationKinds.All.Count).IsEqualTo(3)
-            .Because("three: pull-request, and two that are deliberately not repositories - "
-                   + "which is what makes 'add a destination' a real answer rather than a "
-                   + "restatement. The third (airspace-registration) was declared in 0.53.0 "
-                   + "and left out of this list; slice twelve's step 0 found it refused by "
-                   + "its own vocabulary, repaired riding 0.59.0.");
+        await Assert.That(DestinationKinds.All.Count).IsEqualTo(4)
+            .Because("four: pull-request, two that are deliberately not repositories - which "
+                   + "is what makes 'add a destination' a real answer rather than a "
+                   + "restatement - and check-run, the first whose act LEAVES this system. "
+                   + "The third (airspace-registration) was declared in 0.53.0 and left out "
+                   + "of this list; slice twelve's step 0 found it refused by its own "
+                   + "vocabulary, repaired riding 0.59.0. The fourth is slice sixteen's, "
+                   + "and it is ADR-0020 section 4's `comment` corrected on evidence: none "
+                   + "of section 4's three kinds has a port, and this one has the only "
+                   + "outward write the client is permitted to make.");
     }
 
     // ---- what a human rung may not declare ----

@@ -270,10 +270,46 @@ public static class DestinationKinds
     /// </remarks>
     public const string AirspaceRegistration = "airspace-registration";
 
+    /// <summary>
+    /// A check run on the commit a flight is working from: a title, a summary
+    /// and a conclusion, visible on the pull request.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first destination whose act leaves this system.</b>
+    /// <see cref="EnvelopeChange"/> and <see cref="AirspaceRegistration"/> are
+    /// already performed by admission itself, and both land inside the tenant's
+    /// own stream and registries. <see cref="PullRequest"/> leaves, and is
+    /// performed by the runner on the customer's credential. This one leaves
+    /// AND is performed by the control plane - which is what makes ADR-0020
+    /// § 3's containment argument true rather than nearly true, because the
+    /// agent that drafted the text never holds a credential that could post it.
+    /// </para>
+    /// <para>
+    /// <b>§ 4 names <c>comment</c>, and this is the correction.</b> § 4 puts
+    /// its three kinds on the Notify and Intent ports, on the grounds that both
+    /// already exist. Neither does: there is no notification port in any form,
+    /// and Intent is a URI rendered into a prompt that nothing resolves in
+    /// either direction. A check run is the one outward write this system can
+    /// already perform - and the installation holds <c>checks</c> and no write
+    /// on issues or pull requests, so <c>comment</c> would cost a re-grant
+    /// every installation must approve and nobody can un-ask.
+    /// </para>
+    /// <para>
+    /// <b>It is not a comment wearing a different name.</b> A check run does
+    /// not thread and carries no approve/reject verdict on a forge object. What
+    /// it does carry is a governed, attributed, durable statement on the commit
+    /// under review, posted only after admission. When a re-grant is being
+    /// asked for anyway, <c>comment</c> joins on its own merits.
+    /// </para>
+    /// </remarks>
+    public const string CheckRun = "check-run";
+
     // Slice twelve's step 0 found AirspaceRegistration declared but absent
     // here, so an envelope declaring it was refused by the very vocabulary
     // that declared it. Repaired riding 0.59.0.
-    public static IReadOnlyList<string> All { get; } = [PullRequest, EnvelopeChange, AirspaceRegistration];
+    public static IReadOnlyList<string> All { get; } =
+        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun];
 }
 
 /// <summary>

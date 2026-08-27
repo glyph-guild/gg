@@ -173,7 +173,37 @@ public class NameRuleTests
           + "working copy and would refuse '.goodgrief/narrowings/' on its first character, so "
           + "sharing the computation is the mistake rather than the fix. Slice thirteen's rule, "
           + "which this file already carries: one computation per KIND of name.",
+        [$"{nameof(RepositoryNarrowingNames)}.{nameof(RepositoryNarrowingNames.Invalid)}"] =
+            "decides what a repository KEY may contribute as a composed name's left half - a "
+          + "forge slug, which may carry slashes and which AirspaceNames would refuse on the "
+          + "first one. It does NOT decide what a name may be: the right half is handed "
+          + "straight to AirspaceNames.Invalid, and Delegation_is_asserted_rather_than_claimed "
+          + "below proves that rather than trusting this sentence.",
     };
+
+    [Test]
+    public async Task Delegation_is_asserted_rather_than_claimed()
+    {
+        // THE EXEMPTION ABOVE IS ONLY HONEST IF THIS HOLDS. A second name rule
+        // that merely SAYS it defers is the drift this scan exists to catch, so
+        // the deferral is a property rather than a comment: every document name
+        // AirspaceNames refuses must be one RepositoryNarrowingNames refuses.
+        foreach (var refused in (string[])["PCI", "pc i", "-pci", "pci-", "pci/extra", ""])
+        {
+            await Assert.That(AirspaceNames.Invalid(refused)).IsNotNull()
+                .Because($"'{refused}' has to be refused by the one name rule, or this "
+                       + "proves nothing about deferring to it.");
+            await Assert.That(RepositoryNarrowingNames.Compose("payments", refused)).IsNull()
+                .Because($"'{refused}' is refused by the name rule, so a composed name cannot "
+                       + "contain it - which is what 'delegates' has to mean.");
+        }
+
+        // And the other direction, so the delegation is not simply "refuse
+        // everything": a name the rule accepts composes.
+        await Assert.That(AirspaceNames.Invalid("pci")).IsNull();
+        await Assert.That(RepositoryNarrowingNames.Compose("payments", "pci"))
+            .IsEqualTo("payments/pci");
+    }
 
     [Test]
     public async Task Every_exemption_from_the_single_decider_scan_says_why()

@@ -187,6 +187,34 @@ public sealed record ObligationAttribution
     public string? Diagnosis { get; init; }
 
     /// <summary>
+    /// The fact family this work kind can never produce, when the obligation
+    /// could never have applied. Null for every ordinary answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ADR-0020 § 2, and it is a MEMBER rather than a fourth
+    /// <see cref="Attachments"/> value.</b> A member may be added freely and a
+    /// value may not: the only safe response to an unknown value is to halt,
+    /// so a fourth attachment would break every prior reader by design. The
+    /// attachment stays <see cref="Attachments.NotAttached"/> — which is what
+    /// the ADR says and is true — and this travels beside it as something no
+    /// older reader has to understand.
+    /// </para>
+    /// <para>
+    /// <b>The family rather than a sentence.</b> <c>Because</c> already
+    /// carries the words; a caller has to be able to tell <i>this was measured
+    /// and did not fire</i> from <i>this could never fire</i> by a null check,
+    /// because the first may fire tomorrow and the second cannot.
+    /// </para>
+    /// <para>
+    /// <b>Absent on every envelope written before this member existed</b>, and
+    /// that reads correctly: nothing was declared structurally inapplicable,
+    /// so nothing was.
+    /// </para>
+    /// </remarks>
+    public string? Inapplicable { get; init; }
+
+    /// <summary>
     /// Every time the attachment answer changed, oldest first - the first
     /// evaluation is the first entry.
     /// </summary>
@@ -223,12 +251,32 @@ public sealed record ObligationAttribution
             }
         }
 
+        // THE FAMILY IS A VOCABULARY VALUE, so a reason nobody can check is
+        // refused where it is written rather than rendered. Checked before the
+        // switch because the switch below now depends on this member.
+        if (attribution.Inapplicable is { Length: > 0 } family
+            && !FactKinds.All.Contains(family, StringComparer.Ordinal))
+        {
+            return $"'{family}' is not a fact family this contract declares, so an obligation "
+                 + "marked inapplicable for it gives a reason nobody can check. Expected one "
+                 + "of: " + string.Join(", ", FactKinds.All) + ".";
+        }
+
         // The three states are only distinguishable if each carries what makes it
         // that state. An attachment answer with no reason is the shrug this type
         // exists to prevent.
         return attribution.Attachment switch
         {
-            Attachments.NotAttached when attribution.Condition is not { Length: > 0 } =>
+            // STRUCTURAL INAPPLICABILITY HAS NO CONDITION TO NAME, and that is
+            // the point of it. `no-file-outside-scope` on a subjectless kind
+            // declares no `when` at all - it applies always, to work that can
+            // never answer it - so the rule below would refuse the exact answer
+            // ADR-0020 § 2 exists to give. `Inapplicable` is what makes it
+            // distinguishable from an obligation nobody wrote, which is what
+            // that rule was protecting.
+            Attachments.NotAttached
+                when attribution.Condition is not { Length: > 0 }
+                  && attribution.Inapplicable is not { Length: > 0 } =>
                 "An obligation that did not attach has a condition that did not hold, and this one "
               + "names none. Without it there is no way to tell a false condition from an "
               + "obligation nobody wrote.",

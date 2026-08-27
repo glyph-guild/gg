@@ -1123,6 +1123,18 @@ public static class VerbOutput
             text.AppendLine();
             text.AppendLine($"{Clean(obligation.ObligationId)}: {Clean(obligation.Attachment)}");
 
+            // COULD NEVER APPLY, said before the condition line, because it is
+            // the answer to the question somebody opened this verb with. A rule
+            // marked here is one the work kind can never answer - not one that
+            // was measured and did not fire - and the two must not read alike:
+            // the second may fire tomorrow.
+            if (obligation.Inapplicable is { Length: > 0 } family)
+            {
+                text.AppendLine(
+                    $"  never:    this kind of work cannot produce {Clean(family)}, so this "
+                  + "rule can never apply to it");
+            }
+
             if (obligation.Condition is { Length: > 0 } condition)
             {
                 text.AppendLine($"  when:     {Clean(condition)}");

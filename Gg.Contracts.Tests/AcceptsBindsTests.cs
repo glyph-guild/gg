@@ -41,6 +41,13 @@ public class AcceptsBindsTests
     {
         Context = new ContextBinding { Scope = scope, Constitution = "1.0.0" },
         Accepts = accepts,
+
+        // MIRRORS `accepts:`, so this fixture stays about `accepts:`. Slice
+        // seventeen made `produces:` required on a work kind and refused on
+        // every other role - both being work-kind-only - so a document that
+        // declares one declares the other, and a fixture that hard-coded either
+        // answer would fail these assertions for a reason none of them is about.
+        Produces = accepts is null ? null : [],
         Obligations =
         [
             new Obligation

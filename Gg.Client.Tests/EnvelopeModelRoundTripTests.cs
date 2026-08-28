@@ -34,6 +34,7 @@ public class EnvelopeModelRoundTripTests
         Environment = "aspire-payments",
         Repository = "payments",
         Accepts = [SubjectKinds.Repository],
+        Produces = [FactKinds.ChangeManifest],
         Obligations =
         [
             new Obligation
@@ -185,7 +186,7 @@ public class EnvelopeModelRoundTripTests
         string[] covered =
         [
             nameof(Envelope.Context), nameof(Envelope.Environment), nameof(Envelope.Repository),
-            nameof(Envelope.Accepts),
+            nameof(Envelope.Accepts), nameof(Envelope.Produces),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
             nameof(ContextBinding.Scope), nameof(ContextBinding.Constitution),
             nameof(Obligation.Id), nameof(Obligation.Check), nameof(Obligation.When),

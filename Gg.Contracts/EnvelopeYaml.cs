@@ -493,7 +493,7 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "context", "environment", "repository", "accepts", "obligations",
+        Closed(root, BasedOnKey, "context", "environment", "repository", "accepts", "produces", "obligations",
                "loops", "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -525,6 +525,9 @@ public static class EnvelopeYaml
             // into each other on either side of the round trip.
             Accepts = root.Entries.TryGetValue("accepts", out var accepts)
                 ? Strings(accepts, "accepts")
+                : null,
+            Produces = root.Entries.TryGetValue("produces", out var produces)
+                ? Strings(produces, "produces")
                 : null,
             Obligations = [.. Named(root, "obligations").Select(MapObligation)],
             Loops = [.. Named(root, "loops").Select(MapLoop)],

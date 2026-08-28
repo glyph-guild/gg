@@ -204,6 +204,24 @@ public class ProducesBindsTests
         await Assert.That(typeof(EnvelopeNarrowing).GetProperty("Produces")).IsNull()
             .Because("the strongest form of the rule is one a document cannot express.");
 
+        // A DISTINCT OBLIGATION ID, because two layers declaring one name is
+        // refused by composition and has nothing to do with what is under test.
+        var basis = Kind([SubjectKinds.Repository], []);
+        var review = basis with
+        {
+            Obligations =
+            [
+                new Obligation
+                {
+                    Id = "a-person-read-it",
+                    Check = ObligationChecks.Human,
+                    Approver = "a-reviewer",
+                },
+            ],
+            Loops = [basis.Loops[0] with { Discharges = [] }],
+            Destinations = [basis.Destinations[0] with { Requires = ["a-person-read-it"] }],
+        };
+
         var composed = EnvelopeComposition.Compose(
         [
             new EnvelopeLayer
@@ -215,8 +233,9 @@ public class ProducesBindsTests
             {
                 Role = Roles.WorkKind,
                 Name = "review",
+                Parent = "root",
                 Version = "v1",
-                Document = Kind([SubjectKinds.Repository], []),
+                Document = review,
             },
         ]);
 

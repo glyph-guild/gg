@@ -23,8 +23,22 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class SliceTwelveGuardTests
 {
-    /// <summary>Where the fact vocabulary stood when slice twelve opened.</summary>
-    private const string VocabularyAtSliceStart = "0.16.0";
+    /// <summary>
+    /// Where the fact vocabulary stands. It was <c>0.16.0</c> when slice twelve
+    /// opened and held there through slices thirteen to sixteen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Moved to 0.17.0 by slice seventeen, and slice twelve's claim is
+    /// untouched.</b> This literal exists so that a move appears in a diff a
+    /// reviewer sees, and here is the move: <c>FactCategories</c> joined the
+    /// fact fingerprint — a CLASSIFICATION over the same nine kinds, saying
+    /// whether each describes a subject, a tree, or the flight. No kind was
+    /// added, no member of one changed, and a runner pinned to 0.16.0 ships
+    /// byte-identical facts. What actually carries slice twelve's decision is
+    /// <see cref="KindsThatCross"/>, which is still nine — that is the
+    /// assertion a tenth kind would have to get past, and it did not move.
+    /// </remarks>
+    private const string VocabularyAtSliceStart = "0.17.0";
 
     /// <summary>How many fact kinds cross. Nine, and staying nine is the point.</summary>
     private const int KindsThatCross = 9;
@@ -47,6 +61,7 @@ public class SliceTwelveGuardTests
             .Because("nothing about a pool crosses on a fact this slice - the provenance "
                    + "and digest the next flight carries were already in "
                    + "environment.identity. Moving this needs a fact-vocabulary ledger row "
-                   + "and this literal moving in a diff a reviewer sees.");
+                   + "and this literal moving in a diff a reviewer sees, which is what "
+                   + "slice seventeen did for a classification rather than for a kind.");
     }
 }

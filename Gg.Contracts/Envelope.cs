@@ -1492,9 +1492,40 @@ public sealed record Envelope
             return null;
         }
 
-        return produces.FirstOrDefault(f => !FactKinds.All.Contains(f, StringComparer.Ordinal)) is { } unknown
-            ? $"Unknown fact family '{unknown}' in produces:. Expected one of: "
-            + string.Join(", ", FactKinds.All) + "."
+        if (produces.FirstOrDefault(f => !FactKinds.All.Contains(f, StringComparer.Ordinal))
+            is { } unknown)
+        {
+            return $"Unknown fact family '{unknown}' in produces:. Expected one of: "
+                 + string.Join(", ", FactKinds.All) + ".";
+        }
+
+        // THE VETO, REFUSED WHERE AN AUTHOR CAN STILL ACT. A family measured
+        // from a tree cannot exist for work that accepts no subject with one, so
+        // a document declaring both is a contradiction rather than a permission.
+        // Uncaught here, it is caught by a flight that halts.
+        //
+        // TREES RATHER THAN EMPTINESS, the same correction slice sixteen made to
+        // itself when SubjectKinds gained a second member: `envelope` is a real
+        // subject kind and has no tree, so `accepts: [envelope]` is as unable to
+        // produce a change manifest as `accepts: []` is.
+        // NULL IS SILENCE, NOT EMPTINESS, and the distinction is the one the
+        // whole field rests on. A document that never declared `accepts:` has
+        // not said it takes no subject - it has said nothing, and the answer it
+        // is owed is the role refusal below rather than a contradiction it did
+        // not state. Reading null as `no tree` here told a root it had a fact
+        // problem when what it had was a role problem.
+        if (envelope.Accepts is not { } accepts || accepts.Any(SubjectKinds.HasTree))
+        {
+            return null;
+        }
+
+        return produces.FirstOrDefault(f =>
+                   string.Equals(FactCategories.Of(f), FactCategories.Tree, StringComparison.Ordinal))
+               is { } impossible
+            ? $"produces: names '{impossible}', which is measured from a tree, and accepts: "
+            + $"names {(accepts.Count > 0 ? string.Join(", ", accepts) : "nothing")} "
+            + "- no subject with a tree to measure. Work that has no tree cannot yield a fact "
+            + "about one: drop the family, or accept a subject that has a tree."
             : null;
     }
 

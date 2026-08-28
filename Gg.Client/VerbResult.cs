@@ -1130,9 +1130,10 @@ public static class VerbOutput
             // the second may fire tomorrow.
             if (obligation.Inapplicable is { Length: > 0 } family)
             {
-                text.AppendLine(
-                    $"  never:    this kind of work cannot produce {Clean(family)}, so this "
-                  + "rule can never apply to it");
+                // THE SHARED SENTENCE, never a local one. The plan and this verb
+                // are two renderings of one claim, and the only thing a reader
+                // can compare across them is the words.
+                text.AppendLine($"  never:    {Clean(Inapplicability.Because(family))}");
             }
 
             if (obligation.Condition is { Length: > 0 } condition)

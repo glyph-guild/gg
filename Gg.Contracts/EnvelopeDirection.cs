@@ -124,6 +124,29 @@ public static class EnvelopeDirection
             return repository;
         }
 
+        // WHAT THE KIND TAKES AND WHAT IT YIELDS. Both are work-kind-only sets
+        // whose REDUCTION removes obligations, so both compare by containment
+        // rather than by equality: keeping a subject kind or a fact family is
+        // the tightening direction, dropping one is not.
+        //
+        // `accepts:` was in the operator table from the day it shipped and was
+        // never in this comparison, so narrowing it computed tighter-or-equal
+        // and took no gate. Found by slice seventeen's step 0, in shipped code,
+        // while adding the second field that would have had the same hole.
+        if (Declared("accepts", applied.Accepts, proposed.Accepts,
+                "a subject kind this work no longer takes is every fact about that subject "
+              + "becoming unproducible, which removes every rule that reads one") is { } accepts)
+        {
+            return accepts;
+        }
+
+        if (Declared("produces", applied.Produces, proposed.Produces,
+                "a fact family this kind no longer claims to produce makes every rule reading "
+              + "it structurally inapplicable, for every flight of this kind, for ever") is { } produces)
+        {
+            return produces;
+        }
+
         if (Obligations("obligations", applied.Obligations, proposed.Obligations) is { } obligations)
         {
             return obligations;
@@ -337,6 +360,49 @@ public static class EnvelopeDirection
     }
 
     // ---- the shared shapes ----
+
+    /// <summary>
+    /// A work-kind-only declaration, where dropping a member removes gates.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Containment, not equality, and the asymmetry is deliberate.</b>
+    /// Declaring a field that was absent is an author making a document legible
+    /// for the first time; they are giving nothing up, and sending every
+    /// migrating work kind to a gate for that would make the field expensive to
+    /// adopt in exactly the estate that most needs it. WITHDRAWING the field is
+    /// the opposite: it withdraws every claim in it at once, which is the
+    /// maximal reduction rather than a return to innocence.
+    /// </para>
+    /// <para>
+    /// <b>Anything not shown to tighten is a widening</b>, as everywhere else
+    /// here — these sets carry no order beyond containment, so a member that
+    /// disappeared cannot be argued into <i>unchanged</i>.
+    /// </para>
+    /// </remarks>
+    private static EnvelopeWidening? Declared(
+        string field, IReadOnlyList<string>? was, IReadOnlyList<string>? now, string consequence)
+    {
+        if (was is null)
+        {
+            return null;
+        }
+
+        if (now is null)
+        {
+            return Widen(field,
+                $"'{field}:' declared {Describe(string.Join(", ", was))} and now declares nothing "
+              + $"at all, which withdraws every claim in it at once: {consequence}.");
+        }
+
+        var dropped = was.Except(now, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+
+        return dropped.Count == 0
+            ? null
+            : Widen(field,
+                $"'{field}:' no longer names {string.Join(", ", dropped)} - {consequence}. "
+              + "What cannot be shown to tighten is a widening.");
+    }
 
     private static EnvelopeWidening? Moved(string field, string? was, string? now) =>
         string.Equals(was, now, StringComparison.Ordinal)

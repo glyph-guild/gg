@@ -911,6 +911,49 @@ public sealed record Envelope
     public IReadOnlyList<string>? Accepts { get; init; }
 
     /// <summary>
+    /// The fact families this work kind's work can yield. <c>[]</c> means none;
+    /// null means the document is not a work kind and has nothing to say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The relation ADR-0020 § 2 lost, restored by ADR-0021 § 3.</b>
+    /// ADR-0014's table had two rows - <i>work kind → subject kinds accepted</i>
+    /// and <i>work kind → fact families produced</i> - and § 2 derived the second
+    /// from the first. That cannot separate two kinds that share a subject:
+    /// <c>implement</c> and <c>review</c> are both about a repository and do not
+    /// have the same fact vocabulary.
+    /// </para>
+    /// <para>
+    /// <b>What the kind can YIELD, not what its runner POSTS.</b> A review
+    /// flight materializes a tree, so the runner ships it a manifest with no
+    /// paths in it. The kind still declares <c>[]</c>. An empty manifest
+    /// arriving does not make a scope rule applicable to work that cannot change
+    /// anything - and the other reading leaves the vacuous pass exactly where it
+    /// was found: <c>no-file-outside-scope</c> reading an empty set and
+    /// reporting success while enforcing nothing.
+    /// </para>
+    /// <para>
+    /// <b>Declared rather than derived from <c>moves:</c>, on a security ground.</b>
+    /// A kind whose loops declare no <c>edit</c> or <c>write</c> cannot produce a
+    /// change manifest, which is mechanical and impossible to under-declare. But
+    /// <c>moves:</c> is not work-kind-only: it composes across layers, so a
+    /// narrowing - including one living in a customer's own repository - could
+    /// delete every scope gate on its own flights by narrowing moves to
+    /// <c>[read]</c>. A governance document that removes governance by being
+    /// obeyed. This field composes work-kind-only, and
+    /// <see cref="EnvelopeNarrowing"/> has no member for it at all.
+    /// </para>
+    /// <para>
+    /// <b>The failure direction is permissive, so reduction takes a gate.</b> An
+    /// under-declared <c>produces:</c> silently deletes obligations. Removing a
+    /// family is a widening in <see cref="EnvelopeDirection"/>, for the same
+    /// reason and in the same place that narrowing <c>accepts:</c> now is.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public IReadOnlyList<string>? Produces { get; init; }
+
+    /// <summary>
     /// The environment this envelope's flights are about: a charted name, or
     /// null when unselected.
     /// </summary>
@@ -991,10 +1034,30 @@ public sealed record Envelope
                  + "would then mean the same thing, and one of them is a decision.";
         }
 
-        return !isWorkKind && envelope.Accepts is not null
-            ? $"A '{role}' declares 'accepts:', and only a '{Roles.WorkKind}' may. The floor "
-            + "governs every kind at once so it has no single answer to give, and a narrowing "
-            + "tightens whatever it attaches to without choosing a kind."
+        // ACCEPTS IS ANSWERED FIRST IN BOTH DIRECTIONS, and the order is not
+        // cosmetic: a document carrying both fields wrongly gets told about the
+        // one that decides the other. What a kind takes is upstream of what it
+        // can yield, so fixing `accepts:` is what a reader has to do first.
+        if (!isWorkKind && envelope.Accepts is not null)
+        {
+            return $"A '{role}' declares 'accepts:', and only a '{Roles.WorkKind}' may. The floor "
+                 + "governs every kind at once so it has no single answer to give, and a "
+                 + "narrowing tightens whatever it attaches to without choosing a kind.";
+        }
+
+        if (isWorkKind && envelope.Produces is null)
+        {
+            return "A work kind must declare 'produces:' - the fact families its work can "
+                 + "yield, or '[]' for none. It is not defaulted, because the default that "
+                 + "suggests itself - everything the subject allows - is the behaviour this "
+                 + "field exists to correct, so it would leave every kind whose author never "
+                 + "heard of it exactly as it was.";
+        }
+
+        return !isWorkKind && envelope.Produces is not null
+            ? $"A '{role}' declares 'produces:', and only a '{Roles.WorkKind}' may. What work "
+            + "yields is a property of the kind of work, and the floor governs every kind at "
+            + "once."
             : null;
     }
 
@@ -1030,6 +1093,11 @@ public sealed record Envelope
         {
             return "context.constitution is empty. A flight that cannot say which constitution "
                  + "governed it is one nobody can act on later.";
+        }
+
+        if (Producing(envelope) is { } producing)
+        {
+            return producing;
         }
 
         if (Accepting(envelope) is { } accepting)
@@ -1407,6 +1475,29 @@ public sealed record Envelope
     /// <c>gg envelope validate</c> catch it before an apply ever happens.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Every family named in <c>produces:</c> is one the vocabulary knows.
+    /// </summary>
+    /// <remarks>
+    /// <b>A typo cannot become 'produces everything'.</b> The failure direction
+    /// on this field is permissive - a family nobody recognises, silently
+    /// dropped, is a gate that stops firing - so an unrecognised name is refused
+    /// where an author can still act, and the refusal names the vocabulary
+    /// rather than saying the envelope is invalid.
+    /// </remarks>
+    private static string? Producing(Envelope envelope)
+    {
+        if (envelope.Produces is not { } produces)
+        {
+            return null;
+        }
+
+        return produces.FirstOrDefault(f => !FactKinds.All.Contains(f, StringComparer.Ordinal)) is { } unknown
+            ? $"Unknown fact family '{unknown}' in produces:. Expected one of: "
+            + string.Join(", ", FactKinds.All) + "."
+            : null;
+    }
+
     private static string? Accepting(Envelope envelope)
     {
         var unbounded = string.Equals(

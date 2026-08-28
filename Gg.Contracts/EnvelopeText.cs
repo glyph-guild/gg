@@ -111,6 +111,14 @@ public static class EnvelopeText
             Sequence(text, "accepts", accepts, depth: 0);
         }
 
+        // AND WHAT IT YIELDS, on the line after what it takes, because they are
+        // one declaration read in two directions and a reader checking them
+        // against each other should not have to scroll.
+        if (envelope.Produces is { } produces)
+        {
+            Sequence(text, "produces", produces, depth: 0);
+        }
+
         text.Append("obligations:\n");
 
         // BY ID, ORDINAL, AND SAID SO. The emitter used to iterate the collection

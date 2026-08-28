@@ -70,8 +70,13 @@ public class WhyRendersTests
                 Path.GetFileName(f), "Inapplicability.cs", StringComparison.Ordinal))
             .Where(f => !string.Equals(
                 Path.GetFileName(f), "WhyRendersTests.cs", StringComparison.Ordinal))
+            // THE SENTENCE'S OWN SHAPE, not its words. `cannot produce` alone
+            // matches the contradiction refusal, three doc comments and two
+            // runner tests - a scan that broad reports the vocabulary rather
+            // than the duplication, and a list nobody can act on is a control
+            // that gets exempted into uselessness.
             .Where(f => Regex.IsMatch(
-                File.ReadAllText(f), @"cannot produce|can never apply"))
+                File.ReadAllText(f), @"so this rule can never apply"))
             .Select(f => Path.GetRelativePath(root, f))
             .ToList();
 
@@ -86,10 +91,11 @@ public class WhyRendersTests
         // Liveness, because the assertion above passes on today's tree and
         // would pass just as well if the pattern matched nothing ever.
         await Assert.That(Regex.IsMatch(
-                "this work kind cannot produce change.manifest", @"cannot produce|can never apply"))
+                "\"this work kind cannot produce x, so this rule can never apply to it\"",
+                @"so this rule can never apply"))
             .IsTrue();
         await Assert.That(Regex.IsMatch(
-                "var s = Inapplicability.Because(family);", @"cannot produce|can never apply"))
+                "var s = Inapplicability.Because(family);", @"so this rule can never apply"))
             .IsFalse()
             .Because("the one legitimate shape must not match, or the exemptions would be "
                    + "carrying the whole scan.");

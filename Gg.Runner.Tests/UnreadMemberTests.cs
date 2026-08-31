@@ -131,6 +131,37 @@ public class UnreadMemberTests
                 RemovedBy = "a failure diagnosis that quotes the command, which is the obvious "
                           + "use and would have to keep the secret out of it",
             },
+            ["ExecutorRun.DurationMs"] = new Exemption
+            {
+                Because = "how long the executor ran, in milliseconds. The duration that reaches "
+                        + "a fact is measured by the loop around the call rather than reported "
+                        + "by the run, so this is a second measurement nobody consults",
+                RemovedBy = "the fact deriving its duration from what the executor reported, "
+                          + "which would make ExecutorCapabilities.ReportsDuration mean something "
+                          + "as well",
+            },
+            ["PoolConfiguration.Endpoint"] = new Exemption
+            {
+                Because = "where the pool adapter reaches its daemon. The adapter takes its "
+                        + "endpoint from the environment directly, so the configured value is "
+                        + "carried and never asked",
+                RemovedBy = "the adapter reading its endpoint from the configuration it is "
+                          + "handed rather than from the environment underneath it",
+            },
+            ["ProbeResult.Workspace"] = new Exemption
+            {
+                Because = "where the probe worked, 'so a caller can say whether anything "
+                        + "survived'. No caller says. Its siblings Held, Took and MeasuredAt are "
+                        + "all read, which makes this and Broke two of six rather than a dead "
+                        + "record",
+                RemovedBy = "a diagnosis that tells a person where to look when a bound broke",
+            },
+            ["RunnerLoop.Activity"] = new Exemption
+            {
+                Because = "read by nothing at all, test or production - one of the two purest "
+                        + "instances the scan can see",
+                RemovedBy = "a caller, or its removal",
+            },
             ["RunnerLoop.HoldFor"] = new Exemption
             {
                 Because = "read by nothing at all, test or production - the purest instance the "
@@ -366,10 +397,17 @@ public class UnreadMemberTests
                 {
                     [JsonPropertyName("head")]
                     public string Head { get; init; } = "";
+
+                    public string NotSerialized { get; init; } = "";
                 }
                 """,
         }).Select(UnreadMembers.Key).ToList();
 
+        // A SECOND, UNSERIALIZED MEMBER, and its presence is the point. With
+        // only the serialized one the fixture declares nothing after exclusion,
+        // and Members throws its anti-vacuity exception - correctly. So the
+        // fixture proves the exclusion is SELECTIVE rather than total.
+        await Assert.That(findings).Contains("Wire.NotSerialized");
         await Assert.That(findings).DoesNotContain("Wire.Head")
             .Because("a member carrying a JSON name is read by the serializer, and the request "
                    + "this slice just authenticated is built entirely out of them.");

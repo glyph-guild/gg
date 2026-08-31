@@ -132,6 +132,36 @@ public class DockerPoolAdapterTests
     }
 
     [Test]
+    public async Task A_real_member_carries_the_image_digest_variable()
+    {
+        // THE SEAM, AGAINST A DAEMON. The stand-in proves the create SPEC
+        // carries the variable; only a real daemon proves the variable reaches
+        // the container's environment, which is where the survey reads it. A
+        // spec the daemon silently ignored would satisfy the fake and ship a
+        // fact that still said null.
+        var adapter = Adapter();
+        await ClearAsync("gg-e2e-pool-6");
+        var made = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-6", Image);
+        await Assert.That(made.Outcome).IsEqualTo(PoolOutcomes.Verified)
+            .Because(made.Diagnosis ?? "the member has to exist to be inspected");
+
+        using var http = new HttpClient { BaseAddress = new Uri(Endpoint) };
+        using var inspected = await http.GetAsync("/containers/gg-e2e-pool-6/json");
+        inspected.EnsureSuccessStatusCode();
+        using var body = System.Text.Json.JsonDocument.Parse(
+            await inspected.Content.ReadAsStringAsync());
+
+        var environment = body.RootElement.GetProperty("Config").GetProperty("Env")
+            .EnumerateArray().Select(e => e.GetString()!).ToArray();
+
+        await Assert.That(environment).Contains(
+            $"{Gg.Runner.Facts.EnvironmentSurvey.ImageDigestVariable}={Image}")
+            .Because("the runner inside this member reads that variable on every fact ship, "
+                   + "so this is the difference between a flight that can say which "
+                   + "environment it ran in and one that reports null forever.");
+    }
+
+    [Test]
     public async Task The_listing_sees_only_the_pool_prefix()
     {
         var adapter = Adapter();

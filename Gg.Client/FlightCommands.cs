@@ -554,15 +554,27 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
     /// control plane would refuse is not sent at all.
     /// </remarks>
     public async Task<VerbResult> FlyAsync(
-        string? text, string? uri, string? name = null, CancellationToken cancellationToken = default)
+        string? text,
+        string? uri,
+        string? name = null,
+        CancellationToken cancellationToken = default,
+        string? provider = null,
+        string? id = null)
     {
         var token = Session();
 
+        // The kind is DERIVED from which payload arrived, here and in one
+        // place, so a caller never names a kind that disagrees with what it
+        // supplied - the exact mismatch Validate refuses two statements below.
         var intent = new FlightIntent
         {
-            Kind = uri is { Length: > 0 } ? FlightIntentKinds.Uri : FlightIntentKinds.Text,
+            Kind = provider is { Length: > 0 } || id is { Length: > 0 }
+                ? FlightIntentKinds.Ticket
+                : uri is { Length: > 0 } ? FlightIntentKinds.Uri : FlightIntentKinds.Text,
             Uri = uri,
             Text = text,
+            Provider = provider,
+            Id = id,
         };
 
         if (FlightIntent.Validate(intent) is { } diagnosis)
@@ -575,7 +587,7 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
             // The name defaults to the intent, because a person who typed one
             // sentence should not have to type it twice. It is stripped and
             // shortened control-plane-side either way.
-            Name = name is { Length: > 0 } ? name : (text ?? uri)!,
+            Name = name is { Length: > 0 } ? name : (text ?? uri ?? $"{provider}#{id}"),
             Intent = intent,
         };
 

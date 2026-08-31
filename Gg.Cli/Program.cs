@@ -20,7 +20,8 @@ return CliArgs.Parse(args) switch
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
 
-    CliAction.Fly fly => await EmitAsync(fly.Json, c => c.FlyAsync(fly.Text, fly.Uri)),
+    CliAction.Fly fly => await EmitAsync(
+        fly.Json, c => c.FlyAsync(fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id)),
     CliAction.Flights flights => await EmitAsync(flights.Json, c => c.ListAsync(flights.All)),
     CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),

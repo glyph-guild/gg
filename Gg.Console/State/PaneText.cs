@@ -196,6 +196,7 @@ public static class PaneText
     private static string Intent(FlightIntent intent) => intent.Kind switch
     {
         FlightIntentKinds.Uri => Clean(intent.Uri),
+        FlightIntentKinds.Ticket => $"{Clean(intent.Provider)}#{Clean(intent.Id)}",
         _ => Clean(intent.Text, lines: true),
     };
 

@@ -1035,7 +1035,7 @@ public static class ProtocolSurface
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],
             [typeof(LeaseReleased)] = ["flightId", "disposition"],
-            [typeof(FlightIntent)] = ["kind", "uri", "text"],
+            [typeof(FlightIntent)] = ["kind", "uri", "text", "provider", "id"],
             [typeof(FlightLaunchRequest)] =
                 ["name", "intent", "workKind", "environment", "repository"],
             [typeof(FlightLaunched)] = ["flightId", "flightNumber"],

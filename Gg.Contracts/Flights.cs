@@ -2,9 +2,17 @@ namespace Gg.Contracts;
 
 /// <summary>The kinds of intent a flight may be opened with.</summary>
 /// <remarks>
-/// Two today. Adding a third - an issue, a pull request, a ticket - is a
-/// contract change, which is what makes it visible; the FIELD to carry it
-/// already exists, which is what makes it cheap.
+/// <para>
+/// Three, and the third arrived the way this note said it would: <i>adding a
+/// third - an issue, a pull request, a ticket - is a contract change, which is
+/// what makes it visible; the FIELD to carry it already exists, which is what
+/// makes it cheap.</i> The prediction was half right. The change is visible,
+/// and the fields did NOT already exist - a work item is a provider and an id,
+/// and neither is a URI or a sentence.
+/// </para>
+/// <para>
+/// A fourth is a contract version, not a string.
+/// </para>
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class FlightIntentKinds
@@ -15,8 +23,21 @@ public static class FlightIntentKinds
     /// <summary>Something addressable. Carried in <see cref="FlightIntent.Uri"/>.</summary>
     public const string Uri = "uri";
 
+    /// <summary>
+    /// A work item in a tracker, carried in <see cref="FlightIntent.Provider"/>
+    /// and <see cref="FlightIntent.Id"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declared, never addressed.</b> The URI of a work item can be rendered
+    /// from these two for a person to click; the reverse - an id lifted out of a
+    /// URI somebody typed - is the move slice nine retired for repositories, and
+    /// it breaks the same way on a vanity host and on an item moved between
+    /// projects.
+    /// </remarks>
+    public const string Ticket = "ticket";
+
     /// <summary>Every kind validation accepts.</summary>
-    public static IReadOnlyList<string> All { get; } = [Text, Uri];
+    public static IReadOnlyList<string> All { get; } = [Text, Uri, Ticket];
 }
 
 /// <summary>
@@ -50,6 +71,30 @@ public sealed record FlightIntent
     public string? Text { get; init; }
 
     /// <summary>
+    /// Which tracker the work item lives in, when the intent is one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A free string, and it stays one.</b> gg is public and distributed and
+    /// names no forge; a closed provider vocabulary here would be that mistake
+    /// one noun over. Which providers actually RESOLVE is the control plane's
+    /// knowledge and the Intent port's problem, and a provider nobody can
+    /// resolve is still a correct thing to have declared.
+    /// </remarks>
+    public string? Provider { get; init; }
+
+    /// <summary>
+    /// The work item's identifier at that provider, as the tracker issues it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A token, never a path and never a URL.</b> Every tracker issues
+    /// something without separators - <c>4471</c>, <c>PROJ-123</c> - and an id
+    /// carrying a path is somebody handing over a URL and hoping the last
+    /// segment gets used. Refused, because that hope is exactly what breaks on
+    /// a vanity host.
+    /// </remarks>
+    public string? Id { get; init; }
+
+    /// <summary>
     /// The diagnosis, or null when there is nothing wrong.
     /// </summary>
     /// <remarks>
@@ -79,27 +124,124 @@ public sealed record FlightIntent
         var hasText = !string.IsNullOrWhiteSpace(intent.Text);
         var hasUri = !string.IsNullOrWhiteSpace(intent.Uri);
 
-        if (hasText && hasUri)
+        // A TICKET IS ONE PAYLOAD CARRIED IN TWO FIELDS, and that is the only
+        // structurally new thing here. "How many payloads is this" used to be a
+        // count of non-empty strings; counting a half-filled ticket as one
+        // payload is what lets the arm below diagnose the MISSING FIELD rather
+        // than reporting "this one has neither", which is the wrong sentence
+        // and sends somebody looking in the wrong half of their document.
+        var hasProvider = !string.IsNullOrWhiteSpace(intent.Provider);
+        var hasId = !string.IsNullOrWhiteSpace(intent.Id);
+        var hasTicket = hasProvider || hasId;
+
+        var payloads = (hasText ? 1 : 0) + (hasUri ? 1 : 0) + (hasTicket ? 1 : 0);
+
+        if (payloads > 1)
         {
-            return "A flight intent carries one payload. This one has both text and a uri, "
-                 + "and which of them wins would be decided by whichever reader saw it first.";
+            // The sentence that was already here, extended rather than joined by
+            // a second one - two sentences saying the same thing is how the
+            // readers in two repositories come to disagree.
+            return "A flight intent carries one payload. This one has "
+                 + string.Join(" and ", Carried(hasText, hasUri, hasTicket))
+                 + ", and which of them wins would be decided by whichever reader saw it first.";
         }
 
-        if (!hasText && !hasUri)
+        if (payloads == 0)
         {
-            return "A flight intent carries one payload. This one has neither.";
+            // "Neither" was accurate while there were two. Saying it with three
+            // would be the wording quietly going stale behind a passing test,
+            // which is a small instance of the thing this slice is about.
+            return "A flight intent carries one payload - text, a uri, or a ticket. This one "
+                 + "has none of them.";
         }
 
-        // The kind and the populated field must agree, or a consumer renders a
-        // uri as prose, or tries to fetch free text.
+        if (hasTicket)
+        {
+            // Named separately from the kind check below, because a ticket
+            // missing half of itself is a different mistake from a kind that
+            // disagrees with its fields, and only one of them is a typo.
+            if (!hasProvider)
+            {
+                return "A ticket intent names the tracker it lives in. This one has an id and "
+                     + "no provider, and an id on its own does not say which 4471 it is.";
+            }
+
+            if (!hasId)
+            {
+                return "A ticket intent names the work item. This one has a provider and no id.";
+            }
+
+            if (UnparseableId(intent.Id!) is { } wrong)
+            {
+                return wrong;
+            }
+        }
+
+        // The kind and the populated fields must agree, or a consumer renders a
+        // uri as prose, tries to fetch free text, or resolves a work item that
+        // was never declared as one.
         return intent.Kind switch
         {
             FlightIntentKinds.Text when !hasText =>
                 $"Intent kind '{FlightIntentKinds.Text}' carries its payload in text, and text is empty.",
             FlightIntentKinds.Uri when !hasUri =>
                 $"Intent kind '{FlightIntentKinds.Uri}' carries its payload in uri, and uri is empty.",
+            FlightIntentKinds.Ticket when !hasTicket =>
+                $"Intent kind '{FlightIntentKinds.Ticket}' carries its payload in provider and id, "
+              + "and both are empty.",
             _ => null,
         };
+    }
+
+    /// <summary>What this intent is actually carrying, for the refusal above.</summary>
+    private static IEnumerable<string> Carried(bool hasText, bool hasUri, bool hasTicket)
+    {
+        if (hasText)
+        {
+            yield return "text";
+        }
+
+        if (hasUri)
+        {
+            yield return "a uri";
+        }
+
+        if (hasTicket)
+        {
+            yield return "a ticket";
+        }
+    }
+
+    /// <summary>
+    /// Why an id is not one, or null when it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Slice nine's refusal, one noun over.</b> Deriving a repository's
+    /// provider from an intent URI's host put a host in the request path, and
+    /// slice nine took it back out. Pulling an id out of a URI is the smaller
+    /// version of the same move: it breaks on a vanity host, and on a work item
+    /// moved between projects, and neither failure is visible at the moment
+    /// somebody types it.
+    /// <para>
+    /// Two shapes are refused, and the second is the one an absolute-URI check
+    /// alone would miss: no scheme, so it is not a URI, and it is still a path
+    /// somebody pasted hoping the last segment gets used.
+    /// </para>
+    /// </remarks>
+    private static string? UnparseableId(string id)
+    {
+        if (System.Uri.TryCreate(id, UriKind.Absolute, out _))
+        {
+            return $"A ticket's id is the identifier the tracker issues - '4471', 'PROJ-123' - "
+                 + $"and this one is a URI: '{id}'. The id is a DECLARED field: nothing here "
+                 + "derives one from a link, because a link's shape is whatever host somebody "
+                 + "happened to type.";
+        }
+
+        return id.Contains('/', StringComparison.Ordinal) || id.Contains('\\', StringComparison.Ordinal)
+            ? $"A ticket's id is a token and not a path, and this one is a path: '{id}'. Name "
+            + "the work item's own identifier, not where it can be read."
+            : null;
     }
 }
 

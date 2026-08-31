@@ -189,12 +189,28 @@ public static class DestinationConfiguration
     /// typo would fail on one flight, much later, for a reason nothing connects
     /// back to a variable.
     /// </remarks>
+    /// <param name="adapterFor">
+    /// How to build an adapter for a provider key, given its git host and its
+    /// api client. Defaults to <see cref="HttpsDestinationAdapter"/>, which is
+    /// what every runner anybody has configured gets.
+    /// <para>
+    /// <b>The seam exists because the limit was already written down.</b>
+    /// <c>HttpsDestinationAdapter</c> says its path shapes are <i>one
+    /// convention</i> and that a provider spelling them differently is a second
+    /// adapter — and until this parameter, such an adapter could be dispatched
+    /// to and never REGISTERED, because this method named the class it built.
+    /// </para>
+    /// </param>
     public static IReadOnlyList<IDestinationAdapter> FromEnvironment(
         Func<string, HttpClient> clientFor,
         string? apis = null,
-        string? hosts = null)
+        string? hosts = null,
+        Func<string, string, HttpClient, IDestinationAdapter>? adapterFor = null)
     {
         ArgumentNullException.ThrowIfNull(clientFor);
+
+        adapterFor ??= static (provider, host, client) =>
+            new HttpsDestinationAdapter(provider, host, client);
 
         var declared = apis ?? Environment.GetEnvironmentVariable(ApisVariable) ?? "";
         var known = Parse(
@@ -213,7 +229,7 @@ public static class DestinationConfiguration
                   + "so a destination needs both. Declare the host, or remove the destination.");
             }
 
-            adapters.Add(new HttpsDestinationAdapter(key, host, clientFor(api)));
+            adapters.Add(adapterFor(key, host, clientFor(api)));
         }
 
         return adapters;

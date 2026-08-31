@@ -90,7 +90,32 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
     public async Task<PoolObservation> RefreshAsync(
         string pool, string member, string image, CancellationToken cancellationToken = default)
     {
-        var inspected = await InspectAsync(member, cancellationToken);
+        // UNKNOWN IS NOT FALSE, AND IT IS NOT AN EXCEPTION EITHER. Convergence
+        // made this inspect load-bearing on every sweep, and a non-404 answer
+        // used to throw out of here, out of the maintain loop's ExecuteAsync
+        // and out of its cycle - BEFORE the attestation. So the pool shipped
+        // nothing, and nothing already means something else: the staleness arm
+        // reads silence as "the pull point stopped attesting" and sends a
+        // person to check a runner that is fine.
+        //
+        // 404 is not this. Absent is a real answer with its own branch below.
+        (bool Running, string Status, string? ImageDigest, string? MadeFrom)? inspected;
+
+        try
+        {
+            inspected = await InspectAsync(member, cancellationToken);
+        }
+        catch (HttpRequestException unreachable)
+        {
+            return new PoolObservation
+            {
+                Outcome = PoolOutcomes.Failed,
+                Diagnosis = $"'{member}' could not be inspected: {unreachable.Message}. "
+                          + "Nothing was created and nothing was converged - the daemon "
+                          + "knows a name it will not describe, which is not the same as "
+                          + "a member that is absent.",
+            };
+        }
 
         if (inspected is null)
         {

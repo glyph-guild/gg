@@ -120,9 +120,27 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
             };
         }
 
-        // Running already. Converge: a member whose image drifted from the
-        // strategy's is reset to it, because refresh means CURRENT and
-        // running, not merely running.
+        // RUNNING ALREADY, WHICH IS NOT THE SAME AS CURRENT. Refresh means
+        // current AND running; a member made from something the strategy does
+        // not name is not made current by being described as current, and this
+        // branch used to describe it and stop.
+        //
+        // The comparison is what the container says it was made FROM against
+        // what the strategy pins - never the resolved image id, which is a
+        // different thing and would differ from a reference every time. Both
+        // sides are digest-pinned by EnvironmentStrategy.Validate, so exact
+        // equality is the right operator: an approximate drift check resets
+        // every sweep, forever, and that is a bill rather than a bug.
+        //
+        // NOTHING OUTSIDE /containers/ IS ASKED. The pull point refuses images,
+        // volumes, build and networks, so resolving the strategy's image
+        // through the daemon would 403 - and a 403 read as drift is the same
+        // billing incident by another route.
+        if (!string.Equals(inspected.Value.MadeFrom, image, StringComparison.Ordinal))
+        {
+            return await ResetAsync(member, image, cancellationToken);
+        }
+
         return new PoolObservation
         {
             Outcome = PoolOutcomes.Verified,
@@ -237,7 +255,22 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
         };
     }
 
-    private async Task<(bool Running, string Status, string? ImageDigest)?> InspectAsync(
+    /// <summary>
+    /// What the daemon says about one member: whether it runs, the image id it
+    /// actually resolved to, and — separately — the reference it was CREATED
+    /// FROM.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two different images, and the difference is the whole of convergence.</b>
+    /// <c>Image</c> is the resolved id, which is what an attestation should
+    /// carry: what the member actually runs. <c>Config.Image</c> is the
+    /// reference it was made from, which is the only thing comparable to what a
+    /// strategy PINS — and both sides of that comparison are digest-pinned by a
+    /// shipped refusal, so it is exact. Comparing the id to a strategy's
+    /// reference would compare two spellings of different things and reset
+    /// forever.
+    /// </remarks>
+    private async Task<(bool Running, string Status, string? ImageDigest, string? MadeFrom)?> InspectAsync(
         string member, CancellationToken cancellationToken)
     {
         using var response = await _httpClient.GetAsync(
@@ -255,6 +288,10 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
 
         return (state.GetProperty("Running").GetBoolean(),
                 state.GetProperty("Status").GetString() ?? "unknown",
-                inspected.RootElement.GetProperty("Image").GetString());
+                inspected.RootElement.GetProperty("Image").GetString(),
+                inspected.RootElement.TryGetProperty("Config", out var config)
+                    && config.TryGetProperty("Image", out var madeFrom)
+                        ? madeFrom.GetString()
+                        : null);
     }
 }

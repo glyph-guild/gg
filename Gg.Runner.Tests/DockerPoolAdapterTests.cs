@@ -30,6 +30,18 @@ public class DockerPoolAdapterTests
             "GG_POOL_TEST_IMAGE is not set. Pin it by digest (name@sha256:...) - what reset "
           + "resets TO must be a fixed point, in the test as in the strategy.");
 
+    /// <summary>
+    /// A SECOND pinned image, and the drift test needs one that is really
+    /// different: the whole claim is that the daemon reports what a container
+    /// was made FROM, and one image cannot show that.
+    /// </summary>
+    private static string OtherImage =>
+        Environment.GetEnvironmentVariable("GG_POOL_TEST_IMAGE_B")
+        ?? throw new InvalidOperationException(
+            "GG_POOL_TEST_IMAGE_B is not set. Convergence needs two pinned images that are "
+          + "both present locally - the pull point refuses /images/, so the daemon cannot "
+          + "fetch one mid-test.");
+
     private static DockerPoolAdapter Adapter() =>
         new(new HttpClient { BaseAddress = new Uri(Endpoint) });
 
@@ -74,10 +86,61 @@ public class DockerPoolAdapterTests
     }
 
     [Test]
+    public async Task A_member_made_from_another_image_is_converged_against_a_real_daemon()
+    {
+        // THE ROW THAT NEEDS A DAEMON. The fake in ImageConvergenceTests holds
+        // the adapter's request sequence; only a real daemon says whether
+        // Config.Image is actually the reference a container was created from,
+        // and that is the entire premise of the comparison. A row proven
+        // against a fake proves the fake.
+        var adapter = Adapter();
+        await ClearAsync("gg-e2e-pool-3");
+
+        var drifted = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-3", OtherImage);
+        await Assert.That(drifted.Outcome).IsEqualTo(PoolOutcomes.Verified)
+            .Because("the member has to exist before it can drift: " + drifted.Diagnosis);
+
+        var converged = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-3", Image);
+
+        await Assert.That(converged.Outcome).IsEqualTo(PoolOutcomes.Verified)
+            .Because(converged.Diagnosis ?? "converging on the pin should not fail");
+        await Assert.That(converged.Provenance).IsEqualTo(EnvironmentProvenance.Fresh)
+            .Because("converge means destroy and recreate from the pin, so what comes back "
+                   + "is a new container - reused would mean the drifted one was blessed.");
+        await Assert.That(converged.ImageDigest).IsNotEqualTo(drifted.ImageDigest)
+            .Because("the member is running a different image than it was, which is the "
+                   + "difference three doc comments promised and none performed.");
+    }
+
+    [Test]
+    public async Task A_member_already_on_the_pin_is_not_recreated_by_a_real_daemon()
+    {
+        // THE ANCHOR, AGAINST THE DAEMON. A convergence that reset every time
+        // would satisfy the test above and throw away a warm pool on every
+        // sweep - and only a real daemon can say the second refresh left the
+        // container alone rather than replacing it with an identical one.
+        var adapter = Adapter();
+        await ClearAsync("gg-e2e-pool-4");
+        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-4", Image);
+
+        var again = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-4", Image);
+
+        await Assert.That(again.Provenance).IsEqualTo(EnvironmentProvenance.Reused)
+            .Because("a member already running what the strategy pins IS current; "
+                   + "recreating it would discard a warm environment to arrive at the "
+                   + "same place, once per sweep, on somebody else's bill.");
+    }
+
+    [Test]
     public async Task The_listing_sees_only_the_pool_prefix()
     {
         var adapter = Adapter();
-        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-1", Image);
+        // ITS OWN MEMBER, and it did not have one. This shared gg-e2e-pool-1
+        // with the create test, which force-DELETES that name - so run in
+        // parallel one refresh raced the other's delete and attested failed.
+        // Nobody noticed because CI never runs the RealDocker category, which
+        // is the same reason the arm this file now covers was never exercised.
+        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-5", Image);
 
         var members = await adapter.ListAsync("gg-e2e-pool");
 

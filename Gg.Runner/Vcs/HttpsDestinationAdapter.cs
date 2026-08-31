@@ -124,10 +124,29 @@ public sealed class HttpsDestinationAdapter(
     public async Task<LandingOutcome> ProposeAsync(
         LandingRequest request, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // REFUSED BEFORE THE CALL, not sent anonymously and refused by the
+        // provider. That was the state this method shipped in, and the sentence
+        // it produced blamed a credential nobody had presented.
+        if (request.Secret is not { Length: > 0 })
+        {
+            return NotAttempted(request);
+        }
+
         var head = $"{request.Slug.Split('/')[0]}:{request.Branch}";
 
-        using var existing = await _http.GetAsync(
-            $"repos/{request.Slug}/pulls?state=open&head={Uri.EscapeDataString(head)}", cancellationToken);
+        // ON BOTH CALLS, and the query is the one that matters most. An
+        // unauthenticated GET does not error - it fails IsSuccessStatusCode and
+        // degrades silently to "there is no existing proposal", so a retry after
+        // a successful push would open a SECOND pull request on a branch that
+        // already had one. The idempotency this seam is built around is only
+        // idempotent if the question can be asked.
+        using var existing = await SendAsync(
+            new HttpRequestMessage(
+                HttpMethod.Get,
+                $"repos/{request.Slug}/pulls?state=open&head={Uri.EscapeDataString(head)}"),
+            request.Secret, cancellationToken);
 
         if (existing.IsSuccessStatusCode
             && await existing.Content.ReadFromJsonAsync(
@@ -136,16 +155,20 @@ public sealed class HttpsDestinationAdapter(
             return new LandingOutcome.Landed(request.Branch, open.HtmlUrl, open.Number);
         }
 
-        using var created = await _http.PostAsJsonAsync(
-            $"repos/{request.Slug}/pulls",
-            new NewProposal
-            {
-                Title = request.Title,
-                Head = request.Branch,
-                Base = request.BaseRef,
-                Body = $"Opened by a governed flight. Branch `{request.Branch}`.",
-            },
-            DestinationJson.Default.NewProposal, cancellationToken);
+        using var creation = new HttpRequestMessage(HttpMethod.Post, $"repos/{request.Slug}/pulls")
+        {
+            Content = JsonContent.Create(
+                new NewProposal
+                {
+                    Title = request.Title,
+                    Head = request.Branch,
+                    Base = request.BaseRef,
+                    Body = $"Opened by a governed flight. Branch `{request.Branch}`.",
+                },
+                DestinationJson.Default.NewProposal),
+        };
+
+        using var created = await SendAsync(creation, request.Secret, cancellationToken);
 
         if (created.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
@@ -170,6 +193,25 @@ public sealed class HttpsDestinationAdapter(
     }
 
     /// <summary>
+    /// One request, carrying the credential the developer registered.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the message rather than on the client</b>, because the client is
+    /// shared across every repository this runner lands in and a default header
+    /// would send one repository's credential to another's api. The secret goes
+    /// in a header and nowhere else - not the uri, which is the most logged
+    /// string any http client has, and not the body, which a provider echoes
+    /// back into an error a person reads.
+    /// </remarks>
+    private Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, string secret, CancellationToken cancellationToken)
+    {
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secret);
+
+        return _http.SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>
     /// A refusal that names the credential rather than the status code.
     /// </summary>
     /// <remarks>
@@ -177,6 +219,35 @@ public sealed class HttpsDestinationAdapter(
     /// diagnosable. A 403 with somebody else's wording on it tells a developer
     /// nothing about which of their credentials was too narrow.
     /// </remarks>
+    /// <summary>
+    /// No credential was available, so nothing was asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The half that has never existed, and the one every run produced.</b>
+    /// Until the credential was threaded onto the calls above, every proposal
+    /// went out anonymous, came back 401, and got
+    /// <see cref="Refusal"/>'s sentence — which sends a developer to rotate a
+    /// credential that was resolved, scope-checked, used successfully to push,
+    /// and then never presented. <i>No credential was sent</i> and <i>the
+    /// credential was refused</i> are two different facts, and they had one
+    /// string between them.
+    /// </para>
+    /// <para>
+    /// <b>It names the locator and not the scope</b>, because the thing to fix
+    /// is that there is nothing registered there — not that what is registered
+    /// is too narrow. Offering the scope advice here is what made the old
+    /// sentence confident and wrong.
+    /// </para>
+    /// </remarks>
+    private static LandingOutcome NotAttempted(LandingRequest request) =>
+        new LandingOutcome.CredentialRefused(
+            CredentialLocator.ForRepo(request.Slug),
+            $"No credential was available for {request.Slug}, so the proposal was not "
+          + "attempted. The branch is on the remote and this flight did not land. Register a "
+          + $"credential for {CredentialLocator.ForRepo(request.Slug)} and the flight can be "
+          + "retried.");
+
     private static LandingOutcome Refusal(LandingRequest request, string detail) =>
         new LandingOutcome.CredentialRefused(
             CredentialLocator.ForRepo(request.Slug),

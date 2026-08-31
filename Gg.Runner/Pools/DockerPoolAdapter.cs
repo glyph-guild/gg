@@ -228,9 +228,24 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
         string pool, string member, string image, CancellationToken cancellationToken)
     {
         // The strategy's image, its own entrypoint, no binds, nothing
-        // privileged: a pool member is the image and nothing else. Written
-        // with the writer rather than the reflection serializer - this
-        // assembly is AOT-compiled, and the shape is two fields.
+        // privileged: a pool member is the image, the label that says which
+        // pool, and THE NAME OF THE IMAGE IT IS. Written with the writer rather
+        // than the reflection serializer - this assembly is AOT-compiled, and
+        // the shape is three fields.
+        //
+        // IT USED TO SAY "the image and nothing else", AND THE COMMENT MOVED
+        // WITH THE CODE. That matters more than it looks: the sentence was a
+        // containment claim, and a claim left standing over changed code is the
+        // exact defect this slice is otherwise about.
+        //
+        // What was added is one non-secret variable naming the image the member
+        // was started from. EnvironmentSurvey reads it on every fact ship and
+        // reports ImageDigest from it - so a flight that ran in an environment
+        // the platform MADE says which one, and a flight on a machine it merely
+        // found reports null. The variable was declared and read since the fact
+        // shipped, and set by nothing; this is its setter. It carries no
+        // credential, and what a member can reach is still decided by the image
+        // it was built from rather than by anything injected here.
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer))
         {
@@ -239,6 +254,9 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
             writer.WriteStartObject("Labels");
             writer.WriteString("gg.pool", pool);
             writer.WriteEndObject();
+            writer.WriteStartArray("Env");
+            writer.WriteStringValue($"{Facts.EnvironmentSurvey.ImageDigestVariable}={image}");
+            writer.WriteEndArray();
             writer.WriteEndObject();
         }
 

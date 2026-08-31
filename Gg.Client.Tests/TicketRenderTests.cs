@@ -15,9 +15,13 @@ namespace Gg.Client.Tests;
 /// stops being sensible and starts being a hole.
 /// </para>
 /// <para>
-/// <b>Both, and asserted separately.</b> <c>gg flights</c> and <c>gg show</c>
-/// are two renderings of one thing, and fixing the one you happened to run is
-/// how they drift.
+/// <b>The queue does not render the intent at all, and writing this found
+/// that out.</b> <c>gg flights</c> shows the flight's NAME, which for a ticket
+/// flight defaults to <c>provider#id</c> and so happens to read correctly — but
+/// it reads correctly for a reason that has nothing to do with the intent, and
+/// a test that asserted it there would have been proving the default name.
+/// The two surfaces that really render an intent are <c>gg show</c> and the
+/// console's flight pane, and the pane is one assembly over.
 /// </para>
 /// </remarks>
 public class TicketRenderTests
@@ -44,16 +48,13 @@ public class TicketRenderTests
         Id = "4471",
     };
 
-    private static string Queue(FlightIntent intent) =>
-        VerbOutput.ToText(new VerbResult.Flights(new FlightList { Flights = [Flight(intent)] }));
-
-    private static string One(FlightIntent intent) =>
+    private static string Shown(FlightIntent intent) =>
         VerbOutput.ToText(new VerbResult.Flight(Flight(intent)));
 
     [Test]
-    public async Task The_queue_renders_a_work_item_rather_than_a_blank()
+    public async Task A_shown_flight_renders_a_work_item_rather_than_a_blank()
     {
-        var text = Queue(Ticket);
+        var text = Shown(Ticket);
 
         await Assert.That(text).Contains("4471")
             .Because("a ticket whose Text is null by construction falls through to an empty "
@@ -64,25 +65,16 @@ public class TicketRenderTests
     }
 
     [Test]
-    public async Task One_flight_renders_it_too()
-    {
-        var text = One(Ticket);
-
-        await Assert.That(text).Contains("4471");
-        await Assert.That(text).Contains("azure-boards");
-    }
-
-    [Test]
     public async Task The_two_kinds_that_already_rendered_still_do()
     {
         // The regression half, and the one a new switch arm threatens.
-        await Assert.That(Queue(new FlightIntent
+        await Assert.That(Shown(new FlightIntent
         {
             Kind = FlightIntentKinds.Text,
             Text = "fix the login bug",
         })).Contains("fix the login bug");
 
-        await Assert.That(Queue(new FlightIntent
+        await Assert.That(Shown(new FlightIntent
         {
             Kind = FlightIntentKinds.Uri,
             Uri = "https://example.invalid/issues/7",
@@ -109,10 +101,26 @@ public class TicketRenderTests
                 _ => (new FlightIntent { Kind = kind, Text = "needle-text" }, "needle-text"),
             };
 
-            await Assert.That(Queue(intent)).Contains(needle)
+            await Assert.That(Shown(intent)).Contains(needle)
                 .Because($"'{kind}' is advertised as a kind, so its payload must reach the page.");
-            await Assert.That(One(intent)).Contains(needle)
-                .Because($"'{kind}' renders on both surfaces or on neither.");
         }
+    }
+
+    [Test]
+    public async Task The_queue_shows_the_name_and_never_claimed_to_show_the_intent()
+    {
+        // WRITTEN BECAUSE THE FIRST VERSION OF THIS FILE ASSERTED OTHERWISE and
+        // was wrong. A ticket flight's default name IS provider#id, so a queue
+        // assertion would have passed for a reason that has nothing to do with
+        // the intent - and would then have "covered" the render path while
+        // measuring the naming default. Recorded as a test rather than as a
+        // deleted assumption, so nobody re-adds it.
+        var queue = VerbOutput.ToText(new VerbResult.Flights(
+            new FlightList { Flights = [Flight(Ticket)] }));
+
+        await Assert.That(queue).Contains("from-a-work-item");
+        await Assert.That(queue).DoesNotContain("4471")
+            .Because("the queue renders name, number, opened and state - and adding the intent "
+                   + "to it is a surface decision nobody has made.");
     }
 }

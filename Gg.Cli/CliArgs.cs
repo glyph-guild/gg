@@ -33,8 +33,12 @@ public abstract record CliAction
     /// <summary>The resident runner: pull decided pool actions, act, attest.</summary>
     public sealed record RunnerMaintain(string Pool) : CliAction;
 
-    /// <summary>Opens a flight. Exactly one of <see cref="Text"/> and <see cref="Uri"/>.</summary>
-    public sealed record Fly(string? Text, string? Uri, bool Json) : CliAction, IEmitsResult;
+    /// <summary>
+    /// Opens a flight. Exactly one payload: <see cref="Text"/>, <see cref="Uri"/>,
+    /// or <see cref="Provider"/> and <see cref="Id"/> together.
+    /// </summary>
+    public sealed record Fly(string? Text, string? Uri, bool Json, string? Provider = null, string? Id = null)
+        : CliAction, IEmitsResult;
 
     public sealed record Flights(bool Json, bool All) : CliAction, IEmitsResult;
 
@@ -186,7 +190,7 @@ public static class CliArgs
     private static readonly string[] Verbs =
     [
         "gg                             the console",
-        "gg fly <text>|--uri <uri>      open a flight",
+        "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
         "gg flights [--all]             flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
@@ -296,13 +300,22 @@ public static class CliArgs
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),
 
-            // One payload, never both. Which one wins would otherwise be
+            // One payload, never two. Which one wins would otherwise be
             // decided by whoever wrote this method.
+            //
+            // `--ticket <provider>#<id>` is ONE argument on purpose. Two flags
+            // would make the half-supplied case reachable from here, and the
+            // contract already refuses that with a better sentence than an
+            // argument parser can produce. This keeps the parser's job to "did
+            // they type it" and leaves "is it a ticket" to the one validator.
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json),
+            ["fly", "--ticket", var ticket] => Ticket(ticket, json),
             ["fly", var text] => new CliAction.Fly(text, null, json),
-            ["fly"] => Unknown("gg fly needs something to act on: some text, or --uri <uri>."),
+            ["fly"] => Unknown(
+                "gg fly needs something to act on: some text, --uri <uri>, "
+              + "or --ticket <provider>#<id>."),
             ["fly", ..] => Unknown(
-                "gg fly takes either some text or --uri, and this has both. "
+                "gg fly takes one of some text, --uri or --ticket, and this has more than one. "
               + "An intent that says two things says nothing."),
 
             ["credential", "list"] => new CliAction.CredentialList(json),
@@ -335,6 +348,35 @@ public static class CliArgs
     /// worse off than one who was told no.
     /// </para>
     /// </remarks>
+    /// <summary><c>provider#id</c>, split into the two fields a ticket is.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Split on the FIRST separator, never on every one.</b> A tracker whose
+    /// ids contain a <c>#</c> would otherwise lose the tail silently, which is
+    /// the truncation failure this repository keeps finding one field at a time.
+    /// </para>
+    /// <para>
+    /// <b>Refused HERE when the separator is missing</b>, because the parser is
+    /// the only thing that knows the token was meant to be two things. The
+    /// contract sees a provider and no id and says so correctly, but it cannot
+    /// say <i>you left out the #</i>.
+    /// </para>
+    /// </remarks>
+    private static CliAction Ticket(string token, bool json)
+    {
+        var separator = token.IndexOf('#', StringComparison.Ordinal);
+
+        if (separator <= 0 || separator == token.Length - 1)
+        {
+            return Unknown(
+                $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
+              + "Both halves are needed: the id alone does not say which tracker it is in.");
+        }
+
+        return new CliAction.Fly(
+            null, null, json, Provider: token[..separator], Id: token[(separator + 1)..]);
+    }
+
     private static CliAction CredentialAdd(IReadOnlyList<string> options, bool json)
     {
         string? repo = null;

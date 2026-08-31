@@ -777,6 +777,7 @@ public static class VerbOutput
         intent.Kind switch
         {
             FlightIntentKinds.Uri => Clean(intent.Uri, lines: true),
+            FlightIntentKinds.Ticket => $"{Clean(intent.Provider)}#{Clean(intent.Id)}",
             _ => Clean(intent.Text, lines: true),
         };
 

@@ -109,9 +109,21 @@ public class FlightIntentTests
         // declared but not accepted would be advertised and then refused.
         foreach (var kind in FlightIntentKinds.All)
         {
-            var populated = kind == FlightIntentKinds.Uri
-                ? new FlightIntent { Kind = kind, Uri = "https://example.invalid/x" }
-                : new FlightIntent { Kind = kind, Text = "x" };
+            // A THIRD ARM AT SLICE NINETEEN, and the shape of this loop is why
+            // it had to be written rather than noticed: `ticket` carries its
+            // payload in TWO fields, so the two-way ternary that served while
+            // every kind had one string could not populate it - and the kind
+            // was advertised-and-refused until this changed. That is exactly
+            // what this test exists to catch, caught on the first new kind
+            // since it was written.
+            var populated = kind switch
+            {
+                FlightIntentKinds.Uri =>
+                    new FlightIntent { Kind = kind, Uri = "https://example.invalid/x" },
+                FlightIntentKinds.Ticket =>
+                    new FlightIntent { Kind = kind, Provider = "tracker", Id = "x" },
+                _ => new FlightIntent { Kind = kind, Text = "x" },
+            };
 
             await Assert.That(FlightIntent.Validate(populated)).IsNull()
                 .Because($"'{kind}' is advertised as a kind, so it must validate.");

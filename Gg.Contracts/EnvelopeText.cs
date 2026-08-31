@@ -306,6 +306,18 @@ public static class EnvelopeText
         text.Append($"  pool: {Scalar(strategy.Inventory.Pool)}\n");
         text.Append($"  size: {strategy.Inventory.Size}\n");
 
+        // ZERO IS NOT RENDERED, and the reason is the pull. A strategy authored
+        // before this member existed means "warm behind demand", which is what
+        // zero means - and emitting `warm: 0` onto it would make the first
+        // `gg airspace pull` after this deploy report a change nobody made, on
+        // every strategy in every estate. The tree is a rendering; a rendering
+        // that grows a line by itself is a rendering that lies about the
+        // stream. Same shape as an absent bound, one member over.
+        if (strategy.Inventory.Warm > 0)
+        {
+            text.Append($"  warm: {strategy.Inventory.Warm}\n");
+        }
+
         text.Append($"pull-point: {Scalar(strategy.PullPoint)}\n");
         text.Append($"image: {Scalar(strategy.Image)}\n");
 

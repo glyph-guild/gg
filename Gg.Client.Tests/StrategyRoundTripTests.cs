@@ -74,7 +74,7 @@ public class StrategyRoundTripTests
     {
         Kind = StrategyKinds.DockerHost,
         Environment = "aspire-payments",
-        Inventory = new StrategyInventory { Pool = "payments-pool", Size = 3 },
+        Inventory = new StrategyInventory { Pool = "payments-pool", Size = 3, Warm = 2 },
         PullPoint = PullPoints.ResidentRunner,
         Image = "ghcr.io/example/env@sha256:"
               + "6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b",
@@ -109,12 +109,37 @@ public class StrategyRoundTripTests
     }
 
     [Test]
+    public async Task A_strategy_with_no_target_renders_no_warm_line()
+    {
+        // THE PULL IS WHY. A strategy authored before inventory.warm existed
+        // means "warm behind demand", which is exactly what zero means - and
+        // rendering `warm: 0` onto it would make the first `gg airspace pull`
+        // after this deploy report a change nobody made, on every strategy in
+        // every estate. The estate walk asserts a second pull leaves git with
+        // nothing to say; this is the same claim one member earlier.
+        var noTarget = Full() with
+        {
+            Inventory = Full().Inventory with { Warm = 0 },
+        };
+
+        var text = EnvelopeText.Render(noTarget);
+
+        await Assert.That(text).DoesNotContain("warm")
+            .Because("a rendering that grows a line by itself is a rendering that lies "
+                   + "about the stream it renders.");
+        await Assert.That(EnvelopeYaml.ParseStrategy(text).Strategy).IsEqualTo(noTarget)
+            .Because("and it still parses back to the same model, so the absent line is "
+                   + "read as the zero it means rather than as a missing member.");
+    }
+
+    [Test]
     [Arguments("kind")]
     [Arguments("environment")]
     [Arguments("pull-point")]
     [Arguments("image")]
     [Arguments("pool")]
     [Arguments("size")]
+    [Arguments("warm")]
     [Arguments("pool-max")]
     [Arguments("active-hours")]
     public async Task A_rendering_that_dropped_this_key_would_be_caught(string key)
@@ -155,6 +180,7 @@ public class StrategyRoundTripTests
             nameof(EnvironmentStrategy.Bounds),
             nameof(StrategyInventory.Pool),
             nameof(StrategyInventory.Size),
+            nameof(StrategyInventory.Warm),
             nameof(StrategyBounds.PoolMax),
             nameof(StrategyBounds.ActiveHours),
         ];

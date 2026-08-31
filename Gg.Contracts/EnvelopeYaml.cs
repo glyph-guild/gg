@@ -318,8 +318,16 @@ public static class EnvelopeYaml
         }
 
         var inventory = RequireMap(Require(root, "inventory"), "inventory");
-        Closed(inventory, "pool", "size");
+        Closed(inventory, "pool", "size", "warm");
         var size = WholeNumber(Require(inventory, "size"), "inventory.size");
+
+        // ABSENT WARM IS ZERO, never the size: a document that names no target
+        // is one written before targets existed, and it meant "warm behind
+        // demand". Defaulting to the inventory would turn every strategy
+        // already in force into a proactive one on the deploy that read it.
+        var warm = inventory.Entries.TryGetValue("warm", out var declaredWarm)
+            ? WholeNumber(declaredWarm, "inventory.warm")
+            : 0;
 
         // ABSENT BOUNDS DEFAULT TO THE INVENTORY, never to unbounded: the
         // size is the outermost bound a pool can have, so an author who
@@ -348,6 +356,7 @@ public static class EnvelopeYaml
             {
                 Pool = RequireScalar(Require(inventory, "pool"), "inventory.pool"),
                 Size = size,
+                Warm = warm,
             },
             PullPoint = RequireScalar(Require(root, "pull-point"), "pull-point"),
             Image = RequireScalar(Require(root, "image"), "image"),

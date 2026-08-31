@@ -1060,7 +1060,7 @@ public static class ProtocolSurface
             [typeof(EnvironmentChart)] = ["environments"],
             // The strategy document. No member a host, socket or credential
             // could travel in, asserted over the shape as well as declared.
-            [typeof(StrategyInventory)] = ["pool", "size"],
+            [typeof(StrategyInventory)] = ["pool", "size", "warm"],
             [typeof(StrategyBounds)] = ["poolMax", "activeHours"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],

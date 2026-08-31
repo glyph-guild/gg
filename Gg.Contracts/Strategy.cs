@@ -54,6 +54,25 @@ public sealed record StrategyInventory
 
     /// <summary>How many environments the pool may hold, total.</summary>
     public required int Size { get; init; }
+
+    /// <summary>
+    /// How many members should be warm and idle <b>before anything asks</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The first number in a strategy that is not a ceiling. <see cref="Size"/>
+    /// is how many the pool MAY hold and <see cref="StrategyBounds.PoolMax"/>
+    /// is how many may be warm at once; this is how many it SHOULD hold, which
+    /// is the only one of the three a decider can be short of.
+    /// </para>
+    /// <para>
+    /// <b>Zero is a real answer, and it is the default.</b> It means warm only
+    /// behind demand — what every strategy did before this member existed, so a
+    /// document written then reads back meaning what it meant, and warming
+    /// ahead of demand is opt-in by construction rather than by a migration.
+    /// </para>
+    /// </remarks>
+    public int Warm { get; init; }
 }
 
 /// <summary>
@@ -197,6 +216,24 @@ public sealed record EnvironmentStrategy
             return $"bounds.pool-max ({strategy.Bounds.PoolMax}) exceeds inventory.size "
                  + $"({strategy.Inventory.Size}) - a bound above the inventory is a promise "
                  + "the inventory cannot keep.";
+        }
+
+        if (strategy.Inventory.Warm < 0)
+        {
+            return $"inventory.warm is {strategy.Inventory.Warm}; below zero is not a smaller "
+                 + "kind of zero, it is a number nothing can act on. Zero means warm only "
+                 + "behind demand, which is what a strategy naming no target says.";
+        }
+
+        // ONE REFUSAL, NOT TWO. A target above inventory.size looks like it
+        // deserves its own arm and cannot be reached: pool-max > size is
+        // already refused above, so anything above the inventory is above the
+        // bound first. An unreachable refusal is a control that never runs.
+        if (strategy.Inventory.Warm > strategy.Bounds.PoolMax)
+        {
+            return $"inventory.warm ({strategy.Inventory.Warm}) exceeds bounds.pool-max "
+                 + $"({strategy.Bounds.PoolMax}) - a target the bound can never reach leaves "
+                 + "the pool permanently short of a promise it was never allowed to keep.";
         }
 
         if (strategy.Bounds.ActiveHours is { } hours && ParseActiveHours(hours) is null)

@@ -413,6 +413,70 @@ public class UnreadMemberTests
                    + "this slice just authenticated is built entirely out of them.");
     }
 
+    // ---- reached by one test is not reached by nothing ----
+
+    [Test]
+    public async Task A_member_only_a_test_reads_says_so()
+    {
+        // TWO STATES, NOT ONE. A member only a test reads was written to be
+        // CHECKED and never to be used; a member nothing reads at all was
+        // written and forgotten. Collapsing them loses the more interesting
+        // one - and the control plane's ProviderCapabilities makes the case
+        // itself, in a test whose own reason reads "a capability nobody can
+        // read is a capability nobody checks."
+        var findings = UnreadMembers.Scan(UnreadMembers.RunnerSource())
+            .ToDictionary(UnreadMembers.Key, f => f.ReadByATest, StringComparer.Ordinal);
+
+        await Assert.That(findings["ExecutorCapabilities.ReportsTokens"]).IsTrue()
+            .Because("ExecutorPortTests reads it, so it is declaration a test checks rather "
+                   + "than a value nobody wanted.");
+        await Assert.That(findings["RunnerLoop.Activity"]).IsFalse()
+            .Because("nothing reads this at all, test or production - which is a different "
+                   + "sentence and the one worth acting on first.");
+    }
+
+    [Test]
+    public async Task The_two_states_render_as_different_sentences()
+    {
+        var checkedByATest = UnreadMembers.Diagnose(new Unread
+        {
+            Type = "ExecutorCapabilities",
+            Member = "ReportsTokens",
+            File = "x.cs",
+            ReadByATest = true,
+        });
+
+        var wantedByNobody = UnreadMembers.Diagnose(new Unread
+        {
+            Type = "RunnerLoop",
+            Member = "Activity",
+            File = "x.cs",
+            ReadByATest = false,
+        });
+
+        await Assert.That(checkedByATest).Contains("one test");
+        await Assert.That(checkedByATest).DoesNotContain("nothing at all");
+        await Assert.That(wantedByNobody).Contains("nothing at all");
+        await Assert.That(wantedByNobody).DoesNotContain("one test")
+            .Because("a diagnosis that said both would be one sentence wearing two hats, which "
+                   + "is the collapse this slice's own refusal split exists to undo.");
+    }
+
+    [Test]
+    public async Task The_test_corpus_is_really_read()
+    {
+        // THE ANCHOR FOR THIS AXIS. Every assertion above passes over a test
+        // corpus that was never loaded - ReadByATest would simply be false
+        // everywhere, and "nothing at all" would be the only sentence the scan
+        // could produce.
+        await Assert.That(UnreadMembers.TestSource()).IsNotEmpty();
+        await Assert.That(UnreadMembers.Scan(UnreadMembers.RunnerSource())
+                .Any(f => f.ReadByATest))
+            .IsTrue()
+            .Because("if no finding is read by a test, the test corpus did not load and the "
+                   + "distinction above is being made against an empty set.");
+    }
+
     // ---- what the scan cannot see, named rather than discovered ----
 
     [Test]

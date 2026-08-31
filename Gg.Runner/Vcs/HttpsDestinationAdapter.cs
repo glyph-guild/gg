@@ -254,7 +254,8 @@ public sealed class HttpsDestinationAdapter(
             $"The credential registered for {request.Slug} would not write to it. The envelope "
           + "declared a destination, which is permission for this flight to land somewhere - it is "
           + "not the ability to. Register a credential with write scope for this repository, or "
-          + $"remove the destination from the envelope. The provider said: {Short(detail)}");
+          + "remove the destination from the envelope. The branch is on the remote and this "
+          + $"flight did not land. The provider said: {Short(detail)}");
 
     private static string Short(string detail) =>
         detail.Length <= 200 ? detail.ReplaceLineEndings(" ").Trim() : detail[..200].Trim() + "…";

@@ -176,6 +176,20 @@ public sealed class RunnerLoop(
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
 
+    /// <summary>
+    /// How long a claimed lease is held before it is released.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read unqualified, inside this type</b>, at <c>_clock.UtcNow + HoldFor</c>.
+    /// Slice twenty's unread scan reported it as read by nothing and it was one
+    /// edit away from being deleted — the scan matches <c>.Member</c> and cannot
+    /// see a member used without a receiver in its own declaring type. That is a
+    /// false-positive class, it is asserted in the scan's own tests now, and this
+    /// comment is here because the next person to read a finding about this
+    /// member deserves to know it was already wrong once.
+    /// </remarks>
+    public TimeSpan HoldFor { get; init; } = TimeSpan.FromSeconds(10);
+
     private readonly IRunnerProtocol _protocol = protocol;
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
@@ -217,19 +231,6 @@ public sealed class RunnerLoop(
     /// </remarks>
     private readonly HashSet<string> _landed = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// How long this no-op runner holds a lease before releasing it.
-    /// </summary>
-    /// <remarks>
-    /// Stands in for the work later steps will do. It exists so heartbeat and
-    /// renewal are exercised at all, and so a kill test has a window in which
-    /// to kill something.
-    /// </remarks>
-    public TimeSpan HoldFor { get; init; } = TimeSpan.FromSeconds(10);
-
-    /// <summary>What the runner is doing right now.</summary>
-    public RunnerActivity Activity { get; private set; } = RunnerActivity.Claiming;
-
     /// <summary>Runs until cancelled.</summary>
     public async Task<int> RunAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
@@ -238,7 +239,6 @@ public sealed class RunnerLoop(
         {
             while (!cancellationToken.IsCancellationRequested && !_boundBroke)
             {
-                Activity = RunnerActivity.Claiming;
 
                 var claim = await AskForWorkAsync(runnerId, labels, cancellationToken);
                 if (claim is not ClaimResult.Granted(var lease))
@@ -279,7 +279,6 @@ public sealed class RunnerLoop(
                 }
 
                 _observer.Claimed(lease);
-                Activity = RunnerActivity.Holding;
 
                 // Lease, THEN resolve credentials, then everything else. The
                 // order is load-bearing and this is the second step of it; a
@@ -516,8 +515,17 @@ public sealed class RunnerLoop(
         }
         catch (Exception failure) when (failure is VcsCapabilityException or InvalidOperationException)
         {
-            _observer.WorkspaceFailed(failure.Message);
-            await ReleaseAsync(lease, RunnerDisposition.Failed, failure.Message, cancellationToken);
+            // NAMES THE CAPABILITY, which the exception has carried since it was
+            // written and no diagnosis has ever shown. Its own doc says it
+            // "names the CAPABILITY as well as the sentence, so a diagnosis
+            // points at the declaration rather than at a symptom" - true of the
+            // type and, until now, of nothing a person ever read.
+            var diagnosis = failure is VcsCapabilityException capability
+                ? $"{capability.Capability}: {failure.Message}"
+                : failure.Message;
+
+            _observer.WorkspaceFailed(diagnosis);
+            await ReleaseAsync(lease, RunnerDisposition.Failed, diagnosis, cancellationToken);
             return;
         }
 

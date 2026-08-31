@@ -430,7 +430,12 @@ public class UnreadMemberTests
         await Assert.That(findings["ExecutorCapabilities.ReportsTokens"]).IsTrue()
             .Because("ExecutorPortTests reads it, so it is declaration a test checks rather "
                    + "than a value nobody wanted.");
-        await Assert.That(findings["RunnerLoop.Activity"]).IsFalse()
+        // HoldFor and not Activity, and the correction is the blind spot again:
+        // a test reads `.Activity` on ANOTHER type, and this scan matches on the
+        // member name alone. Three of the sixteen are read by nothing at all -
+        // ExecutorRun.DurationMs, PoolConfiguration.Endpoint and this one - and
+        // they are the ones worth acting on first.
+        await Assert.That(findings["RunnerLoop.HoldFor"]).IsFalse()
             .Because("nothing reads this at all, test or production - which is a different "
                    + "sentence and the one worth acting on first.");
     }
@@ -449,7 +454,7 @@ public class UnreadMemberTests
         var wantedByNobody = UnreadMembers.Diagnose(new Unread
         {
             Type = "RunnerLoop",
-            Member = "Activity",
+            Member = "HoldFor",
             File = "x.cs",
             ReadByATest = false,
         });

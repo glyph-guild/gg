@@ -103,6 +103,53 @@ public class ImageConvergenceTests
         }
     }
 
+    /// <summary>A daemon that will not describe the member it admits owning.</summary>
+    private sealed class MuteDaemon : HttpMessageHandler
+    {
+        public bool Created { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/create", StringComparison.Ordinal))
+            {
+                Created = true;
+            }
+
+            // NOT 404. Absent is a different answer and already means "create
+            // it"; this is the daemon knowing a name it will not describe.
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        }
+    }
+
+    [Test]
+    public async Task A_member_that_will_not_inspect_attests_failed_and_converges_nothing()
+    {
+        // UNKNOWN IS NOT FALSE, and today it is not even unknown. A non-404
+        // inspect throws out of RefreshAsync, out of ExecuteAsync and out of
+        // the maintain loop's cycle - so NO ATTESTATION IS SHIPPED AT ALL. The
+        // pool goes silent, and silence escalates as staleness: "the pull point
+        // stopped attesting" rather than "the daemon would not answer", which
+        // sends a person to look at the wrong thing.
+        var daemon = new MuteDaemon();
+
+        var observed = await new DockerPoolAdapter(
+            new HttpClient(daemon) { BaseAddress = new Uri("http://pull-point") })
+            .RefreshAsync("gg-pool", "gg-pool-1", Pinned);
+
+        await Assert.That(observed.Outcome).IsEqualTo(PoolOutcomes.Failed)
+            .Because("a refresh that cannot see the member has not converged it, and the "
+                   + "ledger has to be able to say so - an action that throws attests "
+                   + "nothing, and nothing is indistinguishable from a pull point that "
+                   + "went quiet.");
+        await Assert.That(observed.Diagnosis!).Contains("gg-pool-1")
+            .Because("Article XI: the refusal names the member, because the person reading "
+                   + "it has a pool of them.");
+        await Assert.That(daemon.Created).IsFalse()
+            .Because("converging nothing means creating nothing - a member the daemon will "
+                   + "not describe must not be quietly replaced with a second one.");
+    }
+
     private static DockerPoolAdapter Adapter(RecordingDaemon daemon) =>
         new(new HttpClient(daemon) { BaseAddress = new Uri("http://pull-point") });
 

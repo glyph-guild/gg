@@ -239,10 +239,32 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// one-line description aspirational.
     /// </remarks>
     public async Task<FlightList> ListFlightsAsync(
-        string sessionToken, bool all = false, CancellationToken cancellationToken = default)
+        string sessionToken,
+        bool all = false,
+        CancellationToken cancellationToken = default,
+        string? provider = null,
+        string? id = null)
     {
+        // BUILT AS QUERY PARAMETERS, and the work item token is re-joined with
+        // its separator escaped: `#` unescaped in a uri starts a fragment,
+        // which never leaves the client, so an unescaped id would arrive as
+        // nothing at all and the correlation would silently answer about every
+        // flight instead of one work item.
+        var query = new List<string>();
+        if (all)
+        {
+            query.Add("all=true");
+        }
+
+        if (provider is { Length: > 0 } && id is { Length: > 0 })
+        {
+            query.Add("intent=" + Uri.EscapeDataString($"{provider}#{id}"));
+        }
+
         using var request = Request(
-            HttpMethod.Get, all ? "/v1/flights?all=true" : "/v1/flights", sessionToken);
+            HttpMethod.Get,
+            query.Count == 0 ? "/v1/flights" : "/v1/flights?" + string.Join('&', query),
+            sessionToken);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);
         response.EnsureSuccessStatusCode();

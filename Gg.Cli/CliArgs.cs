@@ -40,7 +40,11 @@ public abstract record CliAction
     public sealed record Fly(string? Text, string? Uri, bool Json, string? Provider = null, string? Id = null)
         : CliAction, IEmitsResult;
 
-    public sealed record Flights(bool Json, bool All) : CliAction, IEmitsResult;
+    /// <summary>
+    /// The tenant's flights, optionally narrowed to one work item.
+    /// </summary>
+    public sealed record Flights(bool Json, bool All, string? Provider = null, string? Id = null)
+        : CliAction, IEmitsResult;
 
     public sealed record Show(string Reference, bool Json) : CliAction, IEmitsResult;
 
@@ -191,7 +195,7 @@ public static class CliArgs
     [
         "gg                             the console",
         "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
-        "gg flights [--all]             flights in the air, or every one",
+        "gg flights [--all] [--intent <provider>#<id>]  flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
         "gg runners                     the runners this tenant has",
@@ -245,7 +249,14 @@ public static class CliArgs
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
 
+            // `--intent <provider>#<id>` is positional rather than pulled out
+            // by the pre-scan above, and the difference is that it takes a
+            // VALUE: a value-taking flag stripped position-independently is
+            // how the value gets mistaken for a verb.
+            ["flights", "--intent", var token] => Correlate(token, json, all),
             ["flights"] => new CliAction.Flights(json, all),
+            ["flights", ..] => Unknown(
+                "gg flights takes --all, --json, and --intent <provider>#<id>."),
             ["runners"] => new CliAction.Runners(json),
             ["airspace", "show"] => new CliAction.AirspaceShow(json),
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
@@ -348,6 +359,39 @@ public static class CliArgs
     /// worse off than one who was told no.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// <c>provider#id</c> for a listing, split the one way it is ever split.
+    /// </summary>
+    /// <remarks>
+    /// Delegates to <see cref="SplitTicket"/> rather than repeating the rule,
+    /// because this is the SECOND place a person types that token and two
+    /// spellings of one rule is how they come to disagree about an id with a
+    /// separator in it.
+    /// </remarks>
+    private static CliAction Correlate(string token, bool json, bool all) =>
+        SplitTicket(token) is var (provider, id) && provider is not null
+            ? new CliAction.Flights(json, all, provider, id)
+            : Unknown(
+                $"gg flights --intent takes <provider>#<id>, and '{token}' is not that shape. "
+              + "Both halves are needed: the id alone does not say which tracker it is in.");
+
+    /// <summary>
+    /// The two halves of a work item token, or nulls when it is not one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Split on the FIRST separator, never on every one.</b> A tracker whose
+    /// ids contain a <c>#</c> would otherwise lose the tail silently, which is
+    /// the truncation failure this repository keeps finding one field at a time.
+    /// </remarks>
+    private static (string? Provider, string? Id) SplitTicket(string token)
+    {
+        var separator = token.IndexOf('#', StringComparison.Ordinal);
+
+        return separator <= 0 || separator == token.Length - 1
+            ? (null, null)
+            : (token[..separator], token[(separator + 1)..]);
+    }
+
     /// <summary><c>provider#id</c>, split into the two fields a ticket is.</summary>
     /// <remarks>
     /// <para>
@@ -362,20 +406,12 @@ public static class CliArgs
     /// say <i>you left out the #</i>.
     /// </para>
     /// </remarks>
-    private static CliAction Ticket(string token, bool json)
-    {
-        var separator = token.IndexOf('#', StringComparison.Ordinal);
-
-        if (separator <= 0 || separator == token.Length - 1)
-        {
-            return Unknown(
+    private static CliAction Ticket(string token, bool json) =>
+        SplitTicket(token) is var (provider, id) && provider is not null
+            ? new CliAction.Fly(null, null, json, Provider: provider, Id: id)
+            : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");
-        }
-
-        return new CliAction.Fly(
-            null, null, json, Provider: token[..separator], Id: token[(separator + 1)..]);
-    }
 
     private static CliAction CredentialAdd(IReadOnlyList<string> options, bool json)
     {

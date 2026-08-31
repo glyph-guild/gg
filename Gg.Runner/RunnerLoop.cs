@@ -986,6 +986,18 @@ public sealed class RunnerLoop(
             return;
         }
 
+        // THE TWO GRANTS DESCRIBE ONE LANDING, checked before anything is done
+        // about either. They arrive from separate decisions and carry the same
+        // three values; a disagreement would push one branch and propose
+        // another, and the record would show a landing. Compared rather than
+        // reconciled, because reconciling is the inference the comment above
+        // says this binary must never make.
+        if (LandingGrants.Disagreement(push, admission) is { } conflict)
+        {
+            _observer.Landed("refused", conflict);
+            return;
+        }
+
         var adapter = _destinations.FirstOrDefault(d =>
             d.Provider == lease.Repos.First(r => r.Slug == push.Slug).Provider);
 

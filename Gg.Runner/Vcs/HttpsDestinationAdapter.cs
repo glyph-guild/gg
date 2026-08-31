@@ -206,6 +206,16 @@ public sealed class HttpsDestinationAdapter(
     private Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, string secret, CancellationToken cancellationToken)
     {
+        // A USER AGENT, because a provider really does refuse without one -
+        // "Request forbidden by administrative rules" - and the client
+        // production builds has no default headers at all. Found by proposing
+        // through that client rather than through a test's, which is the same
+        // reason the missing credential survived: a suite that supplies what
+        // production does not is asking whether the shape compiles.
+        //
+        // On the REQUEST, like the credential, so it holds however the client
+        // was constructed.
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("gg", "1"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secret);
 
         return _http.SendAsync(request, cancellationToken);

@@ -44,7 +44,7 @@ public class TicketRenderTests
     private static FlightIntent Ticket => new()
     {
         Kind = FlightIntentKinds.Ticket,
-        Provider = "azure-boards",
+        Provider = "a-tracker",
         Id = "4471",
     };
 
@@ -59,7 +59,7 @@ public class TicketRenderTests
         await Assert.That(text).Contains("4471")
             .Because("a ticket whose Text is null by construction falls through to an empty "
                    + "cell, and an empty cell reads as a flight with no intent at all.");
-        await Assert.That(text).Contains("azure-boards")
+        await Assert.That(text).Contains("a-tracker")
             .Because("the id alone is ambiguous across trackers, and the provider is the half "
                    + "that says which 4471 this is.");
     }

@@ -29,7 +29,7 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class TicketIntentTests
 {
-    private static FlightIntent Ticket(string? provider = "azure-boards", string? id = "4471") =>
+    private static FlightIntent Ticket(string? provider = "a-tracker", string? id = "4471") =>
         new() { Kind = FlightIntentKinds.Ticket, Provider = provider, Id = id };
 
     [Test]
@@ -96,7 +96,7 @@ public class TicketIntentTests
         var confused = new FlightIntent
         {
             Kind = FlightIntentKinds.Ticket,
-            Provider = "azure-boards",
+            Provider = "a-tracker",
             Id = "4471",
             Text = "fix the login bug",
         };
@@ -115,7 +115,7 @@ public class TicketIntentTests
         var confused = new FlightIntent
         {
             Kind = FlightIntentKinds.Ticket,
-            Provider = "azure-boards",
+            Provider = "a-tracker",
             Id = "4471",
             Uri = "https://example.invalid/issues/7",
         };
@@ -132,7 +132,7 @@ public class TicketIntentTests
         {
             Kind = FlightIntentKinds.Text,
             Text = "fix the login bug",
-            Provider = "azure-boards",
+            Provider = "a-tracker",
             Id = "4471",
         };
 

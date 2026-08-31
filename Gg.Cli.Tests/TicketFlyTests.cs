@@ -1,7 +1,7 @@
 namespace Gg.Cli.Tests;
 
 /// <summary>
-/// <c>gg fly --ticket azure-boards#4471</c>, and the third kind rendering
+/// <c>gg fly --ticket a-tracker#4471</c>, and the third kind rendering
 /// rather than falling through to an empty cell.
 /// </summary>
 /// <remarks>
@@ -25,12 +25,12 @@ public class TicketFlyTests
     [Test]
     public async Task Flying_a_work_item_parses_into_a_provider_and_an_id()
     {
-        var action = CliArgs.Parse(["fly", "--ticket", "azure-boards#4471"]);
+        var action = CliArgs.Parse(["fly", "--ticket", "a-tracker#4471"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Fly>();
 
         var fly = (CliAction.Fly)action;
-        await Assert.That(fly.Provider).IsEqualTo("azure-boards");
+        await Assert.That(fly.Provider).IsEqualTo("a-tracker");
         await Assert.That(fly.Id).IsEqualTo("4471");
         await Assert.That(fly.Text).IsNull();
         await Assert.That(fly.Uri).IsNull();
@@ -58,7 +58,7 @@ public class TicketFlyTests
         // parser is the only thing that knows the token was meant to be two
         // things. The contract sees a provider and no id and says so correctly,
         // but it cannot say "you left out the #".
-        var action = CliArgs.Parse(["fly", "--ticket", "azure-boards"]);
+        var action = CliArgs.Parse(["fly", "--ticket", "a-tracker"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Unknown>();
         await Assert.That(((CliAction.Unknown)action).Message).Contains("#")
@@ -69,7 +69,7 @@ public class TicketFlyTests
     [Test]
     public async Task A_ticket_missing_either_half_is_refused()
     {
-        foreach (var token in (string[])["#4471", "azure-boards#", "#"])
+        foreach (var token in (string[])["#4471", "a-tracker#", "#"])
         {
             await Assert.That(CliArgs.Parse(["fly", "--ticket", token]))
                 .IsTypeOf<CliAction.Unknown>()
@@ -92,7 +92,7 @@ public class TicketFlyTests
     [Test]
     public async Task Flying_a_ticket_and_text_at_once_is_refused()
     {
-        var action = CliArgs.Parse(["fly", "some words", "--ticket", "azure-boards#4471"]);
+        var action = CliArgs.Parse(["fly", "some words", "--ticket", "a-tracker#4471"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Unknown>()
             .Because("an intent that says two things says nothing - the sentence gg fly has "

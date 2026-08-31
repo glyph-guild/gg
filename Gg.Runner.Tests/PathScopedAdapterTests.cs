@@ -3,7 +3,7 @@ using Gg.Runner.Vcs;
 namespace Gg.Runner.Tests;
 
 /// <summary>
-/// Azure DevOps spells a repository, a proposal and a link differently, and
+/// this provider spells a repository, a proposal and a link differently, and
 /// each difference was measured against the real service before it was encoded.
 /// </summary>
 /// <remarks>
@@ -18,8 +18,8 @@ namespace Gg.Runner.Tests;
 /// <item>A proposal is <c>repositories/{repo}/pullrequests</c> with
 /// <c>sourceRefName</c>/<c>targetRefName</c>, against
 /// <c>repos/{slug}/pulls</c> with <c>head</c>/<c>base</c>.</item>
-/// <item><b>There is no human-facing url in the response.</b> GitHub returns
-/// <c>html_url</c>; Azure DevOps returns <c>url</c> — an api address full of
+/// <item><b>There is no human-facing url in the response.</b> the other convention returns
+/// <c>html_url</c>; this provider returns <c>url</c> — an api address full of
 /// guids — and ten <c>_links</c> members, none of them <c>web</c>.</item>
 /// </list>
 /// <para>
@@ -34,31 +34,32 @@ namespace Gg.Runner.Tests;
 /// <c>RepositoryEntry.Path</c> is "the display path a flight's intent names",
 /// and an organisation is deployment knowledge — the same argument that keeps
 /// hosts out of policy documents. So <c>GG_VCS_HOSTS</c> carries
-/// <c>dev.azure.com/{org}</c> and a flight names <c>{project}/{repo}</c>.
+/// <c>{host}/{org}</c> and a flight names <c>{project}/{repo}</c>.
 /// </para>
 /// </remarks>
-public class AdoAdapterTests
+public class PathScopedAdapterTests
 {
-    private const string Host = "dev.azure.com/an-org";
+    private const string Host = "forge.example/an-org";
 
-    private static AdoVcsAdapter Adapter() =>
-        new("dev.azure.com", Host);
+    private static PathScopedGitVcsAdapter Adapter() =>
+        new("forge.example", Host);
 
     // ---- the read side ----
 
     [Test]
     public async Task The_clone_url_carries_no_git_suffix()
     {
-        // MEASURED, not assumed: `.git` on an Azure DevOps clone url is refused
+        // MEASURED, not assumed: `.git` on an this provider clone url is refused
         // by the service, which is why this is a second adapter rather than a
         // slug spelled differently.
         var url = Adapter().CloneUrlFor(new RepoTarget
         {
-            Provider = "dev.azure.com",
+            Provider = "forge.example",
             Slug = "a-project/a-repo",
+            PinnedRef = "refs/heads/main",
         });
 
-        await Assert.That(url).IsEqualTo("https://dev.azure.com/an-org/a-project/_git/a-repo");
+        await Assert.That(url).IsEqualTo("https://forge.example/an-org/a-project/_git/a-repo");
         await Assert.That(url).DoesNotEndWith(".git")
             .Because("the service rejects it, and HttpsGitVcsAdapter appends it unconditionally.");
     }
@@ -66,8 +67,8 @@ public class AdoAdapterTests
     [Test]
     public async Task It_declares_that_it_does_not_serve_pull_request_heads()
     {
-        // Azure DevOps publishes refs/pull/<id>/merge; the base-repository head
-        // convention is GitHub's. Declared rather than guessed, so a flight
+        // this provider publishes refs/pull/<id>/merge; the base-repository head
+        // convention is the other convention's. Declared rather than guessed, so a flight
         // about a pull request is refused by name instead of failing at git.
         await Assert.That(Adapter().Capabilities.PullRequestHeadsFromBase).IsFalse();
 
@@ -75,7 +76,7 @@ public class AdoAdapterTests
 
         await Assert.That(resolution).IsTypeOf<RefResolution.Unsupported>();
         await Assert.That(((RefResolution.Unsupported)resolution).Diagnosis)
-            .Contains("dev.azure.com")
+            .Contains("forge.example")
             .Because("a capability gap names the provider it belongs to, or a person reads it "
                    + "as a statement about every provider.");
     }
@@ -84,7 +85,7 @@ public class AdoAdapterTests
     public async Task An_ordinary_ref_still_resolves()
     {
         // The half a capability declaration threatens: refusing what it does
-        // serve. `refs/heads/main` is what every Azure DevOps flight is about.
+        // serve. `refs/heads/main` is what every this provider flight is about.
         await Assert.That(Adapter().Resolve("refs/heads/main"))
             .IsTypeOf<RefResolution.Ref>();
     }
@@ -98,11 +99,11 @@ public class AdoAdapterTests
         // VcsConfiguration named the class it built, so a second read adapter
         // could be dispatched to and never wired.
         var adapters = VcsConfiguration.FromEnvironment(
-            "dev.azure.com=dev.azure.com/an-org",
-            adapterFor: (provider, host, _) => new AdoVcsAdapter(provider, host));
+            "forge.example=forge.example/an-org",
+            adapterFor: (provider, host, _) => new PathScopedGitVcsAdapter(provider, host));
 
-        await Assert.That(adapters.Single()).IsTypeOf<AdoVcsAdapter>();
-        await Assert.That(adapters.Single().Provider).IsEqualTo("dev.azure.com");
+        await Assert.That(adapters.Single()).IsTypeOf<PathScopedGitVcsAdapter>();
+        await Assert.That(adapters.Single().Provider).IsEqualTo("forge.example");
     }
 
     [Test]
@@ -121,7 +122,7 @@ public class AdoAdapterTests
         // which takes a ROOT rather than a host and bounds itself to it.
         var adapters = VcsConfiguration.FromEnvironment(
             "local=/tmp/roots",
-            adapterFor: (provider, host, _) => new AdoVcsAdapter(provider, host));
+            adapterFor: (provider, host, _) => new PathScopedGitVcsAdapter(provider, host));
 
         await Assert.That(adapters.Single()).IsTypeOf<LocalVcsAdapter>()
             .Because("`local` is answered before any factory, or a runner configured for a "
@@ -133,19 +134,19 @@ public class AdoAdapterTests
     [Test]
     public async Task The_proposal_url_is_composed_because_the_provider_returns_none()
     {
-        // THE THIRD DIFFERENCE, and the one that was a surprise. Azure DevOps
+        // THE THIRD DIFFERENCE, and the one that was a surprise. this provider
         // returns `url` - an api address full of guids - and ten `_links`
         // members, none of them `web`. A person cannot open any of them.
         //
         // Composed from two members the response DOES give, inside this
         // adapter, because the alternative is Landed carrying something nobody
         // can click.
-        var link = AdoDestinationAdapter.ProposalUrl(
-            repositoryWebUrl: "https://dev.azure.com/an-org/a-project/_git/a-repo",
+        var link = RefNamedDestinationAdapter.ProposalUrl(
+            repositoryWebUrl: "https://forge.example/an-org/a-project/_git/a-repo",
             pullRequestId: 8473);
 
         await Assert.That(link)
-            .IsEqualTo("https://dev.azure.com/an-org/a-project/_git/a-repo/pullrequest/8473");
+            .IsEqualTo("https://forge.example/an-org/a-project/_git/a-repo/pullrequest/8473");
     }
 
     [Test]
@@ -154,7 +155,7 @@ public class AdoAdapterTests
         // The composition needs `repository.webUrl`. Absent, there is nothing
         // honest to build from - and a url assembled from an api address with
         // guids in it would look like a link and open nothing.
-        await Assert.That(() => AdoDestinationAdapter.ProposalUrl(
+        await Assert.That(() => RefNamedDestinationAdapter.ProposalUrl(
                 repositoryWebUrl: "", pullRequestId: 8473))
             .Throws<InvalidOperationException>();
     }

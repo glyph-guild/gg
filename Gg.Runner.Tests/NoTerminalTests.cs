@@ -203,13 +203,42 @@ public class NoTerminalTests
                 // Declared.
                 "DestinationPort.cs",
 
-                // Implemented, and the only file that invokes git push.
+                // Implemented. TWO OF THEM SINCE SLICE TWENTY, and the count
+                // moving is not the thing this guard was protecting: a second
+                // provider spells a repository differently and gets a second
+                // adapter, which is what the port exists for.
                 "HttpsDestinationAdapter.cs",
+                "RefNamedDestinationAdapter.cs",
 
                 // Called, once, on a permission the control plane granted.
                 "RunnerLoop.cs",
             ])
             .Because("found: " + string.Join(", ", files));
+
+        // THE CLAIM THAT ACTUALLY MATTERS, and it is sharper than the count
+        // above rather than a relaxation of it. A second IMPLEMENTATION is the
+        // port working; a second CALLER is a write path appearing with no new
+        // invocation anywhere, which is what the file list was standing in for.
+        // Asserted directly now, so the next adapter does not weaken it again.
+        // NOT GitPush.PushAsync, which is the shared git half every adapter
+        // forwards to - "fast-forward rules and what a remote's branch points
+        // at are answered the same way for every url shape". Asking the PORT is
+        // the act this guards; asking the helper is an implementation doing its
+        // job, and conflating them would make a second adapter look like a
+        // second write path.
+        var calling = new Regex(@"(?<!GitPush)\.\s*PushAsync\s*\(", RegexOptions.Compiled);
+
+        var callers = RunnerSources()
+            .Where(f => calling.IsMatch(CodeOf(f)))
+            .Select(f => Path.GetFileName(f)!)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(callers).IsEquivalentTo((string[])["RunnerLoop.cs"])
+            .Because("one caller, on a permission the control plane granted. An adapter that "
+                   + "forwards to GitPush is an implementation and belongs here; a second file "
+                   + "that ASKS an adapter to push is the thing this has always been for. "
+                   + "Found: " + string.Join(", ", callers));
 
         await Assert.That(naming.IsMatch("await adapter.PushAsync(request);")).IsTrue()
             .Because("and the scan can see a call, so the list above means something.");

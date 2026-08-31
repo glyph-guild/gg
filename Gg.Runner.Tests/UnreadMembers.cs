@@ -95,6 +95,26 @@ internal static class UnreadMembers
         $"{finding?.Type}.{finding?.Member}";
 
     /// <summary>
+    /// What this finding is, in the sentence that distinguishes it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two states, and the difference is what to do about them.</b> A member
+    /// only a test reads was written to be CHECKED and never to be used — the
+    /// declaration is real and the consumer never arrived. A member nothing
+    /// reads at all was written and forgotten. One sentence for both would be
+    /// the collapse this slice's own refusal split exists to undo.
+    /// </remarks>
+    public static string Diagnose(Unread finding)
+    {
+        ArgumentNullException.ThrowIfNull(finding);
+
+        return finding.ReadByATest
+            ? $"{Key(finding)} is read by one test and by nothing in production - declaration "
+            + "a test checks rather than a value anything asks for."
+            : $"{Key(finding)} is read by nothing at all, test or production.";
+    }
+
+    /// <summary>
     /// Comments and plain string bodies blanked, interpolation holes kept.
     /// </summary>
     /// <remarks>
@@ -327,6 +347,12 @@ internal static class UnreadMembers
         var findings = new List<Unread>();
         var undecidable = new List<string>();
 
+        // Read lazily, and only when there is something to ask about: a planted
+        // fixture has no test corpus behind it, and loading one for every call
+        // would make the plants depend on this repository's own tests.
+        var inTests = new Lazy<IReadOnlyList<string>>(() =>
+            TestsAvailable() ? [.. TestSource().Values.Select(Noise)] : []);
+
         foreach (var member in declared)
         {
             var read = new Regex(@"\.\s*" + Regex.Escape(member.Member) + @"\b");
@@ -342,7 +368,10 @@ internal static class UnreadMembers
                 continue;
             }
 
-            findings.Add(member);
+            findings.Add(member with
+            {
+                ReadByATest = inTests.Value.Any(read.IsMatch),
+            });
         }
 
         // A name read on ANOTHER type is undecidable too, and that is the case
@@ -365,6 +394,19 @@ internal static class UnreadMembers
 
     // ---- the corpus ----
 
+    /// <summary>Whether a repository is around to have tests in.</summary>
+    private static bool TestsAvailable()
+    {
+        try
+        {
+            return Directory.Exists(RepoRoot());
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -386,6 +428,20 @@ internal static class UnreadMembers
     /// <summary>The runner's own source, as it stands.</summary>
     public static IReadOnlyDictionary<string, string> RunnerSource() =>
         Directory.EnumerateFiles(Path.Combine(RepoRoot(), "Gg.Runner"), "*.cs", SearchOption.AllDirectories)
+            .Where(Production)
+            .ToDictionary(f => f, File.ReadAllText, StringComparer.Ordinal);
+
+    /// <summary>
+    /// The test source, which is what makes <i>one test</i> a sentence.
+    /// </summary>
+    /// <remarks>
+    /// Every test project, not only the runner's: a member declared in the
+    /// runner and read by a CLI test is still read by a test, and scoping this
+    /// to one project would report it as wanted by nobody.
+    /// </remarks>
+    public static IReadOnlyDictionary<string, string> TestSource() =>
+        Directory.EnumerateDirectories(RepoRoot(), "*.Tests")
+            .SelectMany(d => Directory.EnumerateFiles(d, "*.cs", SearchOption.AllDirectories))
             .Where(Production)
             .ToDictionary(f => f, File.ReadAllText, StringComparer.Ordinal);
 

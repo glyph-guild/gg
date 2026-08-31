@@ -1284,6 +1284,47 @@ public sealed record Envelope
     /// purpose: the cross-references (a loop discharging an obligation) stay
     /// with the document that has loops.
     /// </remarks>
+    /// <summary>
+    /// Whether an authored expression decides on a work item's text.
+    /// </summary>
+    /// <remarks>
+    /// <b>A citation, never a substring.</b> The dot is what makes it one:
+    /// <c>intentional-drift</c> is a typo and gets the ordinary unknown-rule
+    /// sentence, because a guard that could not tell those apart would
+    /// eventually refuse something legitimate and be widened until it refused
+    /// nothing.
+    /// </remarks>
+    private static bool CitesTicketText(string expression) =>
+        expression.StartsWith("intent.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The one sentence, so both routes say it the same way.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is a containment, not a missing feature.</b> A work item's title,
+    /// description and comments are a person's typed words: they cross as
+    /// <see cref="EvidenceVoices.Stated"/> and can never be
+    /// <see cref="EvidenceVoices.Measured"/>, because — as that vocabulary puts
+    /// it — the lie hazard was never the claim, it is a claim wearing
+    /// measurement's clothes. A gate whose verdict rests on that text is a gate
+    /// that anyone who can comment on the ticket can answer, and the people who
+    /// can comment on a ticket are not the people the envelope named.
+    /// </para>
+    /// <para>
+    /// <b>It deliberately does not offer the list of known rules.</b> Doing so
+    /// invites a search for the one that reads the ticket, and the answer is
+    /// that there is not going to be one.
+    /// </para>
+    /// </remarks>
+    private static string TicketTextRefusal(string expression, string obligationId, string field) =>
+        $"'{expression}' decides on a work item's text, at obligations.{obligationId}.{field}, "
+      + "and this is refused where it is written rather than discovered at a gate. A ticket's "
+      + "title, description and comments are a person's typed words: they are 'stated' and "
+      + "they can never be 'measured'. A gate that rests on them is a gate anyone who can "
+      + "comment on the ticket can answer, which is not who the envelope named. Express the "
+      + "rule as a condition over facts the flight produced.";
+
     internal static string? ValidateObligation(Obligation obligation)
     {
         if (string.IsNullOrWhiteSpace(obligation.Id))
@@ -1337,6 +1378,17 @@ public sealed record Envelope
 
             if (Unknown(obligation.Rule, ObligationPredicates.All) is { } rule)
             {
+                // NAMED SPECIFICALLY, on the `obligations.` precedent further
+                // down, and for the same reason: somebody will type it, because
+                // reading the ticket is the obvious thing to want. The generic
+                // sentence below would read as a version that has not got round
+                // to it yet, which is how an escape hatch ships as
+                // unsupported-but-authorable.
+                if (CitesTicketText(rule))
+                {
+                    return TicketTextRefusal(rule, obligation.Id, "rule");
+                }
+
                 // Article XI, at the earliest point it can be caught. A rule
                 // nothing can evaluate must never become an obligation that
                 // reports satisfied by never running.
@@ -1386,6 +1438,16 @@ public sealed record Envelope
             // type it, and a generic "not understood" would read as a version
             // that has not got round to it yet - which is how an ordering
             // escape hatch ships as unsupported-but-authorable.
+            // ATTACHING ON THE TEXT IS DECIDING ON IT ONE STEP EARLIER. Whether
+            // a gate EXISTS is as much a verdict as what it says, and the route
+            // that looks safest is the worst: a human-checked obligation whose
+            // attachment cites the ticket lets whoever can comment on it decide
+            // whether anybody is asked at all.
+            if (CitesTicketText(condition))
+            {
+                return TicketTextRefusal(condition, obligation.Id, "when");
+            }
+
             if (condition.StartsWith("obligations.", StringComparison.Ordinal))
             {
                 return $"'{condition}' cites a VERDICT, at obligations.{obligation.Id}.when, "

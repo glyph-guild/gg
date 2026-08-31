@@ -15,7 +15,20 @@ namespace Gg.Contracts.Tests;
 public class ProviderNeutralityTests
 {
     private static readonly string[] ProviderNames =
-        ["github", "entra", "okta", "auth0", "gitlab", "bitbucket"];
+        ["github", "entra", "okta", "auth0", "gitlab", "bitbucket",
+
+            // ADDED AT SLICE TWENTY, because the guard did not catch what it
+            // exists to catch. A second provider's adapters were written and
+            // NAMED FOR THE FORGE - a plain violation of "no provider is named
+            // in this binary" - and every test here passed, because the list
+            // did not happen to know the word. A guard that is total, green,
+            // and blind to the case in front of it is the failure this
+            // repository keeps finding one field at a time.
+            //
+            // The adapters are named for their SHAPE now: one scopes a path and
+            // appends no suffix, the other names its refs in the body. Which
+            // forge speaks either convention stays configuration.
+            "azure", "devops"];
 
     /// <summary>
     /// A provider name, where a provider name can actually start.

@@ -121,8 +121,26 @@ public static class VcsConfiguration
     public const string NoPullRequestHeads = "!nopr";
 
     /// <summary>The adapters this environment describes.</summary>
-    public static IReadOnlyList<IVcsAdapter> FromEnvironment(string? declaration = null)
+    /// <param name="adapterFor">
+    /// How to build an adapter for a provider key, given its host and the
+    /// capabilities its declaration implies. Defaults to
+    /// <see cref="HttpsGitVcsAdapter"/>, which is what every configured runner
+    /// gets.
+    /// <para>
+    /// <b>The mirror of the destination side's seam, and it exists for a
+    /// measured reason.</b> Another provider rejects the <c>.git</c> suffix this
+    /// class appends unconditionally, so a provider that spells a repository
+    /// differently is a second adapter — and until this parameter, such an
+    /// adapter could be dispatched to and never registered.
+    /// </para>
+    /// </param>
+    public static IReadOnlyList<IVcsAdapter> FromEnvironment(
+        string? declaration = null,
+        Func<string, string, VcsCapabilities, IVcsAdapter>? adapterFor = null)
     {
+        adapterFor ??= static (provider, host, capabilities) =>
+            new HttpsGitVcsAdapter(provider, host, capabilities);
+
         var raw = declaration ?? Environment.GetEnvironmentVariable(HostsVariable) ?? "";
         var adapters = new List<IVcsAdapter>();
 
@@ -153,7 +171,7 @@ public static class VcsConfiguration
                 continue;
             }
 
-            adapters.Add(new HttpsGitVcsAdapter(parts[0], host, new VcsCapabilities
+            adapters.Add(adapterFor(parts[0], host, new VcsCapabilities
             {
                 PullRequestHeadsFromBase = servesPullRequests,
                 RefScheme = servesPullRequests

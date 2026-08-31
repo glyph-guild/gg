@@ -128,8 +128,8 @@ public class IntentIdIsDeclaredTests
         var diagnosis = FlightIntent.Validate(new FlightIntent
         {
             Kind = FlightIntentKinds.Ticket,
-            Provider = "azure-boards",
-            Id = "https://dev.azure.com/acme/_workitems/edit/4471",
+            Provider = "a-tracker",
+            Id = "https://tracker.example/acme/_workitems/edit/4471",
         });
 
         await Assert.That(diagnosis).IsNotNull();
@@ -146,7 +146,7 @@ public class IntentIdIsDeclaredTests
         await Assert.That(FlightIntent.Validate(new FlightIntent
         {
             Kind = FlightIntentKinds.Ticket,
-            Provider = "azure-boards",
+            Provider = "a-tracker",
             Id = "acme/_workitems/edit/4471",
         })).IsNotNull();
     }
@@ -162,7 +162,7 @@ public class IntentIdIsDeclaredTests
             await Assert.That(FlightIntent.Validate(new FlightIntent
             {
                 Kind = FlightIntentKinds.Ticket,
-                Provider = "azure-boards",
+                Provider = "a-tracker",
                 Id = id,
             })).IsNull().Because($"'{id}' is an id a real tracker issues.");
         }

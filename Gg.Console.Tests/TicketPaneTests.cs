@@ -46,11 +46,11 @@ public class TicketPaneTests
         var pane = PaneText.Flight(With(new FlightIntent
         {
             Kind = FlightIntentKinds.Ticket,
-            Provider = "azure-boards",
+            Provider = "a-tracker",
             Id = "4471",
         }));
 
-        await Assert.That(pane).Contains("azure-boards#4471")
+        await Assert.That(pane).Contains("a-tracker#4471")
             .Because("the two halves render together, in the shape gg fly --ticket takes, so "
                    + "what a person reads back is what they could type again.");
     }
@@ -87,7 +87,7 @@ public class TicketPaneTests
         var pane = PaneText.Flight(With(new FlightIntent
         {
             Kind = FlightIntentKinds.Ticket,
-            Provider = "azure-boards",
+            Provider = "a-tracker",
             Id = "4471",
         }));
 

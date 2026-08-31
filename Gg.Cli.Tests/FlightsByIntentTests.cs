@@ -1,7 +1,7 @@
 namespace Gg.Cli.Tests;
 
 /// <summary>
-/// <c>gg flights --intent azure-boards#4471</c> — everything for one work item.
+/// <c>gg flights --intent a-tracker#4471</c> — everything for one work item.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,12 +29,12 @@ public class FlightsByIntentTests
     [Test]
     public async Task Listing_by_work_item_parses_into_a_provider_and_an_id()
     {
-        var action = CliArgs.Parse(["flights", "--intent", "azure-boards#4471"]);
+        var action = CliArgs.Parse(["flights", "--intent", "a-tracker#4471"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Flights>();
 
         var flights = (CliAction.Flights)action;
-        await Assert.That(flights.Provider).IsEqualTo("azure-boards");
+        await Assert.That(flights.Provider).IsEqualTo("a-tracker");
         await Assert.That(flights.Id).IsEqualTo("4471");
     }
 
@@ -61,17 +61,17 @@ public class FlightsByIntentTests
         // usually MEANS everything - a correlation that silently showed only
         // the flights still in the air would answer a different question than
         // the one somebody asked.
-        var both = (CliAction.Flights)CliArgs.Parse(["flights", "--all", "--intent", "azure-boards#4471"]);
+        var both = (CliAction.Flights)CliArgs.Parse(["flights", "--all", "--intent", "a-tracker#4471"]);
 
         await Assert.That(both.All).IsTrue();
-        await Assert.That(both.Provider).IsEqualTo("azure-boards");
+        await Assert.That(both.Provider).IsEqualTo("a-tracker");
         await Assert.That(both.Id).IsEqualTo("4471");
     }
 
     [Test]
     public async Task A_token_that_is_not_two_things_is_refused_by_the_parser()
     {
-        foreach (var token in (string[])["azure-boards", "#4471", "azure-boards#", "#"])
+        foreach (var token in (string[])["a-tracker", "#4471", "a-tracker#", "#"])
         {
             await Assert.That(CliArgs.Parse(["flights", "--intent", token]))
                 .IsTypeOf<CliAction.Unknown>()

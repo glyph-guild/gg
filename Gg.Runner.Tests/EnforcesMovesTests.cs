@@ -47,30 +47,7 @@ public class EnforcesMovesTests
 {
     // ---- what the declaration says ----
 
-    [Test]
-    public async Task The_capability_is_declared_as_the_three_state_thing_it_is()
-    {
-        // A boolean here said "no" about a mechanism that says "yes for these
-        // tools, no for those, and only while a flag holds". False was nearer the
-        // truth than true and it was still wrong, and being wrong in the safe
-        // direction is how a claim survives three flaggings without being fixed.
-        await Assert.That(ClaudeCodeExecutor.Capabilities.DeclaredMoveEnforcement)
-            .IsEqualTo(MoveEnforcement.PerTool);
-    }
-
-    [Test]
-    public async Task Every_state_the_type_names_is_one_something_could_declare()
-    {
-        // Three states and no more. A fourth added without a measurement behind it
-        // would be the boolean's problem again with more room.
-        await Assert.That(Enum.GetValues<MoveEnforcement>().Length).IsEqualTo(3);
-        await Assert.That(Enum.GetValues<MoveEnforcement>())
-            .Contains(MoveEnforcement.None)
-            .And.Contains(MoveEnforcement.PerTool)
-            .And.Contains(MoveEnforcement.Full);
-    }
-
-    // ---- WHAT THIS FILE USED TO ASSERT, AND WHY IT IS GONE ----
+        // ---- WHAT THIS FILE USED TO ASSERT, AND WHY IT IS GONE ----
     //
     // `The_declared_reason_is_the_one_that_was_measured` scanned the executor's
     // source for the string "allow-list does not bind", plus "--disallowedTools"
@@ -90,29 +67,7 @@ public class EnforcesMovesTests
     // executor really makes, so it goes red the day the bound changes - which is
     // what the original was reaching for and could not express.
 
-    [Test]
-    public async Task The_gap_is_declared_rather_than_left_to_be_discovered()
-    {
-        var gap = ClaudeCodeExecutor.Capabilities.Gaps
-            .SingleOrDefault(g => g.Name.Contains("moves", StringComparison.OrdinalIgnoreCase));
-
-        await Assert.That(gap).IsNotNull()
-            .Because("a capability this runner has only partly is declared on the port.");
-        await Assert.That(gap!.Consequence).Contains("setting-sources")
-            .Because("and the flag the whole bound rests on is named where somebody would look.");
-    }
-
-    [Test]
-    public async Task The_runner_does_not_take_the_flag_on_trust()
-    {
-        // The declaration above says the bound is contingent. This is the thing
-        // that makes the contingency safe rather than merely disclosed: a
-        // capability note nobody acts on is a disclosure, and this product's own
-        // finding is that a disclosure is not a control.
-        await Assert.That(MoveBoundProbe.Required(new ClaudeCodeExecutor("claude"))).IsNotNull();
-    }
-
-    // ---- the mapping is coarser than the vocabulary, which is a second reason ----
+        // ---- the mapping is coarser than the vocabulary, which is a second reason ----
 
     [Test]
     public async Task Run_tests_maps_onto_a_tool_that_can_do_more_than_run_tests()

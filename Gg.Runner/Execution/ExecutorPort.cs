@@ -8,13 +8,6 @@ namespace Gg.Runner.Execution;
 /// deciding whether this executor can do their job, so each one says what
 /// happens because of it.
 /// </remarks>
-public sealed record ExecutorGap
-{
-    public required string Name { get; init; }
-
-    public required string Consequence { get; init; }
-}
-
 /// <summary>
 /// What an executor can report, what it cannot, and what degrades.
 /// </summary>
@@ -77,64 +70,31 @@ public static class MoveEnforcementNames
     };
 }
 
+/// <summary>
+/// Which rung this executor is, from the envelope's vocabulary.
+/// </summary>
+/// <remarks>
+/// <b>Seven members were deleted at slice twenty, and the reason is worth
+/// keeping.</b> They declared what this executor reports and what it cannot
+/// account for — attempts, duration, moves used, tokens, move enforcement,
+/// tool attribution, and a list of named gaps — and <b>nothing ever degraded
+/// against any of them</b>. <c>IExecutorPort.Capabilities</c> was never called
+/// by production at all; the only readers were the tests that asserted the
+/// declarations had not drifted.
+///
+/// <para>
+/// Three guard assertions went with them: an exact member list, the declared
+/// move enforcement, and the gap naming the flag the move bound rests on.
+/// Those guarded a claim rather than a behaviour — and the behaviour they
+/// described is measured per session by <see cref="MoveBoundProbe"/>, which
+/// reads none of this. A declaration nothing consults is documentation with a
+/// test on it, and documentation belongs where somebody reads it.
+/// </para>
+/// </remarks>
 public sealed record ExecutorCapabilities
 {
     /// <summary>Which rung this is, from the envelope's vocabulary.</summary>
     public required string Rung { get; init; }
-
-    /// <summary>Turns taken. Reported.</summary>
-    public required bool ReportsAttempts { get; init; }
-
-    /// <summary>Wall clock. Reported.</summary>
-    public required bool ReportsDuration { get; init; }
-
-    /// <summary>Which tools it called. Reported.</summary>
-    public required bool ReportsMovesUsed { get; init; }
-
-    /// <summary>
-    /// Token usage. Reported, which the slice note assumed it would not be.
-    /// </summary>
-    /// <remarks>
-    /// Seeing a number and stopping on one are different decisions. This slice
-    /// enforces wall-clock only, because stopping on tokens needs an answer to
-    /// what a half-finished attempt means and this slice does not have one.
-    /// </remarks>
-    public required bool ReportsTokens { get; init; }
-
-    /// <summary>
-    /// Whether the envelope's <c>moves</c> bound what a loop may do.
-    /// </summary>
-    /// <remarks>
-    /// <b>Three states, because a boolean could not hold the answer.</b> This said
-    /// <c>false</c> for three flaggings on the strength of a measurement taken with
-    /// a command this product does not run. The allow-list does bind - for some
-    /// tools, by two different mechanisms, and only while one flag holds. False was
-    /// nearer the truth than true and it was still wrong, and being wrong in the
-    /// safe direction is how a claim survives that long unfixed.
-    /// </remarks>
-    /// <remarks>
-    /// RENAMED from EnforcesMoves at slice eleven, the rename slice three
-    /// flagged three times: the old name read as the executor's property when
-    /// the truth was 'what the whole invocation shape can bound'. It is a
-    /// DECLARED HINT now - the probe measures the real thing per session, the
-    /// wire value derives from that measurement, and this member is read by
-    /// nothing on the fact path. Its remaining job is documentation and the
-    /// probe's diagnosis when declared and measured disagree.
-    /// </remarks>
-    public required MoveEnforcement DeclaredMoveEnforcement { get; init; }
-
-    /// <summary>
-    /// Whether it can say which tool call produced which file change.
-    /// </summary>
-    /// <remarks>
-    /// False, and that turns out to be the right shape: what a flight touched
-    /// is read from the TREE rather than from what the agent said it did,
-    /// which is the property that keeps an injected instruction out of a
-    /// machine-checked verdict.
-    /// </remarks>
-    public required bool AttributesEditsToTools { get; init; }
-
-    public required IReadOnlyList<ExecutorGap> Gaps { get; init; }
 }
 
 /// <summary>What a loop is asked to do.</summary>

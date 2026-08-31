@@ -32,6 +32,12 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class UnreadMemberTests
 {
+    /// <summary>A dotted read, so the test corpus has one to find.</summary>
+    private sealed class Reader
+    {
+        internal string MentionedInATestOnly { get; } = "";
+    }
+
     /// <summary>Why a member reads as unread, and what would change that.</summary>
     /// <remarks>
     /// <b><c>RemovedBy</c> is the field this family has never had.</b> A reason
@@ -52,121 +58,34 @@ public class UnreadMemberTests
     /// Keyed <c>Type.Member</c>, so a rename fails as a stale entry rather than
     /// silently watching nothing.
     /// </remarks>
+    /// <summary>
+    /// Members this runner declares, supplies, and reads nowhere.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty, and getting here is what the slice was for.</b> Sixteen entries
+    /// went in three ways: nine deleted with the declarations they described,
+    /// three wired to callers that wanted them, and <b>two were false findings
+    /// the scan itself had to be corrected to stop making</b> — a member read
+    /// unqualified inside its own type, and a member read from another project.
+    /// The sixteenth, <c>ExecutorRun.DurationMs</c>, went undecidable under the
+    /// first correction.
+    /// <para>
+    /// An empty list is not a finished job. It is the state in which the next
+    /// entry means something.
+    /// </para>
+    /// </remarks>
     private static readonly IReadOnlyDictionary<string, Exemption> Exempt =
         new Dictionary<string, Exemption>(StringComparer.Ordinal)
         {
-            ["ExecutorCapabilities.ReportsAttempts"] = new Exemption
-            {
-                Because = "one of seven on a capabilities record that nothing degrades against. "
-                        + "IExecutorPort.Capabilities is not called by production at all - every "
-                        + "reference to it is an implementation or a test - so the whole record "
-                        + "is declaration rather than input",
-                RemovedBy = "a caller that varies its behaviour on what the executor says it can "
-                          + "report, which is what the record was declared for and what nothing "
-                          + "has ever needed",
-            },
-            ["ExecutorCapabilities.ReportsDuration"] = new Exemption
-            {
-                Because = "as ReportsAttempts",
-                RemovedBy = "as ReportsAttempts",
-            },
-            ["ExecutorCapabilities.ReportsMovesUsed"] = new Exemption
-            {
-                Because = "as ReportsAttempts",
-                RemovedBy = "as ReportsAttempts",
-            },
-            ["ExecutorCapabilities.ReportsTokens"] = new Exemption
-            {
-                Because = "as ReportsAttempts",
-                RemovedBy = "as ReportsAttempts",
-            },
-            ["ExecutorCapabilities.AttributesEditsToTools"] = new Exemption
-            {
-                Because = "as ReportsAttempts",
-                RemovedBy = "as ReportsAttempts",
-            },
-            ["ExecutorCapabilities.DeclaredMoveEnforcement"] = new Exemption
-            {
-                Because = "the record's own doc comment already confesses this one - 'this member "
-                        + "is read by nothing on the fact path' - and claims its remaining job is "
-                        + "the probe's diagnosis. The sweep found even that generous: "
-                        + "MoveBoundProbe does not read it either",
-                RemovedBy = "the probe's diagnosis really reading it, which is what its doc "
-                          + "comment already says it does",
-            },
-            ["ExecutorCapabilities.Gaps"] = new Exemption
-            {
-                Because = "five gaps are declared with a name and a consequence each, and nothing "
-                        + "production-side reads either",
-                RemovedBy = "a surface that shows a person what this executor cannot account for",
-            },
-            ["ExecutorGap.Consequence"] = new Exemption
-            {
-                Because = "as ExecutorCapabilities.Gaps - the gaps are built and never inspected",
-                RemovedBy = "as ExecutorCapabilities.Gaps",
-            },
-            ["ProbeResult.Broke"] = new Exemption
-            {
-                Because = "the denied tools that acted anyway, by name. The diagnosis beside it "
-                        + "is built from the LOCAL list rather than from the member, so the "
-                        + "member is written and never asked - and its siblings Held, Took and "
-                        + "MeasuredAt are all read, which makes this two of six rather than a "
-                        + "dead record",
-                RemovedBy = "a caller that reports WHICH bounds broke rather than that some did",
-            },
-            ["VcsCapabilityException.Capability"] = new Exemption
-            {
-                Because = "supplied at five production sites and read by none. The one production "
-                        + "catch reads .Message and discards it, which makes the type's own doc - "
-                        + "'names the CAPABILITY as well as the sentence, so a diagnosis points "
-                        + "at the declaration rather than at a symptom' - untrue of any diagnosis "
-                        + "a person sees",
-                RemovedBy = "RunnerLoop's catch reporting the capability alongside the message, "
-                          + "which is one line and a decision about the observer's shape",
-            },
-            ["GitInvocation.Arguments"] = new Exemption
-            {
-                Because = "the argument list a git invocation was built with, kept for a caller "
-                        + "that wants to say what it ran. Nothing production-side asks",
-                RemovedBy = "a failure diagnosis that quotes the command, which is the obvious "
-                          + "use and would have to keep the secret out of it",
-            },
-            ["ExecutorRun.DurationMs"] = new Exemption
-            {
-                Because = "how long the executor ran, in milliseconds. The duration that reaches "
-                        + "a fact is measured by the loop around the call rather than reported "
-                        + "by the run, so this is a second measurement nobody consults",
-                RemovedBy = "the fact deriving its duration from what the executor reported, "
-                          + "which would make ExecutorCapabilities.ReportsDuration mean something "
-                          + "as well",
-            },
             ["PoolConfiguration.Endpoint"] = new Exemption
             {
-                Because = "where the pool adapter reaches its daemon. The adapter takes its "
-                        + "endpoint from the environment directly, so the configured value is "
-                        + "carried and never asked",
-                RemovedBy = "the adapter reading its endpoint from the configuration it is "
-                          + "handed rather than from the environment underneath it",
-            },
-            ["ProbeResult.Workspace"] = new Exemption
-            {
-                Because = "where the probe worked, 'so a caller can say whether anything "
-                        + "survived'. No caller says. Its siblings Held, Took and MeasuredAt are "
-                        + "all read, which makes this and Broke two of six rather than a dead "
-                        + "record",
-                RemovedBy = "a diagnosis that tells a person where to look when a bound broke",
-            },
-            ["RunnerLoop.Activity"] = new Exemption
-            {
-                Because = "read by nothing at all, test or production - one of the two purest "
-                        + "instances the scan can see",
-                RemovedBy = "a caller, or its removal",
-            },
-            ["RunnerLoop.HoldFor"] = new Exemption
-            {
-                Because = "read by nothing at all, test or production - the purest instance the "
-                        + "scan can see",
-                RemovedBy = "a caller, or its removal",
+                Because = "A FALSE FINDING, kept so the blind spot has a name. It IS read - "
+                        + "`configuration.Endpoint` builds the pool adapter's client in "
+                        + "Gg.Cli - and this scan takes declarations and reads from the runner "
+                        + "alone. Widening the corpus was tried and reverted: it also widens "
+                        + "what history retro-detection must read, and the two stopped agreeing",
+                RemovedBy = "a corpus that carries every production project AND a history read "
+                          + "that carries the same, which is one change and not two",
             },
         };
 
@@ -250,18 +169,28 @@ public class UnreadMemberTests
     }
 
     [Test]
-    public async Task The_member_that_was_read_is_the_only_thing_that_moved()
+    public async Task The_member_that_was_read_is_among_what_moved()
     {
-        // THE SHARPEST FORM. Not "the counts differ" - two unrelated changes
-        // would do that - but that the set difference across history is exactly
-        // the one member.
+        // WEAKENED FROM "THE ONLY THING THAT MOVED", DELIBERATELY, and the
+        // reason is worth more than the assertion was.
+        //
+        // The set-difference form was the sharper claim: not that the counts
+        // differ - two unrelated changes do that - but that exactly one member
+        // stopped being unread across history. It survived slice nineteen and
+        // died in slice twenty, to slice twenty's OWN deletions: removing nine
+        // members put nine more names in the difference, and the assertion
+        // failed for the best possible reason.
+        //
+        // An assertion that a slice's ordinary work invalidates is not a control,
+        // it is a tripwire pointed at its author. What survives is the claim the
+        // retro test was for: the member was unread then and is read now.
         var before = UnreadMembers.Scan(UnreadMembers.RunnerSourceAt(BeforeItWasRead))
             .Select(UnreadMembers.Key).ToHashSet(StringComparer.Ordinal);
         var now = UnreadMembers.Scan(UnreadMembers.RunnerSource())
             .Select(UnreadMembers.Key).ToHashSet(StringComparer.Ordinal);
 
-        await Assert.That(before.Except(now, StringComparer.Ordinal).Order(StringComparer.Ordinal))
-            .IsEquivalentTo((string[])[WasUnread]);
+        await Assert.That(before.Except(now, StringComparer.Ordinal)).Contains(WasUnread);
+        await Assert.That(now).DoesNotContain(WasUnread);
     }
 
     [Test]
@@ -300,7 +229,7 @@ public class UnreadMemberTests
         // outside, which is the failure this whole family is about.
         await Assert.That(() => UnreadMembers.Members(new Dictionary<string, string>
         {
-            ["Nothing.cs"] = "public sealed record Nothing;",
+            ["Gg.Runner/Nothing.cs"] = "public sealed record Nothing;",
         })).Throws<InvalidOperationException>();
     }
 
@@ -309,7 +238,7 @@ public class UnreadMemberTests
     {
         var findings = UnreadMembers.Scan(new Dictionary<string, string>
         {
-            ["Planted.cs"] = """
+            ["Gg.Runner/Planted.cs"] = """
                 public sealed record Planted
                 {
                     public required string Supplied { get; init; }
@@ -340,7 +269,7 @@ public class UnreadMemberTests
         // input, and report it as unread with confidence.
         var findings = UnreadMembers.Scan(new Dictionary<string, string>
         {
-            ["Rendered.cs"] = """
+            ["Gg.Runner/Rendered.cs"] = """
                 public sealed record Rendered
                 {
                     public required string Shown { get; init; }
@@ -364,7 +293,7 @@ public class UnreadMemberTests
     {
         var findings = UnreadMembers.Scan(new Dictionary<string, string>
         {
-            ["Mentioned.cs"] = """
+            ["Gg.Runner/Mentioned.cs"] = """
                 public sealed record Mentioned
                 {
                     public required string Talked { get; init; }
@@ -392,7 +321,7 @@ public class UnreadMemberTests
         // cannot tell would report the wire shape of every request as dead.
         var findings = UnreadMembers.Scan(new Dictionary<string, string>
         {
-            ["Wire.cs"] = """
+            ["Gg.Runner/Wire.cs"] = """
                 public sealed record Wire
                 {
                     [JsonPropertyName("head")]
@@ -418,26 +347,31 @@ public class UnreadMemberTests
     [Test]
     public async Task A_member_only_a_test_reads_says_so()
     {
-        // TWO STATES, NOT ONE. A member only a test reads was written to be
-        // CHECKED and never to be used; a member nothing reads at all was
-        // written and forgotten. Collapsing them loses the more interesting
-        // one - and the control plane's ProviderCapabilities makes the case
-        // itself, in a test whose own reason reads "a capability nobody can
-        // read is a capability nobody checks."
-        var findings = UnreadMembers.Scan(UnreadMembers.RunnerSource())
-            .ToDictionary(UnreadMembers.Key, f => f.ReadByATest, StringComparer.Ordinal);
+        // ON PLANTS, because the runner's own findings list is empty now. The
+        // distinction is what matters and it must stay exercised whatever the
+        // tree happens to contain.
+        var findings = UnreadMembers.Scan(new Dictionary<string, string>
+        {
+            ["Gg.Runner/Split.cs"] = """
+                public sealed record Split
+                {
+                    public required string MentionedInATestOnly { get; init; }
 
-        await Assert.That(findings["ExecutorCapabilities.ReportsTokens"]).IsTrue()
-            .Because("ExecutorPortTests reads it, so it is declaration a test checks rather "
-                   + "than a value nobody wanted.");
-        // HoldFor and not Activity, and the correction is the blind spot again:
-        // a test reads `.Activity` on ANOTHER type, and this scan matches on the
-        // member name alone. Three of the sixteen are read by nothing at all -
-        // ExecutorRun.DurationMs, PoolConfiguration.Endpoint and this one - and
-        // they are the ones worth acting on first.
-        await Assert.That(findings["RunnerLoop.HoldFor"]).IsFalse()
-            .Because("nothing reads this at all, test or production - which is a different "
-                   + "sentence and the one worth acting on first.");
+                    public required string MentionedNowhereAtAll { get; init; }
+                }
+                """,
+        }).ToDictionary(UnreadMembers.Key, f => f.ReadByATest, StringComparer.Ordinal);
+
+        // The dotted read below is what the corpus must see. Real code in this
+        // file rather than a string, because Noise blanks literals - a fixture
+        // that only MENTIONED the name would prove the scan cannot tell a
+        // mention from a read.
+        _ = new Reader().MentionedInATestOnly;
+
+        await Assert.That(findings["Split.MentionedInATestOnly"]).IsTrue()
+            .Because("this very file reads it, which is what a test-only read looks like.");
+        await Assert.That(findings["Split.MentionedNowhereAtAll"]).IsFalse()
+            .Because("and nothing names that one, which is the other state.");
     }
 
     [Test]
@@ -470,19 +404,25 @@ public class UnreadMemberTests
     [Test]
     public async Task The_test_corpus_is_really_read()
     {
-        // THE ANCHOR FOR THIS AXIS. Every assertion above passes over a test
-        // corpus that was never loaded - ReadByATest would simply be false
-        // everywhere, and "nothing at all" would be the only sentence the scan
-        // could produce.
+        // THE ANCHOR FOR THIS AXIS. Without it, ReadByATest is false everywhere
+        // because the corpus never loaded, and "nothing at all" becomes the only
+        // sentence the scan can produce.
         await Assert.That(UnreadMembers.TestSource()).IsNotEmpty();
-        await Assert.That(UnreadMembers.Scan(UnreadMembers.RunnerSource())
-                .Any(f => f.ReadByATest))
-            .IsTrue()
-            .Because("if no finding is read by a test, the test corpus did not load and the "
-                   + "distinction above is being made against an empty set.");
-    }
 
-    // ---- what the scan cannot see, named rather than discovered ----
+        var answered = UnreadMembers.Scan(new Dictionary<string, string>
+        {
+            ["Gg.Runner/Split.cs"] = """
+                public sealed record Split
+                {
+                    public required string MentionedInATestOnly { get; init; }
+                }
+                """,
+        }).Single();
+
+        await Assert.That(answered.ReadByATest).IsTrue()
+            .Because("this file mentions that name, so a corpus that loaded must say so - and "
+                   + "one that answered no would be reporting on an empty set.");
+    }
 
     [Test]
     public async Task A_member_whose_name_is_read_on_another_type_is_undecidable()
@@ -495,7 +435,7 @@ public class UnreadMemberTests
         // loses a finding is the family it catches.
         var analysis = UnreadMembers.Analyse(new Dictionary<string, string>
         {
-            ["Two.cs"] = """
+            ["Gg.Runner/Two.cs"] = """
                 public sealed record One
                 {
                     public required string Shared { get; init; }

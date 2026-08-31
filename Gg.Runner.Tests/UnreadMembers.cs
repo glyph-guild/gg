@@ -258,6 +258,37 @@ internal static class UnreadMembers
     }
 
     /// <summary>
+    /// Whether the declaring file uses this member's name without a receiver.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written after a false finding deleted a live value.</b> A member read
+    /// as a bare word in its own type — <c>_clock.UtcNow + HoldFor</c> — has no
+    /// dot in front of it, so the read pattern misses it entirely. The bare word
+    /// might also be a local or a parameter, which is why this yields
+    /// <i>undecidable</i> rather than <i>read</i>: the scan cannot tell, and
+    /// saying so is what it owes.
+    /// </remarks>
+    private static bool UsedBareIn(IReadOnlyDictionary<string, string> source, Unread member)
+    {
+        if (!source.TryGetValue(member.File, out var raw))
+        {
+            return false;
+        }
+
+        var text = Noise(raw);
+
+        // NOT FOLLOWED BY `=`, because an object initializer is receiver-less
+        // too: `Broke = broke,` supplies the member and does not read it, and a
+        // rule that could not tell marked every finding in the runner
+        // undecidable at once. `==` is a read and stays.
+        var bare = new Regex(
+            @"(?<![\.\w])" + Regex.Escape(member.Member) + @"\b(?!\s*=(?!=))");
+
+        // More than the declaration itself, which the pattern also matches.
+        return bare.Matches(text).Count > 1;
+    }
+
+    /// <summary>
     /// The attributes attached to the member at <paramref name="declaration"/>.
     /// </summary>
     /// <remarks>
@@ -285,6 +316,14 @@ internal static class UnreadMembers
 
         foreach (var (file, raw) in source)
         {
+            // DECLARATIONS FROM THE RUNNER ONLY. The map carries the whole
+            // production tree so reads can be seen; a wire contract's members
+            // are read by the other repository and would report as dead here.
+            if (!file.Contains("Gg.Runner", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             var text = Noise(raw);
 
             foreach (var type in Type.Matches(text).Cast<Match>())
@@ -334,6 +373,17 @@ internal static class UnreadMembers
         ArgumentNullException.ThrowIfNull(source);
 
         var declared = Members(source);
+
+        // ONE MAP: declarations are filtered to the runner by Members, reads are
+        // taken from all of it. The corpus therefore has to CONTAIN the readers,
+        // which is why RunnerSource and RunnerSourceAt both return the whole
+        // production tree rather than one project.
+        //
+        // The first version took reads from the declaring project alone and
+        // reported PoolConfiguration.Endpoint as unread while
+        // `configuration.Endpoint` sat in Gg.Cli - the second false finding in
+        // one sitting, after a live timeout. A member declared in one project
+        // and read from another is the ordinary case.
         var text = source.Values.Select(Noise).ToList();
 
         // Which types declare each name, so a name on two types is undecidable
@@ -359,6 +409,25 @@ internal static class UnreadMembers
 
             if (text.Exists(read.IsMatch))
             {
+                continue;
+            }
+
+            // AN UNQUALIFIED READ INSIDE THE DECLARING TYPE, which the pattern
+            // above cannot see because it requires a receiver.
+            //
+            // This is not hypothetical and it is not cheap. RunnerLoop.HoldFor
+            // is read as `_clock.UtcNow + HoldFor` - no dot, same class - and
+            // this scan reported it as read by nothing. It was DELETED on that
+            // report and restored only because the compiler complained: a live
+            // lease-hold timeout, removed on a finding that was simply wrong.
+            //
+            // Undecidable rather than a finding, because the same bare word can
+            // be a local, a parameter or another type's member. Not proven read
+            // and not proven unread is the honest answer, and it is the answer
+            // that would have saved the timeout.
+            if (UsedBareIn(source, member))
+            {
+                undecidable.Add(Key(member));
                 continue;
             }
 
@@ -426,6 +495,14 @@ internal static class UnreadMembers
         && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
 
     /// <summary>The runner's own source, as it stands.</summary>
+    /// <remarks>
+    /// <b>One project, for declarations and reads alike — and that is a stated
+    /// blind spot rather than an oversight.</b> Widening the corpus so a read in
+    /// <c>Gg.Cli</c> is visible also widens what history has to be read for
+    /// retro-detection, and the two stopped agreeing. A member read from another
+    /// project therefore reports as unread; <c>PoolConfiguration.Endpoint</c> is
+    /// the known instance and it is listed with that reason.
+    /// </remarks>
     public static IReadOnlyDictionary<string, string> RunnerSource() =>
         Directory.EnumerateFiles(Path.Combine(RepoRoot(), "Gg.Runner"), "*.cs", SearchOption.AllDirectories)
             .Where(Production)

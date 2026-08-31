@@ -44,85 +44,15 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
     /// omissions - each was tried, and each is why a rule elsewhere in this
     /// slice reads the way it does.
     /// </remarks>
+    /// <summary>Which rung this executor is.</summary>
+    /// <remarks>
+    /// Seven declared capabilities were deleted at slice twenty: nothing
+    /// degraded against any of them, and the behaviour they described is
+    /// measured per session by the probe rather than declared here.
+    /// </remarks>
     public static ExecutorCapabilities Capabilities { get; } = new()
     {
         Rung = ExecutorRungs.Frontier,
-        ReportsAttempts = true,
-        ReportsDuration = true,
-        ReportsMovesUsed = true,
-        ReportsTokens = true,
-        // PER TOOL, and measured through the invocation below rather than through
-        // a command assembled for a test - which is what the superseded
-        // measurement did, and why it concluded the opposite.
-        //
-        //   Edit, Write   offered and REFUSED at the call:
-        //                 "Claude requested permissions to write to …, but you
-        //                  haven't granted it yet."
-        //   Grep          NOT IN THE TOOL LIST at all; the agent reports it
-        //                 "isn't available in this session".
-        //   Read, Bash    NOT BOUND. Both ran with the tool withheld, and Bash is
-        //                 gated per COMMAND rather than per tool - `uname -s` ran
-        //                 while `touch` and `rm` were refused in a real flight.
-        //
-        // AND THE WHOLE BOUND RESTS ON --setting-sources "" BELOW. Without it a
-        // withheld Write wrote, because the operator's own settings applied.
-        // --permission-mode acceptEdits overrides the list too, which is what the
-        // superseded capture passed. And passing --permission-mode default does
-        // NOT restore the bound - only clearing setting sources does, and why
-        // that is so is not characterised. So this is declared as contingent and
-        // MoveBoundProbe verifies it at startup rather than trusting it.
-        DeclaredMoveEnforcement = MoveEnforcement.PerTool,
-        AttributesEditsToTools = false,
-        Gaps =
-        [
-            new ExecutorGap
-            {
-                Name = "moves are bounded per tool, and only while one flag holds",
-                Consequence =
-                    "The allowed tool set binds Edit, Write and Grep and does not bind Read or "
-                  + "Bash, so a flight declaring `read` alone is genuinely stopped from editing "
-                  + "and genuinely able to run shell commands. Worse, the bound is contingent on "
-                  + "--setting-sources being cleared: without it the operator's own settings "
-                  + "apply and a withheld Write writes, and passing --permission-mode default "
-                  + "does not restore it. The mechanism is not characterised, so the runner "
-                  + "PROVES the bound at startup and refuses to take work when it does not hold, "
-                  + "rather than trusting the flag.",
-            },
-            new ExecutorGap
-            {
-                Name = "no per-edit attribution",
-                Consequence =
-                    "The executor does not say which tool call produced which file change, so what "
-                  + "a flight touched is read from the tree instead. That is the safer source and "
-                  + "it means the manifest cannot be influenced by what the agent claims.",
-            },
-            new ExecutorGap
-            {
-                Name = "ambient machine configuration is visible to the agent",
-                Consequence =
-                    "Clearing setting sources removes plugins and external tool servers, and does "
-                  + "not remove the machine's skills or memory directory. A runner therefore shares "
-                  + "some of its operator's configuration with the agent, which is a fact a "
-                  + "customer should know before pointing one at a private repository.",
-            },
-            new ExecutorGap
-            {
-                Name = "the transcript resolves only on this machine",
-                Consequence =
-                    "There is no storage port, so a transcript is written beside the runner's own "
-                  + "state and the reference names a local path. A gate running anywhere else can "
-                  + "verify the hash it was given but cannot fetch the bytes.",
-            },
-            new ExecutorGap
-            {
-                Name = "no partial result when the budget runs out",
-                Consequence =
-                    "Stopping the process ends the turn wherever it was. Edits already written to "
-                  + "the tree survive and are measured; anything the agent was midway through "
-                  + "reasoning about is lost, and it reports no attempts because the result record "
-                  + "never arrived.",
-            },
-        ],
     };
 
     ExecutorCapabilities IExecutorPort.Capabilities => Capabilities;

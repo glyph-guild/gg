@@ -160,28 +160,6 @@ public class SliceThreeGuardTests
         await Assert.That(ObligationPredicates.All.Count).IsEqualTo(2)
             .Because("two predicates over two existing facts. A third is the next slice.");
     }
-
-    [Test]
-    public async Task The_runners_declared_capabilities_have_not_moved()
-    {
-        // A gate that needed the runner to do something new would be a gate on
-        // the wrong side of the boundary. The capability type is where a new
-        // ability would have to be declared, so its shape is what is checked.
-        var declared = typeof(Gg.Runner.Execution.ExecutorCapabilities)
-            .GetProperties()
-            .Select(p => p.Name)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-
-        await Assert.That(declared).IsEquivalentTo(new[]
-        {
-            "Rung", "ReportsAttempts", "ReportsDuration", "ReportsMovesUsed", "ReportsTokens",
-            "DeclaredMoveEnforcement", "AttributesEditsToTools", "Gaps",
-        }.Order(StringComparer.Ordinal).ToList())
-            .Because("a new capability would appear here first, and appearing here is how a slice "
-                   + "quietly becomes a different slice.");
-    }
-
     [Test]
     public async Task The_guard_can_see_a_change()
     {

@@ -309,25 +309,8 @@ public class AgainstRealRemoteTests
     /// </remarks>
     private sealed class WorkingAgent : Execution.IExecutorPort
     {
-        public Execution.ExecutorCapabilities Capabilities => new()
-        {
-            Rung = "fixture-agent",
-            DeclaredMoveEnforcement = MoveEnforcement.PerTool,
-            ReportsAttempts = true,
-            ReportsTokens = false,
-            ReportsDuration = true,
-            ReportsMovesUsed = false,
-            AttributesEditsToTools = false,
-            Gaps =
-            [
-                new Execution.ExecutorGap
-                {
-                    Name = "does-one-thing",
-                    Consequence = "It writes one file. These tests are about the destination, and a "
-                                + "tree with a change in it is all the destination needs of an agent.",
-                },
-            ],
-        };
+        public Execution.ExecutorCapabilities Capabilities =>
+            new() { Rung = ExecutorRungs.Frontier };
 
         public async Task<Execution.ExecutorRun> ExecuteAsync(
             Execution.ExecutorRequest request, CancellationToken cancellationToken = default)

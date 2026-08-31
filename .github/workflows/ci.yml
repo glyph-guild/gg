@@ -10,7 +10,14 @@ jobs:
     name: dotnet
     runs-on: ubuntu-latest
     steps:
+      # FULL HISTORY, because UnreadMemberTests reads a commit through
+      # `git show`. actions/checkout defaults to depth 1, and the retro test
+      # FAILS rather than skipping on purpose - a control that quietly passed
+      # when it could not read history would be the exact thing this scan was
+      # written to catch. So the fetch changes and the test does not.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json

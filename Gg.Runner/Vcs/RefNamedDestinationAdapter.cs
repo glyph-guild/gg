@@ -105,9 +105,19 @@ public sealed class RefNamedDestinationAdapter(string provider, string host, Htt
             && await existing.Content.ReadFromJsonAsync(
                    RefNamedJson.Default.RefNamedProposalList, cancellationToken) is { Value: [var open, ..] })
         {
+            // THE LIST DOES NOT CARRY WHAT THE LINK IS COMPOSED FROM, and only a
+            // real service says so. Measured: create and single-fetch return a
+            // repository carrying `webUrl`; this list returns one carrying only
+            // id, name, project and url. Reading it here threw the refusal below
+            // on every re-proposal - so a flight reported failure while its
+            // proposal sat open, which is the worst of the three answers.
+            var webUrl = open.Repository?.WebUrl is { Length: > 0 } listed
+                ? listed
+                : await RepositoryWebUrlAsync(
+                    repository, open.PullRequestId, request.Secret, cancellationToken);
+
             return new LandingOutcome.Landed(
-                request.Branch, ProposalUrl(open.Repository?.WebUrl ?? "", open.PullRequestId),
-                open.PullRequestId);
+                request.Branch, ProposalUrl(webUrl, open.PullRequestId), open.PullRequestId);
         }
 
         using var creation = new HttpRequestMessage(
@@ -166,6 +176,46 @@ public sealed class RefNamedDestinationAdapter(string provider, string host, Htt
             ? throw new VcsCapabilityException(
                 "slug", $"'{slug}' is not <project>/<repository>.")
             : $"https://{host}/{trimmed[..separator]}/_git/{trimmed[(separator + 1)..]}";
+    }
+
+    /// <summary>
+    /// Where a person reads this repository, asked of the endpoint that says.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A second request, and not a composed url, on purpose.</b> This adapter
+    /// already knows the host and the slug, and the string it builds for cloning
+    /// is byte-identical to the <c>webUrl</c> this provider returns — that was
+    /// checked against a real service rather than assumed. It is still not what
+    /// is used here: the provider <i>does</i> publish the value, and asking it
+    /// is not the same kind of act as deriving structure from a string. A guess
+    /// that happens to be right on one provider is the move this project keeps
+    /// refusing.
+    /// </para>
+    /// <para>
+    /// Returns empty when this endpoint does not say either, so the refusal in
+    /// <see cref="ProposalUrl"/> still fires for the case it was written for —
+    /// a provider that really does not publish a page a person can open.
+    /// </para>
+    /// </remarks>
+    private async Task<string> RepositoryWebUrlAsync(
+        string repository, int proposal, string secret, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(
+            new HttpRequestMessage(
+                HttpMethod.Get,
+                $"repositories/{repository}/pullrequests/{proposal}?api-version=7.1"),
+            secret, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return "";
+        }
+
+        var fetched = await response.Content.ReadFromJsonAsync(
+            RefNamedJson.Default.RefNamedProposal, cancellationToken);
+
+        return fetched?.Repository?.WebUrl ?? "";
     }
 
     /// <summary>One request, carrying the credential the developer registered.</summary>

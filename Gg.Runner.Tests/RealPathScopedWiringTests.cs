@@ -159,9 +159,30 @@ public class RealPathScopedWiringTests
         {
             // IN THE FINALLY, because this repository is somebody's Monday.
             await TryAbandonAsync(api, slug, secret, landed?.Number);
-            await TryDeleteBranchAsync(tree, secret, branch);
+            await TryDeleteBranchAsync(reader, target, tree, secret, branch);
             Directory.Delete(work, recursive: true);
         }
+
+        // AND THE CLEANUP IS ASSERTED, outside the finally, because the first
+        // run of this test PASSED while leaving a branch behind: the delete
+        // pushed to `origin`, which the adapter's clone does not create, and a
+        // cleanup that reports rather than throws reported it to nobody. A
+        // criterion that says the fixture is left as it was found has to be
+        // checked, or it is a comment.
+        await Assert.That(await RemoteBranchExistsAsync(reader, target, secret, branch)).IsFalse()
+            .Because($"'{branch}' is still on the remote. This runs against a repository people "
+                   + "work in, and a walk that accumulates branches is one nobody can run twice.");
+    }
+
+    /// <summary>Whether the branch is still on the remote.</summary>
+    private static async Task<bool> RemoteBranchExistsAsync(
+        IVcsAdapter reader, RepoTarget target, string secret, string branch)
+    {
+        var url = ((PathScopedGitVcsAdapter)reader).CloneUrlFor(target);
+        var listed = await GitOutputAsync(
+            Path.GetTempPath(), secret, "ls-remote", "--heads", url, $"refs/heads/{branch}");
+
+        return listed.Contains(branch, StringComparison.Ordinal);
     }
 
     /// <summary>Abandons the proposal, reporting rather than throwing.</summary>
@@ -207,7 +228,20 @@ public class RealPathScopedWiringTests
         }
     }
 
-    private static async Task TryDeleteBranchAsync(string tree, string secret, string branch)
+    /// <summary>
+    /// Deletes the branch by URL, because there is no <c>origin</c> to push to.
+    /// </summary>
+    /// <remarks>
+    /// The first draft pushed to <c>origin</c>, copied from the sibling test
+    /// that clones by shelling out to git. This one clones through
+    /// <c>IVcsAdapter.CloneAsync</c>, which fetches an explicit url and creates
+    /// no remote — so the delete failed every time, and the walk passed anyway
+    /// because a cleanup that reports rather than throws reported it to nobody.
+    /// The url comes from the adapter, which is also the only thing that knows
+    /// how this forge spells one.
+    /// </remarks>
+    private static async Task TryDeleteBranchAsync(
+        IVcsAdapter reader, RepoTarget target, string tree, string secret, string branch)
     {
         if (!Directory.Exists(tree))
         {
@@ -216,12 +250,39 @@ public class RealPathScopedWiringTests
 
         try
         {
-            await GitAsync(tree, secret, "push", "origin", "--delete", branch);
+            var url = ((PathScopedGitVcsAdapter)reader).CloneUrlFor(target);
+            await GitAsync(tree, secret, "push", url, "--delete", $"refs/heads/{branch}");
         }
         catch (InvalidOperationException error)
         {
             Console.WriteLine($"[cleanup] branch {branch} was not deleted: {error.Message}");
         }
+    }
+
+    /// <summary>Runs git and returns its output, for the checks rather than the acts.</summary>
+    private static async Task<string> GitOutputAsync(
+        string directory, string secret, params string[] arguments)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo("git")
+        {
+            WorkingDirectory = directory,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            Environment = { ["GIT_TERMINAL_PROMPT"] = "0" },
+        };
+        info.ArgumentList.Add("-c");
+        info.ArgumentList.Add(
+            $"credential.helper=!f() {{ echo username=x-access-token; echo password={secret}; }}; f");
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        using var git = System.Diagnostics.Process.Start(info)!;
+        var output = await git.StandardOutput.ReadToEndAsync();
+        await git.WaitForExitAsync();
+
+        return output;
     }
 
     private static async Task GitAsync(string directory, string secret, params string[] arguments)

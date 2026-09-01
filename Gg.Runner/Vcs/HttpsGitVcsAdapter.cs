@@ -132,9 +132,9 @@ public static class VcsConfiguration
     /// <summary>The adapters this environment describes.</summary>
     /// <param name="adapterFor">
     /// How to build an adapter for a provider key, given its host and the
-    /// capabilities its declaration implies. Defaults to
-    /// <see cref="HttpsGitVcsAdapter"/>, which is what every configured runner
-    /// gets.
+    /// capabilities its declaration implies. Omitted, the DECLARATION chooses:
+    /// <see cref="PathScopedGitVcsAdapter"/> for a host declared
+    /// <c>!pathscoped</c>, <see cref="HttpsGitVcsAdapter"/> otherwise.
     /// <para>
     /// <b>The mirror of the destination side's seam, and it exists for a
     /// measured reason.</b> Another provider rejects the <c>.git</c> suffix this
@@ -142,14 +142,19 @@ public static class VcsConfiguration
     /// differently is a second adapter — and until this parameter, such an
     /// adapter could be dispatched to and never registered.
     /// </para>
+    /// <para>
+    /// <b>And then the parameter was passed only from tests.</b> Which is the
+    /// same bug one layer up, so the choice moved into the default where
+    /// <c>Gg.Cli</c> reaches it. A path-scoped adapter declares its own
+    /// capabilities and ignores the ones computed here, which is why
+    /// <c>!nopr</c> beside <c>!pathscoped</c> is redundant rather than
+    /// contradictory — that forge never serves base heads.
+    /// </para>
     /// </param>
     public static IReadOnlyList<IVcsAdapter> FromEnvironment(
         string? declaration = null,
         Func<string, string, VcsCapabilities, IVcsAdapter>? adapterFor = null)
     {
-        adapterFor ??= static (provider, host, capabilities) =>
-            new HttpsGitVcsAdapter(provider, host, capabilities);
-
         var raw = declaration ?? Environment.GetEnvironmentVariable(HostsVariable) ?? "";
         var adapters = new List<IVcsAdapter>();
 
@@ -169,7 +174,19 @@ public static class VcsConfiguration
 
             var servesPullRequests = declared.ServesPullRequestHeads;
 
-            adapters.Add(adapterFor(declared.Key, declared.Host, new VcsCapabilities
+            // THE DECLARATION CHOOSES, and it chooses in the DEFAULT rather than
+            // in the caller. Gg.Cli calls this without a factory, so putting the
+            // choice here is what finally reaches the second adapter; putting it
+            // in the CLI would name a forge in this binary, which is the one
+            // thing PathScopedGitVcsAdapter says must not happen. The parameter
+            // stays exactly what its own documentation says it is - a way for a
+            // test to substitute.
+            var build = adapterFor ?? (declared.IsPathScoped
+                ? static (provider, host, _) => (IVcsAdapter)new PathScopedGitVcsAdapter(provider, host)
+                : static (provider, host, capabilities) =>
+                    new HttpsGitVcsAdapter(provider, host, capabilities));
+
+            adapters.Add(build(declared.Key, declared.Host, new VcsCapabilities
             {
                 PullRequestHeadsFromBase = servesPullRequests,
                 RefScheme = servesPullRequests

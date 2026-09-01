@@ -191,14 +191,22 @@ public static class DestinationConfiguration
     /// </remarks>
     /// <param name="adapterFor">
     /// How to build an adapter for a provider key, given its git host and its
-    /// api client. Defaults to <see cref="HttpsDestinationAdapter"/>, which is
-    /// what every runner anybody has configured gets.
+    /// api client. Omitted, the DECLARATION chooses:
+    /// <see cref="RefNamedDestinationAdapter"/> for a host declared
+    /// <c>!pathscoped</c>, <see cref="HttpsDestinationAdapter"/> otherwise.
     /// <para>
     /// <b>The seam exists because the limit was already written down.</b>
     /// <c>HttpsDestinationAdapter</c> says its path shapes are <i>one
     /// convention</i> and that a provider spelling them differently is a second
     /// adapter — and until this parameter, such an adapter could be dispatched
     /// to and never REGISTERED, because this method named the class it built.
+    /// </para>
+    /// <para>
+    /// <b>Then the parameter was never passed outside a test, which is the same
+    /// bug one layer up.</b> So the choice moved into the default, where the
+    /// caller that matters reaches it: <c>Gg.Cli</c> calls this without a
+    /// factory. This parameter is now what it always claimed to be — a way for
+    /// a test to substitute — rather than the only route to half the adapters.
     /// </para>
     /// </param>
     public static IReadOnlyList<IDestinationAdapter> FromEnvironment(
@@ -208,9 +216,6 @@ public static class DestinationConfiguration
         Func<string, string, HttpClient, IDestinationAdapter>? adapterFor = null)
     {
         ArgumentNullException.ThrowIfNull(clientFor);
-
-        adapterFor ??= static (provider, host, client) =>
-            new HttpsDestinationAdapter(provider, host, client);
 
         var declared = apis ?? Environment.GetEnvironmentVariable(ApisVariable) ?? "";
         var known = ParseHosts(
@@ -228,7 +233,17 @@ public static class DestinationConfiguration
                   + "so a destination needs both. Declare the host, or remove the destination.");
             }
 
-            adapters.Add(adapterFor(key, host.Host, clientFor(api)));
+            // THE SAME DECLARATION, on the other side of it. One forge's
+            // spelling differs in two places - the clone url it takes and the
+            // proposal it accepts - and both belong to one fact. A deployment
+            // made to state that fact twice would eventually state it once.
+            var build = adapterFor ?? (host.IsPathScoped
+                ? static (provider, forgeHost, client) =>
+                    (IDestinationAdapter)new RefNamedDestinationAdapter(provider, forgeHost, client)
+                : static (provider, forgeHost, client) =>
+                    new HttpsDestinationAdapter(provider, forgeHost, client));
+
+            adapters.Add(build(key, host.Host, clientFor(api)));
         }
 
         return adapters;

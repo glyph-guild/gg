@@ -213,9 +213,8 @@ public static class DestinationConfiguration
             new HttpsDestinationAdapter(provider, host, client);
 
         var declared = apis ?? Environment.GetEnvironmentVariable(ApisVariable) ?? "";
-        var known = Parse(
-            hosts ?? Environment.GetEnvironmentVariable(VcsConfiguration.HostsVariable) ?? "",
-            VcsConfiguration.HostsVariable);
+        var known = ParseHosts(
+            hosts ?? Environment.GetEnvironmentVariable(VcsConfiguration.HostsVariable) ?? "");
 
         var adapters = new List<IDestinationAdapter>();
 
@@ -229,12 +228,15 @@ public static class DestinationConfiguration
                   + "so a destination needs both. Declare the host, or remove the destination.");
             }
 
-            adapters.Add(adapterFor(key, host, clientFor(api)));
+            adapters.Add(adapterFor(key, host.Host, clientFor(api)));
         }
 
         return adapters;
     }
 
+    /// <summary>
+    /// The api declaration, whose values are urls and carry no suffixes.
+    /// </summary>
     private static Dictionary<string, string> Parse(string raw, string variable)
     {
         var parsed = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -248,15 +250,24 @@ public static class DestinationConfiguration
                     $"{variable} entry '{entry}' is not key=value.");
             }
 
-            var value = parts[1].EndsWith(VcsConfiguration.NoPullRequestHeads, StringComparison.Ordinal)
-                ? parts[1][..^VcsConfiguration.NoPullRequestHeads.Length]
-                : parts[1];
-
-            parsed[parts[0]] = value;
+            parsed[parts[0]] = parts[1];
         }
 
         return parsed;
     }
+
+    /// <summary>
+    /// The host declaration, parsed by the type that owns its spelling.
+    /// </summary>
+    /// <remarks>
+    /// This used to be the same method as <see cref="Parse"/>, with its own copy
+    /// of the suffix stripping. Sharing one parser with the reading side is what
+    /// stops a suffix understood there from reaching a url from here.
+    /// </remarks>
+    private static Dictionary<string, HostDeclaration> ParseHosts(string raw) =>
+        HostDeclaration
+            .ParseAll(raw, VcsConfiguration.HostsVariable)
+            .ToDictionary(declared => declared.Key, StringComparer.Ordinal);
 }
 
 /// <summary>

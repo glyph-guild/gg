@@ -105,7 +105,10 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
 /// <para>
 /// <c>GG_VCS_HOSTS</c> is a comma-separated list of <c>key=host</c>, optionally
 /// suffixed <c>!nopr</c> for a forge that does not publish pull-request heads
-/// on the base. The key <c>local</c> takes a filesystem ROOT rather than a
+/// on the base, and <c>!pathscoped</c> for one that scopes repositories by path.
+/// The suffixes are parsed by <see cref="HostDeclaration"/>, which is shared
+/// with the landing side because both read this variable. The key <c>local</c>
+/// takes a filesystem ROOT rather than a
 /// host, and clones only from inside it. Absent entirely means this runner
 /// serves no provider -
 /// which is an honest state for a runner nobody has configured, and produces a
@@ -118,7 +121,13 @@ public static class VcsConfiguration
     public const string HostsVariable = "GG_VCS_HOSTS";
 
     /// <summary>Suffix on a host declaring that pull-request heads are NOT served from the base.</summary>
-    public const string NoPullRequestHeads = "!nopr";
+    /// <remarks>
+    /// The declaration itself moved to <see cref="HostDeclaration"/>, where both
+    /// readers of this variable share one parser. This stays because it is the
+    /// spelling anybody configuring a runner already knows, and a public binary
+    /// does not rename what a deployment depends on to tidy a namespace.
+    /// </remarks>
+    public const string NoPullRequestHeads = HostDeclaration.NoPullRequestHeads;
 
     /// <summary>The adapters this environment describes.</summary>
     /// <param name="adapterFor">
@@ -144,34 +153,23 @@ public static class VcsConfiguration
         var raw = declaration ?? Environment.GetEnvironmentVariable(HostsVariable) ?? "";
         var adapters = new List<IVcsAdapter>();
 
-        foreach (var entry in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        // ONE PARSER, shared with the landing side. Both read this variable, and
+        // each used to strip suffixes with its own copy of the same lines - which
+        // held for exactly as long as there was one suffix.
+        foreach (var declared in HostDeclaration.ParseAll(raw, HostsVariable))
         {
-            var parts = entry.Split('=', 2);
-            if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0)
-            {
-                // Article XI. A malformed entry is not silently skipped: a
-                // runner that quietly serves fewer providers than somebody
-                // configured fails much later, on one flight, for a reason
-                // nothing connects back to a typo in a variable.
-                throw new InvalidOperationException(
-                    $"{HostsVariable} entry '{entry}' is not key=host. Expected a comma-separated list "
-                  + $"like 'forge=forge.example.com', with '{NoPullRequestHeads}' appended to a host "
-                  + "that does not publish pull-request heads on the base repository.");
-            }
-
-            var servesPullRequests = !parts[1].EndsWith(NoPullRequestHeads, StringComparison.Ordinal);
-            var host = servesPullRequests ? parts[1] : parts[1][..^NoPullRequestHeads.Length];
-
             // The filesystem provider takes a ROOT rather than a host, and
             // bounds itself to it. Same variable because it is the same
             // question - which providers does this runner serve, and where.
-            if (parts[0] == LocalVcsAdapter.ProviderKey)
+            if (declared.Key == LocalVcsAdapter.ProviderKey)
             {
-                adapters.Add(new LocalVcsAdapter(host));
+                adapters.Add(new LocalVcsAdapter(declared.Host));
                 continue;
             }
 
-            adapters.Add(adapterFor(parts[0], host, new VcsCapabilities
+            var servesPullRequests = declared.ServesPullRequestHeads;
+
+            adapters.Add(adapterFor(declared.Key, declared.Host, new VcsCapabilities
             {
                 PullRequestHeadsFromBase = servesPullRequests,
                 RefScheme = servesPullRequests

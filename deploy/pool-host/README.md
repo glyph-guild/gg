@@ -51,9 +51,18 @@ says so on the console.
 
 1. Docker, as root. Not a `gg` user that may talk to it — see above.
 2. `docker compose up -d` in this directory.
-3. Put `gg` at `/usr/local/bin/gg`. There is no published release asset to
-   download: `dotnet publish Gg.Cli -c Release -r linux-x64` is what CI proves
-   runs, and it is what cloud-init does on the machine.
+3. Put `gg` at `/usr/local/bin/gg`. Each release now carries a native binary,
+   so this is a download rather than a build:
+
+   ```sh
+   curl -fsSL https://github.com/glyph-guild/gg/releases/latest/download/gg-linux-x64.tar.gz | tar xz
+   sudo install -m 0755 gg /usr/local/bin/gg
+   ```
+
+   **`cloud-init.yaml` still builds from source**, and that is not an oversight:
+   it cannot be changed to download an asset until a release carrying one
+   exists. Once one does, the SDK, the platform linker and the multi-minute
+   build all come out of it.
 4. **A person signs in on the machine:** `gg login`. This is a device flow —
    the person approves in their own browser, and the session lands here.
 5. Set `GG_POOL` **and `GG_CONTROL_PLANE`** in the unit file, then `systemctl

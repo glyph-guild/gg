@@ -1,0 +1,135 @@
+name: Publish gg
+
+on:
+  push:
+    branches: [main]
+
+# TWO ARTIFACTS FROM ONE RELEASE, because they serve different machines.
+#
+# The .nupkg is a .NET tool: `dotnet tool install -g` for anyone who already
+# has the SDK. The native binaries need nothing at all - no runtime, no SDK, no
+# compiler - which is what a pool host has, and why provisioning should use
+# them rather than cloning and building.
+#
+# Nothing is pushed to nuget.org. No account exists, and the release asset is
+# the same channel Gg.Contracts already uses. The consequence, said plainly so
+# nobody hunts for it: `dotnet tool install --add-source` wants a FEED, not a
+# file URL, so installing the tool means downloading the .nupkg first. The
+# binaries are the easy path; the README says so.
+
+jobs:
+  pack:
+    name: pack the tool
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # Read rather than computed, exactly as publish-contracts.yml does. The
+      # number lives in Directory.Build.props and every project inherits it -
+      # "one install, one executable, one version". Bumping it is what makes a
+      # release happen; nothing here derives a version from the commit count.
+      - name: Read the declared version
+        id: version
+        run: |
+          version="$(dotnet msbuild Gg.Cli/Gg.Cli.csproj -getProperty:Version -nologo | tr -d '[:space:]')"
+          echo "gg version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # -p:PublishAot=false at PACK TIME ONLY. A tool package is IL; the
+      # project stays AOT for every other command, including ci.yml's aot job
+      # and the binaries job below. PackagingTests holds that property in the
+      # project so this stays an exception rather than becoming the default.
+      - run: dotnet pack Gg.Cli -c Release -p:PublishAot=false -o artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tool-package
+          path: artifacts/*.nupkg
+
+  binaries:
+    name: ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # AOT CANNOT CROSS-COMPILE: each runtime identifier needs a runner of
+          # that platform. Both are free on a public repository. win-x64 on
+          # windows-latest is one entry away if it is ever wanted.
+          - { os: ubuntu-latest, rid: linux-x64 }
+          - { os: macos-latest, rid: osx-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: AOT-publish gg
+        run: dotnet publish Gg.Cli -c Release -r ${{ matrix.rid }} -o out
+      - name: The published binary actually runs
+        run: ./out/gg --version
+      # Named by platform, because a release carrying two files called `gg`
+      # helps nobody.
+      - name: Name it after the platform it runs on
+        run: |
+          mkdir -p artifacts
+          tar -czf "artifacts/gg-${{ matrix.rid }}.tar.gz" -C out gg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.rid }}
+          path: artifacts/*.tar.gz
+
+  release:
+    name: attach everything to one release
+    needs: [pack, binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      # The only permission needed, and no secret at all - which is the whole
+      # benefit of publishing as a release asset rather than to a registry.
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: incoming
+      - name: Attach the tool and the binaries to a public Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: |
+          tag="v$VERSION"
+
+          # Most pushes to main do not bump the version, so most runs land here
+          # with one that already shipped. Skipping is correct: a published
+          # version is immutable, and re-uploading its assets would churn the
+          # timestamp on files people have pinned or scripted against.
+          #
+          # The failure mode this creates is worth naming: forgetting to bump
+          # VersionPrefix means a release that silently does not happen. The
+          # log line below is the only place that says so.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already published - VersionPrefix has not moved, so nothing to release."
+            exit 0
+          fi
+
+          gh release create "$tag" incoming/*/* \
+            --title "gg $VERSION" \
+            --notes "## Install
+
+          **A machine with no .NET installed** - a pool host, a CI runner, a laptop:
+
+          \`\`\`sh
+          curl -fsSL https://github.com/glyph-guild/gg/releases/download/$tag/gg-linux-x64.tar.gz | tar xz
+          sudo install -m 0755 gg /usr/local/bin/gg
+          \`\`\`
+
+          Swap \`linux-x64\` for \`osx-arm64\` on an Apple-silicon Mac.
+
+          **As a .NET tool**, if you already have the SDK. \`--add-source\` needs a directory rather than a URL, so the package is downloaded first:
+
+          \`\`\`sh
+          curl -fsSL -O https://github.com/glyph-guild/gg/releases/download/$tag/GlyphGuild.Gg.Cli.$VERSION.nupkg
+          dotnet tool install -g --add-source . GlyphGuild.Gg.Cli
+          \`\`\`
+
+          Either way the command is \`gg\`."

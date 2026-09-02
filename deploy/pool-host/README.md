@@ -29,16 +29,25 @@ from the proxy means one thing: something reached outside the scope.
 5. Set `GG_POOL` in the unit file, then `systemctl enable --now
    gg-runner-maintain`.
 
-## What this deliberately does not do
+## A person is needed once a month, and only then
 
-**It does not provision itself.** Step 4 is a person, and that is the design
-rather than a gap: `gg runner maintain` refuses without a session because
-*registering a runner is a person's action*. A host is provisioned once by
-somebody; it is not a thing that scales itself up.
+**Step 4 is a person, and after it the host restarts on its own.** The runner
+keeps its own credential at `~/.config/good-grief/runner.json`, owner-only, and
+reuses it — so a reboot needs nobody.
 
-Making it automatic means deciding whether a session token — a bearer with a
-person's authority — may live at rest on a machine. **That decision has not
-been taken, and this does not take it quietly.**
+**The credential at rest is the RUNNER's, not the person's**, and the reason is
+arithmetic rather than taste: a session lasts twelve hours and a runner token
+thirty days, while `gg runner maintain` registers on every start. A host
+holding a session would fail to restart after half a day, with nobody at it.
+`RunnerRegistry` designed that separation — *"the runner's lifetime is its
+own"* — and keeping the runner's token preserves it where keeping a session
+would discard it and hold the wider authority besides.
+
+**At thirty days a person signs in again.** Nothing renews a runner token: the
+protocol's renew is for a *lease*. That is a cadence rather than a bug, and the
+refusal names it so it does not read like a broken machine. Making it fully
+unattended would need a renewal path — a contract change and a different
+security posture, not a thing to decide inside provisioning.
 
 **It carries no credential.** The PAT a runner uses to reach a repository is
 `local`: a file on the machine, which the control plane never sees. It is

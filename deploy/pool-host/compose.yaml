@@ -1,0 +1,27 @@
+# The scope-enforcing proxy, and the ONLY thing on this machine that sees the
+# Docker socket.
+#
+# The socket is host root: anything that reaches it can start a privileged
+# container and own the machine. That is why the resident runner is pointed at
+# this proxy and never at the socket - and why nothing else here mounts it.
+# PoolHostTests holds that: exactly one artefact may name the socket, and it is
+# this one.
+services:
+  pool-proxy:
+    image: nginx:1.27
+    container_name: gg-pool-proxy
+    restart: unless-stopped
+    # LOOPBACK ONLY. The proxy refuses out-of-scope reaches, but it does not
+    # authenticate - anything that can reach the port can do everything the
+    # pool is allowed to do. Binding it to the host's loopback is what keeps
+    # "allowed to act on the pool" and "reachable from the network" apart.
+    ports:
+      - "127.0.0.1:23750:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # THE CONFIG IS REFERENCED, NEVER COPIED. A second copy beside this file
+      # would be a second place the allowlist lives, and the prefix it names is
+      # already one half of a contract with the runner - PoolPrefixTests
+      # compares that file against PoolNaming. Two copies is how the halves
+      # start disagreeing.
+      - ../../scripts/pool-proxy/nginx.conf:/etc/nginx/nginx.conf:ro

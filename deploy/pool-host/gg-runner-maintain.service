@@ -1,0 +1,26 @@
+# The resident runner, as a service rather than a terminal somebody left open.
+#
+# It does NOT start until a person has signed in on this machine. That is
+# deliberate: `gg runner maintain` refuses without a session, and its own words
+# are "Registering a runner is a person's action". A pool host is provisioned
+# once by a person; it is not a thing that scales itself up.
+[Unit]
+Description=Good Grief resident runner (pool maintenance)
+After=docker.service
+Requires=docker.service
+
+[Service]
+User=gg
+# THE PROXY, NEVER THE SOCKET. Unset is refused loudly by the runner itself;
+# what nothing else refuses is a value naming the socket, so it is written
+# here once, correctly, and PoolHostTests holds it that way.
+Environment=GG_POOL_ENDPOINT=http://127.0.0.1:23750
+# The pool this host maintains. Every pool carries the reserved prefix,
+# because the proxy allows creating a member only under it - see PoolNaming.
+Environment=GG_POOL=gg-pool-CHANGEME
+ExecStart=/usr/local/bin/gg runner maintain ${GG_POOL}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

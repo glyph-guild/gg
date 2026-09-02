@@ -110,6 +110,28 @@ public class PoolHostTests
                    + "through the variable that was supposed to prevent it.");
     }
 
+    [Test]
+    public async Task The_host_is_told_which_control_plane_it_answers_to()
+    {
+        // GG_CONTROL_PLANE falls back to http://localhost:5199 - a laptop
+        // default, and the right one there. A provisioned host inherits it
+        // silently: nothing is unset, nothing is refused, and the machine
+        // answers to itself. Same shape as the endpoint above, one variable
+        // over: it does not fail, it succeeds against the wrong thing.
+        var addresses = Artefacts()
+            .SelectMany(f => File.ReadAllLines(Host(f)))
+            .Where(l => l.Contains("GG_CONTROL_PLANE", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(addresses).IsNotEmpty()
+            .Because("a host that is never told the control plane does not refuse - it falls back "
+                   + "to localhost and looks configured while answering to itself.");
+        await Assert.That(addresses.Where(l => l.Contains("localhost", StringComparison.Ordinal)))
+            .IsEmpty()
+            .Because("the fallback written down explicitly is the fallback shipped, and a pool "
+                   + "host is by definition not the machine the control plane runs on.");
+    }
+
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

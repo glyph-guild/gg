@@ -62,12 +62,19 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     internal int HeartbeatSeconds { get; set; } = 1;
 
+    /// <summary>The labels each heartbeat carried, in order.</summary>
+    internal List<string[]> HeartbeatLabels { get; } = [];
+
     private void Record<T>(T body) => Serialized.Add(JsonSerializer.Serialize(body, JsonSerializerOptions.Web));
 
     public Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
     {
         Calls.Add("heartbeat");
+        // RECORDED SEPARATELY from Serialized, because the claim body carries
+        // labels too - an assertion over everything sent passes on the claim
+        // and says nothing about the heartbeat.
+        HeartbeatLabels.Add([.. labels]);
         Record(new RunnerHeartbeat { Labels = labels });
         return Task.FromResult(new HeartbeatAccepted { NextHeartbeatSeconds = HeartbeatSeconds });
     }

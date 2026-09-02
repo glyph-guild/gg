@@ -191,6 +191,37 @@ public sealed class RunnerLoop(
     public TimeSpan HoldFor { get; init; } = TimeSpan.FromSeconds(10);
 
     private readonly IRunnerProtocol _protocol = protocol;
+
+    /// <summary>When this runner next owes the control plane a heartbeat.</summary>
+    /// <remarks>
+    /// <b>Idle is the state that matters.</b> The beat used to be sent only from
+    /// <c>HoldAsync</c>, so a runner reported being alive exactly while it was
+    /// busy. Status is derived control-plane-side from heartbeat age, so an idle
+    /// runner decayed to offline while polling happily - and a capability-gated
+    /// flight is only offered to a live runner, which it then never became.
+    /// </remarks>
+    private DateTimeOffset _nextBeatDue = DateTimeOffset.MinValue;
+
+    /// <summary>Says this process is alive, no more often than asked.</summary>
+    /// <remarks>
+    /// The interval is the control plane's, read from its own answer, never a
+    /// constant here - it is derived from the staleness threshold and only that
+    /// side knows it. Called from the idle loop AND from inside the claim's long
+    /// poll, because the poll blocks for longer than the interval: beating only
+    /// between polls would drift toward stale on a runner that is working
+    /// correctly.
+    /// </remarks>
+    private async Task BeatIfDueAsync(
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        if (_clock.UtcNow < _nextBeatDue)
+        {
+            return;
+        }
+
+        var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
+        _nextBeatDue = _clock.UtcNow + TimeSpan.FromSeconds(beat.NextHeartbeatSeconds);
+    }
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
     private readonly IRunnerObserver _observer = observer;
@@ -239,6 +270,11 @@ public sealed class RunnerLoop(
         {
             while (!cancellationToken.IsCancellationRequested && !_boundBroke)
             {
+
+                // BEFORE asking, so a runner that never gets work still reports
+                // being alive. This is the call whose absence made an idle
+                // runner invisible.
+                await BeatIfDueAsync(runnerId, labels, cancellationToken);
 
                 var claim = await AskForWorkAsync(runnerId, labels, cancellationToken);
                 if (claim is not ClaimResult.Granted(var lease))
@@ -407,6 +443,10 @@ public sealed class RunnerLoop(
         while (!cancellationToken.IsCancellationRequested && _clock.UtcNow < giveUpAt)
         {
             await _delay(accepted.PollAfter, cancellationToken);
+
+            // The long poll runs longer than the heartbeat interval, so a beat
+            // owed during the wait is owed here rather than after it.
+            await BeatIfDueAsync(runnerId, labels, cancellationToken);
 
             latest = await _protocol.ReadClaimAsync(accepted.RequestId, cancellationToken);
 

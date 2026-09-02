@@ -39,6 +39,12 @@ public sealed class MaintainLoop(
     /// <summary>Runs until cancelled. 0 is a session that ended; 69 is a bound that broke.</summary>
     public async Task<int> RunAsync(string pool, CancellationToken cancellationToken)
     {
+        // BEFORE ANYTHING IS ASKED OF THE PROXY. A pool that cannot pass its
+        // create rule would be refused with a 403 - which is exactly what a
+        // correct out-of-scope refusal looks like, and what ProbeScopeAsync
+        // treats as proof the bound holds. Refusing here keeps those two apart.
+        pool = PoolNaming.Require(pool);
+
         var probe = await _adapter.ProbeScopeAsync(cancellationToken);
         if (!probe.Held)
         {

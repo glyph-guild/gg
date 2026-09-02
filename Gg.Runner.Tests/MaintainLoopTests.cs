@@ -138,7 +138,7 @@ public class MaintainLoopTests
         // deadlocks at birth. Found live, by the walk.
         var (loop, _, protocol, stop) = Rig(cyclesBeforeStop: 1);
 
-        _ = await loop.RunAsync("payments-pool", stop.Token);
+        _ = await loop.RunAsync("gg-pool-payments", stop.Token);
 
         var announced = protocol.Attested.Single(a =>
             a.Action == PoolActions.Verify && a.Outcome == PoolOutcomes.Verified);
@@ -152,14 +152,14 @@ public class MaintainLoopTests
     public async Task The_session_probes_once_and_stamps_every_attestation()
     {
         var (loop, adapter, protocol, stop) = Rig(cyclesBeforeStop: 2);
-        adapter.Verifications["payments-pool-1"] = new PoolObservation
+        adapter.Verifications["gg-pool-payments-1"] = new PoolObservation
         {
             Outcome = PoolOutcomes.Verified,
             ImageDigest = "sha256:abc",
             Provenance = EnvironmentProvenance.Reused,
         };
 
-        var exit = await loop.RunAsync("payments-pool", stop.Token);
+        var exit = await loop.RunAsync("gg-pool-payments", stop.Token);
 
         await Assert.That(exit).IsEqualTo(0);
         await Assert.That(adapter.Calls.Count(c => c == "probe")).IsEqualTo(1)
@@ -177,19 +177,19 @@ public class MaintainLoopTests
     public async Task Verified_and_failed_both_cross_with_their_shapes()
     {
         var (loop, adapter, protocol, stop) = Rig();
-        adapter.Verifications["payments-pool-1"] = new PoolObservation
+        adapter.Verifications["gg-pool-payments-1"] = new PoolObservation
         {
             Outcome = PoolOutcomes.Verified,
             ImageDigest = "sha256:abc",
             Provenance = EnvironmentProvenance.Reused,
         };
-        adapter.Verifications["payments-pool-2"] = new PoolObservation
+        adapter.Verifications["gg-pool-payments-2"] = new PoolObservation
         {
             Outcome = PoolOutcomes.Failed,
             Diagnosis = "container exists and will not start: exit 127 at boot",
         };
 
-        _ = await loop.RunAsync("payments-pool", stop.Token);
+        _ = await loop.RunAsync("gg-pool-payments", stop.Token);
 
         var verified = protocol.Attested.Single(a => a.Outcome == PoolOutcomes.Verified);
         await Assert.That(verified.ImageDigest).IsEqualTo("sha256:abc");
@@ -210,7 +210,7 @@ public class MaintainLoopTests
             new PoolAction
             {
                 ActionId = actionId,
-                Pool = "payments-pool",
+                Pool = "gg-pool-payments",
                 Action = PoolActions.Refresh,
                 Image = "busybox@sha256:abc",
                 StrategyVersion = "payments-pool@v1",
@@ -218,9 +218,9 @@ public class MaintainLoopTests
             },
         ]);
 
-        _ = await loop.RunAsync("payments-pool", stop.Token);
+        _ = await loop.RunAsync("gg-pool-payments", stop.Token);
 
-        await Assert.That(adapter.Calls).Contains("refresh:payments-pool-1:busybox@sha256:abc")
+        await Assert.That(adapter.Calls).Contains("refresh:gg-pool-payments-1:busybox@sha256:abc")
             .Because("the member name derives from the pool and the image from the action "
                    + "row - current policy, stamped at serve time.");
         var answered = protocol.Attested.Single(a => a.ActionId == actionId);
@@ -238,7 +238,7 @@ public class MaintainLoopTests
             new PoolAction
             {
                 ActionId = actionId,
-                Pool = "payments-pool",
+                Pool = "gg-pool-payments",
                 Action = PoolActions.Reset,
                 Image = null,
                 StrategyVersion = "payments-pool@v1",
@@ -246,7 +246,7 @@ public class MaintainLoopTests
             },
         ]);
 
-        _ = await loop.RunAsync("payments-pool", stop.Token);
+        _ = await loop.RunAsync("gg-pool-payments", stop.Token);
 
         await Assert.That(adapter.Calls.Any(c => c.StartsWith("reset:"))).IsFalse()
             .Because("a reset converges on an image; without one there is nothing to "
@@ -267,12 +267,12 @@ public class MaintainLoopTests
             ProbedAt = DateTimeOffset.Parse("2026-08-25T10:00:00Z"),
             Diagnosis = "the reach outside the pool prefix was ALLOWED: GET answered 200",
         };
-        adapter.Verifications["payments-pool-1"] = new PoolObservation
+        adapter.Verifications["gg-pool-payments-1"] = new PoolObservation
         {
             Outcome = PoolOutcomes.Verified,
         };
 
-        var exit = await loop.RunAsync("payments-pool", stop.Token);
+        var exit = await loop.RunAsync("gg-pool-payments", stop.Token);
 
         await Assert.That(exit).IsEqualTo(69)
             .Because("the bound is the precondition: a session that cannot prove its "
@@ -292,12 +292,12 @@ public class MaintainLoopTests
     public async Task Attestation_ids_are_unique_and_version_seven()
     {
         var (loop, adapter, protocol, stop) = Rig(cyclesBeforeStop: 3);
-        adapter.Verifications["payments-pool-1"] = new PoolObservation
+        adapter.Verifications["gg-pool-payments-1"] = new PoolObservation
         {
             Outcome = PoolOutcomes.Verified,
         };
 
-        _ = await loop.RunAsync("payments-pool", stop.Token);
+        _ = await loop.RunAsync("gg-pool-payments", stop.Token);
 
         await Assert.That(protocol.Attested.Select(a => a.AttestationId).Distinct().Count())
             .IsEqualTo(protocol.Attested.Count)

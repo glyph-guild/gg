@@ -3,7 +3,37 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>gg</AssemblyName>
+
+    <!-- NATIVE BY DEFAULT, and packing is the exception rather than the rule.
+
+         A tool package is IL and needs the .NET runtime; a Native AOT binary
+         needs nothing at all, which is what a pool host installs. The two
+         cannot both apply to one invocation, so the release workflow passes
+         -p:PublishAot=false at PACK time only, and every other command -
+         including CI's aot job - keeps behaving exactly as it did.
+
+         Removing this to make packing simpler would quietly turn the release
+         binary into something that requires a runtime, and the only visible
+         sign would be a smaller asset. PackagingTests holds it. -->
     <PublishAot>true</PublishAot>
+
+    <!-- INSTALLABLE, at last. Everything below mirrors Gg.Contracts.csproj,
+         which is the one project here that already produces a package.
+
+         The id is NOT `gg` - that one belongs to somebody else on nuget.org.
+         ToolCommandName is what a person actually types, and it stays `gg`,
+         so every script, doc and systemd unit in both repositories is
+         unaffected by the id we had to settle for. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>gg</ToolCommandName>
+    <PackageId>GlyphGuild.Gg.Cli</PackageId>
+    <Description>The Good Grief CLI: console, runner and pool host in one command.</Description>
+
+    <!-- Required rather than decorative. TreatWarningsAsErrors is repo-wide and
+         a pack with no licence raises NU5125, so without this the package does
+         not build at all. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

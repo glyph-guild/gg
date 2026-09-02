@@ -601,11 +601,13 @@ static async Task<int> RunnerMaintainAsync(string pool)
 {
     var baseAddress = ControlPlaneAddress();
 
-    var session = new FileSessionStore().Read();
-    if (session is null)
-    {
-        return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
-    }
+    // THE RUNNER'S OWN CREDENTIAL FIRST. A session lasts twelve hours and a
+    // runner token thirty days, and this registers on every start - so a host
+    // that could only present a session would fail to restart after half a day,
+    // on a machine with nobody at it. RunnerRegistry designed the separation
+    // for exactly this: "the runner's lifetime is its own."
+    var runners = new FileRunnerStore();
+    var held = runners.Usable(DateTimeOffset.UtcNow);
 
     // The scope-enforcing proxy, or nothing. A resident runner with no
     // endpoint is not a resident, and guessing a socket path here would be
@@ -618,13 +620,48 @@ static async Task<int> RunnerMaintainAsync(string pool)
     }
 
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
-    var registered = await new ControlPlaneClient(http)
-        .RegisterRunnerAsync(session.SessionToken, Environment.MachineName + ":maintain");
+    string runnerToken;
+
+    if (held is not null)
+    {
+        // Unattended, for as long as its own credential lasts.
+        runnerToken = held.RunnerToken;
+    }
+    else
+    {
+        var signedIn = new FileSessionStore().Read();
+        if (signedIn is null)
+        {
+            // NAMES THE CADENCE. "Not signed in" on a host that ran yesterday
+            // reads like a broken machine rather than a credential reaching the
+            // end of its life. Nothing renews a runner token - the protocol's
+            // renew is for a LEASE - so this is a person's action every thirty
+            // days, by design.
+            return Fail(
+                "no usable runner credential, and not signed in. A pool host runs on its own "
+              + "runner token, which lasts thirty days and cannot be renewed - so a person signs "
+              + "in once to mint a new one: run `gg login`, then start this again. Registering a "
+              + "runner is a person's action.");
+        }
+
+        var registered = await new ControlPlaneClient(http)
+            .RegisterRunnerAsync(signedIn.SessionToken, Environment.MachineName + ":maintain");
+
+        // Kept so the next start needs nobody.
+        runners.Write(new StoredRunner
+        {
+            RunnerId = registered.RunnerId,
+            RunnerToken = registered.RunnerToken,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+        });
+
+        runnerToken = registered.RunnerToken;
+    }
 
     using var stopping = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
 
-    var protocol = new Gg.Runner.RunnerProtocolClient(http, registered.RunnerToken);
+    var protocol = new Gg.Runner.RunnerProtocolClient(http, runnerToken);
     var adapter = new Gg.Runner.Pools.DockerPoolAdapter(
         new HttpClient { BaseAddress = new Uri(configuration.Endpoint) });
 

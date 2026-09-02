@@ -96,6 +96,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.pack.outputs.version }}
+          # WHICH REPOSITORY, stated rather than inferred. This job downloads
+          # artifacts and never checks out, so there is no .git for `gh` to read
+          # a remote from - and its failure is "fatal: not a git repository",
+          # which reads like a broken checkout rather than a missing setting.
+          #
+          # The alternative is adding actions/checkout purely to satisfy gh,
+          # cloning a repository this job does not otherwise need.
+          GH_REPO: ${{ github.repository }}
         run: |
           tag="v$VERSION"
 

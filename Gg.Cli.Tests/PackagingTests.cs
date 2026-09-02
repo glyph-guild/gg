@@ -84,6 +84,46 @@ public class PackagingTests
                    + "overrides this per-invocation - it must not be removed from the project.");
     }
 
+    [Test]
+    public async Task This_repository_publishes_exactly_two_things()
+    {
+        // The five test projects already opt out. The three internal libraries
+        // do NOT, so `dotnet pack` at the root produces Gg.Client, Gg.Console
+        // and Gg.Runner packages beside the two intended ones.
+        //
+        // Nothing packs the root today, so this is latent rather than broken -
+        // but a published Gg.Client is a public API surface nobody designed,
+        // and the moment it exists somebody can depend on it. Named rather than
+        // counted, for the reason ContractsDependencyTests gives: "at most
+        // three" would let the next one in by swapping which.
+        var packable = Directory
+            .EnumerateFiles(RepoRoot(), "*.csproj", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(f => !string.Equals(
+                Property(XDocument.Load(f), "IsPackable"), "false", StringComparison.OrdinalIgnoreCase))
+            .Select(f => Path.GetFileNameWithoutExtension(f))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(packable).IsEquivalentTo((string[])["Gg.Cli", "Gg.Contracts"])
+            .Because("this repository publishes the CLI people install and the contract "
+                   + "consumers audit. Everything else is bundled inside the first and is not "
+                   + "an API anybody should be able to reference. Found: "
+                   + string.Join(", ", packable));
+    }
+
+    private static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Gg.sln")))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName
+            ?? throw new InvalidOperationException("Gg.sln not found above " + AppContext.BaseDirectory);
+    }
+
     private static string RepoFile(params string[] parts)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

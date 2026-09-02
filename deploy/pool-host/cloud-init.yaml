@@ -28,6 +28,18 @@ packages:
   - ca-certificates
   - curl
   - git
+  # THE PLATFORM LINKER, and it is not optional. This CLI is AOT-published
+  # below, and NativeAOT shells out to clang; a cloud image has no compiler at
+  # all. Without these the publish runs for minutes, compiles every project
+  # successfully, and dies on the final link with "Platform linker ('clang' or
+  # 'gcc') not found in PATH".
+  #
+  # CI cannot catch this: the hosted runner image ships them preinstalled, so
+  # the aot job proves the code AOT-publishes and says nothing about a machine
+  # provisioned from this file. Found by provisioning one.
+  - clang
+  - zlib1g-dev
+  - build-essential
 
 users:
   # `default` FIRST, and it is not decoration. A `users:` block REPLACES the

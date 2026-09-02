@@ -13,11 +13,36 @@ One language, one AOT binary:
   runner is treated as hostile by the rest of the design, and the OS is what
   keeps them apart.
 
-`Gg.Contracts` is the wire protocol, published to NuGet as
-`GlyphGuild.Gg.Contracts` (prerelease per commit, `0.1.0-alpha.N`). It has
-zero third-party package references — it is the artifact a customer audits —
-and every wire type carries a `[PinnedId]` and appears in the `Vocabulary`
-manifest. Both rules are enforced by tests.
+`Gg.Contracts` is the wire protocol, published as `GlyphGuild.Gg.Contracts` on
+each [release](https://github.com/glyph-guild/gg/releases). It declares its own
+version, which moves only when the wire surface does — so a consumer seeing the
+number change learns something. It carries one third-party package reference and
+no more (it is the artifact a customer audits), and every wire type carries a
+`[PinnedId]` and appears in the `Vocabulary` manifest. All three rules are
+enforced by tests.
+
+## Install
+
+**No .NET required** — a pool host, a CI runner, a laptop:
+
+```sh
+curl -fsSL https://github.com/glyph-guild/gg/releases/latest/download/gg-linux-x64.tar.gz | tar xz
+sudo install -m 0755 gg /usr/local/bin/gg
+gg --version
+```
+
+Swap `linux-x64` for `osx-arm64` on an Apple-silicon Mac.
+
+**As a .NET tool**, if you already have the SDK. `--add-source` takes a
+directory rather than a URL, so the package is downloaded first:
+
+```sh
+curl -fsSL -O https://github.com/glyph-guild/gg/releases/latest/download/GlyphGuild.Gg.Cli.0.1.0.nupkg
+dotnet tool install -g --add-source . GlyphGuild.Gg.Cli
+```
+
+Either way the command is `gg`. The package id is not `gg` because that one is
+taken on nuget.org; the command is unaffected.
 
 ## Build
 

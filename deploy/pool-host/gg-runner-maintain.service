@@ -15,6 +15,11 @@ User=gg
 # what nothing else refuses is a value naming the socket, so it is written
 # here once, correctly, and PoolHostTests holds it that way.
 Environment=GG_POOL_ENDPOINT=http://127.0.0.1:23750
+# WHICH CONTROL PLANE. Left unset, gg falls back to http://localhost:5199 -
+# the right default on a laptop, and on a pool host it means the machine
+# answers to itself while looking configured. Nothing refuses that, which is
+# why it is written here rather than left to a fallback.
+Environment=GG_CONTROL_PLANE=https://CHANGEME.example
 # The pool this host maintains. Every pool carries the reserved prefix,
 # because the proxy allows creating a member only under it - see PoolNaming.
 Environment=GG_POOL=gg-pool-CHANGEME

@@ -1,0 +1,115 @@
+#cloud-config
+#
+# A pool host, provisioned. Everything up to the point a person is required.
+#
+# WHAT THIS DELIBERATELY DOES NOT DO
+#
+# It does not put `gg` in the `docker` group. Nothing in this repository ever
+# opens the Docker socket - no source file names that path, sets DOCKER_HOST,
+# or runs the docker binary - so the runner reaches it as HTTP to the proxy and by
+# no other route. The membership would grant nothing the runner uses and return
+# everything the proxy exists to withhold, and it would be invisible in every
+# test about the control: the socket would still be mounted in exactly one
+# place. PoolProvisioningTests holds this file to it.
+#
+# It does not carry a credential. Cloud-init is readable from instance
+# metadata for the life of the machine - `curl` against the metadata service
+# returns this file - so a secret written here is a secret published to
+# anything that ever runs on the host. The PAT a runner uses to reach a
+# repository is placed out of band, after boot, by the machine's own identity.
+#
+# It does not start the runner. `gg runner maintain` refuses without a session,
+# in its own words: "Registering a runner is a person's action". Enabling the
+# unit here buys a restart every ten seconds until somebody signs in, and the
+# first real failure would be indistinguishable from that noise.
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+
+users:
+  # `default` FIRST, and it is not decoration. A `users:` block REPLACES the
+  # default list rather than adding to it, so omitting this drops the admin
+  # account the cloud's own provisioning created - and the remaining steps are
+  # a person signing in on the machine. The host would come up finished-looking
+  # and unreachable by the one who has to finish it.
+  - default
+  - name: gg
+    # NO `groups: docker`. See above - that is the whole control, and its
+    # absence here is the reason the proxy means anything.
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: false
+
+write_files:
+  # The per-host half of the unit, and the only file an operator edits. The
+  # unit itself is linked from the checkout rather than copied, so the endpoint
+  # and the reserved prefix keep living in one place.
+  - path: /etc/systemd/system/gg-runner-maintain.service.d/10-host.conf
+    permissions: '0644'
+    content: |
+      [Service]
+      # WHICH CONTROL PLANE. Unset, gg falls back to http://localhost:5199 -
+      # correct on a laptop, and on this machine it means the host answers to
+      # itself while looking configured. Nothing refuses it, so it is written.
+      Environment=GG_CONTROL_PLANE=https://REPLACE-ME.example
+      # WHICH POOL. Must carry the reserved prefix: the proxy allows creating a
+      # member only under it, and the runner refuses a pool that could not pass
+      # before it asks. See PoolNaming.
+      Environment=GG_POOL=gg-pool-REPLACE-ME
+
+runcmd:
+  # Docker, from its own repository. The daemon runs as root and stays that
+  # way; the only thing given its socket is the proxy, in compose.yaml.
+  - [sh, -c, 'curl -fsSL https://get.docker.com | sh']
+  - [systemctl, enable, --now, docker]
+
+  # The .NET SDK, to build the binary. There is no published gg release asset
+  # to curl - the only assets on this repository's releases are the contracts
+  # package - so the host builds what it runs.
+  - [sh, -c, 'curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh']
+  - [sh, -c, 'sh /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet']
+  - [ln, -sf, /usr/share/dotnet/dotnet, /usr/local/bin/dotnet]
+
+  # The repository, public and cloned without a credential. Everything below
+  # runs out of this checkout: the compose file resolves the proxy's config
+  # through its own relative path, and the unit is linked where it lies.
+  - [git, clone, --depth, '1', 'https://github.com/glyph-guild/gg', /opt/gg]
+
+  # The binary, self-contained and AOT-published - the same command CI proves
+  # runs on linux-x64. Published to a staging directory because the output
+  # carries more than the executable.
+  - [sh, -c, 'cd /opt/gg && dotnet publish Gg.Cli -c Release -r linux-x64 -o /opt/gg/.publish']
+  - [install, -m, '0755', /opt/gg/.publish/gg, /usr/local/bin/gg]
+
+  # The proxy. Brought up as root, which is why `gg` needs no access to Docker
+  # at all - the one thing that talks to the daemon on this machine is this
+  # command, and afterwards the container it started.
+  - [sh, -c, 'cd /opt/gg/deploy/pool-host && docker compose up -d']
+
+  # The unit, LINKED rather than copied, for the same reason compose.yaml
+  # references the proxy config instead of pasting it: GG_POOL_ENDPOINT and the
+  # reserved prefix are one half of a contract each, and a second copy is where
+  # the halves start disagreeing. The drop-in above supplies the rest.
+  - [systemctl, link, /opt/gg/deploy/pool-host/gg-runner-maintain.service]
+  - [systemctl, daemon-reload]
+
+  - [chown, '-R', 'gg:gg', /opt/gg]
+
+final_message: |
+  This host is provisioned and the runner is NOT running.
+
+  Two things remain, and the first is a person:
+
+    1. Edit /etc/systemd/system/gg-runner-maintain.service.d/10-host.conf -
+       both values say REPLACE-ME - then `systemctl daemon-reload`.
+
+    2. As the gg user: `gg login`. This is a device flow; the person
+       approves in their own browser. Then:
+       `systemctl enable --now gg-runner-maintain`.
+
+  After that sign-in the host restarts on its own for thirty days: the
+  runner keeps its own credential, not the person's. At thirty days a
+  person signs in again - nothing renews a runner token.

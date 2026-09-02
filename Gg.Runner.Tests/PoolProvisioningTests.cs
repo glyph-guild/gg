@@ -55,7 +55,7 @@ public class PoolProvisioningTests
         // with "Platform linker ('clang' or 'gcc') not found in PATH", after
         // several minutes of successful compilation.
         //
-        // CI could never catch it: GitHub's ubuntu image ships build-essential
+        // CI could never catch it: the hosted runner image ships build-essential
         // and clang preinstalled, so the aot job proves the code AOT-publishes
         // and proves nothing about a machine provisioned from this file.
         var packages = CloudInit();

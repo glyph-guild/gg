@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- BUNDLED, NOT PUBLISHED. This assembly ships inside the gg tool package
+         and inside the native binary; it is not an API anybody should be able
+         to reference on its own. Packing it would create a public surface
+         nobody designed, and the day somebody depends on it, withdrawing it
+         becomes a breaking change. PackagingTests names what may be published.
+    -->
+    <IsPackable>false</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 

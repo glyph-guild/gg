@@ -92,6 +92,55 @@ public class RunnerLoopTests
     }
 
     [Test]
+    public async Task An_idle_runner_says_it_is_alive()
+    {
+        // THE HEARTBEAT WAS ONLY EVER SENT WHILE HOLDING A LEASE. HoldAsync
+        // beats; nothing else did - so a runner reported being alive exactly
+        // when it was busy, and went silent the moment it had nothing to do.
+        //
+        // Status is derived control-plane-side from heartbeat age, so an idle
+        // runner decayed to `offline` while polling perfectly happily. The
+        // deadlock that produces: a flight needing a capability is only offered
+        // to a live runner, being offered work is the only thing that stops a
+        // runner being idle, and an idle runner is never live. Nothing breaks
+        // the circle from inside.
+        var clock = new MovableClock(T0);
+        var protocol = new FakeProtocol();
+        var observer = new RecordingObserver();
+
+        using var stopping = StopAfter(observer, 3);
+        await Build(protocol, clock, observer).RunAsync("runner-1", [], stopping.Token);
+
+        await Assert.That(protocol.Calls).Contains("heartbeat")
+            .Because("having nothing to do is the state a runner must be IN to be given work. If "
+                   + "that is the one state it never reports being alive from, it is never given "
+                   + "any.");
+    }
+
+    [Test]
+    public async Task An_idle_runners_heartbeat_carries_what_it_advertises()
+    {
+        // The labels are how a capability requirement is met. Sending them only
+        // on the claim is not enough: the control plane answers "which live
+        // runner advertises this" from the fleet, and a runner that never beats
+        // is in nobody's fleet whatever it claims with.
+        var clock = new MovableClock(T0);
+        var protocol = new FakeProtocol();
+        var observer = new RecordingObserver();
+
+        using var stopping = StopAfter(observer, 3);
+        await Build(protocol, clock, observer).RunAsync("runner-1", ["environment=dev"], stopping.Token);
+
+        // ASSERTED ON THE HEARTBEAT'S OWN RECORD. Written first against
+        // everything the fake serialized, and it passed before the fix - the
+        // CLAIM body carries labels too, so the assertion was answered by the
+        // wrong call and proved nothing.
+        await Assert.That(protocol.HeartbeatLabels.Any(l => l.Contains("environment=dev")))
+            .IsTrue()
+            .Because("an advertisement nobody receives is not an advertisement.");
+    }
+
+    [Test]
     public async Task Heartbeat_and_renew_are_separate_calls()
     {
         // Collapsing them is the obvious simplification and it breaks

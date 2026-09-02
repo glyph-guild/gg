@@ -47,6 +47,28 @@ public class PoolProvisioningTests
     }
 
     [Test]
+    public async Task Provisioning_installs_what_an_AOT_build_actually_needs()
+    {
+        // FOUND ON A REAL MACHINE, not here. cloud-init installs the .NET SDK
+        // and then publishes this CLI - which is AOT - and NativeAOT shells out
+        // to a platform linker. Without clang the publish dies at the last step
+        // with "Platform linker ('clang' or 'gcc') not found in PATH", after
+        // several minutes of successful compilation.
+        //
+        // CI could never catch it: GitHub's ubuntu image ships build-essential
+        // and clang preinstalled, so the aot job proves the code AOT-publishes
+        // and proves nothing about a machine provisioned from this file.
+        var packages = CloudInit();
+
+        await Assert.That(packages).Contains("clang")
+            .Because("NativeAOT invokes a platform linker, and a cloud image has none. The build "
+                   + "fails at the very end, long after everything looks like it is working.");
+        await Assert.That(packages).Contains("zlib1g-dev")
+            .Because("the ILCompiler links against zlib; without the headers the link fails for a "
+                   + "second reason once the first is fixed.");
+    }
+
+    [Test]
     public async Task The_runner_user_is_never_given_the_docker_group()
     {
         // THE FINDING. Nothing in this repository opens the socket - the runner

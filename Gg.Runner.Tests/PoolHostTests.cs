@@ -118,9 +118,13 @@ public class PoolHostTests
         // silently: nothing is unset, nothing is refused, and the machine
         // answers to itself. Same shape as the endpoint above, one variable
         // over: it does not fail, it succeeds against the wrong thing.
+        // ASSIGNMENTS, not mentions. A first formulation matched the bare name
+        // and fired on the README sentence documenting the fallback - which is
+        // the opposite of the defect, since a host that is told about localhost
+        // in prose is not a host configured with it.
         var addresses = Artefacts()
             .SelectMany(f => File.ReadAllLines(Host(f)))
-            .Where(l => l.Contains("GG_CONTROL_PLANE", StringComparison.Ordinal))
+            .Where(l => l.Contains("GG_CONTROL_PLANE=", StringComparison.Ordinal))
             .ToList();
 
         await Assert.That(addresses).IsNotEmpty()

@@ -19,15 +19,50 @@ pool is allowed to do. Loopback is what keeps *allowed to act on the pool* and
 under that prefix, and the runner refuses a pool that could not pass — so a 403
 from the proxy means one thing: something reached outside the scope.
 
+## The `gg` user must NOT be in the `docker` group
+
+**This README used to ask for one, in step one, and it was the whole control
+undone.** Nothing in this repository ever opens the Docker socket: no source
+file names that path, sets `DOCKER_HOST`, or runs the `docker` binary. The
+runner reaches it as HTTP to `GG_POOL_ENDPOINT` and by no other route.
+
+(The path is not spelled out here on purpose — `PoolHostTests` allows exactly
+one artefact in this directory to name it, and prose explaining the rule would
+otherwise break it.)
+
+So the membership grants the runner nothing it uses, and returns everything the
+proxy exists to withhold — and it is invisible in every test about the control.
+The socket stays mounted in exactly one place; `PoolHostTests` keeps passing.
+The bypass is not in any artefact's contents, it is in who may open a file none
+of them mention. `PoolProvisioningTests` now holds `cloud-init.yaml` to it.
+
+Docker is brought up by root during provisioning. That is why `gg` needs no
+access to it at all.
+
 ## Standing one up
 
-1. Docker, and a `gg` user that may talk to it.
+**With cloud-init**, which is steps 1–3 already done: hand
+[`cloud-init.yaml`](cloud-init.yaml) to the machine at first boot. It installs
+Docker, clones this repository, builds the binary, starts the proxy, and links
+the unit — then stops, because what remains is a person. Its `final_message`
+says so on the console.
+
+**By hand:**
+
+1. Docker, as root. Not a `gg` user that may talk to it — see above.
 2. `docker compose up -d` in this directory.
-3. Put `gg` at `/usr/local/bin/gg`.
+3. Put `gg` at `/usr/local/bin/gg`. There is no published release asset to
+   download: `dotnet publish Gg.Cli -c Release -r linux-x64` is what CI proves
+   runs, and it is what cloud-init does on the machine.
 4. **A person signs in on the machine:** `gg login`. This is a device flow —
    the person approves in their own browser, and the session lands here.
-5. Set `GG_POOL` in the unit file, then `systemctl enable --now
-   gg-runner-maintain`.
+5. Set `GG_POOL` **and `GG_CONTROL_PLANE`** in the unit file, then `systemctl
+   enable --now gg-runner-maintain`.
+
+Unset, `GG_CONTROL_PLANE` falls back to `http://localhost:5199`. That is the
+right default on a laptop and on a pool host it means the machine answers to
+itself: nothing is unset, nothing is refused, and it looks configured. Both the
+unit file and cloud-init's drop-in name it for that reason.
 
 ## A person is needed once a month, and only then
 

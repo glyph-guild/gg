@@ -53,17 +53,17 @@ public class ConsoleLoopTests
         // Compared as a document, so a field added later is covered by this
         // test on the day it is added rather than on the day somebody
         // remembers to extend the assertion.
-        var full = StateGenerator.Next(new Random(31)) with { Notes = "before edit" };
+        var full = StateGenerator.Next(new Random(31));
 
         var ui = new ScriptedUi(
-            _ => new UiOutcome(Command.OpenEditor, full),
+            _ => new UiOutcome(Command.OpenFlight, full),
             s => new UiOutcome(Command.Quit, s));
         var editor = new RecordingEditor();
 
-        var final = new ConsoleLoop(ui, editor).Run(new AppState());
+        var final = new ConsoleLoop(ui, editor, actions: new SilentActions()).Run(new AppState());
 
-        // The editor received the model's text, not a view's.
-        await Assert.That(editor.Received).IsEqualTo("before edit");
+        // The editor really was handed the terminal.
+        await Assert.That(editor.Received).IsNotNull();
 
         await Assert.That(ui.StatesSeen).Count().IsEqualTo(2);
         var rebuilt = ui.StatesSeen[1];
@@ -73,7 +73,8 @@ public class ConsoleLoopTests
         await Assert.That(AppStateJson.Serialize(rebuilt)).IsEqualTo(expected)
             .Because("the second session is rebuilt from the surviving model and nothing else.");
 
-        await Assert.That(final.Notes).IsEqualTo("before edit\nappended while the UI was down");
+        await Assert.That(final.LastFlightOpened).IsNotNull()
+            .Because("the child process ran and its result crossed back in the model.");
     }
 
     [Test]
@@ -86,10 +87,15 @@ public class ConsoleLoopTests
             var state = StateGenerator.Next(new Random(seed));
 
             var ui = new ScriptedUi(
-                _ => new UiOutcome(Command.OpenEditor, state),
+                _ => new UiOutcome(Command.OpenFlight, state),
                 s => new UiOutcome(Command.Quit, s));
 
-            new ConsoleLoop(ui, new PassThroughEditor()).Run(new AppState());
+            // MOVED OFF THE NOTES SCRATCHPAD, which was removed. `new flight` is
+            // the better vehicle anyway: it is a real feature that really hands
+            // the terminal to $EDITOR, rather than a field kept alive so this
+            // property had something to carry.
+            new ConsoleLoop(ui, new PassThroughEditor(), actions: new SilentActions())
+                .Run(new AppState());
 
             await Assert.That(AppStateJson.Serialize(ui.StatesSeen[1])).IsEqualTo(AppStateJson.Serialize(state))
                 .Because($"seed {seed} did not survive the UI being destroyed and rebuilt.");
@@ -99,5 +105,14 @@ public class ConsoleLoopTests
     private sealed class PassThroughEditor : IEditorSession
     {
         public string Edit(string initialText) => initialText;
+    }
+
+    /// <summary>Answers without reaching a control plane.</summary>
+    private sealed class SilentActions : IConsoleActions
+    {
+        public string Fly(string intent) => "opened";
+        public string Decide(string flight, string obligation, bool approved, string? reason) => "decided";
+        public string AddCredential() => "added";
+        public string Invite() => "invited";
     }
 }

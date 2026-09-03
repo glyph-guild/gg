@@ -759,9 +759,12 @@ public sealed class RunnerLoop(
     private async Task<ExecutorRun?> InvokeAsync(
         LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
     {
+        // NO LONGER GATED ON HAVING CLONED SOMETHING. A ticket, a text intent
+        // and an issue link all resolve to no repository - correctly - and
+        // `Trees.Count == 0` here meant all three were leased, claimed, and
+        // silently never worked.
         if (_executor is null || lease.Loop is not { } loop
-            || lease.IntentUri is not { Length: > 0 } intent
-            || workspace.Trees.Count == 0)
+            || lease.IntentUri is not { Length: > 0 } intent)
         {
             return null;
         }
@@ -776,7 +779,11 @@ public sealed class RunnerLoop(
                 // THE SAME DISPOSITION. Already rendered by the contract; the runner
                 // hands it over and the prompt says whose words it holds.
                 ResumesFrom = loop.ResumesFrom,
-                WorkingDirectory = workspace.Trees[0].Path,
+                // The first tree when there is one, and the flight's own
+                // directory when there is not. See WorkspaceResult.Root.
+                WorkingDirectory = workspace.Trees.Count > 0
+                    ? workspace.Trees[0].Path
+                    : workspace.Root,
                 LoopId = loop.LoopId,
                 IntentUri = intent,
                 Moves = loop.Moves,

@@ -50,7 +50,11 @@ public class UnresolvedRepoTests
             CancellationToken cancellationToken = default)
         {
             Prepares++;
-            return Task.FromResult(new WorkspaceResult([]) { Reused = false });
+            return Task.FromResult(new WorkspaceResult([])
+            {
+                Reused = false,
+                Root = Path.GetTempPath(),
+            });
         }
 
         public void Release(string flightId) { }

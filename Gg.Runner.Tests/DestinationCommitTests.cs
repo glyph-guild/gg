@@ -98,7 +98,7 @@ public class DestinationCommitTests
     private static LandingRequest Request(DirtyTree tree) => new()
     {
         WorkingDirectory = tree.Directory,
-        Slug = "JDX/agile-cortex",
+        Slug = "acme/widgets",
         Branch = Branch,
         BaseRef = "main",
         Title = "A change",
@@ -111,7 +111,7 @@ public class DestinationCommitTests
     /// somebody owns.
     /// </summary>
     private static RefNamedDestinationAdapter PathScoped() =>
-        new("ado", "unreachable.invalid", new HttpClient());
+        new("forge", "unreachable.invalid", new HttpClient());
 
     /// <summary>
     /// Attempts the push and discards how it went.
@@ -155,7 +155,7 @@ public class DestinationCommitTests
     }
 
     [Test]
-    public async Task The_github_shaped_destination_commits_it_too_and_always_did()
+    public async Task The_slug_shaped_destination_commits_it_too_and_always_did()
     {
         // THE TWIN, and it is what makes the one above a defect rather than a
         // design. Both adapters answer the same question for the same caller, and

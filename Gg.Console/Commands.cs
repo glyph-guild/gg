@@ -36,7 +36,6 @@ public enum Command
     /// <summary>Hold the live view still so text can be selected.</summary>
     ToggleFreeze,
 
-    OpenEditor,
 
     /// <summary>
     /// Take the selected flight over: unmount, hand a person the terminal, come
@@ -123,10 +122,13 @@ public static class ShellCommands
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
     public static IReadOnlySet<Command> Handled { get; } = new HashSet<Command>
     {
-        // Always were. Quit returns the model; the editor is the original
-        // terminal-release effect.
+        // Always was. Quit returns the model.
+        //
+        // OpenEditor sat here too - it was the ORIGINAL terminal-release effect,
+        // and it is gone: the key wrote a scratchpad nothing displayed, sent or
+        // kept. `new flight` hands the terminal to the same editor for a reason
+        // somebody asked for, and carries the property that one demonstrated.
         Command.Quit,
-        Command.OpenEditor,
 
         // Bound and inert until this declaration existed.
         Command.TakeFlight,

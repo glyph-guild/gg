@@ -59,7 +59,6 @@ internal static class StateGenerator
                     AttachCount = random.Next(0, 5),
                 })
                 .ToList(),
-            Notes = NextText(random),
             Diagnosis = random.Next(3) == 0 ? NextText(random) : null,
         };
     }

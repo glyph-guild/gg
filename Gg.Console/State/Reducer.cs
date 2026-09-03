@@ -39,7 +39,7 @@ public static class Reducer
             Command.ToggleFreeze => ToggleFreeze(state),
 
             // Quit and OpenEditor end the UI session; the shell handles them.
-            Command.Quit or Command.OpenEditor => state,
+            Command.Quit => state,
             _ => state,
         };
     }

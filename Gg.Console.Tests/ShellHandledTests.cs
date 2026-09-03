@@ -58,12 +58,20 @@ public class ShellHandledTests
     }
 
     [Test]
-    public async Task Quit_and_the_editor_are_still_the_shell_s()
+    public async Task Quit_is_still_the_shell_s()
     {
-        // The two that always worked. Asserted so a change that moved to the
-        // declaration cannot quietly drop the pair that motivated it.
+        // The one that always worked, asserted so a change that moved to the
+        // declaration cannot quietly drop it.
+        //
+        // OpenEditor was asserted here too, as the other half of the pair that
+        // motivated this file. It is GONE rather than dropped: the key wrote a
+        // scratchpad nothing displayed, sent or kept, and `new flight` now
+        // hands the terminal to the same editor for a reason somebody asked
+        // for. See NoScratchpadKeyTests.
         await Assert.That(ShellCommands.Handled).Contains(Command.Quit);
-        await Assert.That(ShellCommands.Handled).Contains(Command.OpenEditor);
+        await Assert.That(ShellCommands.Handled).Contains(Command.OpenFlight)
+            .Because("the terminal-release effect still has to be the shell's; it is just no "
+                   + "longer a scratchpad.");
     }
 
     [Test]

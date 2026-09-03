@@ -272,8 +272,6 @@ public sealed record AppState
     /// <summary>Whether each flight was watched. Exported nowhere.</summary>
     public IReadOnlyList<LiveAttachFact> AttachFacts { get; init; } = [];
 
-    public string Notes { get; init; } = "";
-
     /// <summary>
     /// The held tree of the selected flight, when there is one.
     /// </summary>

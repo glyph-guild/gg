@@ -28,13 +28,6 @@ public sealed class ConsoleLoop(
                 case Command.Quit:
                     return state;
 
-                case Command.OpenEditor:
-                    // The UI session has ended; the terminal is free for the
-                    // child process. Its result lands in the model, and the
-                    // next session is rebuilt from that model alone.
-                    state = state with { Notes = editor.Edit(state.Notes) };
-                    break;
-
                 case Command.HandBack:
                     // The same shape again: the session ends, an agent reads the
                     // tree, a person answers, and the model is the only thing

@@ -115,7 +115,6 @@ public static class Keymap
             .. context.HandedBackable
                 ? (KeyBinding[])[new(KeyStroke.Char('h'), Command.HandBack, "hand back")]
                 : [],
-            new(KeyStroke.Char('e'), Command.OpenEditor, "edit notes"),
 
             // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
             // while it is open, and one of these reachable from a gate decision

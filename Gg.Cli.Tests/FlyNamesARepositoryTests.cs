@@ -22,8 +22,8 @@ namespace Gg.Cli.Tests;
 /// <b>The registry KEY, not the forge path.</b> A registered entry's path is a
 /// display label that may drift and its name is the identity flights refer to —
 /// the same distinction <c>FlightIngress.SubjectsOf</c> already turns on — so a
-/// flight naming <c>agile-cortex</c> keeps resolving after somebody renames
-/// <c>jdx/agile-cortex</c>.
+/// flight naming <c>payments</c> keeps resolving after somebody renames
+/// <c>acme/payments-service</c>.
 /// </para>
 /// </remarks>
 public class FlyNamesARepositoryTests
@@ -33,10 +33,10 @@ public class FlyNamesARepositoryTests
     {
         // THE DEFECT. This is the flight that has no repository today and no
         // way to be given one.
-        var action = CliArgs.Parse(["fly", "--ticket", "azuredevops#26", "--repo", "agile-cortex"]);
+        var action = CliArgs.Parse(["fly", "--ticket", "tracker#26", "--repo", "payments"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Fly>();
-        await Assert.That(((CliAction.Fly)action).Repository).IsEqualTo("agile-cortex");
+        await Assert.That(((CliAction.Fly)action).Repository).IsEqualTo("payments");
     }
 
     [Test]
@@ -47,9 +47,9 @@ public class FlyNamesARepositoryTests
         // worked for one intent kind and not the other would be a rule nobody
         // could remember.
         var action = CliArgs.Parse(
-            ["fly", "--uri", "https://example.invalid/board/1", "--repo", "agile-cortex"]);
+            ["fly", "--uri", "https://example.invalid/board/1", "--repo", "payments"]);
 
-        await Assert.That(((CliAction.Fly)action).Repository).IsEqualTo("agile-cortex");
+        await Assert.That(((CliAction.Fly)action).Repository).IsEqualTo("payments");
     }
 
     [Test]
@@ -71,7 +71,7 @@ public class FlyNamesARepositoryTests
         // `gg fly --ticket x#1 --repo` is somebody who meant to name one. Taking
         // it as a flight with no repository would open work against an empty
         // tree and report success.
-        await Assert.That(CliArgs.Parse(["fly", "--ticket", "azuredevops#26", "--repo"]))
+        await Assert.That(CliArgs.Parse(["fly", "--ticket", "tracker#26", "--repo"]))
             .IsTypeOf<CliAction.Unknown>();
     }
 }

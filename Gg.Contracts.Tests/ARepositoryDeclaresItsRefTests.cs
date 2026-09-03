@@ -42,10 +42,10 @@ public class ARepositoryDeclaresItsRefTests
 {
     private static RegisterRepositoryRequest ARequest(string? declared) => new()
     {
-        Name = "agile-cortex",
-        Provider = "azuredevops",
+        Name = "payments",
+        Provider = "tracker",
         Id = "b7a1",
-        Path = "jdx/agile-cortex",
+        Path = "acme/payments-service",
         Credential = "required",
         Ref = declared,
     };
@@ -76,10 +76,10 @@ public class ARepositoryDeclaresItsRefTests
         // model, so the read model has to carry it.
         var registered = new RepositoryRegistered
         {
-            Name = "agile-cortex",
-            Provider = "azuredevops",
+            Name = "payments",
+            Provider = "tracker",
             Id = "b7a1",
-            Path = "jdx/agile-cortex",
+            Path = "acme/payments-service",
             Credential = "required",
             Ref = "refs/heads/trunk",
             RegisteredBy = "somebody",

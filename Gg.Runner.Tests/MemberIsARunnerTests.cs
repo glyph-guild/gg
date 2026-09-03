@@ -6,8 +6,8 @@ using Gg.Runner.Pools;
 namespace Gg.Runner.Tests;
 
 /// <summary>
-/// A member is created as a runner: it is told where the control plane is, what
-/// it may advertise, and how to become somebody.
+/// A member is created as a runner: it is told where the control plane is and
+/// how to become somebody.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -70,7 +70,6 @@ public class MemberIsARunnerTests
     {
         Image = Pinned,
         ControlPlane = ControlPlane,
-        Labels = ["environment=dev"],
         Nonce = "a-single-use-nonce",
     };
 
@@ -99,13 +98,20 @@ public class MemberIsARunnerTests
     }
 
     [Test]
-    public async Task A_member_is_told_what_it_may_advertise()
+    public async Task A_member_is_NOT_told_what_to_advertise()
     {
-        // From the strategy, carried here. A member that advertised nothing
-        // would be warm and unmatchable, which is the same as not existing.
+        // WRITTEN THE OTHER WAY FIRST, and it was wrong. A member receives what
+        // it may advertise in the REDEEM response, decided control-plane-side
+        // from the strategy - so an environment variable saying the same thing
+        // would be a second source of truth for exactly the value this slice
+        // exists to stop taking on a runner's word.
         using var spec = await CreatedAsync(ASpec());
 
-        await Assert.That(EnvOf(spec)).Contains("GG_RUNNER_LABELS=environment=dev");
+        await Assert.That(EnvOf(spec).Any(
+                e => e.StartsWith("GG_RUNNER_LABELS", StringComparison.Ordinal)))
+            .IsFalse()
+            .Because("labels come with the credential. Two places to read them is one place "
+                   + "to disagree.");
     }
 
     [Test]

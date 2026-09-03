@@ -135,7 +135,7 @@ public class ImageConvergenceTests
 
         var observed = await new DockerPoolAdapter(
             new HttpClient(daemon) { BaseAddress = new Uri("http://pull-point") })
-            .RefreshAsync("gg-pool", "gg-pool-1", Pinned);
+            .RefreshAsync("gg-pool", "gg-pool-1", Spec(Pinned));
 
         await Assert.That(observed.Outcome).IsEqualTo(PoolOutcomes.Failed)
             .Because("a refresh that cannot see the member has not converged it, and the "
@@ -158,7 +158,7 @@ public class ImageConvergenceTests
     {
         var daemon = new RecordingDaemon(Drifted);
 
-        var observed = await Adapter(daemon).RefreshAsync("gg-pool", "gg-pool-1", Pinned);
+        var observed = await Adapter(daemon).RefreshAsync("gg-pool", "gg-pool-1", Spec(Pinned));
 
         await Assert.That(daemon.Removed).IsTrue()
             .Because("converge means reset - destroy and recreate from the pin. A member "
@@ -178,7 +178,7 @@ public class ImageConvergenceTests
         // sweep - which is the billing incident this arm has to not be.
         var daemon = new RecordingDaemon(Pinned);
 
-        var observed = await Adapter(daemon).RefreshAsync("gg-pool", "gg-pool-1", Pinned);
+        var observed = await Adapter(daemon).RefreshAsync("gg-pool", "gg-pool-1", Spec(Pinned));
 
         await Assert.That(daemon.Removed).IsFalse()
             .Because("a member already running what the strategy pins IS current, and "
@@ -199,7 +199,7 @@ public class ImageConvergenceTests
         // /images/json would pass an outcome-only test on a permissive fake.
         var daemon = new RecordingDaemon(Drifted);
 
-        _ = await Adapter(daemon).RefreshAsync("gg-pool", "gg-pool-1", Pinned);
+        _ = await Adapter(daemon).RefreshAsync("gg-pool", "gg-pool-1", Spec(Pinned));
 
         await Assert.That(daemon.Paths).IsNotEmpty();
         await Assert.That(daemon.Paths.Where(p => !p.Contains("/containers", StringComparison.Ordinal)))
@@ -208,4 +208,17 @@ public class ImageConvergenceTests
                    + "convergence that needed any of them would be a convergence that "
                    + "never happens, and the 403 would read as drift.");
     }
+    /// <summary>A member spec around an image, for tests whose subject is not the spec.</summary>
+    /// <remarks>
+    /// The nonce is present because a member without one is refused before
+    /// anything is created - see MemberIsARunnerTests, where that refusal is
+    /// the subject.
+    /// </remarks>
+    private static MemberSpec Spec(string image) => new()
+    {
+        Image = image,
+        ControlPlane = "https://control.example.invalid",
+        Nonce = "a-nonce",
+    };
+
 }

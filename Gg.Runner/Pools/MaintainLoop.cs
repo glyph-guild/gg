@@ -33,13 +33,23 @@ public sealed class MaintainLoop(
     IPoolAdapter adapter,
     IClock clock,
     Func<TimeSpan, CancellationToken, Task> delay,
-    Action<string>? narrate = null)
+    Action<string>? narrate = null,
+    string controlPlane = "")
 {
     private readonly IPoolProtocol _protocol = protocol;
     private readonly IPoolAdapter _adapter = adapter;
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
     private readonly Action<string> _narrate = narrate ?? (_ => { });
+
+    /// <summary>Where a member this loop creates should answer to.</summary>
+    /// <remarks>
+    /// Passed in rather than read here: which control plane a host answers to is
+    /// deployment knowledge, and this loop is handed it exactly as the flight
+    /// runner is.
+    /// </remarks>
+    private readonly string _controlPlane = controlPlane;
+
 
     /// <summary>How long to wait before asking again. Zero while things are well.</summary>
     private TimeSpan _backoff = TimeSpan.Zero;
@@ -173,14 +183,19 @@ public sealed class MaintainLoop(
         if (string.Equals(action.Action, PoolActions.Refresh, StringComparison.Ordinal))
         {
             var member = await NextSlotAsync(pool, cancellationToken);
-            return await _adapter.RefreshAsync(pool, member, image, cancellationToken);
+            return await _adapter.RefreshAsync(
+                pool, member, await SpecFor(pool, member, image, cancellationToken),
+                cancellationToken);
         }
 
         if (string.Equals(action.Action, PoolActions.Reset, StringComparison.Ordinal))
         {
             var members = await _adapter.ListAsync(pool, cancellationToken);
             return members is [var first, ..]
-                ? await _adapter.ResetAsync(first.Name, image, cancellationToken)
+                ? await _adapter.ResetAsync(
+                    first.Name,
+                    await SpecFor(pool, first.Name, image, cancellationToken),
+                    cancellationToken)
                 : new PoolObservation
                 {
                     Outcome = PoolOutcomes.Failed,
@@ -235,4 +250,34 @@ public sealed class MaintainLoop(
             MeasuredAt = _clock.UtcNow,
             Diagnosis = observed.Diagnosis,
         }, cancellationToken);
+    /// <summary>
+    /// What this member is to be made of, including a nonce minted for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Minted per act, not per session.</b> A nonce is single-use and
+    /// short-lived, so one obtained at startup would be spent or expired by the
+    /// second member — and a nonce reused across members would give two
+    /// containers one identity.
+    /// </para>
+    /// <para>
+    /// <b>A refusal comes back as a null nonce</b> rather than a throw, and the
+    /// adapter refuses to create anything without one. A member that cannot
+    /// become anybody claims nothing, reports nothing, and is counted as warm
+    /// forever, which is the 196 wearing a better image.
+    /// </para>
+    /// </remarks>
+    private async Task<MemberSpec> SpecFor(
+        string pool, string member, string image, CancellationToken cancellationToken)
+    {
+        var minted = await _protocol.MintMemberAsync(pool, member, cancellationToken);
+
+        return new MemberSpec
+        {
+            Image = image,
+            ControlPlane = _controlPlane,
+            Nonce = minted?.Nonce,
+        };
+    }
+
 }

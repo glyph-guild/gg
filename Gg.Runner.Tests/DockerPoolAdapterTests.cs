@@ -59,7 +59,7 @@ public class DockerPoolAdapterTests
         await ClearAsync("gg-e2e-pool-1");
 
         var observation = await adapter.RefreshAsync(
-            "gg-e2e-pool", "gg-e2e-pool-1", Image);
+            "gg-e2e-pool", "gg-e2e-pool-1", Spec(Image));
 
         await Assert.That(observation.Outcome).IsEqualTo(PoolOutcomes.Verified);
         await Assert.That(observation.Provenance).IsEqualTo(EnvironmentProvenance.Fresh);
@@ -73,10 +73,10 @@ public class DockerPoolAdapterTests
     {
         var adapter = Adapter();
         await ClearAsync("gg-e2e-pool-2");
-        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-2", Image);
+        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-2", Spec(Image));
         var before = await adapter.VerifyAsync(new PoolMember { Name = "gg-e2e-pool-2" });
 
-        var observation = await adapter.ResetAsync("gg-e2e-pool-2", Image);
+        var observation = await adapter.ResetAsync("gg-e2e-pool-2", Spec(Image));
 
         await Assert.That(observation.Outcome).IsEqualTo(PoolOutcomes.Verified);
         await Assert.That(observation.Provenance).IsEqualTo(EnvironmentProvenance.Fresh)
@@ -96,11 +96,11 @@ public class DockerPoolAdapterTests
         var adapter = Adapter();
         await ClearAsync("gg-e2e-pool-3");
 
-        var drifted = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-3", OtherImage);
+        var drifted = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-3", Spec(OtherImage));
         await Assert.That(drifted.Outcome).IsEqualTo(PoolOutcomes.Verified)
             .Because("the member has to exist before it can drift: " + drifted.Diagnosis);
 
-        var converged = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-3", Image);
+        var converged = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-3", Spec(Image));
 
         await Assert.That(converged.Outcome).IsEqualTo(PoolOutcomes.Verified)
             .Because(converged.Diagnosis ?? "converging on the pin should not fail");
@@ -121,9 +121,9 @@ public class DockerPoolAdapterTests
         // container alone rather than replacing it with an identical one.
         var adapter = Adapter();
         await ClearAsync("gg-e2e-pool-4");
-        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-4", Image);
+        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-4", Spec(Image));
 
-        var again = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-4", Image);
+        var again = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-4", Spec(Image));
 
         await Assert.That(again.Provenance).IsEqualTo(EnvironmentProvenance.Reused)
             .Because("a member already running what the strategy pins IS current; "
@@ -141,7 +141,7 @@ public class DockerPoolAdapterTests
         // fact that still said null.
         var adapter = Adapter();
         await ClearAsync("gg-e2e-pool-6");
-        var made = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-6", Image);
+        var made = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-6", Spec(Image));
         await Assert.That(made.Outcome).IsEqualTo(PoolOutcomes.Verified)
             .Because(made.Diagnosis ?? "the member has to exist to be inspected");
 
@@ -170,7 +170,7 @@ public class DockerPoolAdapterTests
         // parallel one refresh raced the other's delete and attested failed.
         // Nobody noticed because CI never runs the RealDocker category, which
         // is the same reason the arm this file now covers was never exercised.
-        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-5", Image);
+        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-5", Spec(Image));
 
         var members = await adapter.ListAsync("gg-e2e-pool");
 
@@ -179,4 +179,19 @@ public class DockerPoolAdapterTests
             .Because("the pool is the inventory; a member from outside the prefix in this "
                    + "list would be the adapter widening its own scope.");
     }
+    /// <summary>
+    /// A member spec around an image, for tests whose subject is not the spec.
+    /// </summary>
+    /// <remarks>
+    /// The nonce is present because a member without one is refused before
+    /// anything is created - see MemberIsARunnerTests, which is where that
+    /// refusal is the subject.
+    /// </remarks>
+    private static MemberSpec Spec(string image) => new()
+    {
+        Image = image,
+        ControlPlane = "https://control.example.invalid",
+        Nonce = "a-nonce",
+    };
+
 }

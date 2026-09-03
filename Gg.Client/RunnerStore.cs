@@ -50,14 +50,53 @@ public sealed class FileRunnerStore
     public FileRunnerStore(string? path = null) => _path = path ?? DefaultPath();
 
     /// <summary>Beside the session, because it is the same kind of thing at rest.</summary>
-    public static string DefaultPath()
+    /// <remarks>
+    /// <b>The unnamed path, and it is the maintain service's.</b> This is the
+    /// only file any version of gg has ever written, and on a live pool host it
+    /// holds that service's thirty-day token. It keeps its name so an upgrade
+    /// does not take a host down: a maintain start that cannot find its
+    /// credential refuses unless somebody is signed in, and nobody is.
+    /// </remarks>
+    public static string DefaultPath() =>
+        Path.Combine(Root(), "runner.json");
+
+    /// <summary>Where the runner registered under <paramref name="name"/> is kept.</summary>
+    /// <remarks>
+    /// <b>One slot per name, because a pool host has two runners.</b> It runs
+    /// <c>gg runner up</c> as itself and <c>gg runner maintain</c> as
+    /// <c>&lt;machine&gt;:maintain</c>, and a single file meant whichever
+    /// registered last owned the only credential.
+    /// </remarks>
+    public static string PathFor(string name) =>
+        Path.Combine(Root(), FileNameFor(name));
+
+    /// <summary>
+    /// A runner name as one file name, on every platform.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every invalid character becomes '-', and the name is kept
+    /// otherwise.</b> The maintain name carries a ':', which is not a filename
+    /// character everywhere - and a scheme that flattened two names to one
+    /// string would recreate the shared slot with extra steps.
+    /// </remarks>
+    public static string FileNameFor(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        var safe = new string([.. name.Select(c =>
+            Path.GetInvalidFileNameChars().Contains(c) ? '-' : c)]);
+
+        return $"runner-{safe}.json";
+    }
+
+    private static string Root()
     {
         var root = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } configured
             ? configured
             : Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
 
-        return Path.Combine(root, "good-grief", "runner.json");
+        return Path.Combine(root, "good-grief");
     }
 
     public string FilePath => _path;
@@ -127,5 +166,52 @@ public sealed class FileRunnerStore
         {
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
+    }
+}
+
+/// <summary>
+/// The runner this machine already is, or the one it becomes.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One decision, called by both verbs, because they had drifted.</b>
+/// <c>gg runner maintain</c> read-or-registered; <c>gg runner up</c> registered
+/// unconditionally and stored nothing, so one host appeared as eleven runners
+/// with ten permanently offline - one per restart. The duplication was the
+/// defect's whole cause, so the fix removes it rather than copying the good half
+/// across.
+/// </para>
+/// <para>
+/// <b>Registration is passed in.</b> This decides WHETHER to register, and the
+/// caller owns how - which session authorizes it, and what name it registers
+/// under. That keeps the rule testable without a control plane, which is why it
+/// was untestable while it lived inside a CLI entry point.
+/// </para>
+/// </remarks>
+public static class RunnerIdentity
+{
+    /// <summary>
+    /// Returns the stored runner when it still works, and otherwise registers
+    /// one and keeps it.
+    /// </summary>
+    public static async Task<StoredRunner> EnsureAsync(
+        FileRunnerStore store, Func<Task<StoredRunner>> register, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(register);
+
+        // USABLE rather than merely present. A lapsed credential handed to the
+        // protocol fails as a 401 on the first call, which is the wrong place
+        // to learn that a person is needed.
+        if (store.Usable(now) is { } held)
+        {
+            return held;
+        }
+
+        var registered = await register();
+
+        // Kept, or the next start does this again and the row count grows.
+        store.Write(registered);
+        return registered;
     }
 }

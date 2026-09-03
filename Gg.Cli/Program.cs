@@ -569,8 +569,27 @@ static async Task<int> RunnerUpAsync()
 
     // A person registers the runner; the runner then holds only the credential
     // that comes back. The developer session never reaches the runner process.
-    var registered = await new ControlPlaneClient(http)
-        .RegisterRunnerAsync(session.SessionToken, Environment.MachineName);
+    //
+    // READ-OR-REGISTER, the same decision `gg runner maintain` makes. This used
+    // to register unconditionally on every start, so one host showed as eleven
+    // runners in `gg runners` with ten of them permanently offline - one per
+    // restart - and a machine could not come back from a reboot without
+    // somebody signed in.
+    var registered = await RunnerIdentity.EnsureAsync(
+        new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName)),
+        async () =>
+        {
+            var fresh = await new ControlPlaneClient(http)
+                .RegisterRunnerAsync(session.SessionToken, Environment.MachineName);
+
+            return new StoredRunner
+            {
+                RunnerId = fresh.RunnerId,
+                RunnerToken = fresh.RunnerToken,
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+            };
+        },
+        DateTimeOffset.UtcNow);
 
     var labels = (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -639,41 +658,59 @@ static async Task<int> RunnerMaintainAsync(string pool)
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
     string runnerToken;
 
-    if (held is not null)
+    // THE SAME DECISION `gg runner up` makes, and it is shared now rather than
+    // written twice. These two had drifted: this one read-or-registered and
+    // that one registered every start, which is how one host became eleven
+    // rows in `gg runners`.
+    //
+    // ON ITS HISTORICAL PATH. This is the only file any version of gg has
+    // written, and on a live pool host it holds this service's thirty-day
+    // token. Moving it would make the next start find nothing and refuse,
+    // because a maintain start without a credential needs a person signed in -
+    // and on a pool host nobody is.
+    StoredRunner identity;
+    try
     {
-        // Unattended, for as long as its own credential lasts.
-        runnerToken = held.RunnerToken;
+        identity = await RunnerIdentity.EnsureAsync(
+        runners,
+        async () =>
+        {
+            var signedIn = new FileSessionStore().Read();
+            if (signedIn is null)
+            {
+                // NAMES THE CADENCE. "Not signed in" on a host that ran
+                // yesterday reads like a broken machine rather than a
+                // credential reaching the end of its life. Nothing renews a
+                // runner token - the protocol's renew is for a LEASE - so this
+                // is a person's action every thirty days, by design.
+                throw new InvalidOperationException(
+                    "no usable runner credential, and not signed in. A pool host runs on its own "
+                  + "runner token, which lasts thirty days and cannot be renewed - so a person signs "
+                  + "in once to mint a new one: run `gg login`, then start this again. Registering a "
+                  + "runner is a person's action.");
+            }
+
+            var fresh = await new ControlPlaneClient(http)
+                .RegisterRunnerAsync(signedIn.SessionToken, Environment.MachineName + ":maintain");
+
+            return new StoredRunner
+            {
+                RunnerId = fresh.RunnerId,
+                RunnerToken = fresh.RunnerToken,
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+            };
+        },
+            DateTimeOffset.UtcNow);
     }
-    else
+    catch (InvalidOperationException refusal)
     {
-        var signedIn = new FileSessionStore().Read();
-        if (signedIn is null)
-        {
-            // NAMES THE CADENCE. "Not signed in" on a host that ran yesterday
-            // reads like a broken machine rather than a credential reaching the
-            // end of its life. Nothing renews a runner token - the protocol's
-            // renew is for a LEASE - so this is a person's action every thirty
-            // days, by design.
-            return Fail(
-                "no usable runner credential, and not signed in. A pool host runs on its own "
-              + "runner token, which lasts thirty days and cannot be renewed - so a person signs "
-              + "in once to mint a new one: run `gg login`, then start this again. Registering a "
-              + "runner is a person's action.");
-        }
-
-        var registered = await new ControlPlaneClient(http)
-            .RegisterRunnerAsync(signedIn.SessionToken, Environment.MachineName + ":maintain");
-
-        // Kept so the next start needs nobody.
-        runners.Write(new StoredRunner
-        {
-            RunnerId = registered.RunnerId,
-            RunnerToken = registered.RunnerToken,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
-        });
-
-        runnerToken = registered.RunnerToken;
+        // A CLEAN REFUSAL, not a stack trace. This is the every-thirty-days
+        // path and it lands on somebody's console; the sentence is the whole
+        // point of it.
+        return Fail(refusal.Message);
     }
+
+    runnerToken = identity.RunnerToken;
 
     using var stopping = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };

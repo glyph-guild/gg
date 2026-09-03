@@ -766,6 +766,36 @@ public static class ProtocolSurface
         },
         new()
         {
+            // MINTING A MEMBER'S IDENTITY. The resident runner's own token
+            // authorizes it, and 403 is the arm that matters: a MEMBER
+            // presenting its own runner token must not mint another, or one
+            // compromised member mints an unbounded supply.
+            //
+            // Both the pool and the member are in the path. A credential is
+            // minted FOR one member and is not a tenant-wide grant.
+            Method = "POST",
+            Path = "/v1/pools/{pool}/members/{member}/credential",
+            Audience = Audience.Runner,
+            Request = typeof(MemberCredentialRequest),
+            Response = typeof(MemberCredentialMinted),
+            Statuses = [200, 400, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            // REDEEMING IT, and this one is ANONYMOUS by necessity: a member has
+            // no credential yet, which is the whole point. The nonce is the
+            // authorization, it is single-use, and 409 is the second attempt
+            // being told it is spent rather than handed another identity.
+            Method = "POST",
+            Path = "/v1/pools/members/redeem",
+            Audience = Audience.Anonymous,
+            Request = typeof(MemberCredentialRedemption),
+            Response = typeof(MemberCredentialIssued),
+            Statuses = [200, 400, 404, 409, ProtocolTooOld],
+        },
+        new()
+        {
             // THE ATTESTATION. 202 because the write is a command; the row it
             // becomes is a query resource. 400 is the contract's own Validate
             // refusal - both sides fail closed on their own format.
@@ -947,6 +977,15 @@ public static class ProtocolSurface
                  "transitions", "inapplicable"],
             [typeof(AttachmentTransition)] = ["to", "at", "because"],
             [typeof(GateList)] = ["gates"],
+
+            // The member-identity exchange. Pinned like every other wire type:
+            // a member redeems across a process boundary, so a renamed property
+            // is a bootstrap that stops working with no compiler to say so.
+            [typeof(MemberCredentialRequest)] = ["protocolVersion"],
+            [typeof(MemberCredentialMinted)] = ["nonce", "expiresAt"],
+            [typeof(MemberCredentialRedemption)] = ["nonce"],
+            [typeof(MemberCredentialIssued)] =
+                ["runnerId", "runnerToken", "labels", "expiresAt"],
             [typeof(DecisionObservations)] =
                 ["interactive", "evidenceRendered", "secondsToDecide"],
             [typeof(DecisionRequest)] =

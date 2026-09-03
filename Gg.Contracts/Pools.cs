@@ -270,3 +270,94 @@ public sealed record PoolLedger
 {
     public required IReadOnlyList<PoolStatus> Pools { get; init; }
 }
+
+/// <summary>
+/// What a resident runner asks for when it is about to warm a member.
+/// </summary>
+/// <remarks>
+/// <b>The member's name is in the path, not here.</b> A credential is minted FOR
+/// one member; a body that named a second one would be a different request wearing
+/// this one's authorization.
+/// </remarks>
+[PinnedId("b353c73a-24b6-45dd-a970-4f09d7d70b06")]
+public sealed record MemberCredentialRequest
+{
+    /// <summary>The protocol this member will speak, so a mismatch fails at mint.</summary>
+    public required int ProtocolVersion { get; init; }
+}
+
+/// <summary>
+/// What the resident is handed to place in a member: a single-use nonce, and
+/// when it stops being worth anything.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A nonce rather than the credential itself.</b> A member's environment is
+/// readable through the scope proxy for the life of the container
+/// (<c>GET /containers/gg-pool-*/json</c>), so what goes in must be worthless
+/// once spent. The member exchanges it over its own connection, and an inspect
+/// afterwards finds a burnt one.
+/// </para>
+/// <para>
+/// <b>No runner id and no token here.</b> Those exist only after the member
+/// redeems, which is what makes the exchange the moment the identity comes into
+/// being rather than the moment it is copied.
+/// </para>
+/// </remarks>
+[PinnedId("3bc1dc75-7847-4556-a217-916d1a41282d")]
+public sealed record MemberCredentialMinted
+{
+    /// <summary>Single-use, and spent by the first redemption that presents it.</summary>
+    public required string Nonce { get; init; }
+
+    /// <summary>After this the nonce buys nothing, redeemed or not.</summary>
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
+/// <summary>
+/// The identity a member receives in exchange for its nonce.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A runner identity and nothing wider.</b> Article VIII at the one seam that
+/// would break it: a session token here would put a developer's whole surface
+/// inside a container running a customer's code. There is no principal, no
+/// session, and nothing about the tenant beyond what a runner already presents.
+/// </para>
+/// <para>
+/// <b>Short-lived on purpose.</b> Thirty days is the RESIDENT's cadence, set by a
+/// person signing in. A member is created and destroyed by machinery and should
+/// outlive its own credential by as little as possible - and reset revokes, which
+/// is only a boundary if the credential dies with the container.
+/// </para>
+/// </remarks>
+[PinnedId("c515801d-3766-4f48-9c0a-f094b861613a")]
+public sealed record MemberCredentialIssued
+{
+    public required string RunnerId { get; init; }
+
+    public required string RunnerToken { get; init; }
+
+    /// <summary>The labels this member may advertise, decided at mint.</summary>
+    /// <remarks>
+    /// <b>From the token, never from the heartbeat.</b> A runner declares its own
+    /// labels today, so a laptop and a member are indistinguishable to the
+    /// matcher. A member's come from the strategy in force when it was minted, so
+    /// the pool's own count can stop being polluted by whatever else is online.
+    /// </remarks>
+    public required IReadOnlyList<string> Labels { get; init; }
+
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
+/// <summary>The nonce a member presents to become a runner.</summary>
+/// <remarks>
+/// One field, and that is the point: the nonce IS the authorization, so anything
+/// else here would be a claim the caller makes about itself before it has an
+/// identity.
+/// </remarks>
+[PinnedId("fbc2736b-d43e-45ca-8f9a-82989c3bb987")]
+public sealed record MemberCredentialRedemption
+{
+    public required string Nonce { get; init; }
+}

@@ -126,6 +126,13 @@ public static class Vocabulary
         typeof(PoolAttestation),
         typeof(PoolAction),
         typeof(PoolActionList),
+
+        // The member-identity exchange, registered so the build refuses a wire
+        // type nobody put in the vocabulary.
+        typeof(MemberCredentialRequest),
+        typeof(MemberCredentialMinted),
+        typeof(MemberCredentialRedemption),
+        typeof(MemberCredentialIssued),
         typeof(PoolStatus),
         typeof(PoolLedger),
         typeof(DeclareNameRequest),

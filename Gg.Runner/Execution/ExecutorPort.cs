@@ -330,9 +330,18 @@ public sealed record ExecutorRun
             .ReplaceLineEndings(" ")
             .Trim();
 
-        return head.Length <= MaxReasonLength
+        // MARKED WHICHEVER CUT HAPPENED, which the paragraph one was not.
+        // Dropping everything after the first paragraph silently is the worse
+        // of the two: a lead-in reads like an answer, and a real flight
+        // recorded "two independent blockers, neither of which I can work
+        // around:" as though that were the whole of it.
+        var dropped = firstBreak > 0 || head.Length > MaxReasonLength;
+
+        var kept = head.Length <= MaxReasonLength
             ? head
-            : head[..MaxReasonLength].TrimEnd() + "… (the rest is in the transcript)";
+            : head[..MaxReasonLength].TrimEnd();
+
+        return dropped ? kept + "… (the rest is in the transcript)" : kept;
     }
 
     private static IReadOnlyList<string> Distinct(IReadOnlyList<string> moves) =>

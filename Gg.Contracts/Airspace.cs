@@ -336,6 +336,35 @@ public sealed record RegisterRepositoryRequest
     public string? Credential { get; init; }
 
     /// <summary>
+    /// The fully-qualified ref work starts from when a flight's intent names
+    /// none, or null - and <b>null means the flight has no repository</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here because this is where WHO a repository is already lives.</b> A
+    /// ticket intent is a provider and an id: it names no repository and
+    /// therefore no ref, so a flight about a work item resolved to nothing at
+    /// all and its runner materialized an empty tree. Which ref work starts
+    /// from is the registrar's knowledge in exactly the way the provider key and
+    /// the credential mode are, and it is nobody's downstream.
+    /// </para>
+    /// <para>
+    /// <b>Absence is not a default branch.</b> <see cref="FlightRepo"/> is
+    /// explicit that <i>a uri naming no ref produces no repository rather than a
+    /// guessed default branch</i>; a control plane substituting
+    /// <c>refs/heads/main</c> here would be that same guess with a longer path
+    /// to it, and wrong on every repository whose trunk is called something
+    /// else.
+    /// </para>
+    /// <para>
+    /// <b>Fully qualified, refused otherwise.</b> A tag and a branch of one name
+    /// are two different commits, so a bare <c>main</c> asks a reader to choose
+    /// a namespace on the author's behalf. See <see cref="RepositoryRefs"/>.
+    /// </para>
+    /// </remarks>
+    public string? Ref { get; init; }
+
+    /// <summary>
     /// The directory in this repository under which every document is a
     /// narrowing (ADR-0018), or null - and <b>null is off</b>.
     /// </summary>
@@ -413,6 +442,20 @@ public sealed record RepositoryRegistered
     /// same on the way out.
     /// </remarks>
     public required string Credential { get; init; }
+
+    /// <summary>
+    /// The fully-qualified ref work starts from when a flight's intent names
+    /// none, or null - and <b>null is different from any ref</b>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nullable on the way out, like <see cref="Narrowings"/> and unlike
+    /// <see cref="Credential"/>.</b> An absent credential and a declared
+    /// <c>required</c> are the same fact, so that one resolves. Here they are
+    /// different facts - a repository a ticket flight can start work on, and one
+    /// where such a flight is refused - so the absence has to survive the round
+    /// trip, or a reader cannot tell which they are looking at.
+    /// </remarks>
+    public string? Ref { get; init; }
 
     /// <summary>
     /// The directory under which every document in this repository is a

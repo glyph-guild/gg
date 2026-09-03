@@ -37,7 +37,9 @@ public abstract record CliAction
     /// Opens a flight. Exactly one payload: <see cref="Text"/>, <see cref="Uri"/>,
     /// or <see cref="Provider"/> and <see cref="Id"/> together.
     /// </summary>
-    public sealed record Fly(string? Text, string? Uri, bool Json, string? Provider = null, string? Id = null)
+    public sealed record Fly(
+        string? Text, string? Uri, bool Json, string? Provider = null, string? Id = null,
+        string? Repository = null)
         : CliAction, IEmitsResult;
 
     /// <summary>
@@ -333,6 +335,29 @@ public static class CliArgs
             // contract already refuses that with a better sentence than an
             // argument parser can produce. This keeps the parser's job to "did
             // they type it" and leaves "is it a ticket" to the one validator.
+            // `--repo <name>` is a SELECTION, not a second payload: it says
+            // which registered repository the flight is about, where the intent
+            // could not. A ticket names a provider and an id and no repository
+            // at all, so without this a work-item flight resolves to nothing and
+            // its runner materializes an empty tree.
+            //
+            // The registry KEY, never the forge path - a path is a display label
+            // that may drift, and a flight naming the key keeps resolving after
+            // somebody renames the repository on the forge.
+            ["fly", "--uri", var uri, "--repo", var repo] =>
+                new CliAction.Fly(null, uri, json, Repository: repo),
+            ["fly", "--ticket", var ticket, "--repo", var repo] => Ticket(ticket, json, repo),
+            ["fly", var text, "--repo", var repo] when !Option(text) =>
+                new CliAction.Fly(text, null, json, Repository: repo),
+
+            // A trailing `--repo` is somebody who meant to name one. Falling
+            // through to the says-two-things arm below would diagnose the wrong
+            // half of the line, and taking it as no repository would open work
+            // against an empty tree and report success.
+            ["fly", _, _, "--repo"] or ["fly", _, "--repo"] => Unknown(
+                "gg fly --repo needs the name a repository is registered under, e.g. "
+              + "--repo payments. Run gg airspace show to see them."),
+
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json),
             ["fly", "--ticket", var ticket] => Ticket(ticket, json),
 
@@ -447,9 +472,9 @@ public static class CliArgs
     private static bool Option(string word) =>
         word.StartsWith('-');
 
-    private static CliAction Ticket(string token, bool json) =>
+    private static CliAction Ticket(string token, bool json, string? repository = null) =>
         SplitTicket(token) is var (provider, id) && provider is not null
-            ? new CliAction.Fly(null, null, json, Provider: provider, Id: id)
+            ? new CliAction.Fly(null, null, json, Provider: provider, Id: id, Repository: repository)
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");

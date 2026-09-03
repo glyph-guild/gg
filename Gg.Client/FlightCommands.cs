@@ -563,7 +563,8 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         string? name = null,
         CancellationToken cancellationToken = default,
         string? provider = null,
-        string? id = null)
+        string? id = null,
+        string? repository = null)
     {
         var token = Session();
 
@@ -593,6 +594,12 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
             // shortened control-plane-side either way.
             Name = name is { Length: > 0 } ? name : (text ?? uri ?? $"{provider}#{id}"),
             Intent = intent,
+            // WHICH repository, never at which ref. The ref belongs to whoever
+            // registered the repository - a person opening a flight about a work
+            // item knows the work item, not the branch policy - and a flight
+            // that named one would be pinning from the least informed place in
+            // the system. Null inherits, which is what it has always meant.
+            Repository = repository is { Length: > 0 } ? repository : null,
         };
 
         return new VerbResult.Launched(await _client.LaunchFlightAsync(token, request, cancellationToken));

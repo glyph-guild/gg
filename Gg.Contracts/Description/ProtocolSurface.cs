@@ -1126,10 +1126,10 @@ public static class ProtocolSurface
                 ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],
             [typeof(EnvelopeTopology)] = ["names"],
             [typeof(RegisterRepositoryRequest)] =
-                ["name", "provider", "id", "path", "credential", "narrowings"],
+                ["name", "provider", "id", "path", "credential", "ref", "narrowings"],
             [typeof(RepositoryRegistered)] =
                 [
-                    "name", "provider", "id", "path", "credential", "narrowings",
+                    "name", "provider", "id", "path", "credential", "ref", "narrowings",
                     "registeredBy", "registeredAt",
                 ],
             [typeof(RegisteredRepositories)] = ["repositories"],

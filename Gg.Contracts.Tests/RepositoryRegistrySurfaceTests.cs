@@ -63,11 +63,11 @@ public class RepositoryRegistrySurfaceTests
         // serializes and conformance refuses, and a declared member it does not
         // have is a name it is required to emit and cannot.
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisterRepositoryRequest)])
-            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential", "narrowings"]);
+            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential", "ref", "narrowings"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RepositoryRegistered)])
             .IsEquivalentTo((string[])
             [
-                "name", "provider", "id", "path", "credential", "narrowings",
+                "name", "provider", "id", "path", "credential", "ref", "narrowings",
                 "registeredBy", "registeredAt",
             ]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisteredRepositories)])

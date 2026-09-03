@@ -196,6 +196,16 @@ public class ScopeProxyReachTests
     }
 
     [Test]
+    public async Task The_surface_is_exactly_what_the_adapter_calls()
+    {
+        // MINIMAL BY INTENT. The old comment advertised `wait` and nothing has
+        // ever called it. A future need should widen this file deliberately and
+        // fail here first, rather than inherit reach nobody asked for.
+        await Assert.That(Reaches("/v1.43/containers/gg-pool-dev-1/wait")).IsFalse()
+            .Because("DockerPoolAdapter calls six endpoints and this is not one of them.");
+    }
+
+    [Test]
     public async Task A_container_outside_the_pool_prefix_is_refused()
     {
         // The property the scope probe measures at every session start.

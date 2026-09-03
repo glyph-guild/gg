@@ -22,16 +22,27 @@ namespace Gg.Runner.Pools;
 /// the runner loop's own rule.
 /// </para>
 /// </remarks>
+/// <param name="narrate">
+/// Where a refusal is said out loud. Optional, and a no-op by default, because
+/// most tests are not about the narration - but a real pull point passes one:
+/// this loop reported NOTHING for its whole life, so hours of crash-looping
+/// looked identical to hours of quietly working.
+/// </param>
 public sealed class MaintainLoop(
     IPoolProtocol protocol,
     IPoolAdapter adapter,
     IClock clock,
-    Func<TimeSpan, CancellationToken, Task> delay)
+    Func<TimeSpan, CancellationToken, Task> delay,
+    Action<string>? narrate = null)
 {
     private readonly IPoolProtocol _protocol = protocol;
     private readonly IPoolAdapter _adapter = adapter;
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
+    private readonly Action<string> _narrate = narrate ?? (_ => { });
+
+    /// <summary>How long to wait before asking again. Zero while things are well.</summary>
+    private TimeSpan _backoff = TimeSpan.Zero;
 
     /// <summary>How long between cycles. Injected waiting makes it a test's choice too.</summary>
     public static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(5);
@@ -68,6 +79,8 @@ public sealed class MaintainLoop(
 
         while (!cancellationToken.IsCancellationRequested)
         {
+            try
+            {
             var members = await _adapter.ListAsync(pool, cancellationToken);
 
             // THE EMPTY POOL ANNOUNCES ITSELF. The first attestation is the
@@ -98,9 +111,28 @@ public sealed class MaintainLoop(
                     cancellationToken);
             }
 
+            // A SERVED CYCLE CLEARS IT, so an hour of health does not inherit a
+            // bad minute's wait.
+            _backoff = TimeSpan.Zero;
+            }
+            catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
+            {
+                // THE CONTROL PLANE'S PROBLEM, NOT THIS MACHINE'S. A deploy, a
+                // restart, a cold start - all of them pass, and none is a reason
+                // to stop maintaining a pool. This loop used to die here, and
+                // systemd restarted it into the same wall six times running
+                // while the pool it manages grew unattended.
+                //
+                // The classification and the backoff are TransientFailure's, the
+                // same ones RunnerLoop reads. A copy here is what left this loop
+                // behind when its twin was fixed.
+                _backoff = TransientFailure.Next(_backoff);
+                _narrate(TransientFailure.Diagnose(refusal, _backoff));
+            }
+
             try
             {
-                await _delay(PollEvery, cancellationToken);
+                await _delay(_backoff == TimeSpan.Zero ? PollEvery : _backoff, cancellationToken);
             }
             catch (OperationCanceledException)
             {

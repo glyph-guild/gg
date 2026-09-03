@@ -719,8 +719,12 @@ static async Task<int> RunnerMaintainAsync(string pool)
     var adapter = new Gg.Runner.Pools.DockerPoolAdapter(
         new HttpClient { BaseAddress = new Uri(configuration.Endpoint) });
 
+    // NARRATED, because this loop reported nothing at all. A pull point that
+    // crash-looped for hours looked exactly like one quietly doing its job, and
+    // the pool it manages grew to 196 dead members with nobody told.
     var loop = new Gg.Runner.Pools.MaintainLoop(
-        protocol, adapter, new Gg.Runner.SystemClock(), Task.Delay);
+        protocol, adapter, new Gg.Runner.SystemClock(), Task.Delay,
+        narrate: Console.Error.WriteLine);
 
     return await loop.RunAsync(pool, stopping.Token);
 }

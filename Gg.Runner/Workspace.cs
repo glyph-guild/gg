@@ -8,6 +8,19 @@ public sealed record WorkspaceResult(IReadOnlyList<Materialized> Trees)
 {
     /// <summary>Whether this flight already had trees here before we started.</summary>
     public required bool Reused { get; init; }
+
+    /// <summary>
+    /// This flight's own directory, which exists whether anything was cloned
+    /// into it or not.
+    /// </summary>
+    /// <remarks>
+    /// <b>So a flight with no repository still has somewhere to be worked.</b> A
+    /// ticket, a text intent and an issue link all resolve to no repository -
+    /// correctly - and the agent is still handed a working directory, because an
+    /// executor starts a process in one. Without this the loop had nothing to
+    /// pass, returned null, and the flight was leased, claimed and never worked.
+    /// </remarks>
+    public required string Root { get; init; }
 }
 
 /// <summary>
@@ -126,7 +139,12 @@ public sealed class Workspace : IWorkspace
                 cancellationToken));
         }
 
-        return new WorkspaceResult(materialized) { Reused = reused };
+        // CREATED EVEN WHEN NOTHING WAS CLONED, because a flight with no
+        // repository is still worked and the agent is still started somewhere.
+        var root = _trees.For(flightId);
+        Directory.CreateDirectory(root);
+
+        return new WorkspaceResult(materialized) { Reused = reused, Root = root };
     }
 
     public void Release(string flightId) => _trees.Release(flightId);
@@ -165,8 +183,15 @@ public sealed class NoWorkspace : IWorkspace
     {
         ArgumentNullException.ThrowIfNull(repos);
 
+        // A DIRECTORY EVEN HERE. A flight naming no repository needs no
+        // adapter, so this is the honest workspace for a ticket rather than a
+        // degraded one - and the agent still has to be started somewhere.
         return repos.Count == 0
-            ? Task.FromResult(new WorkspaceResult([]) { Reused = false })
+            ? Task.FromResult(new WorkspaceResult([])
+            {
+                Reused = false,
+                Root = Adhoc(flightId),
+            })
             : throw new VcsCapabilityException(
                 "workspace",
                 $"This runner has no version-control adapter configured, so the {repos.Count} "
@@ -178,4 +203,21 @@ public sealed class NoWorkspace : IWorkspace
     public HeldTree? Hold(string flightId) => null;
 
     public int SweepOrphans() => 0;
+
+    /// <summary>A directory of this flight's own, for a flight with no clone.</summary>
+    /// <remarks>
+    /// Named from the flight id rather than randomly, so a second Prepare for
+    /// the same flight lands in the same place - which is what makes a retry
+    /// after a crash find whatever the last attempt left.
+    /// </remarks>
+    private static string Adhoc(string flightId)
+    {
+        var path = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            "gg-flights",
+            new string([.. flightId.Where(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')]));
+
+        Directory.CreateDirectory(path);
+        return path;
+    }
 }

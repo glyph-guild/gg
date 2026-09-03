@@ -53,12 +53,27 @@ public class RepositorylessFlightTests
     {
         internal List<ExecutorRequest> Requests { get; } = [];
 
+        /// <summary>
+        /// Whether each request's working directory was there WHEN THE AGENT WAS
+        /// STARTED, keyed by loop.
+        /// </summary>
+        /// <remarks>
+        /// Recorded here rather than asserted afterwards, because a flight
+        /// releases its directory when it completes - so a test that looks after
+        /// the loop has finished is asking about a path that is meant to be gone
+        /// by then, and would fail on correct behaviour.
+        /// </remarks>
+        internal Dictionary<string, bool> DirectoryExisted { get; } = [];
+
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
         public Task<ExecutorRun> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
+            DirectoryExisted[request.LoopId] =
+                request.WorkingDirectory is { Length: > 0 } path && Directory.Exists(path);
+
             return Task.FromResult(ExecutorRun.Completed(
                 request.LoopId, "done", attempts: 1, took: TimeSpan.FromSeconds(1),
                 movesUsed: [LoopMoves.Read]));
@@ -166,10 +181,10 @@ public class RepositorylessFlightTests
         // failure rather than a flight that did nothing.
         var (executor, _) = await FlyAsync();
 
-        var working = WorkOf(executor).Single().WorkingDirectory;
+        var work = WorkOf(executor).Single();
 
-        await Assert.That(working).IsNotNull().And.IsNotEmpty();
-        await Assert.That(Directory.Exists(working!)).IsTrue()
+        await Assert.That(work.WorkingDirectory).IsNotNull().And.IsNotEmpty();
+        await Assert.That(executor.DirectoryExisted[work.LoopId]).IsTrue()
             .Because("the agent has to have somewhere to be, even when there was nothing to "
                    + "clone into it.");
     }

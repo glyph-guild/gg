@@ -50,18 +50,15 @@ public sealed class HttpsDestinationAdapter(
         var url = $"https://{_host}/{request.Slug}.git";
 
         // Committed first: the agent edited a working tree and left it dirty, and a
-        // push carries commits rather than changes. Authored as the developer,
-        // because their credential is what is about to push it.
-        if (await CommitAsync(request, cancellationToken) is { } uncommittable)
+        // push carries commits rather than changes.
+        //
+        // IN GitCommit RATHER THAN HERE, because the other adapter needs the same
+        // step and did not have it - see that type's remarks.
+        if (await GitCommit.ForPushAsync(
+                request.WorkingDirectory, request.Branch, request.Title, cancellationToken)
+            is { } uncommittable)
         {
-            return uncommittable switch
-            {
-                LandingOutcome.CredentialRefused(var locator, var diagnosis) =>
-                    new PushOutcome.Refused(locator, diagnosis),
-                LandingOutcome.Unsupported(var diagnosis) =>
-                    new PushOutcome.NothingToPush(diagnosis),
-                _ => new PushOutcome.Refused(request.Slug, "the tree could not be committed"),
-            };
+            return new PushOutcome.NothingToPush(uncommittable);
         }
 
         // THE GIT HALF, WHICH IS GIT'S. Fast-forward rules and what a remote's branch
@@ -71,44 +68,6 @@ public sealed class HttpsDestinationAdapter(
         return await GitPush.PushAsync(
             url, request.WorkingDirectory, request.Branch, request.Slug,
             request.Secret, cancellationToken);
-    }
-
-    /// <summary>
-    /// Turns the agent's edits into a commit on a new branch.
-    /// </summary>
-    /// <remarks>
-    /// A local branch first, so the push has one ref to send and the remote
-    /// name is decided by the refspec rather than by whatever the tree happened
-    /// to be on.
-    /// </remarks>
-    private async Task<LandingOutcome?> CommitAsync(
-        LandingRequest request, CancellationToken cancellationToken)
-    {
-        try
-        {
-            foreach (var plan in (GitInvocation[])
-                     [
-                         GitInvocation.Plain("checkout", "-b", request.Branch),
-                         GitInvocation.Plain("add", "--all"),
-                         GitInvocation.Plain(
-                             "-c", "user.name=gg",
-                             "-c", "user.email=gg@localhost",
-                             "commit", "--message", request.Title),
-                     ])
-            {
-                await plan.RunAsync(request.WorkingDirectory, cancellationToken);
-            }
-
-            return null;
-        }
-        catch (InvalidOperationException failure)
-        {
-            // Article XI: the diagnosis names what would not happen. "Could not
-            // land" would send somebody looking at the remote for a problem that
-            // was on this disk.
-            return new LandingOutcome.Unsupported(
-                $"This flight's work could not be committed before pushing: {failure.Message}");
-        }
     }
 
     /// <summary>

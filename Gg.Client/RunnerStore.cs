@@ -11,6 +11,23 @@ public sealed record StoredRunner
     public required string RunnerToken { get; init; }
 
     public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>What this runner may advertise, when its credential said so.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Empty for a host runner, which reads its labels from its
+    /// environment.</b> A pool member's arrive WITH the credential, decided
+    /// control-plane-side from the strategy - so they are kept here, where they
+    /// survive a restart that does not redeem.
+    /// </para>
+    /// <para>
+    /// <b>Not read from the container's environment, deliberately.</b> A member
+    /// that took them from a variable would advertise what somebody put in a
+    /// container rather than what the strategy decided, which is the thing the
+    /// member-identity work exists to stop.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> Labels { get; init; } = [];
 }
 
 [JsonSerializable(typeof(StoredRunner))]

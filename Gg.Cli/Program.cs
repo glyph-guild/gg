@@ -559,13 +559,28 @@ static async Task<int> RunnerUpAsync()
 {
     var baseAddress = ControlPlaneAddress();
 
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    // A POOL MEMBER STARTS HERE, and it has no session because nobody is
+    // present when a container is warmed. It finds a single-use nonce in its
+    // environment, put there by the resident runner that created it, and
+    // exchanges that for an identity of its own.
+    //
+    // This is the branch that lets a member run a flight at all. Before it,
+    // `gg runner up` refused without a session, so the only way to warm a
+    // working member was to bake a developer's session into an image - which
+    // lasts twelve hours and carries their whole surface.
+    if (Environment.GetEnvironmentVariable(
+            Gg.Runner.Pools.MemberBootstrap.NonceVariable) is { Length: > 0 } nonce)
+    {
+        return await MemberUpAsync(http, baseAddress, nonce);
+    }
+
     var session = new FileSessionStore().Read();
     if (session is null)
     {
         return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
     }
-
-    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
     // A person registers the runner; the runner then holds only the credential
     // that comes back. The developer session never reaches the runner process.
@@ -629,6 +644,81 @@ static async Task<int> RunnerUpAsync()
 
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
+        new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
+        destinations: destinations, executor: executor);
+}
+
+/// <summary>
+/// A pool member coming up: redeem the nonce, then run as an ordinary runner.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Read-or-redeem, the same decision every runner makes.</b> A container
+/// restarts, and a member that redeemed on every start would find its nonce
+/// spent and never come up again — so a stored credential answers whenever
+/// there is one, and the nonce is only for the first breath.
+/// </para>
+/// <para>
+/// <b>The labels come from the credential, not from the environment.</b> What a
+/// member may advertise was decided control-plane-side from the strategy; a
+/// variable saying the same thing would be a second source of truth for the one
+/// value that must not be a runner's to choose.
+/// </para>
+/// </remarks>
+static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string nonce)
+{
+    // KEYED ON THE CONTAINER, so a restart finds what the first start stored.
+    var store = new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName));
+
+    StoredRunner identity;
+    try
+    {
+        identity = await RunnerIdentity.EnsureAsync(
+            store,
+            async () =>
+            {
+                var issued = await new ControlPlaneClient(http).RedeemMemberAsync(nonce)
+                    ?? throw new InvalidOperationException(
+                        "this member's nonce buys nothing: it was never minted, it has expired, "
+                      + "or it has already been redeemed. A nonce is spent exactly once, and a "
+                      + "member cannot mint itself another - the pool has to warm a new one.");
+
+                return new StoredRunner
+                {
+                    RunnerId = issued.RunnerId,
+                    RunnerToken = issued.RunnerToken,
+                    Labels = issued.Labels,
+                    ExpiresAt = issued.ExpiresAt,
+                };
+            },
+            DateTimeOffset.UtcNow);
+    }
+    catch (InvalidOperationException refusal)
+    {
+        // A CLEAN REFUSAL rather than a stack trace. This lands in a
+        // container's log, which is where somebody looks when a member is warm
+        // and claims nothing.
+        return Fail(refusal.Message);
+    }
+
+    var holdFor = int.TryParse(
+        Environment.GetEnvironmentVariable("GG_RUNNER_HOLD_SECONDS"), out var seconds)
+        ? TimeSpan.FromSeconds(seconds)
+        : TimeSpan.FromSeconds(10);
+
+    using var stopping = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
+
+    var workspace = new Gg.Runner.Workspace(
+        Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot());
+
+    var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
+        api => new HttpClient { BaseAddress = new Uri(api) });
+
+    var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment();
+
+    return await Gg.Runner.RunnerHost.RunAsync(
+        new Uri(baseAddress), identity.RunnerId, identity.RunnerToken, identity.Labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
         destinations: destinations, executor: executor);
 }

@@ -48,6 +48,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(DeclareNameRequest))]
 [JsonSerializable(typeof(TopologyName))]
 [JsonSerializable(typeof(EnvelopeTopology))]
+[JsonSerializable(typeof(MemberCredentialRedemption))]
+[JsonSerializable(typeof(MemberCredentialIssued))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -198,6 +200,44 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// attribution stays with the developer, authority is the runner protocol
     /// alone.
     /// </remarks>
+    /// <summary>
+    /// Exchanges a member's single-use nonce for its own runner credential, or
+    /// null when the nonce buys nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one call gg makes with no credential at all.</b> A member has none
+    /// yet - that is the whole point of redeeming - so the nonce IS the
+    /// authorization. It came from the resident runner that created this
+    /// container, and it is spent by the first redemption.
+    /// </para>
+    /// <para>
+    /// <b>Null on refusal rather than a throw.</b> Never minted, expired, and
+    /// already redeemed all answer the same way on purpose: telling them apart
+    /// would let anything probe for live nonces. The caller reports a member
+    /// that could not start; it does not retry, because a spent nonce does not
+    /// become unspent.
+    /// </para>
+    /// </remarks>
+    public async Task<MemberCredentialIssued?> RedeemMemberAsync(
+        string nonce, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/pools/members/redeem")
+        {
+            Content = JsonContent.Create(
+                new MemberCredentialRedemption { Nonce = nonce },
+                ProtocolJsonContext.Default.MemberCredentialRedemption),
+        };
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync(
+                ProtocolJsonContext.Default.MemberCredentialIssued, cancellationToken)
+            : null;
+    }
+
     public async Task<RunnerRegistered> RegisterRunnerAsync(
         string sessionToken, string label, CancellationToken cancellationToken = default)
     {

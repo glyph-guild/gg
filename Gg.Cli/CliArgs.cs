@@ -321,6 +321,20 @@ public static class CliArgs
             // they type it" and leaves "is it a ticket" to the one validator.
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json),
             ["fly", "--ticket", var ticket] => Ticket(ticket, json),
+
+            // BEFORE the free-text arm, because that arm accepts anything. A
+            // word starting with a dash is an option somebody got wrong, and
+            // treating it as an intent opened a real flight called '--help' on
+            // a live tenant. `fly` is the one verb whose side effect a person
+            // cannot undo from here, and `--help` is what somebody types when
+            // they are least sure what it does.
+            //
+            // The options are NAMED rather than just refused: what they were
+            // asking for is exactly this list.
+            ["fly", var option] when Option(option) => Unknown(
+                $"'{option}' is an option, and gg fly does not have it. It takes some text, "
+              + "--uri <uri>, or --ticket <provider>#<id>."),
+
             ["fly", var text] => new CliAction.Fly(text, null, json),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
@@ -406,6 +420,19 @@ public static class CliArgs
     /// say <i>you left out the #</i>.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether this word is somebody reaching for an option rather than saying
+    /// something.
+    /// </summary>
+    /// <remarks>
+    /// <b>A LEADING dash, and only leading.</b> "re-run the importer" and "fix
+    /// the drop-down" are ordinary things to ask for, so a rule that read any
+    /// dash would refuse most sentences. Nothing anybody types as an intent
+    /// begins with one.
+    /// </remarks>
+    private static bool Option(string word) =>
+        word.StartsWith('-');
+
     private static CliAction Ticket(string token, bool json) =>
         SplitTicket(token) is var (provider, id) && provider is not null
             ? new CliAction.Fly(null, null, json, Provider: provider, Id: id)

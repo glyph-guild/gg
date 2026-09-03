@@ -55,11 +55,11 @@ public class MaintainSurvivesRefusalTests
 
         public Task<PoolObservation> RefreshAsync(
             string pool, string member, string image, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Refreshed });
+            Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
 
         public Task<PoolObservation> ResetAsync(
             string member, string image, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Reset });
+            Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
     }
 
     /// <summary>A control plane that refuses the pull a fixed number of times.</summary>

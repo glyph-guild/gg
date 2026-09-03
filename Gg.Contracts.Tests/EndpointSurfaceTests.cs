@@ -199,8 +199,21 @@ public class EndpointSurfaceTests
         // had ever opened, which was the only thing it COULD return while
         // nothing recorded an ending - so the verb's own one-line description,
         // "what's in the air", was aspirational for fourteen slices.
+        //
+        // Moved for the member-identity exchange, two routes. A resident runner
+        // mints a single-use nonce for one named member
+        // (POST /v1/pools/{pool}/members/{member}/credential, runner audience);
+        // the member redeems it for a real credential
+        // (POST /v1/pools/members/redeem), and that one is ANONYMOUS by
+        // necessity - a member has no credential yet, which is the whole point
+        // of redeeming. 409 on the redeem is the second attempt being told the
+        // nonce is spent rather than handed a second identity.
+        //
+        // Why it exists: nothing has ever run inside a pool member because
+        // nothing could give one an identity, and the only mechanism that
+        // worked baked a copied developer session into an image.
         await Assert.That(Fingerprint())
-            .IsEqualTo("a4d982e9dd7a162367461848072359d778667f15313763e6670b53b7626f471a")
+            .IsEqualTo("c2c1e2b9ea43d73cae68e3d9efb7a575eca19b7c5909918f29ece0faaf960495")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -39,15 +39,18 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class MemberCredentialSurfaceTests
 {
-    private static Endpoint Mint() =>
+    /// <summary>
+    /// By exact path, because the surface already carries other credential
+    /// routes and a Contains match found three of them.
+    /// </summary>
+    private static Endpoint At(string path) =>
         ProtocolSurface.Endpoints.Single(e =>
             string.Equals(e.Method, "POST", StringComparison.Ordinal)
-            && e.Path.Contains("/credential", StringComparison.Ordinal));
+            && string.Equals(e.Path, path, StringComparison.Ordinal));
 
-    private static Endpoint Redeem() =>
-        ProtocolSurface.Endpoints.Single(e =>
-            string.Equals(e.Method, "POST", StringComparison.Ordinal)
-            && e.Path.Contains("redeem", StringComparison.Ordinal));
+    private static Endpoint Mint() => At("/v1/pools/{pool}/members/{member}/credential");
+
+    private static Endpoint Redeem() => At("/v1/pools/members/redeem");
 
     [Test]
     public async Task A_resident_runner_can_mint_a_credential_for_one_member()

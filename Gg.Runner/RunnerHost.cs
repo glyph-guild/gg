@@ -22,6 +22,15 @@ internal sealed class ConsoleObserver : IRunnerObserver
         System.Console.Error.WriteLine(
             $"move bound BROKE mid-life: {diagnosis} This runner will not take further work.");
 
+    /// <summary>
+    /// Said every time, not once. A person watching a runner ride out a deploy
+    /// needs to see it still trying; one line at the start and then silence
+    /// reads exactly like the crash this replaced.
+    /// </summary>
+    public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) =>
+        System.Console.WriteLine(
+            $"{diagnosis}; asking again in {retryIn.TotalSeconds:0}s");
+
     public void Idle() => System.Console.WriteLine("nothing ready");
 
     /// <summary>

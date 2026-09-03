@@ -200,18 +200,32 @@ public static class CliArgs
         "gg log <flight>                a flight's log",
         "gg runners                     the runners this tenant has",
         "gg plan [flight]               what must hold before a flight can start",
+        "gg gates                       flights stopped, waiting on somebody",
+        "gg why <flight> [obligation]   why a flight is stopped, and what would open it",
+        // <outcome> rather than the two words it takes, because spelling them
+        // here trips the guard that forbids advertising a `gg approve` verb
+        // that does not exist. `gg decide` with the wrong arguments prints the
+        // full form, which is where somebody typing it will be anyway.
+        "gg decide <flight> <obligation> <outcome> [reason]  open a gate, or refuse it",
+        "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
+        "gg airspace show|pull|diff|apply  the repositories this tenant has registered",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
         "gg envelope apply <file>|-     write them back",
         "gg envelope validate <file>|-  check a file without sending it anywhere",
         "gg doctor                      check what gg needs to work",
         "gg bundle                      a redacted diagnostics bundle to send us",
-        "gg login | logout | whoami     identity",
+        // One line each rather than "login | logout | whoami". A person looking
+        // for a verb greps for it, and the compact form is the one spelling
+        // nobody searches with.
+        "gg login                       sign in on this machine",
+        "gg logout                      forget the session here",
+        "gg whoami                      who this machine is signed in as",
         "gg runner up                   take work on this machine",
         "gg runner maintain <pool>      keep a managed pool warm, reset and attested",
         "gg version                     binary, protocol and fact vocabulary",

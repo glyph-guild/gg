@@ -43,6 +43,9 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     internal Queue<ClaimResult> Claims { get; } = new();
 
+    /// <summary>What the claim throws, one per call, before it answers normally.</summary>
+    internal Queue<Exception> ClaimThrows { get; } = new();
+
     /// <summary>
     /// What this control plane says when a claim is taken.
     /// </summary>
@@ -85,6 +88,14 @@ internal sealed class FakeProtocol : IRunnerProtocol
     {
         Calls.Add($"claim:{maxWaitSeconds}");
         Record(new LeaseClaimRequest { RunnerId = runnerId, Labels = labels, MaxWaitSeconds = maxWaitSeconds });
+
+        // A CONTROL PLANE HAVING A BAD MOMENT. Queued rather than a flag, so a
+        // test can say "fail twice then serve" - which is the shape that proves
+        // the runner came back rather than merely survived one.
+        if (ClaimThrows.Count > 0)
+        {
+            throw ClaimThrows.Dequeue();
+        }
 
         return Task.FromResult(Acceptance ?? new ClaimAcceptance.Accepted(
             $"request-{Calls.Count(c => c.StartsWith("claim:", StringComparison.Ordinal))}",

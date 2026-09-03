@@ -45,7 +45,6 @@ public class TakeTests
             new StreamLine { Kind = StreamLineKind.Meta, Text = "loop success", At = T0 },
         ],
         LiveVisible = true,
-        Notes = "what I was thinking before any of this",
         TakeableTree = tree,
         TakeSeed = TakeSeedComposer.Compose(
             "GG-42", "019ff8aa-1111-7000-8000-000000000001",
@@ -91,7 +90,6 @@ public class TakeTests
             await Assert.That(after.Live.Count).IsEqualTo(4)
                 .Because("the live pane's content survives a child holding the terminal for "
                        + "minutes, because the model is the only thing that crosses.");
-            await Assert.That(after.Notes).IsEqualTo(before.Notes);
             await Assert.That(after.Queue.Single().FlightNumber).IsEqualTo("GG-42");
             await Assert.That(after.LiveVisible).IsTrue();
 

@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace Gg.Console.Tests;
 
 /// <summary>
@@ -68,9 +70,9 @@ public class ConsoleLoopTests
         await Assert.That(ui.StatesSeen).Count().IsEqualTo(2);
         var rebuilt = ui.StatesSeen[1];
 
-        var expected = AppStateJson.Serialize(
-            full with { Notes = "before edit\nappended while the UI was down" });
-        await Assert.That(AppStateJson.Serialize(rebuilt)).IsEqualTo(expected)
+        // The state the loop itself moved on, so the comparison is against what
+        // the handover was supposed to produce rather than against the input.
+        await Assert.That(Carried(rebuilt)).IsEqualTo(Carried(full))
             .Because("the second session is rebuilt from the surviving model and nothing else.");
 
         await Assert.That(final.LastFlightOpened).IsNotNull()
@@ -97,9 +99,32 @@ public class ConsoleLoopTests
             new ConsoleLoop(ui, new PassThroughEditor(), actions: new SilentActions())
                 .Run(new AppState());
 
-            await Assert.That(AppStateJson.Serialize(ui.StatesSeen[1])).IsEqualTo(AppStateJson.Serialize(state))
+            await Assert.That(Carried(ui.StatesSeen[1])).IsEqualTo(Carried(state))
                 .Because($"seed {seed} did not survive the UI being destroyed and rebuilt.");
         }
+    }
+
+    /// <summary>
+    /// The model as a document, minus what this handover is SUPPOSED to write.
+    /// </summary>
+    /// <remarks>
+    /// <b>Still a whole-document comparison, minus two named keys.</b> The
+    /// scratchpad this test used to ride on wrote nothing, so the two states were
+    /// byte-identical and the claim was easy to state. A real handover produces a
+    /// result - that is what it is for - so the claim becomes "everything the
+    /// command did not write survived, whatever it happens to hold". Excluding
+    /// two keys by name keeps the part that mattered: a field added later is
+    /// covered by this test on the day it is added, not the day somebody
+    /// remembers to extend it.
+    /// </remarks>
+    private static string Carried(AppState state)
+    {
+        var document = JsonNode.Parse(AppStateJson.Serialize(state))!.AsObject();
+
+        document.Remove(nameof(AppState.LastFlightOpened));
+        document.Remove(nameof(AppState.LastAction));
+
+        return document.ToJsonString();
     }
 
     private sealed class PassThroughEditor : IEditorSession

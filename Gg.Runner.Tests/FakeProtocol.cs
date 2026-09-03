@@ -255,6 +255,9 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Released(string leaseId, string disposition) => Record($"released:{disposition}");
 
     public void BoundBroken(string diagnosis) => Record($"bound-broke:{diagnosis}");
+    public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) =>
+        Record($"control-plane-refused:{diagnosis}");
+
     public void Idle() => Record("idle");
 
     /// <summary>

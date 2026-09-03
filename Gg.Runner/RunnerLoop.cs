@@ -1,3 +1,4 @@
+using System.Net;
 using Gg.Contracts;
 using Gg.Runner.Execution;
 using Gg.Runner.Facts;
@@ -32,6 +33,19 @@ public interface IRunnerObserver
     /// live runner, and it is stopping.
     /// </summary>
     void BoundBroken(string diagnosis);
+
+    /// <summary>
+    /// The control plane refused or could not be reached, and the runner is
+    /// going to ask again in <paramref name="retryIn"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because surviving quietly is the worse bug.</b> The crash this
+    /// replaces at least left a stack trace on somebody's console. A runner
+    /// that retried in silence would look idle from both ends - it has nothing
+    /// to do, and the control plane has nobody asking - which is the outage
+    /// nobody finds.
+    /// </remarks>
+    void ControlPlaneRefused(string diagnosis, TimeSpan retryIn);
 
     void Idle();
 
@@ -126,6 +140,8 @@ public sealed class SilentObserver : IRunnerObserver
     public void Fenced(string leaseId) { }
     public void Released(string leaseId, string disposition) { }
     public void BoundBroken(string diagnosis) { }
+    public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) { }
+
     public void Idle() { }
     public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
@@ -202,6 +218,52 @@ public sealed class RunnerLoop(
     /// </remarks>
     private DateTimeOffset _nextBeatDue = DateTimeOffset.MinValue;
 
+    /// <summary>How long to wait before asking again. Zero while things are well.</summary>
+    private TimeSpan _backoff = TimeSpan.Zero;
+
+    /// <summary>The first wait after a refusal.</summary>
+    internal static readonly TimeSpan FirstRetry = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// The longest this will ever wait between attempts.
+    /// </summary>
+    /// <remarks>
+    /// Bounded, and not large. A runner that backed off to minutes would be the
+    /// outage this fixes wearing a longer timer: the control plane comes back
+    /// and nobody claims anything for another five minutes.
+    /// </remarks>
+    internal static readonly TimeSpan SlowestRetry = TimeSpan.FromSeconds(30);
+
+    /// <summary>Doubling, capped.</summary>
+    private static TimeSpan Slower(TimeSpan current) =>
+        current + current > SlowestRetry ? SlowestRetry : current + current;
+
+    /// <summary>
+    /// Whether this failure is the control plane's to fix rather than ours.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No status at all is transient.</b> A refused connection, a reset, a
+    /// DNS failure mid-deploy - the request never reached anything that could
+    /// have an opinion, so there is nothing to conclude about this runner.
+    /// </para>
+    /// <para>
+    /// <b>A 4xx is ours and is fatal.</b> 401 and 403 say this runner's
+    /// credential is wrong, and no amount of waiting fixes a credential.
+    /// Retrying would be a misconfigured machine hammering a control plane
+    /// forever, which is worse than stopping where somebody can see it.
+    /// <b>408 and 429 are the exceptions</b>: a timeout and a rate limit are
+    /// both explicitly "try again".
+    /// </para>
+    /// </remarks>
+    private static bool Transient(HttpRequestException failure) =>
+        failure.StatusCode switch
+        {
+            null => true,
+            HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests => true,
+            var status => (int)status >= 500,
+        };
+
     /// <summary>Says this process is alive, no more often than asked.</summary>
     /// <remarks>
     /// The interval is the control plane's, read from its own answer, never a
@@ -276,7 +338,39 @@ public sealed class RunnerLoop(
                 // runner invisible.
                 await BeatIfDueAsync(runnerId, labels, cancellationToken);
 
-                var claim = await AskForWorkAsync(runnerId, labels, cancellationToken);
+                ClaimResult claim;
+                try
+                {
+                    claim = await AskForWorkAsync(runnerId, labels, cancellationToken);
+                }
+                catch (HttpRequestException refusal) when (Transient(refusal))
+                {
+                    // THE CONTROL PLANE'S PROBLEM, NOT THIS RUNNER'S. A deploy,
+                    // a restart, a cold start or a database blip - all of them
+                    // pass, and none of them is a reason to remove this machine
+                    // from the fleet until somebody notices.
+                    //
+                    // Said out loud, then waited out. The backoff is bounded
+                    // because a runner that backs off forever is the outage it
+                    // was meant to prevent, wearing a longer timer.
+                    _backoff = _backoff == TimeSpan.Zero
+                        ? FirstRetry
+                        : Slower(_backoff);
+
+                    _observer.ControlPlaneRefused(
+                        refusal.StatusCode is { } status
+                            ? $"the control plane answered {(int)status} to the claim"
+                            : $"the control plane could not be reached: {refusal.Message}",
+                        _backoff);
+
+                    await _delay(_backoff, cancellationToken);
+                    continue;
+                }
+
+                // A SERVED CLAIM CLEARS IT, so an hour of health does not
+                // inherit a bad minute's wait.
+                _backoff = TimeSpan.Zero;
+
                 if (claim is not ClaimResult.Granted(var lease))
                 {
                     // Every wait this took was one the control plane asked for,

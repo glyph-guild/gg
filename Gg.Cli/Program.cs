@@ -816,11 +816,14 @@ static async Task<int> RunnerMaintainAsync(string pool)
         protocol, adapter, new Gg.Runner.SystemClock(), Task.Delay,
         narrate: Console.Error.WriteLine,
 
-        // WHERE A MEMBER ANSWERS TO, which is this host's own control plane: a
-        // member pointed anywhere else is a container nobody can reach. What it
-        // may ADVERTISE is not here - that comes back with the credential it
-        // redeems, decided control-plane-side from the strategy.
-        controlPlane: baseAddress);
+        // WHERE A MEMBER ANSWERS TO, which is usually this host's own control
+        // plane and is not always: a container's 127.0.0.1 is the container.
+        // What it may ADVERTISE is not here - that comes back with the
+        // credential it redeems, decided control-plane-side from the strategy.
+        controlPlane: Gg.Runner.Pools.MemberBootstrap.ControlPlaneFor(
+            baseAddress,
+            Environment.GetEnvironmentVariable(
+                Gg.Runner.Pools.MemberBootstrap.ReachableAsVariable)));
 
     return await loop.RunAsync(pool, stopping.Token);
 }

@@ -286,6 +286,61 @@ public static class DestinationConfiguration
 }
 
 /// <summary>
+/// Turning the agent's edits into a commit on the destination branch.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Here rather than in an adapter because a push carries commits and not
+/// changes, whatever the remote is spelled like.</b> This lived inside
+/// <see cref="HttpsDestinationAdapter"/> and nowhere else, so
+/// <see cref="RefNamedDestinationAdapter"/> pushed <c>HEAD</c> with nothing
+/// committed onto it - creating the destination branch at the commit the workspace
+/// had materialized AT, and leaving the agent's work in the working tree. Which
+/// forge a customer used decided whether their work was carried.
+/// </para>
+/// <para>
+/// <b>A local branch first</b>, so the push has one ref to send and the remote name
+/// is decided by the refspec rather than by whatever the tree happened to be on.
+/// </para>
+/// </remarks>
+public static class GitCommit
+{
+    /// <summary>
+    /// Commits everything in the working tree onto <paramref name="branch"/>.
+    /// Returns null when that succeeded, and the diagnosis when it did not.
+    /// </summary>
+    public static async Task<string?> ForPushAsync(
+        string workingDirectory, string branch, string message,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            foreach (var plan in (GitInvocation[])
+                     [
+                         GitInvocation.Plain("checkout", "-b", branch),
+                         GitInvocation.Plain("add", "--all"),
+                         GitInvocation.Plain(
+                             "-c", "user.name=gg",
+                             "-c", "user.email=gg@localhost",
+                             "commit", "--message", message),
+                     ])
+            {
+                await plan.RunAsync(workingDirectory, cancellationToken);
+            }
+
+            return null;
+        }
+        catch (InvalidOperationException failure)
+        {
+            // Article XI: the diagnosis names what would not happen. "Could not
+            // land" would send somebody looking at the remote for a problem that
+            // was on this disk.
+            return $"This flight's work could not be committed before pushing: {failure.Message}";
+        }
+    }
+}
+
+/// <summary>
 /// Getting a branch onto a remote, and deciding what happened when that fails.
 /// </summary>
 /// <remarks>

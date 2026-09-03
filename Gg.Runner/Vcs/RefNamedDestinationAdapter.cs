@@ -63,14 +63,25 @@ public sealed class RefNamedDestinationAdapter(string provider, string host, Htt
         return $"{repositoryWebUrl.TrimEnd('/')}/pullrequest/{pullRequestId}";
     }
 
-    public Task<PushOutcome> PushAsync(
+    public async Task<PushOutcome> PushAsync(
         LandingRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        // THE STEP THAT WAS MISSING HERE. GitPush pushes HEAD, so without this the
+        // destination branch was created at the commit the workspace materialized
+        // AT - proposing the repository back to itself, and leaving the agent's
+        // work uncommitted in the tree. See GitCommit's remarks for how it read.
+        if (await GitCommit.ForPushAsync(
+                request.WorkingDirectory, request.Branch, request.Title, cancellationToken)
+            is { } uncommittable)
+        {
+            return new PushOutcome.NothingToPush(uncommittable);
+        }
+
         // The git half is git's, and it is the same question for every url
         // shape - which is why it lives in GitPush rather than here.
-        return GitPush.PushAsync(
+        return await GitPush.PushAsync(
             PathScopedCloneUrl(_host, request.Slug), request.WorkingDirectory, request.Branch,
             request.Slug, request.Secret, cancellationToken);
     }

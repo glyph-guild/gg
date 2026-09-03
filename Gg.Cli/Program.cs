@@ -389,9 +389,26 @@ static async Task<int> DoctorAsync(bool json)
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
+    // WHAT THIS MACHINE IS, read here because this is where the environment
+    // belongs. Gg.Client references only Gg.Contracts, so the doctor is handed
+    // facts rather than going looking for variables.
+    var executor = Environment.GetEnvironmentVariable(
+        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable);
+
+    var role = new MachineRole
+    {
+        ExecutorBinary = executor,
+        ExecutorPresent = executor is { Length: > 0 } && File.Exists(executor),
+        ForgeHosts = Environment.GetEnvironmentVariable("GG_VCS_HOSTS"),
+        DestinationApis = Environment.GetEnvironmentVariable("GG_DESTINATION_APIS"),
+        PoolEndpoint = Environment.GetEnvironmentVariable("GG_POOL_ENDPOINT"),
+    };
+
     var report = await new Doctor(
         new ControlPlaneClient(http), new FileSessionStore(), new FileCredentialStore(),
-        new Uri(baseAddress)).RunAsync();
+        new Uri(baseAddress),
+        addressConfigured: Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") is { Length: > 0 })
+        .RunAsync(role: role);
 
     var result = new VerbResult.Diagnosis(report);
     Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));

@@ -75,6 +75,75 @@ public static class DoctorChecks
     /// and we cannot reproduce.
     /// </remarks>
     public const string HandoffAccount = "handoff account";
+
+    /// <summary>Whether this machine can actually invoke an agent.</summary>
+    /// <remarks>
+    /// <b>A host with no executor passes every other check.</b> It registers,
+    /// claims flights, and runs nothing - which from the control plane looks
+    /// exactly like a busy runner, because the flights ARE claimed.
+    /// <c>ExecutorConfiguration</c>'s own remarks record what that cost the
+    /// first time: <i>every runner the product started built a loop whose
+    /// executor was null and no flight ever invoked an agent.</i>
+    /// </remarks>
+    public const string Executor = "executor";
+
+    /// <summary>Whether this machine can reach a forge to clone from.</summary>
+    /// <remarks>
+    /// Not blocking: plenty of hosts take flights that never clone. Worth
+    /// saying anyway, because a pool host missing it looks healthy right up
+    /// until a flight needs a repository.
+    /// </remarks>
+    public const string Forge = "forge";
+
+    /// <summary>Whether this machine maintains a pool.</summary>
+    public const string Pool = "pool";
+}
+
+/// <summary>
+/// What this machine was installed to do, as facts rather than as environment.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Passed to the doctor rather than read by it.</b> <c>Gg.Client</c>
+/// references only <c>Gg.Contracts</c> - the executor lives in
+/// <c>Gg.Runner</c>, and the variables belong to whoever composed the process.
+/// That is the same reasoning <c>accountsMissing</c> already rides on.
+/// </para>
+/// <para>
+/// <b>Every field's absent state is ordinary.</b> A laptop is not a pool host.
+/// Nothing here is blocking for that reason, and a doctor that failed on a
+/// developer's machine would be a verb nobody runs.
+/// </para>
+/// </remarks>
+public sealed record MachineRole
+{
+    /// <summary>Where the agent binary is, or null when none is configured.</summary>
+    public string? ExecutorBinary { get; init; }
+
+    /// <summary>Whether that binary is actually there.</summary>
+    /// <remarks>
+    /// Separate from the path, because "nobody configured one" and "somebody
+    /// configured one that is not there" are two mistakes with two different
+    /// fixes - and a typo in a unit file reads identically to a missing install
+    /// without it.
+    /// </remarks>
+    public bool ExecutorPresent { get; init; }
+
+    /// <summary>The forge hosts this machine serves, as configured.</summary>
+    public string? ForgeHosts { get; init; }
+
+    /// <summary>Where proposals are opened, as configured.</summary>
+    public string? DestinationApis { get; init; }
+
+    /// <summary>The pool endpoint, when this host maintains one.</summary>
+    public string? PoolEndpoint { get; init; }
+
+    /// <summary>A machine configured for nothing in particular.</summary>
+    public static MachineRole None { get; } = new();
+
+    /// <summary>A machine with an agent binary, present or not.</summary>
+    public static MachineRole WithExecutor(string binary, bool present) =>
+        new() { ExecutorBinary = binary, ExecutorPresent = present };
 }
 
 /// <summary>
@@ -185,13 +254,25 @@ public sealed record DoctorReport
 /// cannot be reached, and reporting the session as broken in that case would
 /// send somebody to re-authenticate for no reason.
 /// </remarks>
+/// <param name="addressConfigured">
+/// Whether <paramref name="controlPlane"/> is a value somebody set, or the
+/// built-in localhost fallback.
+/// </param>
+/// <remarks>
+/// <b>The address being a default is a fact about this machine.</b> Unreachable
+/// and defaulted is a different sentence from unreachable and configured, and
+/// only one of them is about the server. Defaulting to true keeps every existing
+/// caller and test saying exactly what they said before.
+/// </remarks>
 public sealed class Doctor(
-    ControlPlaneClient client, ISessionStore sessions, ICredentialStore credentials, Uri controlPlane)
+    ControlPlaneClient client, ISessionStore sessions, ICredentialStore credentials, Uri controlPlane,
+    bool addressConfigured = true)
 {
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
     private readonly ICredentialStore _credentials = credentials;
     private readonly Uri _controlPlane = controlPlane;
+    private readonly bool _addressConfigured = addressConfigured;
 
     /// <param name="accountsMissing">
     /// How many recent flights produced no closing account. Passed in because
@@ -199,8 +280,15 @@ public sealed class Doctor(
     /// not go looking; the console knows, and telling it is cheaper than a
     /// second fetch.
     /// </param>
+    /// <param name="role">
+    /// What this machine was installed to do. <see cref="MachineRole.None"/> is
+    /// an ordinary answer and the default, so a caller that has nothing to say
+    /// about the machine says nothing.
+    /// </param>
     public async Task<DoctorReport> RunAsync(
-        int accountsMissing = 0, CancellationToken cancellationToken = default)
+        int accountsMissing = 0,
+        MachineRole? role = null,
+        CancellationToken cancellationToken = default)
     {
         var checks = new List<DoctorCheck>();
 
@@ -226,12 +314,26 @@ public sealed class Doctor(
             {
                 Name = DoctorChecks.ControlPlane,
                 Passed = false,
-                Detail = $"could not connect to {_controlPlane}: {failure.Message}",
+
+                // WHICH FAILURE THIS IS. An address nobody set is this
+                // machine's problem and reads as the server's: the fallback is
+                // localhost, so every verb fails with a connection refused and
+                // the old sentence sent two people to look at a healthy
+                // control plane.
+                Detail = _addressConfigured
+                    ? $"could not connect to {_controlPlane}: {failure.Message}"
+                    : $"could not connect to {_controlPlane}, which is the built-in default "
+                    + "because GG_CONTROL_PLANE is not set",
                 Blocking = true,
+
                 // Nothing on this machine changes whether a remote service is
                 // up. Telling somebody to try is how a support call starts
-                // badly.
-                Fixable = false,
+                // badly - but a variable nobody set is precisely what this
+                // machine can fix.
+                Fixable = !_addressConfigured,
+                Fix = _addressConfigured
+                    ? null
+                    : "Set GG_CONTROL_PLANE to the address of your control plane.",
             });
         }
 
@@ -287,8 +389,109 @@ public sealed class Doctor(
         checks.AddRange(await TenantNoticeChecksAsync(
             stored, reachable, protocolRefusal is null, cancellationToken));
 
+        // LAST, and about a different question. Everything above answers "can
+        // this machine talk to the control plane"; these answer "can it do the
+        // job it was installed for" - which is the question a person stands up
+        // a pool host to settle, and the one doctor did not answer.
+        checks.AddRange(RoleChecks(role ?? MachineRole.None));
+
         return new DoctorReport { Checks = checks };
     }
+
+    /// <summary>
+    /// What this machine is equipped to do, said out loud.
+    /// </summary>
+    /// <remarks>
+    /// <b>None of it is blocking.</b> A laptop is not a pool host, and an exit
+    /// code that failed there would make the verb useless where it is used
+    /// most. All of it is fixable, because every one of these is a value on
+    /// this machine.
+    /// </remarks>
+    private static IReadOnlyList<DoctorCheck> RoleChecks(MachineRole role) =>
+    [
+        role.ExecutorBinary is not { Length: > 0 }
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Executor,
+                Passed = false,
+
+                // THE CONSEQUENCE, not the variable. "GG_EXECUTOR_BINARY is not
+                // set" is true and means nothing to somebody who does not
+                // already know what it does.
+                Detail = "no agent binary is configured, so this machine will claim flights and "
+                       + "never invoke an agent",
+                Blocking = false,
+                Fixable = true,
+                Fix = "Set GG_EXECUTOR_BINARY to the agent binary this machine should run.",
+            }
+            : !role.ExecutorPresent
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Executor,
+                Passed = false,
+
+                // The path it looked for IS the diagnosis: without it, a typo
+                // in a unit file reads identically to a missing install.
+                Detail = $"the configured agent binary is not there: {role.ExecutorBinary}",
+                Blocking = false,
+                Fixable = true,
+                Fix = "Install the agent, or correct GG_EXECUTOR_BINARY.",
+            }
+            : new DoctorCheck
+            {
+                Name = DoctorChecks.Executor,
+                Passed = true,
+                Detail = role.ExecutorBinary,
+                Blocking = false,
+                Fixable = false,
+            },
+
+        role.ForgeHosts is { Length: > 0 } hosts
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Forge,
+                Passed = true,
+
+                // The hosts, never a credential. This line goes to stdout, and
+                // stdout is what a customer pastes into a ticket.
+                Detail = role.DestinationApis is { Length: > 0 }
+                    ? $"{hosts}, and a destination api is configured"
+                    : $"{hosts}, and no destination api is configured, so nothing will be proposed",
+                Blocking = false,
+                Fixable = false,
+            }
+            : new DoctorCheck
+            {
+                Name = DoctorChecks.Forge,
+                Passed = false,
+                Detail = "no forge is configured, so a flight that needs a repository cannot "
+                       + "clone one here",
+                Blocking = false,
+                Fixable = true,
+                Fix = "Set GG_VCS_HOSTS for the forges this machine should serve.",
+            },
+
+        role.PoolEndpoint is { Length: > 0 } pool
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Pool,
+                Passed = true,
+                Detail = pool,
+                Blocking = false,
+                Fixable = false,
+            }
+            : new DoctorCheck
+            {
+                Name = DoctorChecks.Pool,
+                Passed = false,
+                Detail = "no pool endpoint is configured; this host maintains no pool",
+                Blocking = false,
+
+                // Not fixable, because most machines are not meant to. A fix
+                // offered here would read as something everybody ought to do.
+                Fixable = false,
+            },
+    ];
 
     /// <summary>
     /// What the control plane says is degraded, said here.

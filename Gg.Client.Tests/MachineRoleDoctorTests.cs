@@ -56,6 +56,29 @@ public class MachineRoleDoctorTests
     private static DoctorCheck Of(DoctorReport report, string name) =>
         report.Checks.Single(c => c.Name == name);
 
+    /// <summary>
+    /// An address that refuses, rather than a stub taken down mid-test.
+    /// </summary>
+    /// <remarks>
+    /// Port 1 on the loopback: nothing binds it, and the connection is refused
+    /// immediately rather than timing out. Written first by disposing the stub
+    /// and asking anyway, which produced an ObjectDisposedException from the
+    /// harness instead of the connection failure the subject is about.
+    /// </remarks>
+    private static async Task<DoctorReport> UnreachableAsync(bool addressConfigured)
+    {
+        using var temporary = new TemporaryStore();
+        var address = new Uri("http://127.0.0.1:1/");
+
+        return await new Doctor(
+                new ControlPlaneClient(new HttpClient { BaseAddress = address }),
+                new HeldSessionStore(ASession()),
+                temporary.Store,
+                address,
+                addressConfigured)
+            .RunAsync(role: MachineRole.None);
+    }
+
     [Test]
     public async Task A_runner_with_no_executor_is_told_it_will_never_invoke_an_agent()
     {
@@ -110,11 +133,7 @@ public class MachineRoleDoctorTests
         // THE ONE THAT COST TWO PEOPLE AN AFTERNOON. Unreachable and defaulted
         // is a different sentence from unreachable and configured, and only one
         // of them is about the server.
-        await using var stub = new StubControlPlane();
-        await stub.DisposeAsync();
-
-        var report = await ReportAsync(stub, MachineRole.None, addressConfigured: false);
-        var check = Of(report, DoctorChecks.ControlPlane);
+        var check = Of(await UnreachableAsync(addressConfigured: false), DoctorChecks.ControlPlane);
 
         await Assert.That(check.Passed).IsFalse();
         await Assert.That(check.Detail).Contains("GG_CONTROL_PLANE")
@@ -129,11 +148,7 @@ public class MachineRoleDoctorTests
         // THE TWIN. The existing sentence is right whenever somebody DID
         // configure an address, and this change must not turn every outage into
         // advice to check a variable that is already correct.
-        await using var stub = new StubControlPlane();
-        await stub.DisposeAsync();
-
-        var report = await ReportAsync(stub, MachineRole.None, addressConfigured: true);
-        var check = Of(report, DoctorChecks.ControlPlane);
+        var check = Of(await UnreachableAsync(addressConfigured: true), DoctorChecks.ControlPlane);
 
         await Assert.That(check.Passed).IsFalse();
         await Assert.That(check.Fixable).IsFalse()

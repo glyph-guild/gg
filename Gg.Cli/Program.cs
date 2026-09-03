@@ -724,7 +724,13 @@ static async Task<int> RunnerMaintainAsync(string pool)
     // the pool it manages grew to 196 dead members with nobody told.
     var loop = new Gg.Runner.Pools.MaintainLoop(
         protocol, adapter, new Gg.Runner.SystemClock(), Task.Delay,
-        narrate: Console.Error.WriteLine);
+        narrate: Console.Error.WriteLine,
+
+        // WHERE A MEMBER ANSWERS TO, which is this host's own control plane: a
+        // member pointed anywhere else is a container nobody can reach. What it
+        // may ADVERTISE is not here - that comes back with the credential it
+        // redeems, decided control-plane-side from the strategy.
+        controlPlane: baseAddress);
 
     return await loop.RunAsync(pool, stopping.Token);
 }

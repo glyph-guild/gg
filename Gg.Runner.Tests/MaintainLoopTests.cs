@@ -60,9 +60,9 @@ public class MaintainLoopTests
         }
 
         public Task<PoolObservation> RefreshAsync(
-            string pool, string member, string image, CancellationToken cancellationToken = default)
+            string pool, string member, MemberSpec spec, CancellationToken cancellationToken = default)
         {
-            Calls.Add($"refresh:{member}:{image}");
+            Calls.Add($"refresh:{member}:{spec.Image}");
             return Task.FromResult(new PoolObservation
             {
                 Outcome = PoolOutcomes.Verified,
@@ -72,9 +72,9 @@ public class MaintainLoopTests
         }
 
         public Task<PoolObservation> ResetAsync(
-            string member, string image, CancellationToken cancellationToken = default)
+            string member, MemberSpec spec, CancellationToken cancellationToken = default)
         {
-            Calls.Add($"reset:{member}:{image}");
+            Calls.Add($"reset:{member}:{spec.Image}");
             return Task.FromResult(new PoolObservation
             {
                 Outcome = PoolOutcomes.Verified,
@@ -95,6 +95,15 @@ public class MaintainLoopTests
             Task.FromResult(new PoolActionList
             {
                 Actions = Served.TryDequeue(out var actions) ? actions : [],
+            });
+
+        /// <summary>Always mints. A refusal has its own test.</summary>
+        public Task<Gg.Contracts.MemberCredentialMinted?> MintMemberAsync(
+            string pool, string member, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Gg.Contracts.MemberCredentialMinted?>(new()
+            {
+                Nonce = $"nonce-for-{member}",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
             });
 
         public Task AttestAsync(

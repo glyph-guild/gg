@@ -2,6 +2,44 @@ using Gg.Contracts;
 
 namespace Gg.Runner.Pools;
 
+/// <summary>
+/// What a member is made of: the image, and what it needs to become a runner.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This replaced a bare image string, and the reason is the whole slice.</b> A
+/// member created from an image alone starts, finds the built-in localhost
+/// default, advertises nothing, and can register with nobody. That is why no pool
+/// member has ever run a flight, and why the only working example baked a
+/// developer's session into an image.
+/// </para>
+/// <para>
+/// <b><see cref="Nonce"/> is single-use and is not a credential.</b>
+/// <c>GET /containers/gg-pool-*/json</c> is reachable through the scope proxy, so
+/// anything placed here is readable by an inspect for the life of the container.
+/// The nonce is worth nothing once the member has started; the member exchanges it
+/// for its real credential over its own connection.
+/// </para>
+/// </remarks>
+public sealed record MemberSpec
+{
+    /// <summary>The digest-pinned image, as the strategy declares it.</summary>
+    public required string Image { get; init; }
+
+    /// <summary>Where the member answers to.</summary>
+    public required string ControlPlane { get; init; }
+
+    /// <summary>
+    /// The single-use nonce it redeems for a credential, or null when none could
+    /// be minted.
+    /// </summary>
+    /// <remarks>
+    /// Null is refused rather than created around: a member that cannot become
+    /// anybody claims nothing, reports nothing, and is counted as warm forever.
+    /// </remarks>
+    public string? Nonce { get; init; }
+}
+
 /// <summary>What a pool adapter can do, and which provider it is.</summary>
 public sealed record PoolCapabilities
 {
@@ -66,11 +104,11 @@ public interface IPoolAdapter
 
     /// <summary>Make a member current and running — create, start, or converge.</summary>
     Task<PoolObservation> RefreshAsync(
-        string pool, string member, string image, CancellationToken cancellationToken = default);
+        string pool, string member, MemberSpec spec, CancellationToken cancellationToken = default);
 
     /// <summary>Destroy a member and recreate it from the pinned image.</summary>
     Task<PoolObservation> ResetAsync(
-        string member, string image, CancellationToken cancellationToken = default);
+        string member, MemberSpec spec, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Reach for a container OUTSIDE the pool prefix and report whether
@@ -111,6 +149,18 @@ public interface IPoolProtocol
 {
     /// <summary>The decided actions for this pool. Serving is the claim, control-plane-side.</summary>
     Task<PoolActionList> PullActionsAsync(string pool, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Mints the single-use nonce a member redeems for its own credential.
+    /// </summary>
+    /// <remarks>
+    /// <b>The resident's own token authorizes it.</b> A member cannot mint, so
+    /// this is the pull point's act — which is what makes it possible to warm a
+    /// member without a person present, and without a session baked into an
+    /// image.
+    /// </remarks>
+    Task<Gg.Contracts.MemberCredentialMinted?> MintMemberAsync(
+        string pool, string member, CancellationToken cancellationToken = default);
 
     /// <summary>Attest one action's outcome. Idempotent on the attestation id.</summary>
     Task AttestAsync(

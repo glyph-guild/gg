@@ -54,11 +54,11 @@ public class MaintainSurvivesRefusalTests
             Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
 
         public Task<PoolObservation> RefreshAsync(
-            string pool, string member, string image, CancellationToken cancellationToken = default) =>
+            string pool, string member, MemberSpec spec, CancellationToken cancellationToken = default) =>
             Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
 
         public Task<PoolObservation> ResetAsync(
-            string member, string image, CancellationToken cancellationToken = default) =>
+            string member, MemberSpec spec, CancellationToken cancellationToken = default) =>
             Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
     }
 
@@ -76,6 +76,15 @@ public class MaintainSurvivesRefusalTests
                 ? Task.FromException<PoolActionList>(pullThrows.Dequeue())
                 : Task.FromResult(new PoolActionList { Actions = [] });
         }
+
+        /// <summary>Always mints. A refusal has its own test.</summary>
+        public Task<Gg.Contracts.MemberCredentialMinted?> MintMemberAsync(
+            string pool, string member, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Gg.Contracts.MemberCredentialMinted?>(new()
+            {
+                Nonce = $"nonce-for-{member}",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            });
 
         public Task AttestAsync(
             string pool, PoolAttestation attestation, CancellationToken cancellationToken = default) =>

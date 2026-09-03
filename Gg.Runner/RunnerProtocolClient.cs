@@ -24,6 +24,8 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(LandingDecision))]
 [JsonSerializable(typeof(PoolActionList))]
 [JsonSerializable(typeof(PoolAttestation))]
+[JsonSerializable(typeof(MemberCredentialRequest))]
+[JsonSerializable(typeof(MemberCredentialMinted))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -250,6 +252,35 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         return await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.PoolActionList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane answered nothing for the pull.");
+    }
+
+    /// <summary>
+    /// Mints a member's nonce, or null when the control plane refuses.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null rather than a throw on a refusal.</b> A 403 here means this
+    /// runner may not mint - a member asking, most likely - and that is a
+    /// decision the caller has to report as a failed act rather than a crash.
+    /// A transport failure still throws, and the loop's own backoff catches it.
+    /// </remarks>
+    public async Task<MemberCredentialMinted?> MintMemberAsync(
+        string pool, string member, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post,
+            $"/v1/pools/{Uri.EscapeDataString(pool)}/members/{Uri.EscapeDataString(member)}/credential");
+
+        request.Content = JsonContent.Create(
+            new MemberCredentialRequest { ProtocolVersion = Gg.Contracts.Description.ProtocolSurface.Revision },
+            RunnerJsonContext.Default.MemberCredentialRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync(
+                RunnerJsonContext.Default.MemberCredentialMinted, cancellationToken)
+            : null;
     }
 
     /// <summary>Attests one action's outcome. Idempotent on the attestation id.</summary>

@@ -222,12 +222,16 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     public async Task<MemberCredentialIssued?> RedeemMemberAsync(
         string nonce, CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/pools/members/redeem")
-        {
-            Content = JsonContent.Create(
-                new MemberCredentialRedemption { Nonce = nonce },
-                ProtocolJsonContext.Default.MemberCredentialRedemption),
-        };
+        // THROUGH THE HELPER, whose session token has always been optional. The
+        // first version built this message by hand because a member presents no
+        // credential - and skipped the protocol header along with it, so the
+        // control plane refused at the floor and every member died before it
+        // could become anybody. The refusal read "this gg is too old" about a
+        // binary built minutes earlier from the same commit.
+        using var request = Request(HttpMethod.Post, "/v1/pools/members/redeem");
+        request.Content = JsonContent.Create(
+            new MemberCredentialRedemption { Nonce = nonce },
+            ProtocolJsonContext.Default.MemberCredentialRedemption);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);

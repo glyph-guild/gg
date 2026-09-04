@@ -23,6 +23,8 @@ public static class Vocabulary
         typeof(RunnerRegistered),
         typeof(RunnerReservationRequest),
         typeof(RunnerReserved),
+        typeof(RunnerParkRequest),
+        typeof(RunnerParked),
         typeof(RunnerHeartbeat),
         typeof(HeartbeatAccepted),
         typeof(LeaseClaimRequest),

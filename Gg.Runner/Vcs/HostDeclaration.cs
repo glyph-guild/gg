@@ -129,4 +129,147 @@ public readonly record struct HostDeclaration
         (raw ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(entry => Parse(entry, variable));
+
+    /// <summary>
+    /// Whether this declaration serves <paramref name="link"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The comparison the control plane cannot make.</b> A link is resolved
+    /// to a registered repository by its PATH alone, so a link at any host
+    /// resolves to whichever entry shares that path — contract 0.86.0 recorded
+    /// that and left it, because the registry deliberately holds no host:
+    /// <i>"a policy store that contained hosts would make credential destination
+    /// a policy edit."</i> The mapping lives here instead, so the check does too.
+    /// </para>
+    /// <para>
+    /// <b>The prefix is what scopes an organisation above the path.</b> A forge
+    /// serving many tenants from one host is the case a bare host cannot tell
+    /// apart, and it is the common one.
+    /// </para>
+    /// <para>
+    /// <b>Case-insensitive on both halves, deliberately.</b> Hosts are, and the
+    /// organisation segment is on every forge this has met. The outcome of this
+    /// comparison is a REFUSAL, and a refusal that fires on a capital letter is
+    /// one nobody can act on — too strict is the dangerous direction here.
+    /// </para>
+    /// </remarks>
+    public bool Serves(Uri link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+
+        var declared = Host.Split(
+            '/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (declared.Length == 0
+            || !string.Equals(link.Host, declared[0], StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var segments = link.AbsolutePath.Split(
+            '/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // The declaration's own segments must come FIRST and in order. Anything
+        // after them is the forge's business - a project, a `_git`, a vanity
+        // segment - which is the same latitude the registry's path matching
+        // already allows.
+        if (segments.Length < declared.Length - 1)
+        {
+            return false;
+        }
+
+        for (var at = 1; at < declared.Length; at++)
+        {
+            if (!string.Equals(segments[at - 1], declared[at], StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Why <paramref name="uri"/> is not a link this runner serves for
+    /// <paramref name="provider"/>, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only a DECLARED mismatch refuses.</b> A provider this runner declares
+    /// nothing for is a capability gap the vcs adapter already reports in its own
+    /// words; refusing it here would be a second, worse copy of that message, and
+    /// would ground flights on a runner that had simply not been told about a
+    /// forge.
+    /// </para>
+    /// <para>
+    /// <b>A flight with no link is never refused for where it came from.</b> A
+    /// ticket names a provider and an id; a sentence names nothing. Neither has a
+    /// host to check, and inventing one for them would refuse work that is right.
+    /// </para>
+    /// </remarks>
+    public static string? Unserved(
+        string? provider, string? uri, IReadOnlyList<HostDeclaration> declared)
+    {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        if (provider is not { Length: > 0 }
+            || !Uri.TryCreate(uri, UriKind.Absolute, out var link)
+            || link.Scheme is not ("http" or "https"))
+        {
+            return null;
+        }
+
+        var serving = declared.FirstOrDefault(
+            d => string.Equals(d.Key, provider, StringComparison.Ordinal));
+
+        if (serving.Key is not { Length: > 0 } || serving.Serves(link))
+        {
+            return null;
+        }
+
+        return $"This flight's link is at '{link.Host}', and this runner serves '{provider}' at "
+             + $"'{serving.Host}'. Nothing was fetched: a link that merely shares a path with a "
+             + $"registered repository is not a link to it. Correct the flight's link, or declare "
+             + $"'{link.Host}' in {VcsConfiguration.HostsVariable} if this runner should serve it.";
+    }
+
+    /// <summary>
+    /// The provider key whose declaration serves this link, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>What gives a link-shaped work item a tool.</b> A tracker reader is
+    /// keyed on a provider and a link carries none, so without this a flight
+    /// opened from a work-item URL reaches an agent with nothing that can read
+    /// it. Two declarations serving one link answer NOTHING: that is a
+    /// configuration question for a person, and picking one would be the
+    /// inference slice nine retired.
+    /// </remarks>
+    public static string? ProviderFor(string? uri, IReadOnlyList<HostDeclaration> declared)
+    {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var link)
+            || link.Scheme is not ("http" or "https"))
+        {
+            return null;
+        }
+
+        string? found = null;
+        foreach (var candidate in declared)
+        {
+            if (!candidate.Serves(link))
+            {
+                continue;
+            }
+
+            if (found is not null)
+            {
+                return null;
+            }
+
+            found = candidate.Key;
+        }
+
+        return found;
+    }
 }

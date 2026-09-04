@@ -33,6 +33,13 @@ internal sealed class ConsoleObserver : IRunnerObserver
 
     public void Idle() => System.Console.WriteLine("nothing ready");
 
+    // NOT "nothing ready". This machine is not quiet, it has been taken
+    // out of service by a person, and only a person puts it back.
+    public void Parked() =>
+        System.Console.WriteLine(
+            "parked: a person has withheld this machine from claiming. It keeps "
+          + "beating and takes no work until it is unparked.");
+
     /// <summary>
     /// Which repositories, because that is the sentence somebody can act on.
     /// </summary>

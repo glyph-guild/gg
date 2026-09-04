@@ -50,6 +50,20 @@ public interface IRunnerObserver
     void Idle();
 
     /// <summary>
+    /// A person has withheld this machine from claiming.
+    /// </summary>
+    /// <remarks>
+    /// <b>Separate from <see cref="Idle"/>, and that separation is the whole
+    /// point of the state.</b> An idle fleet and a machine somebody took out of
+    /// service both take no work; only one of them is something a person did on
+    /// purpose, and only one of them is cleared by a person. Reporting parking
+    /// through <see cref="Idle"/> would print "nothing ready" on a withheld
+    /// machine — the line an operator reads for a fortnight while wondering why
+    /// nothing runs there.
+    /// </remarks>
+    void Parked();
+
+    /// <summary>
     /// A flight is ready and its lease cannot be completed yet.
     /// </summary>
     /// <remarks>
@@ -143,6 +157,8 @@ public sealed class SilentObserver : IRunnerObserver
     public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) { }
 
     public void Idle() { }
+
+    public void Parked() { }
     public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
     public void Materialized(string slug, string headCommit, long bytes) { }
@@ -356,7 +372,11 @@ public sealed class RunnerLoop(
                     // Waiting was already said, once per poll, by the ask
                     // itself. Saying it again here would double every line a
                     // person watching this runner reads.
-                    if (claim is not ClaimResult.Waiting)
+                    if (claim is ClaimResult.Parked)
+                    {
+                        _observer.Parked();
+                    }
+                    else if (claim is not ClaimResult.Waiting)
                     {
                         _observer.Idle();
                     }
@@ -540,7 +560,12 @@ public sealed class RunnerLoop(
             // Granted and expired are terminal, and expired especially: polling
             // a request the control plane has finished with is polling something
             // that will never change again.
-            if (latest is ClaimResult.Granted or ClaimResult.Expired)
+            // PARKED JOINS THEM, because it will not change inside this
+            // window without a person acting: continuing to poll a withheld
+            // machine's request spends the whole claim wait learning the same
+            // answer. The runner asks again on the next round, exactly as it
+            // does for pending.
+            if (latest is ClaimResult.Granted or ClaimResult.Expired or ClaimResult.Parked)
             {
                 return latest;
             }

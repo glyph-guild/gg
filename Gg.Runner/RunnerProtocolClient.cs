@@ -164,6 +164,12 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
             LeaseClaimStates.Expired => new ClaimResult.Expired(),
             LeaseClaimStates.Pending => new ClaimResult.Nothing(),
 
+            // WITHHELD BY A PERSON, and answered rather than halted on. This
+            // branch's absence is what made parking a runner kill it: the
+            // fall-through below is for a binary older than the control plane,
+            // and it fired on one built from the same commit.
+            LeaseClaimStates.Parked => new ClaimResult.Parked(),
+
             // HALT ON A STATE THIS BINARY DOES NOT KNOW. The vocabulary is
             // closed precisely so a fifth value is a version move; guessing
             // would make the closure decorative.

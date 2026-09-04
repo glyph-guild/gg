@@ -260,6 +260,8 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     public void Idle() => Record("idle");
 
+    public void Parked() => Record("parked");
+
     /// <summary>
     /// The repositories, because WHICH one is the whole content of the report.
     /// </summary>

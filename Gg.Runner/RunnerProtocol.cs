@@ -33,6 +33,26 @@ public abstract record ClaimResult
     public sealed record Waiting(IReadOnlyList<string> Repos) : ClaimResult;
 
     /// <summary>
+    /// A person has withheld this machine from claiming.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own answer, never <see cref="Nothing"/>.</b> An idle fleet and a
+    /// machine somebody deliberately took out of service are the two silences
+    /// <c>waiting</c> was added to separate, and reading this as "nothing ready"
+    /// would rebuild that collapse inside the client — one layer below where it
+    /// used to live and harder to see.
+    /// </para>
+    /// <para>
+    /// <b>No reason travels with it.</b> The parking reason is a member of the
+    /// PARKING, quoted back by the surfaces a person reads about a flight; the
+    /// claim wire carries the state alone. A runner does not need to know why it
+    /// was withheld in order to stop asking.
+    /// </para>
+    /// </remarks>
+    public sealed record Parked : ClaimResult;
+
+    /// <summary>
     /// The request outlived its window. Terminal.
     /// </summary>
     /// <remarks>

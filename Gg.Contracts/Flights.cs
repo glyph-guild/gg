@@ -287,6 +287,30 @@ public sealed record FlightLaunchRequest
     /// inherits.
     /// </summary>
     public string? Repository { get; init; }
+
+    /// <summary>
+    /// Which runner this flight is for, by id. Null means any runner that may
+    /// take it, which is nearly every flight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The other half of reserving.</b> A reservation says whose work a
+    /// runner takes; this says which machine a piece of work is for. Without it,
+    /// reserving a laptop means its holder's work lands there and nothing else
+    /// can be sent there deliberately.
+    /// </para>
+    /// <para>
+    /// <b>The runner still PULLS.</b> "Push" is a person choosing a machine, not
+    /// the control plane opening a connection to one: the flight is narrowed,
+    /// and the runner it names claims it the way it claims anything else.
+    /// </para>
+    /// <para>
+    /// <b>An id rather than a label.</b> A label says what a machine can do and
+    /// several may answer to it; this names one machine. Spelling it as a label
+    /// would make "this one" unsayable, which is the thing being added.
+    /// </para>
+    /// </remarks>
+    public string? Runner { get; init; }
 }
 
 /// <summary>The flight that was opened.</summary>

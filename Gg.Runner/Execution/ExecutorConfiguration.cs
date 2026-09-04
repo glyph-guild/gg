@@ -37,8 +37,10 @@ public static class ExecutorConfiguration
     /// reads it again and reaches a different answer.
     /// </remarks>
     public static IExecutorPort? FromEnvironment(
-        IReadOnlyList<IntentReader>? readers = null) =>
+        IReadOnlyList<IntentReader>? readers = null,
+        Func<string, string?>? secretFor = null) =>
         Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
-            ? new ClaudeCodeExecutor(binary, readers ?? IntentConfiguration.FromEnvironment())
+            ? new ClaudeCodeExecutor(
+                binary, readers ?? IntentConfiguration.FromEnvironment(), secretFor)
             : null;
 }

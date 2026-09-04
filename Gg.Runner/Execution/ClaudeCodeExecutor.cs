@@ -33,7 +33,9 @@ namespace Gg.Runner.Execution;
 /// </para>
 /// </remarks>
 public sealed class ClaudeCodeExecutor(
-    string binary = "claude", IReadOnlyList<IntentReader>? readers = null) : IExecutorPort
+    string binary = "claude",
+    IReadOnlyList<IntentReader>? readers = null,
+    Func<string, string?>? secretFor = null) : IExecutorPort
 {
     private readonly string _binary = binary;
 
@@ -49,6 +51,17 @@ public sealed class ClaudeCodeExecutor(
     /// already started.
     /// </remarks>
     private readonly IReadOnlyList<IntentReader> _readers = readers ?? [];
+
+    /// <summary>
+    /// Reads a declared credential out of this machine's store.
+    /// </summary>
+    /// <remarks>
+    /// <b>A lookup rather than the store itself</b>, so this project keeps its
+    /// distance from where secrets are kept: the CLI owns that decision and
+    /// hands over the one operation needed. Null when no reader declares a
+    /// credential, which is every runner that serves no work-item flights.
+    /// </remarks>
+    private readonly Func<string, string?> _secretFor = secretFor ?? (_ => null);
 
     /// <summary>
     /// What this adapter can and cannot do, written from what failed.
@@ -84,7 +97,23 @@ public sealed class ClaudeCodeExecutor(
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(request.WallClock);
 
-        using var process = new Process { StartInfo = StartInfo(request) };
+        // RESOLVED BEFORE ANYTHING STARTS. A tool server launched without the
+        // credential its declaration named fails at the tracker, with an
+        // authentication error nobody can trace back to a missing file on this
+        // host - so a runner that cannot resolve one refuses instead.
+        string? secret = null;
+        if (ReaderFor(request) is { } declared)
+        {
+            secret = declared.Locator is { Length: > 0 } locator ? _secretFor(locator) : null;
+
+            if (IntentConfiguration.Unresolvable(declared, secret) is { } unresolvable)
+            {
+                return ExecutorRun.Failed(
+                    request.LoopId, unresolvable, attempts: 1, took: TimeSpan.Zero, movesUsed: []);
+            }
+        }
+
+        using var process = new Process { StartInfo = StartInfo(request, secret) };
 
         // ONLY the start is wrapped. It used to cover the read as well, and a
         // parsing bug inside it surfaced as "this runner could not start the
@@ -149,7 +178,7 @@ public sealed class ClaudeCodeExecutor(
     /// the machine's skills or memory, which is why that is a declared gap
     /// rather than a solved problem.
     /// </remarks>
-    private ProcessStartInfo StartInfo(ExecutorRequest request)
+    private ProcessStartInfo StartInfo(ExecutorRequest request, string? secret = null)
     {
         var info = new ProcessStartInfo
         {
@@ -174,7 +203,7 @@ public sealed class ClaudeCodeExecutor(
                   // - and until there was a --mcp-config beside it, it also left
                   // the agent unable to read the work item its flight was about.
                   "--strict-mcp-config",
-                  .. ServerArguments(request),
+                  .. ServerArguments(request, secret),
                   // A PARTIAL BOUND, measured. It refuses Edit and Write at the
                   // call and removes Grep from the tool list; it does not bind Read
                   // or Bash. It is also the whole of what makes the line above
@@ -221,15 +250,22 @@ public sealed class ClaudeCodeExecutor(
     /// change, one of which nothing checks.
     /// </para>
     /// <para>
-    /// <b>The credential is the server's, never the agent's.</b> Nothing here
-    /// puts a secret in the agent's environment: the server process holds it,
-    /// and the agent calls the tool without being able to read what
-    /// authenticates it. The same split the runner already makes for git.
+    /// <b>The credential goes in the server's environment block and nowhere
+    /// else.</b> Not an argument - <c>ps</c> shows those to everything on the
+    /// host - and not the agent's environment, which is what makes the agent
+    /// able to call the tool without being able to read what authenticates it.
+    /// </para>
+    /// <para>
+    /// <b>Which is worth stating precisely, because the first version of this
+    /// claimed it and did not do it.</b> A runner does not clear the child
+    /// environment, so an ambient secret exported beside the runner reaches the
+    /// server by inheritance - and reaches the agent the same way. Resolving it
+    /// here is what makes the split real rather than asserted.
     /// </para>
     /// </remarks>
-    private string[] ServerArguments(ExecutorRequest request) =>
+    private string[] ServerArguments(ExecutorRequest request, string? secret) =>
         ReaderFor(request) is { } reader
-            ? ["--mcp-config", ServerConfig(reader)]
+            ? ["--mcp-config", ServerConfig(reader, secret)]
             : [];
 
     /// <summary>
@@ -242,7 +278,7 @@ public sealed class ClaudeCodeExecutor(
     /// document is written directly - which also means every value here is
     /// escaped by the writer rather than by hand.
     /// </remarks>
-    private static string ServerConfig(IntentReader reader)
+    private static string ServerConfig(IntentReader reader, string? secret)
     {
         using var buffer = new MemoryStream();
         using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
@@ -257,6 +293,19 @@ public sealed class ClaudeCodeExecutor(
                 json.WriteStringValue(argument);
             }
             json.WriteEndArray();
+
+            // THE ONE PLACE A SECRET MAY GO. Written only when the declaration
+            // named a variable AND the runner resolved something for it; an
+            // empty value here would start a server that fails at the tracker,
+            // which IntentConfiguration.Unresolvable refuses before we get here.
+            if (reader.EnvironmentVariable is { Length: > 0 } variable
+                && secret is { Length: > 0 })
+            {
+                json.WriteStartObject("env");
+                json.WriteString(variable, secret);
+                json.WriteEndObject();
+            }
+
             json.WriteEndObject();
             json.WriteEndObject();
             json.WriteEndObject();
@@ -391,8 +440,8 @@ public sealed class ClaudeCodeExecutor(
     /// envelope's bound going around the envelope.
     /// </remarks>
     public static IReadOnlyList<string> ArgumentsFor(
-        ExecutorRequest request, IReadOnlyList<IntentReader> readers) =>
-        new ClaudeCodeExecutor("claude", readers).StartInfo(request).ArgumentList;
+        ExecutorRequest request, IReadOnlyList<IntentReader> readers, string? secret = null) =>
+        new ClaudeCodeExecutor("claude", readers).StartInfo(request, secret).ArgumentList;
 
     private static string Tool(string move) => move switch
     {

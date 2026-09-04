@@ -13,8 +13,22 @@ namespace Gg.Runner.Execution;
 /// <param name="Key">The provider key, as a flight's intent spells it.</param>
 /// <param name="Command">The executable to launch as a tool server.</param>
 /// <param name="Arguments">Its arguments, in the order they were declared.</param>
+/// <param name="EnvironmentVariable">
+/// The variable this server reads its credential from, or null when it needs
+/// none. <b>The server's environment is the only place a secret may go</b> - not
+/// an argument, which every <c>ps</c> on the host can read.
+/// </param>
+/// <param name="Locator">
+/// The credential to resolve, in the form <c>gg credential add</c> stores, or
+/// null. Resolved runner-side and handed to the server; the agent never holds
+/// it.
+/// </param>
 public readonly record struct IntentReader(
-    string Key, string Command, IReadOnlyList<string> Arguments);
+    string Key,
+    string Command,
+    IReadOnlyList<string> Arguments,
+    string? EnvironmentVariable = null,
+    string? Locator = null);
 
 /// <summary>
 /// Which trackers this runner can resolve a work item in.
@@ -75,11 +89,14 @@ public static class IntentConfiguration
             var key = entry[..split].Trim();
             var invocation = entry[(split + 1)..].Trim();
 
-            // A PROVIDER WITH NO COMMAND IS THE CAPABILITY GAP IN THE COSTUME OF
-            // A CAPABILITY. It would advertise a tracker this runner can launch
-            // nothing for, and the refusal below would never fire - so the flight
-            // would be invoked and fail somewhere an operator cannot see.
-            if (invocation.Length == 0)
+            // `command args | VAR=locator` - the credential half is optional,
+            // because a tracker reachable without a secret must not be made to
+            // invent one to satisfy a parser.
+            var bar = invocation.IndexOf('|');
+            var launch = (bar < 0 ? invocation : invocation[..bar]).Trim();
+            var credential = bar < 0 ? "" : invocation[(bar + 1)..].Trim();
+
+            if (launch.Length == 0)
             {
                 throw new InvalidOperationException(
                     $"'{key}' in {ReadersVariable} declares no command. A provider with nothing "
@@ -87,10 +104,33 @@ public static class IntentConfiguration
                   + "worse than not declaring it: declare the tool server, or remove the entry.");
             }
 
-            var parts = invocation.Split(
+            string? variable = null;
+            string? locator = null;
+            if (credential.Length > 0)
+            {
+                // HALF A CREDENTIAL DESCRIBES A SERVER THAT STARTS AND FAILS TO
+                // AUTHENTICATE. Refused here, where an operator can still fix
+                // the line, rather than at a tracker that answers 401.
+                var equals = credential.IndexOf('=');
+                if (equals <= 0 || equals == credential.Length - 1)
+                {
+                    throw new InvalidOperationException(
+                        $"'{key}' in {ReadersVariable} declares '{credential}' after '|', which "
+                      + "is not 'VARIABLE=locator'. Name both: the variable the tool server "
+                      + "reads its credential from, and the credential to resolve, e.g. "
+                      + "'|TRACKER_TOKEN=local:acme/board'. Omit the whole section if the server "
+                      + "needs no credential.");
+                }
+
+                variable = credential[..equals].Trim();
+                locator = credential[(equals + 1)..].Trim();
+            }
+
+            var parts = launch.Split(
                 ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-            readers.Add(new IntentReader(key, parts[0], [.. parts.Skip(1)]));
+            readers.Add(new IntentReader(
+                key, parts[0], [.. parts.Skip(1)], variable, locator));
         }
 
         return readers;
@@ -138,5 +178,29 @@ public static class IntentConfiguration
         return $"No reader for '{provider}': set {ReadersVariable}, or route this flight to a "
              + $"runner that has one. This runner {declared}. No agent was invoked, because one "
              + "given a work item it cannot open spends the whole budget finding that out.";
+    }
+
+    /// <summary>
+    /// Why this reader's credential cannot be used, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refused rather than launched empty</b>, which is
+    /// <c>NoCredentialResolver</c>'s disposition and for its reason: a server
+    /// started with an empty secret fails at the tracker with an authentication
+    /// error nobody can trace back to a missing file on this host.
+    /// </remarks>
+    public static string? Unresolvable(IntentReader reader, string? secret)
+    {
+        if (reader.Locator is not { Length: > 0 } locator)
+        {
+            return null;
+        }
+
+        return secret is { Length: > 0 }
+            ? null
+            : $"No credential at '{locator}' for '{reader.Key}' on this runner. It is declared in "
+            + $"{ReadersVariable} and this machine does not have it: run `gg credential add`, or "
+            + "route this flight to a runner that holds it. No agent was invoked, because a tool "
+            + "server started without its credential fails at the tracker instead.";
     }
 }

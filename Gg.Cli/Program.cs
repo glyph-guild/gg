@@ -641,7 +641,11 @@ static async Task<int> RunnerUpAsync()
     // built a loop that could not invoke anything and no flight in the product
     // ever ran an agent - registered is not invoked, on the verb the whole slice
     // is about. The host probes whatever comes back before it claims any work.
-    var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment();
+    // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
+    // process hands one over. The same store `gg credential add` writes; the
+    // secret goes into the server's own environment and never into the agent's.
+    var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
+        secretFor: locator => new FileCredentialStore().Read(locator));
 
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
@@ -716,7 +720,11 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
         api => new HttpClient { BaseAddress = new Uri(api) });
 
-    var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment();
+    // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
+    // process hands one over. The same store `gg credential add` writes; the
+    // secret goes into the server's own environment and never into the agent's.
+    var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
+        secretFor: locator => new FileCredentialStore().Read(locator));
 
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), identity.RunnerId, identity.RunnerToken, identity.Labels, holdFor,

@@ -39,14 +39,18 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
 
-    /// <summary>The tenant's flights, or everything for one work item.</summary>
+    /// <summary>The tenant's flights, or everything for one line of work.</summary>
+    /// <remarks>
+    /// The token is passed through as the caller typed it. Which of the two
+    /// identifier shapes it is has already been decided at the parse, and
+    /// deciding again here would be a second place the rule lives.
+    /// </remarks>
     public async Task<VerbResult> ListAsync(
         bool all = false,
         CancellationToken cancellationToken = default,
-        string? provider = null,
-        string? id = null) =>
+        string? intent = null) =>
         new VerbResult.Flights(
-            await _client.ListFlightsAsync(Session(), all, cancellationToken, provider, id));
+            await _client.ListFlightsAsync(Session(), all, cancellationToken, intent));
 
     /// <summary>One flight, by uuid or by the number a person typed.</summary>
     public async Task<VerbResult> ShowAsync(string reference, CancellationToken cancellationToken = default)

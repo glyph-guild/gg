@@ -286,8 +286,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         string sessionToken,
         bool all = false,
         CancellationToken cancellationToken = default,
-        string? provider = null,
-        string? id = null)
+        string? intent = null)
     {
         // BUILT AS QUERY PARAMETERS, and the work item token is re-joined with
         // its separator escaped: `#` unescaped in a uri starts a fragment,
@@ -300,9 +299,14 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             query.Add("all=true");
         }
 
-        if (provider is { Length: > 0 } && id is { Length: > 0 })
+        if (intent is { Length: > 0 })
         {
-            query.Add("intent=" + Uri.EscapeDataString($"{provider}#{id}"));
+            // ESCAPED WHOLE, which is what makes one parameter serve both
+            // shapes. `#` unescaped starts a fragment that never leaves the
+            // client, so a work item would arrive as its provider alone and the
+            // correlation would answer about every flight in that tracker; a
+            // uri's own separators need the same treatment for the same reason.
+            query.Add("intent=" + Uri.EscapeDataString(intent));
         }
 
         using var request = Request(

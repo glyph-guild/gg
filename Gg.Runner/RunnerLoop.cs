@@ -1020,6 +1020,15 @@ public sealed class RunnerLoop(
             {
                 payloads.Add(new FactPayload.Digest(summary));
             }
+
+            // AND WHAT IT ASKED FOR, when it asked. Null is the ordinary state:
+            // only a classifying loop nominates, and one that could not decide
+            // nominates nothing - which is a real answer that admission reads
+            // as "open no flight", not a fact that failed to arrive.
+            if (run.Nomination is { } nomination)
+            {
+                payloads.Add(new FactPayload.Nomination(nomination));
+            }
         }
 
         // STRIPPED BEFORE THE DIGEST, which the types enforce: Digest takes

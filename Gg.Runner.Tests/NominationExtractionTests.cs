@@ -87,17 +87,43 @@ public class NominationExtractionTests
     public async Task The_nomination_is_not_the_first_tool_call_and_that_is_expected()
     {
         // MEASURED IN STEP 0. At CLI 2.1.260 the agent resolves a deferred tool
-        // with a search call first, and in the real session above it also read
+        // with a search call first, and in the real session below it also read
         // the work item through a tracker server. An extractor that assumed the
         // nomination was the first tool call would find nothing.
-        var transcript = Fixture("agent-nominated-a-kind.ndjson");
-        var first = transcript.IndexOf("\"tool_use\"", StringComparison.Ordinal);
-        var ours = transcript.IndexOf(NominationTool.Qualified, StringComparison.Ordinal);
+        //
+        // ASSERTED OVER THE CALLS, not over where the name appears in the text:
+        // the qualified name occurs first in the session's own list of granted
+        // tools, hundreds of characters before anything is called, so a
+        // position comparison answers a different question and answers it
+        // wrongly. Found by this test failing on exactly that.
+        var names = new List<string>();
 
-        await Assert.That(first).IsGreaterThan(-1);
-        await Assert.That(ours).IsGreaterThan(first)
+        foreach (var line in Fixture("agent-nominated-a-kind.ndjson").Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            using var document = System.Text.Json.JsonDocument.Parse(line);
+            if (!document.RootElement.TryGetProperty("message", out var message)
+                || !message.TryGetProperty("content", out var content)
+                || content.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            names.AddRange(content.EnumerateArray()
+                .Where(b => b.ValueKind == System.Text.Json.JsonValueKind.Object
+                         && b.TryGetProperty("type", out var type)
+                         && type.GetString() == "tool_use")
+                .Select(b => b.GetProperty("name").GetString() ?? ""));
+        }
+
+        await Assert.That(names).Contains(NominationTool.Qualified);
+        await Assert.That(names[0]).IsNotEqualTo(NominationTool.Qualified)
             .Because("something else called a tool before this one did, which is the ordinary "
-                   + "case rather than the exception.");
+                   + $"case rather than the exception. The calls were: {string.Join(", ", names)}");
     }
 
     [Test]
@@ -218,5 +244,31 @@ public class NominationExtractionTests
         await Assert.That(FlightNomination.Validate(nomination!)).IsNull()
             .Because("an unbounded reason would be refused at ingress, which loses the "
                    + "classification for a reason that has nothing to do with the work.");
+    }
+
+    [Test]
+    public async Task It_reaches_the_control_plane_as_a_fact_of_its_own_kind()
+    {
+        // THE LEG BETWEEN EXTRACTION AND INGRESS. A value the extractor found
+        // and the pipeline dropped is a classification that happened and never
+        // arrived - and the pipeline's own switch throws on an unhandled
+        // payload, so this is what proves the arm exists rather than that
+        // nothing reached it.
+        var nomination = TranscriptDigest.Nomination(Fixture("agent-nominated-a-kind.ndjson"))!;
+
+        var digested = Gg.Runner.Facts.FactPipeline.Digest(
+            new Gg.Runner.Facts.CleanFacts([new Gg.Runner.Facts.FactPayload.Nomination(nomination)]),
+            "flight-1",
+            DateTimeOffset.UnixEpoch);
+
+        var fact = digested.Items.Single();
+
+        await Assert.That(fact.Kind).IsEqualTo(FactKinds.FlightNomination);
+        await Assert.That(fact.Nomination).IsNotNull();
+        await Assert.That(fact.Nomination!.WorkKind).IsEqualTo("implement");
+        await Assert.That(FactEnvelope.Validate(fact)).IsNull()
+            .Because("what the pipeline produces has to be a fact ingress accepts, or the "
+                   + "classification is lost at the door for a reason that has nothing to do "
+                   + "with the work.");
     }
 }

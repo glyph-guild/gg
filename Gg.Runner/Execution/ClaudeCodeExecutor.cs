@@ -751,6 +751,12 @@ public sealed class ClaudeCodeExecutor(
                 transcript.ToString(), request.LoopId, TreeRoots(request.WorkingDirectory),
                 run.Outcome, [.. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)]),
 
+            // AT THE SAME BOUNDARY, and from the same text. A nomination is a
+            // value the agent DECLARED rather than a measurement, so it gets
+            // its own extractor - but it is read here, once, from the stream
+            // this machine already has.
+            Nomination = TranscriptDigest.Nomination(transcript.ToString()),
+
             Transcript = new ArtifactReference
             {
                 Locator = request.TranscriptPath,

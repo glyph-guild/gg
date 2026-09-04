@@ -172,6 +172,11 @@ public class FactHygieneTests
             new FactPayload.Transcript(ATranscript() with { Locator = Poison, MediaType = Poison }),
             new FactPayload.Landing(ALanding() with { Branch = Poison, PullRequestUri = Poison }),
             new FactPayload.Digest(ADigest() with { Searches = [Poison], StopReason = LoopOutcomes.Completed }),
+            new FactPayload.Nomination(new FlightNomination
+            {
+                WorkKind = Poison,
+                Reason = Poison,
+            }),
         ]);
 
         // Dirty, and the detector says so - which is the liveness half: without

@@ -30,6 +30,18 @@ public abstract record CliAction
 
     public sealed record RunnerServe : CliAction;
 
+    /// <summary>
+    /// The platform's own tool server, spoken to over stdio by an agent this
+    /// runner launched.
+    /// </summary>
+    /// <remarks>
+    /// Not a verb anybody types. It is a re-exec target, the way
+    /// <see cref="RunnerServe"/> is - the launch passes this binary's own path
+    /// as the server command, so the agent's process starts it and owns its
+    /// lifetime.
+    /// </remarks>
+    public sealed record RunnerNominate : CliAction;
+
     /// <summary>The resident runner: pull decided pool actions, act, attest.</summary>
     public sealed record RunnerMaintain(string Pool) : CliAction;
 
@@ -262,6 +274,7 @@ public static class CliArgs
             ["whoami"] => new CliAction.WhoAmI(),
             ["runner", "up"] => new CliAction.RunnerUp(),
             ["runner", "serve"] => new CliAction.RunnerServe(),
+            ["runner", "nominate"] => new CliAction.RunnerNominate(),
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
 

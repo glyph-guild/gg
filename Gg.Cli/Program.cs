@@ -17,6 +17,11 @@ return CliArgs.Parse(args) switch
     CliAction.Login => await AuthAsync(commands => commands.LoginAsync(Environment.MachineName)),
     CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
     CliAction.WhoAmI => await AuthAsync(commands => commands.WhoAmIAsync()),
+    // BEFORE ANYTHING THAT PRINTS, and that placement is the whole contract.
+    // Stdout IS the protocol here: one line of narration and the agent sees a
+    // server that never initialized rather than a tool that failed.
+    CliAction.RunnerNominate => await NominationServer.RunAsync(
+        System.Console.In, System.Console.Out),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
 

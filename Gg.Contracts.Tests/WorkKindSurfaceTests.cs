@@ -41,12 +41,12 @@ public class WorkKindSurfaceTests
     }
 
     [Test]
-    public async Task The_wire_declares_the_three_members_beside_name_and_intent()
+    public async Task The_wire_declares_the_four_members_beside_name_and_intent()
     {
         // Declared, not derived - if each side derived these from its own
         // serializer they would agree with themselves and prove nothing.
         await Assert.That(ProtocolSurface.JsonMembers[typeof(FlightLaunchRequest)])
-            .IsEquivalentTo((string[])["name", "intent", "workKind", "environment", "repository"]);
+            .IsEquivalentTo((string[])["name", "intent", "workKind", "environment", "repository", "runner"]);
     }
 
     [Test]

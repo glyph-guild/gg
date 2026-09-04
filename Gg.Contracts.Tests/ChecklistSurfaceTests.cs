@@ -26,15 +26,32 @@ namespace Gg.Contracts.Tests;
 public class ChecklistSurfaceTests
 {
     [Test]
-    public async Task The_satisfier_column_has_exactly_three_values()
+    public async Task The_satisfier_column_has_exactly_four_values()
     {
         // Two until slice twelve, whose closure comment prophesied the third:
-        // a strategy exists now, and declined-by-bound is its word.
+        // a strategy exists now, and declined-by-bound is its word. The fourth
+        // is the same kind of event one slice later - a runner CAN satisfy the
+        // requirement and a person has declared that it will not.
         await Assert.That(ChecklistSatisfiers.All)
             .IsEquivalentTo((string[])[ChecklistSatisfiers.MatchingRunner, ChecklistSatisfiers.Nobody,
-                ChecklistSatisfiers.DeclinedByBound]);
+                ChecklistSatisfiers.DeclinedByBound, ChecklistSatisfiers.Withheld]);
         await Assert.That(ChecklistSatisfiers.MatchingRunner).IsEqualTo("already-true-via-matching");
         await Assert.That(ChecklistSatisfiers.Nobody).IsEqualTo("nobody-declared-capability-gap");
+    }
+
+    [Test]
+    public async Task Withheld_is_neither_already_true_nor_a_gap_nor_a_bound()
+    {
+        // S24.7-03. The fourth value exists because the other three would each
+        // be a lie about a different thing: `matching` says the requirement is
+        // met when no flight can move; `nobody` says the fleet cannot do it when
+        // the fleet can and a person is holding it back; `declined-by-bound`
+        // says a strategy is managing it when no strategy is involved at all.
+        // A runner reserved elsewhere, parked, or named-but-not-beating is
+        // capacity that EXISTS and is WITHHELD - and the remedy is a person, not
+        // a purchase and not a peer flight releasing.
+        await Assert.That(ChecklistSatisfiers.Withheld).IsEqualTo("withheld-by-declaration");
+        await Assert.That(ChecklistSatisfiers.All).Contains(ChecklistSatisfiers.Withheld);
     }
 
     [Test]

@@ -151,6 +151,20 @@ public static class VcsConfiguration
     /// contradictory — that forge never serves base heads.
     /// </para>
     /// </param>
+    /// <summary>
+    /// The host declarations this environment holds, parsed once.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same variable the adapters come from, read by the same parser.</b>
+    /// The runner needs the DECLARATIONS as well as the adapters - to tell
+    /// whether a flight's link comes from a host it serves, and which tracker
+    /// can read a link-shaped work item - and a second reader of GG_VCS_HOSTS
+    /// would be the two-computations problem this file's own history records.
+    /// </remarks>
+    public static IReadOnlyList<HostDeclaration> DeclaredHosts(string? declaration = null) =>
+        [.. HostDeclaration.ParseAll(
+            declaration ?? Environment.GetEnvironmentVariable(HostsVariable) ?? "", HostsVariable)];
+
     public static IReadOnlyList<IVcsAdapter> FromEnvironment(
         string? declaration = null,
         Func<string, string, VcsCapabilities, IVcsAdapter>? adapterFor = null)

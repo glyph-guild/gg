@@ -174,3 +174,136 @@ public class ALinkComesFromAServedHostTests
             .IsNull();
     }
 }
+
+/// <summary>
+/// What the runner does with a link, before it fetches anything.
+/// </summary>
+/// <remarks>
+/// <b>Both halves are only true at the loop.</b> A comparison nothing calls is a
+/// comparison that does nothing — the shape this repository keeps finding — so
+/// these assert the refusal reaching a FACT and the tool reaching the agent,
+/// rather than the functions that decide them.
+/// </remarks>
+public class ALinkIsCheckedBeforeAnythingIsFetchedTests
+{
+    private static readonly DateTimeOffset T0 = new(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Records every request it is handed, and never fails.</summary>
+    private sealed class Recording : Gg.Runner.Execution.IExecutorPort
+    {
+        internal List<Gg.Runner.Execution.ExecutorRequest> Seen { get; } = [];
+
+        public Gg.Runner.Execution.ExecutorCapabilities Capabilities =>
+            Gg.Runner.Execution.ClaudeCodeExecutor.Capabilities;
+
+        public Task<Gg.Runner.Execution.ExecutorRun> ExecuteAsync(
+            Gg.Runner.Execution.ExecutorRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Seen.Add(request);
+            return Task.FromResult(Gg.Runner.Execution.ExecutorRun.Completed(
+                request.LoopId, "done", attempts: 1, took: TimeSpan.Zero,
+                movesUsed: [Gg.Contracts.LoopMoves.Read]));
+        }
+    }
+
+    private static Gg.Contracts.LeaseGranted ALease(GitFixture fixture, string uri) => new()
+    {
+        LeaseId = "lease-host",
+        Generation = 1,
+        FlightId = "flight-host",
+        FlightNumber = Gg.Contracts.Description.FlightRef.Format(29),
+        Repos =
+        [
+            new Gg.Contracts.LeaseRepoRef
+            {
+                Provider = LocalVcsAdapter.ProviderKey,
+                Slug = fixture.BarePath,
+                PinnedRef = "refs/heads/main",
+            },
+        ],
+        Credentials = [],
+        ClassificationCeiling = Gg.Contracts.Classifications.Internal,
+        ClassificationRules = Gg.Contracts.ClassificationRules.Default,
+        ExpiresAt = T0.AddMinutes(10),
+        RenewWithinSeconds = 5,
+        IntentUri = uri,
+        Loop = new Gg.Contracts.LeaseLoop
+        {
+            LoopId = "implement",
+            Executor = Gg.Contracts.ExecutorRungs.Frontier,
+            Moves = [Gg.Contracts.LoopMoves.Read],
+            WallClockSeconds = 600,
+            OnExhaustion = Gg.Contracts.ExhaustionPolicies.HandoffToAgent,
+        },
+    };
+
+    private static async Task<(string Reason, Recording Executor)> RunAsync(string uri, string hosts)
+    {
+        using var fixture = new GitFixture();
+        using var trees = new ScratchTreeRoot();
+        var clock = new MovableClock(T0);
+        var protocol = new FakeProtocol();
+        protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, uri)));
+        var observer = new RecordingObserver();
+        var executor = new Recording();
+
+        using var stopping = new CancellationTokenSource();
+        observer.OnEvent = e =>
+        {
+            if (e.StartsWith("released:", StringComparison.Ordinal))
+            {
+                stopping.Cancel();
+            }
+        };
+
+        await new RunnerLoop(protocol, clock,
+                (span, token) => { token.ThrowIfCancellationRequested(); clock.Advance(span); return Task.CompletedTask; },
+                observer, new NoCredentialResolver(),
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
+                executor: executor,
+                hosts: [.. HostDeclaration.ParseAll(hosts, "GG_VCS_HOSTS")])
+            { HoldFor = TimeSpan.FromSeconds(3) }
+            .RunAsync("runner-1", ["linux"], stopping.Token);
+
+        // THE RELEASE, not a loop outcome. A refusal that comes before anything
+        // is fetched comes before there is a loop to have an outcome, so the
+        // reason rides the release - the same channel the credential refusal
+        // one statement above it already uses.
+        return (string.Join("\n", protocol.Serialized), executor);
+    }
+
+    [Test]
+    public async Task A_link_from_an_unserved_host_is_refused_and_nothing_is_fetched()
+    {
+        // THE HOLE'S CONSEQUENCE, stopped at the only layer that can see it. The
+        // control plane created this flight because the path matched something
+        // registered; the host says it is a different repository entirely.
+        var (reason, executor) = await RunAsync(
+            "https://anywhere.invalid/acme/widgets/pull/1",
+            $"{LocalVcsAdapter.ProviderKey}=forge.invalid/acme");
+
+        await Assert.That(reason).Contains("anywhere.invalid");
+        await Assert.That(executor.Seen.Any(r => r.WorkingDirectory.Contains("widgets", StringComparison.Ordinal)))
+            .IsFalse()
+            .Because("the refusal has to come before anything is fetched, or it is a report "
+                   + "about source that is already on this disk.");
+    }
+
+    [Test]
+    public async Task A_link_shaped_work_item_is_given_the_provider_that_serves_it()
+    {
+        // THE OTHER HALF. A reader is keyed on a provider and a link carries
+        // none, so without this a flight opened from a work-item URL reaches an
+        // agent with nothing that can read it - which is the gap the last live
+        // flight ended on.
+        var (_, executor) = await RunAsync(
+            "https://forge.invalid/acme/_workitems/edit/18120",
+            $"{LocalVcsAdapter.ProviderKey}=forge.invalid/acme");
+
+        await Assert.That(executor.Seen.Any(r => r.IntentProvider == LocalVcsAdapter.ProviderKey))
+            .IsTrue()
+            .Because("the provider is what ReaderFor matches, and a link that names none reaches "
+                   + "the agent with no tracker tool at all.");
+    }
+}

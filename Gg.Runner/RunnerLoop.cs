@@ -187,6 +187,7 @@ public sealed class RunnerLoop(
     IWorkspace workspace,
     IExecutorPort? executor = null,
     IReadOnlyList<Execution.IntentReader>? readers = null,
+    IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
     TranscriptStore? transcripts = null,
     IReadOnlyList<IDestinationAdapter>? destinations = null)
 {
@@ -270,6 +271,18 @@ public sealed class RunnerLoop(
     /// somebody has to interpret.
     /// </remarks>
     private readonly IReadOnlyList<Execution.IntentReader> _readers = readers ?? [];
+
+    /// <summary>
+    /// Which provider key reaches which host, as this runner declares it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The mapping the control plane must not hold.</b> A policy store
+    /// containing hosts would make credential destination a policy edit, so the
+    /// registry names a provider KEY and this maps it. Two things read it here:
+    /// whether a flight's link comes from somewhere this runner serves, and
+    /// which tracker can read a link-shaped work item.
+    /// </remarks>
+    private readonly IReadOnlyList<Vcs.HostDeclaration> _hosts = hosts ?? [];
 
     private readonly TranscriptStore _transcripts = transcripts ?? new TranscriptStore();
 
@@ -378,6 +391,22 @@ public sealed class RunnerLoop(
                 // order is load-bearing and this is the second step of it; a
                 // credential that cannot be read stops the flight here, before
                 // anything is materialized, rather than halfway through.
+                // AND THE LINK COMES FROM SOMEWHERE THIS RUNNER SERVES, checked
+                // in the same place and for the same reason: a link resolved to
+                // a registered repository by PATH ALONE may name a repository on
+                // a host nobody declared, and the control plane cannot tell -
+                // it holds no host, deliberately. This is the only layer that
+                // can, and it must answer before any source is fetched.
+                if (lease.Repos.Select(r => Vcs.HostDeclaration.Unserved(
+                        r.Provider, lease.IntentUri, _hosts))
+                    .FirstOrDefault(why => why is not null) is { } unserved)
+                {
+                    _observer.WorkspaceFailed(unserved);
+                    await ReleaseAsync(
+                        lease, RunnerDisposition.Failed, unserved, cancellationToken);
+                    continue;
+                }
+
                 var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
                 if (await ResolveAsync(lease, resolved, cancellationToken) is { } failure)
                 {
@@ -863,7 +892,15 @@ public sealed class RunnerLoop(
                     : workspace.Root,
                 LoopId = loop.LoopId,
                 IntentUri = lease.IntentUri,
-                IntentProvider = lease.IntentProvider,
+                // A TICKET SAYS ITS PROVIDER; A LINK DOES NOT, so a link is
+                // asked of the host declarations. This is what gives a
+                // work-item URL a tracker tool - the reader is keyed on a
+                // provider, and without this such a flight reaches the agent
+                // with nothing able to read what it is about. It does not change
+                // what the flight is RECORDED as, and the prompt still names the
+                // link, because the person named a link.
+                IntentProvider = lease.IntentProvider
+                    ?? Vcs.HostDeclaration.ProviderFor(lease.IntentUri, _hosts),
                 IntentId = lease.IntentId,
                 Moves = loop.Moves,
                 WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),

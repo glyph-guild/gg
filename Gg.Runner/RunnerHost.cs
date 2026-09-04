@@ -160,7 +160,8 @@ public static class RunnerHost
         CancellationToken cancellationToken,
         IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null,
         Execution.IExecutorPort? executor = null,
-        IReadOnlyList<Execution.IntentReader>? readers = null)
+        IReadOnlyList<Execution.IntentReader>? readers = null,
+        IReadOnlyList<Vcs.HostDeclaration>? hosts = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -219,6 +220,10 @@ public static class RunnerHost
             // as the executor, because refusing a work item it cannot open is a
             // decision about whether to invoke at all.
             readers ?? Execution.IntentConfiguration.FromEnvironment(),
+            // WHICH HOSTS THIS RUNNER SERVES, from the variable the adapters
+            // already came from. Two things read it: whether a link is one this
+            // runner should fetch at all, and which tracker can read one.
+            hosts ?? Vcs.VcsConfiguration.DeclaredHosts(),
             destinations: destinations)
         {
             HoldFor = holdFor,

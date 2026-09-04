@@ -41,6 +41,14 @@ public static class ExecutorConfiguration
         Func<string, string?>? secretFor = null) =>
         Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
             ? new ClaudeCodeExecutor(
-                binary, readers ?? IntentConfiguration.FromEnvironment(), secretFor)
+                binary,
+                readers ?? IntentConfiguration.FromEnvironment(),
+                secretFor,
+                // THE ONE PLACE, again. How this process re-execs itself is a
+                // process fact rather than configuration, so it cannot drift
+                // between reads - but it is resolved here anyway, beside the
+                // trackers, because an executor that had it and was never given
+                // it is the shape this type exists to remove.
+                SelfInvocation.Current)
             : null;
 }

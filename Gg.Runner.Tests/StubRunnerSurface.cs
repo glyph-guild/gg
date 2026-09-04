@@ -34,7 +34,7 @@ internal sealed class StubRunnerSurface : IAsyncDisposable
     internal LeaseClaimStatus? ClaimReport { get; set; }
 
     /// <summary>The lease this stub grants when a test has not supplied one.</summary>
-    private static LeaseGranted TheLease => new LeaseGranted
+    internal static LeaseGranted TheLease => new LeaseGranted
         {
             LeaseId = "lease-9",
             Generation = 3,

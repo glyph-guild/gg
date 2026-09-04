@@ -32,9 +32,23 @@ namespace Gg.Runner.Execution;
 /// gone by the time anybody follows it.
 /// </para>
 /// </remarks>
-public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
+public sealed class ClaudeCodeExecutor(
+    string binary = "claude", IReadOnlyList<IntentReader>? readers = null) : IExecutorPort
 {
     private readonly string _binary = binary;
+
+    /// <summary>
+    /// The tool servers this runner can launch, by provider key.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty is the ordinary state.</b> A link flight and a text flight name
+    /// no tracker; only a work item needs one, and a runner that serves no
+    /// work-item flights declares nothing. Whether a work item this runner
+    /// cannot read is refused is <see cref="IntentConfiguration.Unreadable"/>'s
+    /// question, asked before a loop is spent rather than by an agent that has
+    /// already started.
+    /// </remarks>
+    private readonly IReadOnlyList<IntentReader> _readers = readers ?? [];
 
     /// <summary>
     /// What this adapter can and cannot do, written from what failed.
@@ -155,14 +169,22 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
                   "--output-format", "stream-json",
                   "--verbose",
                   "--setting-sources", "",
+                  // STRICT, AND NOW WITH SOMETHING TO BE STRICT ABOUT. This
+                  // clears the operator's own servers, which is the whole point
+                  // - and until there was a --mcp-config beside it, it also left
+                  // the agent unable to read the work item its flight was about.
                   "--strict-mcp-config",
+                  .. ServerArguments(request),
                   // A PARTIAL BOUND, measured. It refuses Edit and Write at the
                   // call and removes Grep from the tool list; it does not bind Read
                   // or Bash. It is also the whole of what makes the line above
                   // matter - clearing setting sources is what stops the operator's
                   // own permissions applying instead. See DeclaredMoveEnforcement above, and
                   // MoveBoundProbe, which proves this rather than assuming it.
-                  "--allowedTools", .. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)])
+                  "--allowedTools",
+                  .. request.Moves.Select(Tool)
+                        .Concat(ReadTools(request))
+                        .Distinct(StringComparer.Ordinal)])
         {
             info.ArgumentList.Add(argument);
         }
@@ -179,6 +201,85 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
     /// customer's own credential - which is also why the control plane needs
     /// no permission to read it.
     /// </remarks>
+    /// <summary>The reader for this flight's tracker, when it has one.</summary>
+    private IntentReader? ReaderFor(ExecutorRequest request) =>
+        request.IntentProvider is { Length: > 0 } provider
+        && _readers.FirstOrDefault(
+            r => string.Equals(r.Key, provider, StringComparison.Ordinal))
+            is { Key.Length: > 0 } found
+            ? found
+            : null;
+
+    /// <summary>
+    /// The tool server this flight's work item is read through, as arguments.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named for the provider key, so the tool name is derivable.</b> The
+    /// agent is told which tools it may use BY NAME, and a server named
+    /// somewhere else would mean carrying that name separately - two places to
+    /// change, one of which nothing checks.
+    /// </para>
+    /// <para>
+    /// <b>The credential is the server's, never the agent's.</b> Nothing here
+    /// puts a secret in the agent's environment: the server process holds it,
+    /// and the agent calls the tool without being able to read what
+    /// authenticates it. The same split the runner already makes for git.
+    /// </para>
+    /// </remarks>
+    private string[] ServerArguments(ExecutorRequest request) =>
+        ReaderFor(request) is { } reader
+            ? ["--mcp-config", ServerConfig(reader)]
+            : [];
+
+    /// <summary>
+    /// The one server, as the flag's JSON.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written rather than serialized, because this binary is published
+    /// AOT.</b> Reflection-based serialization of an anonymous type is refused
+    /// at compile time (IL2026/IL3050) and cannot be source-generated, so the
+    /// document is written directly - which also means every value here is
+    /// escaped by the writer rather than by hand.
+    /// </remarks>
+    private static string ServerConfig(IntentReader reader)
+    {
+        using var buffer = new MemoryStream();
+        using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
+        {
+            json.WriteStartObject();
+            json.WriteStartObject("mcpServers");
+            json.WriteStartObject(reader.Key);
+            json.WriteString("command", reader.Command);
+            json.WriteStartArray("args");
+            foreach (var argument in reader.Arguments)
+            {
+                json.WriteStringValue(argument);
+            }
+            json.WriteEndArray();
+            json.WriteEndObject();
+            json.WriteEndObject();
+            json.WriteEndObject();
+        }
+
+        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
+    /// <summary>
+    /// The tracker's tools, allowed only when the envelope allowed reading.
+    /// </summary>
+    /// <remarks>
+    /// <b>Under <c>read</c>, because reading a work item is reading.</b> It must
+    /// not arrive ungated: a loop whose envelope withheld <c>read</c> is a loop
+    /// that may not go and look at things, and a tracker is a thing to look at.
+    /// The prefix is the agent's own convention for naming a server's tools.
+    /// </remarks>
+    private string[] ReadTools(ExecutorRequest request) =>
+        ReaderFor(request) is { } reader
+        && request.Moves.Contains(LoopMoves.Read, StringComparer.Ordinal)
+            ? [$"mcp__{reader.Key}"]
+            : [];
+
     /// <summary>
     /// What the flight is about, named the way it was named.
     /// </summary>
@@ -278,6 +379,20 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
     /// wording nothing pins.
     /// </remarks>
     public static string PromptFor(ExecutorRequest request) => Prompt(request);
+
+    /// <summary>
+    /// The launch arguments, for a request and a set of readers.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public so what the agent is actually handed can be asserted.</b> A
+    /// tool server this runner configured and never passed, or a tracker tool
+    /// allowed without the move that permits reading, are both invisible to
+    /// every test that stops at the configuration - and the second is the
+    /// envelope's bound going around the envelope.
+    /// </remarks>
+    public static IReadOnlyList<string> ArgumentsFor(
+        ExecutorRequest request, IReadOnlyList<IntentReader> readers) =>
+        new ClaudeCodeExecutor("claude", readers).StartInfo(request).ArgumentList;
 
     private static string Tool(string move) => move switch
     {

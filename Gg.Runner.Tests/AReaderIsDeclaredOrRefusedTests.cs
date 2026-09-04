@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Runner.Execution;
 
 namespace Gg.Runner.Tests;
@@ -102,5 +103,79 @@ public class AReaderIsDeclaredOrRefusedTests
         // fleet on a runner that had simply not declared something it does not
         // need.
         await Assert.That(IntentConfiguration.Unreadable(provider: null, readers: [])).IsNull();
+    }
+}
+
+/// <summary>
+/// The agent is handed the tool server, and only under the move that permits it.
+/// </summary>
+/// <remarks>
+/// <b>Asserted on the launch arguments, because that is the only place it is
+/// true.</b> A server this runner configured and never passed would be
+/// configuration that does nothing — the shape this repository keeps finding —
+/// and a tool allowed without the move would be the envelope's bound going
+/// around the envelope.
+/// </remarks>
+public class AWorkItemToolIsHandedOverTests
+{
+    private static ExecutorRequest ARequest(
+        string? provider = "a-tracker", params string[] moves) => new()
+    {
+        WorkingDirectory = "/tmp/gg-tree",
+        LoopId = "implement",
+        IntentProvider = provider,
+        IntentId = provider is null ? null : "26",
+        Moves = moves.Length > 0 ? moves : [LoopMoves.Read],
+        WallClock = TimeSpan.FromMinutes(30),
+        TranscriptPath = "/tmp/gg-transcript.ndjson",
+    };
+
+    private static IReadOnlyList<string> ArgumentsFor(
+        ExecutorRequest request, string declaration) =>
+        ClaudeCodeExecutor.ArgumentsFor(
+            request, IntentConfiguration.FromEnvironment(declaration));
+
+    [Test]
+    public async Task The_agent_is_given_the_server_for_its_flights_tracker()
+    {
+        var arguments = ArgumentsFor(ARequest(), "a-tracker=tracker-mcp --stdio");
+
+        await Assert.That(arguments).Contains("--mcp-config");
+        await Assert.That(string.Join(" ", arguments)).Contains("tracker-mcp")
+            .Because("a server configured and never passed is configuration that does nothing.");
+    }
+
+    [Test]
+    public async Task The_trackers_tools_are_allowed_only_when_reading_is()
+    {
+        var reading = ArgumentsFor(ARequest(), "a-tracker=tracker-mcp");
+        var notReading = ArgumentsFor(ARequest(moves: LoopMoves.Edit), "a-tracker=tracker-mcp");
+
+        await Assert.That(string.Join(" ", reading)).Contains("mcp__a-tracker");
+        await Assert.That(string.Join(" ", notReading)).DoesNotContain("mcp__a-tracker")
+            .Because("a loop whose envelope withheld read may not go and look at things, and a "
+                   + "tracker is a thing to look at. Allowing it here would route around the "
+                   + "bound rather than enforce it.");
+    }
+
+    [Test]
+    public async Task A_flight_about_no_tracker_is_given_no_server()
+    {
+        // THE ANCHOR, and it is every flight in the air. --strict-mcp-config
+        // stays; what must not appear is a --mcp-config nobody needed.
+        var arguments = ArgumentsFor(ARequest(provider: null), "a-tracker=tracker-mcp");
+
+        await Assert.That(arguments).Contains("--strict-mcp-config");
+        await Assert.That(arguments).DoesNotContain("--mcp-config");
+    }
+
+    [Test]
+    public async Task A_runner_declaring_nothing_hands_over_nothing()
+    {
+        var arguments = ArgumentsFor(ARequest(), "");
+
+        await Assert.That(arguments).DoesNotContain("--mcp-config")
+            .Because("the refusal is IntentConfiguration.Unreadable's job, decided before a loop "
+                   + "is spent - not something to half-do here by passing an empty server.");
     }
 }

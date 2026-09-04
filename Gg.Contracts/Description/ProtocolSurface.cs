@@ -1051,7 +1051,7 @@ public static class ProtocolSurface
         [typeof(InvitationRequest)] = [],
         [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
             [typeof(TenantNotice)] = ["code", "detail", "remedy", "blocking"],
-            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion"],
+            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],

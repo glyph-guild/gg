@@ -15,6 +15,40 @@ public sealed record RunnerRegistrationRequest
 
     /// <summary>Protocol revision this runner speaks.</summary>
     public required int ProtocolVersion { get; init; }
+
+    /// <summary>
+    /// Reserve this runner to whoever is registering it. Defaults to false,
+    /// which is what every runner does today: take the tenant's public work.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because labels only ever say yes.</b> A flight's requirements are
+    /// matched by containment against what a runner advertises, which is
+    /// monotone — adding a label can only add work. An untargeted flight
+    /// requires nothing, and nothing is contained by every label set, so there
+    /// is no value a runner can advertise that makes it take LESS.
+    /// </para>
+    /// <para>
+    /// <b>Not a label, and it needs no charted environment.</b> A reserved
+    /// runner may advertise nothing and still be reachable by its holder's
+    /// flights. Spelling this as a label would make reserving a laptop require
+    /// charting an environment, and would inherit containment's one direction.
+    /// </para>
+    /// <para>
+    /// <b>A boolean rather than a principal, deliberately.</b> This says
+    /// <i>reserve it to me</i>, and the control plane is what knows who "me" is.
+    /// Reserving somebody ELSE's runner routes work at a person who did not ask
+    /// for it — a different act, with a different approver — and a member here
+    /// that could name a principal would make it reachable through a request the
+    /// runner itself composes.
+    /// </para>
+    /// <para>
+    /// <b>At registration, so there is no unreserved window.</b> A runner
+    /// reserved by a later call takes public work until that call lands, which
+    /// on a busy tenant is every flight in the queue.
+    /// </para>
+    /// </remarks>
+    public bool Reserved { get; init; }
 }
 
 /// <summary>

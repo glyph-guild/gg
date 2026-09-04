@@ -148,6 +148,18 @@ public class EnvelopeOperatorTests
             .Because("an operator AND an exemption is the staleness the composer's own "
                    + "constructor refuses; the question is answered and the entry is gone.");
 
+        // OPENS INTERSECTS, on moves' precedent one type over: a layer may only
+        // shrink what may be opened, because a name gained is a governance
+        // regime an agent can newly reach. Declared rather than exempted for
+        // the reason written above it - and the composer never consults it,
+        // because destinations are taken wholesale from the base document and a
+        // narrowing cannot express one at all. The declaration is what puts the
+        // field inside the sweep; the direction comparator is what reads it.
+        await Assert.That(declared[$"{nameof(Destination)}.{nameof(Destination.Opens)}"])
+            .IsEqualTo(MergeOperators.Intersect);
+        await Assert.That(exempt.Keys)
+            .DoesNotContain($"{nameof(Destination)}.{nameof(Destination.Opens)}");
+
         // LIVENESS: the walk covers the whole closed schema. Every public
         // property of every composable type is declared or exempted; a new
         // member fails here (and the composer's own constructor) until its

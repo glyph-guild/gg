@@ -90,8 +90,13 @@ public class EnvelopeChangeTests
     public async Task A_destination_that_is_not_a_repository_is_its_own_kind()
     {
         await Assert.That(DestinationKinds.All).Contains(DestinationKinds.EnvelopeChange);
-        await Assert.That(DestinationKinds.All.Count).IsEqualTo(4)
-            .Because("four: pull-request, two that are deliberately not repositories - which "
+        await Assert.That(DestinationKinds.All.Count).IsEqualTo(5)
+            .Because("five, and the fifth finishes the category the first two opened: "
+                   + "`flight`, whose act is that a flight EXISTS. Performed by admission "
+                   + "like those two, and unlike either outward kind nothing leaves and no "
+                   + "credential is involved - which is what lets a classifier be governed "
+                   + "rather than trusted. The four before it: "
+                   + "pull-request, two that are deliberately not repositories - which "
                    + "is what makes 'add a destination' a real answer rather than a "
                    + "restatement - and check-run, the first whose act LEAVES this system. "
                    + "The third (airspace-registration) was declared in 0.53.0 and left out "

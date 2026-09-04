@@ -55,9 +55,16 @@ public abstract record CliAction
         : CliAction, IEmitsResult;
 
     /// <summary>
-    /// The tenant's flights, optionally narrowed to one work item.
+    /// The tenant's flights, optionally narrowed to one line of work.
     /// </summary>
-    public sealed record Flights(bool Json, bool All, string? Provider = null, string? Id = null)
+    /// <remarks>
+    /// <b>ONE token rather than two halves</b>, because there are two identifier
+    /// shapes now: a work item is <c>provider#id</c> and a link is a uri. Split
+    /// here, the uri form would need a second pair of members and the client a
+    /// second branch - and two spellings of one filter is how they come to
+    /// disagree. It is validated at the parse and passed through whole.
+    /// </remarks>
+    public sealed record Flights(bool Json, bool All, string? Intent = null)
         : CliAction, IEmitsResult;
 
     public sealed record Show(string Reference, bool Json) : CliAction, IEmitsResult;
@@ -209,7 +216,7 @@ public static class CliArgs
     [
         "gg                             the console",
         "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
-        "gg flights [--all] [--intent <provider>#<id>]  flights in the air, or every one",
+        "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
         "gg runners                     the runners this tenant has",
@@ -285,7 +292,7 @@ public static class CliArgs
             ["flights", "--intent", var token] => Correlate(token, json, all),
             ["flights"] => new CliAction.Flights(json, all),
             ["flights", ..] => Unknown(
-                "gg flights takes --all, --json, and --intent <provider>#<id>."),
+                "gg flights takes --all, --json, and --intent <provider>#<id> or a uri."),
             ["runners"] => new CliAction.Runners(json),
             ["airspace", "show"] => new CliAction.AirspaceShow(json),
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
@@ -435,11 +442,18 @@ public static class CliArgs
     /// separator in it.
     /// </remarks>
     private static CliAction Correlate(string token, bool json, bool all) =>
-        SplitTicket(token) is var (provider, id) && provider is not null
-            ? new CliAction.Flights(json, all, provider, id)
+        SplitTicket(token) is var (provider, _) && provider is not null
+        // A LINK IS THE SECOND SHAPE, and only an absolute one: `4471` and
+        // `acme/widgets` are relative references TryCreate refuses, which is
+        // what keeps the refusal below reachable. A parse that accepted
+        // anything would turn a typo into a filter matching nothing and report
+        // it as success.
+        || Uri.TryCreate(token, UriKind.Absolute, out _)
+            ? new CliAction.Flights(json, all, token)
             : Unknown(
-                $"gg flights --intent takes <provider>#<id>, and '{token}' is not that shape. "
-              + "Both halves are needed: the id alone does not say which tracker it is in.");
+                $"gg flights --intent takes <provider>#<id> or an absolute uri, and '{token}' "
+              + "is neither. Both halves of a work item are needed: the id alone does not say "
+              + "which tracker it is in.");
 
     /// <summary>
     /// The two halves of a work item token, or nulls when it is not one.

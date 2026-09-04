@@ -651,7 +651,7 @@ public static class VerbOutput
         // once, and a zero beside a label reads like a counter that failed to increment.
         text.AppendLine(
             $"  attempts    {(flight.Attempts == 0 ? "none" : flight.Attempts.ToString(CultureInfo.InvariantCulture))}");
-        text.AppendLine(Facts(flight.Facts));
+        text.AppendLine(Facts(flight.Facts, flight.Intent));
         return text.ToString().TrimEnd();
     }
 
@@ -671,7 +671,7 @@ public static class VerbOutput
     /// plane's own absence scan proves and this rendering inherits.
     /// </para>
     /// </remarks>
-    private static string Facts(IReadOnlyList<FactEnvelope> facts)
+    private static string Facts(IReadOnlyList<FactEnvelope> facts, FlightIntent intent)
     {
         var text = new StringBuilder();
         text.AppendLine();
@@ -754,6 +754,28 @@ public static class VerbOutput
                 }
             }
 
+            if (fact.Nomination is { } nomination)
+            {
+                // WHAT WAS DECIDED, not that a decision happened. A classify
+                // flight's whole product is this one value and the sentence
+                // behind it, and a rendering that showed the fact's kind and
+                // stopped would report a decision without reporting it.
+                text.AppendLine($"    nominated   {Clean(nomination.WorkKind)}");
+                text.AppendLine($"    because     {Clean(nomination.Reason, lines: true)}");
+
+                // A POINTER FOR A PERSON, WHICH IS A QUERY AND NOT A
+                // REFERENCE. Neither flight holds a field naming the other -
+                // the control plane asserts that as an absence over the command
+                // that opens one - so this cannot print a flight number and
+                // must not grow a field to make it able to. Correlation is the
+                // work item, so what a person needs is the command that groups
+                // them, built from this flight's OWN intent.
+                if (Correlatable(intent) is { Length: > 0 } token)
+                {
+                    text.AppendLine($"    opened      gg flights --intent {token}");
+                }
+            }
+
             if (fact.Source is { } source)
             {
                 text.AppendLine($"    repo        {Clean(source.Slug)}");
@@ -772,6 +794,26 @@ public static class VerbOutput
 
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// This flight's intent as <c>gg flights --intent</c> takes it, or empty
+    /// when it is not something that can be correlated.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty for a text intent, and that is the honest answer.</b> "Fix the
+    /// login bug" identifies no line of work anybody else could ask about, so
+    /// there is no query to print - and printing one that answered about every
+    /// text flight would be worse than printing nothing.
+    /// </remarks>
+    private static string Correlatable(FlightIntent intent) =>
+        intent.Kind switch
+        {
+            FlightIntentKinds.Ticket when intent.Provider is { Length: > 0 }
+                                       && intent.Id is { Length: > 0 } =>
+                $"{Clean(intent.Provider)}#{Clean(intent.Id)}",
+            FlightIntentKinds.Uri when intent.Uri is { Length: > 0 } => Clean(intent.Uri),
+            _ => "",
+        };
 
     private static string Intent(FlightIntent intent) =>
         intent.Kind switch

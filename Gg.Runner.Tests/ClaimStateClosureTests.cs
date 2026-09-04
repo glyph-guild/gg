@@ -77,6 +77,20 @@ public class ClaimStateClosureTests
     }
 
     [Test]
+    public async Task A_parked_runner_says_parked_rather_than_nothing_ready()
+    {
+        // WHAT A PERSON WATCHING THE MACHINE SEES. The console printed
+        // "nothing ready" for an idle fleet; a machine somebody deliberately
+        // withheld printing the same line is the collapse `parked` exists to
+        // prevent, and it is the line an operator would read for a fortnight
+        // while wondering why nothing runs here.
+        await Assert.That(typeof(IRunnerObserver).GetMethod("Parked")).IsNotNull()
+            .Because("the observer is where the loop tells a person what happened, and a "
+                   + "parked runner reported through Idle() is indistinguishable from a quiet "
+                   + "one - which is exactly the report this state was added to separate.");
+    }
+
+    [Test]
     public async Task A_state_nobody_declared_still_halts_loudly()
     {
         // THE CLOSURE, UNTOUCHED. Fixing the false halt must not remove the

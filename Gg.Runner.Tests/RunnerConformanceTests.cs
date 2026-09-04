@@ -16,7 +16,7 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class RunnerConformanceTests
 {
-    private static async Task<StubRunnerSurface> ExerciseAsync(
+    internal static async Task<StubRunnerSurface> ExerciseAsync(
         Func<RunnerProtocolClient, Task> use, Action<StubRunnerSurface>? configure = null)
     {
         var stub = new StubRunnerSurface();

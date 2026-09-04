@@ -114,6 +114,16 @@ public sealed record Reason
 
             ReasonKinds.BlockedByBound => Bound(parameters),
 
+            ReasonKinds.RunnerReserved => Reserved(parameters),
+
+            ReasonKinds.RunnerParked => Parked(parameters),
+
+            ReasonKinds.DirectedRunnerAbsent =>
+                $"waiting: this flight is for '{First(parameters)}', and that runner is not "
+              + "currently asking for work. Nothing is misconfigured - a directed flight is "
+              + "claimable by exactly one machine, and this one is not answering. Start it, or "
+              + "re-open the flight without naming a runner.",
+
             ReasonKinds.PoolWarming =>
                 $"the pool '{First(parameters)}' is warming toward this flight's label; "
               + "a runner advertising it clears this.",
@@ -131,6 +141,45 @@ public sealed record Reason
         // one and leave the reader to guess which.
         static string Second(IReadOnlyList<string> parameters) =>
             parameters.Count > 1 ? parameters[1] : "(unnamed)";
+
+        // A RESERVATION NAMES A PERSON, OR SAYS IT CANNOT. Two params is the
+        // ordinary case - the label and the holder's display. One param is the
+        // reservation whose holder has left the tenant: nothing releases it on
+        // its own, so a runner that takes no work forever is what this
+        // prevents, and "(unnamed)" here would read as a rendering bug rather
+        // than as the fact it is.
+        static string Reserved(IReadOnlyList<string> parameters)
+        {
+            var label = First(parameters);
+
+            return parameters.Count > 1
+                ? $"waiting: every runner advertising {label} is reserved to "
+                + $"{parameters[1]}, so this flight is not offered to any of them. The capacity "
+                + "is there and somebody is holding it - ask them, bring up a runner that is not "
+                + "reserved, or have the reservation released."
+                : $"waiting: every runner advertising {label} is reserved to somebody who is no "
+                + "longer in this tenant. A reservation is cleared by a person and by nothing "
+                + "else - there is no expiry - so this will not resolve on its own. Release it "
+                + "(DELETE /v1/runners/{id}/reservation), or bring up a runner that is not "
+                + "reserved.";
+        }
+
+        // A PARKING QUOTES THE REASON SOMEBODY GAVE, and copes when they gave
+        // none. The reason is nullable where it is written, and a sentence that
+        // required one would throw on the parking made in a hurry - turning a
+        // governed wait into a failure of the surface meant to explain it.
+        static string Parked(IReadOnlyList<string> parameters)
+        {
+            var label = First(parameters);
+
+            return parameters.Count > 1
+                ? $"waiting: every runner advertising {label} is parked - \"{parameters[1]}\". "
+                + "Parked runners keep beating and take no new work; this flight moves when one "
+                + "of them is unparked, or when another runner advertising that label comes up."
+                : $"waiting: every runner advertising {label} is parked, with no reason recorded. "
+                + "Parked runners keep beating and take no new work; this flight moves when one "
+                + "of them is unparked, or when another runner advertising that label comes up.";
+        }
 
         // The clearing is the sentence's other half - the remedy. An unknown
         // clearing THROWS, one param deeper than an unknown kind, because a
@@ -285,11 +334,58 @@ public static class ReasonKinds
     /// </summary>
     public const string PoolWarming = "pool-warming";
 
+    /// <summary>
+    /// Every runner advertising a required label is reserved to somebody who is
+    /// not this flight's author. Params: [label, holder] or [label].
+    /// </summary>
+    /// <remarks>
+    /// <b>NOT A CAPABILITY GAP, and that is the whole reason it has its own
+    /// kind.</b> <see cref="NoRunnerAdvertises"/> means bring a machine up; this
+    /// means the machine is up, is advertising exactly what is needed, and a
+    /// person is holding it. Same silence, opposite remedy — and the wrong one
+    /// sends somebody to provision capacity they already own.
+    /// <para>
+    /// The holder is a DISPLAY and is dropped when the principal has left the
+    /// tenant, which the one-param sentence says out loud. A reservation is
+    /// cleared by a person and by nothing else, so a departed holder's runner
+    /// takes no work until somebody notices — this is how they notice.
+    /// </para>
+    /// </remarks>
+    public const string RunnerReserved = "runner-reserved";
+
+    /// <summary>
+    /// Every runner advertising a required label is parked. Params:
+    /// [label, reason] or [label].
+    /// </summary>
+    /// <remarks>
+    /// <b>SOMEBODY DECLARED THIS, like <see cref="DeclaredAndAbsent"/>.</b> A
+    /// parked runner is beating and healthy and deliberately taking nothing, so
+    /// every fleet-health surface reads correct while the flight waits. The
+    /// parking reason is carried because "a runner taking nothing for a
+    /// fortnight with no reason attached" is the failure mode parking most
+    /// likely produces, and this sentence is where it is quoted back.
+    /// </remarks>
+    public const string RunnerParked = "runner-parked";
+
+    /// <summary>
+    /// A flight names a runner and that runner is not beating. Params: [runner].
+    /// </summary>
+    /// <remarks>
+    /// <b>NOBODY DECLARED THIS, like <see cref="ForgeUnreachable"/>, and the
+    /// split from the other two is the point.</b> A closed laptop is not a
+    /// misconfiguration: the direction is correct, the machine is simply not
+    /// asking for work. Collapsing it into the declared withholdings sends an
+    /// operator off to check a configuration that is right, which is the exact
+    /// mistake <see cref="ForgeUnreachable"/> exists to prevent one layer over.
+    /// </remarks>
+    public const string DirectedRunnerAbsent = "directed-runner-absent";
+
     /// <summary>Every kind, for the closed-vocabulary fingerprint.</summary>
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
          Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
-         StaleWorkingCopy, FlightsInTheAir, DeclaredAndAbsent, ForgeUnreachable];
+         StaleWorkingCopy, FlightsInTheAir, DeclaredAndAbsent, ForgeUnreachable,
+         RunnerReserved, RunnerParked, DirectedRunnerAbsent];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
@@ -298,7 +394,12 @@ public static class ReasonKinds
         // admitted and cannot be evaluated - so filing these under `refused`
         // would put a flight that is WAITING in the same bucket as a document
         // somebody was told no about.
-        NoRunnerAdvertises or PoolWarming or DeclaredAndAbsent or ForgeUnreachable =>
+        // The three withholdings join them: a withheld flight was ADMITTED and
+        // is waiting for a person, which is a wait however deliberate the
+        // holding is. Filing them under `refused` would put a flight that is
+        // going to run in the bucket somebody was told no in.
+        NoRunnerAdvertises or PoolWarming or DeclaredAndAbsent or ForgeUnreachable
+            or RunnerReserved or RunnerParked or DirectedRunnerAbsent =>
             ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
         CannotBeShownToTighten or WideningRequiresAGate or Uncharted

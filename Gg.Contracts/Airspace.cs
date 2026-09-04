@@ -36,14 +36,26 @@ public static class LabelDispositions
 /// exist yet.
 /// </summary>
 /// <remarks>
-/// <b>Closed at three, and the third is the design event the closure
-/// prophesied.</b> Slice eight closed this at two with the note that a third
-/// value here means a strategy exists — a design event that arrives as a
-/// deliberate contract change. Slice twelve is that event:
+/// <b>Closed at four, and each new value is the design event the previous
+/// closure prophesied.</b> Slice eight closed this at two with the note that a
+/// third value here means a strategy exists — a design event that arrives as a
+/// deliberate contract change. Slice twelve was that event:
 /// <see cref="DeclinedByBound"/> marks a requirement a strategy manages and a
 /// declared bound currently declines, which is neither already-true nor a
 /// capability gap — the same silence with the opposite remedy, and the whole
 /// reason it must not wear either of the other words.
+/// <para>
+/// <b><see cref="Withheld"/> is the fourth, and the other three would each be a
+/// lie about a different thing.</b> A runner reserved to somebody else, parked
+/// by a person, or named by a direction and not currently answering is capacity
+/// that EXISTS and is being held back. Reporting it as
+/// <see cref="MatchingRunner"/> says the requirement is met while no flight can
+/// move; as <see cref="Nobody"/> it says the fleet cannot do this, and sends a
+/// person to bring up a machine they already own; as
+/// <see cref="DeclinedByBound"/> it says a strategy is managing it when no
+/// strategy is involved. The remedy for all three withholdings is a PERSON, and
+/// none of the other words leads anybody to one.
+/// </para>
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ChecklistSatisfiers
@@ -57,7 +69,19 @@ public static class ChecklistSatisfiers
     /// <summary>A strategy manages it and a declared bound currently declines it.</summary>
     public const string DeclinedByBound = "declined-by-bound";
 
-    public static IReadOnlyList<string> All { get; } = [MatchingRunner, Nobody, DeclinedByBound];
+    /// <summary>
+    /// A runner could satisfy it and a declaration is holding it back: reserved
+    /// elsewhere, parked, or directed at a machine that is not answering.
+    /// </summary>
+    /// <remarks>
+    /// The item's <c>whenUnmet</c> reason says WHICH of the three, because the
+    /// remedies differ — release a reservation, clear a parking, or start the
+    /// machine somebody named. Withheld is the family; the reason is the member.
+    /// </remarks>
+    public const string Withheld = "withheld-by-declaration";
+
+    public static IReadOnlyList<string> All { get; } =
+        [MatchingRunner, Nobody, DeclinedByBound, Withheld];
 }
 
 /// <summary>Ask the control plane to add an environment name to the chart.</summary>

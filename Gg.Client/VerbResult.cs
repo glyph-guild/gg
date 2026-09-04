@@ -905,6 +905,11 @@ public static class VerbOutput
                 ChecklistSatisfiers.MatchingRunner => "already true via matching",
                 ChecklistSatisfiers.Nobody => "nobody: declared capability gap",
                 ChecklistSatisfiers.DeclinedByBound => "declined by bound",
+                // The capacity is there and a declaration is holding it: the
+                // row says so, and the reason underneath says which of the
+                // three ways and who to go to. "nobody" here would send a
+                // person to bring up a machine they already own.
+                ChecklistSatisfiers.Withheld => "withheld: capacity exists, held back",
                 var other => Clean(other ?? ""),
             };
             text.AppendLine($"  {Clean(item.Requirement),-36}  {satisfier}  ({Clean(item.Disposition)})");

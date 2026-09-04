@@ -220,8 +220,14 @@ public class EndpointSurfaceTests
         // for another tenant's runner, per the heartbeat route; 409 on POST for
         // one somebody else holds, and deliberately none on DELETE, because
         // releasing a runner nobody reserved is the state the caller asked for.
+        // AND TWO MORE AGAIN: POST and DELETE /v1/runners/{id}/parking, which
+        // withhold a runner from claiming and give it back. A person's act on
+        // both verbs - a runner never reports its own status, and this does not
+        // become the first way it could. Idempotent on DELETE for the reason
+        // releasing a reservation is: un-parking one nobody parked is the state
+        // the caller asked for.
         await Assert.That(Fingerprint())
-            .IsEqualTo("45d2b90d9d5a47b0c08043f14dabe612f50ef5a36f05998ec781911817fd4257")
+            .IsEqualTo("2f0c502735c5d6ac55cebced7a5602fb648cb55d7b8fbc819d8f835718d06a93")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

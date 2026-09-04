@@ -214,6 +214,31 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // WITHHELD FROM CLAIMING, by a person. A runner never reports its own
+        // status, and this does not become the first way it could: both verbs
+        // are a person's, and what they record is a declaration ABOUT a machine.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/parking",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerParkRequest),
+            Response = typeof(RunnerParked),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "DELETE",
+            Path = "/v1/runners/{id}/parking",
+            Audience = Audience.Developer,
+            Response = typeof(RunnerParked),
+            // Idempotent, like releasing a reservation and for its reason:
+            // un-parking a runner nobody parked is the state the caller asked
+            // for.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         // WHOSE RUNNER THIS IS, set and cleared after registration. A person's
         // act on both verbs: the value decides what work the runner is offered,
         // so a runner able to change it could widen its own queue.
@@ -1085,6 +1110,8 @@ public static class ProtocolSurface
             // is named by the path, so there is nothing for a body to say.
             [typeof(RunnerReservationRequest)] = [],
             [typeof(RunnerReserved)] = ["runnerId", "reservedTo", "reservedAt"],
+            [typeof(RunnerParkRequest)] = ["reason"],
+            [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],

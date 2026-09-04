@@ -497,7 +497,31 @@ public static class LeaseClaimStates
     /// <summary>The request outlived its window. Terminal, and recorded rather than forgotten.</summary>
     public const string Expired = "expired";
 
-    public static IReadOnlyList<string> All { get; } = [Pending, Waiting, Granted, Expired];
+    /// <summary>
+    /// A person has withheld this runner from claiming. Not an error, and not
+    /// idle.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own value rather than a narrowed-away flight.</b> A parked runner
+    /// filtered out inside the matcher would answer <see cref="Pending"/> — the
+    /// same answer an idle fleet gets — and collapsing those two silences is the
+    /// defect <see cref="Waiting"/> was added to fix.
+    /// </para>
+    /// <para>
+    /// <b>Not offline.</b> A parked runner keeps beating; parking withholds
+    /// claims and does not take the machine away. One that stopped beating IS
+    /// offline, and takeover must still reclaim its flight.
+    /// </para>
+    /// <para>
+    /// <b>Not terminal.</b> The request is answered and the runner asks again
+    /// later, exactly as it does for <see cref="Pending"/>.
+    /// </para>
+    /// </remarks>
+    public const string Parked = "parked";
+
+    public static IReadOnlyList<string> All { get; } =
+        [Pending, Waiting, Granted, Expired, Parked];
 }
 
 /// <summary>
@@ -560,4 +584,37 @@ public sealed record LeaseClaimStatus
 
     /// <summary>The lease, once there is one.</summary>
     public LeaseGranted? Lease { get; init; }
+}
+
+/// <summary>
+/// Ask for a runner to be withheld from claiming.
+/// </summary>
+/// <remarks>
+/// <b>A person's declaration about a machine, and the reason is load-bearing.</b>
+/// A runner taking nothing for a fortnight with no reason attached is the failure
+/// mode this is most likely to produce, so the sentence that says why travels
+/// with the state - and is what a withheld flight quotes back.
+/// </remarks>
+[PinnedId("b1f4c8ae-3c60-4a0f-9d0c-6a4b8e2f5d71")]
+public sealed record RunnerParkRequest
+{
+    /// <summary>Why, in a person's words. Optional, and worth writing.</summary>
+    public string? Reason { get; init; }
+}
+
+/// <summary>A runner's parking, as it stands after the call.</summary>
+[PinnedId("e0a7d9b2-5f31-4c8e-b6a2-1d3f7c05e948")]
+public sealed record RunnerParked
+{
+    /// <summary>The runner this is about.</summary>
+    public required string RunnerId { get; init; }
+
+    /// <summary>When it was parked, or null when it is not.</summary>
+    public DateTimeOffset? ParkedAt { get; init; }
+
+    /// <summary>Who parked it, as a display — never an id.</summary>
+    public string? ParkedBy { get; init; }
+
+    /// <summary>Why, when somebody said.</summary>
+    public string? Reason { get; init; }
 }

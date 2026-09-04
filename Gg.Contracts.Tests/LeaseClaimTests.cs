@@ -69,7 +69,14 @@ public class LeaseClaimTests
     public async Task Every_state_a_request_can_reach_is_named()
     {
         await Assert.That(LeaseClaimStates.All).IsEquivalentTo(
-            new[] { "pending", "waiting", "granted", "expired" });
+            new[] { "pending", "waiting", "granted", "expired", "parked" });
+
+        // THE FIFTH STATE ARRIVED, and the note below predicted exactly what it
+        // would cost: a contract version, and every prior reader halting on it.
+        // `parked` is a person withholding a runner from claiming - which must
+        // not read as `pending`, because an idle fleet and a withheld one would
+        // then look identical, and that is the collapse `waiting` exists to fix.
+        await Assert.That(LeaseClaimStates.All).Contains(LeaseClaimStates.Parked);
 
         // WAITING IS THE ONE THAT DID NOT EXIST. The other three are shapes the
         // old long poll had, spelled differently; this is the state that had no

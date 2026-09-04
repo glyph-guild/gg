@@ -168,7 +168,39 @@ public sealed record ExecutorRequest
     /// The URI. The body is resolved here, on this machine, with the
     /// customer's own credential - and it never travels back.
     /// </remarks>
-    public required string IntentUri { get; init; }
+    public string? IntentUri { get; init; }
+
+    /// <summary>The tracker a work-item flight names, or null.</summary>
+    /// <remarks>
+    /// <b>Beside the uri, because they are two ways of naming external work and
+    /// a runner has to tell them apart.</b> Composing a URL out of a provider
+    /// and an id is the derivation slice nine retired, and this repository names
+    /// no forge to do it with.
+    /// </remarks>
+    public string? IntentProvider { get; init; }
+
+    /// <summary>That work item's identifier. Declared, never parsed.</summary>
+    public string? IntentId { get; init; }
+
+    /// <summary>
+    /// Whether a flight names external work an agent could go and resolve.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The question the invocation gate was actually asking</b>, and asking
+    /// wrong: it required a uri, so every work-item flight was claimed, cloned
+    /// and returned without invoking anything.
+    /// </para>
+    /// <para>
+    /// <b>Half a work item is not a work item.</b> A provider with no id names a
+    /// tracker rather than an item in it; an id with no provider does not say
+    /// which tracker it is in. The contract refuses that pair at intake, and a
+    /// runner treating it as workable would be a second, laxer copy of the rule.
+    /// </para>
+    /// </remarks>
+    public static bool NamesWork(string? uri, string? provider, string? id) =>
+        uri is { Length: > 0 }
+        || (provider is { Length: > 0 } && id is { Length: > 0 });
 
     /// <summary>What the envelope permits. Passed through, and not enforced.</summary>
     public required IReadOnlyList<string> Moves { get; init; }

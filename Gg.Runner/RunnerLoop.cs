@@ -809,8 +809,14 @@ public sealed class RunnerLoop(
         // and an issue link all resolve to no repository - correctly - and
         // `Trees.Count == 0` here meant all three were leased, claimed, and
         // silently never worked.
+        // NAMES WORK, rather than names a URI. A ticket is a provider and an id
+        // and carries no uri, so requiring one here meant every work-item flight
+        // was leased, cloned, and returned with no agent invoked and nothing
+        // said - the same silence the tree check above was fixed for, arriving
+        // one condition later.
         if (_executor is null || lease.Loop is not { } loop
-            || lease.IntentUri is not { Length: > 0 } intent)
+            || !Execution.ExecutorRequest.NamesWork(
+                lease.IntentUri, lease.IntentProvider, lease.IntentId))
         {
             return null;
         }
@@ -831,7 +837,9 @@ public sealed class RunnerLoop(
                     ? workspace.Trees[0].Path
                     : workspace.Root,
                 LoopId = loop.LoopId,
-                IntentUri = intent,
+                IntentUri = lease.IntentUri,
+                IntentProvider = lease.IntentProvider,
+                IntentId = lease.IntentId,
                 Moves = loop.Moves,
                 WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
                 TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),

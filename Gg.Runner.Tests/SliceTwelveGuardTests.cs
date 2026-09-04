@@ -28,20 +28,38 @@ public class SliceTwelveGuardTests
     /// opened and held there through slices thirteen to sixteen.
     /// </summary>
     /// <remarks>
-    /// <b>Moved to 0.17.0 by slice seventeen, and slice twelve's claim is
+    /// <b>Moved to 0.17.0 by slice seventeen, and slice twelve's claim was
     /// untouched.</b> This literal exists so that a move appears in a diff a
-    /// reviewer sees, and here is the move: <c>FactCategories</c> joined the
+    /// reviewer sees, and that move was: <c>FactCategories</c> joined the
     /// fact fingerprint — a CLASSIFICATION over the same nine kinds, saying
     /// whether each describes a subject, a tree, or the flight. No kind was
-    /// added, no member of one changed, and a runner pinned to 0.16.0 ships
-    /// byte-identical facts. What actually carries slice twelve's decision is
-    /// <see cref="KindsThatCross"/>, which is still nine — that is the
-    /// assertion a tenth kind would have to get past, and it did not move.
+    /// added, no member of one changed, and a runner pinned to 0.16.0 shipped
+    /// byte-identical facts.
     /// </remarks>
-    private const string VocabularyAtSliceStart = "0.17.0";
+    /// <remarks>
+    /// <b>Moved to 0.18.0 by slice twenty-seven, and this time a KIND was
+    /// added — so slice twelve's decision has to be re-argued rather than
+    /// noted.</b> <c>flight.nomination</c> is the work kind a classifier
+    /// nominates. It gets past the assertion below because it meets that
+    /// assertion's own criterion: <i>a fact belongs to a flight and a routine
+    /// action has none</i>. A nomination belongs to a classify flight, is
+    /// produced by a loop inside it, ships on that flight's lease, and is
+    /// keyed on that flight's id. It is not a flightless path grafted under
+    /// the fact name, which is what slice twelve refused.
+    /// </remarks>
+    private const string VocabularyAtSliceStart = "0.18.0";
 
-    /// <summary>How many fact kinds cross. Nine, and staying nine is the point.</summary>
-    private const int KindsThatCross = 9;
+    /// <summary>
+    /// How many fact kinds cross. Ten since slice twenty-seven, and the number
+    /// moving in a diff is the point.
+    /// </summary>
+    /// <remarks>
+    /// Nine through slices twelve to twenty-six. The tenth is
+    /// <c>flight.nomination</c>, and it is the first addition to get past this
+    /// guard — on the guard's own terms, because it belongs to a flight. An
+    /// eleventh still has to make that argument.
+    /// </remarks>
+    private const int KindsThatCross = 10;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_kind_count_stays_nine()

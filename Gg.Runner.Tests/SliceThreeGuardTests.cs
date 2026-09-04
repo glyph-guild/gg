@@ -45,7 +45,13 @@ public class SliceThreeGuardTests
     /// which is a decision in a diff a reviewer can see - which is the whole
     /// mechanism. Changing this number is how adding a fact kind is admitted to.
     /// </remarks>
-    private const int KindsThatCross = 9;
+    /// <remarks>
+    /// Ten since slice twenty-seven, which added <c>flight.nomination</c>. The
+    /// set below names it, which is what this guard is for: adding one is a
+    /// line in a diff beside a ledger row, and swapping one for another is
+    /// caught as well as adding one.
+    /// </remarks>
+    private const int KindsThatCross = 10;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -139,6 +145,7 @@ public class SliceThreeGuardTests
                 FactKinds.DestinationLanded,
                 FactKinds.DestinationPushed,
                 FactKinds.EnvironmentIdentity,
+                FactKinds.FlightNomination,
                 FactKinds.HumanAccount,
                 FactKinds.LoopDigest,
                 FactKinds.LoopOutcome,

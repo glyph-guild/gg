@@ -78,6 +78,12 @@ public static class FactCategories
         [FactKinds.LoopTranscript] = Flight,
         [FactKinds.LoopDigest] = Flight,
         [FactKinds.HumanAccount] = Flight,
+
+        // AN ASK IS STILL ABOUT THE EPISODE. A classifier accepts no subject
+        // and touches no tree, so filing this under Tree would make it
+        // unproducible for the only kind that produces it - and every rule
+        // reading it structurally inapplicable, silently, for ever.
+        [FactKinds.FlightNomination] = Flight,
         [FactKinds.DestinationPushed] = Flight,
         [FactKinds.DestinationLanded] = Flight,
     };

@@ -143,6 +143,16 @@ public static class FactCleanliness
             return Diagnosis(badHuman);
         }
 
+        if (fact.Nomination is { } nomination && First(
+            [
+                ("nomination.workKind", nomination.WorkKind, false),
+                // Prose the agent wrote for a reader, so line breaks are its own.
+                ("nomination.reason", nomination.Reason, true),
+            ]) is { } badNomination)
+        {
+            return Diagnosis(badNomination);
+        }
+
         if (fact.LoopDigest is { } summary && First(
             [
                 ("loopDigest.loopId", summary.LoopId, false),

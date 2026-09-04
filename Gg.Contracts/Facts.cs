@@ -123,6 +123,18 @@ public static class FactKinds
     /// </remarks>
     public const string HumanAccount = "handoff.account";
 
+    /// <summary>
+    /// The work kind a classifier nominates for a flight of its own.
+    /// </summary>
+    /// <remarks>
+    /// The only kind that is an agent's REQUEST rather than a measurement or an
+    /// account of what happened. It asks that a flight exist; admission decides
+    /// whether it does, against the menu a person wrote on the destination.
+    /// Inline, because it is what somebody reads to learn why a second flight
+    /// opened.
+    /// </remarks>
+    public const string FlightNomination = "flight.nomination";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -136,7 +148,8 @@ public static class FactKinds
          DestinationLanded,
          DestinationPushed,
          LoopDigest,
-         HumanAccount];
+         HumanAccount,
+         FlightNomination];
 }
 
 /// <summary>
@@ -281,7 +294,7 @@ public static class FactVocabulary
     /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
     /// none still never crosses from a working runner - a broken bound
     /// releases the lease with the diagnosis instead of shipping anything.
-    public const string Version = "0.17.0";
+    public const string Version = "0.18.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -899,6 +912,16 @@ public sealed record FactEnvelope
     /// </remarks>
     public HumanAccount? Human { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.FlightNomination"/>.
+    /// </summary>
+    /// <remarks>
+    /// An agent's request, kept in its own slot for the same reason a person's
+    /// account is: a reader who cannot tell a nomination from a measurement
+    /// would read an ask as a finding.
+    /// </remarks>
+    public FlightNomination? Nomination { get; init; }
+
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
@@ -941,6 +964,7 @@ public sealed record FactEnvelope
             (FactKinds.DestinationPushed, envelope.Pushed is not null),
             (FactKinds.LoopDigest, envelope.LoopDigest is not null),
             (FactKinds.HumanAccount, envelope.Human is not null),
+            (FactKinds.FlightNomination, envelope.Nomination is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -969,6 +993,12 @@ public sealed record FactEnvelope
         if (envelope.Human is { } human && HumanAccount.Validate(human) is { } badHuman)
         {
             return badHuman;
+        }
+
+        if (envelope.Nomination is { } nomination
+            && FlightNomination.Validate(nomination) is { } badNomination)
+        {
+            return badNomination;
         }
 
         if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)

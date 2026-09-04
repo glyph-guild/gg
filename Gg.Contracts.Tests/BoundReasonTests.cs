@@ -101,10 +101,15 @@ public class BoundReasonTests
     [Test]
     public async Task The_checklists_third_satisfier_is_the_prophesied_design_event()
     {
+        // THE SUBJECT IS THE THIRD VALUE, not the length of the list. This
+        // asserted the whole closure once, which made it a SECOND exhaustive
+        // pin on a vocabulary ChecklistSurfaceTests already pins - so every
+        // later design event failed in two files and the reader of either had
+        // to go and find the other. The closure lives there; what lives here is
+        // that a bound's own satisfier exists and is spelled the way the
+        // producer spells it.
         await Assert.That(ChecklistSatisfiers.All)
-            .IsEquivalentTo((string[])
-                [ChecklistSatisfiers.MatchingRunner, ChecklistSatisfiers.Nobody,
-                 ChecklistSatisfiers.DeclinedByBound])
+            .Contains(ChecklistSatisfiers.DeclinedByBound)
             .Because("the closure comment said it in slice eight: a third value here "
                    + "means a strategy exists - a design event that arrives as a "
                    + "deliberate contract change. This is that change.");

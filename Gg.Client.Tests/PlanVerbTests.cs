@@ -64,6 +64,46 @@ public class PlanVerbTests
     }
 
     [Test]
+    public async Task A_withheld_requirement_renders_as_withheld_and_says_by_what()
+    {
+        // THE FOURTH SATISFIER, AT THE ONE PLACE A PERSON READS IT. The switch
+        // here falls through to the raw wire value for anything it does not
+        // know, so a fourth value would have printed
+        // 'withheld-by-declaration' beside three sentences in English - not a
+        // crash, and not something a reader would trust either.
+        var withheld = new Checklist
+        {
+            EnvelopeVersion = "v3",
+            FlightNumber = null,
+            Environment = "aspire-payments",
+            Repository = null,
+            RequiredLabels = ["environment=aspire-payments"],
+            Items =
+            [
+                new ChecklistItem
+                {
+                    Requirement = "environment=aspire-payments",
+                    Verification = "a live runner's advertised labels contain it",
+                    Satisfier = ChecklistSatisfiers.Withheld,
+                    WhenUnmet = Reason.For(
+                        ReasonKinds.RunnerReserved, ["environment=aspire-payments", "Dana"]),
+                    Disposition = LabelDispositions.Stated,
+                },
+            ],
+        };
+
+        var text = VerbOutput.ToText(new VerbResult.Plan(withheld));
+
+        await Assert.That(text).Contains("withheld");
+        await Assert.That(text).DoesNotContain("withheld-by-declaration")
+            .Because("the other three satisfiers are rendered as sentences, and one raw wire "
+                   + "value among them reads as a rendering that gave up.");
+        await Assert.That(text).Contains("Dana")
+            .Because("the satisfier says a person is holding it and the reason says WHICH "
+                   + "person - a withheld row naming nobody sends the reader nowhere.");
+    }
+
+    [Test]
     public async Task The_disposition_is_one_word_on_the_row()
     {
         var text = VerbOutput.ToText(new VerbResult.Plan(TwoItems()));

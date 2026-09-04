@@ -186,6 +186,7 @@ public sealed class RunnerLoop(
     ICredentialResolver credentials,
     IWorkspace workspace,
     IExecutorPort? executor = null,
+    IReadOnlyList<Execution.IntentReader>? readers = null,
     TranscriptStore? transcripts = null,
     IReadOnlyList<IDestinationAdapter>? destinations = null)
 {
@@ -258,6 +259,17 @@ public sealed class RunnerLoop(
     /// requires.
     /// </remarks>
     private readonly IExecutorPort? _executor = executor;
+
+    /// <summary>
+    /// Which trackers this runner can read a work item in.
+    /// </summary>
+    /// <remarks>
+    /// Read HERE rather than only inside the executor, because the decision is
+    /// whether to invoke at all: an agent handed a work item it has no tool for
+    /// spends the loop's whole budget establishing that, and reports it as prose
+    /// somebody has to interpret.
+    /// </remarks>
+    private readonly IReadOnlyList<Execution.IntentReader> _readers = readers ?? [];
 
     private readonly TranscriptStore _transcripts = transcripts ?? new TranscriptStore();
 
@@ -775,6 +787,19 @@ public sealed class RunnerLoop(
             // Nothing to govern: no agent will be invoked, so there is no
             // session for a bound to hold over.
             return (null, await InvokeAsync(lease, workspace, cancellationToken));
+        }
+
+        // ARTICLE XI, BEFORE ANYTHING IS SPENT - including the probe, which is
+        // itself an agent invocation. A flight about a work item in a tracker
+        // this runner cannot read is refused with a reason rather than handed to
+        // an agent that will establish the same thing slowly and report it as
+        // prose. "A provider nobody configured is a declared capability gap" -
+        // the words this repository already has for this.
+        if (Execution.IntentConfiguration.Unreadable(lease.IntentProvider, _readers)
+            is { } unreadable)
+        {
+            return (null, ExecutorRun.Failed(
+                lease.Loop.LoopId, unreadable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));
         }
 
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);

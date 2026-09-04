@@ -30,8 +30,15 @@ public static class ExecutorConfiguration
     public const string BinaryVariable = "GG_EXECUTOR_BINARY";
 
     /// <summary>The executor this machine is configured for, or null for none.</summary>
-    public static IExecutorPort? FromEnvironment() =>
+    /// <remarks>
+    /// <b>Built WITH the trackers this runner can read</b>, because an executor
+    /// that had them and was never given them is the shape this whole slice
+    /// exists to remove. One place reads the environment; nothing downstream
+    /// reads it again and reaches a different answer.
+    /// </remarks>
+    public static IExecutorPort? FromEnvironment(
+        IReadOnlyList<IntentReader>? readers = null) =>
         Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
-            ? new ClaudeCodeExecutor(binary)
+            ? new ClaudeCodeExecutor(binary, readers ?? IntentConfiguration.FromEnvironment())
             : null;
 }

@@ -159,7 +159,8 @@ public static class RunnerHost
         IWorkspace workspace,
         CancellationToken cancellationToken,
         IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null,
-        Execution.IExecutorPort? executor = null)
+        Execution.IExecutorPort? executor = null,
+        IReadOnlyList<Execution.IntentReader>? readers = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -214,6 +215,10 @@ public static class RunnerHost
             credentials,
             workspace,
             executor,
+            // WHICH TRACKERS THIS RUNNER CAN READ. The loop needs them as well
+            // as the executor, because refusing a work item it cannot open is a
+            // decision about whether to invoke at all.
+            readers ?? Execution.IntentConfiguration.FromEnvironment(),
             destinations: destinations)
         {
             HoldFor = holdFor,

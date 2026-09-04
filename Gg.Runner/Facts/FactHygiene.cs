@@ -165,6 +165,17 @@ public static class FactHygiene
             StopReason = Text(summary.Value.StopReason),
         }),
 
+        FactPayload.Nomination nomination => new FactPayload.Nomination(nomination.Value with
+        {
+            // A NAME AND A SENTENCE, cleaned as what each is. The work kind is
+            // a name in a topology, so a line break in one is a name nobody
+            // declared; the reason is prose the agent wrote for a reader, and
+            // its line breaks are its own - the same split loop.outcome's
+            // reason already gets.
+            WorkKind = Text(nomination.Value.WorkKind),
+            Reason = Prose(nomination.Value.Reason),
+        }),
+
         // Unreachable while every payload is handled above, and a compile error
         // is not available for a switch over a hierarchy. Throwing beats
         // returning the payload unchanged: a new fact type that quietly skipped

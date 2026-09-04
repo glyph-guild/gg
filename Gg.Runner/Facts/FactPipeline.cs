@@ -36,6 +36,16 @@ public abstract record FactPayload
 
     /// <summary>What the loop did, for a person who will never see the transcript.</summary>
     public sealed record Digest(LoopDigest Value) : FactPayload;
+
+    /// <summary>
+    /// The work kind this loop nominated, and why.
+    /// </summary>
+    /// <remarks>
+    /// The one payload here that is a REQUEST rather than a record of
+    /// something. Everything else says what happened; this asks that a flight
+    /// exist, and admission answers.
+    /// </remarks>
+    public sealed record Nomination(FlightNomination Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -161,6 +171,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     LoopDigest = summary.Value,
+                },
+
+                FactPayload.Nomination nomination => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Nomination = nomination.Value,
                 },
 
                 FactPayload.Landing landing => new FactEnvelope
@@ -324,6 +343,9 @@ public static class FactPipeline
         FactPayload.Digest summary => (
             FactKinds.LoopDigest,
             JsonSerializer.Serialize(summary.Value, FactJsonContext.Default.LoopDigest)),
+        FactPayload.Nomination nomination => (
+            FactKinds.FlightNomination,
+            JsonSerializer.Serialize(nomination.Value, FactJsonContext.Default.FlightNomination)),
         FactPayload.Landing landing => (
             FactKinds.DestinationLanded,
             JsonSerializer.Serialize(landing.Value, FactJsonContext.Default.DestinationLanded)),

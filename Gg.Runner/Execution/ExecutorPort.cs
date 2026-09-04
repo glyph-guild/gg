@@ -252,6 +252,18 @@ public sealed record ExecutorRun
     public ArtifactReference? Transcript { get; init; }
 
     /// <summary>
+    /// The work kind this loop nominated, or null where it nominated none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Extracted HERE, from the stream, while it is still on this
+    /// machine</b> - the same boundary the digest is taken at, and for the same
+    /// reason. Null is the ordinary state: only a classifying loop nominates,
+    /// and a classifier that could not decide nominates nothing, which is a
+    /// real answer rather than a missing one.
+    /// </remarks>
+    public Gg.Contracts.FlightNomination? Nomination { get; init; }
+
+    /// <summary>
     /// What the stream said, extracted so it can cross without the transcript.
     /// </summary>
     /// <remarks>

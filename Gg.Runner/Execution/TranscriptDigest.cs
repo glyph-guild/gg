@@ -273,6 +273,190 @@ public static class TranscriptDigest
     /// stayed in the edited list. What a call DID is as much a fact as what it
     /// failed to do.
     /// </remarks>
+    /// <summary>
+    /// The work kind this loop nominated, or null where it nominated none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own walk rather than a member of the digest.</b> A nomination is
+    /// not a measurement of the episode - it is a request the loop made - and
+    /// hanging it off <see cref="LoopDigest"/> would put an ask inside the
+    /// record of what was measured, which is the confusion the fact's own slot
+    /// exists to prevent. It is a separate fact for the same reason.
+    /// </para>
+    /// <para>
+    /// <b>From the CALL, never from prose.</b> A classifier's closing summary
+    /// names a work kind because it just nominated one, and a sentence is
+    /// something an agent can be told to write - by a file in a customer's tree
+    /// among other things. A tool call is a thing the agent chose to make.
+    /// </para>
+    /// <para>
+    /// <b>The last SUCCESSFUL call wins.</b> The rule the seed composer already
+    /// follows, and for its reason: an agent that nominated twice changed its
+    /// mind, and the newest answer is the one. A call with no paired result is
+    /// not an answer - the run was cut off and nobody knows whether the tool
+    /// recorded it - and a call whose result is an error is one the tool
+    /// refused, which must not become a fact.
+    /// </para>
+    /// <para>
+    /// <b>The WHOLE qualified name.</b> A tool called <c>nominate_work_kind</c>
+    /// on somebody else's server is not a nomination this runner served; an
+    /// operator reader keyed like the platform's own server is refused at
+    /// configuration, and this is what that refusal protects.
+    /// </para>
+    /// <para>
+    /// <b>Pure, like <see cref="Extract"/>.</b> A function of the text it is
+    /// handed: it reads no file, starts no process and reaches no network.
+    /// </para>
+    /// </remarks>
+    public static Gg.Contracts.FlightNomination? Nomination(string transcript)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+
+        // Nominated by call id, in the order the calls appear, and the ids whose
+        // result came back without an error. Two passes over one walk, because
+        // a result always follows its call but nothing guarantees they are
+        // adjacent.
+        var asked = new List<(string Id, Gg.Contracts.FlightNomination Nomination)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                // The digest's own rule beside it: a half-written last line is
+                // ordinary while a file is still being appended to, and
+                // throwing would lose every signal before it.
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            Asked(block, asked);
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        for (var i = asked.Count - 1; i >= 0; i--)
+        {
+            if (answered.Contains(asked[i].Id))
+            {
+                return asked[i].Nomination;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Records a call to the nomination tool, when that is what it is.</summary>
+    private static void Asked(
+        JsonElement block, List<(string Id, Gg.Contracts.FlightNomination Nomination)> asked)
+    {
+        if (!block.TryGetProperty("name", out var name)
+            || !string.Equals(name.GetString(), NominationTool.Qualified, StringComparison.Ordinal)
+            || !block.TryGetProperty("id", out var id)
+            || id.GetString() is not { Length: > 0 } callId
+            || !block.TryGetProperty("input", out var input)
+            || input.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        // HALF A NOMINATION IS NOT ONE. The server refuses these, so this is
+        // defence against a transcript that came from somewhere else - and the
+        // extractor may not invent the missing half.
+        if (Argument(input, "work_kind") is not { } workKind
+            || Argument(input, "reason") is not { } reason)
+        {
+            return;
+        }
+
+        asked.Add((callId, new Gg.Contracts.FlightNomination
+        {
+            WorkKind = Bound(workKind, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false),
+            Reason = Bound(reason, Gg.Contracts.FlightNomination.MaxReason, prose: true),
+        }));
+    }
+
+    /// <summary>Records that a call came back, and came back without an error.</summary>
+    private static void Answered(JsonElement block, HashSet<string> answered)
+    {
+        if (block.TryGetProperty("is_error", out var flag) && flag.ValueKind == JsonValueKind.True)
+        {
+            return;
+        }
+
+        if (block.TryGetProperty("tool_use_id", out var id)
+            && id.GetString() is { Length: > 0 } callId)
+        {
+            answered.Add(callId);
+        }
+    }
+
+    private static string? Argument(JsonElement input, string name) =>
+        input.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.String
+        && value.GetString() is { } text
+        && !string.IsNullOrWhiteSpace(text)
+            ? text
+            : null;
+
+    /// <summary>
+    /// Bounded on this machine, before it crosses.
+    /// </summary>
+    /// <remarks>
+    /// <b>Prose keeps its line breaks and a name does not.</b> The reason is
+    /// something an agent wrote for a reader, and it crosses under the same
+    /// disposition a person's statement does; a work kind is a name in a
+    /// topology, so a line break in one is a name nobody declared. An agent
+    /// asked for a reason can write a document, and an unbounded one is refused
+    /// at ingress - losing the classification for a reason that has nothing to
+    /// do with the work.
+    /// </remarks>
+    private static string Bound(string value, int most, bool prose)
+    {
+        var clean = ControlText.Strip(value) ?? "";
+        clean = prose ? clean.Trim() : clean.ReplaceLineEndings(" ").Trim();
+
+        return clean.Length <= most ? clean : clean[..most].TrimEnd();
+    }
+
     private static void Result(
         JsonElement block,
         Dictionary<string, string> toolById,

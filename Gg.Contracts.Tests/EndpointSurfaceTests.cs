@@ -212,8 +212,16 @@ public class EndpointSurfaceTests
         // Why it exists: nothing has ever run inside a pool member because
         // nothing could give one an identity, and the only mechanism that
         // worked baked a copied developer session into an image.
+        // AND TWO MORE: POST and DELETE /v1/runners/{id}/reservation, which set
+        // and clear whose runner a runner is after it was registered. A
+        // person's act on both verbs - the value decides what work the runner is
+        // offered, so a runner able to change it could widen its own queue,
+        // which is the one thing reserving exists to stop. 404 rather than 403
+        // for another tenant's runner, per the heartbeat route; 409 on POST for
+        // one somebody else holds, and deliberately none on DELETE, because
+        // releasing a runner nobody reserved is the state the caller asked for.
         await Assert.That(Fingerprint())
-            .IsEqualTo("c2c1e2b9ea43d73cae68e3d9efb7a575eca19b7c5909918f29ece0faaf960495")
+            .IsEqualTo("45d2b90d9d5a47b0c08043f14dabe612f50ef5a36f05998ec781911817fd4257")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -21,6 +21,8 @@ public static class Vocabulary
         typeof(TenantNotice),
         typeof(RunnerRegistrationRequest),
         typeof(RunnerRegistered),
+        typeof(RunnerReservationRequest),
+        typeof(RunnerReserved),
         typeof(RunnerHeartbeat),
         typeof(HeartbeatAccepted),
         typeof(LeaseClaimRequest),

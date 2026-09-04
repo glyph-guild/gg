@@ -214,6 +214,35 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // WHOSE RUNNER THIS IS, set and cleared after registration. A person's
+        // act on both verbs: the value decides what work the runner is offered,
+        // so a runner able to change it could widen its own queue.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/reservation",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerReservationRequest),
+            Response = typeof(RunnerReserved),
+            // 404 for a runner that is not this tenant's, per the heartbeat
+            // route: the shape of a refusal must not tell a caller which ids
+            // exist. 409 for one somebody else already holds - taking it is a
+            // different act and is not this one.
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "DELETE",
+            Path = "/v1/runners/{id}/reservation",
+            Audience = Audience.Developer,
+            Response = typeof(RunnerReserved),
+            // NO 409. Releasing a runner nobody reserved is the state the caller
+            // asked for, and refusing it would make "make sure this is free" a
+            // two-step dance with a race in the middle.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "GET",
@@ -1052,6 +1081,10 @@ public static class ProtocolSurface
         [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
             [typeof(TenantNotice)] = ["code", "detail", "remedy", "blocking"],
             [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved"],
+            // Empty on purpose: the act is "reserve this to me" and the runner
+            // is named by the path, so there is nothing for a body to say.
+            [typeof(RunnerReservationRequest)] = [],
+            [typeof(RunnerReserved)] = ["runnerId", "reservedTo", "reservedAt"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],

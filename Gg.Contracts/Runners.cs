@@ -77,3 +77,37 @@ public sealed record RunnerRegistered
     /// <summary>When the runner credential expires, independent of any session.</summary>
     public required DateTimeOffset ExpiresAt { get; init; }
 }
+
+/// <summary>
+/// Ask for a runner to be reserved to the caller.
+/// </summary>
+/// <remarks>
+/// <b>Empty on purpose, and it is not a placeholder.</b> The act is "reserve
+/// this to me"; the control plane knows who me is, and the runner is named by
+/// the path. A member here could only ever be a principal, and reserving
+/// somebody else's runner routes work at a person who did not ask for it — a
+/// different act, with a different approver, and deliberately not this version.
+/// </remarks>
+[PinnedId("bcb45c07-9f5f-4c0e-9c6f-0ffd94bc9de2")]
+public sealed record RunnerReservationRequest;
+
+/// <summary>
+/// A runner's reservation, as it stands after the call.
+/// </summary>
+/// <remarks>
+/// <b>A DISPLAY, never an id.</b> <c>TakeoverHeld.By</c> settled this one: "a
+/// principal's display, never a name typed in". "Somebody else has this" sends a
+/// person nowhere, and a uuid sends them somewhere worse.
+/// </remarks>
+[PinnedId("2fd4a0a1-6a02-45e5-8e1c-9a0dbd3fb9e6")]
+public sealed record RunnerReserved
+{
+    /// <summary>The runner this is about.</summary>
+    public required string RunnerId { get; init; }
+
+    /// <summary>Who holds it, as a display — or null when nobody does.</summary>
+    public string? ReservedTo { get; init; }
+
+    /// <summary>When it was reserved, or null.</summary>
+    public DateTimeOffset? ReservedAt { get; init; }
+}

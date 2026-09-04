@@ -281,6 +281,39 @@ public sealed record LeaseGranted
     public string? IntentUri { get; init; }
 
     /// <summary>
+    /// The tracker a work-item intent names, or null when the flight is not
+    /// about one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside <see cref="IntentUri"/> rather than instead of it.</b> A ticket
+    /// is a provider and an id; a link is a link. Collapsing them would mean
+    /// composing a URL out of these two fields, and this repository names no
+    /// forge and could not - which is the same derivation slice nine retired
+    /// when it stopped lifting a provider out of a URI's host.
+    /// </para>
+    /// <para>
+    /// <b>Without this a ticket flight is leased and never worked.</b> The
+    /// runner invokes on a non-empty intent, and a ticket had none to offer, so
+    /// every one of them materialized a tree and returned - no refusal, no fact,
+    /// nothing to read.
+    /// </para>
+    /// </remarks>
+    public string? IntentProvider { get; init; }
+
+    /// <summary>
+    /// The work item's identifier in that tracker, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declared and never parsed</b>, which is contract 0.86.0's own rule for
+    /// this field one layer up. Nothing reads structure out of it: an id that
+    /// looks like a path or a URL is still just an id, and deriving meaning from
+    /// a string somebody typed breaks on a vanity host and on a work item moved
+    /// between projects.
+    /// </remarks>
+    public string? IntentId { get; init; }
+
+    /// <summary>
     /// The loop this flight runs, when its envelope declares one.
     /// </summary>
     /// <remarks>

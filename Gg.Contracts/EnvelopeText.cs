@@ -171,6 +171,13 @@ public static class EnvelopeText
                     $"{Indent}{Indent}preserve-unadmitted: {(preserve ? "true" : "false")}\n");
             }
 
+            // SAME RULE, SAME REASON. Only a flight destination may carry this,
+            // so emitting `opens: []` for the four kinds that may not would put
+            // a refused key into every document that has ever been written.
+            if (destination.Opens is { } opens)
+            {
+                Sequence(text, "opens", opens, depth: 2);
+            }
         }
 
         return text.ToString();

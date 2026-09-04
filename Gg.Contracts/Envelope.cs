@@ -305,11 +305,55 @@ public static class DestinationKinds
     /// </remarks>
     public const string CheckRun = "check-run";
 
+    /// <summary>
+    /// A flight of another work kind, opened by admission on what this flight
+    /// nominated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>First category, third instance, and the safest of the four.</b>
+    /// <see cref="EnvelopeChange"/> and <see cref="AirspaceRegistration"/> are
+    /// performed by admission itself and land inside the tenant's own stream
+    /// and registries. <see cref="PullRequest"/> leaves on the customer's
+    /// credential and <see cref="CheckRun"/> on the control plane's. Here
+    /// nothing leaves and no credential is involved: admission opens a flight,
+    /// and the moment it is opened the nominating flight is over.
+    /// </para>
+    /// <para>
+    /// <b>Why this exists rather than an agent naming its own kind.</b> A work
+    /// kind is not a label on a flight - it is the selection of a governance
+    /// regime, since <see cref="Envelope.Loops"/>,
+    /// <see cref="Envelope.Destinations"/>, <see cref="Envelope.Accepts"/> and
+    /// <see cref="Envelope.Produces"/> all come from the work kind and nowhere
+    /// else. An agent choosing its own kind is an agent choosing its own moves.
+    /// A flight destination moves that decision to a place that already governs
+    /// it: the nominating flight runs under its OWN envelope, read-only and on
+    /// its own budget, and what it nominates becomes a flight only by passing
+    /// admission - against <see cref="Destination.Opens"/>, which a person
+    /// wrote.
+    /// </para>
+    /// <para>
+    /// <b>Forward-only, and that is a rule rather than a note.</b> ADR-0019
+    /// § 1 is <i>there are no sub-flights</i>, and its prohibition is precise:
+    /// a flight <i>"does not create another flight, hold a reference to one, or
+    /// block on one completing."</i> That is a parent WAITING on a child. This
+    /// is the opposite direction and must stay there: <b>a flight destination
+    /// opens a flight and holds no reference to it.</b> Nothing waits on the
+    /// opened flight, nothing reads its state, and grounding either does not
+    /// touch the other. The two are related by sharing an <c>intent</c> and by
+    /// nothing else - § 6's <i>no rollup, no cascade</i> one noun over, and
+    /// § 5's correlation-by-intent supplying the only linkage there is. The
+    /// next person to want one convenient reference field is building the
+    /// workflow engine this system exists not to be.
+    /// </para>
+    /// </remarks>
+    public const string Flight = "flight";
+
     // Slice twelve's step 0 found AirspaceRegistration declared but absent
     // here, so an envelope declaring it was refused by the very vocabulary
     // that declared it. Repaired riding 0.59.0.
     public static IReadOnlyList<string> All { get; } =
-        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun];
+        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun, Flight];
 }
 
 /// <summary>
@@ -846,6 +890,52 @@ public sealed record Destination
     /// </remarks>
     [Composes(MergeOperators.And)]
     public bool? PreserveUnadmitted { get; init; }
+
+    /// <summary>
+    /// The work-kind names a <see cref="DestinationKinds.Flight"/> destination
+    /// may open. Refused on every other kind.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the pre-approved menu, and it is what makes a nominated work
+    /// kind safe.</b> A work kind selects a governance regime, so a nomination
+    /// that could name any declared kind would be an agent choosing its own
+    /// moves. A person writes this list; admission refuses anything outside it.
+    /// If it is ever defaulted to <i>every declared kind</i> for convenience,
+    /// the whole control is gone and what remains is client-side classification
+    /// with two extra flights.
+    /// </para>
+    /// <para>
+    /// <b>Intersect, on <see cref="Loop.Moves"/>' precedent.</b> A layer may
+    /// only shrink what may be opened, because a name gained is a regime an
+    /// agent can newly reach. The composer never consults the operator -
+    /// destinations are taken wholesale from the base document and a narrowing
+    /// cannot express one at all - but the declaration is what puts the field
+    /// inside the drift guard's sweep, and
+    /// <c>EnvelopeDirection</c> is what reads the direction. Both are needed:
+    /// <c>accepts:</c> sat in the operator table and never in the comparison,
+    /// and nothing noticed.
+    /// </para>
+    /// <para>
+    /// <b>Absent and empty are one answer here, unlike
+    /// <see cref="Envelope.Accepts"/>.</b> A flight destination that may open
+    /// nothing is a destination whose admission can never act, so both are
+    /// refused rather than one meaning silence - which is ADR-0019 § 3's
+    /// unreachable destination, refused at authoring for the first time. On
+    /// every other kind the key is refused outright, so absent stays absent and
+    /// no existing document changes.
+    /// </para>
+    /// <para>
+    /// <b>What it does NOT decide.</b> Whether a name is declared, plays the
+    /// work-kind role, or itself opens a flight are questions about the
+    /// tenant's other documents. <see cref="Envelope.Validate(Envelope)"/> is
+    /// pure over one document and is not told its own name, so the control
+    /// plane's apply door owns those - in both directions, because the
+    /// offending pair can be authored a day apart.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<string>? Opens { get; init; }
 }
 
 /// <summary>
@@ -1244,6 +1334,63 @@ public sealed record Envelope
                 return $"Destination '{destination.Id}' declares preserve-unadmitted and is a "
                      + $"'{destination.Kind}'. There is no branch to preserve work on: that "
                      + $"permission only means anything for a '{DestinationKinds.PullRequest}'.";
+            }
+
+            // THE SAME SENTENCE, A DIFFERENT KNOB. Only a flight destination
+            // opens anything, so `opens:` anywhere else is a list of work kinds
+            // nothing will ever read - and somebody wrote it believing they had
+            // bounded something.
+            var opensAFlight = string.Equals(
+                destination.Kind, DestinationKinds.Flight, StringComparison.Ordinal);
+
+            if (destination.Opens is not null && !opensAFlight)
+            {
+                return $"Destination '{destination.Id}' declares opens and is a "
+                     + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
+                     + "anything, so on this kind the list bounds nothing.";
+            }
+
+            if (opensAFlight)
+            {
+                // AN UNREACHABLE DESTINATION, REFUSED AT AUTHORING. ADR-0019
+                // § 3 has asked for this since it was written - "the engine
+                // should refuse an envelope with an unreachable destination,
+                // the way a build system rejects a missing rule" - and until
+                // now nothing implemented it. A flight destination that may
+                // open nothing is one whose admission can never act, which is
+                // a work kind whose flights can never end.
+                //
+                // Absent and empty are one answer, deliberately unlike
+                // `accepts:`. Silence is a legal state for a document that is
+                // not a work kind; it is never a legal state for the key that
+                // IS this destination's whole act.
+                if (destination.Opens is not { Count: > 0 })
+                {
+                    return $"Destination '{destination.Id}' is a '{DestinationKinds.Flight}' and "
+                         + "opens nothing. Name the work kinds it may open: a destination whose "
+                         + "admission can never act is a flight that can never end.";
+                }
+
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (var opened in destination.Opens)
+                {
+                    // A blank entry is a line somebody meant to fill in.
+                    // Reading it as a work-kind name would send the refusal to
+                    // the topology, which answers about a name nobody typed.
+                    if (string.IsNullOrWhiteSpace(opened))
+                    {
+                        return $"Destination '{destination.Id}' opens a blank name. Every entry "
+                             + "names a work kind, or the line is not finished.";
+                    }
+
+                    if (!seen.Add(opened))
+                    {
+                        return $"Destination '{destination.Id}' opens '{opened}' twice. A menu "
+                             + "with a repeated entry is a list somebody edited without "
+                             + "reading.";
+                    }
+                }
             }
 
             foreach (var required in destination.Requires)

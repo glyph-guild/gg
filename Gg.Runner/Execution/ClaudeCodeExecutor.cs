@@ -454,6 +454,12 @@ public sealed class ClaudeCodeExecutor(
         // its absence a real bar rather than a formality: no flight could create
         // a file at all until the vocabulary had a word for it.
         LoopMoves.Write => "Write",
+        // THE PLATFORM'S OWN TOOL, and the WHOLE name rather than the server's
+        // prefix. A prefix grant would retroactively grant every tool this
+        // platform later adds to its own server, for every envelope in force,
+        // with nothing in the record marking the day it changed - which is the
+        // argument `write` was created under, one layer over.
+        LoopMoves.Propose => NominationTool.Qualified,
         _ => move,
     };
 

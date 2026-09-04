@@ -33,6 +33,7 @@ public class FlightNominationFactTests
         IdempotencyKey = "flight-1:flight.nomination:1",
         Kind = FactKinds.FlightNomination,
         Digest = new string('a', 64),
+        ObservedAt = DateTimeOffset.UnixEpoch,
         Nomination = nomination,
     };
 
@@ -61,9 +62,11 @@ public class FlightNominationFactTests
             {
                 LoopId = "classify",
                 Outcome = LoopOutcomes.Completed,
-                Moves = [LoopMoves.Read],
-                StartedAt = DateTimeOffset.UnixEpoch,
-                EndedAt = DateTimeOffset.UnixEpoch,
+                Reason = "done",
+                Executor = ExecutorRungs.Frontier,
+                Attempts = 1,
+                DurationMs = 10,
+                MovesUsed = [LoopMoves.Read],
             },
         };
 
@@ -78,6 +81,7 @@ public class FlightNominationFactTests
             IdempotencyKey = "flight-1:flight.nomination:1",
             Kind = FactKinds.FlightNomination,
             Digest = new string('a', 64),
+            ObservedAt = DateTimeOffset.UnixEpoch,
         };
 
         await Assert.That(FactEnvelope.Validate(empty)).IsNotNull()

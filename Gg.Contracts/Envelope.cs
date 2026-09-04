@@ -180,7 +180,43 @@ public static class LoopMoves
     /// </remarks>
     public const string Write = "write";
 
-    public static IReadOnlyList<string> All { get; } = [Read, Edit, RunTests, Search, Write];
+    /// <summary>
+    /// Declaring a value through the platform's own tool server, rather than
+    /// writing prose about it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A move, so the envelope decides and the runner learns nothing new.</b>
+    /// The grant arrives through the <c>--allowedTools</c> list a launch already
+    /// builds from this list, which means the work kind never has to reach the
+    /// runner - and <see cref="Loop"/>'s own flattening forbids sending it,
+    /// because policy arriving at a runner is Article IX's failure wearing a
+    /// convenience.
+    /// </para>
+    /// <para>
+    /// <b>Withholdable, unlike a help tool.</b> A tool for asking a person a
+    /// question must always be granted, because an envelope able to withhold it
+    /// would make a stuck agent silent. This one is the whole output of one kind
+    /// of work, and a loop that is not classifying has no business nominating a
+    /// work kind - so a document that does not name it is a loop that may not.
+    /// </para>
+    /// <para>
+    /// <b>Record-only, and nothing about it is outward.</b> What it produces is
+    /// a fact, and whether that fact becomes a flight is a destination's answer.
+    /// Nothing leaves, nobody is messaged, and admission can refuse it - which
+    /// is the whole difference between this and an agent that could act.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version</b>, on <see cref="Write"/>'s reasoning: the
+    /// only safe response to an unknown value in a closed vocabulary is to
+    /// halt, so an added value breaks every prior reader by design. Envelopes
+    /// in force are unchanged in meaning - they cannot nominate, which they
+    /// could not before either.
+    /// </para>
+    /// </remarks>
+    public const string Propose = "propose";
+
+    public static IReadOnlyList<string> All { get; } = [Read, Edit, RunTests, Search, Write, Propose];
 }
 
 /// <summary>What happens when a loop runs out of budget.</summary>

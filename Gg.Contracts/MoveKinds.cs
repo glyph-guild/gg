@@ -59,6 +59,12 @@ public static class MoveKinds
             [LoopMoves.RunTests] = RecordOnly,
             [LoopMoves.Search] = RecordOnly,
             [LoopMoves.Write] = RecordOnly,
+
+            // NOMINATING PRODUCES A FACT, and whether that fact becomes a
+            // flight is a destination's answer - so nothing has left, nobody
+            // has been messaged, and admission can refuse it. That is the whole
+            // difference between declaring a value and acting on one.
+            [LoopMoves.Propose] = RecordOnly,
         };
 
     /// <summary>The kind of a declared move. THROWS on one nobody classified.</summary>

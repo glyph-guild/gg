@@ -89,6 +89,22 @@ public static class IntentConfiguration
             var key = entry[..split].Trim();
             var invocation = entry[(split + 1)..].Trim();
 
+            // THE KEY IS THE TOOL-NAME PREFIX, so it is not cosmetic: an MCP
+            // tool arrives as `mcp__<server>__<tool>`, and a reader declared
+            // under the key this platform serves its own tool from would
+            // shadow it. The agent would then be granted
+            // `mcp__gg__nominate_work_kind` against somebody else's process -
+            // and the nomination it declared would be read out of a transcript
+            // by a runner that never served the call.
+            if (string.Equals(key, NominationTool.Server, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"'{key}' in {ReadersVariable} is the key this platform serves its own "
+                  + "tools from, so a reader declared under it would shadow them. Name the "
+                  + "tracker something else - the key is the tool-name prefix an agent sees, "
+                  + "not a label.");
+            }
+
             // `command args | VAR=locator` - the credential half is optional,
             // because a tracker reachable without a secret must not be made to
             // invent one to satisfy a parser.

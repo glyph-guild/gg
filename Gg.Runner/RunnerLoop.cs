@@ -831,6 +831,19 @@ public sealed class RunnerLoop(
                 lease.Loop.LoopId, unreadable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));
         }
 
+        // THE SAME SHAPE, ONE MOVE OVER. A loop that declares `propose` on a
+        // runner that cannot name its own executable cannot be served the tool
+        // that move grants - so it is refused here rather than handed to an
+        // agent that will find the tool missing and report it as prose. The
+        // process fact is read once, so this asks the same question the launch
+        // will ask and gets the same answer.
+        if (Execution.NominationTool.Unservable(
+            lease.Loop.Moves, Execution.SelfInvocation.Current) is { } unservable)
+        {
+            return (null, ExecutorRun.Failed(
+                lease.Loop.LoopId, unservable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));
+        }
+
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
         if (!probe.Bound)
         {

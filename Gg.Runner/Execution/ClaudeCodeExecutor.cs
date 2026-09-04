@@ -35,9 +35,22 @@ namespace Gg.Runner.Execution;
 public sealed class ClaudeCodeExecutor(
     string binary = "claude",
     IReadOnlyList<IntentReader>? readers = null,
-    Func<string, string?>? secretFor = null) : IExecutorPort
+    Func<string, string?>? secretFor = null,
+    SelfInvocation? self = null) : IExecutorPort
 {
     private readonly string _binary = binary;
+
+    /// <summary>
+    /// How to start this binary again, for the platform's own tool server.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is a real state and it withholds the tool rather than inventing
+    /// a command.</b> A server configured with a path that is not this binary
+    /// is a child that fails at startup, and the agent would have been told the
+    /// tool exists. The loud version of that is
+    /// <see cref="NominationTool.Unservable"/>, asked before anything is spent.
+    /// </remarks>
+    private readonly SelfInvocation? _self = self;
 
     /// <summary>
     /// The tool servers this runner can launch, by provider key.
@@ -211,7 +224,17 @@ public sealed class ClaudeCodeExecutor(
                   // own permissions applying instead. See DeclaredMoveEnforcement above, and
                   // MoveBoundProbe, which proves this rather than assuming it.
                   "--allowedTools",
-                  .. request.Moves.Select(Tool)
+                  .. request.Moves
+                        // A GRANT WHOSE SERVER WAS NEVER CONFIGURED TELLS THE
+                        // AGENT THE TOOL EXISTS, and it then spends turns
+                        // calling something that is not there. The loud version
+                        // of this is NominationTool.Unservable, refused before
+                        // anything is spent - but the launch must not lie even
+                        // where that check has not run, because the two are
+                        // reached by different paths and only one of them is
+                        // this method.
+                        .Where(move => Grantable(move, request))
+                        .Select(Tool)
                         .Concat(ReadTools(request))
                         .Distinct(StringComparer.Ordinal)])
         {
@@ -263,10 +286,46 @@ public sealed class ClaudeCodeExecutor(
     /// here is what makes the split real rather than asserted.
     /// </para>
     /// </remarks>
-    private string[] ServerArguments(ExecutorRequest request, string? secret) =>
-        ReaderFor(request) is { } reader
-            ? ["--mcp-config", ServerConfig(reader, secret)]
-            : [];
+    private string[] ServerArguments(ExecutorRequest request, string? secret)
+    {
+        var reader = ReaderFor(request);
+        var ours = Serves(request) ? _self : null;
+
+        // ONE FLAG, ALWAYS. `--mcp-config` is variadic and documented
+        // space-separated; whether a SECOND occurrence appends or replaces is a
+        // detail of the vendor's argument library that nobody here has
+        // measured. Relying on it would work until it did not, and the failure
+        // would be the tracker reader silently gone from a flight that still
+        // looked configured.
+        return reader is null && ours is null
+            ? []
+            : ["--mcp-config", ServerConfig(reader, secret, ours)];
+    }
+
+    /// <summary>
+    /// Whether this launch serves the platform's own tool.
+    /// </summary>
+    /// <remarks>
+    /// The move decides, so the envelope decides - and the work kind never has
+    /// to reach the runner, which <see cref="LeaseLoop"/>'s own flattening
+    /// forbids.
+    /// </remarks>
+    private bool Serves(ExecutorRequest request) =>
+        _self is not null
+        && request.Moves.Contains(Gg.Contracts.LoopMoves.Propose, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether this move's tool may be granted on this launch.
+    /// </summary>
+    /// <remarks>
+    /// Every move but one maps to a tool the agent binary already has. The
+    /// exception is <c>propose</c>, whose tool this runner has to serve - so it
+    /// is granted only when it is also configured, or the agent is told a tool
+    /// exists and spends turns calling nothing.
+    /// </remarks>
+    private bool Grantable(string move, ExecutorRequest request) =>
+        !string.Equals(move, Gg.Contracts.LoopMoves.Propose, StringComparison.Ordinal)
+        || Serves(request);
 
     /// <summary>
     /// The one server, as the flag's JSON.
@@ -278,35 +337,63 @@ public sealed class ClaudeCodeExecutor(
     /// document is written directly - which also means every value here is
     /// escaped by the writer rather than by hand.
     /// </remarks>
-    private static string ServerConfig(IntentReader reader, string? secret)
+    private static string ServerConfig(
+        IntentReader? reader, string? secret, SelfInvocation? ours)
     {
         using var buffer = new MemoryStream();
         using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
         {
             json.WriteStartObject();
             json.WriteStartObject("mcpServers");
-            json.WriteStartObject(reader.Key);
-            json.WriteString("command", reader.Command);
-            json.WriteStartArray("args");
-            foreach (var argument in reader.Arguments)
-            {
-                json.WriteStringValue(argument);
-            }
-            json.WriteEndArray();
 
-            // THE ONE PLACE A SECRET MAY GO. Written only when the declaration
-            // named a variable AND the runner resolved something for it; an
-            // empty value here would start a server that fails at the tracker,
-            // which IntentConfiguration.Unresolvable refuses before we get here.
-            if (reader.EnvironmentVariable is { Length: > 0 } variable
-                && secret is { Length: > 0 })
+            if (reader is { } tracker)
             {
-                json.WriteStartObject("env");
-                json.WriteString(variable, secret);
+                json.WriteStartObject(tracker.Key);
+                json.WriteString("command", tracker.Command);
+                json.WriteStartArray("args");
+                foreach (var argument in tracker.Arguments)
+                {
+                    json.WriteStringValue(argument);
+                }
+                json.WriteEndArray();
+
+                // THE ONE PLACE A SECRET MAY GO, and joining a second server
+                // did not move it: it is written inside the reader's own
+                // object, so the platform's own server never sees it and
+                // neither does the agent. Written only when the declaration
+                // named a variable AND the runner resolved something for it; an
+                // empty value here would start a server that fails at the
+                // tracker, which IntentConfiguration.Unresolvable refuses
+                // before we get here.
+                if (tracker.EnvironmentVariable is { Length: > 0 } variable
+                    && secret is { Length: > 0 })
+                {
+                    json.WriteStartObject("env");
+                    json.WriteString(variable, secret);
+                    json.WriteEndObject();
+                }
+
                 json.WriteEndObject();
             }
 
-            json.WriteEndObject();
+            // THE PLATFORM'S OWN SERVER, and it takes no environment at all.
+            // No credential, no session, no configuration - it validates two
+            // strings and returns a receipt, which is what makes it safe to
+            // start as a child of a process the threat model treats as
+            // compromised.
+            if (ours is not null)
+            {
+                json.WriteStartObject(NominationTool.Server);
+                json.WriteString("command", ours.Command);
+                json.WriteStartArray("args");
+                foreach (var argument in ours.Arguments)
+                {
+                    json.WriteStringValue(argument);
+                }
+                json.WriteEndArray();
+                json.WriteEndObject();
+            }
+
             json.WriteEndObject();
             json.WriteEndObject();
         }
@@ -440,8 +527,12 @@ public sealed class ClaudeCodeExecutor(
     /// envelope's bound going around the envelope.
     /// </remarks>
     public static IReadOnlyList<string> ArgumentsFor(
-        ExecutorRequest request, IReadOnlyList<IntentReader> readers, string? secret = null) =>
-        new ClaudeCodeExecutor("claude", readers).StartInfo(request, secret).ArgumentList;
+        ExecutorRequest request,
+        IReadOnlyList<IntentReader> readers,
+        string? secret = null,
+        SelfInvocation? self = null) =>
+        new ClaudeCodeExecutor("claude", readers, secretFor: null, self)
+            .StartInfo(request, secret).ArgumentList;
 
     private static string Tool(string move) => move switch
     {

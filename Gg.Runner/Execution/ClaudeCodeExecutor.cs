@@ -179,8 +179,24 @@ public sealed class ClaudeCodeExecutor(string binary = "claude") : IExecutorPort
     /// customer's own credential - which is also why the control plane needs
     /// no permission to read it.
     /// </remarks>
+    /// <summary>
+    /// What the flight is about, named the way it was named.
+    /// </summary>
+    /// <remarks>
+    /// <b>A work item is two fields and a link is one.</b> Rendering the uri
+    /// unconditionally produced "Work the issue at ." for every ticket flight -
+    /// a sentence naming nothing that still reads like an instruction, which an
+    /// agent will try to follow. Nothing here composes a URL out of a provider
+    /// and an id: the agent resolves the work item through the tool it is given,
+    /// with the customer's own credential.
+    /// </remarks>
+    private static string Subject(ExecutorRequest request) =>
+        request.IntentUri is { Length: > 0 } uri
+            ? $"the issue at {uri} in this repository"
+            : $"work item {request.IntentId} in {request.IntentProvider}";
+
     private static string Prompt(ExecutorRequest request) =>
-        $"Work the issue at {request.IntentUri} in this repository. Make the code changes it asks "
+        $"Work {Subject(request)}. Make the code changes it asks "
       + "for, in this working tree only. Do not create a branch, do not commit, and do not push "
       + "anything anywhere."
       + (request.ResumesFrom is { Length: > 0 } seed ? Resumption(seed) : string.Empty)

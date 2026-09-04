@@ -354,6 +354,30 @@ public static class EnvelopeDirection
                   + "means unadmitted work leaves the machine for a fetchable remote, which "
                   + "is reach.");
             }
+
+            // opens: intersect - a subset of the work kinds that could be
+            // opened before. Null and empty are the tight end, the same place
+            // `moves: []` sits, and this arm does not lean on Validate refusing
+            // them: the comparator is also asked about documents that arrived
+            // before a rule existed.
+            //
+            // WRITTEN BY HAND BECAUSE EVERY ARM HERE IS, which is why it is
+            // worth a comment. The guard claiming every composed field has a
+            // direction rule reads the operator table to check the operator
+            // table, so a field can carry an operator and still be invisible to
+            // this function - which is what happened to `accepts:` and is
+            // recorded above. A work kind gained here is a governance regime an
+            // agent can newly nominate, so the omission would be a menu growing
+            // with no approver in sight.
+            var opened = (now.Opens ?? []).Except(was.Opens ?? [], StringComparer.Ordinal).ToList();
+            if (opened.Count > 0)
+            {
+                return Widen($"{at}.opens",
+                    $"work kind '{opened[0]}' could not be opened here before, and opens "
+                  + "intersects: it can only ever narrow. A kind gained is a whole governance "
+                  + "regime - its loop, its moves, its budget, its destinations and which "
+                  + "obligations apply - that a nomination can newly reach.");
+            }
         }
 
         return null;

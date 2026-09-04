@@ -666,7 +666,7 @@ public static class EnvelopeYaml
 
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "kind", "requires", "preserve-unadmitted");
+        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens");
 
         return new Destination
         {
@@ -680,6 +680,12 @@ public static class EnvelopeYaml
                 entry.Body.Entries.TryGetValue("preserve-unadmitted", out var preserve)
                     ? Flag(preserve, $"{entry.Body.Path}.preserve-unadmitted")
                     : null,
+            // AND THE SAME FOR THIS ONE. Reading a missing `opens` back as an
+            // empty list would turn every pull-request destination into one
+            // Validate refuses, on a document nobody edited.
+            Opens = entry.Body.Entries.TryGetValue("opens", out var opens)
+                ? Strings(opens, $"{entry.Body.Path}.opens")
+                : null,
         };
     }
 

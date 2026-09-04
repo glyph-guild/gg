@@ -144,6 +144,59 @@ public class EnvelopeModelRoundTripTests
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.PullRequest);
         await Assert.That(destination.Requires).IsEquivalentTo(original.Destinations[0].Requires);
         await Assert.That(destination.PreserveUnadmitted!.Value).IsTrue();
+        await Assert.That(destination.Opens).IsNull()
+            .Because("absent stays absent here too, and on this kind it must: `opens:` is "
+                   + "refused on anything but a flight destination, so a member that "
+                   + "materialized on the way back would turn every pull-request document "
+                   + "into one apply refuses.");
+    }
+
+    [Test]
+    public async Task What_a_destination_may_open_survives_the_round_trip()
+    {
+        // A SECOND FIXTURE, BECAUSE THE MEMBER CANNOT RIDE THE FIRST. `opens:`
+        // is legal only on a flight destination and an envelope carries exactly
+        // one destination - so covering it on the pull-request fixture would
+        // mean pinning the text form of a document apply refuses, which teaches
+        // the emitter to round-trip something nobody can write.
+        var opening = Everything() with
+        {
+            Context = new ContextBinding
+            {
+                Scope = EnvelopeScopes.None, Constitution = "1.10",
+            },
+            Accepts = [],
+            Produces = [],
+            Destinations =
+            [
+                new Destination
+                {
+                    Id = "open-the-flight",
+                    Kind = DestinationKinds.Flight,
+                    Requires = ["human-look"],
+                    // TWO ENTRIES. The renderer sorts sequences, so a
+                    // single-entry list would pass whatever the ordering did.
+                    Opens = ["implement", "research"],
+                },
+            ],
+        };
+
+        var back = RoundTripped(opening);
+        var destination = back.Destinations.Single();
+
+        await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.Flight);
+        await Assert.That(destination.Opens).IsNotNull();
+        await Assert.That(destination.Opens!)
+            .IsEquivalentTo((string[])["implement", "research"])
+            .Because("this list is the pre-approved menu a nomination is checked against, so a "
+                   + "member that did not survive the text form is a governance bound that "
+                   + "disappears the first time somebody edits the file it is not in - which "
+                   + "is what happened to `evidence:` for three contract versions.");
+        await Assert.That(destination.PreserveUnadmitted).IsNull();
+
+        // And the second render is the first, so `show` after `apply` is not a
+        // diff nobody made.
+        await Assert.That(EnvelopeText.Render(back)).IsEqualTo(EnvelopeText.Render(opening));
     }
 
     [Test]
@@ -195,7 +248,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Loop.Budget), nameof(Loop.OnExhaustion),
             nameof(LoopBudget.WallClock), nameof(LoopBudget.Attempts),
             nameof(Destination.Id), nameof(Destination.Kind), nameof(Destination.Requires),
-            nameof(Destination.PreserveUnadmitted),
+            nameof(Destination.PreserveUnadmitted), nameof(Destination.Opens),
             nameof(EnvelopeNarrowing.Obligations),
         ];
 

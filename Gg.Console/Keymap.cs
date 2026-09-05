@@ -38,7 +38,16 @@ public readonly record struct KeymapContext(
     bool LiveVisible = false,
     bool Frozen = false,
     bool Takeable = false,
-    bool HandedBackable = false);
+    bool HandedBackable = false)
+{
+    /// <summary>Whether the browse pane is already showing.</summary>
+    /// <remarks>
+    /// An init property rather than another positional parameter: the record
+    /// already takes five, and a sixth bool that callers pass by position is a
+    /// swap waiting to happen.
+    /// </remarks>
+    public bool BrowseVisible { get; init; }
+}
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
 public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description);
@@ -98,6 +107,8 @@ public static class Keymap
             new(KeyStroke.Char('k'), Command.SelectPrevious, "up"),
             new(KeyStroke.Char('v'), Command.ToggleEvidence, "evidence"),
             new(KeyStroke.Char('l'), Command.ToggleLive, context.LiveVisible ? "hide live" : "live"),
+            new(KeyStroke.Char('b'), Command.ToggleBrowse,
+                context.BrowseVisible ? "hide browse" : "browse"),
             .. context.LiveVisible
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.ToggleFreeze,
                     context.Frozen ? "unfreeze" : "freeze to copy")]

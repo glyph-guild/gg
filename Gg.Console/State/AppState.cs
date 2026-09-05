@@ -342,6 +342,14 @@ public sealed record AppState
     /// <see cref="Silence"/> draws for the live view, and for the same reason:
     /// an empty box cannot say which of them it is showing.
     /// </remarks>
+    /// <summary>Whether the browse pane has the region.</summary>
+    /// <remarks>
+    /// One region, one pane: turning this on turns <see cref="EvidenceVisible"/>
+    /// and <see cref="LiveVisible"/> off, because two visible flags over one
+    /// region is two panes drawn on top of each other.
+    /// </remarks>
+    public bool BrowseVisible { get; init; }
+
     public BrowseListing? Browse { get; init; }
 
     /// <summary>

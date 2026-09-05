@@ -37,6 +37,7 @@ public static class Reducer
             Command.ToggleEvidence => Reveal(state with { EvidenceVisible = !state.EvidenceVisible }),
             Command.ToggleLive => ToggleLive(state),
             Command.ToggleFreeze => ToggleFreeze(state),
+            Command.ToggleBrowse => ToggleBrowse(state),
 
             // Quit and OpenEditor end the UI session; the shell handles them.
             Command.Quit => state,
@@ -287,6 +288,29 @@ public static class Reducer
     /// not ask about.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Show or hide the browser, keeping what it found.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE REGION, ONE PANE.</b> Evidence and Live already share the screen's
+    /// one detail region by never both being on; a third joins the same rule
+    /// rather than being drawn over them.
+    /// </para>
+    /// <para>
+    /// <b>The listing survives hiding.</b> Somebody who closes the pane and
+    /// opens it again should not pay for a second read of the tracker to see
+    /// what they were just looking at - and the shell path means that read
+    /// costs a whole session rebuild.
+    /// </para>
+    /// </remarks>
+    private static AppState ToggleBrowse(AppState state) => state with
+    {
+        BrowseVisible = !state.BrowseVisible,
+        EvidenceVisible = false,
+        LiveVisible = false,
+    };
+
     public static AppState Browsed(AppState state, string providerKey, BrowseOutcome outcome)
     {
         ArgumentNullException.ThrowIfNull(state);

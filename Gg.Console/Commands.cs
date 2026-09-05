@@ -36,6 +36,18 @@ public enum Command
     /// <summary>Hold the live view still so text can be selected.</summary>
     ToggleFreeze,
 
+    /// <summary>
+    /// Show or hide the work a tracker offers to pick from.
+    /// </summary>
+    /// <remarks>
+    /// <b>The shell's, unlike the other view toggles.</b> Evidence and Live
+    /// draw what the console already holds; this one has to ASK a reader, which
+    /// means starting a child process - the one thing a UI session may not do.
+    /// So the session ends, the loop reads, and the next session is rebuilt
+    /// from the model. TakeFlight's shape, for a much smaller reason.
+    /// </remarks>
+    ToggleBrowse,
+
 
     /// <summary>
     /// Take the selected flight over: unmount, hand a person the terminal, come
@@ -140,5 +152,10 @@ public static class ShellCommands
         Command.OpenFlight,
         Command.AddCredential,
         Command.Invite,
+
+        // NOT A PREFERENCE. Showing the browser starts a reader, and a session
+        // may read a local file and nothing else. The loop owns the reader for
+        // the same reason it owns the editor and the take.
+        Command.ToggleBrowse,
     };
 }

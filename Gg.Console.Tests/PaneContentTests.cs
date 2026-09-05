@@ -1,3 +1,5 @@
+using Gg.Client;
+using Gg.Contracts;
 namespace Gg.Console.Tests;
 
 /// <summary>
@@ -244,5 +246,75 @@ public class PaneContentTests
         await Assert.That(pane).Contains("in-scope")
             .Because("the obligations the seeded envelope declares, rendered by the CLI's "
                    + "own renderer so the two surfaces cannot drift.");
+    }
+
+    [Test]
+    public async Task A_flight_can_be_opened_from_text_from_a_uri_and_from_a_ticket()
+    {
+        // S28.5-01, AND ITS PREMISE HAD EXPIRED. The criterion says
+        // `ConsoleData.FlyAsync` passes `uri: null`, so two of the three intent
+        // kinds are unreachable from the console. It reads through
+        // PastedIntent.Of now and passes text, uri, provider and id; the ticket
+        // kind also has a declared path that parses nothing. Three kinds, and
+        // the control plane is the only thing that can say which it recorded.
+        var seeded = await AgainstARealControlPlaneTests.GatedAsync();
+
+        var opened = new List<(string Expected, VerbResult Result)>
+        {
+            (FlightIntentKinds.Text,
+             await seeded.Data.FlyAsync("look at the thing")),
+            (FlightIntentKinds.Uri,
+             await seeded.Data.FlyAsync("https://forge.example/acme/widgets/issues/7")),
+            (FlightIntentKinds.Ticket,
+             await seeded.Data.FlyTicketAsync("a-tracker", "18398")),
+        };
+
+        foreach (var (expected, result) in opened)
+        {
+            await Assert.That(result).IsTypeOf<VerbResult.Launched>()
+                .Because($"a {expected} intent has to reach the control plane at all.");
+        }
+
+        // WHAT THE CONTROL PLANE RECORDED, read back rather than inferred from
+        // what was sent. A console that sent a uri and had it stored as text
+        // would pass every assertion above.
+        //
+        // POLLED, because the list lags the write and an absent row is not a
+        // wrong kind. Bounded patience: re-read the real thing, give up loudly
+        // at a deadline, and never sleep and then assume.
+        var wanted = opened
+            .Select(o => ((VerbResult.Launched)o.Result).Value.FlightId)
+            .ToList();
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
+        IReadOnlyList<FlightSummary> flights = [];
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            flights = ((VerbResult.Flights)await seeded.Data.ListAsync()).Value.Flights;
+
+            if (wanted.All(id => flights.Any(f =>
+                    string.Equals(f.FlightId, id, StringComparison.Ordinal))))
+            {
+                break;
+            }
+
+            await Task.Delay(500);
+        }
+
+        foreach (var (expected, result) in opened)
+        {
+            var id = ((VerbResult.Launched)result).Value.FlightId;
+            var flown = flights.FirstOrDefault(
+                f => string.Equals(f.FlightId, id, StringComparison.Ordinal));
+
+            await Assert.That(flown).IsNotNull()
+                .Because($"waited a minute and the {expected} flight never became listable, "
+                       + "which is a claim about the control plane rather than about the "
+                       + "console.");
+            await Assert.That(flown!.Intent.Kind).IsEqualTo(expected)
+                .Because("the kind is DERIVED from which payload arrived, in one place, so a "
+                       + "console that lost the uri on the way would show up here as text.");
+        }
     }
 }

@@ -81,7 +81,16 @@ public class ProjectionParityTests
             // --- arms this slice adds, each with the step that adds it ---
             ["Gates"] = "step 3: answering a gate has to refetch them, and today the boot's "
                       + "copy is the only one there will ever be.",
-            ["RunnerLabels"] = "step 4, the fleet's labels with their dispositions.",
+            // A DECISION NOW, NOT A GAP - and the difference is worth the words.
+            // The console CANNOT receive this kind: step 6 deleted
+            // ConsoleData.RunnerLabelsAsync, because it and RunnersAsync both
+            // call ListRunnersAsync and `gg runners` and `gg runner labels` are
+            // one answer rendered two ways. The labels reach the pane, with
+            // their dispositions, out of the RunnerList that VerbResult.Runners
+            // already puts in the model. An arm here would be an arm for a
+            // result nothing in this project can hand it.
+            ["RunnerLabels"] = "one request under two names. The console receives Runners, "
+                             + "renders its labels, and no longer offers the second wrapper.",
             ["CredentialAdded"] = "step 5: the console can register one and cannot see the "
                                 + "result reach the model.",
             ["CredentialRemoved"] = "step 5, the mirror of it.",

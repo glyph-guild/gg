@@ -158,6 +158,50 @@ public class LoopQuestionFactTests
     }
 
     [Test]
+    public async Task The_seed_renders_it_as_the_agents_own_words()
+    {
+        // S25.3-03, and the seed is where it matters most: whoever reads a
+        // resumption is picking up work somebody else did, and the one thing
+        // they must not do is mistake an assertion for something a machine
+        // measured. The seed already marks a person's account that way - "their
+        // words, a human assertion" - and this is the same marking for the
+        // other kind of assertion in the document.
+        var seed = TakeSeedComposer.Compose(
+            "GG-42",
+            "019fe815-6136-7518-bb57-b06d6d3f411a",
+            digest: null,
+            account: "I stopped because I could not decide.",
+            priorQuestion: new LoopQuestion { Question = Asked });
+
+        var rendered = TakeSeedComposer.Render(seed);
+
+        await Assert.That(rendered).Contains(Asked)
+            .Because("a question the next attempt cannot see is a question it asks again.");
+        await Assert.That(rendered.Contains("asked", StringComparison.OrdinalIgnoreCase)).IsTrue()
+            .Because("the section says what it is. An unlabelled block of prose in a document "
+                   + "of measurements reads as a measurement.");
+        await Assert.That(rendered.Contains("its own words", StringComparison.OrdinalIgnoreCase)
+                       || rendered.Contains("agent", StringComparison.OrdinalIgnoreCase)).IsTrue()
+            .Because("marked as an agent's assertion, the way a person's account is marked as "
+                   + "theirs - so it never borrows a measurement's authority.");
+    }
+
+    [Test]
+    public async Task A_seed_with_no_question_renders_no_section_for_one()
+    {
+        // The liveness twin. A heading printed unconditionally would tell every
+        // resuming agent that its predecessor asked something, and it would
+        // then go looking for a question that was never asked.
+        var seed = TakeSeedComposer.Compose(
+            "GG-42", "019fe815-6136-7518-bb57-b06d6d3f411a",
+            digest: null, account: "I finished.");
+
+        await Assert.That(TakeSeedComposer.Render(seed)
+                .Contains("asked", StringComparison.OrdinalIgnoreCase))
+            .IsFalse();
+    }
+
+    [Test]
     public async Task The_vocabulary_knows_the_type()
     {
         // The registration a missing entry makes a runtime halt rather than a

@@ -140,28 +140,4 @@ public class BrowsePaneTests
         await Assert.That(back.Browse!.Items).Count().IsEqualTo(1);
         await Assert.That(back.Browse.Items[0].Title).IsEqualTo("Oz asks guided questions");
     }
-
-    [Test]
-    public async Task A_work_item_title_does_not_reach_the_diagnostics_bundle()
-    {
-        // RULE 4, AND THE DANGER THIS SLICE NAMED. A bundle is "a redacted
-        // diagnostics bundle to send us" and a work item's title is customer
-        // content by any reading. The needle is planted in scope, exactly as
-        // the Live redaction test does it, and the proof is that BundleFrom
-        // reads almost nothing rather than that something strips it after.
-        const string Needle = "ACME-CONFIDENTIAL-ROADMAP-ITEM";
-        var state = new AppState { Browse = Listing(Needle) };
-
-        var bundle = ConsoleData.BundleFrom(
-            state,
-            DateTimeOffset.UnixEpoch,
-            new Gg.Contracts.EnvironmentIdentity { BaseAddress = "https://cp.example" },
-            new Gg.Contracts.DoctorReport { Checks = [] },
-            flightLog: null);
-
-        var written = JsonSerializer.Serialize(bundle, AppStateJsonContext.Default.Options);
-
-        await Assert.That(written).DoesNotContain(Needle)
-            .Because("a title is customer content and a bundle is something a person sends us.");
-    }
 }

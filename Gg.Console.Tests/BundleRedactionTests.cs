@@ -259,4 +259,44 @@ public class BundleRedactionTests
 
         await Assert.That(json).DoesNotContain(Needle);
     }
+
+    [Test]
+    public async Task A_work_item_title_does_not_reach_the_bundle_either()
+    {
+        // THE SAME ARGUMENT ONE PANE OVER. A browse listing holds work item
+        // titles because choosing without them is choosing by number, and a
+        // title is customer content by any reading. It is safe for the reason
+        // everything here is safe: BundleFrom takes the whole state and reads
+        // almost none of it, so the needle is in scope and still does not come
+        // out. Asserted rather than assumed, because "reads almost none of it"
+        // is a sentence that stops being true one convenient property at a time.
+        const string Needle = "ACME-CONFIDENTIAL-ROADMAP-ITEM";
+
+        var state = new AppState
+        {
+            Browse = new BrowseListing
+            {
+                ProviderKey = "a-tracker",
+                Items =
+                [
+                    new BrowseRow
+                    {
+                        Id = "18398",
+                        Title = Needle,
+                        State = "Active",
+                        Updated = "2026-09-05T01:06:13Z",
+                    },
+                ],
+            },
+        };
+
+        await Assert.That(state.Browse!.Items[0].Title).IsEqualTo(Needle)
+            .Because("the plant has to have worked, or the absence below is vacuous.");
+
+        var bundle = ConsoleData.BundleFrom(state, T0, AnEnvironment(), AReport(), flightLog: null);
+
+        await Assert.That(VerbOutput.ToJson(new VerbResult.Bundle(bundle))).DoesNotContain(Needle);
+        await Assert.That(VerbOutput.ToText(new VerbResult.Bundle(bundle))).DoesNotContain(Needle)
+            .Because("a bundle is a thing a person sends us, in both renderings.");
+    }
 }

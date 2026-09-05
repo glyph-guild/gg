@@ -322,6 +322,67 @@ public static class PaneText
         return text.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// The work a person can pick from, or why there is none to pick.
+    /// </summary>
+    /// <remarks>
+    /// <b>FIVE ENDINGS, FIVE SENTENCES</b>, which is <see cref="Live"/>'s rule
+    /// with more ways to end. Nothing configured, a reader that could not be
+    /// asked, and a tracker with no work in it are three different things to go
+    /// and do, and an empty box says none of them.
+    /// </remarks>
+    public static string Browse(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        // NOT CONFIGURED, AND IT NAMES THE VARIABLES. The GG_POOL_ENDPOINT
+        // shape: refused loudly, naming the variable, because a person looking
+        // at an empty pane needs to know it is configuration and which line to
+        // write. Both are named - one declares a tracker this binary reads,
+        // the other a server an operator installed, and either is a valid
+        // answer.
+        if (state.Browse is not { } listing)
+        {
+            return "No tracker is configured to browse. Declare one in "
+                 + $"{Gg.Local.IntentConfiguration.ServedVariable} - a provider key and the "
+                 + "tracker's host - or, for a tracker this binary has no shape for, a tool "
+                 + $"server in {Gg.Local.IntentConfiguration.ReadersVariable}.";
+        }
+
+        if (listing.Absence is { Length: > 0 } why)
+        {
+            // THE READER'S OWN WORDS. It already said why it could not answer;
+            // rewording here would be a second answer to one question.
+            return why;
+        }
+
+        if (listing.Items.Count == 0)
+        {
+            return $"'{listing.ProviderKey}' has no work to show. The tracker answered, and "
+                 + "the answer was nothing - this is not a reader that failed.";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"{listing.ProviderKey} — {listing.Items.Count} item(s)");
+        text.AppendLine();
+
+        foreach (var item in listing.Items)
+        {
+            text.AppendLine(
+                $"{item.Id,-8} {item.State,-12} {Clean(item.Title)}");
+        }
+
+        if (listing.NextCursor is { Length: > 0 })
+        {
+            // A person who cannot tell a full page from the whole backlog stops
+            // looking at the first screenful.
+            text.AppendLine();
+            text.AppendLine("— more to come —");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     /// <summary>A one-character gutter, so kind survives into the rendering.</summary>
     public static string Marker(StreamLineKind kind) => kind switch
     {

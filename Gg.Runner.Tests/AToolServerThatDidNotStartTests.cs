@@ -1,3 +1,4 @@
+using Gg.Local;
 using Gg.Contracts;
 using Gg.Runner.Execution;
 
@@ -24,7 +25,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// <para>
 /// <b>Refused before anything is spent</b>, which is
-/// <see cref="NominationTool.Unservable"/>'s own answer to the same shape one
+/// <see cref="ToolServers.Unservable"/>'s own answer to the same shape one
 /// step earlier: that one catches a server this runner cannot NAME, and this
 /// one catches a server it named that did not START. The init record is the
 /// first line of the stream, so the refusal costs a process launch and no

@@ -1,3 +1,4 @@
+using Gg.Local;
 using Gg.Contracts;
 using Gg.Runner.Execution;
 
@@ -217,12 +218,12 @@ public class NominateToolLaunchTests
         // refusal already has. A flight whose loop declares a move this runner
         // cannot serve is refused with a reason, rather than handed to an agent
         // that will establish the same thing slowly and report it as prose.
-        await Assert.That(NominationTool.Unservable([LoopMoves.Read, LoopMoves.Propose], null))
+        await Assert.That(ToolServers.Unservable([LoopMoves.Read, LoopMoves.Propose], null))
             .IsNotNull();
-        await Assert.That(NominationTool.Unservable([LoopMoves.Read], null)).IsNull()
+        await Assert.That(ToolServers.Unservable([LoopMoves.Read], null)).IsNull()
             .Because("a loop that never asked to nominate is not blocked by a tool nobody "
                    + "needs.");
-        await Assert.That(NominationTool.Unservable(
+        await Assert.That(ToolServers.Unservable(
             [LoopMoves.Propose], SelfInvocation.For("/bin/gg", null))).IsNull();
     }
 

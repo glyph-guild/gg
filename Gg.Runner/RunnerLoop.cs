@@ -1,3 +1,4 @@
+using Gg.Local;
 using System.Net;
 using Gg.Contracts;
 using Gg.Runner.Execution;
@@ -202,7 +203,7 @@ public sealed class RunnerLoop(
     ICredentialResolver credentials,
     IWorkspace workspace,
     IExecutorPort? executor = null,
-    IReadOnlyList<Execution.IntentReader>? readers = null,
+    IReadOnlyList<Gg.Local.IntentReader>? readers = null,
     IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
     TranscriptStore? transcripts = null,
     IReadOnlyList<IDestinationAdapter>? destinations = null)
@@ -286,7 +287,7 @@ public sealed class RunnerLoop(
     /// spends the loop's whole budget establishing that, and reports it as prose
     /// somebody has to interpret.
     /// </remarks>
-    private readonly IReadOnlyList<Execution.IntentReader> _readers = readers ?? [];
+    private readonly IReadOnlyList<Gg.Local.IntentReader> _readers = readers ?? [];
 
     /// <summary>
     /// Which provider key reaches which host, as this runner declares it.
@@ -849,7 +850,7 @@ public sealed class RunnerLoop(
         // an agent that will establish the same thing slowly and report it as
         // prose. "A provider nobody configured is a declared capability gap" -
         // the words this repository already has for this.
-        if (Execution.IntentConfiguration.Unreadable(lease.IntentProvider, _readers)
+        if (Gg.Local.IntentConfiguration.Unreadable(lease.IntentProvider, _readers)
             is { } unreadable)
         {
             return (null, ExecutorRun.Failed(
@@ -862,8 +863,8 @@ public sealed class RunnerLoop(
         // agent that will find the tool missing and report it as prose. The
         // process fact is read once, so this asks the same question the launch
         // will ask and gets the same answer.
-        if (Execution.NominationTool.Unservable(
-            lease.Loop.Moves, Execution.SelfInvocation.Current) is { } unservable)
+        if (Execution.ToolServers.Unservable(
+            lease.Loop.Moves, Gg.Local.SelfInvocation.Current) is { } unservable)
         {
             return (null, ExecutorRun.Failed(
                 lease.Loop.LoopId, unservable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));

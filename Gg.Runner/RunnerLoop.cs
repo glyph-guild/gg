@@ -916,6 +916,11 @@ public sealed class RunnerLoop(
         var run = await _executor.ExecuteAsync(
             new ExecutorRequest
             {
+                // ALWAYS, because this side cannot know whether anybody is
+                // watching: the console is a different process with no channel
+                // to here but the filesystem. The field's own remark carries the
+                // decision and what it costs.
+                Live = new LiveStream(Gg.Local.LocalPaths.LiveView(lease.FlightId)),
                 // PASSED THROUGH, never interpreted. The runner does not read the reason
                 // and does not derive anything from it: it hands the agent what a person
                 // said and lets the envelope keep deciding what may happen.

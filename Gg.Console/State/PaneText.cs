@@ -122,6 +122,8 @@ public static class PaneText
         text.AppendLine("  pinned refs   (none until the flight is materialized)");
         text.AppendLine($"  credential    {Credentials(state)}");
         text.AppendLine($"  facts         {Facts(flight)}");
+        text.AppendLine();
+        text.AppendLine(Why(state));
 
         if (state.FlightLog is { Entries.Count: > 0 } log)
         {
@@ -129,6 +131,58 @@ public static class PaneText
             foreach (var entry in log.Entries)
             {
                 text.AppendLine($"  {entry.At:u}  {Clean(entry.Kind)}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What is holding this flight, in the control plane's own words.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rendered, never computed.</b> The halt and each obligation's reason
+    /// arrive already decided; a console that worked out for itself why an
+    /// obligation attached would explain a verdict it did not produce, and the
+    /// two would drift.
+    /// </para>
+    /// <para>
+    /// <b>The section is present even when there is nothing to put in it</b>,
+    /// and it says WHICH nothing. `not read for this row` and `nothing is
+    /// holding this flight` are opposite facts - the second is good news - and
+    /// an absent section is both of them at once.
+    /// </para>
+    /// </remarks>
+    private static string Why(AppState state)
+    {
+        if (state.Attribution is not { } attribution)
+        {
+            return "  why           not read for this row - press g to read it";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"  why           {Clean(attribution.Halt ?? "nothing is holding this flight")}");
+
+        foreach (var obligation in attribution.Obligations)
+        {
+            text.AppendLine(
+                $"    {Clean(obligation.ObligationId),-22} {Clean(obligation.Attachment),-10} "
+              + Clean(obligation.Outcome ?? "no outcome recorded"));
+
+            if (obligation.Because is { Length: > 0 } because)
+            {
+                // THE CONTINUATION UNDER THE COLUMN THE LABEL OPENED. A reason
+                // written by a person keeps its line breaks deliberately, and
+                // pasted in raw the second line lands at column zero - where the
+                // conventions of this pane make it a new field. `gg show` shipped
+                // exactly that defect and rendered one three-line question as
+                // three gates.
+                foreach (var line in because.Replace("\r\n", "\n", StringComparison.Ordinal)
+                             .Split('\n'))
+                {
+                    text.AppendLine($"      {Clean(line)}");
+                }
             }
         }
 

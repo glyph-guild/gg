@@ -136,7 +136,7 @@ public static class Reducer
 
         if (state.Selected is not { } row)
         {
-            return state with { Flight = null, FlightLog = null };
+            return state with { Flight = null, FlightLog = null, Attribution = null };
         }
 
         return state with
@@ -144,6 +144,16 @@ public static class Reducer
             Flight = state.Flights?.Flights.FirstOrDefault(f =>
                 string.Equals(f.FlightId, row.FlightId, StringComparison.Ordinal)),
             FlightLog = state.Logs.TryGetValue(row.FlightId, out var log) ? log : null,
+
+            // KEPT ONLY WHILE IT IS ABOUT THIS ROW. Unlike the two above, an
+            // attribution is not held per flight anywhere - it is read for the
+            // selected row alone - so there is nothing to look up and the honest
+            // answer for any other row is that it has not been read. It names a
+            // HALT, which is the worst thing to leave under the wrong name.
+            Attribution = string.Equals(
+                state.Attribution?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
+                    ? state.Attribution
+                    : null,
         };
     }
 

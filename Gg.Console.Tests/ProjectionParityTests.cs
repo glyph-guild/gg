@@ -82,7 +82,6 @@ public class ProjectionParityTests
             ["Gates"] = "step 3: answering a gate has to refetch them, and today the boot's "
                       + "copy is the only one there will ever be.",
             ["Plan"] = "step 4, the checklist pane.",
-            ["Why"] = "step 4, why a flight is stopped.",
             ["RunnerLabels"] = "step 4, the fleet's labels with their dispositions.",
             ["EnvelopeShown"] = "step 4, the envelope as a pane - the read, never the apply.",
             ["CredentialAdded"] = "step 5: the console can register one and cannot see the "

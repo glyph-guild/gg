@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    WHAT IS TRUE OF THIS MACHINE, and nothing else.
+
+    It exists because two halves of gg need the same local convention and have
+    nowhere to put it. Gg.Console does not reference Gg.Runner, Gg.Runner does
+    not reference Gg.Client, and Gg.Contracts is the wire contract - the artifact
+    a customer audits, and the package good-grief consumes from a release. A
+    filesystem path is not part of a wire contract and must not ship in one.
+
+    THE CHARTER, so this does not become a junk drawer: local paths and local
+    configuration, readable by a runner and a console alike. No transport, no
+    credential, no wire type. It carries no package reference and is not
+    published; ProjectReferenceTests holds both.
+
+    A second slice - browsing-work-in-the-console - reaches the same conclusion
+    for IntentConfiguration and a reader declaration. That is this project's
+    second tenant, and the reason it is a project rather than a duplicated file.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

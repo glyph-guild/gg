@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
+    <ProjectReference Include="../Gg.Local/Gg.Local.csproj" />
     <ProjectReference Include="../Gg.Client/Gg.Client.csproj" />
   </ItemGroup>
 

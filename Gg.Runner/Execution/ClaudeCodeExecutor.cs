@@ -170,15 +170,29 @@ public sealed class ClaudeCodeExecutor(
                 request, transcript, cancellationToken);
         }
 
-        var result = Result(transcript.ToString());
+        var recorded = transcript.ToString();
+        var result = Result(recorded);
 
-        return await WithTranscriptAsync(
-            result.IsError
-                ? ExecutorRun.Failed(
+        // THREE ANSWERS FROM TWO KINDS OF EVIDENCE, and keeping them apart is
+        // the point. A crash is `is_error` on the result record; an impasse is
+        // a tool the agent CHOSE to call. Step 0 measured that the result
+        // record cannot tell an impasse from a completion - four real runs that
+        // changed no file and said so all reported success - so reading the
+        // stream is not a refinement here, it is the only place the answer is.
+        //
+        // A crash still wins. An agent that asked for a decision and then died
+        // is a failure whatever it asked, because what a person would do about
+        // it is the crash.
+        var outcome = result.IsError
+            ? ExecutorRun.Failed(
+                request.LoopId, result.Reason, result.Attempts, started.Elapsed, moves)
+            : TranscriptDigest.Blocked(recorded, PutsBytesOnDisk)
+                ? ExecutorRun.Blocked(
                     request.LoopId, result.Reason, result.Attempts, started.Elapsed, moves)
                 : ExecutorRun.Completed(
-                    request.LoopId, result.Reason, result.Attempts, started.Elapsed, moves),
-            request, transcript, cancellationToken);
+                    request.LoopId, result.Reason, result.Attempts, started.Elapsed, moves);
+
+        return await WithTranscriptAsync(outcome, request, transcript, cancellationToken);
     }
 
     /// <summary>
@@ -504,6 +518,20 @@ public sealed class ClaudeCodeExecutor(
     /// appearing to enforce the moves.
     /// </remarks>
     public static string ToolFor(string move) => Tool(move);
+
+    /// <summary>
+    /// The tools that can put bytes on disk, as this executor names them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public because the digest needs it and may not ask this class for
+    /// it.</b> A guard forbids the digest path referencing anything that can
+    /// invoke a model, and this class is exactly that - so the knowledge is
+    /// handed over as a value rather than reached for. One mapping, two
+    /// readers. These are the two the move-bound probe attributes a broken
+    /// bound to: creation is Write-shaped, modification is Edit-shaped.
+    /// </remarks>
+    public static IReadOnlyList<string> PutsBytesOnDisk { get; } =
+        [Tool(LoopMoves.Edit), Tool(LoopMoves.Write)];
 
     /// <summary>
     /// The prompt, as the agent receives it.

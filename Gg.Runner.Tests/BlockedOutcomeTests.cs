@@ -65,6 +65,14 @@ public class BlockedOutcomeTests
         Call(id, ClaudeCodeExecutor.ToolFor(LoopMoves.Edit), "{\"file_path\":\"src/a.py\"}")
         + "\n" + Result(id);
 
+    /// <summary>
+    /// The digest's question, with the launcher's mapping handed in - which is
+    /// how the real caller asks it, because the digest path may not reference
+    /// the class that invokes a model.
+    /// </summary>
+    private static bool Blocked(string transcript) =>
+        TranscriptDigest.Blocked(transcript, ClaudeCodeExecutor.PutsBytesOnDisk);
+
     private static string Read(string id = "r1") =>
         Call(id, ClaudeCodeExecutor.ToolFor(LoopMoves.Read), "{\"file_path\":\"ISSUE.md\"}")
         + "\n" + Result(id);
@@ -72,7 +80,7 @@ public class BlockedOutcomeTests
     [Test]
     public async Task An_agent_that_asked_and_stopped_is_blocked()
     {
-        await Assert.That(TranscriptDigest.Blocked(Read() + "\n" + Asked())).IsTrue()
+        await Assert.That(Blocked(Read() + "\n" + Asked())).IsTrue()
             .Because("it looked at the work, could not decide it, said so, and stopped. "
                    + "Recording that as 'the loop finished on its own terms' is the whole "
                    + "defect this slice exists for.");
@@ -85,7 +93,7 @@ public class BlockedOutcomeTests
         // was written first: asking and finishing are two facts, not one state.
         // One clarifying question turning a finished flight into a chore is how
         // a feature gets switched off.
-        await Assert.That(TranscriptDigest.Blocked(Asked() + "\n" + Edited())).IsFalse()
+        await Assert.That(Blocked(Asked() + "\n" + Edited())).IsFalse()
             .Because("it asked, carried on, and changed the tree. The question is still "
                    + "recorded - that is the fact - but the loop finished.");
     }
@@ -97,7 +105,7 @@ public class BlockedOutcomeTests
         // asks and then re-reads the file it was asking about has not gone on
         // to do the work, and a rule keyed on 'any later tool call' would
         // record it as finished.
-        await Assert.That(TranscriptDigest.Blocked(Asked() + "\n" + Read("r2"))).IsTrue()
+        await Assert.That(Blocked(Asked() + "\n" + Read("r2"))).IsTrue()
             .Because("looking again is not deciding.");
     }
 
@@ -106,8 +114,8 @@ public class BlockedOutcomeTests
     {
         // The liveness twin. A Blocked that answered true for everything would
         // satisfy the first assertion and would make every flight a chore.
-        await Assert.That(TranscriptDigest.Blocked(Read() + "\n" + Edited())).IsFalse();
-        await Assert.That(TranscriptDigest.Blocked("")).IsFalse()
+        await Assert.That(Blocked(Read() + "\n" + Edited())).IsFalse();
+        await Assert.That(Blocked("")).IsFalse()
             .Because("no transcript is no question, and an empty stream must not read as a "
                    + "flight waiting for somebody.");
     }
@@ -122,7 +130,7 @@ public class BlockedOutcomeTests
         var refused = Call("q9", HelpTool.Qualified, $$"""{"question":"{{Question}}"}""")
                     + "\n" + Result("q9", error: true);
 
-        await Assert.That(TranscriptDigest.Blocked(refused)).IsFalse();
+        await Assert.That(Blocked(refused)).IsFalse();
     }
 
     [Test]

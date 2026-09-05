@@ -26,7 +26,36 @@ public static class LoopOutcomes
     /// </summary>
     public const string Exhausted = "exhausted";
 
-    public static IReadOnlyList<string> All { get; } = [Completed, Failed, Exhausted];
+    /// <summary>
+    /// It asked for a decision it is not allowed to make, and stopped. Waiting
+    /// on a person, not broken and not finished.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same argument <c>exhausted</c> makes, one state further.</b>
+    /// Calling this <c>failed</c> would put an impasse in the same bucket as a
+    /// crash; calling it <c>completed</c> would say the loop finished on its
+    /// own terms, which is exactly what it did not do. Finished work and
+    /// abandoned work need different people too.
+    /// </para>
+    /// <para>
+    /// <b>It is DECLARED, never inferred.</b> The runner learns of it because
+    /// the agent called a tool - a <c>tool_use</c> block in the stream - and
+    /// never by reading the closing prose. A classifier over repository content
+    /// is injectable: a file in a customer's tree could make a flight declare
+    /// itself blocked, or keep a genuinely stuck one quiet.
+    /// </para>
+    /// <para>
+    /// <b>Asking and finishing are two facts, not one state.</b> An agent that
+    /// asked and then went on to change the tree is <c>completed</c> with a
+    /// question recorded beside it. Collapsing them would make one clarifying
+    /// question turn a finished flight into a chore, which is how a feature
+    /// gets switched off.
+    /// </para>
+    /// </remarks>
+    public const string Blocked = "blocked";
+
+    public static IReadOnlyList<string> All { get; } = [Completed, Failed, Exhausted, Blocked];
 }
 
 /// <summary>

@@ -14,9 +14,21 @@
     credential, no wire type. It carries no package reference and is not
     published; ProjectReferenceTests holds both.
 
-    A second slice - browsing-work-in-the-console - reaches the same conclusion
+    A second slice - browsing-work-in-the-console - reached the same conclusion
     for IntentConfiguration and a reader declaration. That is this project's
     second tenant, and the reason it is a project rather than a duplicated file.
+    IT HAS NOW ARRIVED: IntentConfiguration, IntentReader, SelfInvocation,
+    NominationTool's names and the work-item shapes live here, because a browse
+    pane has to learn which trackers a machine reads and how to start one, and
+    Gg.Console cannot reference Gg.Runner without becoming able to act as one.
+
+    WHERE THE CHARTER GETS TESTED, said plainly so the next tenant argues rather
+    than assumes. IntentReader.Locator is the closest thing here to a credential
+    and it is a NAME - the string `gg credential add` files a secret under.
+    Nothing in this project can resolve one, and that is the line: this carries
+    which credential to use, never the credential. NominationTool.Unservable did
+    NOT come, because it reads Gg.Contracts.LoopMoves and this project holds no
+    project reference; it lives on ToolServers in Gg.Runner instead.
   -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>

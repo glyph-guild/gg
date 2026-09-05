@@ -1,3 +1,4 @@
+using Gg.Local;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -48,7 +49,7 @@ public sealed class ClaudeCodeExecutor(
     /// a command.</b> A server configured with a path that is not this binary
     /// is a child that fails at startup, and the agent would have been told the
     /// tool exists. The loud version of that is
-    /// <see cref="NominationTool.Unservable"/>, asked before anything is spent.
+    /// <see cref="ToolServers.Unservable"/>, asked before anything is spent.
     /// </remarks>
     private readonly SelfInvocation? _self = self;
 
@@ -255,7 +256,7 @@ public sealed class ClaudeCodeExecutor(
                         // A GRANT WHOSE SERVER WAS NEVER CONFIGURED TELLS THE
                         // AGENT THE TOOL EXISTS, and it then spends turns
                         // calling something that is not there. The loud version
-                        // of this is NominationTool.Unservable, refused before
+                        // of this is ToolServers.Unservable, refused before
                         // anything is spent - but the launch must not lie even
                         // where that check has not run, because the two are
                         // reached by different paths and only one of them is

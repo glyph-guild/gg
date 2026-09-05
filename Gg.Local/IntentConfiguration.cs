@@ -1,4 +1,4 @@
-namespace Gg.Runner.Execution;
+namespace Gg.Local;
 
 /// <summary>
 /// One tracker this runner can read, and what to launch to read it.

@@ -1,4 +1,4 @@
-namespace Gg.Runner.Execution;
+namespace Gg.Local;
 
 /// <summary>
 /// How this process starts another copy of itself.

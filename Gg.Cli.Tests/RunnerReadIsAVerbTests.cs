@@ -1,3 +1,4 @@
+using Gg.Local;
 namespace Gg.Cli.Tests;
 
 /// <summary>
@@ -68,11 +69,11 @@ public class RunnerReadIsAVerbTests
         // disagreeing about a flag name; only reading one with the other
         // catches that, and it is the whole defect SelfInvocation.For's remark
         // is warning about.
-        var reader = Gg.Runner.Execution.IntentConfiguration.Served(
+        var reader = Gg.Local.IntentConfiguration.Served(
             "a-tracker",
             host: "https://tracker.example/acme",
             locator: "local:acme/board",
-            self: Gg.Runner.Execution.SelfInvocation.For("/usr/local/bin/gg", "/usr/local/bin/gg")!);
+            self: Gg.Local.SelfInvocation.For("/usr/local/bin/gg", "/usr/local/bin/gg")!);
 
         var parsed = CliArgs.Parse([.. reader.Arguments]);
 

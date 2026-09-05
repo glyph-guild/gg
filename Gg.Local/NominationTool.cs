@@ -1,4 +1,4 @@
-namespace Gg.Runner.Execution;
+namespace Gg.Local;
 
 /// <summary>
 /// The platform's own tool server, and the one tool on it.
@@ -37,29 +37,4 @@ public static class NominationTool
     /// tool to its own server.
     /// </remarks>
     public const string Qualified = $"mcp__{Server}__{Name}";
-
-    /// <summary>
-    /// Why this runner cannot serve a loop that declared <c>propose</c>, or
-    /// null when it can.
-    /// </summary>
-    /// <remarks>
-    /// <b>Article XI, before anything is spent</b> - the shape the
-    /// unreadable-tracker refusal beside it already has. A flight whose loop
-    /// declares a move this machine cannot serve is refused with a reason,
-    /// rather than handed to an agent that will establish the same thing slowly
-    /// and report it as prose. A loop that never asked to nominate is not
-    /// blocked by a tool nobody needs.
-    /// </remarks>
-    public static string? Unservable(IReadOnlyList<string> moves, SelfInvocation? self)
-    {
-        ArgumentNullException.ThrowIfNull(moves);
-
-        return moves.Contains(Gg.Contracts.LoopMoves.Propose, StringComparer.Ordinal)
-            && self is null
-            ? $"This loop declares '{Gg.Contracts.LoopMoves.Propose}' and this runner cannot "
-            + "name its own executable, so it cannot serve the tool that move grants. Nothing "
-            + "was spent. A runner serves that tool by starting another copy of itself, and a "
-            + "process that cannot say where it is would start something else."
-            : null;
-    }
 }

@@ -126,6 +126,31 @@ public sealed record QueueRow
 }
 
 /// <summary>One line of the runner's normalised output.</summary>
+/// <summary>
+/// Which silence the live pane is showing.
+/// </summary>
+/// <remarks>
+/// <b>An empty box cannot say why it is empty</b>, and the three reasons want
+/// three different sentences: the pane is off, the flight has written nothing
+/// because nothing is writing, and the flight is writing but the agent has not
+/// spoken. A person reading the second and the third the same way concludes the
+/// feature is broken.
+/// </remarks>
+public enum LiveSilence
+{
+    /// <summary>The pane is off, or nothing is selected.</summary>
+    NotAttached,
+
+    /// <summary>No live view exists for this flight.</summary>
+    NotStarted,
+
+    /// <summary>There is a view and it holds nothing yet.</summary>
+    NothingYet,
+
+    /// <summary>Lines have arrived; there is no silence to explain.</summary>
+    Speaking,
+}
+
 public sealed record StreamLine
 {
     public required StreamLineKind Kind { get; init; }
@@ -271,6 +296,9 @@ public sealed record AppState
 
     /// <summary>Whether each flight was watched. Exported nowhere.</summary>
     public IReadOnlyList<LiveAttachFact> AttachFacts { get; init; } = [];
+
+    /// <summary>Which silence the live pane is showing, when it is showing one.</summary>
+    public LiveSilence Silence { get; init; } = LiveSilence.NotAttached;
 
     /// <summary>
     /// The held tree of the selected flight, when there is one.

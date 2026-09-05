@@ -26,12 +26,15 @@ namespace Gg.Console;
 /// time rather than parsed into a line with a hole in it.
 /// </para>
 /// </remarks>
-public sealed class LiveTail(string path)
+public sealed class LiveTail(string path) : ILiveSource
 {
     private readonly string _path = path;
 
     /// <summary>Where reading stopped, so reopening does not replay everything.</summary>
     public long Offset { get; private set; }
+
+    /// <summary>Whether this flight has a live view at all.</summary>
+    public bool Exists => File.Exists(_path);
 
     /// <summary>
     /// What has arrived since last time.

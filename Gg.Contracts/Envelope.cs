@@ -826,7 +826,18 @@ public sealed record EnvelopeInstruction
     public required string Text { get; init; }
 
     /// <summary>Which document it came from: (role, name), assigned by the composer.</summary>
-    public ObligationProvenance Provenance { get; init; } = ObligationProvenance.AtRoot;
+    /// <remarks>
+    /// <b>Null-proof on read, because a property initializer does not survive
+    /// deserialization.</b> A wire type read from JSON that omits this member
+    /// gets null, initializer or not — which is why <c>Accepts</c> and
+    /// <c>Produces</c> are declared nullable. Here absence and the default mean
+    /// the same thing, so the accessor answers rather than the caller checking.
+    /// </remarks>
+    public ObligationProvenance Provenance
+    {
+        get => field ?? ObligationProvenance.AtRoot;
+        init;
+    } = ObligationProvenance.AtRoot;
 }
 
 /// <summary>
@@ -912,7 +923,11 @@ public sealed record Obligation
     /// existed means.
     /// </para>
     /// </remarks>
-    public IReadOnlyList<string> Evidence { get; init; } = [];
+    public IReadOnlyList<string> Evidence
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>
     /// When this obligation applies at all, or null when it always does.
@@ -1144,8 +1159,28 @@ public sealed record Envelope
     /// <c>required</c>, so no document already applied has to be rewritten, and
     /// an envelope declaring none renders a prompt byte-for-byte unchanged.
     /// </remarks>
+    /// <remarks>
+    /// <b>NULL-PROOF ON READ, AND A PROPERTY INITIALIZER IS NOT ENOUGH.</b> A
+    /// wire type deserialized from JSON that omits this key gets null — the
+    /// initializer does not run on that path — so <c>= []</c> is a guarantee
+    /// the reader does not get. That shipped: <c>EnvelopeText.Render</c> threw
+    /// a NullReferenceException on every envelope written before this field,
+    /// while the comment above the throwing line promised those envelopes
+    /// rendered unchanged.
+    /// </b>
+    /// <para>
+    /// It is also why <c>Accepts</c> and <c>Produces</c> are declared nullable:
+    /// the codebase already knew. They are nullable because absence MEANS
+    /// something there. Here it does not — absent and empty are the same
+    /// policy — so the accessor absorbs it and no caller writes <c>?.</c>.
+    /// </para>
+    /// </remarks>
     [Composes(MergeOperators.Append)]
-    public IReadOnlyList<EnvelopeInstruction> Instructions { get; init; } = [];
+    public IReadOnlyList<EnvelopeInstruction> Instructions
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Loop> Loops { get; init; }

@@ -26,22 +26,6 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheBrowserSurvivesItsOwnReloadTests
 {
-    private sealed class Opens : IConsoleActions
-    {
-        public string Decide(string flight, string obligation, bool approved, string? reason) => "";
-
-        public string Fly(string intent) => "opened";
-
-        public string FlyTicket(string provider, string id) => $"Opened a flight for {provider}#{id}.";
-
-        public string? AlreadyFlown(string provider, string id) => null;
-
-        public string AddCredential() => "";
-
-        public string ForgetCredential() => "";
-
-        public string Invite() => "";
-    }
 
     private sealed class Browses : IWorkBrowser
     {
@@ -83,7 +67,7 @@ public class TheBrowserSurvivesItsOwnReloadTests
         new ConsoleLoop(
             new ConsoleDoubles.TypesKeys(Command.ToggleBrowse, Command.SelectNext, Command.FlyPicked),
             new ConsoleDoubles.NoEditor(),
-            actions: new Opens(),
+            actions: new ConsoleDoubles.Records(),
             browser: new Browses(),
             reload: Reload)
         .Run(new AppState());

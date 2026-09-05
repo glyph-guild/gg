@@ -158,7 +158,7 @@ public class ConsoleWriteVerbsTests
         var loop = new ConsoleLoop(
             new PressesThen(Command.OpenFlight),
             new NoEditing(),
-            actions: new Recording());
+            actions: new ConsoleDoubles.Records());
 
         var after = loop.Run(new AppState());
 
@@ -179,7 +179,7 @@ public class ConsoleWriteVerbsTests
             [Command.OpenFlight, Command.AddCredential, Command.Invite])
         {
             var after = new ConsoleLoop(
-                new PressesThen(command), new NoEditing(), actions: new Recording())
+                new PressesThen(command), new NoEditing(), actions: new ConsoleDoubles.Records())
                 .Run(new AppState());
 
             await Assert.That(PaneText.Activity(after)).IsNotEmpty()
@@ -193,7 +193,7 @@ public class ConsoleWriteVerbsTests
         // The twin. An activity line that always had something in it would be
         // furniture rather than information, and quitting is not an event.
         var after = new ConsoleLoop(
-            new PressesThen(Command.Quit), new NoEditing(), actions: new Recording())
+            new PressesThen(Command.Quit), new NoEditing(), actions: new ConsoleDoubles.Records())
             .Run(new AppState());
 
         await Assert.That(PaneText.Activity(after)).IsEmpty();
@@ -264,21 +264,6 @@ public class ConsoleWriteVerbsTests
         public string Edit(string initialText) => "";
     }
 
-    private sealed class Recording : IConsoleActions
-    {
-        public string Decide(string flight, string obligation, bool approved, string? reason) => "";
-        public string Fly(string intent) => $"opened for {intent}";
-
-        /// <summary>Nothing has flown, which is these tests' subject-free case.</summary>
-        public string? AlreadyFlown(string provider, string id) => null;
-
-        public string FlyTicket(string provider, string id) =>
-            Fly($"{provider}#{id}");
-        public string AddCredential() => "registered";
-
-        public string ForgetCredential() => "registered";
-        public string Invite() => "placed";
-    }
 
     private sealed class HeldSession : ISessionStore
     {

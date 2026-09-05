@@ -40,35 +40,11 @@ public class FlyingWhatWasPickedTests
                 null)));
     }
 
-    private sealed class Records : IConsoleActions
-    {
-        internal List<(string Provider, string Id)> Flown { get; } = [];
-
-        public string Decide(string flight, string obligation, bool approved, string? reason) =>
-            "not this path";
-
-        public string Fly(string intent) => "should not be reached";
-
-        /// <summary>Nothing has flown, which is these tests' subject-free case.</summary>
-        public string? AlreadyFlown(string provider, string id) => null;
-
-        public string FlyTicket(string provider, string id)
-        {
-            Flown.Add((provider, id));
-            return $"Opened a flight for {provider}#{id}.";
-        }
-
-        public string AddCredential() => "";
-
-        public string ForgetCredential() => "";
-
-        public string Invite() => "";
-    }
 
     [Test]
     public async Task Flying_a_picked_item_sends_a_provider_and_an_id()
     {
-        var actions = new Records();
+        var actions = new ConsoleDoubles.Records();
 
         var state = ConsoleLoop.FlewPicked(Browsing("18398", "18471"), actions);
 
@@ -81,7 +57,7 @@ public class FlyingWhatWasPickedTests
     [Test]
     public async Task The_second_row_is_the_one_that_flies_when_it_is_the_one_picked()
     {
-        var actions = new Records();
+        var actions = new ConsoleDoubles.Records();
         var picked = Browsing("18398", "18471") with { BrowseSelected = 1 };
 
         _ = ConsoleLoop.FlewPicked(picked, actions);
@@ -95,7 +71,7 @@ public class FlyingWhatWasPickedTests
         // RULE 2, asserted on the request rather than on the rendering. The
         // title is in state because choosing without it is choosing by number;
         // it stops there.
-        var actions = new Records();
+        var actions = new ConsoleDoubles.Records();
 
         _ = ConsoleLoop.FlewPicked(Browsing("18398"), actions);
 
@@ -112,7 +88,7 @@ public class FlyingWhatWasPickedTests
         // It is not even in the state to send, and this is the assertion that
         // keeps it that way: a future convenience that put it back would fail
         // here rather than in a review.
-        var actions = new Records();
+        var actions = new ConsoleDoubles.Records();
 
         _ = ConsoleLoop.FlewPicked(Browsing("18398"), actions);
 
@@ -125,7 +101,7 @@ public class FlyingWhatWasPickedTests
     {
         // ARTICLE XI. An empty pane with a key that appears to work is worse
         // than one without the key.
-        var actions = new Records();
+        var actions = new ConsoleDoubles.Records();
 
         var state = ConsoleLoop.FlewPicked(new AppState { BrowseVisible = true }, actions);
 

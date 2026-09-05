@@ -26,43 +26,6 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheBrowserSurvivesItsOwnReloadTests
 {
-    /// <summary>
-    /// A session that types keys, reducing its own and exiting on the shell's.
-    /// </summary>
-    /// <remarks>
-    /// <b>The contract, not a shortcut.</b> A real UI session handles ordinary
-    /// keys itself and ends only for a command whose effect lives in the loop.
-    /// A double that exited on every key made the loop throw on the first
-    /// arrow press - a test failing for its own reasons, which is worse than
-    /// no test.
-    /// </remarks>
-    private sealed class Presses(params Command[] keys) : IUiSession
-    {
-        private int _at;
-
-        public UiOutcome Run(AppState state)
-        {
-            while (_at < keys.Length)
-            {
-                var key = keys[_at++];
-
-                if (ShellCommands.Handled.Contains(key))
-                {
-                    return new UiOutcome(key, state);
-                }
-
-                state = Reducer.Reduce(state, key);
-            }
-
-            return new UiOutcome(Command.Quit, state);
-        }
-    }
-
-    private sealed class NoEditor : IEditorSession
-    {
-        public string Edit(string initialText) => initialText;
-    }
-
     private sealed class Opens : IConsoleActions
     {
         public string Decide(string flight, string obligation, bool approved, string? reason) => "";
@@ -116,8 +79,8 @@ public class TheBrowserSurvivesItsOwnReloadTests
 
     private static AppState AfterFlyingFromTheBrowser() =>
         new ConsoleLoop(
-            new Presses(Command.ToggleBrowse, Command.SelectNext, Command.FlyPicked),
-            new NoEditor(),
+            new ConsoleDoubles.TypesKeys(Command.ToggleBrowse, Command.SelectNext, Command.FlyPicked),
+            new ConsoleDoubles.NoEditor(),
             actions: new Opens(),
             browser: new Browses(),
             reload: Reload)

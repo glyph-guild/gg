@@ -23,26 +23,6 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheLoopDoesTheReadingTests
 {
-    /// <summary>A session that presses one key, then quits.</summary>
-    private sealed class Presses(params Command[] keys) : IUiSession
-    {
-        private int _at;
-
-        internal List<AppState> Saw { get; } = [];
-
-        public UiOutcome Run(AppState state)
-        {
-            Saw.Add(state);
-            return new UiOutcome(_at < keys.Length ? keys[_at++] : Command.Quit, state);
-        }
-    }
-
-    /// <summary>An editor nothing here uses; the loop requires one.</summary>
-    private sealed class NoEditor : IEditorSession
-    {
-        public string Edit(string initialText) => initialText;
-    }
-
     /// <summary>A reader that answers without a process.</summary>
     private sealed class Answers(BrowseOutcome outcome) : IWorkBrowser
     {
@@ -65,9 +45,9 @@ public class TheLoopDoesTheReadingTests
     public async Task Pressing_browse_asks_the_reader_and_the_answer_reaches_the_state()
     {
         var reader = new Answers(OneItem);
-        var ui = new Presses(Command.ToggleBrowse);
+        var ui = new ConsoleDoubles.TypesKeys(Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new NoEditor(), browser: reader)
+        var final = new ConsoleLoop(ui, new ConsoleDoubles.NoEditor(), browser: reader)
             .Run(new AppState());
 
         await Assert.That(reader.Asked).IsEqualTo(1);
@@ -81,15 +61,15 @@ public class TheLoopDoesTheReadingTests
     {
         // The terminal-release shape's whole claim: the model is the only thing
         // that crosses back, so the redraw must be able to draw the listing.
-        var ui = new Presses(Command.ToggleBrowse);
+        var ui = new ConsoleDoubles.TypesKeys(Command.ToggleBrowse);
 
-        _ = new ConsoleLoop(ui, new NoEditor(), browser: new Answers(OneItem))
+        _ = new ConsoleLoop(ui, new ConsoleDoubles.NoEditor(), browser: new Answers(OneItem))
             .Run(new AppState());
 
-        await Assert.That(ui.Saw).Count().IsEqualTo(2)
+        await Assert.That(ui.Rendered).Count().IsEqualTo(2)
             .Because("one session showed the queue, the next showed the browser.");
-        await Assert.That(ui.Saw[1].Browse).IsNotNull();
-        await Assert.That(PaneText.Browse(ui.Saw[1])).Contains("A draft job fails to load");
+        await Assert.That(ui.Rendered[1].Browse).IsNotNull();
+        await Assert.That(PaneText.Browse(ui.Rendered[1])).Contains("A draft job fails to load");
     }
 
     [Test]
@@ -98,9 +78,9 @@ public class TheLoopDoesTheReadingTests
         // A read costs a whole session rebuild on this path, so spending one to
         // close a pane would be the most expensive no-op in the console.
         var reader = new Answers(OneItem);
-        var ui = new Presses(Command.ToggleBrowse, Command.ToggleBrowse);
+        var ui = new ConsoleDoubles.TypesKeys(Command.ToggleBrowse, Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new NoEditor(), browser: reader)
+        var final = new ConsoleLoop(ui, new ConsoleDoubles.NoEditor(), browser: reader)
             .Run(new AppState());
 
         await Assert.That(reader.Asked).IsEqualTo(1);
@@ -114,9 +94,9 @@ public class TheLoopDoesTheReadingTests
     {
         // ARTICLE XI, and the arm has to exist for this too: a console composed
         // without a browser is the ordinary state of every runner in the fleet.
-        var ui = new Presses(Command.ToggleBrowse);
+        var ui = new ConsoleDoubles.TypesKeys(Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new NoEditor()).Run(new AppState());
+        var final = new ConsoleLoop(ui, new ConsoleDoubles.NoEditor()).Run(new AppState());
 
         await Assert.That(final.BrowseVisible).IsTrue();
         await Assert.That(final.Browse).IsNull()
@@ -130,9 +110,9 @@ public class TheLoopDoesTheReadingTests
     {
         // The client turns every failure into an outcome, but the loop is the
         // last line: a bug in a reader must not end a person's session.
-        var ui = new Presses(Command.ToggleBrowse);
+        var ui = new ConsoleDoubles.TypesKeys(Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new NoEditor(), browser: new Throws())
+        var final = new ConsoleLoop(ui, new ConsoleDoubles.NoEditor(), browser: new Throws())
             .Run(new AppState());
 
         await Assert.That(final.Browse).IsNotNull();

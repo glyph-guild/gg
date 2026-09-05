@@ -65,14 +65,29 @@ public class FixtureCleanlinessTests
     /// by.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>A name can ship with no path around it, and one did.</b> An agent
     /// that runs <c>ls -la</c> puts the owning user in its tool result, where a
     /// scan for <c>/Users/</c> sees nothing - so the path rules above passed a
     /// file that still named somebody. Checked against the CURRENT user because
-    /// that is who is capturing: it catches the author on the machine where the
-    /// mistake is made, and says nothing anywhere else.
+    /// that is who is capturing.
+    /// </para>
+    /// <para>
+    /// <b>And only where a capture can be made, which is not a build machine.</b>
+    /// This is scoping rather than an exemption: a transcript is captured by a
+    /// person running an agent interactively, so the author this protects is
+    /// only ever at a keyboard. On a build machine the value is a service
+    /// account, and the common one is literally the word this repository uses
+    /// about its own product on nearly every page - so the check would refuse a
+    /// capture for containing a noun. It did: the first version of this scrub
+    /// replaced a username with that very word, and the build refused the file.
+    /// Both halves of this were found that way.
+    /// </para>
     /// </remarks>
-    private static string Capturer => Environment.UserName;
+    private static string? Capturer =>
+        Environment.GetEnvironmentVariable("CI") is { Length: > 0 }
+            ? null
+            : Environment.UserName;
 
     [Test]
     public async Task No_committed_transcript_names_the_machine_that_produced_it()

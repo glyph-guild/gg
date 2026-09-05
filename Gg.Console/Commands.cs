@@ -113,6 +113,18 @@ public enum Command
     HandBack,
 
     /// <summary>
+    /// Fly the selected flight yourself, on this machine, at a Claude Code
+    /// prompt.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own key rather than a modifier on flying.</b> Flying by hand and
+    /// flying on the fleet are the same act with different consequences for
+    /// where the work happens, and a person choosing between them is choosing
+    /// before they press rather than after.
+    /// </remarks>
+    FlyByHand,
+
+    /// <summary>
     /// Open a flight: take the intent, submit it, come back to the same state.
     /// </summary>
     /// <remarks>
@@ -192,6 +204,11 @@ public static class ShellCommands
         // Bound and inert until this declaration existed.
         Command.TakeFlight,
         Command.HandBack,
+
+        // SPAWNS A CHILD AND MAKES A REQUEST, so both halves of what this set
+        // means apply: a UI session may not read, and the terminal has to be
+        // provably free before somebody is handed it.
+        Command.FlyByHand,
         Command.ApproveGate,
         Command.RejectGate,
 

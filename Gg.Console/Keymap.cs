@@ -189,6 +189,12 @@ public static class Keymap
             // reject. A store you cannot clean is a store people work around.
             new(KeyStroke.Char('x'), Command.ForgetCredential, "forget credential"),
             new(KeyStroke.Char('i'), Command.Invite, "invite"),
+            // `y` because every letter in `fly by hand` is taken: f is freeze
+            // and fly-this, l is nothing yet but reads as live, b is browse, h
+            // is hand back, a and n and d are taken. A key chosen for its
+            // mnemonic and then silently shadowing another is worse than one
+            // chosen for being free and said to be.
+            new(KeyStroke.Char('y'), Command.FlyByHand, "fly by hand"),
         ],
     };
 

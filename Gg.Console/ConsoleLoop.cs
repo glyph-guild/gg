@@ -17,7 +17,25 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? reload = null,
     Func<AppState, AppState>? checklist = null,
     Func<AppState, AppState>? envelope = null,
-    Func<AppState, AppState>? repositories = null)
+    Func<AppState, AppState>? repositories = null,
+
+    /// <summary>
+    /// Asks what a flight would need, and either refuses or hands over the
+    /// terminal.
+    /// </summary>
+    /// <remarks>
+    /// <b>A delegate, and named for the act rather than the port</b> - `hand` is
+    /// already the hand-BACK session, and two things called hand in one
+    /// constructor is a swap waiting to happen.
+    /// <para>
+    /// It is the composition root's, like its neighbours: the read it makes and
+    /// the child it starts both need things this assembly may not name - the
+    /// plan comes off the control plane and the child is this binary re-execed -
+    /// and a console that could name a runner type would be a console that can
+    /// act as one.
+    /// </para>
+    /// </remarks>
+    Func<AppState, AppState>? flyByHand = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -296,6 +314,27 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                case Command.FlyByHand:
+                    // THE SAME TERMINAL-RELEASE SHAPE as the takeover beside it,
+                    // and for a longer stretch: a person holds the screen for as
+                    // long as the work takes. The session is over before the
+                    // child starts, so the terminal is provably free, and the
+                    // next session is rebuilt from the model alone.
+                    //
+                    // BOTH OUTCOMES LAND IN THE MODEL, which is the half a child
+                    // cannot do for itself. It inherits the terminal, so a person
+                    // sees what it printed - and then this console redraws over
+                    // it, and a refusal nobody can see afterwards is a
+                    // hand-flight that silently did nothing.
+                    state = flyByHand is null
+                        ? state with
+                        {
+                            LastHandFlight =
+                                "This console is not configured to fly flights by hand.",
+                        }
+                        : flyByHand(state);
+                    break;
+
                 case Command.TakeFlight:
                     // The same shape, against something much larger: a person
                     // holds the terminal for minutes rather than an editor for
@@ -326,13 +365,27 @@ public sealed class ConsoleLoop(
     /// Compared rather than assigned, so an arm that records an outcome cannot also
     /// forget to surface it. Quit and the editor change nothing a person needs told.
     /// </remarks>
-    private static string? Said(AppState before, AppState after) =>
+    /// <summary>What changed, as the one line a person reads.</summary>
+    /// <remarks>
+    /// <b>Public rather than private so the derivation can be asserted</b>, the
+    /// same disposition the other reducible statics here already have. This
+    /// assembly is bundled and never packed - <c>PackagingTests</c> names what
+    /// may be published and this is not on the list - so "public" here is a
+    /// testability decision rather than an API surface.
+    /// <para>
+    /// Every arm records its outcome in its own field and this takes whichever
+    /// moved, which is what stops a new arm forgetting to say anything. That is
+    /// worth a test rather than a comment, because arms have forgotten before.
+    /// </para>
+    /// </remarks>
+    public static string? Said(AppState before, AppState after) =>
         after.LastFlightOpened != before.LastFlightOpened ? after.LastFlightOpened
         : after.LastCredential != before.LastCredential ? after.LastCredential
         : after.LastInvite != before.LastInvite ? after.LastInvite
         : after.LastDecision != before.LastDecision ? after.LastDecision
         : after.LastTakeover != before.LastTakeover ? after.LastTakeover
         : after.LastHandBack != before.LastHandBack ? after.LastHandBack
+        : after.LastHandFlight != before.LastHandFlight ? after.LastHandFlight
         : before.LastAction;
 
     /// <summary>

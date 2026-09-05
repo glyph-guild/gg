@@ -60,6 +60,20 @@ public class FixtureCleanlinessTests
         (".claude/projects/", "where this operator's private notes for a project live"),
     ];
 
+    /// <summary>
+    /// The person running these tests, which is the person a capture is made
+    /// by.
+    /// </summary>
+    /// <remarks>
+    /// <b>A name can ship with no path around it, and one did.</b> An agent
+    /// that runs <c>ls -la</c> puts the owning user in its tool result, where a
+    /// scan for <c>/Users/</c> sees nothing - so the path rules above passed a
+    /// file that still named somebody. Checked against the CURRENT user because
+    /// that is who is capturing: it catches the author on the machine where the
+    /// mistake is made, and says nothing anywhere else.
+    /// </remarks>
+    private static string Capturer => Environment.UserName;
+
     [Test]
     public async Task No_committed_transcript_names_the_machine_that_produced_it()
     {
@@ -77,6 +91,13 @@ public class FixtureCleanlinessTests
             found.AddRange(Machines
                 .Where(m => text.Contains(m.Needle, StringComparison.Ordinal))
                 .Select(m => $"{Path.GetFileName(path)} carries '{m.Needle}' - {m.Why}"));
+
+            if (Capturer is { Length: > 2 }
+                && text.Contains(Capturer, StringComparison.OrdinalIgnoreCase))
+            {
+                found.Add($"{Path.GetFileName(path)} names the user running this build, which "
+                        + "is how a capture ships somebody without shipping a path");
+            }
         }
 
         await Assert.That(found).IsEmpty()
@@ -105,6 +126,20 @@ public class FixtureCleanlinessTests
             }
 
             using var document = JsonDocument.Parse(first);
+
+            // A PLUGIN'S SERVER IS THE OPERATOR'S; a configured one is the
+            // run's. `gg` and `tracker` are why the nomination capture exists
+            // and stay; `plugin:slack:slack` says which plugins somebody has
+            // installed, which is the same leak the empty plugins array just
+            // closed one field over.
+            if (document.RootElement.TryGetProperty("mcp_servers", out var servers)
+                && servers.ValueKind == JsonValueKind.Array
+                && servers.EnumerateArray().Any(x =>
+                    x.TryGetProperty("name", out var n)
+                    && (n.GetString() ?? "").StartsWith("plugin:", StringComparison.Ordinal)))
+            {
+                offenders.Add($"{Path.GetFileName(path)}.mcp_servers names a plugin's server");
+            }
 
             foreach (var member in (string[])["skills", "slash_commands", "plugins"])
             {

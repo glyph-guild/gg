@@ -42,7 +42,7 @@ public class BundleRedactionTests
     /// </remarks>
     private const string Needle = "ghp_liveChannelNeedle3QY7bB1kZr";
 
-    private static EnvironmentIdentity AnEnvironment() => new()
+    internal static EnvironmentIdentity AnEnvironment() => new()
     {
         HostFingerprint = "b8c1f0a9",
         Locks = [],
@@ -50,7 +50,7 @@ public class BundleRedactionTests
         Provenance = EnvironmentProvenance.Fresh,
     };
 
-    private static DoctorReport AReport() => new()
+    internal static DoctorReport AReport() => new()
     {
         Checks =
         [

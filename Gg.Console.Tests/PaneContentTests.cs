@@ -80,7 +80,7 @@ public class PaneContentTests
     }
 
     [Test]
-    public async Task A_boot_that_partly_fails_shows_what_it_got()
+    public async Task A_read_that_fails_costs_one_read_rather_than_the_console()
     {
         // S28.2-08, and rule 5's third sentence: `failed to load` is not
         // `empty`. The credential read is the one that can fail on its own

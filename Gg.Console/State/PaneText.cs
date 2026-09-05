@@ -214,7 +214,15 @@ public static class PaneText
         if (state.Payload is not { } payload)
         {
             // SAID, not blank. A pane with nothing in it reads as one that failed to load.
-            return state.Flight is null
+            //
+            // ON THE SELECTION, NOT ON THE FLIGHT. The question this sentence
+            // answers is "has anybody selected anything", and Flight answers
+            // "did that row's detail load" - two questions that were the same
+            // only while nothing assigned Flight at all. They are different
+            // now: the reducer leaves Flight null for a row it loaded nothing
+            // for, deliberately, so keying on it would tell somebody with a row
+            // highlighted that they had selected nothing.
+            return state.Selected is null
                 ? "No flight selected."
                 : "Nothing is waiting on you for this flight.";
         }

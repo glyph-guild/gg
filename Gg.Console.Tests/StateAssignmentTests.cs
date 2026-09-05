@@ -129,6 +129,15 @@ public class StateAssignmentTests
         {
             ["Notices"] = "step 4, S28.4-06. WhoAmI carries them and PaneText draws them, "
                         + "and a tenant degradation nobody is shown is one nobody acts on.",
-            ["Payload"] = "step 2: the gate's evidence, which the modal opens onto.",
+            // MOVED FROM STEP 2 TO STEP 6, with the reason it could not be step
+            // 2's: NO VERB PRODUCES A GateEvidencePayload. ConsoleData offers
+            // eighteen reads and none returns one, and `why` answers a
+            // FlightAttribution instead - so this is not a fetch somebody
+            // forgot to call, it is a field with no possible source. Wired to a
+            // read that does not exist yet, or deleted with the renderer above
+            // it.
+            ["Payload"] = "step 6: no verb produces a GateEvidencePayload at all, so this "
+                        + "cannot be filled by calling something - it needs a read to exist "
+                        + "first, or the field and its renderer both go.",
         };
 }

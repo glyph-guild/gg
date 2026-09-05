@@ -309,6 +309,145 @@ public static class TranscriptDigest
     /// handed: it reads no file, starts no process and reaches no network.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether this run asked for a decision and then stopped.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Declared, never inferred.</b> The evidence is a successful call to
+    /// the help tool - a <c>tool_use</c> block with a <c>tool_result</c> that
+    /// did not error - and never the closing prose. A classifier over
+    /// repository content is injectable: a file in a customer's tree could make
+    /// a flight declare itself blocked, or keep a genuinely stuck one quiet. A
+    /// tool call the agent chose to make is a narrower thing to trust than a
+    /// sentence it was told to write.
+    /// </para>
+    /// <para>
+    /// <b>ASKED AND STOPPED versus ASKED AND THEN FINISHED, and the line is a
+    /// tree-changing call after the question.</b> An agent that asked and then
+    /// edited went on to do the work; one that asked and did nothing else
+    /// stopped; and one that asked and then re-read the file it was asking
+    /// about was still stopping - which is why the line is not <i>any later
+    /// tool call</i>. Anything read later than the tool stream - a turn count,
+    /// what the summary says - is the inference this refuses.
+    /// </para>
+    /// <para>
+    /// <b>A refused call is not a question</b>, the rule the nomination
+    /// extractor already follows one tool over. A flight recorded as waiting on
+    /// a question nobody received waits for ever.
+    /// </para>
+    /// <para>
+    /// <b>The tool names arrive as an argument, and a guard in this file's own
+    /// suite is why.</b> Which tools can put bytes on disk is the launcher's
+    /// knowledge, and naming it here would make this file reference the thing
+    /// that invokes a model - which the digest path structurally may not do,
+    /// because a digest produced by a model is a claim rather than a fact and
+    /// carries whatever the transcript told it to. Handed in, this stays a pure
+    /// function of what it is given and there is still one mapping.
+    /// </para>
+    /// </remarks>
+    /// <param name="transcript">The stream, as it was written.</param>
+    /// <param name="changeTheTree">
+    /// What the tools that can put bytes on disk are called, handed in by
+    /// whoever launched the agent.
+    /// </param>
+    public static bool Blocked(string transcript, IReadOnlyList<string> changeTheTree)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+        ArgumentNullException.ThrowIfNull(changeTheTree);
+
+        // Positions rather than a flag, because what decides this is ORDER: the
+        // last successful question, against the last call that could have
+        // changed the tree. Two passes over one walk, because a result always
+        // follows its call and nothing guarantees they are adjacent.
+        var asked = new List<(string Id, int At)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+        var changed = -1;
+        var at = 0;
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                // A half-written last line is ordinary while a file is still
+                // being appended to, and throwing would lose every signal
+                // before it. The digest's own rule beside it.
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    at++;
+
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            if (Named(block) is { } tool)
+                            {
+                                if (string.Equals(
+                                    tool, HelpTool.Qualified, StringComparison.Ordinal)
+                                    && block.TryGetProperty("id", out var callId)
+                                    && callId.GetString() is { Length: > 0 } identifier)
+                                {
+                                    asked.Add((identifier, at));
+                                }
+                                else if (changeTheTree.Contains(tool, StringComparer.Ordinal))
+                                {
+                                    changed = at;
+                                }
+                            }
+
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        for (var i = asked.Count - 1; i >= 0; i--)
+        {
+            if (answered.Contains(asked[i].Id))
+            {
+                return changed < asked[i].At;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? Named(JsonElement block) =>
+        block.TryGetProperty("name", out var name) ? name.GetString() : null;
+
     public static Gg.Contracts.FlightNomination? Nomination(string transcript)
     {
         ArgumentNullException.ThrowIfNull(transcript);

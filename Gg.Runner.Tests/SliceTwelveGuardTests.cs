@@ -37,6 +37,7 @@ public class SliceTwelveGuardTests
     /// byte-identical facts.
     /// </remarks>
     /// <remarks>
+    /// <para>
     /// <b>Moved to 0.18.0 by slice twenty-seven, and this time a KIND was
     /// added — so slice twelve's decision has to be re-argued rather than
     /// noted.</b> <c>flight.nomination</c> is the work kind a classifier
@@ -46,8 +47,18 @@ public class SliceTwelveGuardTests
     /// produced by a loop inside it, ships on that flight's lease, and is
     /// keyed on that flight's id. It is not a flightless path grafted under
     /// the fact name, which is what slice twelve refused.
+    /// </para>
+    /// <para>
+    /// <b>Moved to 0.19.0 by slice twenty-five, and NO kind was added — so
+    /// slice twelve's decision is noted rather than re-argued.</b> The surface
+    /// moved because <c>LoopOutcomes</c> is part of it and it grew a fourth
+    /// value, <c>blocked</c>: an agent that asked for a decision it is not
+    /// allowed to make and stopped. Nothing new crosses; the count below is
+    /// unchanged, which is exactly the shape this guard was built to make
+    /// visible — a version move a reviewer sees, with a ledger row behind it,
+    /// and no new fact smuggled in beside it.
     /// </remarks>
-    private const string VocabularyAtSliceStart = "0.18.0";
+    private const string VocabularyAtSliceStart = "0.19.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

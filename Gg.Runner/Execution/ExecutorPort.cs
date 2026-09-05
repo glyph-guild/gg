@@ -300,6 +300,28 @@ public sealed record ExecutorRun
         };
 
     /// <summary>
+    /// It asked for a decision and stopped - waiting on a person, not broken
+    /// and not finished.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carries the agent's own words like a completion does</b>, because the
+    /// question it asked is on its own fact and this reason is the account of
+    /// the run around it. Two facts, not one state: what was asked, and what
+    /// the run then did.
+    /// </remarks>
+    public static ExecutorRun Blocked(
+        string loopId, string reason, int attempts, TimeSpan took, IReadOnlyList<string> movesUsed) =>
+        new()
+        {
+            LoopId = loopId,
+            Outcome = LoopOutcomes.Blocked,
+            Reason = Clean(reason),
+            Attempts = attempts,
+            DurationMs = (long)took.TotalMilliseconds,
+            MovesUsed = Distinct(movesUsed),
+        };
+
+    /// <summary>
     /// Out of budget - a real state rather than an error.
     /// </summary>
     /// <remarks>

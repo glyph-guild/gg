@@ -118,6 +118,30 @@ internal static class ConsoleDoubles
         }
     }
 
+    /// <summary>
+    /// A take session that records being asked and hands nothing back.
+    /// </summary>
+    /// <remarks>
+    /// The subject is whether the loop REACHES a take session, not what one
+    /// does with a tree. A double that simulated a takeover would be answering
+    /// a question nothing here asks.
+    /// </remarks>
+    internal sealed class NeverTakes : ITakeSession
+    {
+        internal int Asked { get; private set; }
+
+        public TakeResult Take(TakeRequest request)
+        {
+            Asked++;
+
+            return new TakeResult
+            {
+                Held = TimeSpan.Zero,
+                Placement = new Gg.Client.SeedPlacement.Clipboard(),
+            };
+        }
+    }
+
     /// <summary>An editor that hands back whatever it was given.</summary>
     /// <remarks>
     /// For the many tests whose subject is not the editor. One that recorded or

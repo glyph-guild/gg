@@ -42,9 +42,14 @@ namespace Gg.Runner.Tests;
 public class DigestTruthTests
 {
     /// <summary>The tree the fixture's run happened in, so paths come out relative.</summary>
-    private const string TreeRoot =
-        "/private/var/folders/fl/bwf17f0s1wxfcpkn189580mr0000gn/T/gg-tree-tests/"
-      + "b422cee1ec30425ca3acdc925d3fc5eb/trees/flight-1/11ac24ec5e95ee44";
+    /// <remarks>
+    /// <b>Neutral, and rewritten in the capture to match.</b> It used to be the
+    /// per-user macOS temporary directory the run really happened in, which is
+    /// a machine this public repository has no business naming - see
+    /// <c>FixtureCleanlinessTests</c>. What the digest does with it is
+    /// relativise, so the value only has to agree with the capture.
+    /// </remarks>
+    private const string TreeRoot = "/work/tree";
 
     private static string Fixture(string name)
     {

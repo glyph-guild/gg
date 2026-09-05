@@ -1,3 +1,4 @@
+using Gg.Local;
 using Gg.Contracts;
 using Gg.Contracts.Description;
 
@@ -38,6 +39,14 @@ public class ConsoleRefreshTests
         Reason = QueueReason.AwaitingDecision,
         Since = T0,
     };
+
+    /// <summary>A console with a browsed row under the cursor.</summary>
+    private static AppState Browsing() =>
+        Reducer.Browsed(
+            Booted() with { BrowseVisible = true },
+            "a-tracker",
+            new BrowseOutcome.Listed(new WorkItemPage(
+                [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));
 
     private static AppState Booted() => new()
     {
@@ -181,6 +190,57 @@ public class ConsoleRefreshTests
                    + "the failure mode this console has hit four times.");
     }
 
+    // ---- S29.5-04, wired here at slice twenty-nine's author's request ----
+
+    [Test]
+    public async Task A_flight_opened_from_a_browsed_row_grows_the_queue()
+    {
+        var reload = new Reloads(Booted() with { Queue = [Row("a", 1), Row("b", 2)] });
+        var ui = new Presses(Command.FlyPicked);
+
+        new ConsoleLoop(ui, new NoEditor(), actions: new Answers(), reload: reload.Load)
+            .Run(Browsing());
+
+        await Assert.That(reload.Calls).IsEqualTo(1)
+            .Because("a flight opened from the browser is a flight the queue does not have.");
+    }
+
+    [Test]
+    public async Task A_duplicate_warning_does_not_touch_the_queue()
+    {
+        // THE ONE THAT MATTERS MOST. The confirmation has opened NOTHING yet and
+        // is asking about a row; rebuilding the queue underneath it is how a
+        // person ends up answering a question about something they are no longer
+        // looking at.
+        var reload = new Reloads(Booted());
+        var ui = new Presses(Command.FlyPicked);
+
+        var final = new ConsoleLoop(
+            ui, new NoEditor(), actions: new Answers(alreadyFlown: "GG-7 already flew this"),
+            reload: reload.Load).Run(Browsing());
+
+        await Assert.That(final.Mode).IsEqualTo(UiMode.ConfirmFlight)
+            .Because("the fixture has to actually reach the question, or this asserts about "
+                   + "the wrong ending.");
+        await Assert.That(reload.Calls).IsEqualTo(0)
+            .Because("nothing has been opened, so there is nothing new to read - and reading "
+                   + "would move the ground under an open question.");
+    }
+
+    [Test]
+    public async Task Nothing_selected_does_not_touch_the_queue()
+    {
+        var reload = new Reloads(Booted());
+        var ui = new Presses(Command.FlyPicked);
+
+        new ConsoleLoop(ui, new NoEditor(), actions: new Answers(), reload: reload.Load)
+            .Run(Booted() with { BrowseVisible = true });
+
+        await Assert.That(reload.Calls).IsEqualTo(0)
+            .Because("no row was picked, so no flight was opened, so nothing changed to "
+                   + "re-read.");
+    }
+
     private sealed class Throws
     {
         internal AppState Load(AppState _) =>
@@ -197,7 +257,7 @@ public class ConsoleRefreshTests
         public string Edit(string initialText) => "look at the thing";
     }
 
-    private sealed class Answers : IConsoleActions
+    private sealed class Answers(string? alreadyFlown = null) : IConsoleActions
     {
         public string Decide(string flight, string obligation, bool approved, string? reason) =>
             "decided";
@@ -206,7 +266,7 @@ public class ConsoleRefreshTests
 
         public string FlyTicket(string provider, string id) => "opened";
 
-        public string? AlreadyFlown(string provider, string id) => null;
+        public string? AlreadyFlown(string provider, string id) => alreadyFlown;
 
         public string AddCredential() => "registered";
 

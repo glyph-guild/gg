@@ -163,9 +163,24 @@ public sealed class ConsoleLoop(
                     // OPEN. Pressing it fresh asks; pressing 'y' inside the
                     // confirmation answers. The keymap binds different keys for
                     // the two, so nothing here depends on a person's timing.
+                    //
+                    // AND ONLY ONE OF THE THREE ENDINGS RE-READS. Nothing
+                    // selected opened nothing; a duplicate warning has opened
+                    // nothing YET and is asking about a row - reloading under it
+                    // would rebuild the queue beneath a question, which is how a
+                    // person ends up answering about something they are no
+                    // longer looking at. A flight actually opened is a flight
+                    // the queue does not have.
+                    bool opened;
                     state = state.PendingFlight is null
-                        ? FlewPicked(state, actions)
-                        : ConfirmedFlight(state, actions);
+                        ? FlewPicked(state, actions, out opened)
+                        : ConfirmedFlight(state, actions, out opened);
+
+                    if (opened)
+                    {
+                        state = Reloaded(state, reload, asked: false);
+                    }
+
                     break;
 
                 case Command.Invite:
@@ -420,6 +435,32 @@ public sealed class ConsoleLoop(
     /// through a whole session. The alternative is a test that presses keys to
     /// check a string is absent, which is a worse test of the same thing.
     /// </remarks>
+    /// <remarks>
+    /// <b>An overload rather than a changed signature</b>, because eight tests
+    /// call the three-less one and none of them is asking this question. What
+    /// the loop needs and they do not is whether a flight was actually OPENED -
+    /// three of this method's four endings open nothing, and only one of them
+    /// is worth re-reading the queue for.
+    /// </remarks>
+    public static AppState FlewPicked(
+        AppState state, IConsoleActions? actions, out bool opened)
+    {
+        var before = state.LastFlightOpened;
+        var after = FlewPicked(state, actions);
+
+        // OPENED means a flight exists that did not before: not the refusal, not
+        // the "nothing is selected" sentence, and NOT the confirmation - which
+        // has opened nothing yet and is waiting to be answered.
+        opened = after.PendingFlight is null
+              && after.Mode != UiMode.ConfirmFlight
+              && !ReferenceEquals(after.LastFlightOpened, before)
+              && after.LastFlightOpened is { Length: > 0 }
+              && !after.LastFlightOpened.StartsWith("Nothing was opened", StringComparison.Ordinal)
+              && !after.LastFlightOpened.StartsWith("This console is not", StringComparison.Ordinal);
+
+        return after;
+    }
+
     public static AppState FlewPicked(AppState state, IConsoleActions? actions)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -481,6 +522,17 @@ public sealed class ConsoleLoop(
     /// resolving the selection again would open a flight for whatever is under
     /// the cursor now rather than what was asked about.
     /// </remarks>
+    /// <remarks>The overload's reason is <see cref="FlewPicked"/>'s.</remarks>
+    public static AppState ConfirmedFlight(
+        AppState state, IConsoleActions? actions, out bool opened)
+    {
+        var asked = state.PendingFlight is not null;
+        var after = ConfirmedFlight(state, actions);
+
+        opened = asked && actions is not null;
+        return after;
+    }
+
     public static AppState ConfirmedFlight(AppState state, IConsoleActions? actions)
     {
         ArgumentNullException.ThrowIfNull(state);

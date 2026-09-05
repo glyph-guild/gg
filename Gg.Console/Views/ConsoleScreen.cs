@@ -286,11 +286,12 @@ public sealed class ConsoleScreen : Window
     private void OnQueueSelectionChanged(object? sender, ValueChangedEventArgs<int?> args)
     {
         // The list is an input device here, not a second store: the model
-        // decides what is selected and the view reports what was clicked.
-        var wanted = args.NewValue ?? 0;
-        if (wanted != State.SelectedRow)
+        // decides what is selected and the view reports what was clicked. What
+        // a change MEANS is QueueSelection's, because a redraw raises this event
+        // twice and neither raise is a person.
+        if (QueueSelection.Wanted(args.NewValue, State.SelectedRow) is { } command)
         {
-            State = Reducer.Reduce(State, wanted > State.SelectedRow ? Command.SelectNext : Command.SelectPrevious);
+            State = Reducer.Reduce(State, command);
             Render();
         }
     }

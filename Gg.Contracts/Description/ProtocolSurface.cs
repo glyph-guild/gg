@@ -1080,7 +1080,8 @@ public static class ProtocolSurface
             [typeof(DestinationAdmission)] =
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
-                ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion", "resumesFrom"],
+                ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion", "resumesFrom",
+                 "instructions"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],

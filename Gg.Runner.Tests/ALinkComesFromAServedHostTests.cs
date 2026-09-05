@@ -358,18 +358,20 @@ public class ALinkIsCheckedBeforeAnythingIsFetchedTests
     }
 
     [Test]
-    public async Task The_local_carve_out_is_the_provider_the_adapter_actually_reads_as_a_root()
+    public async Task A_relative_root_is_still_read_as_a_host_and_the_limit_is_deliberate()
     {
-        // NAMED FROM THE ADAPTER, never spelled twice. The carve-out is only
-        // correct for the provider whose declaration HttpsGitVcsAdapter hands
-        // to LocalVcsAdapter as a root; if that key ever changes, this test is
-        // what makes the exemption move with it rather than quietly cover the
-        // wrong provider.
+        // THE EDGE THE RULE DOES NOT COVER, asserted so it is a decision rather
+        // than a surprise. HttpsGitVcsAdapter resolves a relative root against
+        // the working directory, so `local=repos` IS a root - and from here it
+        // is indistinguishable from a hostname. Refusing is the honest answer;
+        // guessing would put the ambiguity back one layer down.
         var refusal = HostDeclaration.Unserved(
             LocalVcsAdapter.ProviderKey,
             "https://forge.example/acme/invoices/tree/main",
-            Declaring($"{LocalVcsAdapter.ProviderKey}=/srv/repos"));
+            Declaring($"{LocalVcsAdapter.ProviderKey}=repos"));
 
-        await Assert.That(refusal).IsNull();
+        await Assert.That(refusal).IsNotNull()
+            .Because("a relative root and a hostname are the same string, and this function "
+                   + "cannot tell them apart. Declare an absolute root.");
     }
 }

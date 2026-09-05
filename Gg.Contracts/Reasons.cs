@@ -39,10 +39,10 @@ public sealed record Reason
 
     /// <summary>The facts the sentence names, in the order the grammar reads them.</summary>
     /// <remarks>
-    /// <b>The accessor delivers that, and the initializer does not.</b> Every
-    /// serialized contract type has a required member, so System.Text.Json
-    /// builds it through the parameterized creator, which assigns every member
-    /// from its argument array - this one as null when the key is absent,
+    /// <b>The accessor delivers that, and the initializer does not.</b> This
+    /// member is init-only, so System.Text.Json cannot set it after
+    /// construction and builds the object through a creator that assigns every
+    /// member from an argument array - this one as null when the key is absent,
     /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
     /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
     /// holds it for the whole contract.

@@ -89,13 +89,15 @@ public class AbsentCollectionsSurviveTheWireTests
 
             foreach (var property in Optional(type))
             {
-                // WHAT A DESERIALIZER LEAVES BEHIND. Every wire type here has a
-                // required member, so System.Text.Json builds it through the
-                // parameterized creator and assigns EVERY member from its
-                // argument array - the optional ones included, as null when the
-                // key is absent. The backing field of an uninitialized object is
-                // in exactly that state, so this reads what a reader reads after
-                // a sender one version behind omits the key.
+                // WHAT A DESERIALIZER LEAVES BEHIND. These members are
+                // init-only, so System.Text.Json cannot assign them after
+                // construction and builds the object through a creator that
+                // assigns EVERY member at once from an argument array - the
+                // optional ones included, as null when the key is absent, over
+                // the initializer. The backing field of an uninitialized object
+                // is in that same state, so this reads what a reader reads after
+                // a sender one version behind omits the key. The test above
+                // checks that premise rather than trusting this paragraph.
                 var blank = RuntimeHelpers.GetUninitializedObject(type);
 
                 object? read;
@@ -122,6 +124,54 @@ public class AbsentCollectionsSurviveTheWireTests
                    + "accessor, or declare the member nullable because absence MEANS "
                    + "something. Found: " + string.Join(", ", offenders));
     }
+
+    [Test]
+    public async Task The_premise_the_sweep_rests_on_is_checked_rather_than_asserted()
+    {
+        // THE SIMULATION IS ONLY FAITHFUL FOR ONE KIND OF MEMBER, and until now
+        // this file stated that in a comment - which is the shape of defect the
+        // whole class exists to catch, sitting in the class itself.
+        //
+        // An init-only property cannot be assigned after construction, so
+        // System.Text.Json builds the object through a creator that assigns
+        // EVERY member at once from an argument array. An absent key contributes
+        // default(T), so the assignment writes null OVER the initializer, and an
+        // uninitialized object is in that same state. A settable property is
+        // different: the deserializer can set it afterwards and simply does not
+        // when the key is absent, so the initializer survives and reading an
+        // uninitialized one would report a defect that cannot happen.
+        //
+        // I GOT THIS WRONG TWICE BEFORE CHECKING IT. First "the initializer does
+        // not run on the deserialization path" - it runs and is overwritten.
+        // Then "every wire type has a required member, which is what forces the
+        // creator" - NamedEnvelopeApply has none and takes that path anyway,
+        // because init-only is what forces it. Both were stated confidently in
+        // prose and neither was measured; a peer sweeping the same bug next door
+        // made the per-type version of the same mistake. The unit here turns out
+        // to be smaller than either of us assumed: it is the member.
+        var settable = CrossesTheBoundary()
+            .SelectMany(type => Optional(type).Select(p => (Type: type, Property: p)))
+            .Where(m => !IsInitOnly(m.Property))
+            .Select(m => $"{m.Type.Name}.{m.Property.Name}")
+            .ToList();
+
+        await Assert.That(settable).IsEmpty()
+            .Because("this sweep reads an uninitialized object to stand for one the "
+                   + "deserializer built, which holds only where the member is assigned "
+                   + "by the creator. A settable member keeps its initializer across an "
+                   + "absent key, so sweeping one would report a defect it does not have "
+                   + "- it must be excluded deliberately rather than swept by accident. "
+                   + "Found: " + string.Join(", ", settable));
+    }
+
+    /// <summary>
+    /// Whether the deserializer must assign this member at construction, which
+    /// is what makes an uninitialized object stand for a deserialized one.
+    /// </summary>
+    private static bool IsInitOnly(PropertyInfo property) =>
+        property.SetMethod is { } setter
+        && setter.ReturnParameter.GetRequiredCustomModifiers()
+            .Any(modifier => modifier.Name == "IsExternalInit");
 
     [Test]
     public async Task The_sweep_reaches_types_an_envelope_never_touches()

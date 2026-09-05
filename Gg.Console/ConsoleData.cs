@@ -333,8 +333,21 @@ public static class ConsoleProjection
     /// than stubbed - a row that could never appear is worse than a short
     /// queue, because it makes the queue look like it covers more than it does.
     /// </remarks>
+    /// <param name="gates">
+    /// What is waiting on a person, which is the reason this pane exists.
+    /// </param>
+    /// <remarks>
+    /// <b>Gates were not among these arguments, and that is why the pane could
+    /// not show the case it was named for.</b> <c>QueueReason.AwaitingDecision</c>
+    /// was declared, rendered, and produced by nothing - a tenant whose flights
+    /// were all waiting on somebody was told <i>nothing needs you</i>. The gates
+    /// were already fetched at boot, six lines after this call, for the modal.
+    /// </remarks>
     public static IReadOnlyList<QueueRow> Queue(
-        FlightList flights, IReadOnlyDictionary<string, FlightLog> logs, RunnerList runners)
+        FlightList flights,
+        IReadOnlyDictionary<string, FlightLog> logs,
+        RunnerList runners,
+        GateList? gates = null)
     {
         ArgumentNullException.ThrowIfNull(flights);
         ArgumentNullException.ThrowIfNull(logs);
@@ -342,8 +355,36 @@ public static class ConsoleProjection
 
         var rows = new List<QueueRow>();
 
+        // SINCE WHEN SOMEBODY HAS BEEN WAITING, per flight, and the EARLIEST of
+        // them: a flight with two open gates is one row, and how long it has
+        // been waiting is how long the first of them has. Keyed by the number
+        // because that is what a gate names - it is what a person types.
+        var waiting = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+        foreach (var gate in gates?.Gates ?? [])
+        {
+            waiting[gate.FlightNumber] =
+                waiting.TryGetValue(gate.FlightNumber, out var already)
+                && already <= gate.AwaitingSince
+                    ? already
+                    : gate.AwaitingSince;
+        }
+
         foreach (var flight in flights.Flights)
         {
+            // A DECISION FIRST, before any trouble. One row per flight, and when
+            // a flight is both gated and stranded the reason shown is the one a
+            // person can DO something about - the other is a diagnosis.
+            //
+            // AND IT NEEDS NO LOG, unlike the two below it. A gate is a fact
+            // about a person waiting; the flight's log has nothing to add to it,
+            // so a flight whose log failed to load is still shown as needing
+            // somebody rather than silently dropped.
+            if (waiting.TryGetValue(flight.FlightNumber, out var since))
+            {
+                rows.Add(Row(flight, QueueReason.AwaitingDecision, since));
+                continue;
+            }
+
             if (!logs.TryGetValue(flight.FlightId, out var log))
             {
                 continue;

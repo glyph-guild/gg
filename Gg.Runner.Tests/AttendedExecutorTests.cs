@@ -1,8 +1,11 @@
 using System.Diagnostics;
 using System.Reflection;
 using Gg.Contracts;
+using Gg.Contracts.Description;
 using Gg.Local;
+using Gg.Runner;
 using Gg.Runner.Execution;
+using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
 
@@ -219,7 +222,7 @@ public class AttendedExecutorTests
         var spawned = new List<ProcessStartInfo>();
         var executor = new AttendedExecutor(
             "claude", [Tracker], announce: TextWriter.Null,
-            spawn: info => { spawned.Add(info); return 0; });
+            spawn: (info, _) => { spawned.Add(info); return Task.FromResult<int?>(0); });
 
         var run = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
@@ -283,6 +286,182 @@ public class AttendedExecutorTests
         await Assert.That(run.Outcome).IsEqualTo(LoopOutcomes.Failed);
     }
 
+    // ---- the loop around it: S26.1-01, S26.1-06, S26.1-08 ----
+
+    private static readonly DateTimeOffset T0 = new(2026, 9, 5, 9, 0, 0, TimeSpan.Zero);
+
+    /// <summary>A lease whose loop an attended session will fly.</summary>
+    private static LeaseGranted ALease(GitFixture fixture, int number, int wallClockSeconds = 600)
+        => new()
+    {
+        LeaseId = $"lease-{number}",
+        Generation = number,
+        FlightId = $"flight-{number}",
+        FlightNumber = FlightRef.Format(1000 + number),
+        Repos =
+        [
+            new LeaseRepoRef
+            {
+                Provider = LocalVcsAdapter.ProviderKey,
+                Slug = fixture.BarePath,
+                PinnedRef = "refs/heads/main",
+            },
+        ],
+        Credentials = [],
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
+        ExpiresAt = T0.AddMinutes(10),
+        RenewWithinSeconds = 5,
+        IntentUri = "https://forge.example/acme/widgets/issues/1",
+        Loop = new LeaseLoop
+        {
+            LoopId = "implement",
+            Executor = ExecutorRungs.Frontier,
+            Moves = [LoopMoves.Read, LoopMoves.Edit],
+            WallClockSeconds = wallClockSeconds,
+            OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+        },
+    };
+
+    /// <summary>
+    /// The real attended executor with a spawn that answers instead of taking a
+    /// terminal, driven by the real runner loop.
+    /// </summary>
+    /// <remarks>
+    /// <b>The real type rather than a double, deliberately.</b> What these three
+    /// assert is how the LOOP treats an attended executor, and a double
+    /// declaring itself unprobeable would prove the loop reads a flag rather
+    /// than that this executor sets it.
+    /// </remarks>
+    private static async Task<(List<ExecutorRequest> Seen, FakeProtocol Protocol)> FlownAsync(
+        bool holdUntilRenewed = false, int wallClockSeconds = 600)
+    {
+        using var fixture = new GitFixture();
+        using var trees = new ScratchTreeRoot();
+        var clock = new MovableClock(T0);
+        var protocol = new FakeProtocol();
+        protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, 1, wallClockSeconds)));
+
+        var seen = new List<ExecutorRequest>();
+
+        // A CHILD THAT IS STILL ALIVE, WITHOUT SLEEPING FOR IT. The person is at
+        // the keyboard until this completes, and what completes it is the
+        // renewal actually happening - so the test is a client of the loop's own
+        // event rather than of a duration somebody guessed.
+        var child = new TaskCompletionSource<int?>();
+        if (!holdUntilRenewed)
+        {
+            child.SetResult(0);
+        }
+
+        var executor = new AttendedExecutor(
+            "claude", [Tracker], announce: TextWriter.Null,
+            spawn: (info, _) => { seen.Add(Watching(info)); return child.Task; });
+
+        var observer = new RecordingObserver();
+        using var stopping = new CancellationTokenSource();
+        observer.OnEvent = e =>
+        {
+            if (e.StartsWith("renewed:", StringComparison.Ordinal))
+            {
+                child.TrySetResult(0);
+            }
+
+            if (e.StartsWith("released:", StringComparison.Ordinal))
+            {
+                stopping.Cancel();
+            }
+        };
+
+        await new RunnerLoop(protocol, clock,
+                (span, token) =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    clock.Advance(span);
+                    return Task.CompletedTask;
+                },
+                observer, new NoCredentialResolver(),
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
+                executor: executor)
+            {
+                HoldFor = TimeSpan.FromSeconds(3),
+            }
+            .RunAsync("runner-1", ["linux"], stopping.Token);
+
+        return (seen, protocol);
+    }
+
+    /// <summary>The launch, as a request, so a probe is recognisable by its loop id.</summary>
+    private static ExecutorRequest Watching(ProcessStartInfo info) => new()
+    {
+        WorkingDirectory = info.WorkingDirectory,
+        LoopId = info.WorkingDirectory.Contains("gg-move-probe", StringComparison.Ordinal)
+            ? "gg-move-bound-probe"
+            : "implement",
+        Moves = [],
+        WallClock = TimeSpan.FromMinutes(1),
+        TranscriptPath = "",
+    };
+
+    [Test]
+    public async Task No_probe_runs_for_an_attended_flight()
+    {
+        // NEITHER WAY ROUND WORKS, which is why this is a skip rather than a
+        // substitution. MoveBoundProbe.RunAsync INVOKES the port it is handed,
+        // against its own temp tree, with an ISSUE.md asking for two writes -
+        // so through this executor it hands a person a canary task, and through
+        // the headless one it measures a session other than the one it governs.
+        //
+        // The loop moved the probe to per-session precisely because "a
+        // measurement taken at startup measures the machine as it was before
+        // this session existed", and a headless reading stamped onto
+        // environment.identity as this flight's moveEnforcement would break the
+        // only claim the probe makes.
+        //
+        // So an attended flight's bound is UNMEASURED, and saying so is step 6's
+        // job. Quietly probing something else is what this stops.
+        var (seen, _) = await FlownAsync();
+
+        await Assert.That(seen.Any(r => r.WorkingDirectory.Contains(
+                "gg-move-probe", StringComparison.Ordinal))).IsFalse()
+            .Because("a person would have been asked to perform the probe's canary task.");
+    }
+
+    [Test]
+    public async Task The_loop_drives_it_through_the_same_call()
+    {
+        // S26.1-01. The loop holds ONE IExecutorPort and never asks which rung
+        // it is - the choice is made at composition, in the CLI. A branch here
+        // would mean the seam was in the wrong place, and the whole argument for
+        // this design is that everything either side of the call is unchanged.
+        var (seen, protocol) = await FlownAsync();
+
+        await Assert.That(seen.Count).IsEqualTo(1)
+            .Because("one session per lease, the same as the headless path.");
+
+        // In the flight's own materialized tree, not a scratch one.
+        await Assert.That(seen[0].WorkingDirectory).IsNotEmpty();
+
+        await Assert.That(protocol.Calls.Any(c => c.StartsWith("release:", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the lease goes back through the ordinary release, so the flight lands "
+                   + "at its destination through the ordinary decision.");
+    }
+
+    [Test]
+    public async Task The_lease_is_renewed_while_the_person_holds_the_terminal()
+    {
+        // S26.1-08, AND NO SLEEPS. The clock is injected and the child is a
+        // delegate; a person holding a terminal past the lease's expiry is the
+        // ordinary case rather than the exceptional one, and a lease that
+        // lapsed under them would hand their flight to the fleet mid-edit.
+        var (_, protocol) = await FlownAsync(holdUntilRenewed: true);
+
+        await Assert.That(protocol.Calls.Any(c => c.StartsWith("renew:", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the child outlived the lease and nothing renewed it.");
+    }
+
     private static AttendedExecutor Executor() =>
-        new("claude", [Tracker], announce: TextWriter.Null, spawn: _ => 0);
+        new("claude", [Tracker], announce: TextWriter.Null, spawn: (_, _) => Task.FromResult<int?>(0));
 }

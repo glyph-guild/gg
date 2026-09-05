@@ -181,10 +181,21 @@ public sealed class ReaderConversation(
     private async Task<(JsonDocument? Document, BrowseOutcome? Bad)?> ExchangeAsync(
         string request, CancellationToken cancellationToken)
     {
-        await _requests.WriteLineAsync(request);
-        await _requests.FlushAsync(cancellationToken);
+        try
+        {
+            await _requests.WriteLineAsync(request);
+            await _requests.FlushAsync(cancellationToken);
+        }
+        catch (Exception gone) when (gone is IOException or ObjectDisposedException)
+        {
+            // A BROKEN PIPE IS A CHILD THAT IS NOT THERE, and it is what a
+            // reader that died at startup actually produces - found by spawning
+            // one rather than by scripting a stream, which cannot break. Null
+            // here means "nothing came back", which the caller already words.
+            return null;
+        }
 
-        while (await _replies.ReadLineAsync(cancellationToken) is { } line)
+        while (await ReadLineAsync(cancellationToken) is { } line)
         {
             // BLANK LINES ARE NOT NARRATION. Framing whitespace is the one thing
             // a well-behaved server may emit that carries nothing.
@@ -210,6 +221,24 @@ public sealed class ReaderConversation(
         }
 
         return null;
+    }
+
+    /// <summary>One line from the child, or null where there will be no more.</summary>
+    /// <remarks>
+    /// A read can fail the same way a write can - the child exits between the
+    /// request and the answer - and an <c>IOException</c> reaching a redraw is
+    /// the failure <see cref="BrowseOutcome"/> exists to prevent.
+    /// </remarks>
+    private async Task<string?> ReadLineAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _replies.ReadLineAsync(cancellationToken);
+        }
+        catch (Exception gone) when (gone is IOException or ObjectDisposedException)
+        {
+            return null;
+        }
     }
 
     private string Request(string method, Action<Utf8JsonWriter>? parameters)

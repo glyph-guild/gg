@@ -37,7 +37,6 @@ public static class Reducer
             Command.ToggleEvidence => Reveal(state with { EvidenceVisible = !state.EvidenceVisible }),
             Command.ToggleLive => ToggleLive(state),
             Command.ToggleFreeze => ToggleFreeze(state),
-            Command.ToggleBrowse => ToggleBrowse(state),
 
             // Quit and OpenEditor end the UI session; the shell handles them.
             Command.Quit => state,
@@ -298,13 +297,21 @@ public static class Reducer
     /// rather than being drawn over them.
     /// </para>
     /// <para>
+    /// <b>NOT REACHABLE THROUGH <see cref="Reduce"/>, and a ratchet says so.</b>
+    /// <c>ToggleBrowse</c> is a shell command because showing this pane starts
+    /// a reader, and a shell command that ALSO has a reducer arm has two
+    /// effects - the local one happening whether or not the remote one did. So
+    /// the loop calls this directly, the way it already does for the data that
+    /// arrives from outside.
+    /// </para>
+    /// <para>
     /// <b>The listing survives hiding.</b> Somebody who closes the pane and
     /// opens it again should not pay for a second read of the tracker to see
     /// what they were just looking at - and the shell path means that read
     /// costs a whole session rebuild.
     /// </para>
     /// </remarks>
-    private static AppState ToggleBrowse(AppState state) => state with
+    public static AppState BrowseToggled(AppState state) => state with
     {
         BrowseVisible = !state.BrowseVisible,
         EvidenceVisible = false,

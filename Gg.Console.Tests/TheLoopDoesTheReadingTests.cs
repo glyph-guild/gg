@@ -33,8 +33,14 @@ public class TheLoopDoesTheReadingTests
         public UiOutcome Run(AppState state)
         {
             Saw.Add(state);
-            return new UiOutcome(state, _at < keys.Length ? keys[_at++] : Command.Quit);
+            return new UiOutcome(_at < keys.Length ? keys[_at++] : Command.Quit, state);
         }
+    }
+
+    /// <summary>An editor nothing here uses; the loop requires one.</summary>
+    private sealed class NoEditor : IEditorSession
+    {
+        public string Edit(string initialText) => initialText;
     }
 
     /// <summary>A reader that answers without a process.</summary>
@@ -61,7 +67,7 @@ public class TheLoopDoesTheReadingTests
         var reader = new Answers(OneItem);
         var ui = new Presses(Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new RecordingEditor(), browser: reader)
+        var final = new ConsoleLoop(ui, new NoEditor(), browser: reader)
             .Run(new AppState());
 
         await Assert.That(reader.Asked).IsEqualTo(1);
@@ -77,7 +83,7 @@ public class TheLoopDoesTheReadingTests
         // that crosses back, so the redraw must be able to draw the listing.
         var ui = new Presses(Command.ToggleBrowse);
 
-        _ = new ConsoleLoop(ui, new RecordingEditor(), browser: new Answers(OneItem))
+        _ = new ConsoleLoop(ui, new NoEditor(), browser: new Answers(OneItem))
             .Run(new AppState());
 
         await Assert.That(ui.Saw).Count().IsEqualTo(2)
@@ -94,7 +100,7 @@ public class TheLoopDoesTheReadingTests
         var reader = new Answers(OneItem);
         var ui = new Presses(Command.ToggleBrowse, Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new RecordingEditor(), browser: reader)
+        var final = new ConsoleLoop(ui, new NoEditor(), browser: reader)
             .Run(new AppState());
 
         await Assert.That(reader.Asked).IsEqualTo(1);
@@ -110,7 +116,7 @@ public class TheLoopDoesTheReadingTests
         // without a browser is the ordinary state of every runner in the fleet.
         var ui = new Presses(Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new RecordingEditor()).Run(new AppState());
+        var final = new ConsoleLoop(ui, new NoEditor()).Run(new AppState());
 
         await Assert.That(final.BrowseVisible).IsTrue();
         await Assert.That(final.Browse).IsNull()
@@ -126,7 +132,7 @@ public class TheLoopDoesTheReadingTests
         // last line: a bug in a reader must not end a person's session.
         var ui = new Presses(Command.ToggleBrowse);
 
-        var final = new ConsoleLoop(ui, new RecordingEditor(), browser: new Throws())
+        var final = new ConsoleLoop(ui, new NoEditor(), browser: new Throws())
             .Run(new AppState());
 
         await Assert.That(final.Browse).IsNotNull();

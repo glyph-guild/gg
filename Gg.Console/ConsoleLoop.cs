@@ -12,7 +12,8 @@ public sealed class ConsoleLoop(
     ITakeSession? take = null,
     IHandSession? hand = null,
     IConsoleActions? actions = null,
-    LiveTails? tails = null)
+    LiveTails? tails = null,
+    IWorkBrowser? browser = null)
 {
     public AppState Run(AppState initial)
     {
@@ -52,6 +53,25 @@ public sealed class ConsoleLoop(
                             ? "This console is not configured to register credentials."
                             : actions.AddCredential(),
                     };
+                    break;
+
+                case Command.ToggleBrowse:
+                    // THE READING HAPPENS HERE BECAUSE IT CANNOT HAPPEN THERE.
+                    // A UI session may read a local file and nothing else; a
+                    // reader is a child process. So the session ended, the loop
+                    // asks, and the next session is rebuilt from the model -
+                    // the same shape the editor and the take already use, for a
+                    // much smaller reason.
+                    //
+                    // Only on the way IN. Hiding costs nothing, and a read
+                    // costs a whole session rebuild on this path.
+                    state = Reducer.BrowseToggled(state);
+
+                    if (state.BrowseVisible && browser is not null)
+                    {
+                        state = Browsed(state, browser);
+                    }
+
                     break;
 
                 case Command.Invite:
@@ -263,6 +283,34 @@ public sealed class ConsoleLoop(
     /// account and the state says so, because an unconfirmed proposal stored as
     /// somebody's words attributes a guess to them.
     /// </remarks>
+    /// <summary>
+    /// Ask the reader, and turn whatever happens into something drawable.
+    /// </summary>
+    /// <remarks>
+    /// <b>The last line, and it catches.</b> <see cref="IWorkBrowser"/> answers
+    /// with an outcome and never throws, which is the contract - but a bug in
+    /// an implementation is not a failure that contract modelled, and a person
+    /// should not lose their console to one. The sentence says the fault is
+    /// here rather than at the tracker, because that is where to go and look.
+    /// </remarks>
+    private static AppState Browsed(AppState state, IWorkBrowser browser)
+    {
+        var key = browser.Key ?? "the reader";
+
+        try
+        {
+            return Reducer.Browsed(
+                state, key, browser.BrowseAsync(cursor: null, limit: 50, CancellationToken.None)
+                    .GetAwaiter().GetResult());
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return Reducer.Browsed(state, key, new BrowseOutcome.Unintelligible(
+                $"Browsing '{key}' failed inside this console rather than at the tracker: "
+              + problem.Message));
+        }
+    }
+
     private static AppState HandedBack(AppState state, IHandSession? hand)
     {
         if (hand is null || state.Selected is not { } row || state.TakeSeed is not { } seed)

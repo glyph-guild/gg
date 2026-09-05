@@ -950,6 +950,13 @@ public sealed class RunnerLoop(
                 // THE SAME DISPOSITION. Already rendered by the contract; the runner
                 // hands it over and the prompt says whose words it holds.
                 ResumesFrom = loop.ResumesFrom,
+                // AND AGAIN, for the operator's standing instructions. Composed
+                // and rendered control-plane-side in layer order with each block's
+                // provenance attached, so re-wrapping or re-ordering here would be
+                // the second rendering LeaseLoop.Instructions exists to prevent.
+                // Sitting beside ResumesFrom because it was the absence of exactly
+                // this line that left step two green with nothing reaching an agent.
+                Instructions = loop.Instructions,
                 // The first tree when there is one, and the flight's own
                 // directory when there is not. See WorkspaceResult.Root.
                 WorkingDirectory = workspace.Trees.Count > 0

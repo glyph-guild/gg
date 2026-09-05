@@ -95,7 +95,8 @@ public class StandingInstructionsReachTheLoopTests
         },
     };
 
-    private static async Task<CapturingExecutor> FlyAsync(string? instructions)
+    private static async Task<(CapturingExecutor Executor, FakeProtocol Protocol)> FlyAsync(
+        string? instructions)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -129,7 +130,7 @@ public class StandingInstructionsReachTheLoopTests
             }
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
-        return executor;
+        return (executor, protocol);
     }
 
     private static ExecutorRequest TheWorks(CapturingExecutor executor)
@@ -149,7 +150,7 @@ public class StandingInstructionsReachTheLoopTests
     [Test]
     public async Task A_lease_carrying_instructions_hands_them_to_the_executor_verbatim()
     {
-        var executor = await FlyAsync(Standing);
+        var (executor, _) = await FlyAsync(Standing);
 
         await Assert.That(TheWorks(executor).Instructions).IsEqualTo(Standing)
             .Because("the blocks are a rendered document; a runner that re-wrapped or "
@@ -160,11 +161,39 @@ public class StandingInstructionsReachTheLoopTests
     [Test]
     public async Task A_lease_with_no_instructions_carries_none()
     {
-        var executor = await FlyAsync(instructions: null);
+        var (executor, _) = await FlyAsync(instructions: null);
 
         await Assert.That(TheWorks(executor).Instructions).IsNull()
             .Because("an envelope that declares none renders a prompt byte for byte "
                    + "unchanged, and a synthesized empty block would be a policy "
                    + "nobody wrote.");
+    }
+
+    [Test]
+    public async Task Nothing_the_runner_reports_carries_an_instruction()
+    {
+        // S30.2-06, AND IT ONLY BECAME ASSERTABLE WITH THE LINE ABOVE. Until the
+        // runner carried the text there was no path for it to leak down, so a
+        // test written earlier would have passed against a feature that did not
+        // run - which is the failure mode this whole pair is about.
+        var (_, protocol) = await FlyAsync(Standing);
+
+        // LIVENESS FIRST. An absence over an empty collection is not a finding.
+        await Assert.That(protocol.ShippedFacts).IsNotEmpty()
+            .Because("with no facts shipped this asserts nothing.");
+        await Assert.That(protocol.Serialized).IsNotEmpty();
+
+        // EVERYTHING THE RUNNER SENDS, as bytes, rather than the payload members
+        // somebody thought to look at. An instruction is configuration the agent
+        // READ; a fact is something the flight MEASURED. Carrying the first back
+        // as the second would put an operator's standing policy into an evidence
+        // budget and into the digest a reviewer reads as findings.
+        foreach (var body in protocol.Serialized)
+        {
+            await Assert.That(body).DoesNotContain("Prefer the smallest change")
+                .Because("standing instructions are configuration the agent was given, "
+                       + "not something this flight measured.");
+            await Assert.That(body).DoesNotContain("Name the ticket in the branch");
+        }
     }
 }

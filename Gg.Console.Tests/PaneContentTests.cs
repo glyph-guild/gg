@@ -125,4 +125,23 @@ public class PaneContentTests
             .IsEqualTo(refreshed.Selected!.FlightNumber)
             .Because("and its log with it.");
     }
+
+    [Test]
+    public async Task The_boot_asks_who_it_is()
+    {
+        // WHAT A CONSTRUCTED STATE CANNOT SHOW. The projection tests prove a
+        // notice reaches the pane once a verb returns one; only the real boot
+        // can show that a verb is ASKED. A fresh tenant has no degradation to
+        // report, so asserting on the count would pass against no wiring at
+        // all - the request is the evidence.
+        var seeded = await AgainstARealControlPlaneTests.GatedAsync();
+
+        _ = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+
+        await Assert.That(seeded.Counter.Paths.Any(p =>
+                p.EndsWith("/v1/auth/whoami", StringComparison.Ordinal))).IsTrue()
+            .Because("AppState.Notices is drawn above every queue and was assigned by "
+                   + "nothing, because whoami was the one read verb with no value to "
+                   + "project. A degradation nobody is shown is one nobody acts on.");
+    }
 }

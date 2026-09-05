@@ -153,6 +153,42 @@ public sealed class VerbConsoleActions(
     }
 
     /// <summary>
+    /// Whether this work item has flown before, and what to say if it has.
+    /// </summary>
+    /// <remarks>
+    /// <b>A CHECK THAT CANNOT RUN IS NOT A CLEAN CHECK.</b> An unreachable
+    /// control plane answers the same way a duplicate does - with a sentence -
+    /// because treating "I could not ask" as "there are none" turns an outage
+    /// into duplicate flights nobody meant to open. The wording says which it
+    /// is, so a person answering knows what they are deciding.
+    /// </remarks>
+    public string? AlreadyFlown(string provider, string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(provider);
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        try
+        {
+            var flown = _data.FlownAsync(provider, id).GetAwaiter().GetResult();
+
+            if (flown is not VerbResult.Flights listed || listed.Value.Flights.Count == 0)
+            {
+                return null;
+            }
+
+            var names = string.Join(", ", listed.Value.Flights
+                .Select(f => f.FlightNumber is { Length: > 0 } number ? number : f.FlightId));
+
+            return $"{provider}#{id} has already been flown: {names}.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return $"This console could not check whether {provider}#{id} has already been "
+                 + $"flown — {refusal.Message}";
+        }
+    }
+
+    /// <summary>
     /// Registers a credential for a repository somebody names.
     /// </summary>
     /// <remarks>

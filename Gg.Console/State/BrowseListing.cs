@@ -58,3 +58,22 @@ public sealed record BrowseListing
     /// <summary>Why there are no items, already worded, or null.</summary>
     public string? Absence { get; init; }
 }
+
+/// <summary>
+/// A flight somebody asked for, waiting on an answer about a duplicate.
+/// </summary>
+/// <remarks>
+/// <b>The provider and id are carried, not re-derived.</b> The answer comes on
+/// a later keystroke, and by then the list may have scrolled or been read
+/// again - resolving the selection twice would open a flight for whatever is
+/// under the cursor now rather than what the question was about.
+/// </remarks>
+public sealed record PendingFlight
+{
+    public required string Provider { get; init; }
+
+    public required string Id { get; init; }
+
+    /// <summary>Why this is being asked, in the words the check produced.</summary>
+    public required string Why { get; init; }
+}

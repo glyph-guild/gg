@@ -91,6 +91,17 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
+        // A CONFIRMATION IS A MODAL LIKE ANY OTHER: it captures the keyboard,
+        // it has exactly one escape hatch, and escaping is a real answer. The
+        // confirming key is deliberately NOT the key that opened it - f twice
+        // in quick succession is the accident this whole question exists to
+        // catch.
+        UiMode.ConfirmFlight =>
+        [
+            new(KeyStroke.Char('y'), Command.FlyPicked, "open a second flight"),
+            new(KeyStroke.Esc, Command.CloseModal, "leave it alone"),
+        ],
+
         UiMode.FlightActions =>
         [
             new(KeyStroke.Esc, Command.CloseModal, "close"),

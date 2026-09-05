@@ -137,6 +137,9 @@ public class ConsoleLoopTests
     {
         public string Fly(string intent) => "opened";
 
+        /// <summary>Nothing has flown, which is these tests' subject-free case.</summary>
+        public string? AlreadyFlown(string provider, string id) => null;
+
         public string FlyTicket(string provider, string id) =>
             Fly($"{provider}#{id}");
         public string Decide(string flight, string obligation, bool approved, string? reason) => "decided";

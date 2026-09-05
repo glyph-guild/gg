@@ -391,6 +391,21 @@ public static class PaneText
         return text.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// The question asked before a second flight on one work item.
+    /// </summary>
+    /// <remarks>
+    /// <b>It names the item.</b> A modal saying "this already has a flight"
+    /// while a list scrolled underneath is a modal about nothing in particular,
+    /// and the answer would be given about whatever is on screen.
+    /// </remarks>
+    private static string ConfirmFlight(AppState state) =>
+        state.PendingFlight is not { } pending
+            ? ""
+            : $"{pending.Why}\n\n"
+            + $"Open a second flight for {pending.Provider}#{pending.Id}?\n"
+            + "Two flights on one work item is allowed, and is usually a mistake.";
+
     /// <summary>A one-character gutter, so kind survives into the rendering.</summary>
     public static string Marker(StreamLineKind kind) => kind switch
     {
@@ -427,6 +442,7 @@ public static class PaneText
         {
             UiMode.Help => Help(state),
             UiMode.FlightActions => Actions(state),
+            UiMode.ConfirmFlight => ConfirmFlight(state),
             _ => "",
         };
     }

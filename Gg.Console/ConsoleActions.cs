@@ -56,6 +56,17 @@ public interface IConsoleActions
     string FlyTicket(string provider, string id);
 
     /// <summary>
+    /// Why opening a flight for this work item deserves a second thought, or
+    /// null when it does not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Non-null is "ask the person", not "refuse".</b> Two flights on one
+    /// work item is legal and occasionally wanted. It is also what pressing a
+    /// key twice produces, which is why it is worth a question.
+    /// </remarks>
+    string? AlreadyFlown(string provider, string id);
+
+    /// <summary>
     /// Registers a credential, prompting for the repository and the value.
     /// </summary>
     /// <remarks>

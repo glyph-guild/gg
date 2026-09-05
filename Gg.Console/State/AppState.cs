@@ -21,6 +21,16 @@ public enum UiMode
     FlightActions,
 
     /// <summary>
+    /// A work item that already has a flight, and whether to open a second.
+    /// </summary>
+    /// <remarks>
+    /// A modal because the answer must be given before anything is opened, and
+    /// because the question has to name which item it is about - a person who
+    /// scrolled while reading it would otherwise answer about a different row.
+    /// </remarks>
+    ConfirmFlight,
+
+    /// <summary>
     /// Answering a gate: what is being decided, the evidence, and both answers.
     /// </summary>
     /// <remarks>
@@ -355,6 +365,14 @@ public sealed record AppState
     /// list and returning to a different flight than they left is the confusion
     /// two indices avoid.
     /// </remarks>
+    /// <summary>A flight this console has asked about but not opened.</summary>
+    /// <remarks>
+    /// <b>Held rather than passed</b>, because the answer arrives on a later
+    /// keystroke and the model is the only thing that survives a session. Null
+    /// is the ordinary state: nothing is waiting on an answer.
+    /// </remarks>
+    public PendingFlight? PendingFlight { get; init; }
+
     public int BrowseSelected { get; init; }
 
     public bool BrowseVisible { get; init; }

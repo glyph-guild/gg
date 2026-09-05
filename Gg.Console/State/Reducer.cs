@@ -27,7 +27,12 @@ public static class Reducer
             // clothing, which is the dangerous kind, because the demo works.
             Command.ApproveGate => state,
             Command.RejectGate => state,
-            Command.CloseModal => state with { Mode = UiMode.Normal },
+            // CLOSING A CONFIRMATION IS AN ANSWER, not a dismissal. Leaving
+            // PendingFlight behind would let the next 'y' - aimed at something
+            // else entirely - open the flight this person just declined.
+            Command.CloseModal => state.Mode == UiMode.ConfirmFlight
+                ? FlightDeclined(state)
+                : state with { Mode = UiMode.Normal },
 
             Command.FocusNextPane => state with { FocusedPane = NextVisible(state) },
 
@@ -331,6 +336,18 @@ public static class Reducer
             ? 0
             : Math.Clamp(to, 0, state.Browse.Items.Count - 1),
     };
+
+    /// <summary>The second flight is not wanted after all.</summary>
+    /// <remarks>
+    /// A pure state change, unlike confirming: declining opens nothing, so
+    /// there is nothing for the loop to do and this belongs in the reducer.
+    /// </remarks>
+    public static AppState FlightDeclined(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state with { Mode = UiMode.Normal, PendingFlight = null };
+    }
 
     public static AppState BrowseToggled(AppState state) => state with
     {

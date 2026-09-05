@@ -75,7 +75,13 @@ public sealed class ConsoleLoop(
                     break;
 
                 case Command.FlyPicked:
-                    state = FlewPicked(state, actions);
+                    // ONE KEY, TWO MEANINGS, DECIDED BY WHETHER A QUESTION IS
+                    // OPEN. Pressing it fresh asks; pressing 'y' inside the
+                    // confirmation answers. The keymap binds different keys for
+                    // the two, so nothing here depends on a person's timing.
+                    state = state.PendingFlight is null
+                        ? FlewPicked(state, actions)
+                        : ConfirmedFlight(state, actions);
                     break;
 
                 case Command.Invite:
@@ -348,12 +354,61 @@ public sealed class ConsoleLoop(
             };
         }
 
+        var id = listing.Items[state.BrowseSelected].Id;
+
+        // ASKED BEFORE ANYTHING IS OPENED. Two flights on one work item is
+        // legal and usually a mistake, and it is exactly what pressing a key
+        // twice produces. A console that refused would decide something the
+        // control plane allows.
+        if (actions.AlreadyFlown(listing.ProviderKey, id) is { Length: > 0 } why)
+        {
+            return state with
+            {
+                Mode = UiMode.ConfirmFlight,
+                PendingFlight = new PendingFlight
+                {
+                    Provider = listing.ProviderKey,
+                    Id = id,
+                    Why = why,
+                },
+            };
+        }
+
         // TWO VALUES, DECLARED. Not the title, which is what a person read and
         // not what a flight is called, and not the url, which is not even held.
         return state with
         {
-            LastFlightOpened = actions.FlyTicket(
-                listing.ProviderKey, listing.Items[state.BrowseSelected].Id),
+            LastFlightOpened = actions.FlyTicket(listing.ProviderKey, id),
+        };
+    }
+
+    /// <summary>
+    /// Open the second flight after all.
+    /// </summary>
+    /// <remarks>
+    /// <b>From the question, not from the selection.</b> The answer arrives on
+    /// a later keystroke and the list may have scrolled or been re-read since;
+    /// resolving the selection again would open a flight for whatever is under
+    /// the cursor now rather than what was asked about.
+    /// </remarks>
+    public static AppState ConfirmedFlight(AppState state, IConsoleActions? actions)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.PendingFlight is not { } pending)
+        {
+            // Nothing was asked, so nothing is confirmed. A key reaching here
+            // otherwise would open a flight for the last thing selected.
+            return state;
+        }
+
+        return state with
+        {
+            Mode = UiMode.Normal,
+            PendingFlight = null,
+            LastFlightOpened = actions is null
+                ? "This console is not configured to open flights."
+                : actions.FlyTicket(pending.Provider, pending.Id),
         };
     }
 

@@ -117,6 +117,23 @@ public class AToolServerThatDidNotStartTests
         await Assert.That(ToolServers.Unstarted("")).IsNull();
     }
 
+    [Test]
+    public async Task The_result_record_is_not_read_for_this()
+    {
+        // THE WORSE LIE. The result record carries the same list at the END of a
+        // run, so a server that connected and later dropped would turn a run
+        // that actually happened into a refusal saying nothing was spent. What
+        // is being asked is whether the agent STARTED without a tool it was
+        // offered, and only the opening line answers that.
+        var ended =
+            "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,"
+          + "\"mcp_servers\":[{\"name\":\"gg\",\"status\":\"failed\"}]}";
+
+        await Assert.That(ToolServers.Unstarted(ended)).IsNull()
+            .Because("by then the turns are spent, and a refusal claiming otherwise would be "
+                   + "this runner reporting a run that happened as one that did not.");
+    }
+
     // ---- and the executor acts on it ----
 
     [Test]

@@ -169,4 +169,29 @@ public class PaneContentTests
             .Because("it WAS read for this row - the unread sentence appearing here would "
                    + "mean the boot never asked.");
     }
+
+    [Test]
+    public async Task The_checklist_is_read_for_the_selected_flight()
+    {
+        // S28.4-01. ConsoleData.PlanAsync has had no caller since it was
+        // written, and the real stack is where the items come from: a
+        // constructed Checklist proves a renderer renders.
+        var seeded = await AgainstARealControlPlaneTests.GatedAsync();
+        var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+
+        var opened = ConsoleChecklist.Read(seeded.Data, booted);
+
+        await Assert.That(opened.Checklist).IsNotNull()
+            .Because("the pane a person stares at while a flight waits could not be filled.");
+        await Assert.That(opened.Checklist!.Items).IsNotEmpty()
+            .Because("an envelope in force declares obligations, so its checklist has items - "
+                   + "an empty one here would mean the read reached the wrong flight.");
+
+        var pane = PaneText.Checklist(opened);
+
+        await Assert.That(pane).DoesNotContain("not read")
+            .Because("it WAS read, and that sentence appearing means the boot never asked.");
+        await Assert.That(pane).Contains(opened.Checklist!.Items[0].Disposition)
+            .Because("the disposition is the whole answer to 'can this start'.");
+    }
 }

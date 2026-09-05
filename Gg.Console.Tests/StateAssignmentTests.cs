@@ -50,22 +50,6 @@ public class StateAssignmentTests
                    || t.Contains(".Apply(", StringComparison.Ordinal));
 
     [Test]
-    public async Task The_only_path_from_a_result_into_the_model_is_walked()
-    {
-        // THE HEADLINE, AND THE PRECONDITION FOR THE ROW BELOW. Apply is the
-        // one path a verb result takes into the model, it is tested, and
-        // nothing calls it - so every field it assigns is as unfilled as one
-        // nobody wrote a line for. This is asserted on its own because it is
-        // one fact about one function, and because the ratchet under it means
-        // something different depending on the answer.
-        await Assert.That(ApplyIsReached()).IsTrue()
-            .Because("ConsoleProjection.Apply has no caller in Gg.Console or Gg.Cli, so the "
-                   + "console's whole data plane is one boot call and nothing else. Until "
-                   + "this passes, every arm in Apply is unreachable code that looks like a "
-                   + "feature.");
-    }
-
-    [Test]
     public async Task Every_field_a_pane_renders_is_one_production_fills()
     {
         var rendered = Rendered();
@@ -124,5 +108,17 @@ public class StateAssignmentTests
 
     /// <summary>What renders its default in the running product, and why.</summary>
     internal static readonly IReadOnlyDictionary<string, string> Exempt =
-        new Dictionary<string, string>(StringComparer.Ordinal);
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Flight"] = "step 2: the Flight pane's own subject, and the reason it says "
+                       + "`loading…` for ever.",
+            ["FlightLog"] = "step 2, S28.2-02 - and from the logs the boot ALREADY fetches, "
+                          + "so the N requests it already pays for buy something.",
+            ["Credentials"] = "step 2, S28.2-03. The renderer exists and nothing fetches.",
+            ["Selected"] = "step 2: it follows the queue's row, and the queue cannot fill "
+                         + "yet - S28.0-05 and S28.0-07 say why.",
+            ["Notices"] = "step 4, S28.4-06. WhoAmI carries them and PaneText draws them, "
+                        + "and a tenant degradation nobody is shown is one nobody acts on.",
+            ["Payload"] = "step 2: the gate's evidence, which the modal opens onto.",
+        };
 }

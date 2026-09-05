@@ -171,7 +171,9 @@ public sealed class ConsoleData(
     /// </para>
     /// </remarks>
     public Task<VerbResult> FlyAsync(
-        string pasted, CancellationToken cancellationToken = default)
+        string pasted,
+        string? repository = null,
+        CancellationToken cancellationToken = default)
     {
         var read = PastedIntent.Of(pasted);
 
@@ -179,7 +181,11 @@ public sealed class ConsoleData(
             ? Task.FromException<VerbResult>(new InvalidOperationException(refusal))
             : _commands.FlyAsync(
                 read.Text, read.Uri, name: null, cancellationToken,
-                provider: read.Provider, id: read.Id);
+                provider: read.Provider, id: read.Id,
+                // NULL WHERE NOTHING WAS CHOSEN, never "". An empty string is
+                // the console asserting a repository named nothing, which the
+                // control plane refuses for a choice nobody made.
+                repository: repository is { Length: > 0 } named ? named : null);
     }
 
     /// <summary>
@@ -193,9 +199,13 @@ public sealed class ConsoleData(
     /// what a flight is CALLED is what a person types or what ingress derives.
     /// </remarks>
     public Task<VerbResult> FlyTicketAsync(
-        string provider, string id, CancellationToken cancellationToken = default) =>
+        string provider,
+        string id,
+        string? repository = null,
+        CancellationToken cancellationToken = default) =>
         _commands.FlyAsync(
-            text: null, uri: null, name: null, cancellationToken, provider: provider, id: id);
+            text: null, uri: null, name: null, cancellationToken, provider: provider, id: id,
+            repository: repository is { Length: > 0 } named ? named : null);
 
     /// <summary>What this tenant can fly against.</summary>
     /// <remarks>

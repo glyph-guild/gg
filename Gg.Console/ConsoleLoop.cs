@@ -351,7 +351,15 @@ public sealed class ConsoleLoop(
     /// says it changed nothing rather than falling silent.
     /// </para>
     /// </remarks>
-    private static AppState Opened(
+    /// <summary>
+    /// Open a flight from what a person typed.
+    /// </summary>
+    /// <remarks>
+    /// Public so what crosses to the control plane can be asserted directly
+    /// rather than through a whole session — the same reason
+    /// <see cref="FlewPicked"/> is.
+    /// </remarks>
+    public static AppState Opened(
         AppState state, IConsoleActions? actions, IEditorSession editor)
     {
         if (actions is null)
@@ -371,7 +379,10 @@ public sealed class ConsoleLoop(
         {
             LastFlightOpened = intent.Length == 0
                 ? "Nothing was opened: no intent was written."
-                : actions.Fly(intent),
+                // THE CHOSEN REPOSITORY CROSSES ON BOTH DOORS. A setting that
+                // worked depending on whether you pasted or picked would be
+                // worse than no setting.
+                : actions.Fly(intent, state.ChosenRepository),
         };
     }
 
@@ -598,7 +609,8 @@ public sealed class ConsoleLoop(
 
         return state with
         {
-            LastFlightOpened = actions.FlyTicket(listing.ProviderKey, id),
+            LastFlightOpened = actions.FlyTicket(
+                listing.ProviderKey, id, state.ChosenRepository),
         };
     }
 
@@ -639,7 +651,8 @@ public sealed class ConsoleLoop(
             PendingFlight = null,
             LastFlightOpened = actions is null
                 ? "This console is not configured to open flights."
-                : actions.FlyTicket(pending.Provider, pending.Id),
+                : actions.FlyTicket(
+                    pending.Provider, pending.Id, state.ChosenRepository),
         };
     }
 

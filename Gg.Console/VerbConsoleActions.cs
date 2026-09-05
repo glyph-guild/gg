@@ -113,13 +113,13 @@ public sealed class VerbConsoleActions(
     /// asynchronously, so at the moment this returns nobody knows what it will be
     /// called. Saying so beats printing a blank where a name goes.
     /// </remarks>
-    public string Fly(string intent)
+    public string Fly(string intent, string? repository)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);
 
         try
         {
-            var opened = _data.FlyAsync(intent).GetAwaiter().GetResult();
+            var opened = _data.FlyAsync(intent, repository).GetAwaiter().GetResult();
 
             return opened is VerbResult.Launched launched
                 ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
@@ -132,14 +132,14 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string FlyTicket(string provider, string id)
+    public string FlyTicket(string provider, string id, string? repository)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
         try
         {
-            var opened = _data.FlyTicketAsync(provider, id).GetAwaiter().GetResult();
+            var opened = _data.FlyTicketAsync(provider, id, repository).GetAwaiter().GetResult();
 
             return opened is VerbResult.Launched launched
                 ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "

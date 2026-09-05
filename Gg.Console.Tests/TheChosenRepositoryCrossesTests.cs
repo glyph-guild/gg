@@ -88,7 +88,7 @@ public class TheChosenRepositoryCrossesTests
         // would be a setting that works depending on how you started.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.Opened(Chose(), actions, new ConsoleDoubles.NoEditor());
+        _ = ConsoleLoop.Opened(Chose(), actions, new ConsoleDoubles.Writes("fix the thing"));
 
         await Assert.That(actions.Intents).Count().IsEqualTo(1);
         await Assert.That(actions.Intents[0].Repository).IsEqualTo("acme/widgets");

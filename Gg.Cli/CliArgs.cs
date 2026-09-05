@@ -463,14 +463,8 @@ public static class CliArgs
     /// ids contain a <c>#</c> would otherwise lose the tail silently, which is
     /// the truncation failure this repository keeps finding one field at a time.
     /// </remarks>
-    private static (string? Provider, string? Id) SplitTicket(string token)
-    {
-        var separator = token.IndexOf('#', StringComparison.Ordinal);
-
-        return separator <= 0 || separator == token.Length - 1
-            ? (null, null)
-            : (token[..separator], token[(separator + 1)..]);
-    }
+    private static (string? Provider, string? Id) SplitTicket(string token) =>
+        Gg.Client.PastedIntent.SplitTicket(token);
 
     /// <summary><c>provider#id</c>, split into the two fields a ticket is.</summary>
     /// <remarks>

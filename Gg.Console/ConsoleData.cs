@@ -140,14 +140,34 @@ public sealed class ConsoleData(
             reference, obligation, outcome, observations, reason,
             cancellationToken: cancellationToken);
 
-    /// <summary>`gg fly`.</summary>
+    /// <summary>`gg fly`, from whatever a person pasted.</summary>
     /// <remarks>
-    /// Text only. A uri intent is a different shape with different refusals, and
-    /// offering one from a prompt would be two things behind one key.
+    /// <para>
+    /// <b>This said "text only" and that was the whole gap.</b> Of the three
+    /// intent kinds the console reached exactly one: <c>gg fly --uri</c> and
+    /// <c>gg fly --ticket</c> had no console path, so a person looking at a work
+    /// item had to leave for a shell to open a flight against it.
+    /// </para>
+    /// <para>
+    /// The old remark said a uri intent is "a different shape with different
+    /// refusals" and that offering one from a prompt would be two things behind
+    /// one key. The first half is true and is why <see cref="PastedIntent"/>
+    /// does the reading in one place. The second is not: it is ONE thing behind
+    /// one key - open a flight against this - and a person pasting a URL has
+    /// already decided which kind it is.
+    /// </para>
     /// </remarks>
     public Task<VerbResult> FlyAsync(
-        string text, CancellationToken cancellationToken = default) =>
-        _commands.FlyAsync(text, uri: null, name: null, cancellationToken);
+        string pasted, CancellationToken cancellationToken = default)
+    {
+        var read = PastedIntent.Of(pasted);
+
+        return read.Refusal is { } refusal
+            ? Task.FromException<VerbResult>(new InvalidOperationException(refusal))
+            : _commands.FlyAsync(
+                read.Text, read.Uri, name: null, cancellationToken,
+                provider: read.Provider, id: read.Id);
+    }
 
     /// <summary>`gg invite`.</summary>
     public Task<VerbResult> InviteAsync(CancellationToken cancellationToken = default) =>

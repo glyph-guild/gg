@@ -36,6 +36,14 @@ public class AskedForDecisionConditionTests
         Approver = string.Equals(check, ObligationChecks.Human, StringComparison.Ordinal)
             ? "a-lead"
             : null,
+        // A MACHINE OBLIGATION CARRIES A RULE, and this fixture has to give it
+        // one or the refusal that fires is "unknown rule" - a different
+        // complaint about a different field, reached before the pairing is
+        // looked at. The first draft of this test refused for that reason and
+        // read as though the pairing had been caught.
+        Rule = string.Equals(check, ObligationChecks.Machine, StringComparison.Ordinal)
+            ? ObligationPredicates.LoopNotExhausted
+            : null,
         When = when,
     };
 

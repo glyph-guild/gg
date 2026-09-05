@@ -435,6 +435,40 @@ public static class AttachmentConditions
     public const string Widens = "envelope widens";
 
     /// <summary>
+    /// The loop asked for a decision it is not allowed to make.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A condition rather than a new primitive</b>, on the disposition
+    /// <see cref="Widens"/> established. What routes a flight to a person is a
+    /// gate; the gate list is fed by gates and the queue a person reads is fed
+    /// by the gate list. A surface beside all three would be a second way for a
+    /// flight to need somebody, and only one of them has a reader.
+    /// </para>
+    /// <para>
+    /// <b>Which is what keeps the question from deciding anything.</b> The
+    /// runner records that an agent asked; whether that opens a gate is the
+    /// envelope's to say. An agent able to open a gate by asking could stall a
+    /// tenant's work at will, and one able to close one could unstick itself.
+    /// </para>
+    /// <para>
+    /// <b>It reads a recorded ACT, so it is monotone.</b> A question that was
+    /// asked stays asked: nothing a later fact says can un-ask it, which is the
+    /// same property <c>moves used include</c> has and the reason both are safe
+    /// to attach a gate to. A condition that could detach would take its gate
+    /// with it, silently.
+    /// </para>
+    /// <para>
+    /// <b>A <c>check: machine</c> obligation may not carry it</b>, for the
+    /// reason <see cref="Widens"/> refuses the same pairing: a machine
+    /// predicate computes a verdict from facts, and this condition is about
+    /// whether a PERSON is needed. The pair would be a gate no evaluation can
+    /// ever open.
+    /// </para>
+    /// </remarks>
+    public const string AskedForDecision = "loop asked for a decision";
+
+    /// <summary>
     /// A recorded loop used the move. Written
     /// <c>moves used include &lt;move&gt;</c>.
     /// </summary>
@@ -464,6 +498,7 @@ public static class AttachmentConditions
     /// </remarks>
     public static bool IsKnown(string condition) =>
         string.Equals(condition, Widens, StringComparison.Ordinal)
+        || string.Equals(condition, AskedForDecision, StringComparison.Ordinal)
         || (condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
             && condition.Length > TouchesPrefix.Length)
         || (condition.StartsWith(MovesUsedPrefix, StringComparison.Ordinal)
@@ -485,7 +520,7 @@ public static class AttachmentConditions
 
     /// <summary>Every form this version understands, for a diagnosis to list.</summary>
     public static IReadOnlyList<string> Forms { get; } =
-        [TouchesPrefix + "<glob>", Widens, MovesUsedPrefix + "<move>"];
+        [TouchesPrefix + "<glob>", Widens, MovesUsedPrefix + "<move>", AskedForDecision];
 }
 
 /// <summary>What a piece of work can be ABOUT.</summary>
@@ -1578,6 +1613,24 @@ public sealed record Envelope
                 return $"Unknown rule '{rule}' on obligation '{obligation.Id}'. Expected one "
                      + "of: " + string.Join(", ", ObligationPredicates.All) + ".";
             }
+        }
+
+        if (string.Equals(
+                obligation.When, AttachmentConditions.AskedForDecision, StringComparison.Ordinal)
+            && string.Equals(obligation.Check, ObligationChecks.Machine, StringComparison.Ordinal))
+        {
+            // The same pairing the widening gate refuses, one condition over. A
+            // machine predicate computes a verdict from facts; this condition
+            // is about whether a PERSON is needed, and the pair is a gate no
+            // evaluation can open. Refused here, where the author is still
+            // holding the document - a pairing discovered when a flight is
+            // already waiting on it is discovered by the person it was waiting
+            // for.
+            return $"Obligation '{obligation.Id}' pairs check: machine with "
+                 + $"when: {AttachmentConditions.AskedForDecision}. That condition says a "
+                 + "person is needed, and a machine predicate is what runs when one is not - "
+                 + "so this gate could never be opened and every flight that asked would "
+                 + "deadlock behind it. An obligation that waits for a person is check: human.";
         }
 
         if (string.Equals(obligation.When, AttachmentConditions.Widens, StringComparison.Ordinal)

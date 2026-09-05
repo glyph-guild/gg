@@ -196,8 +196,14 @@ public class TakeTests
     [Test]
     public async Task A_flight_with_no_held_tree_cannot_be_taken_and_says_why()
     {
-        // A landed flight's work is on a branch, so there is nothing here to
-        // take. Better to say that than to open a session in an empty directory.
+        // A flight's work is on a branch, so there is nothing here to take.
+        // Better to say that than to open a session in an empty directory.
+        //
+        // THE SENTENCE CHANGED AND THIS ASSERTION WITH IT. It used to read
+        // "there is no held tree for this flight", which this comment already
+        // knew was wrong: the reason is not about this flight, it is that the
+        // branch is authoritative and no console holds a tree. The comment was
+        // closer to the truth than the string it was asserting.
         var before = AFlightWorthTaking("/does/not/matter") with { TakeableTree = null };
 
         var after = new ConsoleLoop(
@@ -205,7 +211,9 @@ public class TakeTests
             new NoEditor(),
             new RecordingTake("/does/not/matter")).Run(before);
 
-        await Assert.That(after.LastTakeover!).Contains("nothing to take over");
+        await Assert.That(after.LastTakeover!).Contains("this console never holds one");
+        await Assert.That(after.LastTakeover!).DoesNotContain("this flight")
+            .Because("nothing about this flight was examined.");
     }
 
     [Test]

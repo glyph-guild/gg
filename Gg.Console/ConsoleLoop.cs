@@ -453,15 +453,29 @@ public sealed class ConsoleLoop(
     /// cannot be trusted - each leaves the flight exactly as it was and says so
     /// on the state the next session renders from.
     /// </remarks>
-    private static AppState Took(AppState state, ITakeSession? take)
+    /// <remarks>
+    /// Public so what this console answers can be asserted directly, the same
+    /// reason <see cref="FlewPicked"/> is.
+    /// </remarks>
+    public static AppState Took(AppState state, ITakeSession? take)
     {
         if (take is null || state.Selected is not { } row || state.TakeableTree is not { } tree)
         {
             return state with
             {
+                // TWO DIFFERENT FACTS, AND NEITHER IS ABOUT THIS FLIGHT. The
+                // first is a console wired without a take session. The second
+                // is every console: ConsoleStart holds no tree by design,
+                // because the branch is authoritative and a local tree is a
+                // cache this machine may not have. Saying "no held tree for
+                // this flight" implied a look at the flight that never
+                // happened, and sent people hunting for a tree that was never
+                // going to be here.
                 LastTakeover = take is null
                     ? "This console is not configured to take flights over."
-                    : "There is no held tree for this flight, so there is nothing to take over.",
+                    : "Taking over needs the flight's working tree, and this console never "
+                    + "holds one — the branch is what is authoritative. It can be done on the "
+                    + "machine that ran the flight.",
             };
         }
 

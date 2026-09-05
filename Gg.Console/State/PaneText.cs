@@ -903,9 +903,19 @@ public static class PaneText
         state.Selected is not { } row
             ? "  No flight selected."
             : $"  {Clean(row.FlightNumber)}  {Clean(row.Name)}\n\n"
-            + "  Nothing can be done from here yet.\n"
-            + "  Taking a flight arrives in slice two; this console builds\n"
-            + "  its precondition and does not pretend to more.";
+            // WHAT THIS CONSOLE CAN DO, and why the one thing it cannot is
+            // absent. `t` is offered only when a tree is held and this console
+            // never holds one, so the key is correctly missing - but nothing
+            // said why, and an absent key with no explanation reads as a bug.
+            //
+            // The previous text promised takeover "arrives in slice two". It
+            // arrived. A sentence that was true once and wrong ever since is
+            // the failure this pane exists to avoid.
+            + "  d  decide a gate on this flight\n"
+            + "  v  the evidence behind it\n\n"
+            + "  Taking this flight over is not offered here. It needs the flight's\n"
+            + "  working tree, and this console never holds one — the branch is what\n"
+            + "  is authoritative. It can be done on the machine that ran the flight.";
 
     /// <summary>
     /// Last line of defence before a terminal.

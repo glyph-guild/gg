@@ -622,6 +622,70 @@ public static class VerbOutput
               + "'open', which would show a finished flight as one somebody is still "
               + "working on.");
 
+    /// <summary>
+    /// Prose under a label, laid out the way the label promised.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A field's value that arrives with line breaks in it is still one
+    /// value</b>, and a block rendering has exactly one way to say so: put the
+    /// continuation under the column the label opened. Pasted in raw, the
+    /// second line lands at column zero, where the surrounding conventions make
+    /// it a heading - a gate list renders one three-line question as three
+    /// gates, and the field below it reads as the sentence's last line.
+    /// </para>
+    /// <para>
+    /// <b>The line breaks are the agent's own and they stay.</b> Flattening
+    /// them would be the easier fix and the wrong one: a question laid out over
+    /// three lines is one somebody wrote to be read, and the field a person
+    /// reads while deciding something is the last one to reformat.
+    /// </para>
+    /// </remarks>
+    private static string Prose(string? value, int column) =>
+        Clean(value, lines: true).ReplaceLineEndings("\n" + new string(' ', column));
+
+    /// <summary>
+    /// How a loop ended, in words rather than in a vocabulary value.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two of the four are not failures and the surface has to carry that on
+    /// its own.</b> <c>exhausted</c> ran out of budget and <c>blocked</c> asked
+    /// for a decision it is not allowed to make; both are waiting on somebody,
+    /// and a reader who files either beside a crash pages the wrong person.
+    /// This feature is worth nothing if the first thing an estate learns is
+    /// that <i>blocked</i> means <i>broken</i>.
+    /// </para>
+    /// <para>
+    /// <b>The word stays, and the sentence explains it.</b> The vocabulary
+    /// value is what a script reads and what somebody types into a search; a
+    /// rendering that replaced it would leave the two surfaces with no shared
+    /// noun.
+    /// </para>
+    /// <para>
+    /// <b>An unknown value throws</b>, on <see cref="Rendered"/>'s argument one
+    /// noun over. The plausible default here is <c>failed</c>, and showing a
+    /// state this build does not understand as a failure is exactly the
+    /// confusion the vocabulary exists to remove.
+    /// </para>
+    /// </remarks>
+    private static string Outcome(string outcome) => outcome switch
+    {
+        LoopOutcomes.Completed => $"{outcome} - the loop finished on its own terms",
+        LoopOutcomes.Failed => $"{outcome} - something went wrong and it said what",
+        LoopOutcomes.Exhausted =>
+            $"{outcome} - it ran out of budget and is waiting on whoever the envelope's "
+          + "on-exhaustion names. Waiting, not broken",
+        LoopOutcomes.Blocked =>
+            $"{outcome} - it asked for a decision it is not allowed to make and stopped. "
+          + "Waiting on a person, not broken and not finished",
+        _ => throw new InvalidOperationException(
+            $"Loop outcome '{outcome}' has no published name. An outcome nothing can render "
+          + "must not be shown as one that can - and the plausible guess here is 'failed', "
+          + "which would page somebody about a loop that is merely waiting. Expected one of: "
+          + string.Join(", ", LoopOutcomes.All) + "."),
+    };
+
     private static string Flight(FlightSummary flight)
     {
         var text = new StringBuilder();
@@ -752,6 +816,33 @@ public static class VerbOutput
                         $"    {Clean(language.Language),-11} {language.Files} file(s), "
                       + $"+{language.LinesAdded} -{language.LinesRemoved}");
                 }
+            }
+
+            if (fact.Loop is { } loop)
+            {
+                text.AppendLine($"    loop        {Clean(loop.LoopId)}");
+                text.AppendLine($"    outcome     {Outcome(loop.Outcome)}");
+                text.AppendLine($"    reason      {Prose(loop.Reason, 16)}");
+                // MEASURED, BESIDE THE PROSE. The reason is what the executor
+                // said about its run; these are what the run WAS, and a reason
+                // with no run behind it is a sentence somebody has to take on
+                // trust.
+                text.AppendLine(
+                    $"    ran         {loop.Attempts} turn(s) over "
+                  + $"{loop.DurationMs / 1000d:0.#}s on {Clean(loop.Executor)}");
+                text.AppendLine(
+                    $"    moves       {Clean(string.Join(", ", loop.MovesUsed))}");
+            }
+
+            if (fact.Question is { } question)
+            {
+                // THE ONE FIELD, AND IT IS THE POINT OF THE FACT. A question
+                // nobody can read without fetching an artifact is a question
+                // nobody answers, which is why it is inline - and a question
+                // nobody can find on the flight is the same thing with an extra
+                // step. Rule 3 means a recorded question need not have opened a
+                // gate, so this surface is the only place some of them appear.
+                text.AppendLine($"    asked       {Prose(question.Question, 16)}");
             }
 
             if (fact.Nomination is { } nomination)
@@ -1269,7 +1360,11 @@ public static class VerbOutput
                 text.AppendLine("  when:     always (this obligation declares no condition)");
             }
 
-            text.AppendLine($"  because:  {Clean(gate.Because, lines: true)}");
+            // Column 12, which is where "  because:  " ends. The value of this
+            // field is the whole decision when the condition is `loop asked for
+            // a decision` - the Engine composes the sentence from the fact, so
+            // the agent's own question is the tail of it.
+            text.AppendLine($"  because:  {Prose(gate.Because, 12)}");
             text.AppendLine($"  since:    {gate.AwaitingSince:u}");
         }
 

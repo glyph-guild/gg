@@ -310,6 +310,17 @@ public sealed record AppState
     public LiveSilence Silence { get; init; } = LiveSilence.NotAttached;
 
     /// <summary>
+    /// The work a tracker offered to pick from, or why it offered none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is "no reader was ever asked"</b>, which is a different sentence
+    /// from a reader that answered nothing - the same distinction
+    /// <see cref="Silence"/> draws for the live view, and for the same reason:
+    /// an empty box cannot say which of them it is showing.
+    /// </remarks>
+    public BrowseListing? Browse { get; init; }
+
+    /// <summary>
     /// The held tree of the selected flight, when there is one.
     /// </summary>
     /// <remarks>

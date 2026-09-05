@@ -521,7 +521,8 @@ public class ConsoleStartTests
             new FlightCommands(client, sessions),
             new CredentialCommands(client, sessions, new RefusesEverything(), new NeverAsked()),
             new TakeCommands(client, sessions),
-            new IdentityCommands(client, sessions));
+            new IdentityCommands(client, sessions),
+            new EnvelopeCommands(client, sessions));
 
         var state = await ConsoleStart.LoadAsync(data);
 

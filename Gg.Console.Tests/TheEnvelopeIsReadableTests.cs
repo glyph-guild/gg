@@ -35,7 +35,7 @@ public class TheEnvelopeIsReadableTests
         UpdatedBy = "a-person",
         Envelope = new Envelope
         {
-            Context = new EnvelopeContext { Scope = "**", Constitution = "1.0.0" },
+            Context = new ContextBinding { Scope = "**", Constitution = "1.0.0" },
             Obligations =
             [
                 new Obligation

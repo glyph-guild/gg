@@ -158,40 +158,135 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        var text = new StringBuilder();
+
+        // THE FLEET FOLLOWS WHATEVER THE CHECKLIST SAID, INCLUDING NOTHING.
+        // Showing it only when the checklist read succeeded would hide the
+        // fleet exactly when the checklist failed - and the fleet is what a
+        // person reads to find out why.
         if (state.Checklist is not { } checklist)
         {
-            return state.Selected is null
+            text.AppendLine(state.Selected is null
                 ? "No flight selected."
-                : "not read for this row - press p to read it";
+                : "not read for this row - press p to read it");
+        }
+        else
+        {
+            text.AppendLine($"  envelope      {Clean(checklist.EnvelopeVersion)}");
+
+            if (checklist.Repository is { Length: > 0 } repository)
+            {
+                text.AppendLine($"  repository    {Clean(repository)}");
+            }
+
+            text.AppendLine($"  labels        {Labels(checklist.RequiredLabels)}");
+            text.AppendLine();
+
+            if (checklist.Items.Count == 0)
+            {
+                text.AppendLine("  nothing is required before this flight can start.");
+            }
+
+            foreach (var item in checklist.Items)
+            {
+                text.AppendLine(
+                    $"  {Clean(item.Disposition),-8} {Clean(item.Requirement)}");
+                text.AppendLine(
+                    $"           satisfied by {Clean(item.Satisfier)}, checked by "
+                  + Clean(item.Verification));
+            }
+        }
+
+        text.AppendLine();
+        text.Append(FleetText(state));
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What the fleet advertises, each label beside its disposition.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Under the checklist because that is where the question is asked.</b>
+    /// An item reading <c>unmet  environment=docker</c> is answered by what the
+    /// runners advertise, and a person who has to change panes to find out is
+    /// comparing two screens from memory.
+    /// </para>
+    /// <para>
+    /// <b>The disposition is never separated from the name.</b> That is
+    /// <c>AdvertisedLabel</c>'s own rule and the reason the type exists: a
+    /// stated claim read as a measurement is what a bare name invites.
+    /// </para>
+    /// <para>
+    /// <b>And a fleet that was not read is not an empty fleet.</b> "No runners
+    /// are registered" is a claim about the estate with an action attached;
+    /// saying it because nothing was read sends somebody to build a machine
+    /// they already have.
+    /// </para>
+    /// </remarks>
+    private static string FleetText(AppState state)
+    {
+        if (state.Runners is not { } fleet)
+        {
+            return "  fleet         not read";
+        }
+
+        if (fleet.Runners.Count == 0)
+        {
+            return "  fleet         no runners are registered. Run gg runner up on a machine "
+                 + "that should take work.";
         }
 
         var text = new StringBuilder();
-        text.AppendLine($"  envelope      {Clean(checklist.EnvelopeVersion)}");
+        text.AppendLine("  fleet");
 
-        if (checklist.Repository is { Length: > 0 } repository)
+        foreach (var runner in fleet.Runners)
         {
-            text.AppendLine($"  repository    {Clean(repository)}");
-        }
+            text.AppendLine($"    {Clean(runner.State),-8} {Clean(runner.Label)}");
 
-        text.AppendLine($"  labels        {Labels(checklist.RequiredLabels)}");
-        text.AppendLine();
+            if (runner.Labels.Count == 0)
+            {
+                // A fact somebody diagnosing a waiting flight needs, not an
+                // absence to hide.
+                text.AppendLine("             (advertises nothing)");
+                continue;
+            }
 
-        if (checklist.Items.Count == 0)
-        {
-            text.AppendLine("  nothing is required before this flight can start.");
-            return text.ToString().TrimEnd();
-        }
-
-        foreach (var item in checklist.Items)
-        {
-            text.AppendLine(
-                $"  {Clean(item.Disposition),-8} {Clean(item.Requirement)}");
-            text.AppendLine(
-                $"           satisfied by {Clean(item.Satisfier)}, checked by "
-              + Clean(item.Verification));
+            foreach (var label in runner.Labels)
+            {
+                text.AppendLine(
+                    $"             {Clean(label.Name),-34} {Clean(label.Disposition)}");
+            }
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The rules in force, as the command line prints them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered by the CLI's own renderer.</b> A second layout of one
+    /// document is two views that drift, and this is the document arguments are
+    /// had about.
+    /// <para>
+    /// <b>An unread envelope is not an absent one.</b> "No envelope is in force"
+    /// means every flight is ungoverned, which is a sentence somebody would act
+    /// on immediately - so it may only be said when it was asked and answered.
+    /// </para>
+    /// </remarks>
+    public static string Envelope(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Envelope is not { } applied)
+        {
+            return "not read - press e to read the envelope in force";
+        }
+
+        return Clean(Gg.Client.VerbOutput.ToText(
+            new Gg.Client.VerbResult.EnvelopeShown(applied)), lines: true);
     }
 
     /// <summary>

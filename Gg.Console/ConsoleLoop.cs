@@ -15,7 +15,8 @@ public sealed class ConsoleLoop(
     LiveTails? tails = null,
     IWorkBrowser? browser = null,
     Func<AppState, AppState>? reload = null,
-    Func<AppState, AppState>? checklist = null)
+    Func<AppState, AppState>? checklist = null,
+    Func<AppState, AppState>? envelope = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -187,6 +188,18 @@ public sealed class ConsoleLoop(
                     if (state.ChecklistVisible && checklist is not null)
                     {
                         state = checklist(state);
+                    }
+
+                    break;
+
+                case Command.ToggleEnvelope:
+                    // The checklist's reason, for the document the checklist is
+                    // derived from. Read on the way in only.
+                    state = Reducer.EnvelopeToggled(state);
+
+                    if (state.EnvelopeVisible && envelope is not null)
+                    {
+                        state = envelope(state);
                     }
 
                     break;

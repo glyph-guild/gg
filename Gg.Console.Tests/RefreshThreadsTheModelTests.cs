@@ -46,7 +46,8 @@ public class RefreshThreadsTheModelTests
             new FlightCommands(client, sessions),
             new CredentialCommands(client, sessions, new NoStore(), new NeverAsked()),
             new TakeCommands(client, sessions),
-            new IdentityCommands(client, sessions));
+            new IdentityCommands(client, sessions),
+            new EnvelopeCommands(client, sessions));
     }
 
     [Test]

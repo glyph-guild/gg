@@ -30,7 +30,8 @@ public sealed class ConsoleData(
     FlightCommands commands,
     CredentialCommands credentials,
     TakeCommands takes,
-    IdentityCommands identity)
+    IdentityCommands identity,
+    EnvelopeCommands envelopes)
 {
     private readonly FlightCommands _commands = commands;
     private readonly CredentialCommands _credentials = credentials;
@@ -47,6 +48,9 @@ public sealed class ConsoleData(
     /// "not configured" on every real press for two slices.
     /// </remarks>
     private readonly IdentityCommands _identity = identity;
+
+    /// <summary>Reading the envelope in force. The read, never the apply.</summary>
+    private readonly EnvelopeCommands _envelopes = envelopes;
 
     /// <summary>
     /// `gg bundle`, from the state the console is holding.
@@ -290,6 +294,18 @@ public sealed class ConsoleData(
     public Task<VerbResult> IdentityAsync(CancellationToken cancellationToken = default) =>
         _identity.ShowAsync(cancellationToken);
 
+    /// <summary>
+    /// `gg envelope show` - the rules in force.
+    /// </summary>
+    /// <remarks>
+    /// <b>The read and not the apply.</b> Applying takes a document from a path
+    /// and this console has no file argument, which is out of scope by
+    /// declaration rather than by omission. Reading is what a person does when a
+    /// flight is stopped by something they cannot see.
+    /// </remarks>
+    public Task<VerbResult> EnvelopeAsync(CancellationToken cancellationToken = default) =>
+        _envelopes.ShowAsync(cancellationToken);
+
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);
@@ -361,6 +377,13 @@ public static class ConsoleProjection
             // WHAT MUST HOLD BEFORE THIS FLIGHT CAN START, which is the other
             // half of the same question and the one a person can act on.
             VerbResult.Plan plan => state with { Checklist = plan.Value, Diagnosis = null },
+            // THE RULES IN FORCE. Every flight names this document's version and
+            // nothing here could show the document.
+            VerbResult.EnvelopeShown envelope => state with
+            {
+                Envelope = envelope.Value,
+                Diagnosis = null,
+            },
             // WHAT THIS TENANT SHOULD KNOW, and the queue cannot say it. A
             // degradation that stops check runs being written leaves every
             // flight running, recording facts and leaving the queue - so

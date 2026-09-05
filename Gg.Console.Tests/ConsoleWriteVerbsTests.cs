@@ -39,7 +39,8 @@ public class ConsoleWriteVerbsTests
             new FlightCommands(client, sessions),
             new CredentialCommands(client, sessions, new NoStore(), new Answers("s3cret-value")),
             new TakeCommands(client, sessions),
-            new IdentityCommands(client, sessions));
+            new IdentityCommands(client, sessions),
+            new EnvelopeCommands(client, sessions));
     }
 
     [Test]

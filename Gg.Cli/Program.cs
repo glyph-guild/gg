@@ -497,8 +497,14 @@ static int LaunchConsole()
     // hand-back key still answers "this console is not configured to hand flights
     // back", and gg:ConsoleTakeWiringTests says so out loud rather than asserting a
     // wiring that would have to be faked to pass.
+    // ONE SET OF TAILS, SHARED. The loop advances the pane between sessions and
+    // the screen advances it on a timer during one; both resume from the same
+    // offset or the same lines arrive twice. It is owned here, outside every UI
+    // lifetime, which is what keeps "a session retains nothing" true.
+    var tails = new LiveTails(flightId => new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)));
+
     var final = new ConsoleLoop(
-        new TerminalGuiSession(),
+        new TerminalGuiSession(tails),
         new EditorSession(),
         new TakeSession(claim: reference =>
             takes.ClaimAsync(reference).GetAwaiter().GetResult()),
@@ -511,7 +517,8 @@ static int LaunchConsole()
         // what answers the old objection to registering from a console: the
         // escape-hatch rules a modal would need do not apply to a process that owns
         // the screen.
-        actions: new VerbConsoleActions(data, new ConsoleSecretPrompt())).Run(initial);
+        actions: new VerbConsoleActions(data, new ConsoleSecretPrompt()),
+        tails: tails).Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.
     var dumpPath = Environment.GetEnvironmentVariable("GG_STATE_DUMP");

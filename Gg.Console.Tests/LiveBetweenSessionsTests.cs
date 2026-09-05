@@ -82,7 +82,7 @@ public class LiveBetweenSessionsTests
             s => new UiOutcome(Command.OpenFlight, s),
             s => new UiOutcome(Command.Quit, s));
 
-        new ConsoleLoop(ui, new NoEditor(), liveSource: _ => source).Run(Watching("f1"));
+        new ConsoleLoop(ui, new NoEditor(), tails: new LiveTails(_ => source)).Run(Watching("f1"));
 
         await Assert.That(ui.StatesSeen[0].Live.Select(l => l.Text)).IsEquivalentTo((string[])["first"])
             .Because("the loop reads before it hands the state to a session, so the first "
@@ -103,11 +103,11 @@ public class LiveBetweenSessionsTests
             s => new UiOutcome(Command.OpenFlight, s with { SelectedRow = 1 }),
             s => new UiOutcome(Command.Quit, s));
 
-        new ConsoleLoop(ui, new NoEditor(), liveSource: id =>
+        new ConsoleLoop(ui, new NoEditor(), tails: new LiveTails(id =>
         {
             asked.Add(id);
             return new ScriptedSource(exists: true, [Line("from " + id)]);
-        }).Run(Watching("f1", "f2"));
+        })).Run(Watching("f1", "f2"));
 
         await Assert.That(asked).IsEquivalentTo((string[])["f1", "f2"])
             .Because("the pane follows the selection, so moving the cursor tails the file "
@@ -125,8 +125,8 @@ public class LiveBetweenSessionsTests
             s => new UiOutcome(Command.OpenFlight, s with { SelectedRow = 0 }),
             s => new UiOutcome(Command.Quit, s));
 
-        new ConsoleLoop(ui, new NoEditor(), liveSource: id =>
-            id == "f1" ? f1 : new ScriptedSource(exists: true, [Line("elsewhere")])).Run(
+        new ConsoleLoop(ui, new NoEditor(), tails: new LiveTails(id =>
+            id == "f1" ? f1 : new ScriptedSource(exists: true, [Line("elsewhere")]))).Run(
                 Watching("f1", "f2"));
 
         await Assert.That(f1.Reads).IsEqualTo(2)
@@ -143,7 +143,7 @@ public class LiveBetweenSessionsTests
         var ui = new ScriptedUi(s => new UiOutcome(Command.Quit, s));
 
         new ConsoleLoop(ui, new NoEditor(),
-            liveSource: _ => new ScriptedSource(exists: false)).Run(Watching("f1"));
+            tails: new LiveTails(_ => new ScriptedSource(exists: false))).Run(Watching("f1"));
 
         var shown = ui.StatesSeen[0];
 
@@ -159,7 +159,7 @@ public class LiveBetweenSessionsTests
         var ui = new ScriptedUi(s => new UiOutcome(Command.Quit, s));
 
         new ConsoleLoop(ui, new NoEditor(),
-            liveSource: _ => new ScriptedSource(exists: true)).Run(Watching("f1"));
+            tails: new LiveTails(_ => new ScriptedSource(exists: true))).Run(Watching("f1"));
 
         var shown = ui.StatesSeen[0];
 
@@ -175,7 +175,7 @@ public class LiveBetweenSessionsTests
         var source = new ScriptedSource(exists: true, [Line("never seen")]);
         var ui = new ScriptedUi(s => new UiOutcome(Command.Quit, s));
 
-        new ConsoleLoop(ui, new NoEditor(), liveSource: _ => source).Run(
+        new ConsoleLoop(ui, new NoEditor(), tails: new LiveTails(_ => source)).Run(
             Watching("f1") with { LiveVisible = false });
 
         await Assert.That(source.Reads).IsEqualTo(0)
@@ -196,8 +196,8 @@ public class LiveBetweenSessionsTests
             s => new UiOutcome(Command.OpenFlight, s),
             s => new UiOutcome(Command.Quit, Reducer.Reduce(s, Command.ToggleFreeze)));
 
-        new ConsoleLoop(ui, new NoEditor(), liveSource: _ => new ScriptedSource(
-            exists: true, [Line("before")], [Line("during one")], [Line("during two")]))
+        new ConsoleLoop(ui, new NoEditor(), tails: new LiveTails(_ => new ScriptedSource(
+            exists: true, [Line("before")], [Line("during one")], [Line("during two")])))
             .Run(Watching("f1"));
 
         var final = ui.StatesSeen[^1];
@@ -222,7 +222,7 @@ public class LiveBetweenSessionsTests
             s => new UiOutcome(Command.Quit, s));
 
         new ConsoleLoop(ui, new NoEditor(),
-            liveSource: _ => new ScriptedSource(exists: true)).Run(
+            tails: new LiveTails(_ => new ScriptedSource(exists: true))).Run(
                 Watching("f1") with { LiveVisible = false });
 
         var facts = ui.StatesSeen[^1].AttachFacts;

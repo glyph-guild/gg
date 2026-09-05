@@ -12,72 +12,14 @@ public sealed class ConsoleLoop(
     ITakeSession? take = null,
     IHandSession? hand = null,
     IConsoleActions? actions = null,
-    Func<string, ILiveSource>? liveSource = null)
+    LiveTails? tails = null)
 {
-    /// <summary>
-    /// One tail per flight, kept because a tail without its offset re-reads.
-    /// </summary>
-    /// <remarks>
-    /// <b>Held by the LOOP and never by a session.</b> <c>IUiSession</c> must
-    /// not retain anything across calls - it builds views FROM the given state -
-    /// and a file offset is exactly the sort of thing that would rot there. The
-    /// loop is the lifetime that spans sessions, so it is the one that may
-    /// remember where it had read to.
-    /// </remarks>
-    private readonly Dictionary<string, ILiveSource> _tails = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Reads whatever the watched flight has said since the last look.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Between sessions, which is a still picture rather than a stream.</b>
-    /// The pane advances when the person presses a key, because that is when a
-    /// session ends and this runs. It is deliberately step three of five: it
-    /// proves the producer, the path and the consumer end to end without the
-    /// architectural change streaming needs, and it is worth having on its own.
-    /// </para>
-    /// <para>
-    /// <b>It follows the selection.</b> A tail is kept per flight so moving the
-    /// cursor away and back does not replay what was already seen, and so two
-    /// flights watched in one sitting do not share an offset.
-    /// </para>
-    /// </remarks>
-    private AppState Tailed(AppState state)
-    {
-        if (!state.LiveVisible || liveSource is null || state.Selected is not { } row)
-        {
-            return state with { Silence = LiveSilence.NotAttached };
-        }
-
-        if (!_tails.TryGetValue(row.FlightId, out var tail))
-        {
-            tail = liveSource(row.FlightId);
-            _tails[row.FlightId] = tail;
-        }
-
-        foreach (var line in tail.Read())
-        {
-            state = Reducer.StreamArrived(state, line);
-        }
-
-        // WHICH SILENCE, recorded here because this is the only place that knows.
-        // The pane sees state and a state that cannot tell "nothing is writing"
-        // from "nothing has been said yet" shows one empty box for both.
-        return state with
-        {
-            Silence = state.Live.Count > 0 ? LiveSilence.Speaking
-                : tail.Exists ? LiveSilence.NothingYet
-                : LiveSilence.NotStarted,
-        };
-    }
-
     public AppState Run(AppState initial)
     {
         var state = initial;
         while (true)
         {
-            state = Tailed(state);
+            state = tails?.Advance(state) ?? state;
 
             var outcome = ui.Run(state);
             state = outcome.State;

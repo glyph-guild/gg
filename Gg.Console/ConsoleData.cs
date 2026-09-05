@@ -104,13 +104,7 @@ public sealed class ConsoleData(
         string? reference = null, CancellationToken cancellationToken = default) =>
         _commands.PlanAsync(reference, cancellationToken);
 
-    /// <summary>`gg airspace show` - the topology, root always included.</summary>
-    public Task<VerbResult> AirspaceAsync(CancellationToken cancellationToken = default) =>
-        _commands.AirspaceAsync(cancellationToken);
 
-    /// <summary>`gg runner labels` - the fleet's claims, with their dispositions.</summary>
-    public Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>
-        _commands.RunnerLabelsAsync(cancellationToken);
 
     /// <summary>
     /// `gg why` — why each obligation applied to a flight, or did not.
@@ -205,9 +199,10 @@ public sealed class ConsoleData(
 
     /// <summary>What this tenant can fly against.</summary>
     /// <remarks>
-    /// Not <see cref="AirspaceAsync"/>, which is the topology - envelope names
-    /// and roles. This is the question a person browsing actually has, and the
-    /// control plane has answered it the whole time.
+    /// Not the topology - envelope names and roles - which this class used to
+    /// offer beside it and which no pane ever wanted. This is the question a
+    /// person browsing actually has, and the control plane has answered it the
+    /// whole time.
     /// </remarks>
     public Task<VerbResult> RepositoriesAsync(CancellationToken cancellationToken = default) =>
         _commands.RepositoriesAsync(cancellationToken);
@@ -281,9 +276,6 @@ public sealed class ConsoleData(
         string credentialId, CancellationToken cancellationToken = default) =>
         _credentials.RemoveCredentialAsync(credentialId, cancellationToken);
 
-    /// <summary>`gg show`.</summary>
-    public Task<VerbResult> ShowAsync(string reference, CancellationToken cancellationToken = default) =>
-        _commands.ShowAsync(reference, cancellationToken);
 
     /// <summary>`gg log`.</summary>
     public Task<VerbResult> LogAsync(string reference, CancellationToken cancellationToken = default) =>

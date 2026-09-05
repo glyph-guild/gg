@@ -150,12 +150,34 @@ public class ConsoleDataTests
         // is exactly why it did not come with them.
         var exempt = (string[])
         [
-            // A READ, and a real gap rather than a decision: no pane renders the
-            // rules governing a tenant's flights, so a person can answer a gate in
-            // this console without being able to read what governs it. Recorded here
-            // instead of left invisible. It needs none of the machinery the three
-            // writes needed, which is why it did not arrive with them.
+            // TWO VERBS SHARE THIS NAME AND THE ENTRY USED TO MEAN THE OTHER ONE.
+            // It said no pane rendered the rules governing a tenant's flights,
+            // which was `EnvelopeCommands.ShowAsync` and stopped being true when
+            // the envelope pane landed: ConsoleData.EnvelopeAsync calls it.
+            //
+            // What is exempt now is `FlightCommands.ShowAsync`, one flight's
+            // summary, and it is a DECISION rather than a gap. The boot fetches
+            // every flight's summary in one list to derive the queue and keeps
+            // it, so the detail under the cursor is a lookup with no I/O at all
+            // - which is what makes an arrow key free. A console equivalent
+            // would be a way to pay a request for something the model is holding.
             "ShowAsync",
+
+            // THE SAME REQUEST UNDER A SECOND NAME. RunnerLabelsAsync and
+            // RunnersAsync both call ListRunnersAsync; `gg runners` and
+            // `gg runner labels` are one answer rendered two ways. The console
+            // renders the labels, with their dispositions, out of the RunnerList
+            // the boot already fetched - so an equivalent here would be a second
+            // way to make a request the console has already made.
+            "RunnerLabelsAsync",
+
+            // A READ NOBODY ASKED FOR. The topology is envelope names and their
+            // roles; no pane wants it and none is planned. The question a person
+            // browsing actually has is "what can I fly against", which is
+            // RepositoriesAsync and belongs to slice twenty-nine's tier B.
+            // `Wired to a pane or deleted` has no third option, and nothing
+            // wanted it wired.
+            "AirspaceAsync",
 
             // A WRITE TO A FILESYSTEM, and the one exemption here that is a
             // decision rather than a gap. Pull renders the estate into a git

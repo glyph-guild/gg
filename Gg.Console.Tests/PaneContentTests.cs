@@ -144,4 +144,29 @@ public class PaneContentTests
                    + "nothing, because whoami was the one read verb with no value to "
                    + "project. A degradation nobody is shown is one nobody acts on.");
     }
+
+    [Test]
+    public async Task Why_a_flight_is_stopped_reaches_its_pane()
+    {
+        // S28.4-02, and the real stack is where it has to be measured: the halt
+        // and the obligation attributions are the control plane's own words, and
+        // a constructed FlightAttribution proves only that a renderer renders.
+        var seeded = await AgainstARealControlPlaneTests.GatedAsync();
+        var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+
+        await Assert.That(booted.Attribution).IsNotNull()
+            .Because("gg why has answered this question since it was written and the "
+                   + "console's wrapper for it had no caller at all.");
+        await Assert.That(booted.Attribution!.FlightNumber)
+            .IsEqualTo(booted.Selected!.FlightNumber)
+            .Because("the selected row's, which is the only row it is read for.");
+
+        var pane = PaneText.Flight(booted);
+
+        await Assert.That(pane).Contains("why")
+            .Because("the section is in the pane a person is already looking at.");
+        await Assert.That(pane).DoesNotContain("not read for this row")
+            .Because("it WAS read for this row - the unread sentence appearing here would "
+                   + "mean the boot never asked.");
+    }
 }

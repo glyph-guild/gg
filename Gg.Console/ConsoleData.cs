@@ -169,6 +169,37 @@ public sealed class ConsoleData(
                 provider: read.Provider, id: read.Id);
     }
 
+    /// <summary>What this tenant can fly against.</summary>
+    /// <remarks>
+    /// Not <see cref="AirspaceAsync"/>, which is the topology - envelope names
+    /// and roles. This is the question a person browsing actually has, and the
+    /// control plane has answered it the whole time.
+    /// </remarks>
+    public Task<VerbResult> RepositoriesAsync(CancellationToken cancellationToken = default) =>
+        _commands.RepositoriesAsync(cancellationToken);
+
+    /// <summary>
+    /// The flights already opened against one work item.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The question a person in this product actually has</b>, before they
+    /// open another one: has this been flown already, and what happened. The
+    /// correlation is <c>?intent=&lt;provider&gt;#&lt;id&gt;</c>, which the
+    /// control plane already parses and refuses.
+    /// </para>
+    /// <para>
+    /// <b>A uri intent correlates through nothing, and that is said rather than
+    /// shown as emptiness.</b> <c>?intent=</c> takes <c>provider#id</c> only, so
+    /// a flight opened from a pasted URL is invisible to this query - and a
+    /// surface that answered "no flights" would be reporting an absence it
+    /// cannot actually see.
+    /// </para>
+    /// </remarks>
+    public Task<VerbResult> FlownAsync(
+        string provider, string id, CancellationToken cancellationToken = default) =>
+        _commands.ListAsync(all: true, cancellationToken, intent: $"{provider}#{id}");
+
     /// <summary>`gg invite`.</summary>
     public Task<VerbResult> InviteAsync(CancellationToken cancellationToken = default) =>
         _commands.InviteAsync(cancellationToken);

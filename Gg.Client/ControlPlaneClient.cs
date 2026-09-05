@@ -48,6 +48,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(DeclareNameRequest))]
 [JsonSerializable(typeof(TopologyName))]
 [JsonSerializable(typeof(EnvelopeTopology))]
+[JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(MemberCredentialRedemption))]
 [JsonSerializable(typeof(MemberCredentialIssued))]
 /// <summary>
@@ -563,6 +564,30 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeTopology, cancellationToken)
             ?? throw new InvalidOperationException("Control plane answered with no topology.");
+    }
+
+    /// <summary>
+    /// The repositories this tenant has registered.
+    /// </summary>
+    /// <remarks>
+    /// <b>The control plane has served this the whole time and nothing here
+    /// asked.</b> <c>GET /v1/airspace/repositories</c> exists and returns
+    /// <see cref="RegisteredRepositories"/>; the console wraps
+    /// <c>AirspaceAsync</c>, which is the TOPOLOGY - envelope names and roles -
+    /// and answers a different question. A person wanting to know what they can
+    /// fly against had no way to ask.
+    /// </remarks>
+    public async Task<RegisteredRepositories> ListRepositoriesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/repositories", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RegisteredRepositories, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered with no repositories.");
     }
 
     /// <summary>One flight's checklist, from the envelope version it pinned, or null.</summary>

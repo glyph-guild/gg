@@ -65,6 +65,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.AirspaceTopology;
     }
 
+    /// <summary>What this tenant has registered, and can therefore fly against.</summary>
+    public sealed record AirspaceRepositories(RegisteredRepositories Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.AirspaceRepositories;
+    }
+
     /// <summary>What a pull did to the working copy.</summary>
     public sealed record AirspacePulled(TreeWritten Value) : VerbResult
     {
@@ -230,6 +236,9 @@ public static class VerbResultKinds
     public const string Plan = "plan";
     public const string AirspaceTopology = "airspace-topology";
 
+    /// <summary>What this tenant has registered.</summary>
+    public const string AirspaceRepositories = "airspace-repositories";
+
     public const string AirspacePulled = "airspace-pulled";
 
     public const string AirspaceApplied = "airspace-applied";
@@ -268,6 +277,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(EnvelopeTopology))]
+[JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(TreeWritten))]
 [JsonSerializable(typeof(EstateApplied))]
 [JsonSerializable(typeof(EstateDiff))]
@@ -335,6 +345,8 @@ public static class VerbOutput
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
         VerbResult.AirspaceTopology r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
+        VerbResult.AirspaceRepositories r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RegisteredRepositories),
         VerbResult.AirspacePulled r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.TreeWritten),
         VerbResult.AirspaceApplied r =>
@@ -392,6 +404,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EstateDiff))),
         VerbResultKinds.AirspaceTopology => new VerbResult.AirspaceTopology(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeTopology))),
+        VerbResultKinds.AirspaceRepositories => new VerbResult.AirspaceRepositories(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RegisteredRepositories))),
         VerbResultKinds.RunnerLabels => new VerbResult.RunnerLabels(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Taken => new VerbResult.Taken(Require(
@@ -430,6 +444,7 @@ public static class VerbOutput
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
+        VerbResult.AirspaceRepositories r => RepositoriesText(r.Value),
         VerbResult.AirspacePulled r => PulledText(r.Value),
         VerbResult.AirspaceApplied r => AppliedText(r.Value),
         VerbResult.AirspaceDiffed r => DiffText(r.Value),
@@ -981,6 +996,43 @@ public static class VerbOutput
     /// the reading order is the authority order: everything below the floor
     /// narrows it.
     /// </remarks>
+    /// <summary>
+    /// What this tenant can fly against, one repository a line.
+    /// </summary>
+    /// <remarks>
+    /// <b>An empty registry is said out loud.</b> A tenant with nothing
+    /// registered and a tenant whose read failed look identical as a blank
+    /// answer, and only one of them is a person's next action.
+    /// </remarks>
+    private static string RepositoriesText(RegisteredRepositories registered)
+    {
+        if (registered.Repositories.Count == 0)
+        {
+            return "No repositories are registered. Nothing can be flown against a repository "
+                 + "until one is - see gg airspace register.";
+        }
+
+        var text = new System.Text.StringBuilder();
+
+        foreach (var repository in registered.Repositories)
+        {
+            text.Append(repository.Name)
+                .Append("  ")
+                .Append(repository.Provider)
+                .Append('/')
+                .Append(repository.Path);
+
+            if (repository.Ref is { Length: > 0 } pinned)
+            {
+                text.Append("  @").Append(pinned);
+            }
+
+            text.AppendLine();
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     private static string AirspaceText(EnvelopeTopology topology)
     {
         var text = new System.Text.StringBuilder();

@@ -130,7 +130,7 @@ public class WorkItemToolServerTests
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":"
           + "{\"name\":\"get_work_item\",\"arguments\":{\"id\":\"26\"}}}");
 
-        await Assert.That(documents).HasCount().EqualTo(3)
+        await Assert.That(documents).Count().IsEqualTo(3)
             .Because("three requests, three replies, and every line parsed to get here.");
     }
 }

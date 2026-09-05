@@ -1062,7 +1062,7 @@ public static class ProtocolSurface
             [typeof(TakeSeed)] =
                 ["revision", "flightNumber", "flightId", "measurements", "account", "accountState",
                  "accountBytes", "accountAbsence", "transcript", "transcriptState",
-                 "transcriptAbsence", "priorHuman"],
+                 "transcriptAbsence", "priorHuman", "priorQuestion"],
             [typeof(TakeMeasurements)] =
                 ["filesEdited", "filesReadNotEdited", "searches", "errors", "undeclaredMovesUsed",
                  "attempts", "stopReason", "verdict"],

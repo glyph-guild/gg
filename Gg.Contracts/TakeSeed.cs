@@ -246,6 +246,24 @@ public sealed record TakeSeed
     /// </remarks>
     public HumanAccount? PriorHuman { get; init; }
 
+    /// <summary>
+    /// What the previous attempt asked a person, when it asked anything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside <see cref="PriorHuman"/> because it is the other kind of
+    /// assertion in this document.</b> One is a person's words and one is an
+    /// agent's; everything else here is measured. A resuming agent that cannot
+    /// see what its predecessor asked will ask it again - and worse, the ANSWER
+    /// arrives through the feedback block, so it would be handed a reply to a
+    /// question it cannot read.
+    /// </para>
+    /// <para>
+    /// Null is the ordinary state: most attempts ask nothing.
+    /// </para>
+    /// </remarks>
+    public LoopQuestion? PriorQuestion { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
     /// Checked on the way out of a composer and on the way in from the wire. A
@@ -341,7 +359,8 @@ public static class TakeSeedComposer
         string? account,
         ArtifactReference? transcript = null,
         string? verdict = null,
-        HumanAccount? priorHuman = null)
+        HumanAccount? priorHuman = null,
+        LoopQuestion? priorQuestion = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(flightNumber);
         ArgumentException.ThrowIfNullOrWhiteSpace(flightId);
@@ -374,6 +393,7 @@ public static class TakeSeedComposer
             AccountState = AccountStates.Missing,
             AccountAbsence = "the flight produced none",
             PriorHuman = priorHuman,
+            PriorQuestion = priorQuestion,
             Transcript = transcript,
             TranscriptState = transcript is null
                 ? TranscriptStates.None
@@ -464,6 +484,21 @@ public static class TakeSeedComposer
 
         text.AppendLine();
         Transcript(text, seed);
+
+        // WHAT IT ASKED, marked as the agent's own words. Everything above this
+        // point in the document is measured; this is an assertion, and an
+        // unlabelled block of prose among measurements reads as one of them.
+        // A resuming agent that cannot see this asks it again - and the ANSWER
+        // reaches it through the feedback block, so without this it is handed a
+        // reply to a question it cannot read.
+        if (seed.PriorQuestion is { } asked)
+        {
+            text.AppendLine();
+            text.AppendLine(
+                "THE PREVIOUS ATTEMPT ASKED FOR A DECISION (its own words, an agent's "
+              + "assertion):");
+            text.AppendLine(Indent(asked.Question));
+        }
 
         // LAST, and marked hardest of the three. Whoever reads this is picking up
         // work somebody else did, and the one thing they must not do is mistake a

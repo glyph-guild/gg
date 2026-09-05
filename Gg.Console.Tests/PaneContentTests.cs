@@ -222,4 +222,27 @@ public class PaneContentTests
             .Because("an empty list has to SAY it is empty. A blank pane here and an unread "
                    + "one look identical, and they are opposite facts.");
     }
+
+    [Test]
+    public async Task The_envelope_in_force_is_readable_from_the_console()
+    {
+        // S28.4-04. The console had no envelope method at all, so every flight
+        // it shows named a version of a document it could not show.
+        var seeded = await AgainstARealControlPlaneTests.GatedAsync();
+        var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+
+        var opened = ConsoleEnvelope.Read(seeded.Data, booted);
+
+        await Assert.That(opened.Envelope).IsNotNull()
+            .Because("this tenant applied one before it opened a flight.");
+        await Assert.That(opened.Envelope!.Version).IsEqualTo(booted.Flight!.EnvelopeVersion)
+            .Because("the version the flight pane names is the document this pane shows.");
+
+        var pane = PaneText.Envelope(opened);
+
+        await Assert.That(pane).DoesNotContain("not read");
+        await Assert.That(pane).Contains("in-scope")
+            .Because("the obligations the seeded envelope declares, rendered by the CLI's "
+                   + "own renderer so the two surfaces cannot drift.");
+    }
 }

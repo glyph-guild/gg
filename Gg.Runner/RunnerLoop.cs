@@ -870,6 +870,27 @@ public sealed class RunnerLoop(
                 lease.Loop.LoopId, unservable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));
         }
 
+        // NOT EVERY EXECUTOR CAN BE PROBED, and the one that cannot is the one
+        // that hands a person the terminal. The probe measures by INVOKING the
+        // port - its own temp tree, an ISSUE.md asking for two writes - so
+        // probing an attended session means asking the person to perform the
+        // canary task and waiting for them.
+        //
+        // Probing the HEADLESS executor instead would be worse, because it looks
+        // safe: this method exists per session precisely because a measurement
+        // taken elsewhere measures something else, and a headless reading
+        // stamped onto environment.identity as this flight's moveEnforcement
+        // would break the only claim the probe makes with the thing that makes
+        // it.
+        //
+        // So an attended flight's bound is unmeasured, and the fact it ships
+        // says so. Unknown is not false - the rule this project applies to a
+        // missing fact, applied to a missing measurement.
+        if (!_executor.BoundIsMeasurable)
+        {
+            return (null, await InvokeAsync(lease, workspace, cancellationToken));
+        }
+
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
         if (!probe.Bound)
         {

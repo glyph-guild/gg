@@ -68,6 +68,14 @@ namespace Gg.Runner.Execution;
 /// Starts the child and answers its exit code, or null when it could not be
 /// started. Injected so the launch is testable without a terminal; production
 /// passes nothing.
+/// <para>
+/// <b>Asynchronous, and a test found out why.</b> A synchronous wait completes
+/// the whole invocation before <c>RunnerLoop</c>'s renewal loop ever looks at
+/// it, so the lease is never renewed under a child that is still running — and
+/// a person holding a terminal past the lease's expiry is the ORDINARY case
+/// here, not the exceptional one. A lapsed lease hands their flight to the
+/// fleet mid-edit.
+/// </para>
 /// </param>
 public sealed class AttendedExecutor(
     string binary,
@@ -75,14 +83,44 @@ public sealed class AttendedExecutor(
     Func<string, string?>? secretFor = null,
     SelfInvocation? self = null,
     TextWriter? announce = null,
-    Func<ProcessStartInfo, int?>? spawn = null) : IExecutorPort
+    Func<ProcessStartInfo, CancellationToken, Task<int?>>? spawn = null) : IExecutorPort
 {
     private readonly string _binary = binary;
     private readonly IReadOnlyList<IntentReader> _readers = readers;
     private readonly Func<string, string?> _secretFor = secretFor ?? (_ => null);
     private readonly SelfInvocation? _self = self;
     private readonly TextWriter _announce = announce ?? System.Console.Out;
-    private readonly Func<ProcessStartInfo, int?> _spawn = spawn ?? Inherit;
+    private readonly Func<ProcessStartInfo, CancellationToken, Task<int?>> _spawn =
+        spawn ?? InheritAsync;
+
+    /// <summary>
+    /// Running this executor cannot measure its own bound.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Neither way round works, which is why this is a skip rather than a
+    /// substitution.</b> <see cref="MoveBoundProbe"/> INVOKES the port it is
+    /// handed — its own temporary tree, an <c>ISSUE.md</c> asking for two
+    /// writes, and then a look at the disk. Through this executor that hands a
+    /// person the probe's canary task and waits for them to do it. Through the
+    /// headless executor it measures a different session.
+    /// </para>
+    /// <para>
+    /// <b>And the second is the one that looks safe.</b> <c>RunnerLoop</c> moved
+    /// the probe to per-session deliberately, because "a measurement taken at
+    /// startup measures the machine as it was before this session existed… what
+    /// it buys is the product's only claim: that the measurement measures the
+    /// session it governs." A headless reading stamped onto
+    /// <c>environment.identity</c> as this flight's <c>moveEnforcement</c> would
+    /// break exactly that claim, with the thing that exists to make it.
+    /// </para>
+    /// <para>
+    /// So an attended flight's bound is <b>unmeasured</b>, and saying so on a
+    /// fact is what rule 3 is for. Quietly measuring something else is what this
+    /// stops.
+    /// </para>
+    /// </remarks>
+    public bool BoundIsMeasurable => false;
 
     /// <summary>
     /// The same declaration the headless executor makes, deliberately.
@@ -179,13 +217,12 @@ public sealed class AttendedExecutor(
         int? exit;
         try
         {
-            exit = _spawn(info);
+            exit = await _spawn(info, cancellationToken);
         }
         catch (Exception failure) when (failure is System.ComponentModel.Win32Exception
                                             or InvalidOperationException
                                             or FileNotFoundException)
         {
-            exit = null;
             return Unstartable(request, failure.Message);
         }
 
@@ -193,8 +230,6 @@ public sealed class AttendedExecutor(
         {
             return Unstartable(request, "the process could not be started");
         }
-
-        await Task.CompletedTask;
 
         // NOTHING MEASURED, AND THAT IS THE ANSWER. A person held the terminal;
         // this process watched a child it could not see inside. Attempts, moves
@@ -250,7 +285,13 @@ public sealed class AttendedExecutor(
             : null;
 
     /// <summary>Starts the child with this process's terminal, and waits.</summary>
-    private static int? Inherit(ProcessStartInfo info)
+    /// <remarks>
+    /// <b>WaitForExitAsync, not WaitForExit.</b> The blocking one holds the
+    /// thread that <c>RunnerLoop</c> renews the lease on, so a person at a
+    /// terminal would watch their own lease lapse.
+    /// </remarks>
+    private static async Task<int?> InheritAsync(
+        ProcessStartInfo info, CancellationToken cancellationToken)
     {
         using var child = Process.Start(info);
         if (child is null)
@@ -258,7 +299,7 @@ public sealed class AttendedExecutor(
             return null;
         }
 
-        child.WaitForExit();
+        await child.WaitForExitAsync(cancellationToken);
         return child.ExitCode;
     }
 }

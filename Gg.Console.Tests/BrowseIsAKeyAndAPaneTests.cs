@@ -77,13 +77,13 @@ public class BrowseIsAKeyAndAPaneTests
     [Test]
     public async Task The_toggle_flips_the_pane_and_nothing_else()
     {
-        var shown = Reducer.Reduce(new AppState { SelectedRow = 2 }, Command.ToggleBrowse);
+        var shown = Reducer.BrowseToggled(new AppState { SelectedRow = 2 });
 
         await Assert.That(shown.BrowseVisible).IsTrue();
         await Assert.That(shown.SelectedRow).IsEqualTo(2)
             .Because("opening a browser must not lose the row a person was looking at.");
 
-        var hidden = Reducer.Reduce(shown, Command.ToggleBrowse);
+        var hidden = Reducer.BrowseToggled(shown);
 
         await Assert.That(hidden.BrowseVisible).IsFalse();
     }
@@ -99,7 +99,7 @@ public class BrowseIsAKeyAndAPaneTests
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));
 
-        var hidden = Reducer.Reduce(listed, Command.ToggleBrowse);
+        var hidden = Reducer.BrowseToggled(listed);
 
         await Assert.That(hidden.BrowseVisible).IsFalse();
         await Assert.That(hidden.Browse).IsNotNull();
@@ -112,9 +112,8 @@ public class BrowseIsAKeyAndAPaneTests
         // The screen gives one region to whichever pane is on. Two visible at
         // once is two panes drawn over each other, which is what the existing
         // EvidenceVisible/LiveVisible pair already avoids.
-        var state = Reducer.Reduce(
-            new AppState { EvidenceVisible = true, LiveVisible = true },
-            Command.ToggleBrowse);
+        var state = Reducer.BrowseToggled(
+            new AppState { EvidenceVisible = true, LiveVisible = true });
 
         await Assert.That(state.BrowseVisible).IsTrue();
         await Assert.That(state.EvidenceVisible).IsFalse();

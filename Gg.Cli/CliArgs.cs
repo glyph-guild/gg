@@ -40,7 +40,7 @@ public abstract record CliAction
     /// as the server command, so the agent's process starts it and owns its
     /// lifetime.
     /// </remarks>
-    public sealed record RunnerNominate : CliAction;
+    public sealed record RunnerTools : CliAction;
 
     /// <summary>The resident runner: pull decided pool actions, act, attest.</summary>
     public sealed record RunnerMaintain(string Pool) : CliAction;
@@ -281,7 +281,7 @@ public static class CliArgs
             ["whoami"] => new CliAction.WhoAmI(),
             ["runner", "up"] => new CliAction.RunnerUp(),
             ["runner", "serve"] => new CliAction.RunnerServe(),
-            ["runner", "nominate"] => new CliAction.RunnerNominate(),
+            ["runner", "tools"] => new CliAction.RunnerTools(),
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
 

@@ -170,6 +170,32 @@ public sealed record ExecutorRequest
     /// </remarks>
     public string? IntentUri { get; init; }
 
+    /// <summary>
+    /// Whether this session has anybody to ask. True for a flight; false for
+    /// work this runner set itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The move-bound probe is why this exists, and the failure it prevents
+    /// is the probe measuring nothing.</b> The probe denies the moves that
+    /// write, asks an agent to modify a file and create one, and looks at the
+    /// disk. An agent handed a tool for asking a person could ask instead of
+    /// attempting the write - and the probe would then report a bound that
+    /// held, having tested nothing at all.
+    /// </para>
+    /// <para>
+    /// <b>A member rather than a check on the loop id.</b> The executor
+    /// deciding by recognising the probe's own name would be the launcher
+    /// knowing about one caller, and the next caller with nobody to ask would
+    /// have to be recognised too. The caller says.
+    /// </para>
+    /// <para>
+    /// Defaulted true, because every request that is a flight has somebody to
+    /// ask and there are far more of those.
+    /// </para>
+    /// </remarks>
+    public bool CanAskAPerson { get; init; } = true;
+
     /// <summary>The tracker a work-item flight names, or null.</summary>
     /// <remarks>
     /// <b>Beside the uri, because they are two ways of naming external work and

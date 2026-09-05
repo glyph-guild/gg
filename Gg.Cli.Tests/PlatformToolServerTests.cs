@@ -32,12 +32,12 @@ namespace Gg.Cli.Tests;
 /// request that admission will refuse.
 /// </para>
 /// </remarks>
-public class NominationServerTests
+public class PlatformToolServerTests
 {
     private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines)
     {
         var output = new StringWriter();
-        await NominationServer.RunAsync(new StringReader(string.Join('\n', lines)), output);
+        await PlatformToolServer.RunAsync(new StringReader(string.Join('\n', lines)), output);
 
         // EVERY LINE, parsed. A server that wrote one unparseable line among
         // valid ones is a dead server, and a test that looked only for what it
@@ -108,13 +108,29 @@ public class NominationServerTests
     [Test]
     public async Task It_declares_one_tool_taking_a_work_kind_and_a_reason()
     {
+        // TWO NOW, AND THE OLD REASON WAS THE WRONG ONE. This asserted one tool
+        // because "a second on this server would be granted by the same move" -
+        // and the second is granted on the OPPOSITE terms. Nominating a work
+        // kind is the whole output of one kind of work, so an envelope that
+        // never declares `propose` has no business granting it; asking for a
+        // decision is not a move at all and no envelope may withhold it,
+        // because one able to would be one that makes a stuck agent silent.
+        //
+        // Which is why the count is asserted rather than the absence: a THIRD
+        // tool has to make its own argument, and neither of the two above is
+        // it.
         var answers = await ExchangeAsync(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
 
         var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(1)
-            .Because("one tool, because a second on this server would be granted by the same "
-                   + "move - and the grant names the whole tool for that reason.");
+        await Assert.That(tools.GetArrayLength()).IsEqualTo(2)
+            .Because("one channel, two tools, granted on opposite terms. A third is a "
+                   + "decision somebody has to argue for.");
+
+        var listed = tools.EnumerateArray()
+            .Select(t => t.GetProperty("name").GetString()!).ToList();
+        await Assert.That(listed).IsEquivalentTo(
+            new[] { NominationTool.Name, HelpTool.Name });
 
         var tool = tools[0];
         await Assert.That(tool.GetProperty("name").GetString()).IsEqualTo(NominationTool.Name);
@@ -210,7 +226,7 @@ public class NominationServerTests
         // HOLDS NOTHING OPEN. The agent's process owns this one's lifetime, so
         // a server that kept a handle after stdin closed would be a child the
         // runner has to reap.
-        await Assert.That(await NominationServer.RunAsync(
+        await Assert.That(await PlatformToolServer.RunAsync(
             new StringReader(string.Empty), new StringWriter())).IsEqualTo(0);
     }
 }

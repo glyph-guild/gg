@@ -70,15 +70,39 @@ public class NominateToolLaunchTests
     }
 
     [Test]
-    public async Task A_loop_that_may_not_nominate_is_granted_nothing_and_starts_no_server()
+    public async Task A_loop_that_may_not_nominate_is_granted_nothing()
     {
+        // THE SERVER STILL STARTS, and this assertion's second half moved with
+        // it. It used to say a loop declaring only `read` configures no server
+        // at all, because the one tool on it was withholdable. A second tool
+        // now rides the same server and no envelope may withhold THAT one, so
+        // the channel opens for every flight - and what a loop may CALL is
+        // still decided here, which is the half this test is really about.
         var arguments = ClaudeCodeExecutor.ArgumentsFor(
             Request([LoopMoves.Read]), [], self: SelfInvocation.For("/bin/gg", null));
 
-        await Assert.That(arguments).DoesNotContain(NominationTool.Qualified);
+        await Assert.That(arguments).DoesNotContain(NominationTool.Qualified)
+            .Because("nominating a work kind is the whole output of one KIND of work, and a "
+                   + "loop that is not classifying has no business naming a kind.");
+    }
+
+    [Test]
+    public async Task A_session_with_nobody_to_ask_starts_no_server_at_all()
+    {
+        // WHERE THE OLD ASSERTION WENT, and it is the case that always
+        // mattered: the move-bound probe. It denies the writing moves, asks an
+        // agent to change a file, and looks at the disk - so an agent handed a
+        // tool for asking a person could ask INSTEAD of attempting the write,
+        // and the probe would report a bound that held having tested nothing.
+        // It declares only `read` and has nobody to ask, so it configures none.
+        var arguments = ClaudeCodeExecutor.ArgumentsFor(
+            Request([LoopMoves.Read]) with { CanAskAPerson = false },
+            [],
+            self: SelfInvocation.For("/bin/gg", null));
+
         await Assert.That(Count(arguments, "--mcp-config")).IsEqualTo(0)
-            .Because("a server nobody may call is a child process started for nothing - and "
-                   + "the probe runs with read alone, so it must configure none.");
+            .Because("a server nobody may call is a child process started for nothing.");
+        await Assert.That(arguments).DoesNotContain(HelpTool.Qualified);
     }
 
     [Test]
@@ -99,7 +123,7 @@ public class NominateToolLaunchTests
         await Assert.That(config).Contains("\"jira\"");
         await Assert.That(config).Contains($"\"{NominationTool.Server}\"");
         await Assert.That(config).Contains("runner");
-        await Assert.That(config).Contains("nominate");
+        await Assert.That(config).Contains("tools");
     }
 
     [Test]
@@ -128,11 +152,13 @@ public class NominateToolLaunchTests
     }
 
     [Test]
-    public async Task A_launch_with_only_a_tracker_is_unchanged()
+    public async Task A_launch_with_only_a_tracker_gains_the_channel_and_nothing_else()
     {
-        // THE COEXISTENCE ASSERTED AS AN ABSENCE OF CHANGE, which is stronger
-        // than asserting the joined shape: every flight in the air today has
-        // exactly this launch, and this slice must not have touched it.
+        // THIS ASSERTED AN ABSENCE OF CHANGE, and the change is now deliberate:
+        // a tool no envelope may withhold means every flight's launch gains
+        // one. So the claim moves from "nothing changed" to "exactly this
+        // changed", which is the same guard doing the same job - a launch that
+        // quietly gained a third thing still fails it.
         var before = ClaudeCodeExecutor.ArgumentsFor(
             Request([LoopMoves.Read], provider: "jira"), [Tracker], secret: "shhh");
 
@@ -140,7 +166,33 @@ public class NominateToolLaunchTests
             Request([LoopMoves.Read], provider: "jira"), [Tracker], secret: "shhh",
             self: SelfInvocation.For("/bin/gg", null));
 
-        await Assert.That(after).IsEquivalentTo(before);
+        // TWO THINGS MOVE. The config document is REPLACED rather than added -
+        // one flag, one JSON value, now naming two servers - and the allow-list
+        // gains the grant. Everything else is compared with both of those taken
+        // out, because lumping them in would report the join as a removal.
+        var beforeRest = before.Where(a => a != ConfigIn(before)).ToList();
+        var afterRest = after
+            .Where(a => a != ConfigIn(after) && a != HelpTool.Qualified)
+            .ToList();
+
+        await Assert.That(afterRest).IsEquivalentTo(beforeRest.ToArray())
+            .Because("the tracker reader, the strictness, the bound and the prompt are what "
+                   + "every flight in the air has, and none of them moved.");
+
+        // AND THE TWO THAT DO MOVE, each said out loud.
+        await Assert.That(after).Contains(HelpTool.Qualified);
+        await Assert.That(before).DoesNotContain(HelpTool.Qualified)
+            .Because("a runner that cannot name itself serves no tool, so it must not grant "
+                   + "one either - which is what makes the line above a change rather than a "
+                   + "coincidence.");
+
+        await Assert.That(ConfigIn(before)).Contains(Tracker.Key);
+        await Assert.That(ConfigIn(before)).DoesNotContain(HelpTool.Server);
+        await Assert.That(ConfigIn(after)).Contains(Tracker.Key)
+            .Because("the tracker reader survives the join. A second --mcp-config that "
+                   + "replaced rather than joined would remove it silently, which is the "
+                   + "failure this pair of assertions exists for.");
+        await Assert.That(ConfigIn(after)).Contains(HelpTool.Server);
     }
 
     [Test]
@@ -192,16 +244,20 @@ public class NominateToolLaunchTests
     {
         // AN APPHOST names itself; UNDER `dotnet` the process path is the host
         // and the entry assembly is the dll. Getting this wrong means a server
-        // command of `dotnet runner nominate`, which starts nothing.
+        // command of `dotnet runner tools`, which starts nothing.
+        //
+        // The verb is `tools` rather than `nominate` since a second tool joined
+        // the server: a verb naming one of the two would be a verb that lies
+        // about half of what it serves.
         var apphost = SelfInvocation.For("/usr/local/bin/gg", "/usr/local/bin/gg");
         await Assert.That(apphost!.Command).IsEqualTo("/usr/local/bin/gg");
         await Assert.That(apphost.Arguments).IsEquivalentTo(
-            new[] { "runner", "nominate" });
+            new[] { "runner", "tools" });
 
         var hosted = SelfInvocation.For("/usr/share/dotnet/dotnet", "/app/gg.dll");
         await Assert.That(hosted!.Command).IsEqualTo("/usr/share/dotnet/dotnet");
         await Assert.That(hosted.Arguments).IsEquivalentTo(
-            new[] { "/app/gg.dll", "runner", "nominate" });
+            new[] { "/app/gg.dll", "runner", "tools" });
 
         await Assert.That(SelfInvocation.For(null, null)).IsNull()
             .Because("a process that cannot name its own executable must say so rather than "

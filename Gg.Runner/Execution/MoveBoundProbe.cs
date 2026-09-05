@@ -166,6 +166,11 @@ public static class MoveBoundProbe
                 {
                     WorkingDirectory = tree,
                     LoopId = "gg-move-bound-probe",
+                    // NOBODY TO ASK, and this measurement is why the member
+                    // exists. An agent handed a tool for asking a person could
+                    // ask instead of attempting the write, and this would then
+                    // report a bound that held having tested nothing.
+                    CanAskAPerson = false,
                     IntentUri = "gg://probe/move-bound",
                     // READ ONLY. Nothing here maps to a tool that can put bytes on
                     // disk, so a file appearing is the bound not holding.

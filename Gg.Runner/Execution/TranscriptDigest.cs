@@ -198,6 +198,15 @@ public static class TranscriptDigest
             // envelope, and it was making a claim about one.
             RefusedMoves = Bounded(calls.Keys
                 .Where(t => !declared.Contains(t, StringComparer.Ordinal))
+                // ASKING FOR A DECISION IS NOT A MOVE, so it can be neither
+                // declared nor refused. A successful call never reached this
+                // filter - refused means never once got through - but a call
+                // the TOOL turned down is undeclared and always-failing, and
+                // reporting it would tell a person their agent reached outside
+                // its envelope because it tried to ask them a question. Named
+                // here rather than added to `declared`, because adding it there
+                // would say an envelope granted it and no envelope can.
+                .Where(t => !string.Equals(t, HelpTool.Qualified, StringComparison.Ordinal))
                 .Where(t => failures.GetValueOrDefault(t) >= calls[t])
                 .Order(StringComparer.Ordinal)),
             Attempts = attempts,

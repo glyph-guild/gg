@@ -35,6 +35,16 @@ public sealed record SelfInvocation(string Command, IReadOnlyList<string> Argume
     private static readonly string[] Verb = ["runner", "tools"];
 
     /// <summary>
+    /// The one program that needs the assembly handed to it.
+    /// </summary>
+    /// <remarks>
+    /// Matched without an extension so <c>dotnet.exe</c> answers the same, and
+    /// case-insensitively for the same reason paths are compared that way on
+    /// two of the three platforms this runs on.
+    /// </remarks>
+    private const string DotnetHost = "dotnet";
+
+    /// <summary>
     /// How to start this process again, or null where it cannot be named.
     /// </summary>
     public static SelfInvocation? Current { get; } =
@@ -60,10 +70,23 @@ public sealed record SelfInvocation(string Command, IReadOnlyList<string> Argume
             return null;
         }
 
-        // THE DLL IS THE TELL. A hosted run's entry assembly is a managed
-        // library; an apphost's is the apphost. Nothing else distinguishes them
-        // from inside the process.
-        return entryPath is { Length: > 0 } entry
+        // THE HOST IS THE TELL, and the dll is not. A framework-dependent
+        // apphost sits beside its own `gg.dll` and reports that dll as the
+        // entry assembly - exactly as `dotnet gg.dll` does - so "the entry is a
+        // managed library" cannot tell the two apart. It answered the apphost
+        // as hosted, producing `gg /path/gg.dll runner tools`, which gg cannot
+        // parse: the server did not start, the agent was never offered the
+        // tool, and nothing said so. Only the transcript's own init line knew,
+        // as {"name":"gg","status":"failed"}.
+        //
+        // The question this is really asking is "does my process path need the
+        // assembly handed to it", and exactly one program does: the dotnet
+        // host. An apphost - AOT or framework-dependent - takes the verb
+        // directly.
+        var host = System.IO.Path.GetFileNameWithoutExtension(processPath);
+
+        return string.Equals(host, DotnetHost, StringComparison.OrdinalIgnoreCase)
+            && entryPath is { Length: > 0 } entry
             && entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
             ? new SelfInvocation(processPath, [entry, .. Verb])
             : new SelfInvocation(processPath, Verb);

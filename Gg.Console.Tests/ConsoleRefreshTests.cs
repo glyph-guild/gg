@@ -73,15 +73,41 @@ public class ConsoleRefreshTests
         }
     }
 
-    /// <summary>A reload that answers with whatever it was given.</summary>
+    /// <summary>
+    /// A reload that answers the way <c>ConsoleStart.LoadAsync</c> does.
+    /// </summary>
+    /// <remarks>
+    /// <b>Given the model, and answers with it.</b> The twelve fields below are
+    /// the ones the loader assigns - the read plane, and nothing else. A double
+    /// that answered with <c>next</c> whole would be a BOOT, and a boot
+    /// standing in for a refresh is exactly the defect
+    /// <see cref="RefreshThreadsTheModelTests"/> is about: it would let the loop
+    /// pass this suite while emptying the browse pane, the receipts and the
+    /// queue in production.
+    /// </remarks>
     private sealed class Reloads(AppState next)
     {
         internal int Calls { get; private set; }
 
-        internal AppState Load(AppState _)
+        internal AppState Load(AppState current)
         {
             Calls++;
-            return next;
+
+            return current with
+            {
+                Queue = next.Queue,
+                Gates = next.Gates,
+                Flights = next.Flights,
+                Logs = next.Logs,
+                Flight = next.Flight,
+                FlightLog = next.FlightLog,
+                Runners = next.Runners,
+                Credentials = next.Credentials,
+                TakeSeed = next.TakeSeed,
+                TakeableTree = next.TakeableTree,
+                Principal = next.Principal,
+                Diagnosis = next.Diagnosis,
+            };
         }
     }
 

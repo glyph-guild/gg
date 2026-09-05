@@ -84,13 +84,27 @@ public class ConsoleDataReachTests
     internal static readonly IReadOnlyDictionary<string, string> Exempt =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["ShowAsync"] = "the Flight pane's fetch. Wired in step 2 - it is the read that "
-                          + "turns `loading…` into a flight, and the single most visible "
-                          + "consequence of this whole gap.",
-            ["RunnerLabelsAsync"] = "the fleet's advertised labels. Wired in step 4, "
-                                  + "S28.4-03, with each disposition beside its name.",
-            ["AirspaceAsync"] = "the registered repositories. Resolved in step 6, S28.6-01: "
-                              + "wired to a pane or deleted, and no third option.",
+            // THREE ENTRIES LEFT HERE AND ALL THREE WERE DELETED, which was not
+            // what any of them predicted. Each said a pane would arrive and call
+            // it; each turned out to be a SECOND WAY TO ASK a question the model
+            // already holds the answer to.
+            //
+            //   ShowAsync         - one flight's summary. The boot fetches every
+            //                       flight's in one list to derive the queue and
+            //                       keeps it, so the detail under the cursor is a
+            //                       lookup. That is what makes an arrow key free.
+            //   RunnerLabelsAsync - the same ListRunnersAsync call RunnersAsync
+            //                       makes. `gg runners` and `gg runner labels`
+            //                       are one request rendered two ways, and the
+            //                       console renders the labels from what boot
+            //                       already fetched.
+            //   AirspaceAsync     - the topology. Nobody asked for it, and
+            //                       `wired to a pane or deleted` has no third
+            //                       option.
+            //
+            // A wrapper whose data is already in the model is not a missing
+            // pane. It is a way for a console to make a request it has already
+            // made, and the name is what makes the next reader believe otherwise.
 
             // NOT THIS SLICE'S, and here by agreement rather than by oversight.
             // Slice twenty-nine landed both deliberately ahead of the pane that

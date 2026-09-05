@@ -275,6 +275,8 @@ public class ConsoleWriteVerbsTests
         public string FlyTicket(string provider, string id) =>
             Fly($"{provider}#{id}");
         public string AddCredential() => "registered";
+
+        public string ForgetCredential() => "registered";
         public string Invite() => "placed";
     }
 

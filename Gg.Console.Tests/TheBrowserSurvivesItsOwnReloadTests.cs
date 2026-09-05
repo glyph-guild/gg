@@ -38,6 +38,8 @@ public class TheBrowserSurvivesItsOwnReloadTests
 
         public string AddCredential() => "";
 
+        public string ForgetCredential() => "";
+
         public string Invite() => "";
     }
 

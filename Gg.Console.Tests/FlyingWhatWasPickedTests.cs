@@ -60,6 +60,8 @@ public class FlyingWhatWasPickedTests
 
         public string AddCredential() => "";
 
+        public string ForgetCredential() => "";
+
         public string Invite() => "";
     }
 

@@ -147,12 +147,20 @@ public sealed class ConsoleLoop(
                     // The value is read by CredentialCommands, inside the action.
                     // Nothing here holds it, which is the point: this record is
                     // serialized to disk under GG_STATE_DUMP.
-                    state = state with
-                    {
-                        LastCredential = actions is null
-                            ? "This console is not configured to register credentials."
-                            : actions.AddCredential(),
-                    };
+                    //
+                    // AND IT RE-READS, which it did not. Rule 4: registering a
+                    // credential changes the credential list the flight pane
+                    // draws, and this arm was the one write in the loop that
+                    // changed something a pane shows and did not refresh it.
+                    state = Reloaded(
+                        state with
+                        {
+                            LastCredential = actions is null
+                                ? "This console is not configured to register credentials."
+                                : actions.AddCredential(),
+                        },
+                        reload,
+                        asked: false);
                     break;
 
                 case Command.ToggleBrowse:
@@ -227,6 +235,22 @@ public sealed class ConsoleLoop(
                         state = Reloaded(state, reload, asked: false);
                     }
 
+                    break;
+
+                case Command.ForgetCredential:
+                    // A WRITE, SO IT REFRESHES WHAT IT INVALIDATED. Rule 4: the
+                    // credential list the flight pane reads is exactly what this
+                    // changed, and a console still showing a credential somebody
+                    // just forgot is the staleness this slice exists to remove.
+                    state = Reloaded(
+                        state with
+                        {
+                            LastCredential = actions is null
+                                ? "This console is not configured to forget credentials."
+                                : actions.ForgetCredential(),
+                        },
+                        reload,
+                        asked: false);
                     break;
 
                 case Command.Invite:

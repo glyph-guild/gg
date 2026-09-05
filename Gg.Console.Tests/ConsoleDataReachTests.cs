@@ -89,10 +89,6 @@ public class ConsoleDataReachTests
                           + "consequence of this whole gap.",
             ["RunnerLabelsAsync"] = "the fleet's advertised labels. Wired in step 4, "
                                   + "S28.4-03, with each disposition beside its name.",
-            ["RemoveCredentialAsync"] = "forgetting a credential. Given a key in step 5, "
-                                      + "S28.5-04, or deleted in step 6 - and it is the half "
-                                      + "of credential management that matters when one "
-                                      + "leaks, so it will be the key.",
             ["AirspaceAsync"] = "the registered repositories. Resolved in step 6, S28.6-01: "
                               + "wired to a pane or deleted, and no third option.",
 

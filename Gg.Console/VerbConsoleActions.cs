@@ -209,7 +209,27 @@ public sealed class VerbConsoleActions(
                 return "Nothing was registered: no repository was named.";
             }
 
-            var added = _data.AddAsync(repo).GetAwaiter().GetResult();
+            // THE SCOPE, ASKED FOR. Registering read-only by fiat meant a
+            // console that could never grant a runner what it needs to land
+            // work, and said nothing about it.
+            var asked = _prompt.ReadLine(
+                $"Which scope? {string.Join(" or ", CredentialScopes.All)} "
+              + $"(return for {CredentialScopes.Read}): ").Trim();
+
+            // AN EMPTY ANSWER IS NOT A WRONG ANSWER. The narrow scope is the
+            // ordinary one, and pressing return is how a person says so.
+            var scope = asked.Length == 0 ? CredentialScopes.Read : asked;
+
+            // REFUSED BY NAME rather than narrowed to read. Somebody who typed
+            // `admin` and was quietly given a reading credential finds out at
+            // the push, one flight later, with nothing pointing here.
+            if (!CredentialScopes.All.Contains(scope, StringComparer.Ordinal))
+            {
+                return $"Nothing was registered: '{scope}' is not a scope gg can ask "
+                     + $"for. It asks for one of: {string.Join(", ", CredentialScopes.All)}.";
+            }
+
+            var added = _data.AddAsync(repo, [scope]).GetAwaiter().GetResult();
 
             // THE REFERENCE, which is what crosses the wire anyway: kind, locator,
             // identity and scopes. Never the value, and there is nothing here that
@@ -226,6 +246,72 @@ public sealed class VerbConsoleActions(
             // matters more here than anywhere else in this file. It carries the
             // refusal's own words, and the refusal never saw the value.
             return $"Nothing was registered — {refusal.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Forgets a credential, by the repository a person knows it by.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Re-read rather than resolved from the model.</b> The console holds a
+    /// credential list that may be a minute old, and removing the wrong
+    /// credential because the list moved is not a mistake this may make.
+    /// </para>
+    /// <para>
+    /// <b>Typing the repository IS the confirmation.</b> There is no modal,
+    /// because there is no way to do this by accident: nothing is removed until
+    /// somebody has named it, and a name that matches nothing removes nothing
+    /// and says which names would have worked.
+    /// </para>
+    /// </remarks>
+    public string ForgetCredential()
+    {
+        try
+        {
+            var repo = _prompt.ReadLine("Which repository's credential should be forgotten? ")
+                .Trim();
+
+            if (repo.Length == 0)
+            {
+                return "Nothing was forgotten: no repository was named.";
+            }
+
+            if (_data.ListCredentialsAsync().GetAwaiter().GetResult()
+                    is not VerbResult.Credentials held)
+            {
+                return "Nothing was forgotten: the credential list could not be read.";
+            }
+
+            var match = held.Value.Credentials.FirstOrDefault(
+                c => string.Equals(c.Repo, repo, StringComparison.Ordinal));
+
+            if (match is null)
+            {
+                // WHICH NAMES WOULD HAVE WORKED, because a person who mistyped
+                // and a person whose credential is already gone need different
+                // next moves, and "not found" is both.
+                var known = held.Value.Credentials.Count == 0
+                    ? "this tenant holds none"
+                    : string.Join(", ", held.Value.Credentials.Select(c => c.Repo));
+
+                return $"Nothing was forgotten: no credential for {repo} ({known}).";
+            }
+
+            var removed = _data.RemoveCredentialAsync(match.CredentialId)
+                .GetAwaiter().GetResult();
+
+            // THE REFERENCE, never the value - and the local secret goes with
+            // it, which CredentialCommands does off the reference that comes
+            // back. A store cleaned on one side only is the leak this closes.
+            return removed is VerbResult.CredentialRemoved gone
+                ? $"Forgot {gone.Value.Reference.Locator}, which acted as "
+                + $"{gone.Value.Reference.Identity}."
+                : $"The credential for {repo} was forgotten.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return $"Nothing was forgotten — {refusal.Message}";
         }
     }
 

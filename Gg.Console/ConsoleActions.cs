@@ -78,6 +78,18 @@ public interface IConsoleActions
     string AddCredential();
 
     /// <summary>
+    /// Forgets a credential, and says what was forgotten.
+    /// </summary>
+    /// <remarks>
+    /// <b>By REPOSITORY, which is what a person knows.</b> The control plane
+    /// removes by credential id and nobody has one of those in their head; the
+    /// verb resolves the name to the id by re-reading the list, rather than
+    /// trusting a model that may be a minute old. Removing the wrong credential
+    /// because the list moved is not a mistake this can be allowed to make.
+    /// </remarks>
+    string ForgetCredential();
+
+    /// <summary>
     /// Issues an invitation and places the link, returning WHERE it went.
     /// </summary>
     /// <remarks>

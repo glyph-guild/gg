@@ -318,6 +318,8 @@ public class ConsoleRefreshTests
 
         public string AddCredential() => "Nothing was registered.";
 
+        public string ForgetCredential() => "Nothing was registered.";
+
         public string Invite() => "Nothing was issued.";
     }
 
@@ -349,6 +351,8 @@ public class ConsoleRefreshTests
         public string? AlreadyFlown(string provider, string id) => alreadyFlown;
 
         public string AddCredential() => "registered";
+
+        public string ForgetCredential() => "registered";
 
         public string Invite() => "invited";
     }

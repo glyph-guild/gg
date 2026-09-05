@@ -45,15 +45,23 @@ public static class ConsoleStart
                 }
             }
 
-            var queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value);
-
             // WHAT IS WAITING ON A PERSON. Without it the gate modal had the
             // evidence and not the question - no obligation id - so pressing
             // approve could not have posted anything even once the key reached the
             // shell. The list, because the selected row picks one out of it.
+            //
+            // FETCHED BEFORE THE QUEUE IS BUILT, and it used to be after. Six
+            // lines, and they are why the pane called "flights needing me" could
+            // not contain a flight that needs me: the queue was derived without
+            // them, so QueueReason.AwaitingDecision was declared, rendered, and
+            // produced by nothing. The console has held this answer at boot the
+            // whole time and showed it only in a modal that opens on a row the
+            // queue could not have.
             var gates = await data.GatesAsync(cancellationToken) is VerbResult.Gates waiting
                 ? waiting.Value
                 : null;
+
+            var queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value, gates);
 
             // THE PRINCIPAL AND THE SEED, which is what makes the takeover key do
             // anything. Before this, ConsoleStart returned a queue and nothing

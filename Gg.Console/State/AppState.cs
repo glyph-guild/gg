@@ -429,6 +429,35 @@ public sealed record AppState
 
     public BrowseListing? Browse { get; init; }
 
+    /// <summary>What this tenant can fly against, or null if never asked.</summary>
+    /// <remarks>
+    /// Null and empty are different answers, the distinction
+    /// <see cref="Browse"/> already draws: never asked versus asked and told
+    /// none.
+    /// </remarks>
+    public Gg.Contracts.RegisteredRepositories? Repositories { get; init; }
+
+    /// <summary>Whether the repositories pane has the region.</summary>
+    public bool RepositoriesVisible { get; init; }
+
+    /// <summary>Which repository row the cursor is on.</summary>
+    /// <remarks>
+    /// A third cursor, because there are three lists. Sharing one would move a
+    /// person's place in a list they were not looking at.
+    /// </remarks>
+    public int RepositorySelected { get; init; }
+
+    /// <summary>
+    /// The repository every flight this console opens will name, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is the ordinary state</b> and means the envelope resolves it,
+    /// which is what every flight does today. This is an override, so it is
+    /// announced in the activity line rather than living only inside a pane:
+    /// invisible state that changes what a write does is the worst kind.
+    /// </remarks>
+    public string? ChosenRepository { get; init; }
+
     /// <summary>
     /// The held tree of the selected flight, when there is one.
     /// </summary>

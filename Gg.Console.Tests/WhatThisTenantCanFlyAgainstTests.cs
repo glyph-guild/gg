@@ -1,4 +1,5 @@
 using Gg.Console;
+using Gg.Client;
 using Gg.Contracts;
 
 namespace Gg.Console.Tests;
@@ -36,16 +37,29 @@ public class WhatThisTenantCanFlyAgainstTests
             new RepositoryRegistered
             {
                 Name = "widgets", Provider = "a-forge", Id = "r-1", Path = "acme/widgets",
+                Credential = "local:acme/widgets", RegisteredBy = "somebody",
+                RegisteredAt = DateTimeOffset.UnixEpoch,
             },
             new RepositoryRegistered
             {
                 Name = "gadgets", Provider = "a-forge", Id = "r-2", Path = "acme/gadgets",
+                Credential = "local:acme/gadgets", RegisteredBy = "somebody",
+                RegisteredAt = DateTimeOffset.UnixEpoch,
             },
         ],
     };
 
+    /// <summary>
+    /// Read through the projection, which is the one path a verb result takes.
+    /// </summary>
+    /// <remarks>
+    /// Not a bespoke reducer: <c>ConsoleProjection.Apply</c> already owns
+    /// turning a <c>VerbResult</c> into state, and a second door would be a
+    /// second place the mapping can drift - which is what
+    /// <c>ProjectionParityTests</c> exists to stop.
+    /// </remarks>
     private static AppState Listed() =>
-        Reducer.RepositoriesRead(new AppState(), new VerbResult.AirspaceRepositories(Two()));
+        ConsoleProjection.Apply(new AppState(), new VerbResult.AirspaceRepositories(Two()));
 
     [Test]
     public async Task The_pane_shows_what_this_tenant_can_fly_against()
@@ -61,7 +75,7 @@ public class WhatThisTenantCanFlyAgainstTests
     {
         // The distinction the browse pane already draws: nothing registered is
         // an answer, and it is a different answer from never having asked.
-        var read = Reducer.RepositoriesRead(
+        var read = ConsoleProjection.Apply(
             new AppState(),
             new VerbResult.AirspaceRepositories(new RegisteredRepositories { Repositories = [] }));
 

@@ -40,12 +40,8 @@ public static class Reducer
             // two lists, and moving the queue underneath a person reading work
             // items would change what the flight pane shows for a keystroke
             // they aimed somewhere else.
-            Command.SelectNext => state.BrowseVisible
-                ? PickWork(state, state.BrowseSelected + 1)
-                : Select(state, state.SelectedRow + 1),
-            Command.SelectPrevious => state.BrowseVisible
-                ? PickWork(state, state.BrowseSelected - 1)
-                : Select(state, state.SelectedRow - 1),
+            Command.SelectNext => Moved(state, +1),
+            Command.SelectPrevious => Moved(state, -1),
 
             Command.ToggleEvidence => Reveal(state with { EvidenceVisible = !state.EvidenceVisible }),
             Command.ToggleLive => ToggleLive(state),
@@ -322,6 +318,51 @@ public static class Reducer
     /// answer to what you just did.
     /// </para>
     /// </remarks>
+    /// <summary>Show or hide the repositories, keeping what was read.</summary>
+    /// <remarks>One region, one pane - the rule <see cref="BrowseToggled"/> follows.</remarks>
+    public static AppState RepositoriesToggled(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state with
+        {
+            RepositoriesVisible = !state.RepositoriesVisible,
+            BrowseVisible = false,
+            EvidenceVisible = false,
+            LiveVisible = false,
+        };
+    }
+
+    /// <summary>
+    /// Choose the repository under the cursor, or unchoose it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Choosing the one already chosen clears it</b>, which is the only way
+    /// back to the ordinary state: a flight naming no repository is one the
+    /// envelope resolves, and that is what every flight does today. Without
+    /// this, a person who chose by mistake could never undo it.
+    /// </remarks>
+    public static AppState RepositoryChosen(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Repositories is not { Repositories.Count: > 0 } listed
+            || state.RepositorySelected < 0
+            || state.RepositorySelected >= listed.Repositories.Count)
+        {
+            return state;
+        }
+
+        var path = listed.Repositories[state.RepositorySelected].Path;
+
+        return state with
+        {
+            ChosenRepository = string.Equals(state.ChosenRepository, path, StringComparison.Ordinal)
+                ? null
+                : path,
+        };
+    }
+
     /// <summary>
     /// What a reader answered, as the pane will draw it.
     /// </summary>
@@ -374,6 +415,30 @@ public static class Reducer
     /// costs a whole session rebuild.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Move whichever list has the screen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three lists, three cursors, one pair of keys.</b> The queue's
+    /// selection is what the flight pane hangs off, so moving it under somebody
+    /// reading work items or repositories would change what they return to for
+    /// a keystroke aimed elsewhere. Ordered so the pane actually on screen
+    /// wins; the visibility flags are mutually exclusive by construction, and
+    /// this does not rely on that.
+    /// </remarks>
+    private static AppState Moved(AppState state, int by) =>
+        state.RepositoriesVisible ? PickRepository(state, state.RepositorySelected + by)
+        : state.BrowseVisible ? PickWork(state, state.BrowseSelected + by)
+        : Select(state, state.SelectedRow + by);
+
+    /// <summary>Move the repository cursor, inside the repository list.</summary>
+    private static AppState PickRepository(AppState state, int to) => state with
+    {
+        RepositorySelected = state.Repositories is { Repositories.Count: > 0 } listed
+            ? Math.Clamp(to, 0, listed.Repositories.Count - 1)
+            : 0,
+    };
+
     /// <summary>Move the work list's own cursor, inside the work list.</summary>
     /// <remarks>
     /// Clamped rather than wrapped, and clamped to what is actually there: a

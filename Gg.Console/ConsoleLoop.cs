@@ -16,7 +16,8 @@ public sealed class ConsoleLoop(
     IWorkBrowser? browser = null,
     Func<AppState, AppState>? reload = null,
     Func<AppState, AppState>? checklist = null,
-    Func<AppState, AppState>? envelope = null)
+    Func<AppState, AppState>? envelope = null,
+    Func<AppState, AppState>? repositories = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -251,6 +252,22 @@ public sealed class ConsoleLoop(
                         },
                         reload,
                         asked: false);
+                    break;
+
+                case Command.ToggleRepositories:
+                    // A READ ON THE WAY IN, browse's and the checklist's shape.
+                    // Hiding asks nothing, and re-reading a list already held
+                    // would spend a whole session rebuild to show a person what
+                    // they were just looking at.
+                    state = Reducer.RepositoriesToggled(state);
+
+                    if (state.RepositoriesVisible
+                        && state.Repositories is null
+                        && repositories is not null)
+                    {
+                        state = repositories(state);
+                    }
+
                     break;
 
                 case Command.Invite:

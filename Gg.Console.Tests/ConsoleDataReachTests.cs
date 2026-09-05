@@ -106,19 +106,14 @@ public class ConsoleDataReachTests
             // pane. It is a way for a console to make a request it has already
             // made, and the name is what makes the next reader believe otherwise.
 
-            // NOT THIS SLICE'S, and here by agreement rather than by oversight.
-            // Slice twenty-nine landed both deliberately ahead of the pane that
-            // uses them, because that pane needs this slice's read plane and
-            // these reads did not. Its author asked for this ratchet knowing it
-            // would fire on them, and is fixing what fires: these two leave the
-            // list when its step 4 lands, not when this slice's does.
-            // REWORDED at slice twenty-nine's author's request: its step 4
-            // landed without this one, so "its browse pane is its step 4" had
-            // stopped being true. The tracker browser and "what can I fly
-            // against" are different panes; this read belongs to the second,
-            // which nobody has built.
-            ["RepositoriesAsync"] = "slice twenty-nine, tier B: what this tenant can fly "
-                                  + "against - a different pane from the tracker browser its "
-                                  + "step 4 shipped, and one nobody has built yet.",
+            // BOTH SLICE-TWENTY-NINE ENTRIES ARE GONE, and the record of why is
+            // worth more than the empty dictionary. FlownAsync left when its
+            // step 5 wired it to warn before a second flight on one work item;
+            // RepositoriesAsync left when its step 2 shipped the pane that
+            // shows what a tenant can fly against. Both were exempted knowing
+            // the ratchet would fire, with a removal condition written down,
+            // and both were removed by the author who wrote the condition. That
+            // is what an exemption list is for - an empty one is the outcome,
+            // not the design.
         };
 }

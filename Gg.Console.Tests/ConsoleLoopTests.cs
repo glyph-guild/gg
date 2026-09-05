@@ -144,6 +144,8 @@ public class ConsoleLoopTests
             Fly($"{provider}#{id}");
         public string Decide(string flight, string obligation, bool approved, string? reason) => "decided";
         public string AddCredential() => "added";
+
+        public string ForgetCredential() => "added";
         public string Invite() => "invited";
     }
 }

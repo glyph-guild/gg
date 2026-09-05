@@ -69,6 +69,16 @@ public enum Command
     /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
     ToggleEnvelope,
 
+    /// <summary>
+    /// Forgets a credential this tenant holds a reference to.
+    /// </summary>
+    /// <remarks>
+    /// The shell's, like the other writes. A store you cannot clean is a store
+    /// people work around, and it is the half of credential management that
+    /// matters when one leaks.
+    /// </remarks>
+    ForgetCredential,
+
     /// <summary>Open a flight for the work item the browser has selected.</summary>
     /// <remarks>
     /// The shell's, because it writes. What crosses is a provider and an id,
@@ -192,6 +202,7 @@ public static class ShellCommands
         Command.ToggleBrowse,
         Command.ToggleChecklist,
         Command.ToggleEnvelope,
+        Command.ForgetCredential,
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,

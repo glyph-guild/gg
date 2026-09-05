@@ -52,6 +52,8 @@ public class ASecondFlightIsWarnedAboutTests
 
         public string AddCredential() => "";
 
+        public string ForgetCredential() => "";
+
         public string Invite() => "";
     }
 
@@ -178,6 +180,8 @@ public class ASecondFlightIsWarnedAboutTests
             "This console could not check whether it has already been flown.";
 
         public string AddCredential() => "";
+
+        public string ForgetCredential() => "";
 
         public string Invite() => "";
     }

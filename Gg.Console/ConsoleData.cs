@@ -239,17 +239,27 @@ public sealed class ConsoleData(
         _commands.InviteAsync(cancellationToken);
 
     /// <summary>
-    /// `gg credential add`, read-only scope.
+    /// `gg credential add`.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The value is not a parameter.</b> <c>CredentialCommands</c> prompts for it,
     /// so it is never held anywhere in this project - which is what makes registering
     /// from a console safe at all, given that this model serializes itself to disk.
+    /// </para>
+    /// <para>
+    /// <b>THE SCOPE IS.</b> It used to be hard-coded to <c>[read]</c>, so a runner
+    /// that must land work needed a credential this console could not grant - and
+    /// nothing said so: the person registered one, the flight ran, and the push at
+    /// the end failed at the credential. A scope is a decision, and this is the only
+    /// place a developer registering from their own machine can make it.
+    /// </para>
     /// </remarks>
     public Task<VerbResult> AddAsync(
-        string repo, CancellationToken cancellationToken = default) =>
-        _credentials.AddAsync(repo, CredentialScopes.Read is { } read ? [read] : [], null,
-            cancellationToken);
+        string repo,
+        IReadOnlyList<string> scopes,
+        CancellationToken cancellationToken = default) =>
+        _credentials.AddAsync(repo, scopes, null, cancellationToken);
 
     public Task<VerbResult> WhyAsync(
         string reference, string? obligation = null, CancellationToken cancellationToken = default) =>

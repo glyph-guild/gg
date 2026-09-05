@@ -173,6 +173,9 @@ public static class Keymap
             // would be a key doing something unrelated to the question on screen.
             new(KeyStroke.Char('n'), Command.OpenFlight, "new flight"),
             new(KeyStroke.Char('c'), Command.AddCredential, "add credential"),
+            // `x` for forget, because `f` is freeze and fly-this and `r` is
+            // reject. A store you cannot clean is a store people work around.
+            new(KeyStroke.Char('x'), Command.ForgetCredential, "forget credential"),
             new(KeyStroke.Char('i'), Command.Invite, "invite"),
         ],
     };

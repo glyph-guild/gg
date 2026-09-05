@@ -149,6 +149,66 @@ public class ConsoleWriteParityTests
     }
 
     [Test]
+    public async Task Both_credential_writes_refresh_what_they_invalidated()
+    {
+        // Rule 4, and AddCredential was the one write in the loop that changed
+        // something a pane draws and did not re-read. The credential list is in
+        // the flight pane; registering one and not seeing it is the staleness
+        // this slice exists to remove.
+        foreach (var key in (Command[])[Command.AddCredential, Command.ForgetCredential])
+        {
+            var reads = 0;
+            var ui = new Presses(key);
+
+            _ = new ConsoleLoop(
+                ui,
+                new NoEditor(),
+                actions: new Says(),
+                reload: state =>
+                {
+                    reads++;
+                    return state;
+                }).Run(new AppState());
+
+            await Assert.That(reads).IsEqualTo(1)
+                .Because($"{key} changes the credential list a pane reads.");
+        }
+    }
+
+    private sealed class Presses(params Command[] keys) : IUiSession
+    {
+        private int _at;
+
+        public UiOutcome Run(AppState state) =>
+            _at < keys.Length
+                ? new UiOutcome(keys[_at++], state)
+                : new UiOutcome(Command.Quit, state);
+    }
+
+    private sealed class NoEditor : IEditorSession
+    {
+        public string Edit(string initialText) => "";
+    }
+
+    private sealed class Says : IConsoleActions
+    {
+        public string Decide(string flight, string obligation, bool approved, string? reason) =>
+            "decided";
+
+        public string Fly(string intent) => "opened";
+
+        public string FlyTicket(string provider, string id) => "opened";
+
+        public string? AlreadyFlown(string provider, string id) => null;
+
+        public string AddCredential() => "registered";
+
+        public string ForgetCredential() => "forgotten";
+
+        public string Invite() => "invited";
+    }
+
+    [Test]
     public async Task Neither_write_puts_a_secret_anywhere_the_model_can_reach()
     {
         // Rule 7. The failure path, because a diagnostic is where a secret

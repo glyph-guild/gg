@@ -305,6 +305,19 @@ public sealed record AppState
     /// <summary>Its log, exactly as `gg log` returned it.</summary>
     public FlightLog? FlightLog { get; init; }
 
+    /// <summary>
+    /// Why the selected flight is stopped, exactly as `gg why` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read for the selected row and no other, so it is null far more often
+    /// than the summary beside it.</b> That is not a gap the pane papers over:
+    /// an attribution names a HALT, and one flight's halt shown under another
+    /// flight's name is the worst answer a console can give, because a person
+    /// cannot see that it is wrong. <see cref="Reducer.Detail"/> drops it when
+    /// the cursor moves and the refresh key reads it again.
+    /// </remarks>
+    public FlightAttribution? Attribution { get; init; }
+
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>
     public RunnerList? Runners { get; init; }
 

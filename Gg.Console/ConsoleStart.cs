@@ -131,8 +131,16 @@ public static class ConsoleStart
             // The seed for the FIRST row only, and that is deliberate: fetching one
             // per flight would be a request per row on every load, for panes nobody
             // has scrolled to. The selection moving is what fetches the next one.
-            var seed = queue.Count > 0
-                    && await data.SeedAsync(queue[0].FlightNumber, cancellationToken)
+            //
+            // FOR THE SELECTED ROW, not the first. It was `queue[0]` and this
+            // method is the refresh as well as the boot, so a re-read with the
+            // cursor moved fetched the top row's seed.
+            var selected = queue.Count > 0
+                ? queue[Math.Clamp(start.SelectedRow, 0, queue.Count - 1)]
+                : null;
+
+            var seed = selected is not null
+                    && await data.SeedAsync(selected.FlightNumber, cancellationToken)
                         is VerbResult.Taken taken
                 ? taken.Value
                 : null;
@@ -179,6 +187,17 @@ public static class ConsoleStart
                 loaded, "credentials", ct => data.ListCredentialsAsync(ct), partial, cancellationToken);
             loaded = await OwnFailureAsync(
                 loaded, "notices", ct => data.IdentityAsync(ct), partial, cancellationToken);
+
+            // AND WHY THE SELECTED FLIGHT IS STOPPED, which is the question the
+            // queue's rows pose. One read for one row: a read per row would be a
+            // request per row on every load, and reading on the arrow key would
+            // be I/O inside a UI session.
+            if (selected is { } row)
+            {
+                loaded = await OwnFailureAsync(
+                    loaded, "why", ct => data.WhyAsync(row.FlightNumber, null, ct),
+                    partial, cancellationToken);
+            }
 
             // AND THE SELECTED ROW'S DETAIL, THROUGH THE REDUCER'S OWN RULE, so
             // the console opens onto content rather than onto a pane waiting for

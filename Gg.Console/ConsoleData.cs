@@ -355,6 +355,9 @@ public static class ConsoleProjection
             VerbResult.Flight flight => state with { Flight = flight.Value, Diagnosis = null },
             VerbResult.Log log => state with { FlightLog = log.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+            // WHY THIS FLIGHT IS STOPPED, which is the question the queue's rows
+            // pose and nothing here could answer.
+            VerbResult.Why why => state with { Attribution = why.Value, Diagnosis = null },
             // WHAT THIS TENANT SHOULD KNOW, and the queue cannot say it. A
             // degradation that stops check runs being written leaves every
             // flight running, recording facts and leaving the queue - so

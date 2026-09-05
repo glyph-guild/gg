@@ -30,10 +30,12 @@ public sealed class ConsoleScreen : Window
     private readonly Label _flight;
     private readonly Label _evidence;
     private readonly Label _live;
+    private readonly Label _browse;
     private readonly FrameView _queuePane;
     private readonly FrameView _flightPane;
     private readonly FrameView _evidencePane;
     private readonly FrameView _livePane;
+    private readonly FrameView _browsePane;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
     private readonly Label _hints;
@@ -115,6 +117,21 @@ public sealed class ConsoleScreen : Window
         _live = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _livePane.Add(_live);
 
+        // THE SAME REGION AS EVIDENCE AND LIVE, and never on at the same time.
+        // Three panes over one region is why BrowseToggled turns the other two
+        // off rather than trusting the order these are added in.
+        _browsePane = new FrameView
+        {
+            Title = "Browse",
+            X = Pos.Right(_queuePane),
+            Y = Pos.Bottom(_evidencePane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _browse = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _browsePane.Add(_browse);
+
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
@@ -132,7 +149,8 @@ public sealed class ConsoleScreen : Window
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
         _modal.Add(_modalBody);
 
-        Add(_queuePane, _flightPane, _evidencePane, _livePane, _activity, _hints, _modal);
+        Add(_queuePane, _flightPane, _evidencePane, _livePane, _browsePane,
+            _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
@@ -228,7 +246,9 @@ public sealed class ConsoleScreen : Window
         }
     }
 
-    private KeymapContext Context() => new(State.Mode, State.LiveVisible, State.Frozen);
+    private KeymapContext Context() =>
+        new(State.Mode, State.LiveVisible, State.Frozen)
+        { BrowseVisible = State.BrowseVisible };
 
     /// <summary>One-way: model in, pixels out.</summary>
     private void Render()
@@ -250,11 +270,24 @@ public sealed class ConsoleScreen : Window
             _live.Text = PaneText.Live(State);
         }
 
+        _browse.Text = PaneText.Browse(State);
+
         _evidencePane.Visible = State.EvidenceVisible;
         _livePane.Visible = State.LiveVisible;
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
+        _browsePane.Visible = State.BrowseVisible;
+
+        // THE TRACKER IS IN THE TITLE, because a tenant may configure more than
+        // one and a list of work items with no attribution is a list nobody can
+        // act on. It is in the body too; a person reading either should not
+        // have to look at the other.
+        _browsePane.Title = State.Browse is { ProviderKey.Length: > 0 } listing
+            ? $"Browse — {listing.ProviderKey}"
+            : "Browse";
+
         // The flight pane gives up its space rather than being covered.
-        _flightPane.Visible = !State.EvidenceVisible && !State.LiveVisible;
+        _flightPane.Visible =
+            !State.EvidenceVisible && !State.LiveVisible && !State.BrowseVisible;
 
         _modal.Visible = State.Mode != UiMode.Normal;
         _modal.Title = State.Mode.ToString();

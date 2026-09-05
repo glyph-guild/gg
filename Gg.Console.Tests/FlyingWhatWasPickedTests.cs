@@ -49,6 +49,9 @@ public class FlyingWhatWasPickedTests
 
         public string Fly(string intent) => "should not be reached";
 
+        /// <summary>Nothing has flown, which is these tests' subject-free case.</summary>
+        public string? AlreadyFlown(string provider, string id) => null;
+
         public string FlyTicket(string provider, string id)
         {
             Flown.Add((provider, id));

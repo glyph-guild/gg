@@ -95,13 +95,35 @@ public class ModalEscapeTests
             .Because($"only {reached} of {Sequences} sequences ended in a modal; the property is nearly vacuous.");
     }
 
+    /// <summary>
+    /// Modes no single keystroke can open, and what proves them instead.
+    /// </summary>
+    /// <remarks>
+    /// <b>The walk below presses one key against a FRESH state</b>, which is
+    /// the right shape for a modal a key opens and cannot see one the LOOP
+    /// opens after a read. An entry here has to say what proves the same
+    /// property by another route, or it is just a hole.
+    /// </remarks>
+    private static readonly Dictionary<UiMode, string> OpenedByTheLoop = new()
+    {
+        [UiMode.ConfirmFlight] =
+            "opened by ConsoleLoop.FlewPicked after asking the control plane whether this "
+          + "work item has already flown - a read, so it cannot happen inside a UI session "
+          + "and cannot be reached by pressing a key against a fresh state. The property "
+          + "this test guards, that a modal nobody can open cannot trap anybody, is proved "
+          + "for it by ASecondFlightIsWarnedAboutTests: it is entered through FlyPicked and "
+          + "left through CloseModal, and Every_modal_has_exactly_one_escape_hatch above "
+          + "already covers it.",
+    };
+
     [Test]
     public async Task Every_modal_is_reachable_from_a_fresh_console()
     {
         // A modal nobody can open cannot trap anybody, so the property above
         // would hold trivially for a mode that is simply unreachable. This is
         // the other half: each one can genuinely be entered.
-        foreach (var mode in Enum.GetValues<UiMode>().Where(m => m != UiMode.Normal))
+        foreach (var mode in Enum.GetValues<UiMode>()
+                     .Where(m => m != UiMode.Normal && !OpenedByTheLoop.ContainsKey(m)))
         {
             var opened = KeymapTests.Universe
                 .Select(key => Press(new AppState(), key))
@@ -109,6 +131,23 @@ public class ModalEscapeTests
 
             await Assert.That(opened).IsTrue().Because($"{mode} cannot be opened by any key.");
         }
+    }
+
+    [Test]
+    public async Task The_exemption_list_names_nothing_a_key_can_open()
+    {
+        // THE ROW THAT KEEPS THE LIST HONEST. An exemption that stopped being
+        // needed is a hole nobody is looking at, and this is the shape
+        // ConsoleDataReachTests already uses for the same hazard.
+        var stale = OpenedByTheLoop.Keys
+            .Where(mode => KeymapTests.Universe
+                .Select(key => Press(new AppState(), key))
+                .Any(state => state.Mode == mode))
+            .ToList();
+
+        await Assert.That(stale).IsEmpty()
+            .Because("a mode a key can open does not need excusing, and an excuse that is "
+                   + "not needed is a hole in the walk above.");
     }
 
     [Test]

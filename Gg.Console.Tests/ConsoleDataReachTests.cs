@@ -106,7 +106,5 @@ public class ConsoleDataReachTests
             // list when its step 4 lands, not when this slice's does.
             ["RepositoriesAsync"] = "slice twenty-nine, tier B: what this tenant can fly "
                                   + "against. Its browse pane is its step 4.",
-            ["FlownAsync"] = "slice twenty-nine, tier B: what a work item has already flown. "
-                           + "Same pane, same step.",
         };
 }

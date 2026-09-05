@@ -6,7 +6,7 @@ using Gg.Runner.Execution;
 namespace Gg.Cli;
 
 /// <summary>
-/// The platform's own tool server: one tool, over line-delimited JSON-RPC on
+/// The platform's own tool server: its tools, over line-delimited JSON-RPC on
 /// standard input and output.
 /// </summary>
 /// <remarks>
@@ -16,7 +16,17 @@ namespace Gg.Cli;
 /// to mention one is a sentence somebody could have written about anything. A
 /// tool call is a thing the agent chose to make, in a shape the runner reads
 /// mechanically, and it is a narrower thing to trust than a sentence the agent
-/// was told to write.
+/// was told to write. The same argument covers an agent saying it is stuck.
+/// </para>
+/// <para>
+/// <b>ONE CHANNEL, TWO TOOLS, and they are granted on opposite terms.</b>
+/// Nominating a work kind is the whole output of one KIND of work, so an
+/// envelope that never declares `propose` has no business granting it. Asking
+/// for a decision is not a move at all and no envelope may withhold it: one
+/// able to would be one that makes a stuck agent silent. Both are listed here
+/// and the grant is decided in the one place a grant is already decided - the
+/// launch's allow-list - because a `tools/list` that varied by envelope would
+/// be a second place the same rule lives.
 /// </para>
 /// <para>
 /// <b>STDOUT IS THE PROTOCOL.</b> Nothing here may narrate, log, or greet: one
@@ -40,8 +50,11 @@ namespace Gg.Cli;
 /// same stated reason.
 /// </para>
 /// </remarks>
-public static class NominationServer
+public static class PlatformToolServer
 {
+    /// <summary>What the agent needs decided. One argument, and it is required.</summary>
+    private const string QuestionArgument = "question";
+
     private const string WorkKindArgument = "work_kind";
     private const string ReasonArgument = "reason";
 
@@ -115,7 +128,7 @@ public static class NominationServer
             // responses to requests waits for ever.
             _ => Error(id, -32601,
                 $"'{method}' is not a method this server has. It has initialize, tools/list "
-              + "and tools/call, and one tool."),
+              + "and tools/call."),
         };
     }
 
@@ -195,18 +208,69 @@ public static class NominationServer
 
             writer.WriteEndObject();
             writer.WriteEndObject();
+
+            // THE SECOND TOOL, and its description is the part that decides
+            // whether it is ever used. An agent is otherwise being told to
+            // complete a task by a system it cannot see, so it has to be told
+            // in as many words that stopping to ask is a real answer - and
+            // that it must not do a different piece of work instead, which is
+            // the second-best-looking thing a stuck agent can do.
+            writer.WriteStartObject();
+            writer.WriteString("name", HelpTool.Name);
+            writer.WriteString("description",
+                "Ask for a decision you are not allowed to make: a question only a person "
+              + "can answer, or two ways forward with nothing in the tree to choose between "
+              + "them. Call it once with the question, then stop and say what you did and "
+              + "what you were left with. Asking is not failing. Do not guess, and do not do "
+              + "a different piece of work instead. This grants nothing and changes nothing: "
+              + "a person reads the question and answers it, and the work comes back to you "
+              + "with their answer.");
+
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteStartObject(QuestionArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "What you need decided, in your own words. Say what you were doing, what the "
+              + "choices are, and what you could not tell from the work itself.");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteStringValue(QuestionArgument);
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
             writer.WriteEndArray();
             writer.WriteEndObject();
         });
 
     private static string Called(JsonElement id, JsonElement message)
     {
-        var arguments = message.TryGetProperty("params", out var parameters)
-            && parameters.TryGetProperty("arguments", out var given)
-            && given.ValueKind == JsonValueKind.Object
-                ? given
+        var parameters = message.TryGetProperty("params", out var given) ? given : default;
+
+        var arguments = parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty("arguments", out var supplied)
+            && supplied.ValueKind == JsonValueKind.Object
+                ? supplied
                 : default;
 
+        var called = parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty("name", out var name)
+                ? name.GetString()
+                : null;
+
+        if (string.Equals(called, HelpTool.Name, StringComparison.Ordinal))
+        {
+            return Asked(id, arguments);
+        }
+
+        // NOT AN UNKNOWN-TOOL ARM, deliberately. The nomination tool is what
+        // this server answered before there were two, and a call with no name
+        // at all is still that one - which keeps every client written against
+        // the one-tool server working rather than making its calls vanish.
         var workKind = Text(arguments, WorkKindArgument);
         var reason = Text(arguments, ReasonArgument);
 
@@ -228,6 +292,37 @@ public static class NominationServer
             $"Recorded: work kind '{workKind}'. This grants nothing and opens nothing - a "
           + "person decides whether a flight of that kind is opened. Your part is done: stop "
           + "now and say what you nominated and why.");
+    }
+
+    /// <summary>
+    /// Takes a question and returns a receipt. It does not wait.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rule 4: ask, stop, release.</b> A tool that waited for a person would
+    /// hold a lease across human latency, and a lease held that long is a lease
+    /// that expires and a flight that gets taken over - so every question would
+    /// arrive on the takeover path instead of the gate path. The runner does
+    /// not depend on the agent obeying the instruction to stop either: the
+    /// outcome is decided from the stream, so an agent that asks and then keeps
+    /// working is recorded accurately rather than taken at its word.
+    /// </remarks>
+    private static string Asked(JsonElement id, JsonElement arguments)
+    {
+        var question = Text(arguments, QuestionArgument);
+
+        // AN ERROR RESULT RATHER THAN A PROTOCOL ERROR, the same as the tool
+        // beside it: the call reached the tool and the tool refused it, which
+        // is something the agent can read and fix. And an empty question is
+        // worse than none - it opens a gate a person cannot answer.
+        return question is null
+            ? Content(id, isError: true,
+                $"Refused: a question needs words in it. Say what you were doing, what the "
+              + "choices are, and what you could not tell from the work itself. Nothing was "
+              + "recorded.")
+            : Content(id, isError: false,
+                "Recorded. Your part is done: stop now and say what you did and what you were "
+              + "left with. This grants nothing and changes nothing - a person reads the "
+              + "question and answers it, and the work comes back to you with their answer.");
     }
 
     private static string? Text(JsonElement arguments, string name) =>

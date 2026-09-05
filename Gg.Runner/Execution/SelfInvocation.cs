@@ -16,7 +16,7 @@ namespace Gg.Runner.Execution;
 /// whole argument list. Run as <c>dotnet gg.dll</c>, the process path is the
 /// <c>dotnet</c> host and the entry assembly is the dll - so the command needs
 /// the dll before the verb. Reading only the process path gives
-/// <c>dotnet runner nominate</c>, which starts nothing, and the agent would
+/// <c>dotnet runner tools</c>, which starts nothing, and the agent would
 /// still be told the tool exists.
 /// </para>
 /// <para>
@@ -32,7 +32,7 @@ namespace Gg.Runner.Execution;
 public sealed record SelfInvocation(string Command, IReadOnlyList<string> Arguments)
 {
     /// <summary>The verb the tool server is served under.</summary>
-    private static readonly string[] Verb = ["runner", "nominate"];
+    private static readonly string[] Verb = ["runner", "tools"];
 
     /// <summary>
     /// How to start this process again, or null where it cannot be named.

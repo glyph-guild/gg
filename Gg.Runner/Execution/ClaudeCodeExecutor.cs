@@ -250,6 +250,17 @@ public sealed class ClaudeCodeExecutor(
                         .Where(move => Grantable(move, request))
                         .Select(Tool)
                         .Concat(ReadTools(request))
+                        // ALWAYS, WHATEVER THE MOVES DECLARE. Asking a person
+                        // is not a move: a move bounds what an agent may do to
+                        // a customer's code and this touches nothing. An
+                        // envelope able to withhold it would be an envelope
+                        // that makes a stuck agent silent, which is the failure
+                        // this exists to fix - so it is granted here rather
+                        // than derived from the loop, and only when the server
+                        // that answers it is actually configured.
+                        .Concat(Serves(request) && request.CanAskAPerson
+                            ? (string[])[HelpTool.Qualified]
+                            : [])
                         .Distinct(StringComparer.Ordinal)])
         {
             info.ArgumentList.Add(argument);
@@ -320,13 +331,17 @@ public sealed class ClaudeCodeExecutor(
     /// Whether this launch serves the platform's own tool.
     /// </summary>
     /// <remarks>
-    /// The move decides, so the envelope decides - and the work kind never has
-    /// to reach the runner, which <see cref="LeaseLoop"/>'s own flattening
-    /// forbids.
+    /// <b>Always, now that a tool on it is always granted.</b> It used to be
+    /// the move that decided, because the one tool on this server was
+    /// withholdable; the tool for asking a person is not a move and no envelope
+    /// may withhold it, so the channel opens for every flight. Which tools an
+    /// agent may CALL is still the envelope's, and still expressed in the one
+    /// place it was - the allow-list below.
     /// </remarks>
     private bool Serves(ExecutorRequest request) =>
         _self is not null
-        && request.Moves.Contains(Gg.Contracts.LoopMoves.Propose, StringComparer.Ordinal);
+        && (request.CanAskAPerson
+            || request.Moves.Contains(Gg.Contracts.LoopMoves.Propose, StringComparer.Ordinal));
 
     /// <summary>
     /// Whether this move's tool may be granted on this launch.
@@ -450,8 +465,50 @@ public sealed class ClaudeCodeExecutor(
         $"Work {Subject(request)}. Make the code changes it asks "
       + "for, in this working tree only. Do not create a branch, do not commit, and do not push "
       + "anything anywhere."
+      + WhenItCannot
       + (request.ResumesFrom is { Length: > 0 } seed ? Resumption(seed) : string.Empty)
       + (request.Feedback is { } feedback ? Feedback(feedback) : string.Empty);
+
+    /// <summary>
+    /// What to do when the work cannot be done - the paragraph without which
+    /// none of this is used.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Measured by consequence before it was written.</b> Four real runs
+    /// against a ticket recording two teams asking for opposite things, with
+    /// nothing in the tree to choose between them: all four picked one,
+    /// justified it, and wrote a patch. Not one asked. The prompt told them to
+    /// work the subject and make the changes it asks for and said nothing about
+    /// what to do when they could not, so they did the only thing they had been
+    /// told to do.
+    /// </para>
+    /// <para>
+    /// <b>"Asking is not failing" is in there deliberately.</b> The agent is
+    /// otherwise being told to complete a task by a system it cannot see, and
+    /// the failure this exists to fix is an agent that produced something
+    /// rather than say it was stuck. Naming the guess, and naming the
+    /// substitution, is what makes this an instruction about that rather than
+    /// about tidiness.
+    /// </para>
+    /// <para>
+    /// <b>Last, and that is about what the prompt is ABOUT.</b> An agent reads
+    /// the task first. A prompt that led with what to do when the task cannot
+    /// be done would be a prompt about failing.
+    /// </para>
+    /// <para>
+    /// <b>Every flight is told, whatever its moves declare.</b> A read-only
+    /// loop can be as stuck as a writing one, and telling only some agents
+    /// about the channel would make the tier depend on the envelope - which is
+    /// the thing this tool is deliberately outside.
+    /// </para>
+    /// </remarks>
+    private const string WhenItCannot =
+        "\n\nIf you reach something you cannot decide - a question only a person can answer, "
+      + "or two ways forward with nothing in the tree to choose between them - call "
+      + HelpTool.Qualified + " with the question, then stop and say what you did and what you "
+      + "were left with. Asking is not failing. Do not guess, and do not do a different piece "
+      + "of work instead.";
 
     /// <summary>
     /// The prior attempt's handoff record, as two kinds of claim.

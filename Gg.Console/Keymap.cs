@@ -50,6 +50,9 @@ public readonly record struct KeymapContext(
 
     /// <summary>Whether the checklist pane has the region.</summary>
     public bool ChecklistVisible { get; init; }
+
+    /// <summary>Whether the envelope pane has the region.</summary>
+    public bool EnvelopeVisible { get; init; }
 }
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
@@ -130,6 +133,9 @@ public static class Keymap
             // `p` for plan, which is the verb it calls.
             new(KeyStroke.Char('p'), Command.ToggleChecklist,
                 context.ChecklistVisible ? "hide checklist" : "checklist"),
+            // `e` for envelope, which is the noun and the verb it calls.
+            new(KeyStroke.Char('e'), Command.ToggleEnvelope,
+                context.EnvelopeVisible ? "hide envelope" : "envelope"),
             // TOTAL RATHER THAN TRUSTING THE REDUCER. BrowseToggled turns live
             // off, so both flags on is a state the console cannot reach - but
             // Bindings is a pure function that can be handed any context, and a

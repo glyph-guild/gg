@@ -341,6 +341,20 @@ public sealed record AppState
     /// </remarks>
     public bool ChecklistVisible { get; init; }
 
+    /// <summary>
+    /// The envelope in force, exactly as `gg envelope show` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read when the pane is opened.</b> Every flight this console shows
+    /// names the version of this document and the console could not show it, so
+    /// a person reading `envelope  v3` in the flight pane had to leave to find
+    /// out what v3 says.
+    /// </remarks>
+    public EnvelopeState? Envelope { get; init; }
+
+    /// <summary>Whether the envelope pane has the region.</summary>
+    public bool EnvelopeVisible { get; init; }
+
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>
     public RunnerList? Runners { get; init; }
 

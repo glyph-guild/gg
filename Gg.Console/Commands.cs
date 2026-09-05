@@ -66,6 +66,9 @@ public enum Command
     /// </remarks>
     ToggleChecklist,
 
+    /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
+    ToggleEnvelope,
+
     /// <summary>Open a flight for the work item the browser has selected.</summary>
     /// <remarks>
     /// The shell's, because it writes. What crosses is a provider and an id,
@@ -188,6 +191,7 @@ public static class ShellCommands
         // the same reason it owns the editor and the take.
         Command.ToggleBrowse,
         Command.ToggleChecklist,
+        Command.ToggleEnvelope,
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,

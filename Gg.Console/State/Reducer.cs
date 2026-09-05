@@ -405,6 +405,7 @@ public static class Reducer
         EvidenceVisible = false,
         LiveVisible = false,
         ChecklistVisible = false,
+        EnvelopeVisible = false,
     };
 
     /// <summary>Shows or hides the checklist, and gives it the region.</summary>
@@ -425,6 +426,23 @@ public static class Reducer
             EvidenceVisible = false,
             LiveVisible = false,
             BrowseVisible = false,
+            EnvelopeVisible = false,
+        };
+    }
+
+    /// <summary>Shows or hides the envelope, and gives it the region.</summary>
+    /// <remarks>The reason is <see cref="ChecklistToggled"/>'s.</remarks>
+    public static AppState EnvelopeToggled(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state with
+        {
+            EnvelopeVisible = !state.EnvelopeVisible,
+            EvidenceVisible = false,
+            LiveVisible = false,
+            BrowseVisible = false,
+            ChecklistVisible = false,
         };
     }
 

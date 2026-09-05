@@ -482,7 +482,10 @@ static int LaunchConsole()
         // WHAT THIS TENANT SHOULD KNOW. The notices row above the queue was
         // drawn by PaneText from the first slice and assigned by nothing, so a
         // degradation the control plane reported on every call reached nobody.
-        new IdentityCommands(client, sessions));
+        new IdentityCommands(client, sessions),
+        // THE RULES IN FORCE, readable at last. Every flight the console shows
+        // names this document's version and nothing could show the document.
+        new EnvelopeCommands(client, sessions));
 
     var initial = ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult();
 
@@ -543,7 +546,8 @@ static int LaunchConsole()
         // THE CHECKLIST IS READ WHEN THE PANE IS OPENED, not at boot: it is off
         // by default, and a request for a pane nobody opened is a request
         // nobody wanted.
-        checklist: current => ConsoleChecklist.Read(data, current))
+        checklist: current => ConsoleChecklist.Read(data, current),
+        envelope: current => ConsoleEnvelope.Read(data, current))
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

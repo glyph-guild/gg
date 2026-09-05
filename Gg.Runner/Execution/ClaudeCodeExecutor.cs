@@ -98,6 +98,23 @@ public sealed class ClaudeCodeExecutor(
 
     ExecutorCapabilities IExecutorPort.Capabilities => Capabilities;
 
+    /// <summary>
+    /// The port's widened answer, narrowed back on the way through.
+    /// </summary>
+    /// <remarks>
+    /// <b>Explicit, so this class's own signature stays non-nullable.</b> The
+    /// port may answer "nothing measured a loop" because an attended session
+    /// genuinely measures nothing; the headless path has no such ending, and
+    /// every one of its six — completed, failed, blocked, exhausted, a child
+    /// that would not start, a reader that would not resolve — returns a run.
+    /// Declaring that here rather than only meaning it is what
+    /// <c>AttendedExecutorTests</c> reads, and what stops a null arriving from
+    /// two causes and being read as one.
+    /// </remarks>
+    async Task<ExecutorRun?> IExecutorPort.ExecuteAsync(
+        ExecutorRequest request, CancellationToken cancellationToken) =>
+        await ExecuteAsync(request, cancellationToken);
+
     /// <summary>Runs the loop under its wall-clock budget.</summary>
     public async Task<ExecutorRun> ExecuteAsync(
         ExecutorRequest request, CancellationToken cancellationToken)
@@ -238,50 +255,90 @@ public sealed class ClaudeCodeExecutor(
                  ["-p", Prompt(request),
                   "--output-format", "stream-json",
                   "--verbose",
-                  "--setting-sources", "",
-                  // STRICT, AND NOW WITH SOMETHING TO BE STRICT ABOUT. This
-                  // clears the operator's own servers, which is the whole point
-                  // - and until there was a --mcp-config beside it, it also left
-                  // the agent unable to read the work item its flight was about.
-                  "--strict-mcp-config",
-                  .. ServerArguments(request, secret),
-                  // A PARTIAL BOUND, measured. It refuses Edit and Write at the
-                  // call and removes Grep from the tool list; it does not bind Read
-                  // or Bash. It is also the whole of what makes the line above
-                  // matter - clearing setting sources is what stops the operator's
-                  // own permissions applying instead. See DeclaredMoveEnforcement above, and
-                  // MoveBoundProbe, which proves this rather than assuming it.
-                  "--allowedTools",
-                  .. request.Moves
-                        // A GRANT WHOSE SERVER WAS NEVER CONFIGURED TELLS THE
-                        // AGENT THE TOOL EXISTS, and it then spends turns
-                        // calling something that is not there. The loud version
-                        // of this is ToolServers.Unservable, refused before
-                        // anything is spent - but the launch must not lie even
-                        // where that check has not run, because the two are
-                        // reached by different paths and only one of them is
-                        // this method.
-                        .Where(move => Grantable(move, request))
-                        .Select(Tool)
-                        .Concat(ReadTools(request))
-                        // ALWAYS, WHATEVER THE MOVES DECLARE. Asking a person
-                        // is not a move: a move bounds what an agent may do to
-                        // a customer's code and this touches nothing. An
-                        // envelope able to withhold it would be an envelope
-                        // that makes a stuck agent silent, which is the failure
-                        // this exists to fix - so it is granted here rather
-                        // than derived from the loop, and only when the server
-                        // that answers it is actually configured.
-                        .Concat(Serves(request) && request.CanAskAPerson
-                            ? (string[])[HelpTool.Qualified]
-                            : [])
-                        .Distinct(StringComparer.Ordinal)])
+                  .. BoundingArguments(request, secret)])
         {
             info.ArgumentList.Add(argument);
         }
 
         return info;
     }
+
+    /// <summary>
+    /// What bounds the session, without what makes it headless.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Split out because a second executor passes exactly these and none of
+    /// the three above.</b> <see cref="AttendedExecutor"/> hands the terminal to
+    /// a person, so it has no prompt to pass, no stream to format and nothing to
+    /// be verbose at — but every reason to pass the bound. Two hand-maintained
+    /// copies of this list would drift, and the drift would be a flight running
+    /// under a bound somebody thought it had.
+    /// </para>
+    /// <para>
+    /// <b>And the split is where it is because of what step 0 measured.</b> The
+    /// three headless flags decide how this process talks to the child. These
+    /// decide what the child may do — and on an attended session they are the
+    /// whole of it, because <c>--allowedTools</c> shrinks the tool surface not
+    /// at all and the operator's own settings decide otherwise.
+    /// </para>
+    /// </remarks>
+    private string[] BoundingArguments(ExecutorRequest request, string? secret) =>
+        ["--setting-sources", "",
+         // STRICT, AND NOW WITH SOMETHING TO BE STRICT ABOUT. This
+         // clears the operator's own servers, which is the whole point
+         // - and until there was a --mcp-config beside it, it also left
+         // the agent unable to read the work item its flight was about.
+         "--strict-mcp-config",
+         .. ServerArguments(request, secret),
+         // A PARTIAL BOUND, measured. It refuses Edit and Write at the
+         // call and removes Grep from the tool list; it does not bind Read
+         // or Bash. It is also the whole of what makes the line above
+         // matter - clearing setting sources is what stops the operator's
+         // own permissions applying instead. See DeclaredMoveEnforcement above, and
+         // MoveBoundProbe, which proves this rather than assuming it.
+         "--allowedTools",
+         .. request.Moves
+               // A GRANT WHOSE SERVER WAS NEVER CONFIGURED TELLS THE
+               // AGENT THE TOOL EXISTS, and it then spends turns
+               // calling something that is not there. The loud version
+               // of this is ToolServers.Unservable, refused before
+               // anything is spent - but the launch must not lie even
+               // where that check has not run, because the two are
+               // reached by different paths and only one of them is
+               // this method.
+               .Where(move => Grantable(move, request))
+               .Select(Tool)
+               .Concat(ReadTools(request))
+               // ALWAYS, WHATEVER THE MOVES DECLARE. Asking a person
+               // is not a move: a move bounds what an agent may do to
+               // a customer's code and this touches nothing. An
+               // envelope able to withhold it would be an envelope
+               // that makes a stuck agent silent, which is the failure
+               // this exists to fix - so it is granted here rather
+               // than derived from the loop, and only when the server
+               // that answers it is actually configured.
+               .Concat(Serves(request) && request.CanAskAPerson
+                   ? (string[])[HelpTool.Qualified]
+                   : [])
+               .Distinct(StringComparer.Ordinal)];
+
+    /// <summary>
+    /// The bound this executor would apply, for a caller that launches
+    /// differently.
+    /// </summary>
+    /// <remarks>
+    /// The same shape as <see cref="ArgumentsFor"/> and for the same reason:
+    /// one class knows how a move becomes a tool, and a second executor asks it
+    /// rather than deciding again.
+    /// </remarks>
+    public static IReadOnlyList<string> BoundingArgumentsFor(
+        ExecutorRequest request,
+        IReadOnlyList<IntentReader> readers,
+        string? secret = null,
+        SelfInvocation? self = null) =>
+        new ClaudeCodeExecutor("claude", readers, secretFor: null, self)
+            .BoundingArguments(request, secret);
 
     /// <summary>
     /// The work, as the agent is told it.

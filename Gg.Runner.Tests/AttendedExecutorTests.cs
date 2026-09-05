@@ -224,7 +224,7 @@ public class AttendedExecutorTests
         var run = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         await Assert.That(run).IsNull();
-        await Assert.That(spawned).HasCount(1);
+        await Assert.That(spawned.Count).IsEqualTo(1);
     }
 
     // ---- S26.1-10: the ratchet on the widening ----

@@ -952,6 +952,18 @@ public sealed class RunnerLoop(
             },
             cancellationToken);
 
+        // NOTHING MEASURED A LOOP, which is what an attended session answers:
+        // a person held the terminal, so there is no outcome to append a
+        // sentence to, nothing for the observer to report, and no digest. Every
+        // reader below is about what the executor SAW, and it saw nothing.
+        //
+        // Distinct from the null above, which is a runner with no executor at
+        // all. Both mean no loop fact; only this one means somebody flew it.
+        if (run is null)
+        {
+            return null;
+        }
+
         // THE ENVELOPE'S SENTENCE, appended where the envelope is known. The
         // executor measured the stop; who the flight waits for next is policy,
         // and a constant in the factory once told every reader a person was

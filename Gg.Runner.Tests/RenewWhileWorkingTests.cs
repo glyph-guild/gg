@@ -33,12 +33,12 @@ public class RenewWhileWorkingTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 8, 24, 12, 0, 0, TimeSpan.Zero);
 
-    private sealed class PendingExecutor(Func<ExecutorRequest, CancellationToken, Task<ExecutorRun>> respond)
+    private sealed class PendingExecutor(Func<ExecutorRequest, CancellationToken, Task<ExecutorRun?>> respond)
         : IExecutorPort
     {
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default) =>
             respond(request, cancellationToken);
     }

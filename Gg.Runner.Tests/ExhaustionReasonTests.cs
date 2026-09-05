@@ -32,9 +32,9 @@ public class ExhaustionReasonTests
     {
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ExecutorRun.Exhausted(
+            Task.FromResult<ExecutorRun?>(ExecutorRun.Exhausted(
                 request.LoopId, request.WallClock, [LoopMoves.Read]));
     }
 

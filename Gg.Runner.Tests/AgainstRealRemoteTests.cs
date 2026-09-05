@@ -312,7 +312,7 @@ public class AgainstRealRemoteTests
         public Execution.ExecutorCapabilities Capabilities =>
             new() { Rung = ExecutorRungs.Frontier };
 
-        public async Task<Execution.ExecutorRun> ExecuteAsync(
+        public async Task<Execution.ExecutorRun?> ExecuteAsync(
             Execution.ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(request);

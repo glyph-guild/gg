@@ -487,6 +487,38 @@ public interface IExecutorPort
     /// <summary>What this executor can and cannot do.</summary>
     ExecutorCapabilities Capabilities { get; }
 
-    /// <summary>Runs the loop, and never throws for a loop that simply failed.</summary>
-    Task<ExecutorRun> ExecuteAsync(ExecutorRequest request, CancellationToken cancellationToken);
+    /// <summary>
+    /// Runs the loop, and never throws for a loop that simply failed.
+    /// </summary>
+    /// <returns>
+    /// What the loop did, or <b>null when nothing measured a loop at all</b>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Null is an attended session, and it is a real state rather than a
+    /// degraded one.</b> <see cref="ExecutorRun"/> requires an outcome, an
+    /// attempt count and a moves list; a person at a Claude Code prompt
+    /// produced none of them, because the child owned the terminal and there
+    /// was no stream to read. The honest answer is that this executor measured
+    /// nothing, and <c>RunnerLoop.ShipAsync</c> already ships the environment,
+    /// the change manifest and the source provenance without a run.
+    /// </para>
+    /// <para>
+    /// <b>It must stay the ONLY null.</b> A helpful <c>Attempts = 0</c> and
+    /// <c>MovesUsed = []</c> are both expressible and both false — and <c>[]</c>
+    /// in particular reads as "used no moves" rather than "measured no moves",
+    /// which detaches every move-gate it touches. The absence is in the type
+    /// rather than filtered downstream because a filter is a second place
+    /// deciding what ships.
+    /// </para>
+    /// <para>
+    /// <b>And the headless path has no ending that returns one.</b> Completed,
+    /// failed, blocked, exhausted, a child that would not start and a reader
+    /// that would not resolve all answer with a run;
+    /// <c>ClaudeCodeExecutor.ExecuteAsync</c> is declared non-nullable and
+    /// <c>AttendedExecutorTests</c> holds it there. A null arriving from two
+    /// causes and read as one is how a fleet stops reporting quietly.
+    /// </para>
+    /// </remarks>
+    Task<ExecutorRun?> ExecuteAsync(ExecutorRequest request, CancellationToken cancellationToken);
 }

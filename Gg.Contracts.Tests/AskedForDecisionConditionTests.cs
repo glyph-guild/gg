@@ -124,12 +124,41 @@ public class AskedForDecisionConditionTests
     }
 
     [Test]
+    public async Task The_measured_tier_is_a_condition_too_and_refuses_the_same_pairing()
+    {
+        // THE TIER THAT HOLDS WHEN THE DECLARED ONE IS IGNORED. An agent that
+        // is stuck and does not say so still produces a run that touched
+        // nothing, and that is knowable without its cooperation - which is what
+        // a tenant reaches for when they do not want to depend on an agent
+        // choosing to ask.
+        await Assert.That(AttachmentConditions.Forms)
+            .Contains(AttachmentConditions.ChangedNothing);
+
+        await Assert.That(Envelope.Validate(Governing(
+                Obligation(ObligationChecks.Human, AttachmentConditions.ChangedNothing))))
+            .IsNull();
+
+        // AND THE SAME PAIRING, refused for the same reason one condition over:
+        // this says a person is needed and a machine predicate is what runs
+        // when one is not.
+        var refusal = Envelope.Validate(Governing(
+            Obligation(ObligationChecks.Machine, AttachmentConditions.ChangedNothing)));
+
+        await Assert.That(refusal).IsNotNull();
+        await Assert.That(refusal!).Contains(AttachmentConditions.ChangedNothing)
+            .Because("the refusal names the condition the author wrote, not the other one - "
+                   + "a shared arm that named a fixed condition would send somebody looking "
+                   + "at a line they did not write.");
+        await Assert.That(refusal!.Contains("human", StringComparison.OrdinalIgnoreCase)).IsTrue();
+    }
+
+    [Test]
     public async Task The_conditions_that_were_there_are_still_there()
     {
         // A CLOSED VOCABULARY GROWS; it does not get rewritten. A condition
         // removed here would make every envelope carrying it unreadable.
-        await Assert.That(AttachmentConditions.Forms.Count).IsEqualTo(4)
-            .Because("four forms, and a fifth is a contract version move rather than an edit.");
+        await Assert.That(AttachmentConditions.Forms.Count).IsEqualTo(5)
+            .Because("five forms, and a sixth is a contract version move rather than an edit.");
 
         foreach (var still in (string[])
             [AttachmentConditions.Widens,

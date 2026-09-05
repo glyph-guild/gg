@@ -79,6 +79,40 @@ public sealed class LiveStream
     /// <summary>How much of one line is worth carrying to a screen.</summary>
     private const int MaxLine = 2000;
 
+    /// <summary>
+    /// How large one flight's live view may get before the oldest of it goes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Half a megabyte, and the number is reasoned rather than measured -
+    /// which is worth saying, because the criterion asked for a measurement.</b>
+    /// The step-0 walk wrote 5,331 bytes in 51 seconds, and that is NOT a rate:
+    /// eighteen of its thirty-seven lines were <c>setup</c>, a fixed cost paid
+    /// once when a session starts. A flight running an hour does not write four
+    /// hundred kilobytes; it writes the same setup plus whatever the agent
+    /// actually says. Extrapolating from one short run would have produced a
+    /// confident number with nothing behind it.
+    /// </para>
+    /// <para>
+    /// So: half a megabyte is roughly a hundred times the only real flight
+    /// measured, which no ordinary run will reach, and small enough that a
+    /// pathological one cannot fill a disk. A longer walk should replace this
+    /// with an observation; until then the reasoning is here rather than the
+    /// number being presented as fact.
+    /// </para>
+    /// </remarks>
+    private const long MaxFile = 512 * 1024;
+
+    /// <summary>
+    /// How much is kept when the cap is reached.
+    /// </summary>
+    /// <remarks>
+    /// The NEWEST half, because peeking is about now. Keeping the oldest would
+    /// mean a long run's pane freezes at whatever it was saying an hour ago,
+    /// which is the opposite of what a live view is for.
+    /// </remarks>
+    private const long KeepOnRoll = MaxFile / 2;
+
     private readonly string _path;
     private readonly TimeProvider _time;
 
@@ -119,6 +153,7 @@ public sealed class LiveStream
             };
 
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            Roll();
 
             // Opened and closed per line, so a console tailing this sees each
             // one as it lands rather than when a buffer happens to flush.
@@ -138,6 +173,45 @@ public sealed class LiveStream
     }
 
     /// <summary>Stripped, then cut.</summary>
+    /// <summary>
+    /// Drops the oldest half when the view has grown past its cap.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rolling rather than stopping, because a capped file that stops growing
+    /// is a pane that goes silent while the flight is still talking.</b> A
+    /// person attaching to a long run needs the last few minutes, not the first
+    /// few.
+    /// </para>
+    /// <para>
+    /// <b>What a reader sees, said plainly: the retained lines again.</b>
+    /// <c>LiveTail</c> restarts when the file gets shorter - it reads that as "a
+    /// different run in the same place", which is the right reading for the case
+    /// it was written for - so after a roll it re-reads what was kept. The
+    /// console's own list is capped, so the duplication is bounded, and the
+    /// alternative was a protocol between two halves that deliberately share
+    /// nothing but a file. It happens once per half-megabyte.
+    /// </para>
+    /// <para>
+    /// Cut at a line boundary, or the reader's refusal of partial lines would
+    /// silently drop the first line after every roll.
+    /// </para>
+    /// </remarks>
+    private void Roll()
+    {
+        var file = new FileInfo(_path);
+        if (!file.Exists || file.Length <= MaxFile)
+        {
+            return;
+        }
+
+        var kept = File.ReadAllBytes(_path)[^(int)KeepOnRoll..];
+        var firstBreak = Array.IndexOf(kept, (byte)'\n');
+
+        File.WriteAllBytes(
+            _path, firstBreak < 0 ? [] : kept[(firstBreak + 1)..]);
+    }
+
     private static string Short(string text)
     {
         var clean = (ControlText.Strip(text) ?? "").ReplaceLineEndings(" ").Trim();

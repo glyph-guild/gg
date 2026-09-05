@@ -82,5 +82,33 @@ public class ConsoleDataReachTests
 
     /// <summary>What is not reached yet, why, and what removes the entry.</summary>
     internal static readonly IReadOnlyDictionary<string, string> Exempt =
-        new Dictionary<string, string>(StringComparer.Ordinal);
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ShowAsync"] = "the Flight pane's fetch. Wired in step 2 - it is the read that "
+                          + "turns `loading…` into a flight, and the single most visible "
+                          + "consequence of this whole gap.",
+            ["PlanAsync"] = "the checklist's fetch. Wired in step 4, S28.4-01.",
+            ["WhyAsync"] = "the fetch behind `gg why`. Wired in step 4, S28.4-02.",
+            ["RunnerLabelsAsync"] = "the fleet's advertised labels. Wired in step 4, "
+                                  + "S28.4-03, with each disposition beside its name.",
+            ["ListCredentialsAsync"] = "the credential references. Wired in step 2, S28.2-03 "
+                                     + "- the field and the renderer already exist.",
+            ["RemoveCredentialAsync"] = "forgetting a credential. Given a key in step 5, "
+                                      + "S28.5-04, or deleted in step 6 - and it is the half "
+                                      + "of credential management that matters when one "
+                                      + "leaks, so it will be the key.",
+            ["AirspaceAsync"] = "the registered repositories. Resolved in step 6, S28.6-01: "
+                              + "wired to a pane or deleted, and no third option.",
+
+            // NOT THIS SLICE'S, and here by agreement rather than by oversight.
+            // Slice twenty-nine landed both deliberately ahead of the pane that
+            // uses them, because that pane needs this slice's read plane and
+            // these reads did not. Its author asked for this ratchet knowing it
+            // would fire on them, and is fixing what fires: these two leave the
+            // list when its step 4 lands, not when this slice's does.
+            ["RepositoriesAsync"] = "slice twenty-nine, tier B: what this tenant can fly "
+                                  + "against. Its browse pane is its step 4.",
+            ["FlownAsync"] = "slice twenty-nine, tier B: what a work item has already flown. "
+                           + "Same pane, same step.",
+        };
 }

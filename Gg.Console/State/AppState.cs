@@ -265,6 +265,30 @@ public sealed record AppState
     /// </remarks>
     public GateList? Gates { get; init; }
 
+    /// <summary>
+    /// Every flight this tenant has, exactly as `gg flights` returned them.
+    /// </summary>
+    /// <remarks>
+    /// <b>What makes an arrow key free.</b> The detail under the selected row
+    /// comes from here rather than from a request, so moving the selection is a
+    /// reducer step and nothing else - rule 3, no I/O inside a UI session. The
+    /// boot already fetched this list to derive the queue and then held only the
+    /// queue; keeping it costs no request at all.
+    /// </remarks>
+    public FlightList? Flights { get; init; }
+
+    /// <summary>
+    /// Each flight's log, keyed by flight id, exactly as `gg log` returned them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The N requests the boot already pays for.</b> It fetches a log per
+    /// flight to find the ones whose lease expired twice, and threw every one of
+    /// them away. Holding them is what makes the log pane cost nothing and the
+    /// selection stay free.
+    /// </remarks>
+    public IReadOnlyDictionary<string, FlightLog> Logs { get; init; } =
+        new Dictionary<string, FlightLog>(StringComparer.Ordinal);
+
     /// <summary>The selected flight, exactly as `gg show` returned it.</summary>
     public FlightSummary? Flight { get; init; }
 

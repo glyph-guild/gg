@@ -36,11 +36,11 @@ public class MoveBoundProbeTests
 
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
-            return Task.FromResult(respond(request));
+            return Task.FromResult<ExecutorRun?>(respond(request));
         }
     }
 

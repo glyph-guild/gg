@@ -40,11 +40,11 @@ public class ResumptionContextTests
 
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
-            return Task.FromResult(ExecutorRun.Completed(
+            return Task.FromResult<ExecutorRun?>(ExecutorRun.Completed(
                 request.LoopId, "done", attempts: 1, took: TimeSpan.FromSeconds(1),
                 movesUsed: [LoopMoves.Read]));
         }

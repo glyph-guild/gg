@@ -42,7 +42,7 @@ public class ProbePerSessionTests
 
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             if (string.Equals(request.LoopId, "gg-move-bound-probe", StringComparison.Ordinal))
@@ -57,7 +57,7 @@ public class ProbePerSessionTests
                         "unbound");
                 }
 
-                return Task.FromResult(new ExecutorRun
+                return Task.FromResult<ExecutorRun?>(new ExecutorRun
                 {
                     LoopId = request.LoopId,
                     Outcome = LoopOutcomes.Completed,
@@ -69,7 +69,7 @@ public class ProbePerSessionTests
             }
 
             Sequence.Add("work");
-            return Task.FromResult(ExecutorRun.Exhausted(
+            return Task.FromResult<ExecutorRun?>(ExecutorRun.Exhausted(
                 request.LoopId, request.WallClock, [LoopMoves.Read]));
         }
     }

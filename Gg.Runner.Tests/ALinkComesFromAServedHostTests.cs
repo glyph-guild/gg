@@ -196,12 +196,12 @@ public class ALinkIsCheckedBeforeAnythingIsFetchedTests
         public Gg.Runner.Execution.ExecutorCapabilities Capabilities =>
             Gg.Runner.Execution.ClaudeCodeExecutor.Capabilities;
 
-        public Task<Gg.Runner.Execution.ExecutorRun> ExecuteAsync(
+        public Task<Gg.Runner.Execution.ExecutorRun?> ExecuteAsync(
             Gg.Runner.Execution.ExecutorRequest request,
             CancellationToken cancellationToken = default)
         {
             Seen.Add(request);
-            return Task.FromResult(Gg.Runner.Execution.ExecutorRun.Completed(
+            return Task.FromResult<Gg.Runner.Execution.ExecutorRun?>(Gg.Runner.Execution.ExecutorRun.Completed(
                 request.LoopId, "done", attempts: 1, took: TimeSpan.Zero,
                 movesUsed: [Gg.Contracts.LoopMoves.Read]));
         }

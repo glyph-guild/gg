@@ -67,14 +67,14 @@ public class RepositorylessFlightTests
 
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
             DirectoryExisted[request.LoopId] =
                 request.WorkingDirectory is { Length: > 0 } path && Directory.Exists(path);
 
-            return Task.FromResult(ExecutorRun.Completed(
+            return Task.FromResult<ExecutorRun?>(ExecutorRun.Completed(
                 request.LoopId, "done", attempts: 1, took: TimeSpan.FromSeconds(1),
                 movesUsed: [LoopMoves.Read]));
         }

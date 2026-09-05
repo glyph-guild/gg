@@ -30,11 +30,11 @@ public class ProbeAccountabilityTests
     {
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default)
         {
             act(request);
-            return Task.FromResult(new ExecutorRun
+            return Task.FromResult<ExecutorRun?>(new ExecutorRun
             {
                 LoopId = request.LoopId,
                 Outcome = LoopOutcomes.Completed,

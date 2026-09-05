@@ -33,7 +33,7 @@ public class AnUnreadableWorkItemIsRefusedTests
     {
         public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
 
-        public Task<ExecutorRun> ExecuteAsync(
+        public Task<ExecutorRun?> ExecuteAsync(
             ExecutorRequest request, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
                 "the agent was invoked for a work item this runner cannot read");

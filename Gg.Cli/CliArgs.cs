@@ -42,6 +42,25 @@ public abstract record CliAction
     /// </remarks>
     public sealed record RunnerTools : CliAction;
 
+    /// <summary>
+    /// The tracker reader this binary serves, for one provider at one host.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not a verb anybody types, on the same terms as <see cref="RunnerTools"/>:
+    /// <c>IntentConfiguration.Served</c> writes this command line into the
+    /// agent's mcp config, and the agent's process starts it.
+    /// </para>
+    /// <para>
+    /// <b>Everything it needs arrives here, and none of it is a secret.</b> The
+    /// child is started by the AGENT, so it cannot be relied on to inherit the
+    /// runner's environment - and the credential is named rather than carried,
+    /// so this line is safe in a <c>ps</c> listing. Resolving that name is this
+    /// process's job, which is the whole reason the reader moved in-binary.
+    /// </para>
+    /// </remarks>
+    public sealed record RunnerRead(string Provider, string Host, string? Credential) : CliAction;
+
     /// <summary>The resident runner: pull decided pool actions, act, attest.</summary>
     public sealed record RunnerMaintain(string Pool) : CliAction;
 
@@ -282,6 +301,7 @@ public static class CliArgs
             ["runner", "up"] => new CliAction.RunnerUp(),
             ["runner", "serve"] => new CliAction.RunnerServe(),
             ["runner", "tools"] => new CliAction.RunnerTools(),
+            ["runner", "read", .. var read] => ReadArguments(read),
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
 
@@ -441,6 +461,60 @@ public static class CliArgs
     /// spellings of one rule is how they come to disagree about an id with a
     /// separator in it.
     /// </remarks>
+    /// <summary>
+    /// The reader's own flags, read positionally after its verb.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not pulled out by the pre-scan, and deliberately.</b> Every flag here
+    /// takes a VALUE, and a value-taking flag stripped position-independently
+    /// is how the value gets mistaken for a verb - the reason
+    /// <c>--intent</c> is matched positionally too.
+    /// </para>
+    /// <para>
+    /// <b>A missing host is refused rather than defaulted.</b> A reader that
+    /// quietly read the wrong tracker is worse than one that does not start:
+    /// the flight would get a work item, and it would be somebody else's.
+    /// </para>
+    /// </remarks>
+    private static CliAction ReadArguments(ReadOnlySpan<string> arguments)
+    {
+        string? provider = null;
+        string? host = null;
+        string? credential = null;
+
+        for (var at = 0; at < arguments.Length; at += 2)
+        {
+            if (at + 1 >= arguments.Length)
+            {
+                return Unknown($"gg runner read: '{arguments[at]}' was given no value.");
+            }
+
+            switch (arguments[at])
+            {
+                case "--provider": provider = arguments[at + 1]; break;
+                case "--host": host = arguments[at + 1]; break;
+                case "--credential": credential = arguments[at + 1]; break;
+                default:
+                    return Unknown(
+                        $"gg runner read: '{arguments[at]}' is not one of its options. It takes "
+                      + "--provider, --host and an optional --credential.");
+            }
+        }
+
+        return (provider, host) switch
+        {
+            (null or "", _) => Unknown(
+                "gg runner read needs --provider: the key a flight's intent spells its tracker "
+              + "with, which is also the prefix the agent sees on every tool name."),
+            (_, null or "") => Unknown(
+                "gg runner read needs --host: the tracker root to read from. There is no "
+              + "default, because a reader pointed at the wrong tracker answers confidently "
+              + "with somebody else's work."),
+            _ => new CliAction.RunnerRead(provider, host, credential),
+        };
+    }
+
     private static CliAction Correlate(string token, bool json, bool all) =>
         SplitTicket(token) is var (provider, _) && provider is not null
         // A LINK IS THE SECOND SHAPE, and only an absolute one: `4471` and

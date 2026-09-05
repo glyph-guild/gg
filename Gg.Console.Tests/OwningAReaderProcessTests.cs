@@ -63,13 +63,16 @@ public class OwningAReaderProcessTests
         // A STDIO CHILD NOBODY REAPS HOLDS A CREDENTIAL'S WORTH OF REASON TO
         // STOP. Abandoning the read and leaving the process is the shape of
         // leak that survives the console it was started for.
-        var reader = new SpawnedReader(Sleeps(30), TimeSpan.FromMilliseconds(400));
+        await using var reader = new SpawnedReader(Sleeps(30), TimeSpan.FromMilliseconds(400));
+
+        // CAPTURED BEFORE THE DEADLINE, because giving up is what kills it -
+        // reading the pid afterwards asks a reader that has already let go.
+        await reader.StartAsync();
+        var pid = reader.ProcessId;
+        await Assert.That(pid).IsNotNull();
 
         await reader.BrowseAsync(cursor: null, limit: 50);
-        var pid = reader.ProcessId;
-        await reader.DisposeAsync();
 
-        await Assert.That(pid).IsNotNull();
         await Assert.That(Alive(pid!.Value)).IsFalse()
             .Because("the process the console started is the console's to stop.");
     }

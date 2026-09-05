@@ -442,27 +442,24 @@ public sealed class ConsoleLoop(
     /// three of this method's four endings open nothing, and only one of them
     /// is worth re-reading the queue for.
     /// </remarks>
+
+    public static AppState FlewPicked(AppState state, IConsoleActions? actions) =>
+        FlewPicked(state, actions, out _);
+
+    /// <remarks>
+    /// <b><c>opened</c> comes from the branch that ran, never from reading the
+    /// sentence afterwards.</b> The first version of this decided by matching
+    /// the opening words of three English sentences, one of which lives in
+    /// <c>VerbConsoleActions</c> - so rewording a refusal in another file would
+    /// silently have flipped a control-flow flag, with no test to go red and
+    /// nothing but a console reloading after a write that did not happen. A
+    /// decision keyed on user-facing prose has no way to fail loudly when the
+    /// prose moves, and this repository rewords prose constantly.
+    /// </remarks>
     public static AppState FlewPicked(
         AppState state, IConsoleActions? actions, out bool opened)
     {
-        var before = state.LastFlightOpened;
-        var after = FlewPicked(state, actions);
-
-        // OPENED means a flight exists that did not before: not the refusal, not
-        // the "nothing is selected" sentence, and NOT the confirmation - which
-        // has opened nothing yet and is waiting to be answered.
-        opened = after.PendingFlight is null
-              && after.Mode != UiMode.ConfirmFlight
-              && !ReferenceEquals(after.LastFlightOpened, before)
-              && after.LastFlightOpened is { Length: > 0 }
-              && !after.LastFlightOpened.StartsWith("Nothing was opened", StringComparison.Ordinal)
-              && !after.LastFlightOpened.StartsWith("This console is not", StringComparison.Ordinal);
-
-        return after;
-    }
-
-    public static AppState FlewPicked(AppState state, IConsoleActions? actions)
-    {
+        opened = false;
         ArgumentNullException.ThrowIfNull(state);
 
         if (actions is null)
@@ -507,6 +504,11 @@ public sealed class ConsoleLoop(
 
         // TWO VALUES, DECLARED. Not the title, which is what a person read and
         // not what a flight is called, and not the url, which is not even held.
+        //
+        // AND THIS IS THE ONE ENDING THAT OPENED ANYTHING, which is why the flag
+        // is set here rather than inferred from what the sentence says.
+        opened = true;
+
         return state with
         {
             LastFlightOpened = actions.FlyTicket(listing.ProviderKey, id),

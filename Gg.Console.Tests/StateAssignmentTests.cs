@@ -127,8 +127,6 @@ public class StateAssignmentTests
     internal static readonly IReadOnlyDictionary<string, string> Exempt =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["Notices"] = "step 4, S28.4-06. WhoAmI carries them and PaneText draws them, "
-                        + "and a tenant degradation nobody is shown is one nobody acts on.",
             // MOVED FROM STEP 2 TO STEP 6, with the reason it could not be step
             // 2's: NO VERB PRODUCES A GateEvidencePayload. ConsoleData offers
             // eighteen reads and none returns one, and `why` answers a

@@ -133,8 +133,15 @@ public class VerbParityTests
                       + "is a bootstrap problem rather than a parity gap.",
             ["Logout"] = "the mirror of Login, and ending a session from inside the thing the "
                        + "session is running would leave the screen owned by nobody.",
-            ["WhoAmI"] = "answered without the verb: Principal is read from the stored session "
-                       + "and shown.",
+            // REWORDED, because the declaration was true of the principal and
+            // silently false of everything else the verb answers. WhoAmI also
+            // carries Notices - the only carrier of a tenant degradation
+            // anywhere in the contract - and the stored session carries no such
+            // thing, so "answered without the verb" described a field rather
+            // than a verb and hid a pane that was drawn and never filled.
+            ["WhoAmI"] = "the boot calls it. Principal still comes from the stored session, "
+                       + "because attribution is not a read; the NOTICES come from the verb "
+                       + "and are drawn above the queue.",
             ["LaunchConsole"] = "this IS the console. A verb for entering the thing you are "
                               + "already in is not a pane.",
             ["PrintVersion"] = "a line in the help modal is the right shape, not a pane.",

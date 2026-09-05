@@ -158,7 +158,8 @@ public class AgainstARealControlPlaneTests
             new FlightCommands(client, sessions),
             new CredentialCommands(
                 client, sessions, new FileCredentialStore(home), new NoPrompt()),
-            takes);
+            takes,
+            new IdentityCommands(client, sessions));
 
         return new Seeded(data, takes.Principal(), counter, flights, plain);
     }

@@ -167,6 +167,20 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Why;
     }
 
+    /// <summary>Who this session is, and what this tenant should know.</summary>
+    /// <remarks>
+    /// <b>The one read verb whose answer was printed and never returned.</b>
+    /// <c>AuthCommands.WhoAmIAsync</c> writes three lines to an
+    /// <c>IConsoleWriter</c> and answers with an exit code, so there was no
+    /// value for anything else to render - and <c>WhoAmI.Notices</c>, which is
+    /// the only carrier of a tenant degradation anywhere in the contract, could
+    /// reach no second surface.
+    /// </remarks>
+    public sealed record Identity(WhoAmI Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Identity;
+    }
+
     /// <summary>
     /// What is waiting on a person.
     /// </summary>
@@ -247,6 +261,8 @@ public static class VerbResultKinds
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
+
+    public const string Identity = "identity";
     public const string Gates = "gates";
     public const string Decided = "decided";
     public const string Taken = "taken";
@@ -270,6 +286,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(EnvelopeState))]
 [JsonSerializable(typeof(FlightAttribution))]
 [JsonSerializable(typeof(GateList))]
+[JsonSerializable(typeof(WhoAmI))]
 [JsonSerializable(typeof(DecisionRecorded))]
 [JsonSerializable(typeof(DecisionReport))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
@@ -336,6 +353,7 @@ public static class VerbOutput
         VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
         VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
         VerbResult.Gates r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.GateList),
+        VerbResult.Identity r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.WhoAmI),
         VerbResult.Decided r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DecisionReport),
         VerbResult.Taken r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.TakeSeed),
         VerbResult.EnvelopeApplied r =>
@@ -410,6 +428,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Taken => new VerbResult.Taken(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.TakeSeed)), []),
+        VerbResultKinds.Identity => new VerbResult.Identity(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.WhoAmI))),
         _ => throw Unknown(kind),
     };
 
@@ -438,6 +458,7 @@ public static class VerbOutput
         VerbResult.EnvelopeShown r => Envelope(r.Value),
         VerbResult.Why r => WhyText(r.Value),
         VerbResult.Gates r => GatesText(r.Value),
+        VerbResult.Identity r => IdentityText(r.Value),
         VerbResult.Decided r => DecidedText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
@@ -1289,6 +1310,35 @@ public static class VerbOutput
     /// which is the failure this verb exists to prevent - and the three states are
     /// spelled differently on purpose, because that is the whole point.
     /// </remarks>
+    /// <summary>
+    /// Who, where, and anything this tenant should know.
+    /// </summary>
+    /// <remarks>
+    /// <b>The three lines <c>gg whoami</c> has always printed, plus the notices
+    /// it never did.</b> They were in the response the whole time - a
+    /// degradation the control plane was reporting on every call, that no
+    /// surface rendered.
+    /// </remarks>
+    private static string IdentityText(WhoAmI who)
+    {
+        var lines = new List<string>
+        {
+            $"  Principal:  {Clean(who.PrincipalDisplay)} ({Clean(who.PrincipalId)})",
+            $"  Tenant:     {Clean(who.TenantId)}",
+            $"  Expires:    {who.ExpiresAt:u}",
+        };
+
+        foreach (var notice in who.Notices)
+        {
+            lines.Add("");
+            lines.Add($"  {(notice.Blocking ? "blocking" : "advisory")}:   {Clean(notice.Code)}");
+            lines.Add(Prose(notice.Detail, 14));
+            lines.Add(Prose(notice.Remedy, 14));
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
     private static string WhyText(FlightAttribution attribution)
     {
         var text = new StringBuilder();

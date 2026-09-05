@@ -27,11 +27,26 @@ namespace Gg.Console;
 /// </para>
 /// </remarks>
 public sealed class ConsoleData(
-    FlightCommands commands, CredentialCommands credentials, TakeCommands takes)
+    FlightCommands commands,
+    CredentialCommands credentials,
+    TakeCommands takes,
+    IdentityCommands identity)
 {
     private readonly FlightCommands _commands = commands;
     private readonly CredentialCommands _credentials = credentials;
     private readonly TakeCommands _takes = takes;
+
+    /// <summary>
+    /// Who this session is, and what this tenant should know.
+    /// </summary>
+    /// <remarks>
+    /// <b>Required rather than optional.</b> An optional read is one a
+    /// composition root can forget to pass, and this console has now spent two
+    /// slices finding things that were registered and never invoked - the
+    /// takeover's ports were optional for exactly that reason and answered
+    /// "not configured" on every real press for two slices.
+    /// </remarks>
+    private readonly IdentityCommands _identity = identity;
 
     /// <summary>
     /// `gg bundle`, from the state the console is holding.
@@ -260,6 +275,21 @@ public sealed class ConsoleData(
     public Task<VerbResult> LogAsync(string reference, CancellationToken cancellationToken = default) =>
         _commands.LogAsync(reference, cancellationToken);
 
+    /// <summary>
+    /// `gg whoami`, as a value.
+    /// </summary>
+    /// <remarks>
+    /// <b>The notices are why the boot calls it.</b> <c>AppState.Notices</c> is
+    /// drawn above every queue, present even when the queue is empty, and was
+    /// assigned by nothing - so the degradation this console exists to surface
+    /// reached it on every call and was shown to nobody. It is also the case the
+    /// queue hides by construction: when check runs stop being written, every
+    /// flight still runs and still leaves the queue, so the pane is at its most
+    /// reassuring exactly when this is worst.
+    /// </remarks>
+    public Task<VerbResult> IdentityAsync(CancellationToken cancellationToken = default) =>
+        _identity.ShowAsync(cancellationToken);
+
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);
@@ -325,6 +355,17 @@ public static class ConsoleProjection
             VerbResult.Flight flight => state with { Flight = flight.Value, Diagnosis = null },
             VerbResult.Log log => state with { FlightLog = log.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+            // WHAT THIS TENANT SHOULD KNOW, and the queue cannot say it. A
+            // degradation that stops check runs being written leaves every
+            // flight running, recording facts and leaving the queue - so
+            // "nothing needs you" is true and useless. Assigned even when the
+            // list is empty: a fixed degradation has to leave the pane on the
+            // next read.
+            VerbResult.Identity identity => state with
+            {
+                Notices = identity.Value.Notices,
+                Diagnosis = null,
+            },
             // References, never secrets. There is nothing in a CredentialList
             // to withhold, which is why the flight pane can show it.
             VerbResult.Credentials credentials => state with

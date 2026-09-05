@@ -478,7 +478,11 @@ static int LaunchConsole()
         // inside a Terminal.Gui modal is a keyboard path with its own
         // escape-hatch rules. Registering stays a command-line act.
         new CredentialCommands(client, sessions, new FileCredentialStore(), new ConsoleSecretPrompt()),
-        takes);
+        takes,
+        // WHAT THIS TENANT SHOULD KNOW. The notices row above the queue was
+        // drawn by PaneText from the first slice and assigned by nothing, so a
+        // degradation the control plane reported on every call reached nobody.
+        new IdentityCommands(client, sessions));
 
     var initial = ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult();
 

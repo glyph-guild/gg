@@ -488,6 +488,33 @@ public interface IExecutorPort
     ExecutorCapabilities Capabilities { get; }
 
     /// <summary>
+    /// Whether running this executor can measure its own move bound.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>True for anything headless, and the default says so</b> — every
+    /// executor before the attended one is probeable, and a default rather than
+    /// a required member is what keeps this from being a declaration ten test
+    /// doubles have to repeat.
+    /// </para>
+    /// <para>
+    /// <b>False means the probe is skipped, not faked.</b>
+    /// <see cref="MoveBoundProbe"/> measures by INVOKING the port, so an
+    /// executor that hands a person the terminal cannot be probed without
+    /// handing them the probe's canary task — and probing a different executor
+    /// instead would measure a session other than the one it governs, which is
+    /// the one claim the probe exists to make.
+    /// </para>
+    /// <para>
+    /// <b>Read by the loop, which is the whole difference from
+    /// <see cref="ExecutorCapabilities"/>.</b> That record's seven other members
+    /// were deleted at slice twenty because nothing consulted them; this one
+    /// changes what the runner does.
+    /// </para>
+    /// </remarks>
+    bool BoundIsMeasurable => true;
+
+    /// <summary>
     /// Runs the loop, and never throws for a loop that simply failed.
     /// </summary>
     /// <returns>

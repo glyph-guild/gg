@@ -149,12 +149,37 @@ public sealed record ExecutorRequest
     public string? ResumesFrom { get; init; }
 
     /// <summary>
-    /// Where to append the live view, when one is wanted.
+    /// Where to append the live view. The runner always sets one.
     /// </summary>
     /// <remarks>
-    /// Null is the ordinary state: the pane is off by default and a run nobody
-    /// is watching writes nothing. Not evidence - ephemeral, local, and it
-    /// crosses nothing.
+    /// <para>
+    /// <b>This said the opposite until slice 31, and the revision is the point
+    /// rather than a detail.</b> It read: <i>"Null is the ordinary state: the
+    /// pane is off by default and a run nobody is watching writes nothing."</i>
+    /// That assumed the runner knows whether anyone is watching. <b>It cannot.</b>
+    /// The console and the runner are unrelated processes started by different
+    /// invocations, with no channel between them but the filesystem - so
+    /// "nobody is watching" is not a fact this side can hold.
+    /// </para>
+    /// <para>
+    /// <b>So the runner always writes, and the cost is paid deliberately.</b>
+    /// The alternatives were an environment variable, which cannot start
+    /// watching a flight already in progress, and a marker file the runner
+    /// polls, which buys the same thing for a stat on a hot path. Peeking at a
+    /// run that is already going is the whole feature, and only always-writing
+    /// gives it.
+    /// </para>
+    /// <para>
+    /// Measured before it was decided: a 51-second flight wrote 37 lines and
+    /// 5,331 bytes. <see cref="LiveStream"/> puts these in their own directory
+    /// precisely because they are deletable and transcripts are not, and a
+    /// sweep and a cap are slice 31 step 5.
+    /// </para>
+    /// <para>
+    /// Null remains legal and means write nothing - <see cref="MoveBoundProbe"/>
+    /// passes nothing, because a probe is not a flight anybody watches.
+    /// Still not evidence: ephemeral, local, and it crosses nothing.
+    /// </para>
     /// </remarks>
     public LiveStream? Live { get; init; }
 

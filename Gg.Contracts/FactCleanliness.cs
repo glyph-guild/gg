@@ -153,6 +153,18 @@ public static class FactCleanliness
             return Diagnosis(badNomination);
         }
 
+        if (fact.Question is { } question && First(
+            [
+                // Prose the agent wrote for a reader, so line breaks are its
+                // own - a question laid out over three lines is one somebody
+                // wrote to be read, and this is the field a person reads while
+                // deciding something.
+                ("question.question", question.Question, true),
+            ]) is { } badQuestion)
+        {
+            return Diagnosis(badQuestion);
+        }
+
         if (fact.LoopDigest is { } summary && First(
             [
                 ("loopDigest.loopId", summary.LoopId, false),

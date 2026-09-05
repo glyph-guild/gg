@@ -74,6 +74,7 @@ public static class Vocabulary
         typeof(LoopDigest),
         typeof(HumanAccount),
         typeof(FlightNomination),
+        typeof(LoopQuestion),
         typeof(FlightAttribution),
         typeof(DestinationPushed),
         typeof(DecisionRequest),

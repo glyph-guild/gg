@@ -58,19 +58,42 @@ public class SliceTwelveGuardTests
     /// visible — a version move a reviewer sees, with a ledger row behind it,
     /// and no new fact smuggled in beside it.
     /// </remarks>
-    private const string VocabularyAtSliceStart = "0.19.0";
+    /// <para>
+    /// <b>And to 0.20.0 by step 3 of the same slice, which DID add a kind</b> -
+    /// so the count below moves too, and the argument is made rather than
+    /// noted. See it there.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.20.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
     /// moving in a diff is the point.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Nine through slices twelve to twenty-six. The tenth is
     /// <c>flight.nomination</c>, and it is the first addition to get past this
     /// guard — on the guard's own terms, because it belongs to a flight. An
     /// eleventh still has to make that argument.
+    /// </para>
+    /// <para>
+    /// <b>The eleventh is <c>loop.question</c>, and here is the argument.</b>
+    /// This guard's criterion is that <i>a fact belongs to a flight and a
+    /// routine action has none</i>. A question is asked by a LOOP, and a loop
+    /// runs inside a flight: it is produced by that loop, ships on that
+    /// flight's lease, is keyed on that flight's id, and is read back beside
+    /// that flight's other facts when a person decides what to do about it.
+    /// There is no question without a flight to ask it, which is exactly what
+    /// slice twelve found was untrue of a pool attestation - the flightless
+    /// path grafted under the fact name that this guard refused.
+    /// </para>
+    /// <para>
+    /// <b>A twelfth still has to make it too.</b> Two of the eleven are now an
+    /// agent's requests rather than measurements, and that is the direction
+    /// this number exists to make somebody look at.
+    /// </para>
     /// </remarks>
-    private const int KindsThatCross = 10;
+    private const int KindsThatCross = 11;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_kind_count_stays_nine()

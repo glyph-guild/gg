@@ -176,6 +176,15 @@ public static class FactHygiene
             Reason = Prose(nomination.Value.Reason),
         }),
 
+        FactPayload.Question question => new FactPayload.Question(question.Value with
+        {
+            // PROSE, so its line breaks are its own. A question laid out over
+            // three lines is one somebody wrote to be read, and the field a
+            // person reads while deciding something is the wrong one to
+            // flatten.
+            Question = Prose(question.Value.Question),
+        }),
+
         // Unreachable while every payload is handled above, and a compile error
         // is not available for a switch over a hierarchy. Throwing beats
         // returning the payload unchanged: a new fact type that quietly skipped

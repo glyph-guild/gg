@@ -100,22 +100,33 @@ public class LoopQuestionFactTests
     // ---- S25.3-02 ----
 
     [Test]
-    public async Task No_absolute_path_and_no_machine_name_survives_it()
+    public async Task It_is_cleaned_as_prose_and_refused_rather_than_altered()
     {
-        // THROUGH FactCleanliness rather than beside it. A second rule about
-        // what may leave a customer's machine is a second place it can be got
-        // wrong, and this one is the boundary the whole product is.
-        foreach (var leak in (string[])
-            ["/Users/someone/work/tree/src/a.py is where I got stuck",
-             "the build failed on ci-runner-07.internal.acme.test"])
+        // WHAT FactCleanliness ACTUALLY DOES, which is not what this criterion
+        // was written believing. It refuses TERMINAL CONTROL SEQUENCES - and
+        // refuses rather than cleans, because the digest was computed over the
+        // fact as it was produced and altering it here would make what is
+        // stored disagree with the hash that proves what it was.
+        //
+        // Absolute paths and machine names are NOT filtered, here or anywhere
+        // else in the fact pipeline: `loop.outcome.reason` and
+        // `nomination.reason` carry the same exposure today, and inventing a
+        // scrubber for one prose field and not the others would be a
+        // half-measure on a boundary. Recorded in the slice as its own finding.
+        var withControl = new LoopQuestion
         {
-            var refusal = FactCleanliness.Diagnose(
-                Envelope(new LoopQuestion { Question = leak }));
+            Question = "I am stuck on \u001b[31mthis\u001b[0m and cannot decide",
+        };
 
-            await Assert.That(refusal).IsNotNull()
-                .Because($"'{leak}' carries something that only means anything on one "
-                       + "machine, and this fact leaves that machine.");
-        }
+        await Assert.That(FactCleanliness.Unclean(Envelope(withControl))).IsNotNull()
+            .Because("a fact arriving dirty came from a runner that is misconfigured or "
+                   + "modified, and the refusal names the field so somebody can act on it.");
+
+        await Assert.That(FactCleanliness.Unclean(Envelope(
+                new LoopQuestion { Question = Asked })))
+            .IsNull()
+            .Because("the liveness twin: a check that refused everything would satisfy the "
+                   + "line above and would stop every question crossing.");
     }
 
     [Test]
@@ -130,7 +141,7 @@ public class LoopQuestionFactTests
             Question = "I am stuck between two rules:\n\n- half-to-even\n- half-up at 2dp",
         };
 
-        await Assert.That(FactCleanliness.Diagnose(Envelope(laidOut))).IsNull();
+        await Assert.That(FactCleanliness.Unclean(Envelope(laidOut))).IsNull();
     }
 
     // ---- S25.3-03 ----

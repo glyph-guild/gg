@@ -22,6 +22,10 @@ return CliArgs.Parse(args) switch
     // server that never initialized rather than a tool that failed.
     CliAction.RunnerTools => await PlatformToolServer.RunAsync(
         System.Console.In, System.Console.Out),
+    // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
+    // nothing on this path may print - including the credential resolution,
+    // which fails as a tool error the agent can read rather than as a line.
+    CliAction.RunnerRead read => await RunnerReadAsync(read),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
 
@@ -663,6 +667,58 @@ static async Task<int> RunnerUpAsync()
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
         destinations: destinations, executor: executor);
+}
+
+/// <summary>
+/// Serve one tracker's work items to the agent that started this process.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>THE CREDENTIAL IS RESOLVED HERE, WHICH IS THE WHOLE POINT.</b> An
+/// external tool server can only be handed a secret through the config that
+/// launches it, and that config is an argument to the agent - readable by every
+/// <c>ps</c> on the host. This process is handed a NAME instead and reads the
+/// store itself, so the secret exists only in this address space and only after
+/// the agent has already started us.
+/// </para>
+/// <para>
+/// <b>An unresolvable credential is a tool that says so, not a process that
+/// dies.</b> A server that exits before its first line is a server the agent
+/// reports as never initialized, and the reason - an expired credential on this
+/// host - would reach nobody. So the source is built with no secret, the
+/// tracker answers 401, and the agent is told a sentence it can stop on.
+/// </para>
+/// <para>
+/// <b>Nothing here prints.</b> Stdout is the protocol; the resolution failure
+/// above is exactly the kind of thing that wants a log line, and must not have
+/// one.
+/// </para>
+/// </remarks>
+static async Task<int> RunnerReadAsync(CliAction.RunnerRead read)
+{
+    string? secret = null;
+
+    if (read.Credential is { Length: > 0 } locator)
+    {
+        var resolved = await new LocalCredentialResolver(new FileCredentialStore())
+            .ResolveAsync(
+                new Gg.Contracts.CredentialReference
+                {
+                    Kind = "local",
+                    Locator = locator,
+                    Identity = read.Provider,
+                    Scopes = ["read"],
+                });
+
+        secret = resolved is Gg.Runner.CredentialResolution.Resolved granted ? granted.Secret : null;
+    }
+
+    using var client = new HttpClient();
+
+    return await WorkItemToolServer.RunAsync(
+        System.Console.In,
+        System.Console.Out,
+        new Gg.Runner.Intent.WiqlWorkItemSource(read.Host, secret, client));
 }
 
 /// <summary>

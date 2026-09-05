@@ -285,7 +285,21 @@ public static class PaneText
 
         if (state.Live.Count == 0)
         {
-            return "Nothing is running. This pane is off by default and is meant to stay that way.";
+            // THREE SILENCES, THREE SENTENCES. An empty box cannot say why it is
+            // empty, and a person who reads "nothing is writing" as "nothing has
+            // been said yet" concludes the feature is broken.
+            return state.Silence switch
+            {
+                LiveSilence.NotStarted =>
+                    "No live view for this flight. Nothing is writing one: the flight has not "
+                  + "been claimed, or it ran before runners wrote them.",
+                LiveSilence.NothingYet =>
+                    "Watching. The flight is writing a live view and the agent has not said "
+                  + "anything yet.",
+                _ =>
+                    "Nothing is running. This pane is off by default and is meant to stay that "
+                  + "way.",
+            };
         }
 
         var text = new StringBuilder();

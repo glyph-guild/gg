@@ -122,7 +122,9 @@ public class AbsentCollectionsSurviveTheWireTests
             .Because("a non-nullable collection is a promise the type makes to every caller, "
                    + "and an absent key must not break it. Either absorb the null in the "
                    + "accessor, or declare the member nullable because absence MEANS "
-                   + "something. Found: " + string.Join(", ", offenders));
+                   + "something - and check that a context actually emits the type "
+                   + "first, because this scope is a deliberate superset of what is "
+                   + "serialized. Found: " + string.Join(", ", offenders));
     }
 
     [Test]
@@ -206,9 +208,35 @@ public class AbsentCollectionsSurviveTheWireTests
     /// its initializers, so an absent key is a state it never reaches, and
     /// rewriting its declaration would be a change with no defect behind it.
     /// Measured when this was written: 163 types are emitted across the five
-    /// contexts, every one of them carries a pinned id, and the four collections
-    /// this scope excludes - the three <c>Notes</c> on the YAML parse results and
-    /// <c>Endpoint.RequiredHeaders</c> - are on types no context emits.
+    /// contexts and every one of them carries a pinned id, so the four
+    /// collections this scope excludes - the three <c>Notes</c> on the YAML parse
+    /// results and <c>Endpoint.RequiredHeaders</c> - are on types no context
+    /// emits.
+    /// </remarks>
+    /// <remarks>
+    /// <b>IT IS A SUPERSET, DELIBERATELY, AND THE EARLIER WORDING READ AS IF IT
+    /// WERE EXACT.</b> Every emitted type carries a pinned id; the converse is
+    /// false. <c>Composition</c>, <c>RunnerParkRequest</c> and
+    /// <c>RunnerReservationRequest</c> carry one and are serialized by nothing,
+    /// so a member flagged on a type like those is not a live defect - check
+    /// whether any context emits it before treating a report as one.
+    /// </remarks>
+    /// <remarks>
+    /// <b>Why the superset is still the right default.</b> The two errors are not
+    /// symmetric. Over-reporting costs one harmless line - an accessor that
+    /// returns the same empty list the initializer would have - while
+    /// under-reporting is a NullReferenceException against a sender one version
+    /// behind, which is the failure this whole file exists for. When the scope
+    /// has to be wrong, it should be wrong in the direction that is cheap.
+    /// </remarks>
+    /// <remarks>
+    /// <b>And the defect needs a source-generated context, not just init-only.</b>
+    /// A peer measured the full table next door: init-only decides it and
+    /// <c>required</c> is irrelevant, but plain reflection-based
+    /// <c>JsonSerializer</c> keeps the initializer in every shape - only a
+    /// generated context nulls it. That is invisible here because this repository
+    /// is AOT-published and has no reflection-based path, and it is the reason
+    /// their first probe of the same bug found nothing.
     /// </remarks>
     private static IEnumerable<Type> CrossesTheBoundary() =>
         typeof(Envelope).Assembly.GetExportedTypes()

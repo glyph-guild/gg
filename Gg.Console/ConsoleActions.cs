@@ -41,7 +41,11 @@ public interface IConsoleActions
     string Decide(string flight, string obligation, bool approved, string? reason);
 
     /// <summary>Opens a flight from intent text, and says what happened.</summary>
-    string Fly(string intent);
+    /// <param name="repository">
+    /// The registered repository this flight is about, or null to let the
+    /// envelope resolve it — which is what every flight does by default.
+    /// </param>
+    string Fly(string intent, string? repository);
 
     /// <summary>
     /// Open a flight for a work item somebody picked, by provider and id.
@@ -53,7 +57,7 @@ public interface IConsoleActions
     /// to parse it again would lose the first id that contained the separator -
     /// the rule <c>FlightIntent.Id</c> already states.
     /// </remarks>
-    string FlyTicket(string provider, string id);
+    string FlyTicket(string provider, string id, string? repository);
 
     /// <summary>
     /// Why opening a flight for this work item deserves a second thought, or

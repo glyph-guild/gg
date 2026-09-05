@@ -128,6 +128,19 @@ internal static class ConsoleDoubles
         public string Edit(string initialText) => initialText;
     }
 
+    /// <summary>An editor in which somebody typed something.</summary>
+    /// <remarks>
+    /// <b><see cref="NoEditor"/> is not the double for a paste test.</b> It
+    /// returns what it was given, and the paste path opens on an EMPTY buffer -
+    /// so a test using it refuses with "no intent was written" and never
+    /// reaches the write at all. That failure looks like the write being
+    /// broken.
+    /// </remarks>
+    internal sealed class Writes(string typed) : IEditorSession
+    {
+        public string Edit(string initialText) => typed;
+    }
+
     /// <summary>
     /// The console's write surface, recording what it was asked to do.
     /// </summary>
@@ -169,6 +182,17 @@ internal static class ConsoleDoubles
         /// <summary>Every intent pasted, in order.</summary>
         internal List<string> Pasted { get; } = [];
 
+        /// <summary>Every ticket flight, with the repository it named.</summary>
+        /// <remarks>
+        /// Beside <see cref="Flown"/> rather than widening it: assertions
+        /// elsewhere read that tuple, and a third member would edit tests whose
+        /// subject is not the repository.
+        /// </remarks>
+        internal List<(string Provider, string Id, string? Repository)> Tickets { get; } = [];
+
+        /// <summary>Every pasted intent, with the repository it named.</summary>
+        internal List<(string Intent, string? Repository)> Intents { get; } = [];
+
         /// <summary>Every gate answered, in order.</summary>
         internal List<(string Flight, string Obligation, bool Approved, string? Reason)> Decided
         { get; } = [];
@@ -191,15 +215,18 @@ internal static class ConsoleDoubles
                 : "decided";
         }
 
-        public string Fly(string intent)
+        public string Fly(string intent, string? repository)
         {
             Pasted.Add(intent);
+            Intents.Add((intent, repository));
+
             return refusing ? "Nothing was opened — the control plane could not be reached." : "opened";
         }
 
-        public string FlyTicket(string provider, string id)
+        public string FlyTicket(string provider, string id, string? repository)
         {
             Flown.Add((provider, id));
+            Tickets.Add((provider, id, repository));
 
             return refusing
                 ? "Nothing was opened — the control plane could not be reached."

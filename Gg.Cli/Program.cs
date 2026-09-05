@@ -522,7 +522,15 @@ static int LaunchConsole()
         // escape-hatch rules a modal would need do not apply to a process that owns
         // the screen.
         actions: new VerbConsoleActions(data, new ConsoleSecretPrompt()),
-        tails: tails).Run(initial);
+        tails: tails,
+        // THE READ PATH, AND IT IS THE SAME ONE THE BOOT TOOK. Passing the boot
+        // itself is what makes a refresh mean "as if you had just opened it"
+        // rather than "as much of it as somebody remembered to re-read".
+        //
+        // The bridge at the edge, like the write path two lines up: async verbs,
+        // a synchronous shell, and the loop owns the terminal while this runs.
+        reload: _ => ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult())
+        .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.
     var dumpPath = Environment.GetEnvironmentVariable("GG_STATE_DUMP");

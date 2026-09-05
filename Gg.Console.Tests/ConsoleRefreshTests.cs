@@ -59,8 +59,8 @@ public class ConsoleRefreshTests
             Rendered.Add(state);
 
             return _at < keys.Length
-                ? new UiOutcome(state, keys[_at++])
-                : new UiOutcome(state, Command.Quit);
+                ? new UiOutcome(keys[_at++], state)
+                : new UiOutcome(Command.Quit, state);
         }
     }
 
@@ -189,12 +189,12 @@ public class ConsoleRefreshTests
 
     private sealed class NoEditor : IEditorSession
     {
-        public string? Edit(string prompt) => null;
+        public string Edit(string initialText) => "";
     }
 
     private sealed class SomethingTyped : IEditorSession
     {
-        public string? Edit(string prompt) => "look at the thing";
+        public string Edit(string initialText) => "look at the thing";
     }
 
     private sealed class Answers : IConsoleActions

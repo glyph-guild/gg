@@ -24,6 +24,15 @@ public enum Command
     /// <summary>Answer it no, with a reason. Posts; decides nothing locally.</summary>
     RejectGate,
 
+    /// <summary>Re-read everything the boot read.</summary>
+    /// <remarks>
+    /// <b>A shell command, because a read is not a session's business.</b> Rule
+    /// 3: no I/O inside a UI session. The session ends, the loop reloads, and
+    /// the next session renders the new model - the same terminal-release shape
+    /// every write in this console already has.
+    /// </remarks>
+    Refresh,
+
     FocusNextPane,
     SelectNext,
     SelectPrevious,
@@ -148,6 +157,11 @@ public static class ShellCommands
         // kept. `new flight` hands the terminal to the same editor for a reason
         // somebody asked for, and carries the property that one demonstrated.
         Command.Quit,
+
+        // A READ, and the first one here. Everything else in this set is a
+        // write; a refresh is in it for the same reason - the effect lives in
+        // ConsoleLoop, because a UI session may not make a request.
+        Command.Refresh,
 
         // Bound and inert until this declaration existed.
         Command.TakeFlight,

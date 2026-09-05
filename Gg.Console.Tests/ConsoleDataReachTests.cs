@@ -104,7 +104,13 @@ public class ConsoleDataReachTests
             // these reads did not. Its author asked for this ratchet knowing it
             // would fire on them, and is fixing what fires: these two leave the
             // list when its step 4 lands, not when this slice's does.
+            // REWORDED at slice twenty-nine's author's request: its step 4
+            // landed without this one, so "its browse pane is its step 4" had
+            // stopped being true. The tracker browser and "what can I fly
+            // against" are different panes; this read belongs to the second,
+            // which nobody has built.
             ["RepositoriesAsync"] = "slice twenty-nine, tier B: what this tenant can fly "
-                                  + "against. Its browse pane is its step 4.",
+                                  + "against - a different pane from the tracker browser its "
+                                  + "step 4 shipped, and one nobody has built yet.",
         };
 }

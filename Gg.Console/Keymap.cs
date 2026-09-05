@@ -110,6 +110,10 @@ public static class Keymap
         _ =>
         [
             new(KeyStroke.Char('q'), Command.Quit, "quit"),
+            // `g` for "get again". `r` is reject inside the gate modal and `R`
+            // would be the only capital in the map, which is a shape somebody
+            // has to learn rather than read.
+            new(KeyStroke.Char('g'), Command.Refresh, "refresh"),
             new(KeyStroke.Char('?'), Command.ToggleHelp, "help"),
             new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
             new(KeyStroke.Char('d'), Command.OpenGate, "decide"),

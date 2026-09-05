@@ -642,8 +642,29 @@ public static class PaneText
 
         foreach (var item in listing.Items)
         {
+            // WHAT HAS ALREADY FLOWN, from what the boot already holds. A local
+            // join rather than a request per row: FlightIntent carries the
+            // provider and the id, so the answer is in the model already.
+            var flown = AlreadyFlown(state, listing.ProviderKey, item.Id);
+
             text.AppendLine(
-                $"{item.Id,-8} {item.State,-12} {Clean(item.Title)}");
+                $"{item.Id,-8} {item.State,-12} {Clean(item.Title)}{flown}");
+        }
+
+        // AN ABSENCE THIS LIST CANNOT SEE HAS TO BE STATED. `?intent=` takes
+        // provider#id only, so a flight opened from a pasted url can never
+        // match a row - and showing nothing would report an absence rather
+        // than an inability to look. Printed only when such a flight exists,
+        // because a footnote about a case that does not apply teaches people
+        // to stop reading footnotes.
+        if (state.Flights is { } all
+            && all.Flights.Any(flight => flight.Intent.Provider is null or ""
+                                      || flight.Intent.Id is null or ""))
+        {
+            text.AppendLine();
+            text.AppendLine(
+                "Some flights were opened from a pasted url and name no work item, so this "
+              + "list cannot tell you about them.");
         }
 
         if (listing.NextCursor is { Length: > 0 })
@@ -671,6 +692,45 @@ public static class PaneText
             : $"{pending.Why}\n\n"
             + $"Open a second flight for {pending.Provider}#{pending.Id}?\n"
             + "Two flights on one work item is allowed, and is usually a mistake.";
+
+    /// <summary>
+    /// The flights already opened for one work item, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE PROVIDER IS HALF THE KEY.</b> Two trackers can both hold an item
+    /// 18398, and matching on the number alone would attribute somebody else's
+    /// flight to this row - the same reason the provider is on the screen at
+    /// all.
+    /// </para>
+    /// <para>
+    /// <b>Oldest first</b>, the correlation surface's own ordering, so a
+    /// classify flight and what it opened read as one thread rather than in
+    /// whatever order the control plane answered.
+    /// </para>
+    /// <para>
+    /// <b>Empty where nothing has been fetched.</b> A null flight list means
+    /// nobody has looked, which is not the same as nothing having flown, and
+    /// this returns the same blank for both - the caveat below the list is
+    /// where the difference is stated.
+    /// </para>
+    /// </remarks>
+    private static string AlreadyFlown(AppState state, string providerKey, string id)
+    {
+        if (state.Flights is not { } all)
+        {
+            return "";
+        }
+
+        var flown = all.Flights
+            .Where(flight => string.Equals(flight.Intent.Provider, providerKey, StringComparison.Ordinal)
+                          && string.Equals(flight.Intent.Id, id, StringComparison.Ordinal))
+            .OrderBy(flight => flight.CreatedAt)
+            .Select(flight => flight.FlightNumber)
+            .ToList();
+
+        return flown.Count == 0 ? "" : "  [" + string.Join(", ", flown) + "]";
+    }
 
     /// <summary>A one-character gutter, so kind survives into the rendering.</summary>
     public static string Marker(StreamLineKind kind) => kind switch

@@ -26,10 +26,33 @@ public static class ConsoleStart
     /// to know whose session it is before it offers the key.
     /// </para>
     /// </remarks>
+    /// <param name="current">
+    /// What the person already has. Empty at boot; the live model on a refresh.
+    /// </param>
+    /// <remarks>
+    /// <b>THE MODEL IS THREADED, NOT REBUILT.</b> This method is the boot AND
+    /// the refresh, and it started from <c>new AppState()</c> - so every field
+    /// it does not read reset to a default on every write. The browse pane
+    /// closed under the person using it; the sentence saying what their
+    /// keypress did was discarded by the re-read that keypress triggered; and a
+    /// refresh that could not reach the control plane emptied the console.
+    /// <para>
+    /// The alternative was a longer list in <c>ConsoleLoop.Reloaded</c> of what
+    /// must survive, which is the same defect one slice later: it grows every
+    /// time anybody adds a field to <see cref="AppState"/> and forgetting one
+    /// is silent. Assigning the read plane onto what is already there needs no
+    /// list at all - the loader names what it read, which it has to do anyway.
+    /// </para>
+    /// </remarks>
     public static async Task<AppState> LoadAsync(
-        ConsoleData data, string principal = "", CancellationToken cancellationToken = default)
+        ConsoleData data,
+        string principal = "",
+        AppState? current = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
+
+        var start = current ?? new AppState();
 
         try
         {
@@ -85,7 +108,7 @@ public static class ConsoleStart
             // four, and what it lacked was a caller. Assigning them here by hand
             // would be the second projection this slice exists to prevent - one
             // layer down and harder to see.
-            var loaded = ConsoleProjection.Apply(new AppState(), flights);
+            var loaded = ConsoleProjection.Apply(start, flights);
             loaded = ConsoleProjection.Apply(loaded, runners);
 
             // THE CREDENTIAL REFERENCES, and the only new request this step
@@ -157,7 +180,14 @@ public static class ConsoleStart
             // Named exceptions only. Swallowing everything here would turn a
             // bug in the projection into an empty console with a friendly
             // message, which is the shape that hides the next defect.
-            return new AppState { Diagnosis = failure.Message };
+            //
+            // AND IT ANSWERS WITH WHAT THE PERSON HAS, which is empty at boot
+            // and is the last good model on a refresh. It used to answer with
+            // `new AppState()` on both, so pressing the refresh key with the
+            // network down emptied the console - and did it THROUGH
+            // ConsoleLoop.Reloaded's catch rather than into it, because this
+            // catch fires first and returns normally.
+            return start with { Diagnosis = failure.Message };
         }
     }
 }

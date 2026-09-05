@@ -529,7 +529,13 @@ static int LaunchConsole()
         //
         // The bridge at the edge, like the write path two lines up: async verbs,
         // a synchronous shell, and the loop owns the terminal while this runs.
-        reload: _ => ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult())
+        // GIVEN THE MODEL, not ignoring it. `_ =>` here meant every refresh was
+        // a boot, so everything the loader does not read - the browse pane, the
+        // receipts, and on a failure the entire queue - reset to a default.
+        reload: current => ConsoleStart
+            .LoadAsync(data, takes.Principal(), current)
+            .GetAwaiter()
+            .GetResult())
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

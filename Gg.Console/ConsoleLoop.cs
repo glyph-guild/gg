@@ -35,6 +35,14 @@ public sealed class ConsoleLoop(
     /// worth pressing.
     /// </para>
     /// <para>
+    /// <b>So the delegate is GIVEN the model and answers with it</b>, the read
+    /// plane replaced and nothing else touched. That is why it takes an
+    /// <see cref="AppState"/> rather than nothing: a reload that ignores its
+    /// argument is a boot, and a boot standing in for a refresh is what emptied
+    /// the browse pane, the receipts and - when the network was down - the whole
+    /// console.
+    /// </para>
+    /// <para>
     /// <b>And a failure keeps the last good model.</b> Emptying the screen is
     /// the worst answer: the person loses what they had and cannot tell whether
     /// the work went away. What was there is still true until something better
@@ -68,23 +76,29 @@ public sealed class ConsoleLoop(
 
         try
         {
-            var fresh = reload(state);
-
-            return fresh with
-            {
-                Mode = state.Mode,
-                FocusedPane = state.FocusedPane,
-                SelectedRow = state.SelectedRow,
-                EvidenceVisible = state.EvidenceVisible,
-                LiveVisible = state.LiveVisible,
-                Frozen = state.Frozen,
-            };
+            // THE ANSWER, WHOLE. This used to be `fresh with { six fields }` -
+            // a list of what must survive a refresh, kept in the loop, next to
+            // a model with far more than six fields on it. Every one it did not
+            // name reset to a default: the browse pane closed under the person
+            // using it, and the sentence saying what their keypress did was
+            // discarded by the re-read that keypress triggered.
+            //
+            // A list like that grows whenever anybody adds a field, and
+            // forgetting one is silent. The reload is given the model and
+            // answers with it instead, which is a promise the composition root
+            // can keep without this method knowing any field names at all.
+            return reload(state);
         }
         catch (Exception failure) when (failure is Gg.Client.NotSignedInException
                                             or Gg.Client.ProtocolTooOldException
                                             or Gg.Client.FlightNotFoundException
                                             or HttpRequestException)
         {
+            // FOR A RELOAD THAT IS NOT THE LOADER. ConsoleStart.LoadAsync
+            // catches these four itself and answers with the last good model
+            // and a diagnosis, so the production path returns normally and
+            // never arrives here. It is kept because the parameter is a
+            // delegate: this is the loop's own answer to one that throws.
             return state with
             {
                 Diagnosis = "Refresh failed, so this is what was last known: " + failure.Message,

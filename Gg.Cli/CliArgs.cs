@@ -70,7 +70,16 @@ public abstract record CliAction
     /// </summary>
     public sealed record Fly(
         string? Text, string? Uri, bool Json, string? Provider = null, string? Id = null,
-        string? Repository = null)
+        string? Repository = null,
+        /// <summary>A person is flying this one themselves, on this machine.</summary>
+        /// <remarks>
+        /// <b>A flag on the flight rather than a verb of its own.</b> A
+        /// hand-flown flight is created, governed, gated and landed identically;
+        /// the only differences are which executor runs and how the lease is
+        /// obtained. A second verb would be a second way to open a flight, with
+        /// its own subset of these flags and its own drift.
+        /// </remarks>
+        bool ByHand = false)
         : CliAction, IEmitsResult;
 
     /// <summary>
@@ -289,7 +298,26 @@ public static class CliArgs
         // --all is position-independent for --json's reason, and stripped the
         // same way so it cannot be mistaken for a verb.
         var all = args.Contains("--all", StringComparer.Ordinal);
-        var rest = args.Where(a => a != "--json" && a != "--all").ToArray();
+
+        // --hand is position-independent for --json's reason: a person types a
+        // trailing flag in both places. Stripped for the OTHER reason those two
+        // are - an option left in the list is matched as a verb, and `fly`'s
+        // arms are list patterns, so composing by stripping is one line where
+        // composing by enumeration is eight arms to keep in step.
+        var byHand = args.Contains("--hand", StringComparer.Ordinal);
+        var rest = args.Where(a => a != "--json" && a != "--all" && a != "--hand").ToArray();
+
+        // AND REFUSED ON ANYTHING THAT IS NOT `fly`. Stripping it globally would
+        // accept `gg flights --hand` and do nothing - a flag that reads as an
+        // instruction and is not one, which is exactly what IEmitsResult stops
+        // `--json` being. Done here rather than by a type because only one verb
+        // has a hand.
+        if (byHand && rest is not ["fly", ..])
+        {
+            return Unknown(
+                "--hand says a person is flying the flight themselves, and only gg fly opens "
+              + "one. Nothing was changed.");
+        }
 
         return rest switch
         {
@@ -385,10 +413,10 @@ public static class CliArgs
             // that may drift, and a flight naming the key keeps resolving after
             // somebody renames the repository on the forge.
             ["fly", "--uri", var uri, "--repo", var repo] =>
-                new CliAction.Fly(null, uri, json, Repository: repo),
-            ["fly", "--ticket", var ticket, "--repo", var repo] => Ticket(ticket, json, repo),
+                new CliAction.Fly(null, uri, json, Repository: repo, ByHand: byHand),
+            ["fly", "--ticket", var ticket, "--repo", var repo] => Ticket(ticket, json, repo, byHand),
             ["fly", var text, "--repo", var repo] when !Option(text) =>
-                new CliAction.Fly(text, null, json, Repository: repo),
+                new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand),
 
             // A trailing `--repo` is somebody who meant to name one. Falling
             // through to the says-two-things arm below would diagnose the wrong
@@ -398,8 +426,8 @@ public static class CliArgs
                 "gg fly --repo needs the name a repository is registered under, e.g. "
               + "--repo payments. Run gg airspace show to see them."),
 
-            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json),
-            ["fly", "--ticket", var ticket] => Ticket(ticket, json),
+            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand),
+            ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -414,7 +442,7 @@ public static class CliArgs
                 $"'{option}' is an option, and gg fly does not have it. It takes some text, "
               + "--uri <uri>, or --ticket <provider>#<id>."),
 
-            ["fly", var text] => new CliAction.Fly(text, null, json),
+            ["fly", var text] => new CliAction.Fly(text, null, json, ByHand: byHand),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
               + "or --ticket <provider>#<id>."),
@@ -567,9 +595,12 @@ public static class CliArgs
     private static bool Option(string word) =>
         word.StartsWith('-');
 
-    private static CliAction Ticket(string token, bool json, string? repository = null) =>
+    private static CliAction Ticket(
+        string token, bool json, string? repository = null, bool byHand = false) =>
         SplitTicket(token) is var (provider, id) && provider is not null
-            ? new CliAction.Fly(null, null, json, Provider: provider, Id: id, Repository: repository)
+            ? new CliAction.Fly(
+                null, null, json, Provider: provider, Id: id, Repository: repository,
+                ByHand: byHand)
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");

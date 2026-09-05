@@ -531,6 +531,23 @@ public sealed record AppState
     /// <summary>What the last hand-back ended with, for the pane to say.</summary>
     public string? LastHandBack { get; init; }
 
+    /// <summary>
+    /// What became of the last attempt to fly a flight by hand, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both outcomes land here, and that is deliberate.</b> A refusal and a
+    /// flight that flew are the same question answered, and a person reads one
+    /// line either way. Two fields would mean a pane deciding which to show and
+    /// getting it wrong when both are set from different sessions.
+    /// <para>
+    /// <b>A string, because the model is written to disk.</b> <c>AppState</c> is
+    /// serialized under <c>GG_STATE_DUMP</c> and handed to the diagnostics
+    /// bundle, so nothing on it may be a process handle or anything else that
+    /// does not survive a round trip.
+    /// </para>
+    /// </remarks>
+    public string? LastHandFlight { get; init; }
+
     /// <summary>What came of the last gate this console answered.</summary>
     /// <remarks>
     /// The sentence a person reads after pressing the key, and the only thing the

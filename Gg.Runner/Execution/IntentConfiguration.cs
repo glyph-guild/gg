@@ -61,6 +61,27 @@ public static class IntentConfiguration
     public const string ReadersVariable = "GG_INTENT_READERS";
 
     /// <summary>
+    /// The variable naming which trackers this binary reads for itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A host, not a command.</b> Where <see cref="ReadersVariable"/> names a
+    /// process an operator installed, this names a tracker whose SHAPE this
+    /// binary already speaks - so what is left to state is where it is, and
+    /// which credential opens it.
+    /// </para>
+    /// <para>
+    /// <b>The same list shape as everything else a runner is configured with</b>,
+    /// down to the <c>|</c> before the credential. What is absent is the
+    /// variable name that shape carries, because a server this binary IS does
+    /// not need telling which environment variable to read its secret from: it
+    /// resolves the locator itself, in the child, which is the entire reason
+    /// this path exists.
+    /// </para>
+    /// </remarks>
+    public const string ServedVariable = "GG_INTENT_HOSTS";
+
+    /// <summary>
     /// The readers this environment describes.
     /// </summary>
     /// <remarks>
@@ -69,7 +90,8 @@ public static class IntentConfiguration
     /// list shape is <c>GG_VCS_HOSTS</c>'s, deliberately: an operator
     /// configuring a runner should learn one format, not two.
     /// </remarks>
-    public static IReadOnlyList<IntentReader> FromEnvironment(string? declaration = null)
+    public static IReadOnlyList<IntentReader> FromEnvironment(
+        string? declaration = null, string? served = null, SelfInvocation? self = null)
     {
         var raw = declaration ?? Environment.GetEnvironmentVariable(ReadersVariable) ?? "";
         var readers = new List<IntentReader>();
@@ -147,6 +169,79 @@ public static class IntentConfiguration
 
             readers.Add(new IntentReader(
                 key, parts[0], [.. parts.Skip(1)], variable, locator));
+        }
+
+        readers.AddRange(ServedByThisBinary(served, self, readers));
+
+        return readers;
+    }
+
+    /// <summary>
+    /// The trackers this binary reads for itself, from <see cref="ServedVariable"/>.
+    /// </summary>
+    /// <param name="served">The declaration, or null to read the environment.</param>
+    /// <param name="self">How to start this binary, or null to ask the process.</param>
+    /// <param name="declared">
+    /// The readers already parsed from <see cref="ReadersVariable"/>, so a key
+    /// claimed by both can be refused rather than silently resolved.
+    /// </param>
+    private static List<IntentReader> ServedByThisBinary(
+        string? served, SelfInvocation? self, List<IntentReader> declared)
+    {
+        var raw = served ?? Environment.GetEnvironmentVariable(ServedVariable) ?? "";
+        var readers = new List<IntentReader>();
+
+        foreach (var entry in raw.Split(
+            ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var split = entry.IndexOf('=');
+            if (split <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"'{entry}' in {ServedVariable} is not 'provider=host'. Each entry names a "
+                  + "provider key a flight's intent can carry and the tracker root to read it "
+                  + "from, e.g. 'my-tracker=https://tracker.example/acme'.");
+            }
+
+            var key = entry[..split].Trim();
+            var rest = entry[(split + 1)..].Trim();
+
+            // A KEY CANNOT BE BOTH, and no default settles which wins. An
+            // operator who edited the variable they had in mind and saw no
+            // change at all is the worst way for a precedence rule to announce
+            // itself, so it is refused where both are written.
+            if (declared.Any(r => string.Equals(r.Key, key, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    $"'{key}' is declared in both {ReadersVariable} and {ServedVariable}. One "
+                  + "names a process to launch and the other a tracker this binary reads "
+                  + "itself; a key can be one or the other. Remove it from whichever is stale.");
+            }
+
+            var bar = rest.IndexOf('|');
+            var host = (bar < 0 ? rest : rest[..bar]).Trim();
+            var locator = bar < 0 ? null : rest[(bar + 1)..].Trim();
+
+            if (host.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"'{key}' in {ServedVariable} declares no host. A provider with nowhere to "
+                  + "read from would be advertised as readable and then read nothing, which is "
+                  + "worse than not declaring it: name the tracker root, or remove the entry.");
+            }
+
+            // NAMED AND UNRESOLVABLE IS NOT THIS METHOD'S CALL. The child
+            // resolves the locator, and a store that cannot answer produces a
+            // 401 the agent is told about - which beats a runner that refused
+            // to start over a credential no flight was going to need.
+            var invocation = self ?? SelfInvocation.Current
+                ?? throw new InvalidOperationException(
+                    $"'{key}' in {ServedVariable} asks this binary to serve a reader, and this "
+                  + "process cannot name how to start itself again. Declare the tracker as a "
+                  + $"command in {ReadersVariable} instead, or run gg as an executable rather "
+                  + "than through a host that hides its own path.");
+
+            readers.Add(Served(key, host, locator, invocation));
         }
 
         return readers;

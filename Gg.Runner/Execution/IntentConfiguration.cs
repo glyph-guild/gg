@@ -152,6 +152,77 @@ public static class IntentConfiguration
         return readers;
     }
 
+    /// <summary>The verb this binary serves a tracker reader under.</summary>
+    private static readonly string[] ReadVerb = ["runner", "read"];
+
+    /// <summary>
+    /// A reader served by this binary rather than launched from a declaration.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE SECRET STOPS TRAVELLING IN AN ARGUMENT.</b> An external server can
+    /// only be handed a credential through the config that launches it, and that
+    /// config is an argument to the agent's process - readable by every
+    /// <c>ps</c> on the host. <c>ServerConfig</c> accepts that because there is
+    /// no alternative for a program this repository did not write. There is one
+    /// here: a locator NAMES a credential and is not one, so it travels in the
+    /// argument and the child resolves it from the same store the runner would
+    /// have read. Nothing is left for an environment block to carry.
+    /// </para>
+    /// <para>
+    /// <b>The host travels too, and for a duller reason.</b> This child is
+    /// started by the AGENT, not by the runner, so it cannot be relied on to
+    /// inherit the runner's environment - and a reader that silently read a
+    /// different tracker than the one configured would be the worst possible
+    /// failure of this whole path. Neither value is a secret.
+    /// </para>
+    /// <para>
+    /// <b>A second verb, not a second tool on the first server.</b>
+    /// <c>SelfInvocation</c> names <c>runner tools</c>, whose safety as a child
+    /// of a compromised process rests on holding no credential. This one holds
+    /// one, so it is a different server reached by a different verb.
+    /// </para>
+    /// </remarks>
+    /// <param name="key">The provider key, as a flight's intent spells it.</param>
+    /// <param name="host">The tracker root this reader speaks to, from configuration.</param>
+    /// <param name="locator">The credential to resolve, or null where none is needed.</param>
+    /// <param name="self">How to start this binary again.</param>
+    public static IntentReader Served(
+        string key, string host, string? locator, SelfInvocation self)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        ArgumentNullException.ThrowIfNull(self);
+
+        // THE SAME SHADOWING RULE THE DECLARATION HAS. A key is a tool-name
+        // prefix wherever it came from, and one that collides with the
+        // platform's own server shadows it just as thoroughly when we are the
+        // ones who chose it.
+        if (string.Equals(key, NominationTool.Server, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"'{key}' is the key this platform serves its own tools from, so a reader "
+              + "served under it would shadow them.");
+        }
+
+        return new IntentReader(
+            key,
+            self.Command,
+            [
+                // The bootstrap comes from SelfInvocation, which is the one
+                // place that knows whether this process needs its own assembly
+                // handed back to it.
+                .. self.Under(ReadVerb),
+                "--provider", key,
+                "--host", host,
+                .. locator is { Length: > 0 } named ? (string[])["--credential", named] : [],
+            ],
+            // NOTHING FOR AN ENVIRONMENT BLOCK, which is the whole point: the
+            // launch has no secret to place, so it writes none.
+            EnvironmentVariable: null,
+            Locator: null);
+    }
+
     /// <summary>
     /// Why this runner cannot read a work item in <paramref name="provider"/>,
     /// or null when it can — or when there is nothing to read.

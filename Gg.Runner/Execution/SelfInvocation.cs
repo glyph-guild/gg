@@ -35,6 +35,19 @@ public sealed record SelfInvocation(string Command, IReadOnlyList<string> Argume
     private static readonly string[] Verb = ["runner", "tools"];
 
     /// <summary>
+    /// How to start this binary again under a different verb.
+    /// </summary>
+    /// <remarks>
+    /// <b>The bootstrap is the part worth reusing.</b> Whether this process
+    /// needs its own assembly handed back to it is a question <see cref="For"/>
+    /// already answered, and getting it wrong is the failure recorded there -
+    /// a server that never started and nothing that said so. A second server
+    /// under a second verb must not re-derive it, so it asks here instead.
+    /// </remarks>
+    public IReadOnlyList<string> Under(params string[] verb) =>
+        [.. Arguments.Take(Arguments.Count - Verb.Length), .. verb ?? []];
+
+    /// <summary>
     /// The one program that needs the assembly handed to it.
     /// </summary>
     /// <remarks>

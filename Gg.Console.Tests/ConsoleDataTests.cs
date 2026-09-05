@@ -217,7 +217,8 @@ public class ConsoleDataTests
     /// </remarks>
     private static IReadOnlyList<Type> VerbClasses { get; } =
         [typeof(FlightCommands), typeof(CredentialCommands),
-         typeof(EnvelopeCommands), typeof(TakeCommands), typeof(StrategyCommands)];
+         typeof(EnvelopeCommands), typeof(TakeCommands), typeof(StrategyCommands),
+         typeof(IdentityCommands)];
 
     [Test]
     public async Task Every_class_that_holds_verbs_is_in_that_list()
@@ -519,7 +520,8 @@ public class ConsoleStartTests
         var data = new ConsoleData(
             new FlightCommands(client, sessions),
             new CredentialCommands(client, sessions, new RefusesEverything(), new NeverAsked()),
-            new TakeCommands(client, sessions));
+            new TakeCommands(client, sessions),
+            new IdentityCommands(client, sessions));
 
         var state = await ConsoleStart.LoadAsync(data);
 

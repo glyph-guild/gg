@@ -26,6 +26,40 @@ public static class ConsoleStart
     /// to know whose session it is before it offers the key.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// One read whose failure costs one read's worth.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rule 5's third sentence: <i>failed to load</i> is not <i>empty</i>.</b>
+    /// One try around the whole boot returned a bare diagnosis and NO queue, so
+    /// a tenant whose credential read was refused lost the pane the console
+    /// exists for - and could not tell that from having no work.
+    /// <para>
+    /// The caught list is NAMED and is the one the whole boot catches. A wider
+    /// one here would turn a bug in the projection into a console that looks
+    /// merely degraded.
+    /// </para>
+    /// </remarks>
+    private static async Task<AppState> OwnFailureAsync(
+        AppState loaded,
+        string what,
+        Func<CancellationToken, Task<VerbResult>> read,
+        List<string> partial,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return ConsoleProjection.Apply(loaded, await read(cancellationToken));
+        }
+        catch (Exception failure) when (failure is Gg.Client.NotSignedInException
+                                            or Gg.Client.ProtocolTooOldException
+                                            or HttpRequestException)
+        {
+            partial.Add($"{what} did not load: {failure.Message}");
+            return loaded;
+        }
+    }
+
     /// <param name="current">
     /// What the person already has. Empty at boot; the live model on a refresh.
     /// </param>
@@ -123,23 +157,28 @@ public static class ConsoleStart
             // was refused lost the pane the console exists for - and could not
             // tell that from having no work. What one read loses is now one
             // read's worth.
-            string? partial = null;
-            try
-            {
-                if (await data.ListCredentialsAsync(cancellationToken) is VerbResult.Credentials held)
-                {
-                    loaded = ConsoleProjection.Apply(loaded, held);
-                }
-            }
-            catch (Exception failure) when (failure is Gg.Client.NotSignedInException
-                                                or Gg.Client.ProtocolTooOldException
-                                                or HttpRequestException)
-            {
-                // NAMED, and the same list the whole boot catches. A wider one
-                // here would turn a bug in the projection into a console that
-                // looks merely degraded.
-                partial = "credentials did not load: " + failure.Message;
-            }
+            //
+            // AND WHAT THIS TENANT SHOULD KNOW, which is the other read whose
+            // failure is its own. AppState.Notices is drawn above every queue,
+            // present even when the queue is empty, and was assigned by nothing
+            // at all - so a control plane reporting a degradation on every call
+            // was reporting it to nobody. It is exactly the failure the queue
+            // hides by construction: when check runs stop being written every
+            // flight still runs and still leaves the queue, so "nothing needs
+            // you" stays true and the pane is at its most reassuring when this
+            // is worst.
+            //
+            // WRITTEN AS CALLS RATHER THAN METHOD GROUPS, and the reach ratchet
+            // is why: `data.ListCredentialsAsync` with no parentheses is
+            // invisible to anything reading for a call site, which is what a
+            // person skimming this file is also doing. It fired on both of these
+            // the moment they were passed as groups.
+            var partial = new List<string>();
+
+            loaded = await OwnFailureAsync(
+                loaded, "credentials", ct => data.ListCredentialsAsync(ct), partial, cancellationToken);
+            loaded = await OwnFailureAsync(
+                loaded, "notices", ct => data.IdentityAsync(ct), partial, cancellationToken);
 
             // AND THE SELECTED ROW'S DETAIL, THROUGH THE REDUCER'S OWN RULE, so
             // the console opens onto content rather than onto a pane waiting for
@@ -155,7 +194,7 @@ public static class ConsoleStart
             {
                 Queue = queue,
                 Gates = gates,
-                Diagnosis = partial,
+                Diagnosis = partial.Count == 0 ? null : string.Join("; ", partial),
 
                 // The logs the loop above already fetched, kept rather than
                 // discarded. The selection carries them into the pane.

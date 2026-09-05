@@ -114,26 +114,36 @@ public sealed class AuthCommands(
         return 0;
     }
 
-    /// <summary>Reports the principal, its tenant, and when the session expires.</summary>
+    /// <summary>
+    /// Reports the principal, its tenant, when the session expires, and any
+    /// notices.
+    /// </summary>
+    /// <remarks>
+    /// <b>Renders what <see cref="IdentityCommands"/> returns</b>, rather than
+    /// composing its own lines from the same response. That is what makes the
+    /// console's notices and this command's the same answer: there is one
+    /// renderer, and a field added to <c>WhoAmI</c> appears on both surfaces or
+    /// neither.
+    /// <para>
+    /// It also fixed a silence. These three lines never printed
+    /// <c>WhoAmI.Notices</c>, so a tenant whose check-run egress was gone was
+    /// told so by the control plane on every single call and by nothing else.
+    /// </para>
+    /// </remarks>
     public async Task<int> WhoAmIAsync(CancellationToken cancellationToken = default)
     {
-        var stored = _sessions.Read();
-        if (stored is null)
+        try
         {
-            _output.WriteLine("Not signed in. Run gg login.");
+            var identity = await new IdentityCommands(_client, _sessions)
+                .ShowAsync(cancellationToken);
+
+            _output.WriteLine(VerbOutput.ToText(identity));
+            return 0;
+        }
+        catch (NotSignedInException refusal)
+        {
+            _output.WriteLine(refusal.Message);
             return 1;
         }
-
-        var who = await _client.WhoAmIAsync(stored.SessionToken, cancellationToken);
-        if (who is null)
-        {
-            _output.WriteLine("This session is no longer valid. Run gg login.");
-            return 1;
-        }
-
-        _output.WriteLine($"  Principal:  {who.PrincipalDisplay} ({who.PrincipalId})");
-        _output.WriteLine($"  Tenant:     {who.TenantId}");
-        _output.WriteLine($"  Expires:    {who.ExpiresAt:u}");
-        return 0;
     }
 }

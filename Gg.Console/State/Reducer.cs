@@ -34,6 +34,17 @@ public static class Reducer
                 ? FlightDeclined(state)
                 : state with { Mode = UiMode.Normal },
 
+            // TAB TURNS THE HELP PAGE WHILE HELP OWNS THE KEYBOARD, and moves
+            // the focused pane everywhere else. A modal holds the keys for one
+            // question, so the key means what the question needs - and it is
+            // borrowed rather than taken: Normal mode is unchanged.
+            Command.FocusNextPane when state.Mode == UiMode.Help => state with
+            {
+                HelpPage = state.HelpPage == HelpPage.Keys
+                    ? HelpPage.Environment
+                    : HelpPage.Keys,
+            },
+
             Command.FocusNextPane => state with { FocusedPane = NextVisible(state) },
 
             // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
@@ -62,7 +73,15 @@ public static class Reducer
     /// escape hatch" true rather than aspirational.
     /// </remarks>
     private static AppState Modal(AppState state, UiMode mode) =>
-        state with { Mode = state.Mode == mode ? UiMode.Normal : mode };
+        state with
+        {
+            Mode = state.Mode == mode ? UiMode.Normal : mode,
+
+            // HELP ALWAYS OPENS ON THE KEYS. A modal that remembered a page
+            // from ten minutes ago would answer a question nobody just asked,
+            // and "what can I press" is what somebody pressing ? is asking.
+            HelpPage = HelpPage.Keys,
+        };
 
     /// <summary>
     /// The next pane that is actually on screen.

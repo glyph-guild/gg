@@ -487,7 +487,17 @@ static int LaunchConsole()
         // names this document's version and nothing could show the document.
         new EnvelopeCommands(client, sessions));
 
-    var initial = ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult();
+    var initial = ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult()
+        // WHAT THIS MACHINE IS CONFIGURED TO DO, read once and handed over.
+        // ExecutorConfiguration states the rule this follows: one place reads
+        // the environment, and nothing downstream reads it again and reaches a
+        // different answer. The console renders what it is given.
+        //
+        // DECLARED, NEVER SWEPT. Walking the process environment would put
+        // whatever else a person exports - cloud keys, tokens - on a screen
+        // they may be sharing and into the state dump. These are the variables
+        // gg itself reads, and every one is named where it is read.
+        with { Settings = ConsoleEnvironment.Read() };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
     // arguments that only tests ever supplied, so the console's takeover key

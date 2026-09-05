@@ -797,7 +797,53 @@ public static class PaneText
     /// Written by hand it would be a third list of keys, after the keymap and
     /// the hint line, and the one people read when they are already confused.
     /// </remarks>
-    private static string Help(AppState state)
+    private static string Help(AppState state) =>
+        state.HelpPage == HelpPage.Environment ? HelpEnvironment(state) : HelpKeys(state);
+
+    /// <summary>
+    /// What this machine is configured to do, and what decides it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE PAGE THAT ANSWERS "why did that key do nothing".</b> `n` hands the
+    /// terminal to <c>$EDITOR</c>; pointed at an editor that forks and returns,
+    /// it comes back with an empty file and the console says no intent was
+    /// written. That is a correct sentence about a confusing outcome, and the
+    /// value that explains it was one keystroke away and unreachable.
+    /// </para>
+    /// <para>
+    /// <b>Unset is a row, not an omission.</b> The variable worth reading is
+    /// usually the one that is not set.
+    /// </para>
+    /// </remarks>
+    private static string HelpEnvironment(AppState state)
+    {
+        var text = new StringBuilder();
+        text.AppendLine("  environment — tab for keys");
+        text.AppendLine();
+
+        if (state.Settings.Count == 0)
+        {
+            // NOT "nothing is set". The composition root builds this list and a
+            // test host does not, so an empty one is a console that was never
+            // told - a different fact, and the only honest thing to print.
+            text.AppendLine("  This console was not told which variables it reads.");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var setting in state.Settings)
+        {
+            text.AppendLine($"  {setting.Name}");
+            text.AppendLine(setting.Value is { Length: > 0 } value
+                ? $"      = {Clean(value)}"
+                : "      not set");
+            text.AppendLine($"      {Clean(setting.Why)}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    private static string HelpKeys(AppState state)
     {
         var text = new StringBuilder();
         foreach (var binding in Keymap.Bindings(
@@ -809,6 +855,9 @@ public static class PaneText
         text.AppendLine($"  {Keymap.Interrupt.Name,-8}quit from anywhere");
         text.AppendLine();
         text.AppendLine($"  queue order: {QueueSort.Default.Name}");
+
+        // A SECOND PAGE NOBODY IS TOLD ABOUT IS A SECOND PAGE NOBODY FINDS.
+        text.AppendLine("  tab: what this machine's environment decides");
         return text.ToString().TrimEnd();
     }
 

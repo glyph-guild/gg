@@ -426,7 +426,20 @@ public sealed record LeaseGranted
     /// case.
     /// </para>
     /// </remarks>
-    public IReadOnlyList<string> UnresolvedRepos { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<string> UnresolvedRepos
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>
     /// The tenant's classification ceiling. The runner needs it before it
@@ -637,7 +650,20 @@ public sealed record LeaseClaimStatus
     /// Repositories whose credential reference has not arrived, when the state
     /// is <c>waiting</c>. Empty otherwise.
     /// </summary>
-    public IReadOnlyList<string> WaitingOn { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<string> WaitingOn
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>The lease, once there is one.</summary>
     public LeaseGranted? Lease { get; init; }

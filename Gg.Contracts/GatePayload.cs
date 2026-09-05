@@ -216,7 +216,20 @@ public sealed record GateEvidencePayload
     public required IReadOnlyList<GateEvidenceItem> Items { get; init; }
 
     /// <summary>What moved since this was last decided, when it was decided before.</summary>
-    public IReadOnlyList<string> Delta { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<string> Delta
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>
     /// What the delta means, in words, always.

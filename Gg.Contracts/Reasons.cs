@@ -38,7 +38,20 @@ public sealed record Reason
     public required string Kind { get; init; }
 
     /// <summary>The facts the sentence names, in the order the grammar reads them.</summary>
-    public IReadOnlyList<string> Params { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<string> Params
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>Builds the pair that cannot disagree: the family is derived from the kind.</summary>
     public static Reason For(string kind, IReadOnlyList<string> parameters) => new()

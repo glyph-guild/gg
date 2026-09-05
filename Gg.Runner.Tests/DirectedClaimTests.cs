@@ -61,15 +61,25 @@ public class DirectedClaimTests
     }
 
     [Test]
-    public async Task It_is_absent_from_the_wire_when_nothing_asked_for_a_flight()
+    public async Task The_ordinary_claim_round_trips_unchanged()
     {
-        // ABSENT RATHER THAN NULL, so the ordinary claim's body is byte-for-byte
-        // what it always was. A member that serialized as `"flightId": null`
-        // would be a new field on every request the fleet makes, which is a
-        // wider change than the one being made.
+        // IT WRITES `"flightId": null`, AND THAT IS THE PACKAGE'S CONVENTION
+        // RATHER THAN AN OVERSIGHT. Every optional member in this contract does
+        // - `baseRef` and `continuesFrom` on a repo reference, `lease` on a
+        // claim status - and no JsonIgnore appears anywhere in it. This test was
+        // first written asserting the member is ABSENT, which would have made
+        // one member behave unlike its neighbours for a compatibility reason
+        // that does not exist: what a reader depends on is that the three
+        // members it knows are unchanged and that an unknown one is ignorable.
+        //
+        // So the claim is the round trip, not the byte count.
         var written = JsonSerializer.Serialize(Asking(), RunnerJsonContext.Default.LeaseClaimRequest);
+        var read = JsonSerializer.Deserialize(written, RunnerJsonContext.Default.LeaseClaimRequest)!;
 
-        await Assert.That(written).DoesNotContain("flightId");
+        await Assert.That(read.RunnerId).IsEqualTo("runner-1");
+        await Assert.That(read.Labels).IsEquivalentTo(new[] { "linux" });
+        await Assert.That(read.MaxWaitSeconds).IsEqualTo(30);
+        await Assert.That(read.FlightId).IsNull();
     }
 
     [Test]

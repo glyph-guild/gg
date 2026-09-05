@@ -87,7 +87,6 @@ public class ConsoleDataReachTests
             ["ShowAsync"] = "the Flight pane's fetch. Wired in step 2 - it is the read that "
                           + "turns `loading…` into a flight, and the single most visible "
                           + "consequence of this whole gap.",
-            ["PlanAsync"] = "the checklist's fetch. Wired in step 4, S28.4-01.",
             ["RunnerLabelsAsync"] = "the fleet's advertised labels. Wired in step 4, "
                                   + "S28.4-03, with each disposition beside its name.",
             ["RemoveCredentialAsync"] = "forgetting a credential. Given a key in step 5, "

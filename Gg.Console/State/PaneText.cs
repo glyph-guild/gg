@@ -138,6 +138,74 @@ public static class PaneText
     }
 
     /// <summary>
+    /// What must hold before the selected flight can start.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Each item with its satisfier and its disposition</b>, which is what
+    /// makes the answer a job rather than a mood: an unmet requirement whose
+    /// satisfier is a label nobody advertises is a different task from one
+    /// waiting on an approver, and a list of requirement names cannot tell them
+    /// apart.
+    /// </para>
+    /// <para>
+    /// <b>An unread checklist says so, and it matters more here than anywhere.</b>
+    /// An empty list reads as <i>nothing is stopping this flight</i>, which is
+    /// the opposite of <i>nobody asked</i> - and one of those is good news.
+    /// </para>
+    /// </remarks>
+    public static string Checklist(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Checklist is not { } checklist)
+        {
+            return state.Selected is null
+                ? "No flight selected."
+                : "not read for this row - press p to read it";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"  envelope      {Clean(checklist.EnvelopeVersion)}");
+
+        if (checklist.Repository is { Length: > 0 } repository)
+        {
+            text.AppendLine($"  repository    {Clean(repository)}");
+        }
+
+        text.AppendLine($"  labels        {Labels(checklist.RequiredLabels)}");
+        text.AppendLine();
+
+        if (checklist.Items.Count == 0)
+        {
+            text.AppendLine("  nothing is required before this flight can start.");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var item in checklist.Items)
+        {
+            text.AppendLine(
+                $"  {Clean(item.Disposition),-8} {Clean(item.Requirement)}");
+            text.AppendLine(
+                $"           satisfied by {Clean(item.Satisfier)}, checked by "
+              + Clean(item.Verification));
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What the fleet has to advertise, said out loud.
+    /// </summary>
+    /// <remarks>
+    /// "none" rather than a blank: a checklist requiring no labels and one whose
+    /// labels failed to render look identical otherwise, and the first is the
+    /// ordinary case.
+    /// </remarks>
+    private static string Labels(IReadOnlyList<string> labels) =>
+        labels.Count == 0 ? "none" : string.Join(", ", labels.Select(l => Clean(l)));
+
+    /// <summary>
     /// What is holding this flight, in the control plane's own words.
     /// </summary>
     /// <remarks>

@@ -57,6 +57,15 @@ public enum Command
     /// </remarks>
     ToggleBrowse,
 
+    /// <summary>
+    /// What must hold before the selected flight can start.
+    /// </summary>
+    /// <remarks>
+    /// The shell's, because showing it is a read. Same reason as
+    /// <see cref="ToggleBrowse"/>, for a much smaller request.
+    /// </remarks>
+    ToggleChecklist,
+
     /// <summary>Open a flight for the work item the browser has selected.</summary>
     /// <remarks>
     /// The shell's, because it writes. What crosses is a provider and an id,
@@ -178,6 +187,7 @@ public static class ShellCommands
         // may read a local file and nothing else. The loop owns the reader for
         // the same reason it owns the editor and the take.
         Command.ToggleBrowse,
+        Command.ToggleChecklist,
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,

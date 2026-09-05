@@ -318,6 +318,29 @@ public sealed record AppState
     /// </remarks>
     public FlightAttribution? Attribution { get; init; }
 
+    /// <summary>
+    /// What must hold before the selected flight can start, exactly as
+    /// `gg plan` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read when the pane is opened, not at boot</b>, because the pane is
+    /// off by default and a request for a pane nobody opened is a request
+    /// nobody wanted. It survives the pane being hidden - somebody who closes
+    /// it and opens it again should not pay for a second read - and
+    /// <see cref="Reducer.Detail"/> drops it when the cursor moves, because it
+    /// names the flight it was read for.
+    /// </remarks>
+    public Checklist? Checklist { get; init; }
+
+    /// <summary>Whether the checklist pane has the region.</summary>
+    /// <remarks>
+    /// One region, three panes: turning this on turns <see cref="EvidenceVisible"/>,
+    /// <see cref="LiveVisible"/> and <see cref="BrowseVisible"/> off, because
+    /// two visible flags over one region is two panes drawn on top of each
+    /// other.
+    /// </remarks>
+    public bool ChecklistVisible { get; init; }
+
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>
     public RunnerList? Runners { get; init; }
 

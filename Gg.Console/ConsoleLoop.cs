@@ -14,7 +14,8 @@ public sealed class ConsoleLoop(
     IConsoleActions? actions = null,
     LiveTails? tails = null,
     IWorkBrowser? browser = null,
-    Func<AppState, AppState>? reload = null)
+    Func<AppState, AppState>? reload = null,
+    Func<AppState, AppState>? checklist = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -168,6 +169,24 @@ public sealed class ConsoleLoop(
                     if (state.BrowseVisible && browser is not null)
                     {
                         state = Browsed(state, browser);
+                    }
+
+                    break;
+
+                case Command.ToggleChecklist:
+                    // THE SAME SHAPE AS BROWSE, for a much smaller request.
+                    // Showing this pane is a read and a UI session may not do
+                    // I/O, so the session ends, the loop asks, and the next
+                    // session renders it.
+                    //
+                    // Only on the way IN, and the answer survives hiding:
+                    // somebody who closes the pane and opens it again should not
+                    // pay for a second read of a flight that has not moved.
+                    state = Reducer.ChecklistToggled(state);
+
+                    if (state.ChecklistVisible && checklist is not null)
+                    {
+                        state = checklist(state);
                     }
 
                     break;

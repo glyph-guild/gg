@@ -175,7 +175,27 @@ public class AgainstARealControlPlaneTests
     /// no agent - which is a queue row, because a queue row is now a flight
     /// somebody is being asked about.
     /// </remarks>
-    internal static async Task<Seeded> GatedAsync()
+    /// <summary>
+    /// One gated tenant for the whole suite.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ten tests wanted a queue row and each one seeded a tenant.</b> Ten
+    /// registrations, ten widening gates and ten ninety-second deadlines,
+    /// racing each other through one broker - so the suite generated the load
+    /// its own deadlines then failed on. Measured: one run in seven, always at
+    /// 1m31s, which is the deadline rather than a wrong answer.
+    /// <para>
+    /// <c>Lazy</c> rather than a null check, because these tests run in
+    /// parallel and the null check <c>StrandedAsync</c> used could seed twice -
+    /// which is the same defect one tenant smaller.
+    /// </para>
+    /// </remarks>
+    internal static Task<Seeded> GatedAsync() => _gated.Value;
+
+    private static readonly Lazy<Task<Seeded>> _gated =
+        new(GateAsync, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static async Task<Seeded> GateAsync()
     {
         var seeded = await SeedAsync(flights: 2);
 
@@ -264,7 +284,8 @@ public class AgainstARealControlPlaneTests
           + "gates this test opened never both reached the console.");
     }
 
-    private static Seeded? _stranded;
+    private static readonly Lazy<Task<Seeded>> _strandedTenant =
+        new(StrandAsync, LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>
     /// A runner that holds a flight and then stops answering - the console's
@@ -275,13 +296,10 @@ public class AgainstARealControlPlaneTests
     /// control plane declares it offline on its own clock. What that produces is
     /// the subject of the test below.
     /// </remarks>
-    private static async Task<Seeded> StrandedAsync()
-    {
-        if (_stranded is { } already)
-        {
-            return already;
-        }
+    private static Task<Seeded> StrandedAsync() => _strandedTenant.Value;
 
+    private static async Task<Seeded> StrandAsync()
+    {
         var seeded = await SeedAsync(flights: 2);
 
         using var runner = new HttpClient { BaseAddress = new Uri(Api) };
@@ -333,7 +351,6 @@ public class AgainstARealControlPlaneTests
               + "nobody: " + claimed.RootElement);
         }
 
-        _stranded = seeded;
         return seeded;
     }
 

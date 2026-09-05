@@ -36,6 +36,8 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _evidencePane;
     private readonly FrameView _livePane;
     private readonly FrameView _browsePane;
+    private readonly Label _checklist;
+    private readonly FrameView _checklistPane;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
     private readonly Label _hints;
@@ -132,6 +134,21 @@ public sealed class ConsoleScreen : Window
         _browse = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _browsePane.Add(_browse);
 
+        // THE FOURTH OCCUPANT OF THAT REGION. ChecklistToggled turns the other
+        // three off for the same reason BrowseToggled turns two off: two visible
+        // flags over one region is two panes drawn on top of each other.
+        _checklistPane = new FrameView
+        {
+            Title = "Checklist",
+            X = Pos.Right(_queuePane),
+            Y = Pos.Bottom(_evidencePane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _checklist = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _checklistPane.Add(_checklist);
+
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
@@ -149,7 +166,7 @@ public sealed class ConsoleScreen : Window
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
         _modal.Add(_modalBody);
 
-        Add(_queuePane, _flightPane, _evidencePane, _livePane, _browsePane,
+        Add(_queuePane, _flightPane, _evidencePane, _livePane, _browsePane, _checklistPane,
             _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
@@ -248,7 +265,10 @@ public sealed class ConsoleScreen : Window
 
     private KeymapContext Context() =>
         new(State.Mode, State.LiveVisible, State.Frozen)
-        { BrowseVisible = State.BrowseVisible };
+        {
+            BrowseVisible = State.BrowseVisible,
+            ChecklistVisible = State.ChecklistVisible,
+        };
 
     /// <summary>One-way: model in, pixels out.</summary>
     private void Render()
@@ -271,11 +291,13 @@ public sealed class ConsoleScreen : Window
         }
 
         _browse.Text = PaneText.Browse(State);
+        _checklist.Text = PaneText.Checklist(State);
 
         _evidencePane.Visible = State.EvidenceVisible;
         _livePane.Visible = State.LiveVisible;
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
         _browsePane.Visible = State.BrowseVisible;
+        _checklistPane.Visible = State.ChecklistVisible;
 
         // THE TRACKER IS IN THE TITLE, because a tenant may configure more than
         // one and a list of work items with no attribution is a list nobody can
@@ -287,7 +309,8 @@ public sealed class ConsoleScreen : Window
 
         // The flight pane gives up its space rather than being covered.
         _flightPane.Visible =
-            !State.EvidenceVisible && !State.LiveVisible && !State.BrowseVisible;
+            !State.EvidenceVisible && !State.LiveVisible && !State.BrowseVisible
+            && !State.ChecklistVisible;
 
         _modal.Visible = State.Mode != UiMode.Normal;
         _modal.Title = State.Mode.ToString();

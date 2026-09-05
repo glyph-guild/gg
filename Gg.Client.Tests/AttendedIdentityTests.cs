@@ -115,14 +115,41 @@ public class AttendedIdentityTests
     }
 
     [Test]
-    public async Task The_slot_survives_the_name_being_unfit_for_a_filename()
+    public async Task Three_runners_on_one_machine_get_three_files()
     {
-        // The maintain name carries a ':' and so does this one, and ':' is not a
-        // filename character everywhere. A scheme that flattened two names to
-        // one string would recreate the shared slot with extra steps.
+        // THE PROPERTY, not the mechanism. The first version of this asserted
+        // that the file name contains no ':' - which is FALSE on macOS, where
+        // ':' is a perfectly good filename character and only '/' is not. It was
+        // asserting how FileNameFor works rather than what it is for, and the
+        // platform disagreed.
+        //
+        // What matters on every platform is that the three runners a host can
+        // have do not share a slot. `gg runner up`, `gg runner maintain` and a
+        // hand-flight, three files, whatever the local rules about punctuation.
+        var slots = new[]
+        {
+            FileRunnerStore.PathFor("laptop-7"),
+            FileRunnerStore.PathFor("laptop-7:maintain"),
+            FileRunnerStore.PathFor(AttendedRunner.NameFor("laptop-7")),
+        };
+
+        await Assert.That(slots.Distinct(StringComparer.Ordinal).Count()).IsEqualTo(3)
+            .Because("two of these sharing a file is whichever registered last owning the only "
+                   + "credential, which is the defect PathFor exists to have fixed.");
+
+        // And each one is a file name this platform will actually accept.
+        foreach (var slot in slots)
+        {
+            await Assert.That(Path.GetFileName(slot).IndexOfAny(Path.GetInvalidFileNameChars()))
+                .IsEqualTo(-1);
+        }
+    }
+
+    [Test]
+    public async Task The_slot_says_what_it_is_for()
+    {
         var file = Path.GetFileName(FileRunnerStore.PathFor(AttendedRunner.NameFor("laptop-7")));
 
-        await Assert.That(file).DoesNotContain(":");
         await Assert.That(file).Contains("laptop-7");
         await Assert.That(file).Contains("hand")
             .Because("a slot whose name does not say what it is for is one somebody deletes.");

@@ -177,7 +177,7 @@ public class ConsoleRefreshTests
         var ui = new Presses(Command.ApproveGate);
 
         var final = new ConsoleLoop(
-            ui, new NoEditor(), actions: new Answers(), reload: reload.Load).Run(Booted());
+            ui, new NoEditor(), actions: new ConsoleDoubles.Records(), reload: reload.Load).Run(Booted());
 
         await Assert.That(reload.Calls).IsEqualTo(1)
             .Because("a decision changes what is waiting, so what is waiting is re-read.");
@@ -193,7 +193,7 @@ public class ConsoleRefreshTests
         var ui = new Presses(Command.OpenFlight);
 
         new ConsoleLoop(
-            ui, new SomethingTyped(), actions: new Answers(), reload: reload.Load)
+            ui, new SomethingTyped(), actions: new ConsoleDoubles.Records(), reload: reload.Load)
             .Run(Booted());
 
         await Assert.That(reload.Calls).IsEqualTo(1)
@@ -224,7 +224,7 @@ public class ConsoleRefreshTests
         var reload = new Reloads(Booted() with { Queue = [Row("a", 1), Row("b", 2)] });
         var ui = new Presses(Command.FlyPicked);
 
-        new ConsoleLoop(ui, new NoEditor(), actions: new Answers(), reload: reload.Load)
+        new ConsoleLoop(ui, new NoEditor(), actions: new ConsoleDoubles.Records(), reload: reload.Load)
             .Run(Browsing());
 
         await Assert.That(reload.Calls).IsEqualTo(1)
@@ -242,7 +242,7 @@ public class ConsoleRefreshTests
         var ui = new Presses(Command.FlyPicked);
 
         var final = new ConsoleLoop(
-            ui, new NoEditor(), actions: new Answers(alreadyFlown: "GG-7 already flew this"),
+            ui, new NoEditor(), actions: new ConsoleDoubles.Records(alreadyFlown: "GG-7 already flew this"),
             reload: reload.Load).Run(Browsing());
 
         await Assert.That(final.Mode).IsEqualTo(UiMode.ConfirmFlight)
@@ -259,7 +259,7 @@ public class ConsoleRefreshTests
         var reload = new Reloads(Booted());
         var ui = new Presses(Command.FlyPicked);
 
-        new ConsoleLoop(ui, new NoEditor(), actions: new Answers(), reload: reload.Load)
+        new ConsoleLoop(ui, new NoEditor(), actions: new ConsoleDoubles.Records(), reload: reload.Load)
             .Run(Booted() with { BrowseVisible = true });
 
         await Assert.That(reload.Calls).IsEqualTo(0)
@@ -290,7 +290,7 @@ public class ConsoleRefreshTests
         var ui = new Presses(Command.FlyPicked);
 
         var final = new ConsoleLoop(
-            ui, new NoEditor(), actions: new Refuses(), reload: reload.Load).Run(Browsing());
+            ui, new NoEditor(), actions: new ConsoleDoubles.Records(refusing: true), reload: reload.Load).Run(Browsing());
 
         await Assert.That(reload.Calls).IsEqualTo(1)
             .Because("FlyTicket ran, so the branch that opens flights is the branch that ran. "
@@ -299,29 +299,6 @@ public class ConsoleRefreshTests
             .Because("the re-read landed on the model, not merely on a counter.");
     }
 
-    /// <summary>
-    /// Answers a flight with the refusal <c>VerbConsoleActions</c> really
-    /// composes, opening words and all.
-    /// </summary>
-    private sealed class Refuses : IConsoleActions
-    {
-        public string Decide(string flight, string obligation, bool approved, string? reason) =>
-            "Nothing was decided - the control plane could not be reached.";
-
-        public string Fly(string intent) =>
-            "Nothing was opened - the control plane could not be reached.";
-
-        public string FlyTicket(string provider, string id) =>
-            "Nothing was opened - the control plane could not be reached.";
-
-        public string? AlreadyFlown(string provider, string id) => null;
-
-        public string AddCredential() => "Nothing was registered.";
-
-        public string ForgetCredential() => "Nothing was registered.";
-
-        public string Invite() => "Nothing was issued.";
-    }
 
     private sealed class Throws
     {
@@ -339,21 +316,4 @@ public class ConsoleRefreshTests
         public string Edit(string initialText) => "look at the thing";
     }
 
-    private sealed class Answers(string? alreadyFlown = null) : IConsoleActions
-    {
-        public string Decide(string flight, string obligation, bool approved, string? reason) =>
-            "decided";
-
-        public string Fly(string intent) => "opened";
-
-        public string FlyTicket(string provider, string id) => "opened";
-
-        public string? AlreadyFlown(string provider, string id) => alreadyFlown;
-
-        public string AddCredential() => "registered";
-
-        public string ForgetCredential() => "registered";
-
-        public string Invite() => "invited";
-    }
 }

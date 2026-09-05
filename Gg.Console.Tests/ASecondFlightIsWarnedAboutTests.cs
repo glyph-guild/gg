@@ -28,34 +28,6 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class ASecondFlightIsWarnedAboutTests
 {
-    private sealed class Records(string? already = null) : IConsoleActions
-    {
-        internal List<(string Provider, string Id)> Flown { get; } = [];
-
-        internal int Asked { get; private set; }
-
-        public string Decide(string flight, string obligation, bool approved, string? reason) => "";
-
-        public string Fly(string intent) => "should not be reached";
-
-        public string FlyTicket(string provider, string id)
-        {
-            Flown.Add((provider, id));
-            return $"Opened a flight for {provider}#{id}.";
-        }
-
-        public string? AlreadyFlown(string provider, string id)
-        {
-            Asked++;
-            return already;
-        }
-
-        public string AddCredential() => "";
-
-        public string ForgetCredential() => "";
-
-        public string Invite() => "";
-    }
 
     private static AppState Picked() =>
         Reducer.Browsed(
@@ -67,7 +39,7 @@ public class ASecondFlightIsWarnedAboutTests
     [Test]
     public async Task An_item_with_no_flight_yet_just_flies()
     {
-        var actions = new Records(already: null);
+        var actions = new ConsoleDoubles.Records(alreadyFlown: null);
 
         var state = ConsoleLoop.FlewPicked(Picked(), actions);
 
@@ -80,7 +52,7 @@ public class ASecondFlightIsWarnedAboutTests
     [Test]
     public async Task An_item_that_already_flew_asks_before_opening_a_second()
     {
-        var actions = new Records(already: "gg-14 is already open for this item.");
+        var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
         var state = ConsoleLoop.FlewPicked(Picked(), actions);
 
@@ -95,7 +67,7 @@ public class ASecondFlightIsWarnedAboutTests
     [Test]
     public async Task Confirming_opens_the_second_flight()
     {
-        var actions = new Records(already: "gg-14 is already open for this item.");
+        var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
         var asked = ConsoleLoop.FlewPicked(Picked(), actions);
         var opened = ConsoleLoop.ConfirmedFlight(asked, actions);
@@ -109,7 +81,7 @@ public class ASecondFlightIsWarnedAboutTests
     [Test]
     public async Task Declining_opens_nothing_and_clears_the_question()
     {
-        var actions = new Records(already: "gg-14 is already open for this item.");
+        var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
         var asked = ConsoleLoop.FlewPicked(Picked(), actions);
         var dropped = Reducer.FlightDeclined(asked);
@@ -123,7 +95,7 @@ public class ASecondFlightIsWarnedAboutTests
     {
         // A key that reaches this path with no pending question is a key that
         // would otherwise open a flight for whatever was last selected.
-        var actions = new Records();
+        var actions = new ConsoleDoubles.Records();
 
         var state = ConsoleLoop.ConfirmedFlight(new AppState(), actions);
 
@@ -136,7 +108,7 @@ public class ASecondFlightIsWarnedAboutTests
     {
         // A modal that says "this already has a flight" while the list scrolled
         // underneath is a modal about nothing in particular.
-        var actions = new Records(already: "gg-14 is already open for this item.");
+        var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
         var state = ConsoleLoop.FlewPicked(Picked(), actions);
 
@@ -153,7 +125,8 @@ public class ASecondFlightIsWarnedAboutTests
         // A control plane that cannot answer is not the same as an item with no
         // flights. Treating it as "no flights" would turn an outage into
         // duplicate flights nobody meant to open.
-        var actions = new Unreachable();
+        var actions = new ConsoleDoubles.Records(alreadyFlown:
+            "This console could not check whether it has already been flown.");
 
         var state = ConsoleLoop.FlewPicked(Picked(), actions);
 
@@ -162,27 +135,4 @@ public class ASecondFlightIsWarnedAboutTests
             .Because("unknown is asked about, not assumed away.");
     }
 
-    private sealed class Unreachable : IConsoleActions
-    {
-        internal List<(string Provider, string Id)> Flown { get; } = [];
-
-        public string Decide(string flight, string obligation, bool approved, string? reason) => "";
-
-        public string Fly(string intent) => "";
-
-        public string FlyTicket(string provider, string id)
-        {
-            Flown.Add((provider, id));
-            return "";
-        }
-
-        public string? AlreadyFlown(string provider, string id) =>
-            "This console could not check whether it has already been flown.";
-
-        public string AddCredential() => "";
-
-        public string ForgetCredential() => "";
-
-        public string Invite() => "";
-    }
 }

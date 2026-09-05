@@ -62,7 +62,7 @@ public class ConsoleLoopTests
             s => new UiOutcome(Command.Quit, s));
         var editor = new RecordingEditor();
 
-        var final = new ConsoleLoop(ui, editor, actions: new SilentActions()).Run(new AppState());
+        var final = new ConsoleLoop(ui, editor, actions: new ConsoleDoubles.Records()).Run(new AppState());
 
         // The editor really was handed the terminal.
         await Assert.That(editor.Received).IsNotNull();
@@ -96,7 +96,7 @@ public class ConsoleLoopTests
             // the better vehicle anyway: it is a real feature that really hands
             // the terminal to $EDITOR, rather than a field kept alive so this
             // property had something to carry.
-            new ConsoleLoop(ui, new PassThroughEditor(), actions: new SilentActions())
+            new ConsoleLoop(ui, new PassThroughEditor(), actions: new ConsoleDoubles.Records())
                 .Run(new AppState());
 
             await Assert.That(Carried(ui.StatesSeen[1])).IsEqualTo(Carried(state))
@@ -132,20 +132,4 @@ public class ConsoleLoopTests
         public string Edit(string initialText) => initialText;
     }
 
-    /// <summary>Answers without reaching a control plane.</summary>
-    private sealed class SilentActions : IConsoleActions
-    {
-        public string Fly(string intent) => "opened";
-
-        /// <summary>Nothing has flown, which is these tests' subject-free case.</summary>
-        public string? AlreadyFlown(string provider, string id) => null;
-
-        public string FlyTicket(string provider, string id) =>
-            Fly($"{provider}#{id}");
-        public string Decide(string flight, string obligation, bool approved, string? reason) => "decided";
-        public string AddCredential() => "added";
-
-        public string ForgetCredential() => "added";
-        public string Invite() => "invited";
-    }
 }

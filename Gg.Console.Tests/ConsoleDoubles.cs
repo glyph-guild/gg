@@ -127,4 +127,107 @@ internal static class ConsoleDoubles
     {
         public string Edit(string initialText) => initialText;
     }
+
+    /// <summary>
+    /// The console's write surface, recording what it was asked to do.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One double because the interface keeps growing.</b> Eight files built
+    /// their own, and adding <c>ForgetCredential</c> to
+    /// <see cref="IConsoleActions"/> cost eight edits in six files - the second
+    /// time in a week. Every console write adds a member here, so the next one
+    /// costs one edit instead.
+    /// </para>
+    /// <para>
+    /// <b>Two axes, because that is all the variation there was.</b> What
+    /// <c>AlreadyFlown</c> answers, and whether the control plane refuses. The
+    /// eight private copies differed in nothing else except their sentences,
+    /// and a sentence is not a class.
+    /// </para>
+    /// </remarks>
+    /// <param name="alreadyFlown">
+    /// What the duplicate check answers. Null is the ordinary case: nothing has
+    /// flown. A sentence is a duplicate, and a sentence saying the check could
+    /// not RUN is the third case - an unreachable control plane answers the same
+    /// way a duplicate does, deliberately, because treating "I could not ask" as
+    /// "there are none" turns an outage into duplicate flights.
+    /// </param>
+    /// <param name="refusing">
+    /// Whether every answer is a refusal, IN THE WORDING VerbConsoleActions
+    /// really composes. That wording is load-bearing: a refused flight comes
+    /// back as <c>"Nothing was opened — …"</c>, and a control-flow flag once
+    /// matched those opening words, so a double that refused in words of its own
+    /// would let that defect back in silently.
+    /// </param>
+    internal sealed class Records(string? alreadyFlown = null, bool refusing = false)
+        : IConsoleActions
+    {
+        /// <summary>Every ticket flown, in order.</summary>
+        internal List<(string Provider, string Id)> Flown { get; } = [];
+
+        /// <summary>Every intent pasted, in order.</summary>
+        internal List<string> Pasted { get; } = [];
+
+        /// <summary>Every gate answered, in order.</summary>
+        internal List<(string Flight, string Obligation, bool Approved, string? Reason)> Decided
+        { get; } = [];
+
+        /// <summary>How many times the duplicate check ran.</summary>
+        internal int Asked { get; private set; }
+
+        internal int Registered { get; private set; }
+
+        internal int Forgotten { get; private set; }
+
+        internal int Invited { get; private set; }
+
+        public string Decide(string flight, string obligation, bool approved, string? reason)
+        {
+            Decided.Add((flight, obligation, approved, reason));
+
+            return refusing
+                ? "Nothing was decided — the control plane could not be reached."
+                : "decided";
+        }
+
+        public string Fly(string intent)
+        {
+            Pasted.Add(intent);
+            return refusing ? "Nothing was opened — the control plane could not be reached." : "opened";
+        }
+
+        public string FlyTicket(string provider, string id)
+        {
+            Flown.Add((provider, id));
+
+            return refusing
+                ? "Nothing was opened — the control plane could not be reached."
+                : $"Opened a flight for {provider}#{id}.";
+        }
+
+        public string? AlreadyFlown(string provider, string id)
+        {
+            Asked++;
+            return alreadyFlown;
+        }
+
+        public string AddCredential()
+        {
+            Registered++;
+            return refusing ? "Nothing was registered." : "registered";
+        }
+
+        public string ForgetCredential()
+        {
+            Forgotten++;
+            return refusing ? "Nothing was forgotten." : "forgotten";
+        }
+
+        public string Invite()
+        {
+            Invited++;
+            return refusing ? "Nothing was issued." : "invited";
+        }
+    }
 }

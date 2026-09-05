@@ -163,7 +163,7 @@ public class ConsoleWriteParityTests
             _ = new ConsoleLoop(
                 ui,
                 new NoEditor(),
-                actions: new Says(),
+                actions: new ConsoleDoubles.Records(),
                 reload: state =>
                 {
                     reads++;
@@ -190,23 +190,6 @@ public class ConsoleWriteParityTests
         public string Edit(string initialText) => "";
     }
 
-    private sealed class Says : IConsoleActions
-    {
-        public string Decide(string flight, string obligation, bool approved, string? reason) =>
-            "decided";
-
-        public string Fly(string intent) => "opened";
-
-        public string FlyTicket(string provider, string id) => "opened";
-
-        public string? AlreadyFlown(string provider, string id) => null;
-
-        public string AddCredential() => "registered";
-
-        public string ForgetCredential() => "forgotten";
-
-        public string Invite() => "invited";
-    }
 
     [Test]
     public async Task Neither_write_puts_a_secret_anywhere_the_model_can_reach()

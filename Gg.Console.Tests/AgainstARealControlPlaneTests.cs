@@ -245,7 +245,12 @@ public class AgainstARealControlPlaneTests
     /// row are the same flight, and every assertion about which one was read
     /// passes either way.
     /// </remarks>
-    internal static async Task<Seeded> TwoGatedAsync()
+    internal static Task<Seeded> TwoGatedAsync() => _twoGated.Value;
+
+    private static readonly Lazy<Task<Seeded>> _twoGated =
+        new(TwoGateAsync, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static async Task<Seeded> TwoGateAsync()
     {
         var seeded = await SeedAsync(flights: 2);
 
@@ -367,12 +372,28 @@ public class AgainstARealControlPlaneTests
               + "wandered into a write one.");
     }
 
+    /// <summary>
+    /// One ungated tenant with three flights, for the tests that want an
+    /// ordinary estate rather than a queue row.
+    /// </summary>
+    /// <remarks>
+    /// Two tests seeded this identically. Neither writes to the control plane -
+    /// they render panes and reduce a keystroke over a local
+    /// <see cref="AppState"/> - so there is nothing for them to do to each
+    /// other, and one seeding is one tenant, one envelope and three flights
+    /// less work for the stack.
+    /// </remarks>
+    private static Task<Seeded> ThreeAsync() => _three.Value;
+
+    private static readonly Lazy<Task<Seeded>> _three =
+        new(() => SeedAsync(flights: 3), LazyThreadSafetyMode.ExecutionAndPublication);
+
     // ---- S28.0-01 ----
 
     [Test]
     public async Task Every_pane_is_rendered_against_real_flights_and_written_down()
     {
-        var seeded = await SeedAsync(flights: 3);
+        var seeded = await ThreeAsync();
         var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
 
         // WITH A ROW SELECTED, because that is the state a person is in a
@@ -431,7 +452,7 @@ public class AgainstARealControlPlaneTests
         // troubles that cannot occur, so an ordinary tenant has no rows, and a
         // pane below a row that does not exist is not shown a wrong sentence -
         // it is not shown at all.
-        var seeded = await SeedAsync(flights: 3);
+        var seeded = await ThreeAsync();
         var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
         var selected = Reducer.Reduce(booted, Command.SelectNext);
 
@@ -486,6 +507,12 @@ public class AgainstARealControlPlaneTests
     {
         // STEP 2 ADDS TO THIS LOOP, so the number has to be known before it
         // does. LoadAsync fetches a log for every flight and discards them.
+        //
+        // THE TWO TENANTS ARE THE ASSERTION AND MAY NOT BE SHARED. Comparing
+        // the request counts for two flights and for five is the whole test,
+        // so a cached seeder here would compare a number against itself and
+        // pass for ever. This is now the only unshared SeedAsync in the file,
+        // which is exactly what makes it look like the next thing to tidy.
         var few = await SeedAsync(flights: 2);
         await ConsoleStart.LoadAsync(few.Data, few.Principal);
         var forTwo = few.Counter.Requests;

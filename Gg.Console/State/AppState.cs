@@ -149,6 +149,15 @@ public enum LiveSilence
 
     /// <summary>Lines have arrived; there is no silence to explain.</summary>
     Speaking,
+
+    /// <summary>
+    /// The tail stopped. Something went wrong reading, and it is said out loud.
+    /// </summary>
+    /// <remarks>
+    /// A reader that died quietly looks exactly like a flight that went quiet,
+    /// and those want opposite reactions from a person.
+    /// </remarks>
+    Stopped,
 }
 
 public sealed record StreamLine

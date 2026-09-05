@@ -43,9 +43,23 @@ public sealed class ConsoleScreen : Window
 
     public Command ExitCommand { get; private set; } = Command.Quit;
 
-    public ConsoleScreen(IApplication app, AppState state)
+    private readonly LiveTails? _tails;
+
+    /// <summary>How often the pane looks, when somebody is watching.</summary>
+    /// <remarks>
+    /// <b>Four times a second is a person's idea of "as it happens" and a
+    /// laptop's idea of nothing.</b> Most flights write nothing most of the
+    /// time - the walk measured 37 lines in 51 seconds - so a poll per frame
+    /// would be a fan spinning for an empty file. The timer stops when the pane
+    /// is detached, which is also how somebody who does not want it makes it
+    /// stop.
+    /// </remarks>
+    private static readonly TimeSpan LookEvery = TimeSpan.FromMilliseconds(250);
+
+    public ConsoleScreen(IApplication app, AppState state, LiveTails? tails = null)
     {
         _app = app;
+        _tails = tails;
         State = state;
         Title = "Good Grief";
 
@@ -124,6 +138,59 @@ public sealed class ConsoleScreen : Window
         _queue.ValueChanged += OnQueueSelectionChanged;
 
         Render();
+        Watch();
+    }
+
+    /// <summary>
+    /// Looks at the live view on a timer, so the pane advances without a keypress.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the console's only mid-session read, and it is scoped on
+    /// purpose.</b> A UI session may advance state from a local file whose path
+    /// the console already holds. It may not make a network call, resolve a
+    /// credential, or spawn a process - <c>LiveStreamingTests</c> asserts that
+    /// over what this file may reach, so the scope is structural rather than a
+    /// comment somebody can drift away from.
+    /// </para>
+    /// <para>
+    /// <b>The state is still the source of truth.</b> The tick folds new lines
+    /// in through the same reducer a keystroke uses and re-renders; nothing is
+    /// retained anywhere but <see cref="State"/>, and <see cref="LiveTails"/> is
+    /// a collaborator owned outside this lifetime rather than something the
+    /// session accumulated.
+    /// </para>
+    /// <para>
+    /// <b>It stops when nobody is watching.</b> Returning false ends the timer,
+    /// and the pane is off by default - so a console nobody attached costs no
+    /// syscalls at all, and detaching is how a person who does not want it makes
+    /// it stop.
+    /// </para>
+    /// </remarks>
+    private void Watch()
+    {
+        if (_tails is null)
+        {
+            return;
+        }
+
+        _app.AddTimeout(LookEvery, () =>
+        {
+            if (!State.LiveVisible)
+            {
+                return false;
+            }
+
+            var advanced = _tails.Advance(State);
+            if (ReferenceEquals(advanced, State))
+            {
+                return true;
+            }
+
+            State = advanced;
+            Render();
+            return true;
+        });
     }
 
     private void OnScreenKeyDown(object? sender, Key key)

@@ -293,6 +293,9 @@ public static class PaneText
                 LiveSilence.NotStarted =>
                     "No live view for this flight. Nothing is writing one: the flight has not "
                   + "been claimed, or it ran before runners wrote them.",
+                LiveSilence.Stopped =>
+                    "The tail stopped. Something went wrong reading this flight's live view; "
+                  + "the flight is unaffected, and detaching and attaching again restarts it.",
                 LiveSilence.NothingYet =>
                     "Watching. The flight is writing a live view and the agent has not said "
                   + "anything yet.",

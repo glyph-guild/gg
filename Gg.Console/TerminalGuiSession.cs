@@ -9,13 +9,13 @@ namespace Gg.Console;
 /// the terminal is fully released — nothing of the UI survives except the
 /// returned state.
 /// </summary>
-public sealed class TerminalGuiSession : IUiSession
+public sealed class TerminalGuiSession(LiveTails? tails = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
         using var app = Application.Create();
         app.Init();
-        using var screen = new ConsoleScreen(app, state);
+        using var screen = new ConsoleScreen(app, state, tails);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

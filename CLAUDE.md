@@ -30,6 +30,16 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   the terminal to `$EDITOR` (a separate process), and rebuilds views FROM the
   surviving `AppState`. Views are never the source of truth; `AppState` stays
   plain JSON-serializable data (source-generated, `AppStateJsonContext`).
+- **A UI session may read a local file, and nothing else.** The live pane
+  advances on an `Application.AddTimeout` tick during a session, which is the
+  only mid-session effect in this console — everything else happens between
+  sessions with the terminal provably free. The exception is deliberately the
+  narrowest one available: **a session may advance state from a local file
+  whose path the console already holds. It may not make a network call, resolve
+  a credential, or spawn a process.** `LiveStreamingTests` asserts that over
+  what `TerminalGuiSession`, `ConsoleScreen`, `LiveTails` and `LiveTail` may
+  reach, so the scope is structural rather than a comment. A feature that wants
+  more argues for its own exception; it does not inherit this one.
 - **`Keymap.Resolve` is pure** — no Terminal.Gui types; only
   `Views/KeyTranslator` touches `Key`. Status hints come from
   `Keymap.Hints(context)`, the same context dispatch uses.

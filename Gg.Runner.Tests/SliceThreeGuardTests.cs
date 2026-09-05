@@ -46,12 +46,12 @@ public class SliceThreeGuardTests
     /// mechanism. Changing this number is how adding a fact kind is admitted to.
     /// </remarks>
     /// <remarks>
-    /// Ten since slice twenty-seven, which added <c>flight.nomination</c>. The
-    /// set below names it, which is what this guard is for: adding one is a
-    /// line in a diff beside a ledger row, and swapping one for another is
-    /// caught as well as adding one.
+    /// Eleven: <c>flight.nomination</c> at slice twenty-seven and
+    /// <c>loop.question</c> at twenty-five. The set below names both, which is
+    /// what this guard is for: adding one is a line in a diff beside a ledger
+    /// row, and swapping one for another is caught as well as adding one.
     /// </remarks>
-    private const int KindsThatCross = 10;
+    private const int KindsThatCross = 11;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -131,7 +131,10 @@ public class SliceThreeGuardTests
         // The version and the count are two facts about the same thing, and a
         // version bumped for a rename would pass the assertion above.
         //
-        // NINE, and the ninth is destination.pushed. This test used to say "no fact
+        // ELEVEN. The tenth is flight.nomination and the eleventh is
+        // loop.question - the question an agent could not answer from the work
+        // itself, which belongs to the flight whose loop asked it. This test
+        // used to say "no fact
         // kind has been added" and the halt it produced is what sent the decision
         // back for a ruling rather than letting a fact quietly grow a member. What it
         // asserts now is that the set is NAMED: adding one is a line in a diff beside
@@ -149,6 +152,7 @@ public class SliceThreeGuardTests
                 FactKinds.HumanAccount,
                 FactKinds.LoopDigest,
                 FactKinds.LoopOutcome,
+                FactKinds.LoopQuestion,
                 FactKinds.LoopTranscript,
                 FactKinds.SourceProvenance,
             }.Order(StringComparer.Ordinal).ToList())

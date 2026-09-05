@@ -135,6 +135,16 @@ public static class FactKinds
     /// </remarks>
     public const string FlightNomination = "flight.nomination";
 
+    /// <summary>
+    /// A question an agent could not answer from the work itself.
+    /// </summary>
+    /// <remarks>
+    /// Recorded whenever the tool is called, and it decides nothing: whether it
+    /// opens a gate is the envelope's to say. Two facts, not one state - the
+    /// outcome beside it says whether the loop then finished.
+    /// </remarks>
+    public const string LoopQuestion = "loop.question";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -149,7 +159,7 @@ public static class FactKinds
          DestinationPushed,
          LoopDigest,
          HumanAccount,
-         FlightNomination];
+         FlightNomination, LoopQuestion];
 }
 
 /// <summary>
@@ -294,7 +304,7 @@ public static class FactVocabulary
     /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
     /// none still never crosses from a working runner - a broken bound
     /// releases the lease with the diagnosis instead of shipping anything.
-    public const string Version = "0.19.0";
+    public const string Version = "0.20.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -922,6 +932,16 @@ public sealed record FactEnvelope
     /// </remarks>
     public FlightNomination? Nomination { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopQuestion"/>.
+    /// </summary>
+    /// <remarks>
+    /// Its own slot, because a fact has no voice field: what marks these as the
+    /// agent's words rather than a measurement is the kind and the slot, the
+    /// same way a person's account is marked.
+    /// </remarks>
+    public LoopQuestion? Question { get; init; }
+
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
@@ -965,6 +985,7 @@ public sealed record FactEnvelope
             (FactKinds.LoopDigest, envelope.LoopDigest is not null),
             (FactKinds.HumanAccount, envelope.Human is not null),
             (FactKinds.FlightNomination, envelope.Nomination is not null),
+            (FactKinds.LoopQuestion, envelope.Question is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -999,6 +1020,12 @@ public sealed record FactEnvelope
             && FlightNomination.Validate(nomination) is { } badNomination)
         {
             return badNomination;
+        }
+
+        if (envelope.Question is { } question
+            && LoopQuestion.Validate(question) is { } badQuestion)
+        {
+            return badQuestion;
         }
 
         if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)

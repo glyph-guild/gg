@@ -1050,6 +1050,11 @@ public sealed class RunnerLoop(
             // only a classifying loop nominates, and one that could not decide
             // nominates nothing - which is a real answer that admission reads
             // as "open no flight", not a fact that failed to arrive.
+            if (run.Question is { } question)
+            {
+                payloads.Add(new FactPayload.Question(question));
+            }
+
             if (run.Nomination is { } nomination)
             {
                 payloads.Add(new FactPayload.Nomination(nomination));

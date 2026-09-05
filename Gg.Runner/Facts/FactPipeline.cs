@@ -46,6 +46,9 @@ public abstract record FactPayload
     /// exist, and admission answers.
     /// </remarks>
     public sealed record Nomination(FlightNomination Value) : FactPayload;
+
+    /// <summary>A question an agent could not answer from the work itself.</summary>
+    public sealed record Question(LoopQuestion Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -171,6 +174,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     LoopDigest = summary.Value,
+                },
+
+                FactPayload.Question question => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Question = question.Value,
                 },
 
                 FactPayload.Nomination nomination => new FactEnvelope
@@ -346,6 +358,10 @@ public static class FactPipeline
         FactPayload.Nomination nomination => (
             FactKinds.FlightNomination,
             JsonSerializer.Serialize(nomination.Value, FactJsonContext.Default.FlightNomination)),
+
+        FactPayload.Question question => (
+            FactKinds.LoopQuestion,
+            JsonSerializer.Serialize(question.Value, FactJsonContext.Default.LoopQuestion)),
         FactPayload.Landing landing => (
             FactKinds.DestinationLanded,
             JsonSerializer.Serialize(landing.Value, FactJsonContext.Default.DestinationLanded)),

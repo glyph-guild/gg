@@ -360,6 +360,107 @@ public static class TranscriptDigest
     /// What the tools that can put bytes on disk are called, handed in by
     /// whoever launched the agent.
     /// </param>
+    /// <summary>
+    /// The question this run asked, or null when it asked none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The last successfully-answered call wins</b>, the rule the nomination
+    /// extractor already follows for the tool beside it: an agent that asked
+    /// twice refined its question, and taking the first would record something
+    /// it moved on from. A call with no paired result is not a question, and
+    /// neither is one whose result came back an error - a flight recorded as
+    /// waiting on a question nobody received waits for ever.
+    /// </remarks>
+    public static Gg.Contracts.LoopQuestion? Question(string transcript)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+
+        var asked = new List<(string Id, string Question)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            AskedAPerson(block, asked);
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        for (var i = asked.Count - 1; i >= 0; i--)
+        {
+            if (answered.Contains(asked[i].Id))
+            {
+                return new Gg.Contracts.LoopQuestion
+                {
+                    Question = Bound(
+                        asked[i].Question, Gg.Contracts.LoopQuestion.MaxQuestion, prose: true),
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Records a call to the help tool, when that is what it is.</summary>
+    private static void AskedAPerson(JsonElement block, List<(string Id, string Question)> asked)
+    {
+        if (!block.TryGetProperty("name", out var name)
+            || !string.Equals(name.GetString(), HelpTool.Qualified, StringComparison.Ordinal)
+            || !block.TryGetProperty("id", out var id)
+            || id.GetString() is not { Length: > 0 } callId
+            || !block.TryGetProperty("input", out var input)
+            || input.ValueKind != JsonValueKind.Object
+            || !input.TryGetProperty("question", out var question)
+            || question.GetString() is not { Length: > 0 } text)
+        {
+            return;
+        }
+
+        asked.Add((callId, text));
+    }
+
     public static bool Blocked(string transcript, IReadOnlyList<string> changeTheTree)
     {
         ArgumentNullException.ThrowIfNull(transcript);

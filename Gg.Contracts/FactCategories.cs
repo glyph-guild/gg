@@ -84,6 +84,12 @@ public static class FactCategories
         // unproducible for the only kind that produces it - and every rule
         // reading it structurally inapplicable, silently, for ever.
         [FactKinds.FlightNomination] = Flight,
+
+        // MEASURES THE EPISODE, not a tree and not a standing thing. Every work
+        // kind that runs a loop can produce one, and there is no subject that
+        // could rule out an agent asking a question - so it is categorised
+        // rather than vetoed.
+        [FactKinds.LoopQuestion] = Flight,
         [FactKinds.DestinationPushed] = Flight,
         [FactKinds.DestinationLanded] = Flight,
     };

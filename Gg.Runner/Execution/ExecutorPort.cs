@@ -290,6 +290,16 @@ public sealed record ExecutorRun
     public Gg.Contracts.FlightNomination? Nomination { get; init; }
 
     /// <summary>
+    /// What this run asked a person, when it asked anything.
+    /// </summary>
+    /// <remarks>
+    /// Beside the outcome rather than inside it: asking and finishing are two
+    /// facts, not one state, so a run that asked and then finished carries both
+    /// a question and <c>completed</c>.
+    /// </remarks>
+    public Gg.Contracts.LoopQuestion? Question { get; init; }
+
+    /// <summary>
     /// What the stream said, extracted so it can cross without the transcript.
     /// </summary>
     /// <remarks>

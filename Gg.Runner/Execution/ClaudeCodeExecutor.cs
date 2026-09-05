@@ -841,6 +841,10 @@ public sealed class ClaudeCodeExecutor(
             // its own extractor - but it is read here, once, from the stream
             // this machine already has.
             Nomination = TranscriptDigest.Nomination(transcript.ToString()),
+            // BESIDE THE OUTCOME, not inside it. A run that asked and then went
+            // on to finish carries both a question and `completed`: asking and
+            // finishing are two facts, not one state.
+            Question = TranscriptDigest.Question(transcript.ToString()),
 
             Transcript = new ArtifactReference
             {

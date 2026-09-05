@@ -469,6 +469,40 @@ public static class AttachmentConditions
     public const string AskedForDecision = "loop asked for a decision";
 
     /// <summary>
+    /// The loop ran and changed nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The tier that holds when the declared one is ignored.</b> An agent
+    /// that is stuck and does not say so still produces a run that touched
+    /// nothing, and that is mechanically knowable without its cooperation - so
+    /// this is the condition a tenant reaches for when they do not want to rely
+    /// on an agent choosing to ask.
+    /// </para>
+    /// <para>
+    /// <b>Changed nothing is not the same as had nothing to change.</b> A kind
+    /// that declares it produces no change manifest cannot have changed
+    /// anything, and a flight naming no repository has no tree to change - both
+    /// are <i>nothing to change</i>, and attaching to them would put every
+    /// envelope-change flight and every read-only kind in front of a person.
+    /// The distinction is carried by <c>produces:</c> and by the flight's own
+    /// repositories, not by this condition guessing.
+    /// </para>
+    /// <para>
+    /// <b>An absent manifest and an empty one are different inputs.</b> Empty
+    /// is a measurement: the runner looked and nothing had changed. Absent is
+    /// the absence of a measurement, and reading it as <i>changed nothing</i>
+    /// would attach this to every flight whose runner has not shipped yet.
+    /// </para>
+    /// <para>
+    /// <b>A <c>check: machine</c> obligation may not carry it</b>, for the
+    /// reason the two conditions above refuse the same pairing: this says a
+    /// person is needed, and a machine predicate is what runs when one is not.
+    /// </para>
+    /// </remarks>
+    public const string ChangedNothing = "loop changed nothing";
+
+    /// <summary>
     /// A recorded loop used the move. Written
     /// <c>moves used include &lt;move&gt;</c>.
     /// </summary>
@@ -499,6 +533,7 @@ public static class AttachmentConditions
     public static bool IsKnown(string condition) =>
         string.Equals(condition, Widens, StringComparison.Ordinal)
         || string.Equals(condition, AskedForDecision, StringComparison.Ordinal)
+        || string.Equals(condition, ChangedNothing, StringComparison.Ordinal)
         || (condition.StartsWith(TouchesPrefix, StringComparison.Ordinal)
             && condition.Length > TouchesPrefix.Length)
         || (condition.StartsWith(MovesUsedPrefix, StringComparison.Ordinal)
@@ -520,7 +555,8 @@ public static class AttachmentConditions
 
     /// <summary>Every form this version understands, for a diagnosis to list.</summary>
     public static IReadOnlyList<string> Forms { get; } =
-        [TouchesPrefix + "<glob>", Widens, MovesUsedPrefix + "<move>", AskedForDecision];
+        [TouchesPrefix + "<glob>", Widens, MovesUsedPrefix + "<move>", AskedForDecision,
+         ChangedNothing];
 }
 
 /// <summary>What a piece of work can be ABOUT.</summary>
@@ -1615,8 +1651,11 @@ public sealed record Envelope
             }
         }
 
-        if (string.Equals(
-                obligation.When, AttachmentConditions.AskedForDecision, StringComparison.Ordinal)
+        if (obligation.When is { } needsAPerson
+            && (string.Equals(
+                    needsAPerson, AttachmentConditions.AskedForDecision, StringComparison.Ordinal)
+                || string.Equals(
+                    needsAPerson, AttachmentConditions.ChangedNothing, StringComparison.Ordinal))
             && string.Equals(obligation.Check, ObligationChecks.Machine, StringComparison.Ordinal))
         {
             // The same pairing the widening gate refuses, one condition over. A
@@ -1627,10 +1666,10 @@ public sealed record Envelope
             // already waiting on it is discovered by the person it was waiting
             // for.
             return $"Obligation '{obligation.Id}' pairs check: machine with "
-                 + $"when: {AttachmentConditions.AskedForDecision}. That condition says a "
-                 + "person is needed, and a machine predicate is what runs when one is not - "
-                 + "so this gate could never be opened and every flight that asked would "
-                 + "deadlock behind it. An obligation that waits for a person is check: human.";
+                 + $"when: {obligation.When}. That condition says a person is needed, and a "
+                 + "machine predicate is what runs when one is not - so this gate could never "
+                 + "be opened and every flight that reached it would deadlock behind it. An "
+                 + "obligation that waits for a person is check: human.";
         }
 
         if (string.Equals(obligation.When, AttachmentConditions.Widens, StringComparison.Ordinal)

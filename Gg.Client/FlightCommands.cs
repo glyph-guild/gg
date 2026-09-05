@@ -352,6 +352,19 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         new VerbResult.AirspaceTopology(await _client.GetTopologyAsync(Session(), cancellationToken));
 
     /// <summary>
+    /// `gg airspace repositories` - what this tenant can fly against.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="AirspaceAsync"/>, which answers with the
+    /// TOPOLOGY: envelope names and roles. A person asking "what can I fly
+    /// against" is asking a different question, and until now nothing in this
+    /// binary asked it even though the control plane has always answered.
+    /// </remarks>
+    public async Task<VerbResult> RepositoriesAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.AirspaceRepositories(
+            await _client.ListRepositoriesAsync(Session(), cancellationToken));
+
+    /// <summary>
     /// Renders the whole estate into the working copy, or refuses a dirty tree.
     /// </summary>
     /// <remarks>

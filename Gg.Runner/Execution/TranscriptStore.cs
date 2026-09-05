@@ -35,19 +35,8 @@ public sealed class TranscriptStore
     /// operating system is entitled to empty without asking, and this holds the
     /// only copy of what an agent did.
     /// </remarks>
-    public static string DefaultPath()
-    {
-        var stateHome = Environment.GetEnvironmentVariable("XDG_STATE_HOME");
-        var root = !string.IsNullOrWhiteSpace(stateHome)
-            ? stateHome
-            : Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                OperatingSystem.IsWindows() ? "AppData/Local"
-                : OperatingSystem.IsMacOS() ? "Library/Application Support"
-                : ".local/state");
+    public static string DefaultPath() => Gg.Local.LocalPaths.Transcripts();
 
-        return Path.Combine(root, "good-grief", "transcripts");
-    }
 
     /// <summary>Where this flight's loop transcript goes.</summary>
     public string For(string flightId, string loopId) =>

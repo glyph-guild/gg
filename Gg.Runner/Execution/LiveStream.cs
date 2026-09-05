@@ -97,9 +97,7 @@ public sealed class LiveStream
     /// have to be careful about which files they are.
     /// </remarks>
     public static string DefaultPath(string flightId, string? root = null) =>
-        Path.Combine(
-            root ?? Path.Combine(TranscriptStore.DefaultPath(), "..", "live"),
-            Safe(flightId) + ".ndjson");
+        Gg.Local.LocalPaths.LiveView(flightId, root);
 
     /// <summary>Appends one line, and never throws into the run.</summary>
     /// <remarks>
@@ -146,7 +144,4 @@ public sealed class LiveStream
 
         return clean.Length <= MaxLine ? clean : clean[..MaxLine] + "…";
     }
-
-    private static string Safe(string component) =>
-        new([.. component.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-')]);
 }

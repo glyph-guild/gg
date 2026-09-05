@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Client.Tests", "Gg.Clien
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Runner.Tests", "Gg.Runner.Tests\Gg.Runner.Tests.csproj", "{424D4AFB-9985-473B-823C-A970C784B340}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gg.Local", "Gg.Local\Gg.Local.csproj", "{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,18 @@ Global
 		{424D4AFB-9985-473B-823C-A970C784B340}.Release|x64.Build.0 = Release|Any CPU
 		{424D4AFB-9985-473B-823C-A970C784B340}.Release|x86.ActiveCfg = Release|Any CPU
 		{424D4AFB-9985-473B-823C-A970C784B340}.Release|x86.Build.0 = Release|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Debug|x64.Build.0 = Debug|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Debug|x86.Build.0 = Debug|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Release|x64.ActiveCfg = Release|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Release|x64.Build.0 = Release|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Release|x86.ActiveCfg = Release|Any CPU
+		{FBBA0576-3254-40BD-BCBE-7A5908F4A0DD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

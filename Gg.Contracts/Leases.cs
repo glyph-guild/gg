@@ -62,6 +62,37 @@ public sealed record LeaseClaimRequest
     /// waiting on a fixed interval it did not choose.
     /// </summary>
     public required int MaxWaitSeconds { get; init; }
+
+    /// <summary>
+    /// One flight this runner is asking for by name, or null for whatever the
+    /// fleet has ready.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A person at a terminal is a runner that wants a specific flight</b> —
+    /// the one they just opened. The ordinary claim asks the queue what is
+    /// available, and there is no way to express "that one" in it, so a
+    /// hand-flight without this would be a race whose failure is not an error:
+    /// the person waits at a prompt while their flight is cloned on somebody
+    /// else's laptop.
+    /// </para>
+    /// <para>
+    /// <b>Null is every claim ever made before this member existed</b>, and it
+    /// is absent on the wire rather than null so the fleet's request body is
+    /// byte-for-byte what it was. The two repositories are not upgraded in step.
+    /// </para>
+    /// <para>
+    /// <b>It asks; it does not decide.</b> Whether this runner may have this
+    /// flight is settled on the other side, and there are SIX checks rather than
+    /// the two that are easy to remember: an unresolved gate and a runner-less
+    /// work kind live in a trigger on the ready table, and a readiness floor,
+    /// label containment, the flight's own direction, the runner's reservation
+    /// and a live-lease exclusion live in the claim's own pick. A grant that
+    /// writes no ready row fires neither the trigger nor the pick, so all six
+    /// have to be re-asserted where the grant happens.
+    /// </para>
+    /// </remarks>
+    public string? FlightId { get; init; }
 }
 
 /// <summary>One repository the leased flight is pinned to.</summary>

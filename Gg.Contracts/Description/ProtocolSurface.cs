@@ -1117,7 +1117,11 @@ public static class ProtocolSurface
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] = ["labels"],
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],
-            [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds"],
+            // `flightId` is absent unless a runner is asking for one flight by
+            // name - an attended session, where a person opened the flight and
+            // is waiting at a prompt for it. Every other claim is the fleet's
+            // and carries three members exactly as before.
+            [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds", "flightId"],
         [typeof(LeaseClaimAccepted)] = ["requestId", "pollAfterSeconds"],
         // `lease` is absent unless `state` is granted, and `waitingOn` names
         // repositories rather than counting them - a number says something is

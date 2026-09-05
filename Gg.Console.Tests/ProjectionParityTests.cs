@@ -102,7 +102,6 @@ public class ProjectionParityTests
                         + "the console shows a sentence and not a state. Wired or the "
                         + "sentence is declared to be the whole of it.",
             ["Launched"] = "step 6, on the same footing as Invited.",
-            ["AirspaceRepositories"] = "slice twenty-nine's browse pane, not this slice's.",
             ["AirspaceTopology"] = "the registered repositories as a tree. Resolved in step "
                                  + "6 with AirspaceAsync, which returns it: wired to a pane "
                                  + "or deleted together, because a projection arm for a read "

@@ -547,6 +547,7 @@ static int LaunchConsole()
         // by default, and a request for a pane nobody opened is a request
         // nobody wanted.
         checklist: current => ConsoleChecklist.Read(data, current),
+        repositories: current => ConsoleRepositories.Read(data, current),
         envelope: current => ConsoleEnvelope.Read(data, current))
         .Run(initial);
 

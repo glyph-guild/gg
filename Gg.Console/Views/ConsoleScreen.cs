@@ -36,6 +36,8 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _evidencePane;
     private readonly FrameView _livePane;
     private readonly FrameView _browsePane;
+    private readonly FrameView _repositoriesPane;
+    private readonly Label _repositories;
     private readonly Label _checklist;
     private readonly FrameView _checklistPane;
     private readonly Label _envelope;
@@ -164,6 +166,21 @@ public sealed class ConsoleScreen : Window
         _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _envelopePane.Add(_envelope);
 
+        // THE SAME REGION AGAIN. Four panes now share it and never two at
+        // once, which RepositoriesToggled enforces rather than the order these
+        // are added in.
+        _repositoriesPane = new FrameView
+        {
+            Title = "Repositories",
+            X = Pos.Right(_queuePane),
+            Y = Pos.Bottom(_evidencePane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _repositories = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _repositoriesPane.Add(_repositories);
+
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
@@ -181,7 +198,7 @@ public sealed class ConsoleScreen : Window
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
         _modal.Add(_modalBody);
 
-        Add(_queuePane, _flightPane, _evidencePane, _livePane, _browsePane, _checklistPane, _envelopePane,
+        Add(_queuePane, _flightPane, _evidencePane, _livePane, _browsePane, _repositoriesPane, _checklistPane, _envelopePane,
             _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
@@ -316,6 +333,15 @@ public sealed class ConsoleScreen : Window
         _browsePane.Visible = State.BrowseVisible;
         _checklistPane.Visible = State.ChecklistVisible;
         _envelopePane.Visible = State.EnvelopeVisible;
+        _repositoriesPane.Visible = State.RepositoriesVisible;
+        _repositories.Text = PaneText.Repositories(State);
+
+        // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
+        // console opens will name, so a person glancing at the frame should
+        // learn it without reading the rows.
+        _repositoriesPane.Title = State.ChosenRepository is { Length: > 0 } chosen
+            ? $"Repositories — flying against {chosen}"
+            : "Repositories";
 
         // THE TRACKER IS IN THE TITLE, because a tenant may configure more than
         // one and a list of work items with no attribution is a list nobody can
@@ -328,7 +354,8 @@ public sealed class ConsoleScreen : Window
         // The flight pane gives up its space rather than being covered.
         _flightPane.Visible =
             !State.EvidenceVisible && !State.LiveVisible && !State.BrowseVisible
-            && !State.ChecklistVisible && !State.EnvelopeVisible;
+            && !State.ChecklistVisible && !State.EnvelopeVisible
+            && !State.RepositoriesVisible;
 
         _modal.Visible = State.Mode != UiMode.Normal;
         _modal.Title = State.Mode.ToString();

@@ -373,6 +373,15 @@ public static class ConsoleProjection
             VerbResult.Flight flight => state with { Flight = flight.Value, Diagnosis = null },
             VerbResult.Log log => state with { FlightLog = log.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+            // WHAT THIS TENANT CAN FLY AGAINST. The cursor resets because a
+            // list read again may be shorter, and a cursor left past its end
+            // would choose a repository that is no longer there.
+            VerbResult.AirspaceRepositories repositories => state with
+            {
+                Repositories = repositories.Value,
+                RepositorySelected = 0,
+                Diagnosis = null,
+            },
             // WHY THIS FLIGHT IS STOPPED, which is the question the queue's rows
             // pose and nothing here could answer.
             VerbResult.Why why => state with { Attribution = why.Value, Diagnosis = null },

@@ -548,6 +548,55 @@ public static class PaneText
     }
 
     /// <summary>
+    /// What this tenant can fly against, and which one is chosen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never asked and told none are different sentences</b>, the
+    /// distinction <see cref="Browse"/> and <see cref="Live"/> both draw. An
+    /// empty box says neither.
+    /// </remarks>
+    public static string Repositories(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Repositories is not { } listed)
+        {
+            return "Nothing has been read yet. This pane asks the control plane what this "
+                 + "tenant can fly against.";
+        }
+
+        if (listed.Repositories.Count == 0)
+        {
+            return "This tenant has nothing registered to fly against. The control plane "
+                 + "answered, and the answer was nothing registered - so a flight here "
+                 + "resolves its repository from the envelope or from nothing at all.";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"{listed.Repositories.Count} registered");
+        text.AppendLine();
+
+        foreach (var repository in listed.Repositories)
+        {
+            // THE ARROW IS THE WHOLE POINT OF THE COLUMN. A list where the
+            // chosen row looks like every other row is a list that cannot tell
+            // a person what the next flight will do.
+            var mark = string.Equals(state.ChosenRepository, repository.Path, StringComparison.Ordinal)
+                ? "\u2192"
+                : " ";
+
+            text.AppendLine($"{mark} {Clean(repository.Path),-40} {Clean(repository.Name)}");
+        }
+
+        text.AppendLine();
+        text.AppendLine(state.ChosenRepository is { Length: > 0 }
+            ? "Choosing the chosen one again lets the envelope decide instead."
+            : "Nothing chosen: the envelope decides. Choose one to name it on every flight.");
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// The work a person can pick from, or why there is none to pick.
     /// </summary>
     /// <remarks>
@@ -648,7 +697,24 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.LastAction is { Length: > 0 } said ? Clean(said) : "";
+        // A CHOSEN REPOSITORY IS ANNOUNCED HERE, not only inside its pane.
+        // It changes what every flight this console opens will name, and
+        // invisible state that changes what a write does is the worst kind -
+        // somebody who chose one an hour ago and forgot must not open a flight
+        // against it without being told.
+        var chosen = state.ChosenRepository is { Length: > 0 } repository
+            ? $"flying against {Clean(repository)}"
+            : "";
+
+        var said = state.LastAction is { Length: > 0 } action ? Clean(action) : "";
+
+        return (said, chosen) switch
+        {
+            ("", "") => "",
+            ("", _) => chosen,
+            (_, "") => said,
+            _ => said + " · " + chosen,
+        };
     }
 
     public static string Modal(AppState state)

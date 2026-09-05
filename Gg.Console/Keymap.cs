@@ -48,6 +48,9 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool BrowseVisible { get; init; }
 
+    /// <summary>Whether the repositories pane is already showing.</summary>
+    public bool RepositoriesVisible { get; init; }
+
     /// <summary>Whether the checklist pane has the region.</summary>
     public bool ChecklistVisible { get; init; }
 
@@ -130,6 +133,8 @@ public static class Keymap
             new(KeyStroke.Char('l'), Command.ToggleLive, context.LiveVisible ? "hide live" : "live"),
             new(KeyStroke.Char('b'), Command.ToggleBrowse,
                 context.BrowseVisible ? "hide browse" : "browse"),
+            new(KeyStroke.Char('r'), Command.ToggleRepositories,
+                context.RepositoriesVisible ? "hide repositories" : "repositories"),
             // `p` for plan, which is the verb it calls.
             new(KeyStroke.Char('p'), Command.ToggleChecklist,
                 context.ChecklistVisible ? "hide checklist" : "checklist"),

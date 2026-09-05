@@ -86,6 +86,10 @@ public enum Command
     /// </remarks>
     FlyPicked,
 
+    /// <summary>Show or hide what this tenant can fly against.</summary>
+    /// <remarks>The shell's: showing them is a read, and a session may not make one.</remarks>
+    ToggleRepositories,
+
 
     /// <summary>
     /// Take the selected flight over: unmount, hand a person the terminal, come
@@ -206,5 +210,8 @@ public static class ShellCommands
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,
+
+        // A read, like browsing.
+        Command.ToggleRepositories,
     };
 }

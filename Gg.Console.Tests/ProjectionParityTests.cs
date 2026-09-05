@@ -81,7 +81,6 @@ public class ProjectionParityTests
             // --- arms this slice adds, each with the step that adds it ---
             ["Gates"] = "step 3: answering a gate has to refetch them, and today the boot's "
                       + "copy is the only one there will ever be.",
-            ["Plan"] = "step 4, the checklist pane.",
             ["RunnerLabels"] = "step 4, the fleet's labels with their dispositions.",
             ["EnvelopeShown"] = "step 4, the envelope as a pane - the read, never the apply.",
             ["CredentialAdded"] = "step 5: the console can register one and cannot see the "

@@ -539,7 +539,11 @@ static int LaunchConsole()
         reload: current => ConsoleStart
             .LoadAsync(data, takes.Principal(), current)
             .GetAwaiter()
-            .GetResult())
+            .GetResult(),
+        // THE CHECKLIST IS READ WHEN THE PANE IS OPENED, not at boot: it is off
+        // by default, and a request for a pane nobody opened is a request
+        // nobody wanted.
+        checklist: current => ConsoleChecklist.Read(data, current))
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

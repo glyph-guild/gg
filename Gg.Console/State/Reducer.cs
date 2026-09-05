@@ -136,7 +136,10 @@ public static class Reducer
 
         if (state.Selected is not { } row)
         {
-            return state with { Flight = null, FlightLog = null, Attribution = null };
+            return state with
+            {
+                Flight = null, FlightLog = null, Attribution = null, Checklist = null,
+            };
         }
 
         return state with
@@ -153,6 +156,15 @@ public static class Reducer
             Attribution = string.Equals(
                 state.Attribution?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
                     ? state.Attribution
+                    : null,
+
+            // AND THE SAME FOR THE CHECKLIST, which names the flight it was
+            // read for. Its FlightNumber is nullable - `gg plan` answers for an
+            // envelope with no flight too - and a checklist with none was not
+            // read for this row either.
+            Checklist = string.Equals(
+                state.Checklist?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
+                    ? state.Checklist
                     : null,
         };
     }
@@ -392,7 +404,29 @@ public static class Reducer
         BrowseVisible = !state.BrowseVisible,
         EvidenceVisible = false,
         LiveVisible = false,
+        ChecklistVisible = false,
     };
+
+    /// <summary>Shows or hides the checklist, and gives it the region.</summary>
+    /// <remarks>
+    /// Not reachable through <see cref="Reduce"/>, and a ratchet says so:
+    /// showing this pane is a READ, so the loop calls it directly the way it
+    /// already does for browse. A shell command that also had a reducer arm
+    /// would have two effects, the local one happening whether or not the
+    /// remote one did.
+    /// </remarks>
+    public static AppState ChecklistToggled(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state with
+        {
+            ChecklistVisible = !state.ChecklistVisible,
+            EvidenceVisible = false,
+            LiveVisible = false,
+            BrowseVisible = false,
+        };
+    }
 
     public static AppState Browsed(AppState state, string providerKey, BrowseOutcome outcome)
     {

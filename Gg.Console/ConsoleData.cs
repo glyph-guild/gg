@@ -358,6 +358,9 @@ public static class ConsoleProjection
             // WHY THIS FLIGHT IS STOPPED, which is the question the queue's rows
             // pose and nothing here could answer.
             VerbResult.Why why => state with { Attribution = why.Value, Diagnosis = null },
+            // WHAT MUST HOLD BEFORE THIS FLIGHT CAN START, which is the other
+            // half of the same question and the one a person can act on.
+            VerbResult.Plan plan => state with { Checklist = plan.Value, Diagnosis = null },
             // WHAT THIS TENANT SHOULD KNOW, and the queue cannot say it. A
             // degradation that stops check runs being written leaves every
             // flight running, recording facts and leaving the queue - so

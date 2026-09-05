@@ -136,9 +136,24 @@ public class PaneContentTests
         // all - the request is the evidence.
         var seeded = await AgainstARealControlPlaneTests.GatedAsync();
 
+        // ONLY THIS BOOT'S REQUESTS. The gated tenant is shared by the suite, so
+        // the recorded paths carry every other test's boot too - and "somebody
+        // asked" is not the claim.
+        int before;
+        lock (seeded.Counter.Paths)
+        {
+            before = seeded.Counter.Paths.Count;
+        }
+
         _ = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
 
-        await Assert.That(seeded.Counter.Paths.Any(p =>
+        List<string> mine;
+        lock (seeded.Counter.Paths)
+        {
+            mine = [.. seeded.Counter.Paths.Skip(before)];
+        }
+
+        await Assert.That(mine.Any(p =>
                 p.EndsWith("/v1/auth/whoami", StringComparison.Ordinal))).IsTrue()
             .Because("AppState.Notices is drawn above every queue and was assigned by "
                    + "nothing, because whoami was the one read verb with no value to "
@@ -183,15 +198,28 @@ public class PaneContentTests
 
         await Assert.That(opened.Checklist).IsNotNull()
             .Because("the pane a person stares at while a flight waits could not be filled.");
-        await Assert.That(opened.Checklist!.Items).IsNotEmpty()
-            .Because("an envelope in force declares obligations, so its checklist has items - "
-                   + "an empty one here would mean the read reached the wrong flight.");
+        await Assert.That(opened.Checklist!.FlightNumber)
+            .IsEqualTo(booted.Selected!.FlightNumber)
+            .Because("read for the row the cursor is on, not for the envelope at large - "
+                   + "PlanAsync answers both questions and only one of them is this pane's.");
+        await Assert.That(opened.Checklist!.EnvelopeVersion)
+            .IsEqualTo(booted.Flight!.EnvelopeVersion)
+            .Because("and against the envelope that governs it.");
+
+        // NO ITEMS, AND THAT IS THE ANSWER RATHER THAN A GAP. `gg plan` builds
+        // one item per REQUIRED LABEL and nothing else - obligations are not in
+        // it; they are the `why` pane's half. This tenant's envelope declares no
+        // environment, so it compiles to no labels, so the honest checklist is
+        // empty. Which makes the empty sentence the common case, not the
+        // exceptional one.
+        await Assert.That(opened.Checklist!.RequiredLabels).IsEmpty();
 
         var pane = PaneText.Checklist(opened);
 
         await Assert.That(pane).DoesNotContain("not read")
-            .Because("it WAS read, and that sentence appearing means the boot never asked.");
-        await Assert.That(pane).Contains(opened.Checklist!.Items[0].Disposition)
-            .Because("the disposition is the whole answer to 'can this start'.");
+            .Because("it WAS read, and that sentence appearing means nothing asked.");
+        await Assert.That(pane).Contains("nothing is required")
+            .Because("an empty list has to SAY it is empty. A blank pane here and an unread "
+                   + "one look identical, and they are opposite facts.");
     }
 }

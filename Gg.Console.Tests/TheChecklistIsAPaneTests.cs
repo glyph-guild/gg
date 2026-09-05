@@ -81,7 +81,10 @@ public class TheChecklistIsAPaneTests
         // Rule 5, and this is the pair that matters most: an empty checklist
         // reads as "nothing is stopping this flight", which is the opposite of
         // "nobody asked".
-        var pane = PaneText.Checklist(new AppState());
+        // WITH A ROW SELECTED, because `No flight selected.` is a third
+        // sentence and a true one - the pane says which of the three nothings
+        // it is showing, and this test is about the one that is a gap.
+        var pane = PaneText.Checklist(new AppState { Queue = [Row("a", 1)] });
 
         await Assert.That(pane).Contains("not read")
             .Because("an empty list and an unread one are opposite facts, and one of them "
@@ -96,9 +99,11 @@ public class TheChecklistIsAPaneTests
         // and the next session renders it. A reducer arm as well would give one
         // key two effects, the local one happening whether or not the remote one
         // did.
+        var before = new AppState { Queue = [Row("a", 1)] };
+
         await Assert.That(ShellCommands.Handled).Contains(Command.ToggleChecklist);
-        await Assert.That(Reducer.Reduce(new AppState(), Command.ToggleChecklist))
-            .IsEqualTo(new AppState())
+        await Assert.That(Reducer.Reduce(before, Command.ToggleChecklist))
+            .IsEqualTo(before)
             .Because("a shell command with a reducer arm is a key that half works.");
     }
 

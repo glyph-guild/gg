@@ -109,9 +109,23 @@ public static class Keymap
             new(KeyStroke.Char('l'), Command.ToggleLive, context.LiveVisible ? "hide live" : "live"),
             new(KeyStroke.Char('b'), Command.ToggleBrowse,
                 context.BrowseVisible ? "hide browse" : "browse"),
-            .. context.LiveVisible
+            // TOTAL RATHER THAN TRUSTING THE REDUCER. BrowseToggled turns live
+            // off, so both flags on is a state the console cannot reach - but
+            // Bindings is a pure function that can be handed any context, and a
+            // key with two meanings in one list resolves to whichever was
+            // written first. So browse wins here explicitly, and a test over
+            // every combination says it stays that way.
+            .. context.LiveVisible && !context.BrowseVisible
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.ToggleFreeze,
                     context.Frozen ? "unfreeze" : "freeze to copy")]
+                : [],
+            // THE SAME KEY, AND THEY CANNOT BOTH BE OFFERED. Browse and live
+            // share one region and BrowseToggled turns the other off, so f is
+            // free while browsing - and 'fly' is what it should mean there.
+            // Asserted rather than reasoned about: a third pane over that
+            // region would break this silently otherwise.
+            .. context.BrowseVisible
+                ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")]
                 : [],
             // Only offered when there is something to take. A key advertised
             // against a flight with no held tree is a key that does nothing, and

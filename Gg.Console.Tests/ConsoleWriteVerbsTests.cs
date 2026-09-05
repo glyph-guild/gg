@@ -266,6 +266,9 @@ public class ConsoleWriteVerbsTests
     {
         public string Decide(string flight, string obligation, bool approved, string? reason) => "";
         public string Fly(string intent) => $"opened for {intent}";
+
+        public string FlyTicket(string provider, string id) =>
+            Fly($"{provider}#{id}");
         public string AddCredential() => "registered";
         public string Invite() => "placed";
     }

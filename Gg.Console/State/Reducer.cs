@@ -31,8 +31,16 @@ public static class Reducer
 
             Command.FocusNextPane => state with { FocusedPane = NextVisible(state) },
 
-            Command.SelectNext => Select(state, state.SelectedRow + 1),
-            Command.SelectPrevious => Select(state, state.SelectedRow - 1),
+            // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
+            // two lists, and moving the queue underneath a person reading work
+            // items would change what the flight pane shows for a keystroke
+            // they aimed somewhere else.
+            Command.SelectNext => state.BrowseVisible
+                ? PickWork(state, state.BrowseSelected + 1)
+                : Select(state, state.SelectedRow + 1),
+            Command.SelectPrevious => state.BrowseVisible
+                ? PickWork(state, state.BrowseSelected - 1)
+                : Select(state, state.SelectedRow - 1),
 
             Command.ToggleEvidence => Reveal(state with { EvidenceVisible = !state.EvidenceVisible }),
             Command.ToggleLive => ToggleLive(state),
@@ -311,6 +319,19 @@ public static class Reducer
     /// costs a whole session rebuild.
     /// </para>
     /// </remarks>
+    /// <summary>Move the work list's own cursor, inside the work list.</summary>
+    /// <remarks>
+    /// Clamped rather than wrapped, and clamped to what is actually there: a
+    /// selection past the end selects nothing that exists, and the key that
+    /// flies it would then have to decide what to do about that.
+    /// </remarks>
+    private static AppState PickWork(AppState state, int to) => state with
+    {
+        BrowseSelected = state.Browse is null || state.Browse.Items.Count == 0
+            ? 0
+            : Math.Clamp(to, 0, state.Browse.Items.Count - 1),
+    };
+
     public static AppState BrowseToggled(AppState state) => state with
     {
         BrowseVisible = !state.BrowseVisible,
@@ -325,6 +346,10 @@ public static class Reducer
 
         return state with
         {
+            // A NEW LIST STARTS AT THE TOP. A cursor left pointing at row nine
+            // of a list that now has two rows is a selection that flies the
+            // wrong item, silently.
+            BrowseSelected = 0,
             Browse = outcome switch
             {
                 BrowseOutcome.Listed listed => new BrowseListing

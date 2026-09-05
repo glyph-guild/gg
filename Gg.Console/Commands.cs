@@ -48,6 +48,13 @@ public enum Command
     /// </remarks>
     ToggleBrowse,
 
+    /// <summary>Open a flight for the work item the browser has selected.</summary>
+    /// <remarks>
+    /// The shell's, because it writes. What crosses is a provider and an id,
+    /// declared - never the title a person happened to read.
+    /// </remarks>
+    FlyPicked,
+
 
     /// <summary>
     /// Take the selected flight over: unmount, hand a person the terminal, come
@@ -157,5 +164,8 @@ public static class ShellCommands
         // may read a local file and nothing else. The loop owns the reader for
         // the same reason it owns the editor and the take.
         Command.ToggleBrowse,
+
+        // It writes, so it is the loop's like every other write.
+        Command.FlyPicked,
     };
 }

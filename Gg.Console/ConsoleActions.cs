@@ -44,6 +44,18 @@ public interface IConsoleActions
     string Fly(string intent);
 
     /// <summary>
+    /// Open a flight for a work item somebody picked, by provider and id.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two values, not a formatted string.</b> <see cref="Fly"/> takes what a
+    /// person typed and parses it, which is right for a paste. This takes what
+    /// a reader already told us, and formatting it into <c>provider#id</c> only
+    /// to parse it again would lose the first id that contained the separator -
+    /// the rule <c>FlightIntent.Id</c> already states.
+    /// </remarks>
+    string FlyTicket(string provider, string id);
+
+    /// <summary>
     /// Registers a credential, prompting for the repository and the value.
     /// </summary>
     /// <remarks>

@@ -74,6 +74,10 @@ public sealed class ConsoleLoop(
 
                     break;
 
+                case Command.FlyPicked:
+                    state = FlewPicked(state, actions);
+                    break;
+
                 case Command.Invite:
                     state = state with
                     {
@@ -309,6 +313,48 @@ public sealed class ConsoleLoop(
                 $"Browsing '{key}' failed inside this console rather than at the tracker: "
               + problem.Message));
         }
+    }
+
+    /// <summary>
+    /// Open a flight for the work item the browser has selected.
+    /// </summary>
+    /// <remarks>
+    /// <b>Internal to the loop and public for one reason:</b> what crosses to
+    /// the control plane on this path is worth asserting directly rather than
+    /// through a whole session. The alternative is a test that presses keys to
+    /// check a string is absent, which is a worse test of the same thing.
+    /// </remarks>
+    public static AppState FlewPicked(AppState state, IConsoleActions? actions)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (actions is null)
+        {
+            return state with
+            {
+                LastFlightOpened = "This console is not configured to open flights.",
+            };
+        }
+
+        // NOTHING PICKED IS AN ANSWER, NOT A CRASH. An empty pane with a key
+        // that appears to work is worse than one without the key.
+        if (state.Browse is not { Items.Count: > 0 } listing
+            || state.BrowseSelected < 0
+            || state.BrowseSelected >= listing.Items.Count)
+        {
+            return state with
+            {
+                LastFlightOpened = "Nothing was opened: no work item is selected.",
+            };
+        }
+
+        // TWO VALUES, DECLARED. Not the title, which is what a person read and
+        // not what a flight is called, and not the url, which is not even held.
+        return state with
+        {
+            LastFlightOpened = actions.FlyTicket(
+                listing.ProviderKey, listing.Items[state.BrowseSelected].Id),
+        };
     }
 
     private static AppState HandedBack(AppState state, IHandSession? hand)

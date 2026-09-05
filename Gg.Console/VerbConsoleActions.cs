@@ -132,6 +132,26 @@ public sealed class VerbConsoleActions(
         }
     }
 
+    public string FlyTicket(string provider, string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(provider);
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        try
+        {
+            var opened = _data.FlyTicketAsync(provider, id).GetAwaiter().GetResult();
+
+            return opened is VerbResult.Launched launched
+                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
+                + "so it appears on the next refresh."
+                : "The flight was accepted.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return $"Nothing was opened — {refusal.Message}";
+        }
+    }
+
     /// <summary>
     /// Registers a credential for a repository somebody names.
     /// </summary>

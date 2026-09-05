@@ -136,6 +136,9 @@ public class ConsoleLoopTests
     private sealed class SilentActions : IConsoleActions
     {
         public string Fly(string intent) => "opened";
+
+        public string FlyTicket(string provider, string id) =>
+            Fly($"{provider}#{id}");
         public string Decide(string flight, string obligation, bool approved, string? reason) => "decided";
         public string AddCredential() => "added";
         public string Invite() => "invited";

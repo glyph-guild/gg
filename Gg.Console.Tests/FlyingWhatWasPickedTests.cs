@@ -183,4 +183,39 @@ public class FlyingWhatWasPickedTests
     {
         await Assert.That(ShellCommands.Handled).Contains(Command.FlyPicked);
     }
+
+    [Test]
+    public async Task The_fly_key_is_offered_only_while_the_work_list_is_showing()
+    {
+        var browsing = new KeymapContext(UiMode.Normal) { BrowseVisible = true };
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), browsing))
+            .IsEqualTo(Command.FlyPicked);
+        await Assert.That(Keymap.Hints(browsing)).Contains("fly this");
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), new KeymapContext(UiMode.Normal)))
+            .IsNull()
+            .Because("a key advertised against no list is a key that does nothing.");
+    }
+
+    [Test]
+    public async Task Fly_and_freeze_never_claim_the_same_key_at_once()
+    {
+        // THE HAZARD OF REUSING f. It is safe only because browse and live
+        // share one region and cannot both be on - which is a fact about the
+        // reducer, asserted here rather than remembered.
+        foreach (var context in (KeymapContext[])
+        [
+            new(UiMode.Normal, LiveVisible: true),
+            new(UiMode.Normal) { BrowseVisible = true },
+            new(UiMode.Normal, LiveVisible: true) { BrowseVisible = true },
+        ])
+        {
+            var onF = Keymap.Bindings(context).Where(b => b.Key == KeyStroke.Char('f')).ToList();
+
+            await Assert.That(onF.Count).IsLessThanOrEqualTo(1)
+                .Because("two meanings for one key is a key whose behaviour depends on which "
+                       + "list was written first.");
+        }
+    }
 }

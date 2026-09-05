@@ -282,8 +282,8 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
             };
         }
 
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        await using var buffer = new MemoryStream();
+        await using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject();
             writer.WriteString("Image", spec.Image);

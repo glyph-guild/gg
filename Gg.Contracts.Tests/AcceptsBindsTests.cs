@@ -166,7 +166,7 @@ public class AcceptsBindsTests
                 .Because($"accepts: {(accepts.Count == 0 ? "[]" : "[repository]")} was written "
                        + "down and came back as nothing at all, which is a declaration turning "
                        + "into an absence in a round trip nobody watched.");
-            await Assert.That(read.Envelope!.Accepts!).IsEquivalentTo(accepts);
+            await Assert.That(read.Envelope!.Accepts).IsEquivalentTo(accepts);
             await Assert.That(EnvelopeText.Render(read.Envelope!)).IsEqualTo(written)
                 .Because("parse(render(x)) == x is the property, and the second render is what "
                        + "catches a value that survived the parse in a form that renders back "

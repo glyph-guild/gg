@@ -1,0 +1,51 @@
+root = true
+
+[*.cs]
+
+# ROSLYNATOR: EVERY RULE OFF, AND EACH ONE TURNED ON BY NAME.
+#
+# The whole category at its own defaults reports 417 findings here, and the
+# largest single rule is one this codebase must NOT take: RCS1015 wants
+# `nameof(name)` where `AddWithValue("name", name)` names a SQL parameter, which
+# would weld a query's contract to a C# identifier - rename the local and the
+# SQL breaks silently. A survey is not a standard, so the standard is written
+# out one rule at a time, with what each is for.
+dotnet_analyzer_diagnostic.category-roslynator.severity = none
+
+# Dead members. Found three receptors injecting a dependency they never read -
+# ObligationReceptor, ObligationDecidedReceptor and ResumeExhaustedReceptor all
+# held an EnvelopeLedger whose only mention was its own declaration. No source
+# scan here looks for that, and a constructor that asks for something it does
+# not use is a lie about what the class touches.
+dotnet_diagnostic.RCS1213.severity = warning
+
+# A null-forgiving operator on something that was never null. It reads as "I
+# know better than the compiler" and means nothing, which is the worst kind of
+# annotation to leave in a codebase that has Nullable enabled everywhere.
+dotnet_diagnostic.RCS1249.severity = warning
+
+# A disposable that offers DisposeAsync being disposed synchronously. This
+# codebase's own rule is that blocking a thread to wait is a defect; disposal
+# is the place it hides, because the compiler will happily take either.
+dotnet_diagnostic.RCS1261.severity = warning
+
+# NOT ENABLED, and each for a reason worth keeping:
+#
+# RCS1015 (use nameof) - 161 findings, and wrong here. See above.
+# RCS1077 (optimize LINQ) - looked right and its actual findings here are not.
+#   Nine sites, and they want Select(...).ToList() rewritten as List.ConvertAll,
+#   and a .Where(exclude).Any(match) merged into one predicate. Both are less
+#   readable than what is there and the first welds the code to List<T>. The
+#   shape worth having - Count() > 0 for Any() - does not occur. A rule whose
+#   findings you would decline half of is not one to fail a build on.
+# RCS1186 (Regex instance over static) - 44 findings, all in tests, and MEASURED
+#   worth doing: test sources hold 25 distinct static patterns against a Regex
+#   cache of 15, so they evict each other and re-parse. It is a suite-speed
+#   change and wants its own before-and-after rather than riding along here.
+# RCS1163 (unused parameter) - 21 findings, but one of them is
+#   CredentialEdgeTests.StartAsync's `withReadSurface`, kept deliberately across
+#   129 call sites and documented as a rename for another day. Enabling this
+#   means making that decision, which is bigger than this change.
+# RCS1181 (comment to documentation comment) - the in-body narrative in this
+#   codebase is deliberate, and promoting it to /// would file reasoning as API
+#   documentation.

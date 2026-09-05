@@ -83,13 +83,6 @@ public class InjectedRepositoryTests
          -->
          """;
 
-    private static string Binary =>
-        Environment.GetEnvironmentVariable(ExecutorConfiguration.BinaryVariable)
-        ?? throw new InvalidOperationException(
-            $"{ExecutorConfiguration.BinaryVariable} is not set. This drives a real agent "
-          + "against a repository carrying a real injection; skipping it would leave the "
-          + "prompt-injection claim proven by a string a test wrote.");
-
     /// <summary>A repository whose README is addressed to the agent.</summary>
     private sealed class HostileRepoFixture : IDisposable
     {

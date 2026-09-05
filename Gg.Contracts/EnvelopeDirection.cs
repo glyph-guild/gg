@@ -454,9 +454,6 @@ public static class EnvelopeDirection
           + "wired to it. Neither carries a declared direction.");
     }
 
-    private static bool SetEqual(IReadOnlyList<string> was, IReadOnlyList<string> now) =>
-        was.ToHashSet(StringComparer.Ordinal).SetEquals(now);
-
     private static string Changed(string id, string member, string? was, string? now) =>
         $"obligation '{id}' changed its {member} from '{Describe(was)}' to '{Describe(now)}' - "
       + "a changed body is a different gate, not a tighter one; equality is the only total "

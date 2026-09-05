@@ -186,7 +186,7 @@ public class EnvelopeModelRoundTripTests
 
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.Flight);
         await Assert.That(destination.Opens).IsNotNull();
-        await Assert.That(destination.Opens!)
+        await Assert.That(destination.Opens)
             .IsEquivalentTo((string[])["implement", "research"])
             .Because("this list is the pre-approved menu a nomination is checked against, so a "
                    + "member that did not survive the text form is a governance bound that "

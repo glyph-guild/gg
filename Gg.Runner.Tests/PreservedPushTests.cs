@@ -25,8 +25,6 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class PreservedPushTests
 {
-    private static readonly DateTimeOffset T0 = new(2026, 8, 19, 12, 0, 0, TimeSpan.Zero);
-
     /// <summary>A push the control plane granted for HANDOFF rather than for landing.</summary>
     private static BranchPush APreservation(GitFixture fixture) => new()
     {

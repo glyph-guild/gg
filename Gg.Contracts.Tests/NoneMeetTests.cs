@@ -178,6 +178,6 @@ public class NoneMeetTests
         await Assert.That(composed.Composed!.Accepts).IsNotNull()
             .Because("the composed document carries the declaration the meet was decided from, "
                    + "so a reader can check the reasoning rather than take the scope on trust.");
-        await Assert.That(composed.Composed!.Accepts!).IsEmpty();
+        await Assert.That(composed.Composed!.Accepts).IsEmpty();
     }
 }

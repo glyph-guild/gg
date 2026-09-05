@@ -141,7 +141,17 @@ public static class ConsoleStart
                 partial = "credentials did not load: " + failure.Message;
             }
 
-            return loaded with
+            // AND THE SELECTED ROW'S DETAIL, THROUGH THE REDUCER'S OWN RULE, so
+            // the console opens onto content rather than onto a pane waiting for
+            // a keystroke - and so a refresh re-reads under the cursor instead
+            // of jumping to the top.
+            //
+            // This used to be two lines reading `queue[0]`, which is a second
+            // copy of what Reducer.Detail does on every arrow key. Correct at
+            // boot, where the cursor IS at the top, and wrong from the moment
+            // step 3 made this method the refresh: the flight pane then showed
+            // the first row's flight under the selected row's name.
+            return Reducer.Detail(loaded with
             {
                 Queue = queue,
                 Gates = gates,
@@ -151,16 +161,6 @@ public static class ConsoleStart
                 // discarded. The selection carries them into the pane.
                 Logs = logs,
 
-                // AND THE FIRST ROW'S DETAIL, so the console opens onto content
-                // rather than onto a pane waiting for a keystroke. The reducer
-                // does the same on every move, out of the same two collections.
-                Flight = queue.Count > 0
-                    ? flights.Value.Flights.FirstOrDefault(f => string.Equals(
-                        f.FlightId, queue[0].FlightId, StringComparison.Ordinal))
-                    : null,
-                FlightLog = queue.Count > 0 && logs.TryGetValue(queue[0].FlightId, out var first)
-                    ? first
-                    : null,
                 // From the stored session, never typed in. A takeover is an
                 // attributed act and this is who it is attributed to.
                 Principal = principal,
@@ -170,7 +170,7 @@ public static class ConsoleStart
                 // have, and a takeover that needed one could only ever happen on the
                 // machine that ran the flight.
                 TakeableTree = null,
-            };
+            });
         }
         catch (Exception failure) when (failure is Gg.Client.NotSignedInException
                                             or Gg.Client.ProtocolTooOldException

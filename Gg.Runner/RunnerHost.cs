@@ -188,6 +188,15 @@ public static class RunnerHost
             System.Console.WriteLine($"swept {swept} working tree(s) left by a previous run");
         }
 
+        // AND THE LIVE VIEWS, by the same rule and in a different directory.
+        // They are a sibling of the transcripts rather than a child precisely so
+        // that this cannot take evidence with it.
+        var views = new Execution.LiveViewSweep().SweepOrphans();
+        if (views > 0)
+        {
+            System.Console.WriteLine($"swept {views} live view(s) left by a previous run");
+        }
+
         // BEFORE ANY WORK IS CLAIMED, and only when this runner can run a loop -
         // FAIL-FAST ONLY now. A misconfigured machine never claims, never clones
         // and never invokes; but nothing from this run crosses on facts, because

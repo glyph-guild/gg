@@ -37,6 +37,18 @@ public sealed class LiveTail(string path) : ILiveSource
     public bool Exists => File.Exists(_path);
 
     /// <summary>
+    /// How much of an existing view is read on the first look.
+    /// </summary>
+    /// <remarks>
+    /// Roughly a screenful at the walk's measured mean of 69 characters a line -
+    /// enough to arrive mid-flight with context, and far short of replaying a
+    /// run that has been going for an hour.
+    /// </remarks>
+    private const long StartWithin = 8 * 1024;
+
+    private bool _started;
+
+    /// <summary>
     /// What has arrived since last time.
     /// </summary>
     /// <remarks>
@@ -53,6 +65,27 @@ public sealed class LiveTail(string path) : ILiveSource
 
         using var stream = new FileStream(
             _path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+
+        if (!_started)
+        {
+            // NEAR THE END, NOT THE BEGINNING. Peeking means "what is happening
+            // now": replaying an hour of output before showing the current line
+            // is the wrong answer and the expensive one. Attaching to a flight
+            // already in progress should show the last screenful, not its whole
+            // history.
+            //
+            // Cut at a line boundary, because a partial first line is refused
+            // and would be silently lost.
+            _started = true;
+            if (stream.Length > StartWithin)
+            {
+                Offset = stream.Length - StartWithin;
+                stream.Seek(Offset, SeekOrigin.Begin);
+
+                var skipped = new StreamReader(stream, leaveOpen: true).ReadLine();
+                Offset += (skipped?.Length ?? 0) + 1;
+            }
+        }
 
         if (Offset > stream.Length)
         {

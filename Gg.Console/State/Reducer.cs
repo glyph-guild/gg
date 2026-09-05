@@ -183,13 +183,48 @@ public static class Reducer
     /// <remarks>
     /// While frozen it is held, not shown and not dropped.
     /// </remarks>
+    /// <summary>
+    /// How many lines either buffer keeps.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An unbounded list is also an unbounded <c>GG_STATE_DUMP</c>.</b>
+    /// AppState is serialized when the terminal is released, so a pane left
+    /// attached to a long flight would write every line it ever saw to disk on
+    /// the way out.
+    /// </para>
+    /// <para>
+    /// Five hundred is more scrollback than a terminal shows and, at the walk's
+    /// measured mean of 69 characters a line, about 35 KB of state. <c>Held</c>
+    /// gets the same cap for a different reason: a freeze somebody forgot is a
+    /// buffer with no ceiling.
+    /// </para>
+    /// </remarks>
+    private const int Keep = 500;
+
     public static AppState StreamArrived(AppState state, StreamLine line)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         return state.Frozen
-            ? state with { Held = [.. state.Held, line] }
-            : state with { Live = [.. state.Live, line] };
+            ? state with { Held = Capped(state.Held, line) }
+            : state with { Live = Capped(state.Live, line) };
+    }
+
+    /// <summary>Appends, and drops the oldest first when full.</summary>
+    /// <remarks>
+    /// Oldest first because the newest is what a person is reading. Dropping
+    /// the newest to protect the cap would be a pane that stops updating at
+    /// exactly the moment it matters most.
+    /// </remarks>
+    private static IReadOnlyList<StreamLine> Capped(IReadOnlyList<StreamLine> lines, StreamLine line)
+    {
+        if (lines.Count < Keep)
+        {
+            return [.. lines, line];
+        }
+
+        return [.. lines.Skip(lines.Count - Keep + 1), line];
     }
 
     /// <summary>

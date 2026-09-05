@@ -46,6 +46,13 @@ public class FlyByHandWiringTests
         })],
     };
 
+    /// <summary>A flight that was opened, as the launch door answers one.</summary>
+    private static VerbResult Launched() => new VerbResult.Launched(new FlightLaunched
+    {
+        FlightId = "01a07320-0000-7000-8000-000000000001",
+        FlightNumber = null,
+    });
+
     // ---- S26.3-01 ----
 
     [Test]
@@ -59,7 +66,7 @@ public class FlyByHandWiringTests
         var outcome = await FlyByHand.FlyAsync(
             plan: _ => Task.FromResult(Needing("environment=aspire-payments")),
             advertised: [],
-            open: _ => { opened++; return Task.FromResult<VerbResult>(null!); },
+            open: _ => { opened++; return Task.FromResult(Launched()); },
             CancellationToken.None);
 
         await Assert.That(opened).IsEqualTo(0)
@@ -79,7 +86,7 @@ public class FlyByHandWiringTests
         var outcome = await FlyByHand.FlyAsync(
             plan: _ => Task.FromResult(Needing("environment=aspire-payments")),
             advertised: ["environment=aspire-payments"],
-            open: _ => { opened++; return Task.FromResult<VerbResult>(new VerbResult.Nothing()); },
+            open: _ => { opened++; return Task.FromResult(Launched()); },
             CancellationToken.None);
 
         await Assert.That(opened).IsEqualTo(1);
@@ -100,7 +107,7 @@ public class FlyByHandWiringTests
             open: _ =>
             {
                 order.Add("open");
-                return Task.FromResult<VerbResult>(new VerbResult.Nothing());
+                return Task.FromResult(Launched());
             },
             CancellationToken.None);
 

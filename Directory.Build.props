@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- One version across the whole distribution; CI appends -alpha.N per commit. -->
-    <VersionPrefix>0.2.0</VersionPrefix>
+    <VersionPrefix>0.3.0</VersionPrefix>
     <Authors>Glyph Guild</Authors>
     <RepositoryUrl>https://github.com/glyph-guild/gg</RepositoryUrl>
   </PropertyGroup>

@@ -87,6 +87,13 @@ public static class Keymap
     {
         UiMode.Help =>
         [
+            // TURNS THE PAGE, and it has to be BOUND rather than merely handled
+            // by the reducer. The pane's own text tells a person to press it;
+            // for one release it resolved to nothing, because the reducer had
+            // an arm and this list did not, and every test called the reducer
+            // directly. A key advertised and bound to nothing is the shape
+            // ShellHandledTests exists for, one modal down.
+            new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment"),
             new(KeyStroke.Esc, Command.CloseModal, "close help"),
         ],
 

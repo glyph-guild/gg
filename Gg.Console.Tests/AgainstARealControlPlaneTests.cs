@@ -46,7 +46,7 @@ public class AgainstARealControlPlaneTests
         ?? Api.Replace(":5199", ":5200", StringComparison.Ordinal);
 
     /// <summary>Counts what the boot asks for, which is S28.0-04's whole subject.</summary>
-    private sealed class Counting : DelegatingHandler
+    internal sealed class Counting : DelegatingHandler
     {
         internal int Requests;
 
@@ -65,7 +65,7 @@ public class AgainstARealControlPlaneTests
         }
     }
 
-    private sealed record Seeded(
+    internal sealed record Seeded(
         ConsoleData Data, string Principal, Counting Counter, int Flights, HttpClient Session);
 
     /// <summary>
@@ -93,7 +93,9 @@ public class AgainstARealControlPlaneTests
 
         var envelope = """
             {"context":{"scope":"**","constitution":"1.0.0"},
-             "obligations":[{"id":"in-scope","check":"machine","rule":"no-file-outside-scope"}],
+             "obligations":[{"id":"in-scope","check":"machine","rule":"no-file-outside-scope"},
+                            {"id":"widen-root","check":"human","approver":"platform-owner",
+                             "when":"envelope widens"}],
              "loops":[{"id":"implement","executor":"frontier","discharges":["in-scope"],
                        "moves":["read","edit"],"budget":{"wallClock":"10m"},
                        "onExhaustion":"handoff-to-human"}],
@@ -159,6 +161,58 @@ public class AgainstARealControlPlaneTests
             takes);
 
         return new Seeded(data, takes.Principal(), counter, flights, plain);
+    }
+
+    /// <summary>
+    /// A tenant whose console has a row in it, and the cheapest honest way to
+    /// get one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A registration is a widening, and a widening rides a flight to its
+    /// approver.</b> So registering a repository against an envelope that gates
+    /// widenings opens a real gate on a real flight with no runner anywhere and
+    /// no agent - which is a queue row, because a queue row is now a flight
+    /// somebody is being asked about.
+    /// </remarks>
+    internal static async Task<Seeded> GatedAsync()
+    {
+        var seeded = await SeedAsync(flights: 2);
+
+        var registered = await seeded.Session.PostAsync(
+            "/v1/airspace/repositories",
+            new StringContent(
+                "{\"name\":\"widgets\",\"provider\":\"local\",\"id\":\"F_widgets01\","
+              + "\"path\":\"acme/widgets\",\"credential\":\"none\"}",
+                System.Text.Encoding.UTF8, "application/json"));
+
+        var body = await registered.Content.ReadAsStringAsync();
+
+        if (registered.StatusCode is not System.Net.HttpStatusCode.Accepted)
+        {
+            throw new InvalidOperationException(
+                "registering a repository did not divert to the widening gate, so no gate was "
+              + $"opened and there is no row to select: {(int)registered.StatusCode} {body}");
+        }
+
+        // THE GATE IS OPENED ON THE OTHER SIDE OF THE BROKER, so the console's
+        // own boot is what waits for it - re-read until the queue fills, which
+        // is the state under test rather than a proxy for it.
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+            if (booted.Queue.Count > 0)
+            {
+                return seeded;
+            }
+
+            await Task.Delay(1000);
+        }
+
+        throw new InvalidOperationException(
+            "waited ninety seconds and the queue never filled, so the widening gate this test "
+          + "opened never reached the console - which is a claim about the control plane "
+          + "rather than about the console.");
     }
 
     private static Seeded? _stranded;

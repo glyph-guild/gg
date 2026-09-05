@@ -91,8 +91,6 @@ public class ConsoleDataReachTests
             ["WhyAsync"] = "the fetch behind `gg why`. Wired in step 4, S28.4-02.",
             ["RunnerLabelsAsync"] = "the fleet's advertised labels. Wired in step 4, "
                                   + "S28.4-03, with each disposition beside its name.",
-            ["ListCredentialsAsync"] = "the credential references. Wired in step 2, S28.2-03 "
-                                     + "- the field and the renderer already exist.",
             ["RemoveCredentialAsync"] = "forgetting a credential. Given a key in step 5, "
                                       + "S28.5-04, or deleted in step 6 - and it is the half "
                                       + "of credential management that matters when one "

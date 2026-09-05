@@ -108,10 +108,22 @@ public static class Reducer
 
         var landed = Math.Clamp(index, 0, state.Queue.Count - 1);
 
+        var row = state.Queue[landed];
+
+        // THE DETAIL FOLLOWS THE SELECTION, out of what the boot loaded. Rule 3:
+        // no I/O inside a UI session, so an arrow key is this and nothing else.
+        //
+        // NULL WHEN NOTHING WAS LOADED FOR THIS ROW, rather than leaving the
+        // previous flight in place. One flight's detail under another flight's
+        // name is the worst of the three answers, because it is the one a person
+        // cannot see is wrong.
         var moved = state with
         {
             SelectedRow = landed,
-            Queue = [.. state.Queue.Select((row, i) => i == landed ? row with { UnreadArrivals = 0 } : row)],
+            Flight = state.Flights?.Flights
+                .FirstOrDefault(f => string.Equals(f.FlightId, row.FlightId, StringComparison.Ordinal)),
+            FlightLog = state.Logs.TryGetValue(row.FlightId, out var log) ? log : null,
+            Queue = [.. state.Queue.Select((r, i) => i == landed ? r with { UnreadArrivals = 0 } : r)],
         };
 
         // Moving the cursor while the live view is open IS watching the flight

@@ -80,10 +80,43 @@ public static class ConsoleStart
                 ? taken.Value
                 : null;
 
-            return new AppState
+            // THROUGH APPLY, WHICH IS RULE 2. Apply is the one path from a verb
+            // result into the model, it already had arms for three of these
+            // four, and what it lacked was a caller. Assigning them here by hand
+            // would be the second projection this slice exists to prevent - one
+            // layer down and harder to see.
+            var loaded = ConsoleProjection.Apply(new AppState(), flights);
+            loaded = ConsoleProjection.Apply(loaded, runners);
+
+            // THE CREDENTIAL REFERENCES, and the only new request this step
+            // makes. The field and the renderer both existed and nothing
+            // fetched them, so the console could never show what it holds a
+            // reference to. It holds no secret - kind, locator, identity,
+            // scopes - which is why it may sit in a model that is dumped.
+            if (await data.ListCredentialsAsync(cancellationToken) is VerbResult.Credentials held)
+            {
+                loaded = ConsoleProjection.Apply(loaded, held);
+            }
+
+            return loaded with
             {
                 Queue = queue,
                 Gates = gates,
+
+                // The logs the loop above already fetched, kept rather than
+                // discarded. The selection carries them into the pane.
+                Logs = logs,
+
+                // AND THE FIRST ROW'S DETAIL, so the console opens onto content
+                // rather than onto a pane waiting for a keystroke. The reducer
+                // does the same on every move, out of the same two collections.
+                Flight = queue.Count > 0
+                    ? flights.Value.Flights.FirstOrDefault(f => string.Equals(
+                        f.FlightId, queue[0].FlightId, StringComparison.Ordinal))
+                    : null,
+                FlightLog = queue.Count > 0 && logs.TryGetValue(queue[0].FlightId, out var first)
+                    ? first
+                    : null,
                 // From the stored session, never typed in. A takeover is an
                 // attributed act and this is who it is attributed to.
                 Principal = principal,

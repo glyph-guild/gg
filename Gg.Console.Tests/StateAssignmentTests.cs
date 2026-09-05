@@ -27,13 +27,30 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class StateAssignmentTests
 {
-    /// <summary>Fields PaneText reads off the state it is handed.</summary>
+    /// <summary>
+    /// Fields PaneText reads that something could assign.
+    /// </summary>
+    /// <remarks>
+    /// <b>A derived property is excluded, and not as a convenience.</b>
+    /// <c>Selected</c> is <c>Queue[SelectedRow]</c> and <c>SelectedGate</c> is a
+    /// lookup - neither has a setter, so "does production assign this" has one
+    /// answer for ever and an exemption for it could never be deleted. A list
+    /// step 6 must empty cannot contain an entry that can never leave it.
+    /// Reflection is what tells them apart.
+    /// </remarks>
     private static IReadOnlyList<string> Rendered()
     {
         var text = ConsoleSource.Text("Gg.Console", Path.Combine("State", "PaneText.cs"));
 
+        var settable = typeof(AppState)
+            .GetProperties()
+            .Where(p => p.CanWrite)
+            .Select(p => p.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
         return [.. Regex.Matches(text, @"state\.([A-Z][A-Za-z0-9]*)")
             .Select(m => m.Groups[1].Value)
+            .Where(settable.Contains)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
     }
@@ -110,13 +127,6 @@ public class StateAssignmentTests
     internal static readonly IReadOnlyDictionary<string, string> Exempt =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["Flight"] = "step 2: the Flight pane's own subject, and the reason it says "
-                       + "`loading…` for ever.",
-            ["FlightLog"] = "step 2, S28.2-02 - and from the logs the boot ALREADY fetches, "
-                          + "so the N requests it already pays for buy something.",
-            ["Credentials"] = "step 2, S28.2-03. The renderer exists and nothing fetches.",
-            ["Selected"] = "step 2: it follows the queue's row, and the queue cannot fill "
-                         + "yet - S28.0-05 and S28.0-07 say why.",
             ["Notices"] = "step 4, S28.4-06. WhoAmI carries them and PaneText draws them, "
                         + "and a tenant degradation nobody is shown is one nobody acts on.",
             ["Payload"] = "step 2: the gate's evidence, which the modal opens onto.",

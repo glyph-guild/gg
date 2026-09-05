@@ -319,7 +319,16 @@ public static class ConsoleProjection
             },
             // A flight LIST is not the queue. It is the raw material the queue
             // is derived from, and nothing renders it directly.
-            VerbResult.Flights => state with { Diagnosis = null },
+            // NO LONGER A NO-OP. It cleared the diagnosis and dropped the list,
+            // because the queue is DERIVED from flights rather than being them -
+            // which is right, and left the detail under a selected row with
+            // nowhere to come from but a second request. Holding the list is
+            // what makes an arrow key free.
+            VerbResult.Flights flights => state with
+            {
+                Flights = flights.Value,
+                Diagnosis = null,
+            },
             _ => state,
         };
     }

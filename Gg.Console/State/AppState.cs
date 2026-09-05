@@ -41,6 +41,21 @@ public enum UiMode
     GateDecision,
 }
 
+/// <summary>Which page of help a person is reading.</summary>
+/// <remarks>
+/// Two pages rather than one longer one: "what can I press" and "what is this
+/// machine configured to do" are different questions, and a person asking the
+/// second is usually debugging something the first cannot explain.
+/// </remarks>
+public enum HelpPage
+{
+    /// <summary>The keys. What help has always been for, so it opens here.</summary>
+    Keys,
+
+    /// <summary>The environment variables, and what each decides.</summary>
+    Environment,
+}
+
 /// <summary>The four panes.</summary>
 public enum PaneId
 {
@@ -457,6 +472,21 @@ public sealed record AppState
     /// invisible state that changes what a write does is the worst kind.
     /// </remarks>
     public string? ChosenRepository { get; init; }
+
+    /// <summary>
+    /// The environment variables this program reads, and what they decide.
+    /// </summary>
+    /// <remarks>
+    /// <b>Given, never gathered.</b> The composition root reads the environment
+    /// once and hands the answer over; a session that read it again could reach
+    /// a different one, which is the rule <c>ExecutorConfiguration</c> already
+    /// states. An empty list therefore means <i>nobody told this console</i> and
+    /// not <i>nothing is set</i> — a test host builds no list.
+    /// </remarks>
+    public IReadOnlyList<Gg.Local.EnvironmentSetting> Settings { get; init; } = [];
+
+    /// <summary>Which page of the help modal is showing.</summary>
+    public HelpPage HelpPage { get; init; } = HelpPage.Keys;
 
     /// <summary>
     /// The held tree of the selected flight, when there is one.

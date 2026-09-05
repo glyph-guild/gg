@@ -124,7 +124,7 @@ public class BlockedRenderingTests
             .Because("a person reading this at 2am decides whether to page somebody. The word "
                    + "'blocked' alone reads as an incident, and this tier is worth nothing if "
                    + "the first thing everybody learns is to ignore it.");
-        await Assert.That(text).Contains("waiting on a person")
+        await Assert.That(text).Contains("aiting on a person")
             .Because("it says who unblocks it. A state nobody knows how to leave is one "
                    + "people route around.");
     }

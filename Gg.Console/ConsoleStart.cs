@@ -93,15 +93,36 @@ public static class ConsoleStart
             // fetched them, so the console could never show what it holds a
             // reference to. It holds no secret - kind, locator, identity,
             // scopes - which is why it may sit in a model that is dumped.
-            if (await data.ListCredentialsAsync(cancellationToken) is VerbResult.Credentials held)
+            //
+            // AND ITS FAILURE IS ITS OWN. Rule 5's third sentence: `failed to
+            // load` is not `empty`. One try around the whole boot returned a
+            // bare diagnosis and NO queue, so a tenant whose credential read
+            // was refused lost the pane the console exists for - and could not
+            // tell that from having no work. What one read loses is now one
+            // read's worth.
+            string? partial = null;
+            try
             {
-                loaded = ConsoleProjection.Apply(loaded, held);
+                if (await data.ListCredentialsAsync(cancellationToken) is VerbResult.Credentials held)
+                {
+                    loaded = ConsoleProjection.Apply(loaded, held);
+                }
+            }
+            catch (Exception failure) when (failure is Gg.Client.NotSignedInException
+                                                or Gg.Client.ProtocolTooOldException
+                                                or HttpRequestException)
+            {
+                // NAMED, and the same list the whole boot catches. A wider one
+                // here would turn a bug in the projection into a console that
+                // looks merely degraded.
+                partial = "credentials did not load: " + failure.Message;
             }
 
             return loaded with
             {
                 Queue = queue,
                 Gates = gates,
+                Diagnosis = partial,
 
                 // The logs the loop above already fetched, kept rather than
                 // discarded. The selection carries them into the pane.

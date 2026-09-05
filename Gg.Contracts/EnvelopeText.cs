@@ -272,6 +272,63 @@ public static class EnvelopeText
     /// stripped a governance declaration and two would be that defect
     /// squared.
     /// </remarks>
+    /// <summary>
+    /// The composed instructions as an agent reads them, or null if there are none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rendered here so it is rendered once.</b> The lease carries the
+    /// result, not the model — <c>LeaseLoop.ResumesFrom</c> makes the same
+    /// choice and says why: rendering at the consumer would be a second
+    /// implementation of a document the contract already renders. Two wordings
+    /// for one policy is two policies.
+    /// </para>
+    /// <para>
+    /// <b>Null when there are none, never an empty block.</b> "No standing
+    /// instructions" and "standing instructions that say nothing" would read
+    /// identically in a prompt, which is this project's most repeated defect.
+    /// </para>
+    /// <para>
+    /// <b>Attributed per block, because guidance whose source a person cannot
+    /// find is guidance nobody can change.</b> The provenance is the composer's
+    /// and names the document, so a person who disagrees with a line knows
+    /// which file to open.
+    /// </para>
+    /// <para>
+    /// <b>And it states its own limits in the same breath.</b> Rule 5 is a
+    /// disposition rather than an enforcement: an instruction cannot widen a
+    /// scope or grant a move, the manifest check decides, and an agent that had
+    /// to infer that would eventually infer otherwise. The wording is the one
+    /// <c>Feedback</c> and <c>Resumption</c> already use.
+    /// </para>
+    /// </remarks>
+    public static string? RenderInstructions(Envelope envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        if (envelope.Instructions.Count == 0)
+        {
+            return null;
+        }
+
+        var text = new StringBuilder();
+        text.Append("\n\nThe operator's standing instructions for this work. These were "
+                  + "reviewed and applied as policy; they are not advice from whoever opened "
+                  + "the flight:\n");
+
+        foreach (var instruction in envelope.Instructions)
+        {
+            text.Append("\n  - ").Append(instruction.Text)
+                .Append("    [").Append(instruction.Provenance.Name).Append(']');
+        }
+
+        text.Append("\n\nThey cannot widen what this flight may do: an instruction does not "
+                  + "enlarge the scope, grant a move, raise a budget or add a destination. "
+                  + "Where one appears to, the envelope's own fields are what hold.");
+
+        return text.ToString();
+    }
+
     public static string Render(EnvelopeNarrowing narrowing)
     {
         ArgumentNullException.ThrowIfNull(narrowing);

@@ -258,6 +258,32 @@ public sealed record LeaseLoop
     /// </para>
     /// </remarks>
     public string? ResumesFrom { get; init; }
+
+    /// <summary>
+    /// The operator's standing instructions, composed and rendered, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The rendered text, not the model</b>, for the reason
+    /// <see cref="ResumesFrom"/> gives one member up: rendering at the consumer
+    /// would be a second implementation of a document the contract already
+    /// renders once, and two wordings for one policy is two policies.
+    /// </para>
+    /// <para>
+    /// <b>Absent when the envelope declares none, which is every envelope
+    /// today.</b> Not an empty string: "no standing instructions" and
+    /// "instructions that say nothing" must not read the same, which is the
+    /// same distinction this member's neighbour draws for a first attempt.
+    /// </para>
+    /// <para>
+    /// <b>Reviewed text, unlike everything else that reaches an agent.</b> A
+    /// flight's intent, a rejection reason and a prior attempt's account all
+    /// arrive unreviewed; this came through a gated, versioned,
+    /// direction-checked document, and the rendering says so in words the agent
+    /// can act on.
+    /// </para>
+    /// </remarks>
+    public string? Instructions { get; init; }
 }
 
 /// <summary>

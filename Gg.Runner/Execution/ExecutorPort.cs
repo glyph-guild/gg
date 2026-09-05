@@ -149,6 +149,17 @@ public sealed record ExecutorRequest
     public string? ResumesFrom { get; init; }
 
     /// <summary>
+    /// The operator's standing instructions, already rendered, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Inserted, never composed here.</b> <c>LeaseLoop.Instructions</c>
+    /// carries the contract's own rendering, and a runner that reformatted it
+    /// would be the second wording that member's whole shape exists to prevent.
+    /// Null is the ordinary state and renders nothing at all.
+    /// </remarks>
+    public string? Instructions { get; init; }
+
+    /// <summary>
     /// Where to append the live view. The runner always sets one.
     /// </summary>
     /// <remarks>

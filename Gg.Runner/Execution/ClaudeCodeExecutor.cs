@@ -537,6 +537,15 @@ public sealed class ClaudeCodeExecutor(
       + "for, in this working tree only. Do not create a branch, do not commit, and do not push "
       + "anything anywhere."
       + WhenItCannot
+      // AFTER THE WORK AND BEFORE ANY PRIOR ATTEMPT, which is the decision
+      // rather than an accident of concatenation. An agent should know what it
+      // is doing and under what standing policy before it reads what somebody
+      // else tried and how that went - a policy read after a failure account
+      // reads as a reaction to it.
+      //
+      // Inserted verbatim: the contract rendered this once, and reformatting
+      // here would be the second wording LeaseLoop.Instructions exists to stop.
+      + (request.Instructions is { Length: > 0 } standing ? standing : string.Empty)
       + (request.ResumesFrom is { Length: > 0 } seed ? Resumption(seed) : string.Empty)
       + (request.Feedback is { } feedback ? Feedback(feedback) : string.Empty);
 

@@ -348,6 +348,15 @@ public sealed record AppState
     /// and <see cref="LiveVisible"/> off, because two visible flags over one
     /// region is two panes drawn on top of each other.
     /// </remarks>
+    /// <summary>Which row of the work list is picked.</summary>
+    /// <remarks>
+    /// <b>Not <see cref="SelectedRow"/>, which is the queue's.</b> The queue's
+    /// selection is what the flight pane hangs off; somebody scrolling a work
+    /// list and returning to a different flight than they left is the confusion
+    /// two indices avoid.
+    /// </remarks>
+    public int BrowseSelected { get; init; }
+
     public bool BrowseVisible { get; init; }
 
     public BrowseListing? Browse { get; init; }

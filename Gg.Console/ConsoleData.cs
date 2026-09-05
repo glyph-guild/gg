@@ -169,6 +169,21 @@ public sealed class ConsoleData(
                 provider: read.Provider, id: read.Id);
     }
 
+    /// <summary>
+    /// A flight for a work item a reader named, declared rather than parsed.
+    /// </summary>
+    /// <remarks>
+    /// <b>No <c>PastedIntent</c> on this path, deliberately.</b> That reads what
+    /// a person typed; here a reader already told us the two values, and
+    /// formatting them into one string to take apart again would lose the first
+    /// id containing the separator. Neither the title nor the url crosses:
+    /// what a flight is CALLED is what a person types or what ingress derives.
+    /// </remarks>
+    public Task<VerbResult> FlyTicketAsync(
+        string provider, string id, CancellationToken cancellationToken = default) =>
+        _commands.FlyAsync(
+            text: null, uri: null, name: null, cancellationToken, provider: provider, id: id);
+
     /// <summary>What this tenant can fly against.</summary>
     /// <remarks>
     /// Not <see cref="AirspaceAsync"/>, which is the topology - envelope names

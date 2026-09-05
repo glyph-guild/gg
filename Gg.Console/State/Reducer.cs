@@ -107,6 +107,46 @@ public static class Reducer
     /// <summary>
     /// Moves the cursor, and marks what it lands on as read.
     /// </summary>
+    /// <summary>
+    /// The detail under the selected row, out of what was already fetched.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rule 3, and the reason the boot loads what it loads.</b> No I/O inside
+    /// a UI session, so an arrow key is this and nothing else: the summary comes
+    /// out of the flight list the boot fetched and the log out of the logs it
+    /// fetched in the loop it was already running.
+    /// </para>
+    /// <para>
+    /// <b>NULL WHEN NOTHING WAS LOADED FOR THIS ROW</b>, rather than leaving the
+    /// previous flight in place. One flight's detail under another flight's name
+    /// is the worst of the three answers, because it is the one a person cannot
+    /// see is wrong.
+    /// </para>
+    /// <para>
+    /// <b>Shared with the loader, which is why it is not private.</b>
+    /// <c>ConsoleStart.LoadAsync</c> had its own copy of this rule that read
+    /// <c>queue[0]</c> - correct at boot, where the cursor is at the top, and
+    /// wrong from the moment step 3 made that method the refresh as well.
+    /// </para>
+    /// </remarks>
+    public static AppState Detail(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Selected is not { } row)
+        {
+            return state with { Flight = null, FlightLog = null };
+        }
+
+        return state with
+        {
+            Flight = state.Flights?.Flights.FirstOrDefault(f =>
+                string.Equals(f.FlightId, row.FlightId, StringComparison.Ordinal)),
+            FlightLog = state.Logs.TryGetValue(row.FlightId, out var log) ? log : null,
+        };
+    }
+
     /// <remarks>
     /// Clamped rather than wrapped: running off the end of a short queue and
     /// arriving at the top is a way to act on the wrong flight while believing
@@ -121,23 +161,11 @@ public static class Reducer
 
         var landed = Math.Clamp(index, 0, state.Queue.Count - 1);
 
-        var row = state.Queue[landed];
-
-        // THE DETAIL FOLLOWS THE SELECTION, out of what the boot loaded. Rule 3:
-        // no I/O inside a UI session, so an arrow key is this and nothing else.
-        //
-        // NULL WHEN NOTHING WAS LOADED FOR THIS ROW, rather than leaving the
-        // previous flight in place. One flight's detail under another flight's
-        // name is the worst of the three answers, because it is the one a person
-        // cannot see is wrong.
-        var moved = state with
+        var moved = Detail(state with
         {
             SelectedRow = landed,
-            Flight = state.Flights?.Flights
-                .FirstOrDefault(f => string.Equals(f.FlightId, row.FlightId, StringComparison.Ordinal)),
-            FlightLog = state.Logs.TryGetValue(row.FlightId, out var log) ? log : null,
             Queue = [.. state.Queue.Select((r, i) => i == landed ? r with { UnreadArrivals = 0 } : r)],
-        };
+        });
 
         // Moving the cursor while the live view is open IS watching the flight
         // you moved to. Counting only the keypress that opened the pane would

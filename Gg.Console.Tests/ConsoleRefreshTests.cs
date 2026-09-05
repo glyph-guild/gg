@@ -241,6 +241,60 @@ public class ConsoleRefreshTests
                    + "re-read.");
     }
 
+    [Test]
+    public async Task A_write_that_came_back_a_refusal_is_still_re_read()
+    {
+        // THE FLAG WAS DECIDED BY MATCHING PROSE, AND THE PROSE MATCHED. A
+        // refused flight comes back from VerbConsoleActions as
+        //
+        //     $"Nothing was opened - {refusal.Message}"
+        //
+        // and the old flag was, literally, "the sentence does not start with
+        // 'Nothing was opened'". So every refusal skipped the re-read.
+        //
+        // WHICH IS WRONG ON THE ONE REFUSAL THAT MATTERS. Expected() catches
+        // HttpRequestException, and a POST that reached the control plane and
+        // then failed on the way back opens a flight and reports that nothing
+        // was opened. A console that declines to re-read there stays wrong
+        // about a flight it created, until somebody presses 'g'.
+        //
+        // A console cannot tell from a sentence whether anything changed. What
+        // it knows is which branch ran.
+        var reload = new Reloads(Booted() with { Queue = [Row("a", 1), Row("b", 2)] });
+        var ui = new Presses(Command.FlyPicked);
+
+        var final = new ConsoleLoop(
+            ui, new NoEditor(), actions: new Refuses(), reload: reload.Load).Run(Browsing());
+
+        await Assert.That(reload.Calls).IsEqualTo(1)
+            .Because("FlyTicket ran, so the branch that opens flights is the branch that ran. "
+                   + "What must NOT decide this is the wording of the answer.");
+        await Assert.That(final.Queue.Count).IsEqualTo(2)
+            .Because("the re-read landed on the model, not merely on a counter.");
+    }
+
+    /// <summary>
+    /// Answers a flight with the refusal <c>VerbConsoleActions</c> really
+    /// composes, opening words and all.
+    /// </summary>
+    private sealed class Refuses : IConsoleActions
+    {
+        public string Decide(string flight, string obligation, bool approved, string? reason) =>
+            "Nothing was decided - the control plane could not be reached.";
+
+        public string Fly(string intent) =>
+            "Nothing was opened - the control plane could not be reached.";
+
+        public string FlyTicket(string provider, string id) =>
+            "Nothing was opened - the control plane could not be reached.";
+
+        public string? AlreadyFlown(string provider, string id) => null;
+
+        public string AddCredential() => "Nothing was registered.";
+
+        public string Invite() => "Nothing was issued.";
+    }
+
     private sealed class Throws
     {
         internal AppState Load(AppState _) =>

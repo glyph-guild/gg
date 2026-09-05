@@ -259,6 +259,24 @@ public class NominateToolLaunchTests
         await Assert.That(hosted.Arguments).IsEquivalentTo(
             new[] { "/app/gg.dll", "runner", "tools" });
 
+        // A FRAMEWORK-DEPENDENT APPHOST IS AN APPHOST, and it is the shape every
+        // test and every walk in this estate runs. `dotnet build` produces
+        // `gg` beside `gg.dll`, and GetCommandLineArgs()[0] is the DLL for both
+        // it and a `dotnet gg.dll` run - so "the dll is the tell" cannot tell
+        // them apart, and this one was answered as though it were hosted. The
+        // command became `gg /path/gg.dll runner tools`, which gg cannot parse.
+        //
+        // WHAT THAT COST, and why it is worth a row of its own: the server did
+        // not start, the agent was never offered the tool, and NOTHING SAID SO.
+        // The transcript's own init line recorded `{"name":"gg","status":
+        // "failed"}` and the runner's log carried not a word. A whole tier was
+        // silently unavailable on every framework-dependent build.
+        var built = SelfInvocation.For("/w/.gg-bin/gg", "/w/.gg-bin/gg.dll");
+        await Assert.That(built!.Command).IsEqualTo("/w/.gg-bin/gg");
+        await Assert.That(built.Arguments).IsEquivalentTo(new[] { "runner", "tools" })
+            .Because("an apphost takes the verb directly whatever its entry assembly is "
+                   + "called. The HOST is the tell: only `dotnet` needs the dll passed to it.");
+
         await Assert.That(SelfInvocation.For(null, null)).IsNull()
             .Because("a process that cannot name its own executable must say so rather than "
                    + "guess, because the guess starts a server that is not this binary.");

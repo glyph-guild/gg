@@ -215,6 +215,54 @@ public class AgainstARealControlPlaneTests
           + "rather than about the console.");
     }
 
+    /// <summary>
+    /// A tenant with TWO rows, so the cursor has somewhere to be but the top.
+    /// </summary>
+    /// <remarks>
+    /// One row cannot show a selection defect: <c>queue[0]</c> and the selected
+    /// row are the same flight, and every assertion about which one was read
+    /// passes either way.
+    /// </remarks>
+    internal static async Task<Seeded> TwoGatedAsync()
+    {
+        var seeded = await SeedAsync(flights: 2);
+
+        foreach (var name in new[] { "widgets", "gadgets" })
+        {
+            var registered = await seeded.Session.PostAsync(
+                "/v1/airspace/repositories",
+                new StringContent(
+                    $"{{\"name\":\"{name}\",\"provider\":\"local\","
+                  + $"\"id\":\"F_{name}01\",\"path\":\"acme/{name}\","
+                  + "\"credential\":\"none\"}",
+                    System.Text.Encoding.UTF8, "application/json"));
+
+            if (registered.StatusCode is not System.Net.HttpStatusCode.Accepted)
+            {
+                throw new InvalidOperationException(
+                    $"registering {name} did not divert to the widening gate: "
+                  + $"{(int)registered.StatusCode} "
+                  + await registered.Content.ReadAsStringAsync());
+            }
+        }
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+            if (booted.Queue.Count >= 2)
+            {
+                return seeded;
+            }
+
+            await Task.Delay(1000);
+        }
+
+        throw new InvalidOperationException(
+            "waited ninety seconds and the queue never reached two rows, so the two widening "
+          + "gates this test opened never both reached the console.");
+    }
+
     private static Seeded? _stranded;
 
     /// <summary>

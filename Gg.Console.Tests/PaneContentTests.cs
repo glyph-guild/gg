@@ -96,4 +96,33 @@ public class PaneContentTests
             .Because("nothing failed in this one, so nothing should be claimed to have. The "
                    + "sentence is for a boot that lost something.");
     }
+
+    [Test]
+    public async Task A_refresh_reads_the_row_the_cursor_is_on()
+    {
+        // THE HALF THAT COULD ONLY BE MEASURED HERE. The boot read `queue[0]`
+        // while the arrow key read the selection, which is invisible until a
+        // queue has two rows AND something re-reads with the cursor moved -
+        // which is what step 3 made every write do.
+        var seeded = await AgainstARealControlPlaneTests.TwoGatedAsync();
+        var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
+
+        await Assert.That(booted.Queue.Count).IsGreaterThanOrEqualTo(2)
+            .Because("one row cannot show a selection defect - both answers are the same "
+                   + "flight.");
+
+        var moved = booted with { SelectedRow = 1 };
+        var refreshed = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal, moved);
+
+        await Assert.That(refreshed.SelectedRow).IsEqualTo(1)
+            .Because("the cursor is the person's and a refresh does not move it.");
+        await Assert.That(refreshed.Flight).IsNotNull();
+        await Assert.That(refreshed.Flight!.FlightId).IsEqualTo(refreshed.Selected!.FlightId)
+            .Because("the flight pane shows the flight the queue's cursor is on. It showed "
+                   + "the top row's flight under the selected row's name, which is the one "
+                   + "wrong answer a person cannot see is wrong.");
+        await Assert.That(refreshed.FlightLog!.FlightNumber)
+            .IsEqualTo(refreshed.Selected!.FlightNumber)
+            .Because("and its log with it.");
+    }
 }

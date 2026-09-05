@@ -13,8 +13,85 @@ public sealed class ConsoleLoop(
     IHandSession? hand = null,
     IConsoleActions? actions = null,
     LiveTails? tails = null,
-    IWorkBrowser? browser = null)
+    IWorkBrowser? browser = null,
+    Func<AppState, AppState>? reload = null)
 {
+    /// <summary>
+    /// Re-reads everything the boot read, keeping what the person was looking
+    /// at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A delegate rather than a data port</b>, which is the same shape the
+    /// takeover already uses: the loop is handed something it can call, and
+    /// what that call does is the composition root's business. A ConsoleData
+    /// here would put a read surface inside the loop's type, one step from
+    /// putting one inside a session.
+    /// </para>
+    /// <para>
+    /// <b>The view is not data.</b> A reload answers with fresh flights, gates
+    /// and logs; which row somebody had highlighted and which panes they had
+    /// open are theirs, and losing them on every refresh makes the key not
+    /// worth pressing.
+    /// </para>
+    /// <para>
+    /// <b>And a failure keeps the last good model.</b> Emptying the screen is
+    /// the worst answer: the person loses what they had and cannot tell whether
+    /// the work went away. What was there is still true until something better
+    /// is known - said, with the diagnosis, rather than shown as an absence.
+    /// </para>
+    /// </remarks>
+    /// <param name="asked">
+    /// Whether a person pressed the key, as against a write re-reading what it
+    /// invalidated.
+    /// </param>
+    /// <remarks>
+    /// <b>An unconfigured refresh is only worth saying when somebody asked for
+    /// one.</b> A console built without a reload still opens flights and answers
+    /// gates; telling it "this console is not configured to refresh" after every
+    /// write would be answering a question nobody put, and it would attach a
+    /// diagnosis to a write that succeeded. The round-trip suite caught exactly
+    /// that.
+    /// </remarks>
+    private static AppState Reloaded(
+        AppState state, Func<AppState, AppState>? reload, bool asked = true)
+    {
+        if (reload is null)
+        {
+            // SAID, not silent - but only to the person who asked. A bound key
+            // that resolves, reaches its arm and returns the state unchanged is
+            // the dead-key shape this console has hit four times.
+            return asked
+                ? state with { Diagnosis = "This console is not configured to refresh." }
+                : state;
+        }
+
+        try
+        {
+            var fresh = reload(state);
+
+            return fresh with
+            {
+                Mode = state.Mode,
+                FocusedPane = state.FocusedPane,
+                SelectedRow = state.SelectedRow,
+                EvidenceVisible = state.EvidenceVisible,
+                LiveVisible = state.LiveVisible,
+                Frozen = state.Frozen,
+            };
+        }
+        catch (Exception failure) when (failure is Gg.Client.NotSignedInException
+                                            or Gg.Client.ProtocolTooOldException
+                                            or Gg.Client.FlightNotFoundException
+                                            or HttpRequestException)
+        {
+            return state with
+            {
+                Diagnosis = "Refresh failed, so this is what was last known: " + failure.Message,
+            };
+        }
+    }
+
     public AppState Run(AppState initial)
     {
         var state = initial;
@@ -32,6 +109,10 @@ public sealed class ConsoleLoop(
                 case Command.Quit:
                     return state;
 
+                case Command.Refresh:
+                    state = Reloaded(state, reload);
+                    break;
+
                 case Command.HandBack:
                     // The same shape again: the session ends, an agent reads the
                     // tree, a person answers, and the model is the only thing
@@ -40,7 +121,10 @@ public sealed class ConsoleLoop(
                     break;
 
                 case Command.OpenFlight:
-                    state = Opened(state, actions, editor);
+                    // AND THEN RE-READ. Rule 4: a flight opened is a flight the
+                    // queue does not have yet, and a Last* sentence is a receipt
+                    // rather than a substitute for the state changing.
+                    state = Reloaded(Opened(state, actions, editor), reload, asked: false);
                     break;
 
                 case Command.AddCredential:
@@ -100,8 +184,14 @@ public sealed class ConsoleLoop(
                     // and what closes the modal is what the control plane sends back.
                     // That was right and the loop never saw the command, so nothing
                     // posted at all - the console had no write path.
-                    state = Decided(
-                        state, actions, editor, outcome.Exit == Command.ApproveGate);
+                    // AND THEN RE-READ, which is rule 4 and the staleness a
+                    // person actually sees: answer a gate and it stayed in the
+                    // list, because nothing reloaded. A decision changes what is
+                    // waiting, so what is waiting is read again.
+                    state = Reloaded(
+                        Decided(state, actions, editor, outcome.Exit == Command.ApproveGate),
+                        reload,
+                        asked: false);
                     break;
 
                 case Command.TakeFlight:

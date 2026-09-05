@@ -306,4 +306,70 @@ public class ALinkIsCheckedBeforeAnythingIsFetchedTests
             .Because("the provider is what ReaderFor matches, and a link that names none reaches "
                    + "the agent with no tracker tool at all.");
     }
+
+    // ---- the local provider, whose declaration is not a host at all ----
+
+    private static IReadOnlyList<HostDeclaration> Declaring(string raw) =>
+        [.. HostDeclaration.ParseAll(raw, "GG_VCS_HOSTS")];
+
+    [Test]
+    public async Task A_filesystem_root_is_not_refused_for_not_being_a_hostname()
+    {
+        // THE CATEGORY ERROR. GG_VCS_HOSTS carries two different things under
+        // one field: for a forge, Host is a HOSTNAME and this check is exactly
+        // right; for the `local` provider, HttpsGitVcsAdapter passes the very
+        // same value to LocalVcsAdapter as its FILESYSTEM ROOT. Comparing a
+        // link's host to a path can never match, so every link-shaped flight
+        // against a local repository was refused before anything was fetched -
+        // and the refusal told an operator to declare a host they had already
+        // declared.
+        //
+        // Found by slice twenty-five's walk, which needs a bare repository on
+        // disk and a link-shaped intent; the control plane will only attach a
+        // repository from an http(s) uri, so the two rules had no overlap.
+        // resume-two-hosts-e2e.sh is configured the same way and cannot have
+        // worked since this check landed.
+        var refusal = HostDeclaration.Unserved(
+            "local",
+            "https://forge.example/acme/invoices/tree/main",
+            Declaring("local=/srv/repos"));
+
+        await Assert.That(refusal).IsNull()
+            .Because("a filesystem root is not a claim about a host, so there is nothing here "
+                   + "to disagree with the link about. It said: " + refusal);
+    }
+
+    [Test]
+    public async Task A_forge_at_the_wrong_host_is_still_refused()
+    {
+        // THE LIVENESS TWIN, and it is the whole reason the carve-out is keyed
+        // on the provider rather than on "does this look like a path". A rule
+        // that exempted anything path-shaped would exempt a forge declared with
+        // an organisation prefix, which is the case this check was built for.
+        var refusal = HostDeclaration.Unserved(
+            "forge",
+            "https://anywhere.invalid/acme/widgets/tree/main",
+            Declaring("forge=forge.invalid/acme"));
+
+        await Assert.That(refusal).IsNotNull()
+            .Because("a link that merely shares a path with something registered is not a link "
+                   + "to it, and that is untouched.");
+        await Assert.That(refusal!).Contains("anywhere.invalid");
+    }
+
+    [Test]
+    public async Task The_local_carve_out_is_the_provider_the_adapter_actually_reads_as_a_root()
+    {
+        // NAMED FROM THE ADAPTER, never spelled twice. The carve-out is only
+        // correct for the provider whose declaration HttpsGitVcsAdapter hands
+        // to LocalVcsAdapter as a root; if that key ever changes, this test is
+        // what makes the exemption move with it rather than quietly cover the
+        // wrong provider.
+        var refusal = HostDeclaration.Unserved(
+            LocalVcsAdapter.ProviderKey,
+            "https://forge.example/acme/invoices/tree/main",
+            Declaring($"{LocalVcsAdapter.ProviderKey}=/srv/repos"));
+
+        await Assert.That(refusal).IsNull();
+    }
 }

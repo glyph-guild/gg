@@ -270,4 +270,84 @@ public class WiqlWorkItemSourceTests
         await Assert.That(seen.Seen[0].Uri.ToString()).StartsWith(Host)
             .Because("whatever host the deployment named is the host that is read.");
     }
+
+    [Test]
+    public async Task A_page_is_ordered_the_way_the_query_asked()
+    {
+        // FOUND AGAINST THE LIVE TRACKER, AND NO STUB WOULD HAVE FOUND IT. The
+        // query orders by changed date; the batch read answers in its own order
+        // - id ascending, as it happens - and returning that discards the sort
+        // the query existed to apply. Every test here passed because each stub
+        // answered in the order its author wrote the rows in.
+        var (source, _) = SourceThatAnswers(request =>
+            request.Method == HttpMethod.Post
+                ? Json("""{"workItems":[{"id":30},{"id":10},{"id":20}]}""")
+                // Answered lowest id first, which is not what was asked for.
+                : Json("""
+                    {"value":[
+                      {"id":10,"fields":{"System.Title":"Ten"}},
+                      {"id":20,"fields":{"System.Title":"Twenty"}},
+                      {"id":30,"fields":{"System.Title":"Thirty"}}
+                    ]}
+                    """));
+
+        var page = await source.BrowseAsync(cursor: null, limit: 50);
+
+        // JOINED, BECAUSE IsEquivalentTo DOES NOT LOOK AT ORDER. This assertion
+        // was written that way first and passed against the defect it was
+        // written for, which is the same lesson one layer up: a check that
+        // cannot see the thing it is checking reports success.
+        await Assert.That(string.Join(",", page.Items.Select(i => i.Id)))
+            .IsEqualTo("30,10,20")
+            .Because("the query said which order this list is in, and it is the only thing "
+                   + "that did - a person browsing sees whatever comes back first.");
+    }
+
+    [Test]
+    public async Task An_item_the_batch_did_not_answer_for_is_dropped_rather_than_faked()
+    {
+        // A tracker that answers for two of three ids has told us something
+        // about the third - most likely that it moved out of scope between the
+        // query and the read. An empty row in the list would be worse.
+        var (source, _) = SourceThatAnswers(request =>
+            request.Method == HttpMethod.Post
+                ? Json("""{"workItems":[{"id":10},{"id":20}]}""")
+                : Json("""{"value":[{"id":20,"fields":{"System.Title":"Twenty"}}]}"""));
+
+        var page = await source.BrowseAsync(cursor: null, limit: 50);
+
+        await Assert.That(page.Items).Count().IsEqualTo(1);
+        await Assert.That(page.Items[0].Id).IsEqualTo("20");
+    }
+
+    [Test]
+    public async Task A_comparison_in_prose_is_not_mistaken_for_markup()
+    {
+        // THE LIVE TRACKER ANSWERS MARKDOWN, not html, for at least some items.
+        // A strip that eats everything between < and > deletes the rest of the
+        // sentence after "if x < y", silently, and hands the agent prose with a
+        // hole in it. Only something that looks like a TAG is a tag.
+        var (source, _) = SourceThatAnswers(_ => Json("""
+            {"id":26,"fields":{"System.Description":"Fails when x < y and n > 0."}}
+            """));
+
+        var item = await source.ReadAsync("26");
+
+        await Assert.That(item!.Description).IsEqualTo("Fails when x < y and n > 0.");
+    }
+
+    [Test]
+    public async Task Markup_around_prose_is_still_stripped()
+    {
+        // THE ANCHOR FOR THE TEST ABOVE. Loosening what counts as a tag must
+        // not quietly stop stripping the tags that are there.
+        var (source, _) = SourceThatAnswers(_ => Json("""
+            {"id":26,"fields":{"System.Description":"<div>It <b>drops</b> it.</div>"}}
+            """));
+
+        var item = await source.ReadAsync("26");
+
+        await Assert.That(item!.Description).DoesNotContain("<");
+        await Assert.That(item.Description).Contains("drops");
+    }
 }

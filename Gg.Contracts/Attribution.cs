@@ -223,7 +223,21 @@ public sealed record ObligationAttribution
     /// member serves none, and an empty history renders as nothing rather
     /// than as a claim about times nobody recorded.
     /// </remarks>
-    public IReadOnlyList<AttachmentTransition> Transitions { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; the remark above already said so and the
+    /// declaration did not keep it, which is how this reached a reader; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<AttachmentTransition> Transitions
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(ObligationAttribution attribution)

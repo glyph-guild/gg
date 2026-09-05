@@ -406,7 +406,20 @@ public sealed record FlightSummary
     /// them. Empty for a flight created under an envelope that selects nothing
     /// - which is every flight created before selections existed.
     /// </summary>
-    public IReadOnlyList<string> RequiredLabels { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<string> RequiredLabels
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>
     /// Why this flight cannot start, by name - or null when it is not waiting.
@@ -568,7 +581,20 @@ public sealed record RunnerSummary
     /// runner that advertises nothing - which is every runner registered
     /// before labels were persisted.
     /// </remarks>
-    public IReadOnlyList<AdvertisedLabel> Labels { get; init; } = [];
+    /// <remarks>
+    /// <b>The accessor delivers that, and the initializer does not.</b> Every
+    /// serialized contract type has a required member, so System.Text.Json
+    /// builds it through the parameterized creator, which assigns every member
+    /// from its argument array - this one as null when the key is absent,
+    /// overwriting the <c>= []</c>. Non-nullable is a promise to every caller
+    /// that it can be dereferenced; <c>AbsentCollectionsSurviveTheWireTests</c>
+    /// holds it for the whole contract.
+    /// </remarks>
+    public IReadOnlyList<AdvertisedLabel> Labels
+    {
+        get => field ?? [];
+        init;
+    } = [];
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

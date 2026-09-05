@@ -247,6 +247,77 @@ public static class Reducer
     /// answer to what you just did.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What a reader answered, as the pane will draw it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not a <c>Command</c>, for <c>StreamArrived</c>'s reason.</b> No
+    /// keystroke caused this: a browse came back. Data that arrives from
+    /// outside enters the model through its own door.
+    /// </para>
+    /// <para>
+    /// <b>THE ONE PLACE FIVE ENDINGS BECOME A LISTING.</b> Every
+    /// <see cref="BrowseOutcome"/> maps, and the switch is exhaustive on
+    /// purpose - an outcome added without a mapping would arrive as a null
+    /// <c>Browse</c>, which the pane renders as "no tracker is configured",
+    /// the single most misleading sentence available. So the fallback is the
+    /// outcome's own type name rather than silence: wrong, but loudly.
+    /// </para>
+    /// <para>
+    /// <b>Replaces rather than appends.</b> A page is a page, not a log:
+    /// appending would grow the state without bound while a person paged, and
+    /// show them rows they had already scrolled past.
+    /// </para>
+    /// <para>
+    /// <b>Nothing else moves.</b> A background answer that reset the selection
+    /// or the focused pane would lose a person their place for a fetch they did
+    /// not ask about.
+    /// </para>
+    /// </remarks>
+    public static AppState Browsed(AppState state, string providerKey, BrowseOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(outcome);
+
+        return state with
+        {
+            Browse = outcome switch
+            {
+                BrowseOutcome.Listed listed => new BrowseListing
+                {
+                    ProviderKey = providerKey,
+                    // NO URL. A flight is opened from a provider and an id,
+                    // never parsed out of a url, so carrying one would put a
+                    // customer string in the dump that no reader of the screen
+                    // asked for.
+                    Items = [.. listed.Page.Items.Select(item => new BrowseRow
+                    {
+                        Id = item.Id,
+                        Title = item.Title,
+                        State = item.State,
+                        Updated = item.Updated,
+                    })],
+                    NextCursor = listed.Page.NextCursor,
+                },
+
+                BrowseOutcome.NotBrowsable why => Absent(providerKey, why.Why),
+                BrowseOutcome.Refused why => Absent(providerKey, why.Why),
+                BrowseOutcome.Unintelligible why => Absent(providerKey, why.Why),
+                BrowseOutcome.Silent why => Absent(providerKey, why.Why),
+
+                _ => Absent(providerKey,
+                    $"The reader for '{providerKey}' answered in a way this console does not "
+                  + $"have a sentence for ({outcome.GetType().Name}). That is a gap here, not "
+                  + "a problem with the tracker."),
+            },
+        };
+    }
+
+    /// <summary>A tracker that was asked and did not answer with work.</summary>
+    private static BrowseListing Absent(string providerKey, string why) =>
+        new() { ProviderKey = providerKey, Absence = why };
+
     public static AppState Arrived(AppState state, QueueRow row, bool startedByMe)
     {
         ArgumentNullException.ThrowIfNull(state);

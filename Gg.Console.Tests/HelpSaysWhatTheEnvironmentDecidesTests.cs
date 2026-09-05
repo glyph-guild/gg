@@ -147,3 +147,167 @@ public class HelpSaysWhatTheEnvironmentDecidesTests
         await Assert.That(page).Contains("was not told");
     }
 }
+
+/// <summary>
+/// The key that turns the help page is bound to something.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>THE DEFECT THIS FILE SHIPPED WITH.</b> Every test in
+/// <see cref="HelpSaysWhatTheEnvironmentDecidesTests"/> calls
+/// <c>Reducer.Reduce(state, Command.FocusNextPane)</c> directly. The reducer arm
+/// worked, the pane rendered, and the keys page advertised <i>"tab: what this
+/// machine's environment decides"</i> — while <c>UiMode.Help</c> bound only
+/// <c>Esc</c>, so <c>tab</c> resolved to null and the arm was unreachable from a
+/// keyboard.
+/// </para>
+/// <para>
+/// <b>Nine passing tests, one layer below the break.</b> That is the shape worth
+/// remembering: a feature can be correct at the level you tested and absent at
+/// the level a person uses. The fix is one binding; the lesson is that a
+/// reducer test is not a key test.
+/// </para>
+/// <para>
+/// <b>And it is the dead-key shape by name</b> — a key advertised in a hint line
+/// that does nothing, which <c>ShellHandledTests</c> exists for one layer up.
+/// This one escaped because the advertisement was a literal in the pane text
+/// rather than a <c>KeyBinding</c>, so nothing derived it from the bindings.
+/// </para>
+/// </remarks>
+public class TheHelpTabIsActuallyBoundTests
+{
+    [Test]
+    public async Task Tab_resolves_to_something_while_help_is_open()
+    {
+        await Assert.That(Keymap.Resolve(KeyStroke.TabKey, new KeymapContext(UiMode.Help)))
+            .IsEqualTo(Command.FocusNextPane)
+            .Because("the keys page tells a person to press it.");
+    }
+
+    [Test]
+    public async Task Pressing_it_turns_the_page_through_the_whole_path()
+    {
+        // KEY TO TEXT, not reducer to text. The path the earlier tests skipped.
+        var help = Reducer.Reduce(new AppState(), Command.ToggleHelp);
+        var command = Keymap.Resolve(KeyStroke.TabKey, new KeymapContext(help.Mode));
+
+        await Assert.That(command).IsNotNull();
+
+        var turned = Reducer.Reduce(help, command!.Value);
+
+        await Assert.That(turned.HelpPage).IsEqualTo(HelpPage.Environment);
+    }
+
+    [Test]
+    public async Task Every_key_the_help_page_names_in_prose_actually_resolves()
+    {
+        // THE RATCHET. The advertisement was a literal in the pane text, so no
+        // binding derived it and nothing noticed it pointed at nothing. Any
+        // future "press x to ..." in this pane has to be a key that works.
+        var keys = PaneText.Modal(Reducer.Reduce(new AppState(), Command.ToggleHelp));
+
+        foreach (var named in System.Text.RegularExpressions.Regex
+            .Matches(keys, @"^\s{2}(tab|esc|[a-z]):", System.Text.RegularExpressions.RegexOptions.Multiline)
+            .Select(m => m.Groups[1].Value))
+        {
+            var stroke = named switch
+            {
+                "tab" => KeyStroke.TabKey,
+                "esc" => KeyStroke.Esc,
+                _ => KeyStroke.Char(named[0]),
+            };
+
+            await Assert.That(Keymap.Resolve(stroke, new KeymapContext(UiMode.Help)))
+                .IsNotNull()
+                .Because($"the help page tells a person to press '{named}' and it must do "
+                       + "something. A key advertised and bound to nothing is the shape "
+                       + "ShellHandledTests exists for.");
+        }
+    }
+
+    [Test]
+    public async Task Esc_still_closes_help_now_that_tab_is_bound()
+    {
+        await Assert.That(Keymap.Resolve(KeyStroke.Esc, new KeymapContext(UiMode.Help)))
+            .IsEqualTo(Command.CloseModal);
+    }
+}
+
+/// <summary>
+/// The help modal shows its tabs.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A SECOND PAGE NOBODY CAN SEE IS A SECOND PAGE NOBODY OPENS.</b> The first
+/// version of this feature had a keystroke and a line of prose telling a person
+/// to press it, which is a worse thing than a tab: it asks them to read an
+/// instruction and remember it, where a tab bar shows both pages at once and
+/// says which one they are on.
+/// </para>
+/// <para>
+/// <b>Rendered as text, like every other pane here.</b> The modal body is a
+/// Label fed by <see cref="PaneText"/>; a Terminal.Gui TabView would put the
+/// state of which page is showing in a widget, where nothing can assert it and
+/// the state dump cannot reproduce it.
+/// </para>
+/// </remarks>
+public class TheHelpModalShowsItsTabsTests
+{
+    private static AppState Helping() => Reducer.Reduce(new AppState(), Command.ToggleHelp);
+
+    [Test]
+    public async Task Both_tabs_are_visible_from_either_page()
+    {
+        foreach (var state in (AppState[])[Helping(), Reducer.Reduce(Helping(), Command.FocusNextPane)])
+        {
+            var text = PaneText.Modal(state);
+
+            await Assert.That(text).Contains("Keys");
+            await Assert.That(text).Contains("Environment")
+                .Because("a person has to see that the other page exists without pressing anything.");
+        }
+    }
+
+    [Test]
+    public async Task The_tab_you_are_on_is_marked_and_the_other_is_not()
+    {
+        var keys = PaneText.Modal(Helping());
+        var environment = PaneText.Modal(Reducer.Reduce(Helping(), Command.FocusNextPane));
+
+        await Assert.That(keys).Contains("[ Keys ]");
+        await Assert.That(keys).DoesNotContain("[ Environment ]");
+
+        await Assert.That(environment).Contains("[ Environment ]");
+        await Assert.That(environment).DoesNotContain("[ Keys ]")
+            .Because("two tabs marked as current is a tab bar that says nothing.");
+    }
+
+    [Test]
+    public async Task The_tab_bar_is_the_first_thing_in_the_modal()
+    {
+        // Below the content it is a footer, and a person reads the page before
+        // learning there was another one.
+        var first = PaneText.Modal(Helping()).Split('\n')[0];
+
+        await Assert.That(first).Contains("Keys");
+        await Assert.That(first).Contains("Environment");
+    }
+
+    [Test]
+    public async Task The_bar_says_how_to_move_between_them()
+    {
+        // Tabs a person cannot work out how to change are decoration.
+        await Assert.That(PaneText.Modal(Helping())).Contains("tab");
+    }
+
+    [Test]
+    public async Task The_keys_page_no_longer_explains_the_other_page_in_prose()
+    {
+        // THE THING THE TAB BAR REPLACES. A sentence saying "tab: what this
+        // machine's environment decides" is an instruction to remember; the bar
+        // is the same fact, visible, and it cannot point at a page that is not
+        // there.
+        await Assert.That(PaneText.Modal(Helping()))
+            .DoesNotContain("what this machine's environment decides");
+    }
+}

@@ -798,7 +798,35 @@ public static class PaneText
     /// the hint line, and the one people read when they are already confused.
     /// </remarks>
     private static string Help(AppState state) =>
-        state.HelpPage == HelpPage.Environment ? HelpEnvironment(state) : HelpKeys(state);
+        Tabs(state.HelpPage) + "\n\n"
+        + (state.HelpPage == HelpPage.Environment ? HelpEnvironment(state) : HelpKeys(state));
+
+    /// <summary>
+    /// The tab bar, marking the page a person is on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A SECOND PAGE NOBODY CAN SEE IS A SECOND PAGE NOBODY OPENS.</b> This
+    /// replaced a line of prose telling a person which key to press, which is
+    /// strictly worse: it asks them to read an instruction and remember it,
+    /// where a bar shows both pages at once and says which one they are on.
+    /// </para>
+    /// <para>
+    /// <b>Text, like every other pane here.</b> A Terminal.Gui TabView would put
+    /// "which page is showing" inside a widget, where no test can assert it and
+    /// the state dump cannot reproduce it. <c>HelpPage</c> is in the model and
+    /// this renders it.
+    /// </para>
+    /// </remarks>
+    private static string Tabs(HelpPage page)
+    {
+        var keys = page == HelpPage.Keys ? "[ Keys ]" : "  Keys  ";
+        var environment = page == HelpPage.Environment ? "[ Environment ]" : "  Environment  ";
+
+        // The key is named on the bar rather than in a sentence below it: tabs
+        // a person cannot work out how to change are decoration.
+        return $"  {keys}  {environment}      tab";
+    }
 
     /// <summary>
     /// What this machine is configured to do, and what decides it.
@@ -819,8 +847,6 @@ public static class PaneText
     private static string HelpEnvironment(AppState state)
     {
         var text = new StringBuilder();
-        text.AppendLine("  environment — tab for keys");
-        text.AppendLine();
 
         if (state.Settings.Count == 0)
         {
@@ -838,6 +864,10 @@ public static class PaneText
                 ? $"      = {Clean(value)}"
                 : "      not set");
             text.AppendLine($"      {Clean(setting.Why)}");
+
+            // A BLANK LINE BETWEEN THEM. Ten variables at three lines each is a
+            // wall, and a wall is read as one thing rather than ten.
+            text.AppendLine();
         }
 
         return text.ToString().TrimEnd();
@@ -857,7 +887,6 @@ public static class PaneText
         text.AppendLine($"  queue order: {QueueSort.Default.Name}");
 
         // A SECOND PAGE NOBODY IS TOLD ABOUT IS A SECOND PAGE NOBODY FINDS.
-        text.AppendLine("  tab: what this machine's environment decides");
         return text.ToString().TrimEnd();
     }
 

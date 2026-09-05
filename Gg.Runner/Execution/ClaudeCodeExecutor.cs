@@ -155,7 +155,20 @@ public sealed class ClaudeCodeExecutor(
             // on it forever in a runner with nothing to type.
             process.StandardInput.Close();
 
-            await ReadAsync(process, transcript, moves, request.Live, budget.Token);
+            if (await ReadAsync(process, transcript, moves, request.Live, budget.Token)
+                is { } unstarted)
+            {
+                // A DECLARED CAPABILITY GAP, answered, rather than a flight that
+                // runs blind. The transcript is kept: the init line naming the
+                // server is the evidence for the diagnosis, and it is the only
+                // place that failure was ever written down.
+                Stop(process);
+                return await WithTranscriptAsync(
+                    ExecutorRun.Failed(
+                        request.LoopId, unstarted, attempts: 0, started.Elapsed, movesUsed: []),
+                    request, transcript, cancellationToken);
+            }
+
             await process.WaitForExitAsync(budget.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -648,13 +661,30 @@ public sealed class ClaudeCodeExecutor(
     /// happened, and silently dropping part of it would make the hash describe
     /// something nobody can reconstruct.
     /// </remarks>
-    private static async Task ReadAsync(
+    private static async Task<string?> ReadAsync(
         Process process, StringBuilder transcript, List<string> moves,
         LiveStream? live, CancellationToken cancellationToken)
     {
+        string? unstarted = null;
+
         while (await process.StandardOutput.ReadLineAsync(cancellationToken) is { } line)
         {
             transcript.Append(line).Append('\n');
+
+            // A SERVER THAT DID NOT COME UP, from the only line that says so.
+            // Checked on every line rather than only the first: the init record
+            // is first in practice and this function promises nothing about
+            // ordering, and a line that is not it answers null. The transcript
+            // keeps the line either way - the refusal is evidence too.
+            unstarted ??= ToolServers.Unstarted(line);
+
+            if (unstarted is not null)
+            {
+                // STOP READING. The caller ends the process; carrying on would
+                // let the agent spend turns this launch has already decided to
+                // refuse.
+                return unstarted;
+            }
 
             try
             {
@@ -695,6 +725,8 @@ public sealed class ClaudeCodeExecutor(
                 live?.Append(LiveLineKinds.Raw, line);
             }
         }
+
+        return null;
     }
 
     /// <summary>

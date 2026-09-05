@@ -345,8 +345,15 @@ public class EnvelopeOperatorTests
     {
         await Assert.That(Roles.All)
             .IsEquivalentTo((string[])[Roles.Root, Roles.WorkKind, Roles.Narrowing, Roles.Strategy]);
+        // APPEND IS THE ONE MEMBER FOR WHICH ROLE ORDER MATTERS, and this
+        // test's name is about Roles.All being closed rather than about the
+        // operators being order-free. Said here because the name reads like a
+        // prohibition on ranking and is not one: `append` ranks root before a
+        // work kind deliberately, which is safe only because layer order is
+        // already total and meaningful. Every other operator remains
+        // commutative, and adding one that is not was a decision.
         await Assert.That(MergeOperators.All).IsEquivalentTo((string[])
             [MergeOperators.RootOnly, MergeOperators.WorkKindOnly, MergeOperators.Intersect,
-             MergeOperators.Min, MergeOperators.Union, "and"]);
+             MergeOperators.Min, MergeOperators.Union, "and", "append"]);
     }
 }

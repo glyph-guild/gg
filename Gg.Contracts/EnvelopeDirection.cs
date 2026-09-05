@@ -74,6 +74,25 @@ public static class EnvelopeDirection
         MergeOperators.Min,
         MergeOperators.Union,
         MergeOperators.And,
+
+        // APPEND ORDERS, AND THE ANSWER IS "NEVER A WIDENING" — declared here
+        // rather than reached by default, because the default is widening and
+        // a field that took it by accident would demand a gate for every
+        // wording change.
+        //
+        // The reason it can be declared safely: instructions are text an agent
+        // READS, and reading changes no bound. They cannot enlarge a scope,
+        // grant a move, raise a budget or add a destination — the manifest
+        // check decides those, and rule 5 makes that a disposition the prompt
+        // states rather than something the text can move. So an envelope that
+        // adds, edits or removes a block is at-or-below the one before it on
+        // every governed quantity, which is what this comparator asks.
+        //
+        // What that costs, said out loud: a tenant can change standing
+        // guidance without the widening gate. That is the same latitude they
+        // already have over a flight's intent and a rejection reason, and
+        // unlike those two the envelope is reviewed, versioned and attributed.
+        MergeOperators.Append,
     };
 
     static EnvelopeDirection()

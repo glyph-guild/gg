@@ -1091,8 +1091,9 @@ public static class ProtocolSurface
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
             [typeof(Destination)] = ["id", "kind", "requires", "preserveUnadmitted", "opens"],
             [typeof(Envelope)] =
-                ["context", "obligations", "loops", "destinations", "environment", "repository",
-                 "accepts", "produces"],
+                ["context", "obligations", "instructions", "loops", "destinations", "environment",
+                 "repository", "accepts", "produces"],
+            [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed", "widens", "flight", "awaiting"],
             [typeof(ProtocolHello)] = ["protocolVersion", "component", "componentVersion"],

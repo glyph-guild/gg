@@ -119,6 +119,16 @@ public static class EnvelopeText
             Sequence(text, "produces", produces, depth: 0);
         }
 
+        // STANDING GUIDANCE, WRITTEN ONLY WHEN THERE IS SOME. Unlike `accepts`,
+        // an empty list means nothing an absence does not: there is no such
+        // thing as a document declaring "no instructions on purpose". So empty
+        // and missing collapse deliberately here, which is what keeps every
+        // envelope written before this field rendering byte-for-byte unchanged.
+        if (envelope.Instructions.Count > 0)
+        {
+            Sequence(text, "instructions", [.. envelope.Instructions.Select(i => i.Text)], depth: 0);
+        }
+
         text.Append("obligations:\n");
 
         // BY ID, ORDINAL, AND SAID SO. The emitter used to iterate the collection

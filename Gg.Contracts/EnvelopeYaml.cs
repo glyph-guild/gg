@@ -502,8 +502,8 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "context", "environment", "repository", "accepts", "produces", "obligations",
-               "loops", "destinations");
+        Closed(root, BasedOnKey, "context", "environment", "repository", "accepts", "produces",
+               "instructions", "obligations", "loops", "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
@@ -538,6 +538,19 @@ public static class EnvelopeYaml
             Produces = root.Entries.TryGetValue("produces", out var produces)
                 ? Strings(produces, "produces")
                 : null,
+            // PROVENANCE IS NOT READ BACK, because a document does not get to
+            // say where it came from - the composer assigns it, exactly as it
+            // does for an obligation. A block is a line of text and nothing
+            // else, which is why this is Strings and not a map.
+            //
+            // Absence and emptiness collapse here on purpose, unlike `accepts`:
+            // there is no such thing as a document declaring "no instructions,
+            // deliberately", so both read back as an empty list and every
+            // envelope written before this field round-trips unchanged.
+            Instructions = root.Entries.TryGetValue("instructions", out var instructions)
+                ? [.. Strings(instructions, "instructions")
+                    .Select(text => new EnvelopeInstruction { Text = text })]
+                : [],
             Obligations = [.. Named(root, "obligations").Select(MapObligation)],
             Loops = [.. Named(root, "loops").Select(MapLoop)],
             Destinations = [.. Named(root, "destinations").Select(MapDestination)],

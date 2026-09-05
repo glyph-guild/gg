@@ -241,6 +241,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Envelope.Context), nameof(Envelope.Environment), nameof(Envelope.Repository),
             nameof(Envelope.Accepts), nameof(Envelope.Produces),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
+            nameof(Envelope.Instructions),
             nameof(ContextBinding.Scope), nameof(ContextBinding.Constitution),
             nameof(Obligation.Id), nameof(Obligation.Check), nameof(Obligation.When),
             nameof(Obligation.Rule), nameof(Obligation.Approver), nameof(Obligation.Evidence),

@@ -225,6 +225,35 @@ public static class EnvelopeComposition
             }
         }
 
+        // THE INSTRUCTIONS, APPENDED IN LAYER ORDER. Not name order, unlike the
+        // obligations above: for those the sequence is arbitrary and sorting by
+        // name only buys byte-stability, while here the order IS the content.
+        // Root's guidance is written to be read first and a work kind's to be
+        // read after it, so ranking by role is the semantics rather than a
+        // tie-break — and name order within a rank keeps two callers composing
+        // the same layers to the same bytes, which the pin's digest needs.
+        //
+        // Only full documents contribute. A narrowing has no such member and
+        // will not get one: it declares what it ADDS, and text is not that.
+        var instructions = new List<EnvelopeInstruction>();
+
+        foreach (var layer in layers
+            .Where(l => l.Document is not null)
+            .OrderBy(l => InstructionRank(l.Role))
+            .ThenBy(l => l.Name, StringComparer.Ordinal))
+        {
+            foreach (var instruction in layer.Document!.Instructions)
+            {
+                // ASSIGNED FROM WHERE THE DOCUMENT SAT, exactly as an
+                // obligation's is. Guidance whose source a person cannot find
+                // is guidance nobody can change.
+                instructions.Add(instruction with
+                {
+                    Provenance = new ObligationProvenance { Role = layer.Role, Name = layer.Name },
+                });
+            }
+        }
+
         // THE ROOT-ONLY FIELDS AND THE MEETS, from the table. Only full
         // envelopes carry them - a narrowing cannot express any of this, which
         // is the strongest form of the operator table.
@@ -322,10 +351,28 @@ public static class EnvelopeComposition
                 Environment = environment,
                 Repository = repository,
                 Obligations = composed,
+                Instructions = instructions,
                 Destinations = destinations,
             },
         };
     }
+
+    /// <summary>
+    /// Where a role sits when instructions are appended.
+    /// </summary>
+    /// <remarks>
+    /// <b>A total order over the roles that can carry text</b>, so appending is
+    /// deterministic. It is the reading order a person expects: the floor's
+    /// standing guidance, then what this kind of work adds to it. An unknown
+    /// role sorts last rather than throwing — a role this table has not learned
+    /// about should not be able to insert itself ahead of root.
+    /// </remarks>
+    private static int InstructionRank(string role) => role switch
+    {
+        Roles.Root => 0,
+        Roles.WorkKind => 1,
+        _ => 2,
+    };
 
     /// <summary>
     /// Whether a lower layer's document may be applied over what is already

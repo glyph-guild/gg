@@ -40,7 +40,7 @@ public class InstructionCompositionTests
         // THE DECLARATION IS THE BINDING. Composition is generic over the
         // operator table, so this is what says instructions accrete rather than
         // being deduplicated into a set.
-        await Assert.That(EnvelopeComposition.Operators["instructions"])
+        await Assert.That(EnvelopeComposition.Operators["Envelope.Instructions"])
             .IsEqualTo(MergeOperators.Append)
             .Because("union would deduplicate two layers that happened to say the same "
                    + "sentence, and drop the one a person wrote second on purpose.");
@@ -139,5 +139,104 @@ public class InstructionCompositionTests
             ?? throw new InvalidOperationException(
                 "These layers were meant to compose. Refused: " + composition.Refused))
             .Instructions;
+    }
+}
+
+/// <summary>
+/// Instructions survive the text form a person edits them in.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A field with no text form is a field nobody can author</b>, and
+/// <c>EnvelopeModelRoundTripTests</c> refuses to let one ship — its ratchet
+/// fired on <c>Envelope.Instructions</c> the moment the member landed, because
+/// <i>"parsed and never rendered shipped twice before nothing forced that
+/// decision"</i>.
+/// </para>
+/// <para>
+/// <b>One line per block, and that is the decision the ratchet forced.</b> A
+/// block is a sentence or two; an author with more to say writes another block.
+/// That reads better in a prompt, diffs better in review, attributes on its own
+/// — and keeps the round trip exact, where a multi-line scalar in a hand-rolled
+/// emitter is where that guarantee usually dies.
+/// </para>
+/// </remarks>
+public class InstructionTextFormTests
+{
+    private static Envelope With(params string[] instructions) => new()
+    {
+        Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
+        Obligations =
+        [
+            new Obligation
+            {
+                Id = "in-scope",
+                Check = ObligationChecks.Machine,
+                Rule = ObligationPredicates.NoFileOutsideScope,
+            },
+        ],
+        Loops =
+        [
+            new Loop
+            {
+                Id = "implement",
+                Executor = ExecutorRungs.Frontier,
+                Discharges = ["in-scope"],
+                Moves = [LoopMoves.Read],
+                Budget = new LoopBudget { WallClock = "30m" },
+                OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+            },
+        ],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "pull-request",
+                Kind = DestinationKinds.PullRequest,
+                Requires = ["in-scope"],
+            },
+        ],
+        Instructions = [.. instructions.Select(text => new EnvelopeInstruction { Text = text })],
+    };
+
+    [Test]
+    public async Task Blocks_round_trip_through_the_text_form_in_order()
+    {
+        var envelope = With("read the ADRs before proposing a schema change",
+                            "for a bug, reproduce it in a test first");
+
+        var read = Authoring.EnvelopeYaml.Parse(EnvelopeText.Render(envelope));
+
+        await Assert.That(read.Envelope).IsNotNull();
+        await Assert.That(read.Envelope!.Instructions.Select(i => i.Text))
+            .IsEquivalentTo(envelope.Instructions.Select(i => i.Text).ToList());
+    }
+
+    [Test]
+    public async Task An_envelope_with_none_renders_exactly_as_it_did_before()
+    {
+        // THE COMPATIBILITY CLAIM, and the reason empty collapses into absent
+        // here rather than being written as `instructions: []` the way
+        // `accepts: []` is. There is no such thing as a document declaring "no
+        // instructions on purpose", so nothing is emitted and every envelope
+        // written before this field is byte-for-byte unchanged.
+        await Assert.That(EnvelopeText.Render(With())).DoesNotContain("instructions");
+    }
+
+    [Test]
+    public async Task A_block_spanning_two_lines_is_refused_rather_than_folded()
+    {
+        // The parser would have to invent a spelling for it, and whatever it
+        // invented would round-trip to something the author did not type.
+        await Assert.That(Envelope.Validate(With("first line\nsecond line"))).IsNotNull();
+    }
+
+    [Test]
+    public async Task Rendering_twice_gives_identical_bytes()
+    {
+        // The canonical-form rule the emitter already follows for obligations.
+        var envelope = With("one", "two");
+
+        await Assert.That(EnvelopeText.Render(envelope)).IsEqualTo(EnvelopeText.Render(envelope));
     }
 }

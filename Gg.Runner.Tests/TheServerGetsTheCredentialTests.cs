@@ -135,4 +135,62 @@ public class TheServerGetsTheCredentialTests
         await Assert.That(() => IntentConfiguration.FromEnvironment("a-tracker=mcp|=local:acme/x"))
             .Throws<InvalidOperationException>();
     }
+
+    /// <summary>
+    /// The property the external path cannot have, and this one can.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE REMAINING HOLE, and this file's own summary line overstates
+    /// today.</b>
+    /// <see cref="The_secret_reaches_the_servers_environment_and_no_argument"/>
+    /// accepts a compromise in its own reason - <i>"even that is a process
+    /// argument - so it must be the only one"</i> - because a server this
+    /// program did not write can be handed a credential no other way. Every
+    /// <c>ps</c> on the host reads that argument, which is the mistake the
+    /// remarks above say already cost this program one rotated credential. So
+    /// "the agent is not given the credential" is true of the environment and
+    /// false of the command line.
+    /// </para>
+    /// <para>
+    /// <b>A reader this binary serves has another way.</b> A locator NAMES a
+    /// credential and is not one, so it can travel in the argument and let the
+    /// child resolve it from the store - the same resolution the runner would
+    /// have done, moved one process along. Nothing is then left for an
+    /// environment block to carry, so the launch writes none and no argument
+    /// holds a secret.
+    /// </para>
+    /// <para>
+    /// <b>Not a replacement for the declaration.</b> A tracker this binary has
+    /// no shape for is still an operator's command with an operator's variable,
+    /// and that path keeps the compromise because there is nothing else it can
+    /// do. What changes is that it stops being the only path, and the
+    /// deployment that has a shape stops paying for the one that does not.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task A_reader_this_binary_serves_puts_no_secret_in_any_argument()
+    {
+        var arguments = ClaudeCodeExecutor.ArgumentsFor(
+            ARequest(),
+            [IntentConfiguration.Served(
+                "a-tracker",
+                host: "https://tracker.example/acme",
+                locator: "local:acme/board",
+                self: SelfInvocation.For("/usr/local/bin/gg", "/usr/local/bin/gg")!)],
+            secret: "the-secret");
+
+        await Assert.That(arguments.Any(a => a.Contains("the-secret", StringComparison.Ordinal)))
+            .IsFalse()
+            .Because("a served reader resolves its own credential, so there is nothing to write "
+                   + "where every ps on the host can read it.");
+
+        var config = arguments[arguments.ToList().IndexOf("--mcp-config") + 1];
+
+        await Assert.That(config).DoesNotContain("env")
+            .Because("no secret is being placed, so there is no block to place it in.");
+        await Assert.That(config).Contains("local:acme/board")
+            .Because("the child is told WHICH credential to resolve - that is a name, not a "
+                   + "secret, and it is the whole of what the argument may carry.");
+    }
 }

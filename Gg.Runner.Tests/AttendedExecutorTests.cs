@@ -189,6 +189,44 @@ public class AttendedExecutorTests
             .Because("the headless prompt begins that way, and nothing composes one here.");
     }
 
+    // ---- S26.4-04: what clearing the operator's settings costs them ----
+
+    [Test]
+    public async Task The_person_is_told_what_was_taken_away()
+    {
+        // RULE 10, AND IT IS SAID BEFORE THE CHILD STARTS, because once it
+        // starts the screen is its own and nothing of ours is read again.
+        //
+        // A person whose plugins, servers and permission mode have silently
+        // vanished concludes the tool is broken - and they are the one who chose
+        // those settings, so the disappearance is startling in a way it is not
+        // for a fleet runner nobody is watching. Step 0 measured that this is
+        // the whole bound on an attended session: the allowlist shrinks the tool
+        // surface not at all, and `--setting-sources ""` is the only lever.
+        //
+        // So the cost is not a footnote. It is the sentence that makes the
+        // difference between a governed session and a broken one.
+        var said = new StringWriter();
+        var executor = new AttendedExecutor(
+            "claude", [Tracker], announce: said,
+            spawn: (_, _) => Task.FromResult<int?>(0));
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var spoken = said.ToString();
+
+        await Assert.That(spoken).Contains("settings");
+        await Assert.That(spoken.Contains("plugin", StringComparison.OrdinalIgnoreCase)
+                       || spoken.Contains("tool server", StringComparison.OrdinalIgnoreCase))
+            .IsTrue()
+            .Because("naming only 'settings' leaves a person wondering which - and the two they "
+                   + "notice missing are their plugins and their servers.");
+
+        await Assert.That(spoken).Contains("/work/flight")
+            .Because("where the work is, because a person about to type in a tree should be told "
+                   + "which tree it is.");
+    }
+
     // ---- S26.1-07: a child that will not start ----
 
     [Test]

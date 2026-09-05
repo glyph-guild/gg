@@ -26,8 +26,6 @@ namespace Gg.Runner.Tests;
 [Category("RealAgent")]
 public class DigestAccountingTests
 {
-    private static readonly DateTimeOffset T0 = new(2026, 8, 14, 12, 0, 0, TimeSpan.Zero);
-
     private static string Binary =>
         Environment.GetEnvironmentVariable("GG_EXECUTOR_BINARY")
         ?? throw new InvalidOperationException(

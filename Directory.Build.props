@@ -10,4 +10,9 @@
     <Authors>Glyph Guild</Authors>
     <RepositoryUrl>https://github.com/glyph-guild/gg</RepositoryUrl>
   </PropertyGroup>
+  <!-- Roslynator. Every rule is off unless .editorconfig names it; the three
+       that are on are about dead code and disposal. -->
+  <ItemGroup>
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

@@ -217,8 +217,8 @@ public class FlightDestinationTests
 
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.Flight);
         await Assert.That(destination.Opens).IsNotNull();
-        await Assert.That(destination.Opens!).Contains("research");
-        await Assert.That(destination.Opens!).Contains("implement");
+        await Assert.That(destination.Opens).Contains("research");
+        await Assert.That(destination.Opens).Contains("implement");
 
         // AND THE SECOND RENDER IS THE FIRST. `envelope show` after
         // `envelope apply` must not produce a diff nobody made.

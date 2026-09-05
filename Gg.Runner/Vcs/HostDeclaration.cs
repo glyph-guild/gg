@@ -222,6 +222,38 @@ public readonly record struct HostDeclaration
         var serving = declared.FirstOrDefault(
             d => string.Equals(d.Key, provider, StringComparison.Ordinal));
 
+        // A ROOTED PATH IS NOT A HOST, and this field carries both. For a
+        // forge, Host is a hostname and the comparison below is the whole point
+        // of this function. For the `local` provider, HttpsGitVcsAdapter hands
+        // the same value to LocalVcsAdapter as its FILESYSTEM ROOT - so
+        // comparing a link's host to it asks whether a path is a hostname,
+        // which it never is. Every link-shaped flight against a local
+        // repository was refused before anything was fetched, and the refusal
+        // told the operator to declare a host they had already declared.
+        //
+        // KEYED ON THE VALUE'S SHAPE, not on the provider. `local` is also how
+        // the tests for this very check reach a git fixture, declared with a
+        // hostname - so exempting the provider would delete the refusal those
+        // tests exist to prove. What is unambiguous is a ROOTED path: no
+        // hostname begins with a separator or a drive.
+        //
+        // THE LIMIT, SAID OUT LOUD: a RELATIVE root - `local=repos` - is still
+        // read as a host and still refused. HttpsGitVcsAdapter resolves it
+        // against the process's working directory, so it is a root in every
+        // other respect; here it is indistinguishable from a hostname and the
+        // honest answer is to keep refusing rather than to guess.
+        //
+        // WHAT IS NOT LOST. This check exists because the control plane matches
+        // a link to a registry entry by PATH ALONE and deliberately holds no
+        // host, so a link at anybody's host resolves to whichever entry shares
+        // its path. A rooted local root borrows no host and sends no credential
+        // anywhere: the adapter's own fence refuses any slug resolving outside
+        // the one subtree it will read, in its own words, when it would read it.
+        if (serving.Host is { Length: > 0 } root && System.IO.Path.IsPathRooted(root))
+        {
+            return null;
+        }
+
         if (serving.Key is not { Length: > 0 } || serving.Serves(link))
         {
             return null;

@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Gg.Client;
 using Gg.Contracts;
@@ -73,58 +74,124 @@ public class AbsentCollectionsSurviveTheWireTests
     }
 
     [Test]
-    public async Task No_non_nullable_collection_on_a_composed_type_reads_as_null()
+    public async Task No_optional_collection_anywhere_in_the_contract_reads_as_null()
     {
-        // THE SWEEP. A non-nullable collection property is a promise to every
-        // caller that it can be dereferenced; a nullable one tells the caller
-        // to check. Both are fine - what is not fine is the first one lying,
-        // which is what an initializer alone does across the wire.
-        var envelope = JsonSerializer.Deserialize(
-            BareEnvelope, ProtocolJsonContext.Default.Envelope)!;
+        // THE SWEEP, AND IT IS THE WHOLE CONTRACT RATHER THAN ONE GRAPH. The
+        // first version of this walked an Envelope and found the two members
+        // that had already broken. Ten more carry the same declaration on types
+        // an Envelope never reaches - WhoAmI, FlightSummary, RunnerSummary,
+        // Reason - and a sweep scoped to the type that happened to fail is a
+        // sweep that finds the bug you already know about.
+        var offenders = new List<string>();
 
-        var nulls = new List<string>();
-        Sweep(envelope, "Envelope", nulls);
-
-        foreach (var obligation in envelope.Obligations)
+        foreach (var type in CrossesTheBoundary())
         {
-            Sweep(obligation, "Obligation", nulls);
+
+            foreach (var property in Optional(type))
+            {
+                // WHAT A DESERIALIZER LEAVES BEHIND. Every wire type here has a
+                // required member, so System.Text.Json builds it through the
+                // parameterized creator and assigns EVERY member from its
+                // argument array - the optional ones included, as null when the
+                // key is absent. The backing field of an uninitialized object is
+                // in exactly that state, so this reads what a reader reads after
+                // a sender one version behind omits the key.
+                var blank = RuntimeHelpers.GetUninitializedObject(type);
+
+                object? read;
+                try
+                {
+                    read = property.GetValue(blank);
+                }
+                catch (TargetInvocationException error)
+                {
+                    offenders.Add($"{type.Name}.{property.Name} (threw {error.InnerException?.GetType().Name})");
+                    continue;
+                }
+
+                if (read is null)
+                {
+                    offenders.Add($"{type.Name}.{property.Name}");
+                }
+            }
         }
 
-        foreach (var loop in envelope.Loops)
-        {
-            Sweep(loop, "Loop", nulls);
-        }
-
-        await Assert.That(nulls).IsEmpty()
-            .Because("a non-nullable collection that reads null across the wire is a promise "
-                   + "the type makes and the deserializer breaks. Found: "
-                   + string.Join(", ", nulls));
+        await Assert.That(offenders).IsEmpty()
+            .Because("a non-nullable collection is a promise the type makes to every caller, "
+                   + "and an absent key must not break it. Either absorb the null in the "
+                   + "accessor, or declare the member nullable because absence MEANS "
+                   + "something. Found: " + string.Join(", ", offenders));
     }
 
     [Test]
-    public async Task The_sweep_can_tell_a_collection_from_a_scalar()
+    public async Task The_sweep_reaches_types_an_envelope_never_touches()
     {
-        // LIVENESS. A sweep that matched nothing would pass for a type whose
-        // every collection was null.
-        var seen = new List<string>();
-        Sweep(
-            JsonSerializer.Deserialize(BareEnvelope, ProtocolJsonContext.Default.Envelope)!,
-            "Envelope",
-            seen,
-            recordEvenWhenPresent: true);
+        // LIVENESS, AND IT NAMES THE BLIND SPOT THE FIRST VERSION HAD. A sweep
+        // that quietly stopped at the Envelope graph would pass this file's
+        // other tests forever while the contract grew members it never saw.
+        var swept = CrossesTheBoundary()
+            .SelectMany(type => Optional(type).Select(p => $"{type.Name}.{p.Name}"))
+            .ToList();
 
-        await Assert.That(seen).Contains("Envelope.Obligations");
-        await Assert.That(seen).Contains("Envelope.Instructions");
+        await Assert.That(swept).Contains("Envelope.Instructions");
+        await Assert.That(swept).Contains("WhoAmI.Notices");
+        await Assert.That(swept).Contains("FlightSummary.RequiredLabels");
+
+        // AND IT DOES NOT SWEEP WHAT IT MUST NOT. Required members cannot be
+        // absent - the deserializer refuses the document - and nullable ones
+        // tell their caller to check, which is how this codebase already
+        // records that absence means something.
+        await Assert.That(swept).DoesNotContain("Envelope.Obligations");
+        await Assert.That(swept).DoesNotContain("Envelope.Accepts");
+        await Assert.That(swept).DoesNotContain("Envelope.Produces");
     }
 
-    private static void Sweep(
-        object value, string name, List<string> found, bool recordEvenWhenPresent = false)
+    /// <summary>
+    /// The types a document is made of, which is the repository's own answer
+    /// rather than this test's guess.
+    /// </summary>
+    /// <remarks>
+    /// <b>Scoped by <see cref="PinnedIdAttribute"/>, not by "everything in the
+    /// assembly".</b> A type nothing serializes is built by code that always runs
+    /// its initializers, so an absent key is a state it never reaches, and
+    /// rewriting its declaration would be a change with no defect behind it.
+    /// Measured when this was written: 163 types are emitted across the five
+    /// contexts, every one of them carries a pinned id, and the four collections
+    /// this scope excludes - the three <c>Notes</c> on the YAML parse results and
+    /// <c>Endpoint.RequiredHeaders</c> - are on types no context emits.
+    /// </remarks>
+    private static IEnumerable<Type> CrossesTheBoundary() =>
+        typeof(Envelope).Assembly.GetExportedTypes()
+            .Where(type => type.IsClass && !type.IsAbstract && !type.ContainsGenericParameters)
+            .Where(type => type.GetCustomAttribute<PinnedIdAttribute>() is not null);
+
+    /// <summary>
+    /// The members a sender one version behind can leave out: a collection the
+    /// type promises is never null, that the document is allowed to omit.
+    /// </summary>
+    private static IEnumerable<PropertyInfo> Optional(Type type)
     {
-        foreach (var property in value.GetType().GetProperties(
-            BindingFlags.Public | BindingFlags.Instance))
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (!property.PropertyType.IsGenericType
-                || property.PropertyType.GetGenericTypeDefinition() != typeof(IReadOnlyList<>))
+            if (!property.PropertyType.IsGenericType)
+            {
+                continue;
+            }
+
+            var shape = property.PropertyType.GetGenericTypeDefinition();
+            if (shape != typeof(IReadOnlyList<>)
+                && shape != typeof(IReadOnlyDictionary<,>)
+                && shape != typeof(IReadOnlySet<>))
+            {
+                continue;
+            }
+
+            // REQUIRED IS NOT OPTIONAL. System.Text.Json refuses a document that
+            // omits one, so no skew produces an absent key here. (An explicit
+            // null in the document still assigns null, but that is a malformed
+            // sender rather than an old one, and the type does not defend
+            // against it today.)
+            if (property.GetCustomAttribute<RequiredMemberAttribute>() is not null)
             {
                 continue;
             }
@@ -132,16 +199,12 @@ public class AbsentCollectionsSurviveTheWireTests
             // A NULLABLE ONE IS NOT A DEFECT. It tells its caller to check, and
             // Accepts and Produces are nullable precisely because absence means
             // something there.
-            var context = new NullabilityInfoContext().Create(property);
-            if (context.ReadState == NullabilityState.Nullable)
+            if (new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable)
             {
                 continue;
             }
 
-            if (recordEvenWhenPresent || property.GetValue(value) is null)
-            {
-                found.Add($"{name}.{property.Name}");
-            }
+            yield return property;
         }
     }
 }

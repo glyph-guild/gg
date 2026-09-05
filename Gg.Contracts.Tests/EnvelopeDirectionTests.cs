@@ -355,4 +355,78 @@ public class EnvelopeDirectionTests
             .Because("and nothing beyond the operator table either: the comparator answers "
                    + "for exactly the fields composition owns.");
     }
+
+    /// <summary>
+    /// Instructions are never a widening, in either direction.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>S30.1-06, and it is an explicit answer rather than a default.</b> The
+    /// comparator's default for an operator it does not know is <i>widening</i>
+    /// — <c>EnvelopeDirection</c>'s static constructor throws rather than
+    /// guess. So `append` had to be taught, and this is the assertion that the
+    /// answer taught was the intended one.
+    /// </para>
+    /// <para>
+    /// <b>Why it can be "never".</b> Instructions are text an agent READS, and
+    /// reading changes no bound: they cannot enlarge a scope, grant a move,
+    /// raise a budget or add a destination. Rule 5 makes that a disposition the
+    /// prompt states, and the manifest check is what decides. So an envelope
+    /// that adds, edits or removes a block sits at-or-below the one before it
+    /// on every governed quantity.
+    /// </para>
+    /// <para>
+    /// <b>What it costs, said out loud:</b> standing guidance changes without
+    /// the widening gate. That is the latitude a tenant already has over a
+    /// flight's intent and a rejection reason — and unlike those two, this text
+    /// is reviewed, versioned and attributed.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task Adding_an_instruction_is_not_a_widening()
+    {
+        var without = Doc();
+        var with = Doc() with
+        {
+            Instructions = [new EnvelopeInstruction { Text = "read the ADRs first" }],
+        };
+
+        await Assert.That(EnvelopeDirection.Widening(without, with)).IsNull();
+    }
+
+    [Test]
+    public async Task Removing_an_instruction_is_not_a_widening_either()
+    {
+        // BOTH DIRECTIONS, because the unordered scalars widen either way and
+        // it would be easy to assume text behaves like them. It does not: an
+        // instruction removed takes no bound with it.
+        var with = Doc() with
+        {
+            Instructions = [new EnvelopeInstruction { Text = "read the ADRs first" }],
+        };
+
+        await Assert.That(EnvelopeDirection.Widening(with, Doc())).IsNull();
+    }
+
+    [Test]
+    public async Task Rewording_an_instruction_is_not_a_widening()
+    {
+        var was = Doc() with { Instructions = [new EnvelopeInstruction { Text = "be careful" }] };
+        var now = Doc() with { Instructions = [new EnvelopeInstruction { Text = "be bold" }] };
+
+        await Assert.That(EnvelopeDirection.Widening(was, now)).IsNull()
+            .Because("a wording change that demanded a widening gate would make the gate "
+                   + "meaningless by making it routine.");
+    }
+
+    [Test]
+    public async Task The_comparator_has_an_ordering_for_append_rather_than_a_default()
+    {
+        // THE DRIFT GUARD FIRED WHEN THIS FIELD LANDED, which is the mechanism
+        // working: EnvelopeDirection's static constructor throws for an
+        // operator with no declared ordering. This asserts the answer exists
+        // rather than that the type merely loaded.
+        await Assert.That(EnvelopeDirection.Rules["Envelope.Instructions"])
+            .IsEqualTo(MergeOperators.Append);
+    }
 }

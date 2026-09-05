@@ -702,7 +702,10 @@ public static class Roles
 /// <b>Order-freedom is a property of the operators, not a claim about the
 /// code.</b> <c>intersect</c>, <c>min</c> and <c>union</c> are commutative
 /// and associative; the two <c>-only</c> members name the single role that
-/// may move a field, so there is nothing to order. Declared per field as
+/// may move a field, so there is nothing to order. <c>append</c> is the
+/// exception and is deliberately not order-free — see its own remarks; it is
+/// safe because layer order is total and meaningful, which is a property of
+/// this table's callers rather than of the operator. Declared per field as
 /// data (<see cref="ComposesAttribute"/>) so composition is generic and a
 /// new field with no declared operator fails the build.
 /// </remarks>
@@ -738,8 +741,32 @@ public static class MergeOperators
     /// </remarks>
     public const string And = "and";
 
+    /// <summary>Every layer's blocks, kept in layer order.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE ONE OPERATOR THAT IS NOT ORDER-FREE, and the remarks above say
+    /// why the others are.</b> Union deduplicates and does not care which layer
+    /// spoke first; text does. Root's guidance then the work kind's reads
+    /// differently from the reverse, and whoever writes the second is writing it
+    /// to be read after the first.
+    /// </para>
+    /// <para>
+    /// <b>That is safe here and would not be everywhere.</b> Layer order is
+    /// already total and already meaningful — root, work kind, narrowing — so
+    /// appending in it is deterministic. An operator like this on a field
+    /// composed across layers with no defined order would not be.
+    /// </para>
+    /// <para>
+    /// <b>It also cannot narrow.</b> Appending only ever adds text, so a
+    /// document carrying instructions can never tighten a bound by writing one
+    /// — see <c>EnvelopeDirection</c>, which has to say so explicitly rather
+    /// than reach a default.
+    /// </para>
+    /// </remarks>
+    public const string Append = "append";
+
     public static IReadOnlyList<string> All { get; } =
-        [RootOnly, WorkKindOnly, Intersect, Min, Union, And];
+        [RootOnly, WorkKindOnly, Intersect, Min, Union, And, Append];
 }
 
 /// <summary>
@@ -763,6 +790,43 @@ public sealed record ObligationProvenance
 
     /// <summary>The floor's own provenance - the default a parsed document carries.</summary>
     public static ObligationProvenance AtRoot { get; } = new() { Role = Roles.Root, Name = Roles.Root };
+}
+
+/// <summary>
+/// One block of standing instructions, and the document that wrote it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The only text reaching an agent that anybody reviewed.</b> A flight's
+/// intent, a rejection reason and a prior attempt's account all arrive
+/// unreviewed; this arrives through a gated, versioned, direction-checked
+/// document. <c>LeaseFeedback</c> refuses to carry more than a sentence because
+/// <i>"a reason able to change any of those would be unreviewable configuration
+/// arriving one sentence at a time"</i> — the envelope is where reviewable
+/// configuration is supposed to live, so text here is not that failure. It is
+/// the thing that failure was measured against.
+/// </para>
+/// <para>
+/// <b>Provenance is assigned by the composer</b>, exactly as
+/// <see cref="Obligation.Provenance"/> is, and for rule 4's reason: guidance
+/// whose source a person cannot find is guidance nobody can change. A document
+/// declaring its own is answering a question it does not get to answer.
+/// </para>
+/// <para>
+/// <b>It cannot contradict the structured fields beside it</b>, and that is a
+/// disposition rather than an enforcement. An instruction saying "you may edit
+/// anywhere" does not widen a scope; the manifest check decides, and the prompt
+/// says so in the same block.
+/// </para>
+/// </remarks>
+[PinnedId("6f1a9d3e-77c4-4a58-93b2-1e0d5c8a4f61")]
+public sealed record EnvelopeInstruction
+{
+    /// <summary>What the operator wrote.</summary>
+    public required string Text { get; init; }
+
+    /// <summary>Which document it came from: (role, name), assigned by the composer.</summary>
+    public ObligationProvenance Provenance { get; init; } = ObligationProvenance.AtRoot;
 }
 
 /// <summary>
@@ -1072,6 +1136,17 @@ public sealed record Envelope
     [Composes(MergeOperators.Union)]
     public required IReadOnlyList<Obligation> Obligations { get; init; }
 
+    /// <summary>
+    /// Standing instructions for this work, in layer order.
+    /// </summary>
+    /// <remarks>
+    /// <b>Optional, and every envelope that exists today has none.</b> Not
+    /// <c>required</c>, so no document already applied has to be rewritten, and
+    /// an envelope declaring none renders a prompt byte-for-byte unchanged.
+    /// </remarks>
+    [Composes(MergeOperators.Append)]
+    public IReadOnlyList<EnvelopeInstruction> Instructions { get; init; } = [];
+
     [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Loop> Loops { get; init; }
 
@@ -1300,6 +1375,11 @@ public sealed record Envelope
         if (Accepting(envelope) is { } accepting)
         {
             return accepting;
+        }
+
+        if (InstructionsWithin(envelope) is { } instructions)
+        {
+            return instructions;
         }
 
         if (Selection(envelope.Environment, "environment") is { } environment)
@@ -1781,6 +1861,68 @@ public sealed record Envelope
     /// because the name becomes a label the queue matches on, and a newline in
     /// the middle of that is an injection or a paste accident.
     /// </remarks>
+    /// <summary>
+    /// How much instruction text one envelope may carry, in characters.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A number, and it is arbitrary in the way every bound is.</b> What it
+    /// is for is not: instructions land in every prompt for every flight of
+    /// this kind, so an unbounded field is an unbounded prompt, and a prompt
+    /// that grows without limit crowds out the work it is describing.
+    /// </para>
+    /// <para>
+    /// <b>It bounds the TOTAL, not each block.</b> What an agent reads is the
+    /// concatenation; bounding each would let a document carry fifty short
+    /// blocks and land the same wall of text.
+    /// </para>
+    /// </remarks>
+    public const int InstructionsBound = 4000;
+
+    /// <summary>
+    /// The instruction rules: nothing empty, and a bounded total.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refused here rather than truncated at use.</b> An agent reading half
+    /// a policy is worse than an author being told to shorten one: the half it
+    /// read looks complete, and nothing downstream can tell a sentence was cut.
+    /// This runs at apply, while the author can still edit the document.
+    /// </remarks>
+    private static string? InstructionsWithin(Envelope envelope)
+    {
+        foreach (var instruction in envelope.Instructions)
+        {
+            if (string.IsNullOrWhiteSpace(instruction.Text))
+            {
+                return "An instruction block is empty. A block that parses and says nothing is "
+                     + "a policy somebody believes they wrote.";
+            }
+
+            // ONE LINE PER BLOCK, AND THAT IS A DESIGN DECISION RATHER THAN A
+            // PARSER LIMITATION - though it is also the parser's happiest
+            // shape. A block is a sentence or two of standing guidance, and the
+            // field is a LIST of them: an author with more to say writes
+            // another block, which reads better in a prompt and diffs better in
+            // review than one paragraph growing forever. It also keeps the text
+            // form exactly round-trippable, where a multi-line scalar in a
+            // hand-rolled emitter is where that guarantee usually dies.
+            if (instruction.Text.Contains('\n') || instruction.Text.Contains('\r'))
+            {
+                return "An instruction block spans more than one line. A block is a sentence or "
+                     + "two; write another block rather than a paragraph, so each one can be "
+                     + "read, diffed and attributed on its own.";
+            }
+        }
+
+        var total = envelope.Instructions.Sum(i => i.Text.Length);
+
+        return total <= InstructionsBound
+            ? null
+            : $"instructions total {total} characters and the limit is {InstructionsBound}. "
+            + "They are refused rather than shortened: an agent reading half a policy cannot "
+            + "tell that it read half.";
+    }
+
     private static string? Selection(string? value, string key) =>
         value is null
             ? null

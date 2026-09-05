@@ -24,20 +24,38 @@ public class EnvelopeValidationTests
     private static Envelope With(params string[] instructions) => new()
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
-        Obligations = [],
+        // A VALID ENVELOPE IN EVERY OTHER RESPECT, so a refusal here is about
+        // the instructions and not about cardinality.
+        Obligations =
+        [
+            new Obligation
+            {
+                Id = "in-scope",
+                Check = ObligationChecks.Machine,
+                Rule = ObligationPredicates.NoFileOutsideScope,
+            },
+        ],
         Loops =
         [
             new Loop
             {
                 Id = "implement",
                 Executor = ExecutorRungs.Frontier,
-                Discharges = [],
+                Discharges = ["in-scope"],
                 Moves = [LoopMoves.Read],
                 Budget = new LoopBudget { WallClock = "30m" },
                 OnExhaustion = ExhaustionPolicies.HandoffToHuman,
             },
         ],
-        Destinations = [],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "pull-request",
+                Kind = DestinationKinds.PullRequest,
+                Requires = ["in-scope"],
+            },
+        ],
         Instructions = [.. instructions.Select(text => new EnvelopeInstruction { Text = text })],
     };
 

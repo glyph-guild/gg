@@ -239,6 +239,15 @@ public class DirectionCoverageTests
             // test below rather than exempted out of the sweep.
             ["EnvelopeNarrowing.Obligations"] =
                 "on the narrowing overload, covered by A_narrowing_obligation_lost_is_a_widening",
+
+            // NOT "nobody can move it" - a pair moves it easily. The comparator
+            // deliberately reads it and answers "never a widening", which a
+            // Moves row cannot express because every row asserts a widening.
+            // Covered by four assertions rather than exempted out of sight.
+            ["Envelope.Instructions"] =
+                "never a widening in either direction, covered by "
+              + "EnvelopeDirectionTests.Adding_an_instruction_is_not_a_widening and its three "
+              + "neighbours - text an agent reads moves no bound",
         };
 
     [Test]

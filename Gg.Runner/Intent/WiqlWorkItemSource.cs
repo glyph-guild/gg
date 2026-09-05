@@ -183,10 +183,23 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
         using var page = JsonDocument.Parse(
             await read.Content.ReadAsStringAsync(cancellationToken));
 
-        var summaries = page.RootElement.TryGetProperty("value", out var values)
-                     && values.ValueKind == JsonValueKind.Array
-            ? values.EnumerateArray().Select(Summary).ToList()
+        var answered = page.RootElement.TryGetProperty("value", out var values)
+                    && values.ValueKind == JsonValueKind.Array
+            ? values.EnumerateArray().Select(Summary).ToDictionary(
+                item => item.Id, StringComparer.Ordinal)
             : [];
+
+        // THE QUERY IS THE ONLY THING THAT SAID WHAT ORDER THIS IS IN, and the
+        // batch read answers in its own - id ascending, against the tracker
+        // this was measured on. Returning that discards the sort, so a person
+        // browsing "most recently touched" gets whatever has the lowest number.
+        // An id the batch did not answer for is dropped rather than rendered as
+        // an empty row: it most likely moved out of scope between the two calls.
+        var summaries = wanted
+            .Select(id => answered.TryGetValue(id, out var item) ? item : null)
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .ToList();
 
         // NULL IS THE END OF THE LIST. An empty string here would be handed
         // back by a caller and answered with the first page, for ever.
@@ -256,39 +269,59 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
         }
 
         var prose = new StringBuilder(markup.Length);
-        var inside = false;
-        var tag = new StringBuilder(16);
 
-        foreach (var character in markup)
+        for (var at = 0; at < markup.Length; at++)
         {
-            if (character == '<')
+            if (markup[at] != '<' || TagEnding(markup, at) is not { } closing)
             {
-                inside = true;
-                tag.Clear();
+                prose.Append(markup[at]);
                 continue;
             }
 
-            if (character == '>')
+            if (BreaksTheLine(markup[(at + 1)..closing]))
             {
-                inside = false;
-                if (BreaksTheLine(tag.ToString()))
-                {
-                    prose.Append('\n');
-                }
-                continue;
+                prose.Append('\n');
             }
 
-            if (inside)
-            {
-                tag.Append(character);
-            }
-            else
-            {
-                prose.Append(character);
-            }
+            at = closing;
         }
 
         return Entities(prose.ToString()).Trim();
+    }
+
+    /// <summary>
+    /// Where the tag opening at <paramref name="at"/> closes, or null if this
+    /// is not a tag at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>The live tracker answers markdown for some items, not html.</b> A
+    /// strip that treated every <c>&lt;</c> as a tag opening deleted everything
+    /// up to the next <c>&gt;</c> - so "fails when x &lt; y and n &gt; 0"
+    /// arrived as "fails when x 0", prose with a hole in it and nothing to say
+    /// there had been one. A tag starts with a letter or a slash and closes on
+    /// the same line; anything else is a character the author typed.
+    /// </remarks>
+    private static int? TagEnding(string markup, int at)
+    {
+        var first = at + 1;
+        if (first < markup.Length && markup[first] == '/')
+        {
+            first++;
+        }
+
+        if (first >= markup.Length || !char.IsAsciiLetter(markup[first]))
+        {
+            return null;
+        }
+
+        var closing = markup.IndexOf('>', first);
+
+        // A '<' with no '>' after it, or with a newline in between, is a
+        // comparison somebody wrote and not a tag somebody opened.
+        return closing < 0
+            || markup.AsSpan(first, closing - first).ContainsAny('\n', '<')
+            ? null
+            : closing;
     }
 
     /// <summary>Whether a tag meant a line ends here.</summary>

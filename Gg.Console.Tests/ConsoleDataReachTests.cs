@@ -1,0 +1,86 @@
+using System.Reflection;
+
+namespace Gg.Console.Tests;
+
+/// <summary>
+/// A read the console cannot reach is a pane somebody thinks exists.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Seven wrappers had no caller when this slice was planned, and there are
+/// nine.</b> They were built for panes that were never written - and could not
+/// have been, because <c>ConsoleProjection.Apply</c> has no arm for what they
+/// return and <c>AppState</c> has no field to put it in. The next reader sees a
+/// method named <c>WhyAsync</c> and concludes the console can answer <i>why is
+/// this stopped</i>.
+/// </para>
+/// <para>
+/// <b>The exemption list is the measurement.</b> Every entry carries the reason
+/// it is still here and what removes it, on <c>ShellCommands.Handled</c>'s model
+/// - a list of bare names becomes a place to park things. Step 6 of this slice
+/// is not done while the list is not empty.
+/// </para>
+/// <para>
+/// <b>A caller in <c>Gg.Console</c>, not in a test.</b> Every one of these is
+/// exercised by <c>ConsoleDataTests</c>, which is exactly the shape that passes
+/// for ever while the product shows nothing.
+/// </para>
+/// </remarks>
+public class ConsoleDataReachTests
+{
+    [Test]
+    public async Task Every_read_the_console_offers_is_one_the_console_makes()
+    {
+        var declared = typeof(ConsoleData)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(m => !m.IsSpecialName)
+            .Select(m => m.Name)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(declared).IsNotEmpty()
+            .Because("ConsoleData has no public methods, so this ratchet asserted nothing.");
+
+        var callers = ConsoleSource.In("Gg.Console")
+            .Where(f => !f.EndsWith("ConsoleData.cs", StringComparison.Ordinal))
+            .Select(File.ReadAllText)
+            .ToList();
+
+        var unreachable = declared
+            .Where(name => !callers.Any(t => t.Contains($".{name}(", StringComparison.Ordinal)))
+            .Where(name => !Exempt.ContainsKey(name))
+            .ToList();
+
+        await Assert.That(unreachable).IsEmpty()
+            .Because("a read nothing calls is a pane that does not exist, and the method's "
+                   + "name is what makes the next reader believe it does. Wire it, delete it, "
+                   + "or put it on the list with a reason. Found: "
+                   + string.Join(", ", unreachable));
+    }
+
+    [Test]
+    public async Task The_exemption_list_names_nothing_that_is_already_wired()
+    {
+        // A LIST THAT OUTLIVES ITS REASON IS A LIST NOBODY READS. An entry for a
+        // method somebody has since wired reads as though the gap were still
+        // open, and the next person to look believes the console cannot do
+        // something it can.
+        var callers = ConsoleSource.In("Gg.Console")
+            .Where(f => !f.EndsWith("ConsoleData.cs", StringComparison.Ordinal))
+            .Select(File.ReadAllText)
+            .ToList();
+
+        var stale = Exempt.Keys
+            .Where(name => callers.Any(t => t.Contains($".{name}(", StringComparison.Ordinal)))
+            .ToList();
+
+        await Assert.That(stale).IsEmpty()
+            .Because("these have callers now, so their exemptions are describing a past. "
+                   + "Delete the entries. Found: " + string.Join(", ", stale));
+    }
+
+    /// <summary>What is not reached yet, why, and what removes the entry.</summary>
+    internal static readonly IReadOnlyDictionary<string, string> Exempt =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+}

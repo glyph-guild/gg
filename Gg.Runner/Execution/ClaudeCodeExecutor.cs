@@ -527,10 +527,22 @@ public sealed class ClaudeCodeExecutor(
     /// and an id: the agent resolves the work item through the tool it is given,
     /// with the customer's own credential.
     /// </remarks>
+    /// <summary>
+    /// What the flight is about, in a form the sentence below can carry.
+    /// </summary>
+    /// <remarks>
+    /// <b>Words are quoted rather than pointed at.</b> A uri and a ticket are
+    /// addressable, so the agent is sent to read them; typed words are the work
+    /// itself and there is nothing to resolve. Rendering them as a subject the
+    /// agent should go and find would send it looking for a tracker item nobody
+    /// filed - which is what "work item  in " read like before this arm existed.
+    /// </remarks>
     private static string Subject(ExecutorRequest request) =>
         request.IntentUri is { Length: > 0 } uri
             ? $"the issue at {uri} in this repository"
-            : $"work item {request.IntentId} in {request.IntentProvider}";
+            : request.IntentId is { Length: > 0 } && request.IntentProvider is { Length: > 0 }
+                ? $"work item {request.IntentId} in {request.IntentProvider}"
+                : $"on this, in this repository:\n\n{request.IntentText}\n";
 
     private static string Prompt(ExecutorRequest request) =>
         $"Work {Subject(request)}. Make the code changes it asks "

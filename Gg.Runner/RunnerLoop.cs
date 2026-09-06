@@ -930,7 +930,7 @@ public sealed class RunnerLoop(
         // one condition later.
         if (_executor is null || lease.Loop is not { } loop
             || !Execution.ExecutorRequest.NamesWork(
-                lease.IntentUri, lease.IntentProvider, lease.IntentId))
+                lease.IntentUri, lease.IntentProvider, lease.IntentId, lease.IntentText))
         {
             return Invocation.Nothing;
         }
@@ -973,6 +973,11 @@ public sealed class RunnerLoop(
                 IntentProvider = lease.IntentProvider
                     ?? Vcs.HostDeclaration.ProviderFor(lease.IntentUri, _hosts),
                 IntentId = lease.IntentId,
+                // THE WORDS THEMSELVES, because there is nothing to resolve.
+                // A uri and a ticket are pointers an agent goes and reads; typed
+                // words are the work, and carrying them is the only way they can
+                // reach one.
+                IntentText = lease.IntentText,
                 Moves = loop.Moves,
                 WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
                 TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),

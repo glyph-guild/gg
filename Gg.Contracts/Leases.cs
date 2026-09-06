@@ -371,6 +371,35 @@ public sealed record LeaseGranted
     public string? IntentId { get; init; }
 
     /// <summary>
+    /// The words somebody typed, when the flight is about those rather than
+    /// about something addressable.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Without this a text flight is leased and never worked</b> - the
+    /// sentence <see cref="IntentProvider"/> carries, one intent kind over. A
+    /// runner invokes on an intent that names work, and typed words had nothing
+    /// to offer: <c>gg fly "&lt;text&gt;"</c> cloned a tree, renewed twice and
+    /// reported landed with no agent invoked and nothing said. Measured on a
+    /// live tenant: every free-text flight it had ever flown recorded no
+    /// <c>loop.outcome</c>, including three smoke tests whose own text says they
+    /// verify the agent loop end to end.
+    /// </para>
+    /// <para>
+    /// <b>This is not the body <see cref="IntentUri"/> refuses to carry.</b>
+    /// That rule is about an ISSUE's text - customer content in a tracker,
+    /// which the runner resolves with the customer's own credential because
+    /// reading it needs a permission this platform does not have. These words
+    /// are the operator's own, typed at their terminal; the control plane
+    /// already holds them and already prints them in <c>gg flights</c>, so
+    /// handing them back to that operator's runner exposes nothing that has not
+    /// already crossed. A rule about what we are not entitled to read does not
+    /// reach a sentence somebody typed at us.
+    /// </para>
+    /// </remarks>
+    public string? IntentText { get; init; }
+
+    /// <summary>
     /// The loop this flight runs, when its envelope declares one.
     /// </summary>
     /// <remarks>

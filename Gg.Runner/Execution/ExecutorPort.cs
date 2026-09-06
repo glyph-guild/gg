@@ -260,9 +260,25 @@ public sealed record ExecutorRequest
     /// runner treating it as workable would be a second, laxer copy of the rule.
     /// </para>
     /// </remarks>
-    public static bool NamesWork(string? uri, string? provider, string? id) =>
+    public static bool NamesWork(string? uri, string? provider, string? id, string? text) =>
         uri is { Length: > 0 }
-        || (provider is { Length: > 0 } && id is { Length: > 0 });
+        || (provider is { Length: > 0 } && id is { Length: > 0 })
+        // WORDS NAME WORK. They are not addressable and there is nothing to
+        // resolve, which is exactly why they have to be carried rather than
+        // pointed at. Whitespace does not count: a prompt built from it would
+        // read "Work    ." and send an agent to work on nothing.
+        || !string.IsNullOrWhiteSpace(text);
+
+    /// <summary>
+    /// The words somebody typed, when the flight is about those.
+    /// </summary>
+    /// <remarks>
+    /// Passed through and never interpreted, the disposition <c>Feedback</c> and
+    /// <c>ResumesFrom</c> already have. The runner does not parse it, does not
+    /// derive a repository from it and does not shorten it: it is what a person
+    /// asked for, in their words.
+    /// </remarks>
+    public string? IntentText { get; init; }
 
     /// <summary>What the envelope permits. Passed through, and not enforced.</summary>
     public required IReadOnlyList<string> Moves { get; init; }

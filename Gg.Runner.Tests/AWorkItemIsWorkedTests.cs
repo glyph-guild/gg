@@ -75,11 +75,11 @@ public class AWorkItemIsWorkedTests
         // THE GATE, as a question the runner can ask without a lease. A ticket
         // and a link are both something to resolve; a flight naming neither has
         // nothing for an agent to look up.
-        await Assert.That(ExecutorRequest.NamesWork(uri: null, provider: "a-tracker", id: "26"))
+        await Assert.That(ExecutorRequest.NamesWork(uri: null, provider: "a-tracker", id: "26", text: null))
             .IsTrue();
-        await Assert.That(ExecutorRequest.NamesWork(uri: "https://x.invalid/1", null, null))
+        await Assert.That(ExecutorRequest.NamesWork(uri: "https://x.invalid/1", null, null, null))
             .IsTrue();
-        await Assert.That(ExecutorRequest.NamesWork(null, null, null)).IsFalse();
+        await Assert.That(ExecutorRequest.NamesWork(null, null, null, null)).IsFalse();
     }
 
     [Test]
@@ -89,7 +89,7 @@ public class AWorkItemIsWorkedTests
         // an id with no provider does not say which tracker it is in. Contract
         // 0.86.0 refuses that pair at intake in exactly these words; the runner
         // must not treat it as workable if one ever arrives.
-        await Assert.That(ExecutorRequest.NamesWork(null, "a-tracker", null)).IsFalse();
-        await Assert.That(ExecutorRequest.NamesWork(null, null, "26")).IsFalse();
+        await Assert.That(ExecutorRequest.NamesWork(null, "a-tracker", null, null)).IsFalse();
+        await Assert.That(ExecutorRequest.NamesWork(null, null, "26", null)).IsFalse();
     }
 }

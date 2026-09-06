@@ -109,6 +109,7 @@ public static class Vocabulary
         typeof(LoopBudget),
         typeof(Loop),
         typeof(Destination),
+        typeof(DestinationSelection),
         typeof(Envelope),
         typeof(EnvelopeNarrowing),
         typeof(ObligationProvenance),

@@ -679,7 +679,7 @@ public static class EnvelopeYaml
 
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens");
+        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select");
 
         return new Destination
         {
@@ -698,6 +698,34 @@ public static class EnvelopeYaml
             // Validate refuses, on a document nobody edited.
             Opens = entry.Body.Entries.TryGetValue("opens", out var opens)
                 ? Strings(opens, $"{entry.Body.Path}.opens")
+                : null,
+            // AND THE SAME AGAIN. Absent stays absent: a missing `may-select`
+            // read back as empty sets would say the tenant permits nothing,
+            // which is a different document from one that bounds no selection.
+            MaySelect = entry.Body.Entries.TryGetValue("may-select", out var selection)
+                ? MapSelection(selection, $"{entry.Body.Path}.may-select")
+                : null,
+        };
+    }
+
+    /// <summary>The sets a destination permits a nomination to select from.</summary>
+    /// <remarks>
+    /// Both keys optional and both absent-is-absent, for the reason the two
+    /// above are: an empty set says the tenant permits nothing and null says
+    /// they bounded nothing, and those render different menus.
+    /// </remarks>
+    private static DestinationSelection MapSelection(Node node, string path)
+    {
+        var body = RequireMap(node, path);
+        Closed(body, "environments", "repositories");
+
+        return new DestinationSelection
+        {
+            Environments = body.Entries.TryGetValue("environments", out var environments)
+                ? Strings(environments, $"{path}.environments")
+                : null,
+            Repositories = body.Entries.TryGetValue("repositories", out var repositories)
+                ? Strings(repositories, $"{path}.repositories")
                 : null,
         };
     }

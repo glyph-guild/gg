@@ -96,6 +96,8 @@ public static class EnvelopeComposition
             [$"{nameof(Loop)}.{nameof(Loop.Discharges)}"] =
                 "intra-document wiring: it names its own document's obligations and travels "
               + "with its loop, which the sets' operator owns",
+            [$"{nameof(Destination)}.{nameof(Destination.MaySelect)}"] =
+                "a container; its leaves declare (both menus intersect, the way opens does)",
             [$"{nameof(Loop)}.{nameof(Loop.Budget)}"] =
                 "a container; its leaves declare (wall-clock and attempts are min)",
             [$"{nameof(Destination)}.{nameof(Destination.Id)}"] =
@@ -113,6 +115,7 @@ public static class EnvelopeComposition
         Walk(typeof(Loop), operators);
         Walk(typeof(LoopBudget), operators);
         Walk(typeof(Destination), operators);
+        Walk(typeof(DestinationSelection), operators);
         Walk(typeof(EnvelopeNarrowing), operators);
 
         Operators = operators;

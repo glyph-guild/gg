@@ -1093,7 +1093,9 @@ public static class ProtocolSurface
             [typeof(LoopBudget)] = ["wallClock", "attempts"],
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
-            [typeof(Destination)] = ["id", "kind", "requires", "preserveUnadmitted", "opens"],
+            [typeof(Destination)] =
+                ["id", "kind", "requires", "preserveUnadmitted", "opens", "maySelect"],
+            [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
                 ["context", "obligations", "instructions", "loops", "destinations", "environment",
                  "repository", "accepts", "produces"],

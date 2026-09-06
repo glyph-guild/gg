@@ -60,6 +60,18 @@ public static class PlatformToolServer
     private const string ReasonArgument = "reason";
 
     /// <summary>
+    /// What the agent would tell whoever picks the work up. Optional, and the
+    /// only argument on this tool that is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Offered, or it cannot be written.</b> The extractor reads it and the
+    /// lease carries it to the next flight's prompt, and none of that happens if
+    /// the schema never mentions it - an argument an agent is not offered is one
+    /// nothing will ever produce.
+    /// </remarks>
+    private const string NoteArgument = "note";
+
+    /// <summary>
     /// Serves until the input ends, and answers nothing else.
     /// </summary>
     /// <returns>
@@ -200,6 +212,19 @@ public static class PlatformToolServer
             writer.WriteString("description",
                 "Why this kind and not the others, in your own words.");
             writer.WriteEndObject();
+            // WRITTEN FOR THE SHAPE REAL NOTES TOOK. Three measured triage runs
+            // each wrote a warning not to start coding, the evidence found, and
+            // what to confirm with the reporter - so the description asks for
+            // that rather than for a summary of the item, which the next agent
+            // can already read for itself.
+            writer.WriteStartObject(NoteArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Optional. What you would tell whoever picks this up - what you found that "
+              + "the item does not say, and what to check before starting. It is shown to "
+              + "them as your words and grants nothing; leave it out if you have nothing to "
+              + "add.");
+            writer.WriteEndObject();
             writer.WriteEndObject();
 
             writer.WriteStartArray("required");
@@ -285,6 +310,19 @@ public static class PlatformToolServer
             return Content(id, isError: true,
                 $"Refused: a nomination needs both '{WorkKindArgument}' and "
               + $"'{ReasonArgument}'. Nothing was recorded.");
+        }
+
+        // THE NOTE IS TAKEN OR REFUSED, never trimmed into shape. A blank one is
+        // a caller that produced a field instead of leaving it out, and a note
+        // past the bound is an analysis - both are things the agent can read
+        // this and fix, which a silent truncation is not.
+        var note = Text(arguments, NoteArgument);
+        if (note is not null && note.Length > Gg.Contracts.FlightNomination.MaxNote)
+        {
+            return Content(id, isError: true,
+                $"Refused: a note is at most {Gg.Contracts.FlightNomination.MaxNote} characters "
+              + $"and this one is {note.Length}. Nothing was recorded - shorten it and call "
+              + "again, or leave it out.");
         }
 
         // ECHOED BACK IN CANONICAL FORM, so an agent can see what was taken

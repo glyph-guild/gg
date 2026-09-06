@@ -661,6 +661,15 @@ public static class TranscriptDigest
         {
             WorkKind = Bound(workKind, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false),
             Reason = Bound(reason, Gg.Contracts.FlightNomination.MaxReason, prose: true),
+            // OPTIONAL, AND BOUNDED RATHER THAN DROPPED. A note past the bound is
+            // an agent writing an analysis; the flight still nominated a kind,
+            // and losing the whole nomination over the tail of a handover would
+            // throw away the part that decides something. Absent stays absent -
+            // an empty note would render a fenced block attributing silence to
+            // an agent.
+            Note = Argument(input, "note") is { } note
+                ? Bound(note, Gg.Contracts.FlightNomination.MaxNote, prose: true)
+                : null,
         }));
     }
 

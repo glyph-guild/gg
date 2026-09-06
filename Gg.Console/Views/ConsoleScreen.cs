@@ -93,13 +93,16 @@ public sealed class ConsoleScreen : Window
         _flight = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _flightPane.Add(_flight);
 
+        // FULL SCREEN, LIKE EVERY OTHER TAB. It used to take the top half of
+        // the right-hand side with live or browse underneath it, which is why
+        // the model had to keep six flags from colliding.
         _evidencePane = new FrameView
         {
             Title = "Evidence",
-            X = Pos.Right(_queuePane),
+            X = 0,
             Y = 0,
             Width = Dim.Fill(),
-            Height = Dim.Percent(50),
+            Height = Dim.Fill(1),
             Visible = false,
         };
         _evidence = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
@@ -108,8 +111,8 @@ public sealed class ConsoleScreen : Window
         _livePane = new FrameView
         {
             Title = "Live",
-            X = Pos.Right(_queuePane),
-            Y = Pos.Bottom(_evidencePane),
+            X = 0,
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
             Visible = false,
@@ -129,8 +132,8 @@ public sealed class ConsoleScreen : Window
         _browsePane = new FrameView
         {
             Title = "Browse",
-            X = Pos.Right(_queuePane),
-            Y = Pos.Bottom(_evidencePane),
+            X = 0,
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
             Visible = false,
@@ -144,8 +147,8 @@ public sealed class ConsoleScreen : Window
         _checklistPane = new FrameView
         {
             Title = "Checklist",
-            X = Pos.Right(_queuePane),
-            Y = Pos.Bottom(_evidencePane),
+            X = 0,
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
             Visible = false,
@@ -157,8 +160,8 @@ public sealed class ConsoleScreen : Window
         _envelopePane = new FrameView
         {
             Title = "Envelope",
-            X = Pos.Right(_queuePane),
-            Y = Pos.Bottom(_evidencePane),
+            X = 0,
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
             Visible = false,
@@ -172,8 +175,8 @@ public sealed class ConsoleScreen : Window
         _repositoriesPane = new FrameView
         {
             Title = "Repositories",
-            X = Pos.Right(_queuePane),
-            Y = Pos.Bottom(_evidencePane),
+            X = 0,
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
             Visible = false,
@@ -296,13 +299,7 @@ public sealed class ConsoleScreen : Window
         }
     }
 
-    private KeymapContext Context() =>
-        new(State.Mode, State.LiveVisible, State.Frozen)
-        {
-            BrowseVisible = State.BrowseVisible,
-            ChecklistVisible = State.ChecklistVisible,
-            EnvelopeVisible = State.EnvelopeVisible,
-        };
+    private KeymapContext Context() => new(State.Mode, State.ActiveTab, State.Frozen);
 
     /// <summary>One-way: model in, pixels out.</summary>
     private void Render()
@@ -328,13 +325,17 @@ public sealed class ConsoleScreen : Window
         _checklist.Text = PaneText.Checklist(State);
         _envelope.Text = PaneText.Envelope(State);
 
-        _evidencePane.Visible = State.EvidenceVisible;
-        _livePane.Visible = State.LiveVisible;
+        // ONE FUNCTION DECIDES WHAT IS ON SCREEN, and it is pure. Tabs.Showing
+        // answers true for exactly one tab, which is what "a view takes over
+        // all the panes" means concretely - and it is asserted over states
+        // rather than over pixels.
+        _evidencePane.Visible = Tabs.Showing(State, TabId.Evidence);
+        _livePane.Visible = Tabs.Showing(State, TabId.Live);
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
-        _browsePane.Visible = State.BrowseVisible;
-        _checklistPane.Visible = State.ChecklistVisible;
-        _envelopePane.Visible = State.EnvelopeVisible;
-        _repositoriesPane.Visible = State.RepositoriesVisible;
+        _browsePane.Visible = Tabs.Showing(State, TabId.Browse);
+        _checklistPane.Visible = Tabs.Showing(State, TabId.Checklist);
+        _envelopePane.Visible = Tabs.Showing(State, TabId.Envelope);
+        _repositoriesPane.Visible = Tabs.Showing(State, TabId.Repositories);
         _repositories.Text = PaneText.Repositories(State);
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
@@ -352,11 +353,16 @@ public sealed class ConsoleScreen : Window
             ? $"Browse — {listing.ProviderKey}"
             : "Browse";
 
-        // The flight pane gives up its space rather than being covered.
-        _flightPane.Visible =
-            !State.EvidenceVisible && !State.LiveVisible && !State.BrowseVisible
-            && !State.ChecklistVisible && !State.EnvelopeVisible
-            && !State.RepositoriesVisible;
+        // THE QUEUE TAB IS TWO PANES, and they come and go together: the flight
+        // detail is what the selected row means, and a person moving the cursor
+        // is reading both.
+        _queuePane.Visible = Tabs.Showing(State, TabId.Queue);
+        _flightPane.Visible = Tabs.Showing(State, TabId.Queue);
+
+        // THE TABS ARE ON THE TITLE LINE, which is the line a person reads
+        // without being asked to. Empty while only the queue is open, because a
+        // bar with one tab on it is decoration.
+        Title = Tabs.Bar(State) is { Length: > 0 } bar ? $"Good Grief   {bar}" : "Good Grief";
 
         _modal.Visible = State.Mode != UiMode.Normal;
         _modal.Title = State.Mode.ToString();
@@ -368,6 +374,15 @@ public sealed class ConsoleScreen : Window
         Focus();
     }
 
+    /// <summary>
+    /// Focus follows the tab, because the tab is the only thing on screen.
+    /// </summary>
+    /// <remarks>
+    /// It used to follow a <c>FocusedPane</c> that tab cycled independently of
+    /// what was visible. With one view on the screen there is nothing to choose
+    /// between: the queue tab focuses its list, because that is the pane a
+    /// person drives, and every other tab focuses the one pane it has.
+    /// </remarks>
     private void Focus()
     {
         if (State.Mode != UiMode.Normal)
@@ -376,16 +391,25 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        switch (State.FocusedPane)
+        switch (State.ActiveTab)
         {
-            case PaneId.Evidence:
+            case TabId.Evidence:
                 _evidence.SetFocus();
                 break;
-            case PaneId.Live:
+            case TabId.Live:
                 _live.SetFocus();
                 break;
-            case PaneId.Flight:
-                _flight.SetFocus();
+            case TabId.Browse:
+                _browse.SetFocus();
+                break;
+            case TabId.Repositories:
+                _repositories.SetFocus();
+                break;
+            case TabId.Checklist:
+                _checklist.SetFocus();
+                break;
+            case TabId.Envelope:
+                _envelope.SetFocus();
                 break;
             default:
                 _queue.SetFocus();

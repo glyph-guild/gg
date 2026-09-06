@@ -115,13 +115,23 @@ public class HelpSaysWhatTheEnvironmentDecidesTests
     }
 
     [Test]
-    public async Task Tab_outside_help_still_changes_pane()
+    public async Task Tab_outside_help_still_moves_between_tabs()
     {
         // THE ANCHOR. Tab is FocusNextPane everywhere else, and a help page
         // that stole it would break the key it borrowed.
-        var moved = Reducer.Reduce(new AppState(), Command.FocusNextPane);
+        //
+        // AMENDED WHEN A VIEW TOOK THE WHOLE SCREEN. It asserted that tab moves
+        // off the queue from a bare state, which was true when the flight pane
+        // counted as somewhere to move to and every pane was 'visible'. Tab
+        // walks the OPEN TABS now and there is nowhere to go from a console
+        // with nothing open - Tabs_never_lands_on_a_view_nobody_opened says so
+        // deliberately - so the anchor opens one and asserts the move.
+        var opened = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
 
-        await Assert.That(moved.FocusedPane).IsNotEqualTo(PaneId.Queue);
+        var moved = Reducer.Reduce(opened, Command.FocusNextPane);
+
+        await Assert.That(moved.ActiveTab).IsNotEqualTo(opened.ActiveTab)
+            .Because("tab outside help moves between the open tabs.");
     }
 
     [Test]

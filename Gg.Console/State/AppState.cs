@@ -56,20 +56,50 @@ public enum HelpPage
     Environment,
 }
 
-/// <summary>The four panes.</summary>
-public enum PaneId
+/// <summary>
+/// One view that can have the screen.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>WAS <c>PaneId</c>, AND WAS FOUR OF THE SEVEN.</b> Six views shared one
+/// region of the right-hand side and kept out of each other's way by turning
+/// each other off, so the model needed six flags and a rule about which of
+/// them could be on. A view takes the whole screen now, exactly one is drawn,
+/// and this is the field that says which - so the flags go back to meaning
+/// what they say: this view is open.
+/// </para>
+/// <para>
+/// <b>The declaration order is the order of the bar.</b> Queue first because
+/// it is what a console opens on and the one tab that cannot be closed;
+/// evidence next because it is the one about the flight the queue selected.
+/// </para>
+/// </remarks>
+public enum TabId
 {
-    /// <summary>Flights needing me. Not a flight list.</summary>
+    /// <summary>Flights needing me, and the detail of the selected one.</summary>
+    /// <remarks>
+    /// Two panes and one tab, deliberately: the flight detail is what the
+    /// selected row MEANS, and a person moving the cursor is reading both.
+    /// </remarks>
     Queue,
-
-    /// <summary>One flight: state, pinned refs, credential identity, facts.</summary>
-    Flight,
 
     /// <summary>The digest, rendered. On demand.</summary>
     Evidence,
 
     /// <summary>The runner's normalised output. Off by default.</summary>
     Live,
+
+    /// <summary>The tracker's work items, to fly one.</summary>
+    Browse,
+
+    /// <summary>What this tenant may fly against.</summary>
+    Repositories,
+
+    /// <summary>What a flight opened now would need, priced against the fleet.</summary>
+    Checklist,
+
+    /// <summary>The envelope in force.</summary>
+    Envelope,
 }
 
 /// <summary>
@@ -245,8 +275,17 @@ public sealed record AppState
 {
     public UiMode Mode { get; init; } = UiMode.Normal;
 
-    /// <summary>The queue is what a person is here for.</summary>
-    public PaneId FocusedPane { get; init; } = PaneId.Queue;
+    /// <summary>
+    /// Which view has the screen. The queue is what a person is here for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Always a tab that is open</b>, which the reducer maintains: closing
+    /// the one showing falls back to the queue, and the queue cannot be closed.
+    /// A value naming a view whose flag is false would render an empty pane
+    /// under a tab nobody chose, so <c>Tabs.Showing</c> answers from this and
+    /// the flags together rather than from this alone.
+    /// </remarks>
+    public TabId ActiveTab { get; init; } = TabId.Queue;
 
     /// <summary>Flights needing me.</summary>
     public IReadOnlyList<QueueRow> Queue { get; init; } = [];
@@ -347,12 +386,11 @@ public sealed record AppState
     /// </remarks>
     public Checklist? Checklist { get; init; }
 
-    /// <summary>Whether the checklist pane has the region.</summary>
+    /// <summary>Whether the checklist is open as a tab.</summary>
     /// <remarks>
-    /// One region, three panes: turning this on turns <see cref="EvidenceVisible"/>,
-    /// <see cref="LiveVisible"/> and <see cref="BrowseVisible"/> off, because
-    /// two visible flags over one region is two panes drawn on top of each
-    /// other.
+    /// It used to mean "has the region", and turning it on turned three other
+    /// flags off. Only the tab showing is drawn now, so six open at once is
+    /// safe and this means what it says.
     /// </remarks>
     public bool ChecklistVisible { get; init; }
 
@@ -367,7 +405,7 @@ public sealed record AppState
     /// </remarks>
     public EnvelopeState? Envelope { get; init; }
 
-    /// <summary>Whether the envelope pane has the region.</summary>
+    /// <summary>Whether the envelope is open as a tab.</summary>
     public bool EnvelopeVisible { get; init; }
 
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>

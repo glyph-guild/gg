@@ -97,11 +97,13 @@ public class TheEnvelopeIsReadableTests
     }
 
     [Test]
-    public async Task One_region_one_pane()
+    public async Task One_screen_one_view()
     {
-        // Five occupants now. Two visible flags over one region is two panes
-        // drawn on top of each other, which is why each toggle turns the others
-        // off rather than trusting the order the views were added in.
+        // WAS One_region_one_pane, and it asserted that opening this turned the
+        // other four flags off - which is how five occupants of one region were
+        // kept from being drawn on top of each other. A view takes the whole
+        // screen now, so five OPEN at once is the point and exactly one draws:
+        // the same claim, one field along.
         var crowded = new AppState
         {
             EvidenceVisible = true, LiveVisible = true, BrowseVisible = true,
@@ -111,9 +113,12 @@ public class TheEnvelopeIsReadableTests
         var shown = Reducer.EnvelopeToggled(crowded);
 
         await Assert.That(shown.EnvelopeVisible).IsTrue();
-        await Assert.That(shown.EvidenceVisible).IsFalse();
-        await Assert.That(shown.LiveVisible).IsFalse();
-        await Assert.That(shown.BrowseVisible).IsFalse();
-        await Assert.That(shown.ChecklistVisible).IsFalse();
+        await Assert.That(shown.ChecklistVisible).IsTrue()
+            .Because("the checklist somebody was comparing this against is still open.");
+
+        var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(shown, tab)).ToList();
+
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Envelope])
+            .Because("one screen, one view. Found: " + string.Join(", ", drawn));
     }
 }

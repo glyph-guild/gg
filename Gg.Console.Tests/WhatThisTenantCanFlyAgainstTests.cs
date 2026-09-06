@@ -145,14 +145,21 @@ public class WhatThisTenantCanFlyAgainstTests
     }
 
     [Test]
-    public async Task One_region_one_pane()
+    public async Task One_screen_one_view()
     {
+        // WAS One_region_one_pane. Opening this used to turn three other flags
+        // off, because four views shared one region; a view takes the whole
+        // screen now, so what it asserts is that exactly one of the four DRAWS.
         var state = Reducer.RepositoriesToggled(
             new AppState { BrowseVisible = true, EvidenceVisible = true, LiveVisible = true });
 
         await Assert.That(state.RepositoriesVisible).IsTrue();
-        await Assert.That(state.BrowseVisible).IsFalse();
-        await Assert.That(state.EvidenceVisible).IsFalse();
-        await Assert.That(state.LiveVisible).IsFalse();
+        await Assert.That(state.BrowseVisible).IsTrue()
+            .Because("the items somebody was browsing are still open behind this.");
+
+        var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
+
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Repositories])
+            .Because("one screen, one view. Found: " + string.Join(", ", drawn));
     }
 }

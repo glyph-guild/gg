@@ -22,10 +22,10 @@ namespace Gg.Console.Tests;
 /// </remarks>
 internal static class StateGenerator
 {
-    /// <summary>Every mode and pane, so no generated run can miss one by luck.</summary>
+    /// <summary>Every mode and tab, so no generated run can miss one by luck.</summary>
     internal static IReadOnlyList<UiMode> Modes { get; } = Enum.GetValues<UiMode>();
 
-    internal static IReadOnlyList<PaneId> Panes { get; } = Enum.GetValues<PaneId>();
+    internal static IReadOnlyList<TabId> Tabs { get; } = Enum.GetValues<TabId>();
 
     internal static AppState Next(Random random)
     {
@@ -40,7 +40,7 @@ internal static class StateGenerator
         return new AppState
         {
             Mode = Pick(random, Modes),
-            FocusedPane = Pick(random, Panes),
+            ActiveTab = Pick(random, Tabs),
             Queue = queue,
             SelectedRow = queue.Count == 0 ? 0 : random.Next(0, queue.Count),
             Flight = random.Next(2) == 0 ? null : NextSummary(random),

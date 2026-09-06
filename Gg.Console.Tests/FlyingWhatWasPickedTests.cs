@@ -103,7 +103,7 @@ public class FlyingWhatWasPickedTests
         // than one without the key.
         var actions = new ConsoleDoubles.Records();
 
-        var state = ConsoleLoop.FlewPicked(new AppState { BrowseVisible = true }, actions);
+        var state = ConsoleLoop.FlewPicked(new AppState { BrowseVisible = true, ActiveTab = TabId.Browse }, actions);
 
         await Assert.That(actions.Flown).IsEmpty();
         await Assert.That(state.LastFlightOpened).IsNotNull();
@@ -168,7 +168,7 @@ public class FlyingWhatWasPickedTests
     [Test]
     public async Task The_fly_key_is_offered_only_while_the_work_list_is_showing()
     {
-        var browsing = new KeymapContext(UiMode.Normal) { BrowseVisible = true };
+        var browsing = new KeymapContext(UiMode.Normal, TabId.Browse);
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), browsing))
             .IsEqualTo(Command.FlyPicked);
@@ -187,9 +187,9 @@ public class FlyingWhatWasPickedTests
         // reducer, asserted here rather than remembered.
         foreach (var context in (KeymapContext[])
         [
-            new(UiMode.Normal, LiveVisible: true),
-            new(UiMode.Normal) { BrowseVisible = true },
-            new(UiMode.Normal, LiveVisible: true) { BrowseVisible = true },
+            new(UiMode.Normal, TabId.Live),
+            new(UiMode.Normal, TabId.Browse),
+            new(UiMode.Normal, TabId.Browse),
         ])
         {
             var onF = Keymap.Bindings(context).Where(b => b.Key == KeyStroke.Char('f')).ToList();

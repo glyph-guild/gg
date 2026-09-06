@@ -476,6 +476,14 @@ static async Task<int> BundleAsync(bool json)
 static string RunnerLogPath() =>
     Path.Combine(Gg.Local.LocalPaths.StateRoot(), "runner.log");
 
+/// <summary>Where the runner on this machine says it is running.</summary>
+/// <remarks>
+/// Beside the log rather than beside the credentials: this is true only while a
+/// process is up, and the config directory holds things that survive a reboot.
+/// </remarks>
+static string RunnerPidPath() =>
+    Path.Combine(Gg.Local.LocalPaths.StateRoot(), "runner.pid");
+
 static async Task<int> LaunchConsoleAsync()
 {
     // The queue is loaded through the VERBS, so what the console shows is what
@@ -571,7 +579,8 @@ static async Task<int> LaunchConsoleAsync()
     // reader sessions are: a model that is written to disk may hold a pid and
     // not a process, and a session must retain nothing across a rebuild.
     var runnerLog = new RunnerLog(RunnerLogPath());
-    using var runner = new RunnerAtHand(runnerLog, () =>
+    using var runner = new RunnerAtHand(
+        runnerLog, new RunnerPidFile(RunnerPidPath()), new LocalProcesses(), () =>
     {
         if (Gg.Local.SelfInvocation.Current is not { } self)
         {
@@ -1008,10 +1017,27 @@ static async Task<int> RunnerUpAsync()
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
         secretFor: locator => new FileCredentialStore().Read(locator));
 
-    return await Gg.Runner.RunnerHost.RunAsync(
-        new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
-        new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
-        destinations: destinations, executor: executor);
+    // WHERE THIS RUNNER IS RUNNING, for any console that wants to look. A
+    // runner outlives the console that started it - reparented to init a moment
+    // after that window closes - so a handle answers "did I start this" and
+    // this answers the question a person is actually asking.
+    var pidFile = new RunnerPidFile(RunnerPidPath());
+    pidFile.Write(Environment.ProcessId);
+
+    try
+    {
+        return await Gg.Runner.RunnerHost.RunAsync(
+            new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
+            new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
+            destinations: destinations, executor: executor);
+    }
+    finally
+    {
+        // TAKEN BACK, or the next console reads a runner that stopped hours
+        // ago. A kill -9 leaves it behind, which is why every reader checks the
+        // pid is alive before believing it.
+        pidFile.Clear();
+    }
 }
 
 /// <summary>
@@ -1340,3 +1366,78 @@ internal sealed record UpdateReportJson(
     WriteIndented = true)]
 [System.Text.Json.Serialization.JsonSerializable(typeof(UpdateReportJson))]
 internal sealed partial class UpdateJsonContext : System.Text.Json.Serialization.JsonSerializerContext;
+
+/// <summary>
+/// The processes on this machine, for the console's runner.
+/// </summary>
+/// <remarks>
+/// <b>Here rather than in Gg.Console, because it is the one thing in this that
+/// only the composition root may do.</b> A pid off a file is checked before it
+/// is reported and before it is signalled, and the name is checked with it: a
+/// reused pid belonging to something else is a stranger this console must not
+/// kill.
+/// </remarks>
+internal sealed class LocalProcesses : Gg.Console.IRunnerProcesses
+{
+    /// <summary>How long a shutdown waits before saying it did not happen.</summary>
+    private const int Grace = 5000;
+
+    public bool Alive(int pid) => Find(pid) is not null;
+
+    public bool Stop(int pid)
+    {
+        if (Find(pid) is not { } process)
+        {
+            return false;
+        }
+
+        try
+        {
+            using (process)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(Grace);
+
+                return process.HasExited;
+            }
+        }
+        catch (Exception failure) when (failure is InvalidOperationException
+                                            or NotSupportedException
+                                            or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The process under this pid, if it is one of ours.
+    /// </summary>
+    /// <remarks>
+    /// The name is the check. A pid file left behind by a kill -9 names a number
+    /// the operating system will hand to somebody else, and signalling that is
+    /// how a console comes to stop a database.
+    /// </remarks>
+    private static Process? Find(int pid)
+    {
+        try
+        {
+            var process = Process.GetProcessById(pid);
+
+            if (process.HasExited
+                || !process.ProcessName.StartsWith("gg", StringComparison.Ordinal))
+            {
+                process.Dispose();
+
+                return null;
+            }
+
+            return process;
+        }
+        catch (Exception failure) when (failure is ArgumentException
+                                            or InvalidOperationException
+                                            or NotSupportedException)
+        {
+            return null;
+        }
+    }
+}

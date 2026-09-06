@@ -3,52 +3,82 @@ using System.Diagnostics;
 namespace Gg.Console;
 
 /// <summary>
-/// The runner process this console started, and the two things that can be
-/// done to it.
+/// The runner on this machine, whoever started it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It holds the handle, because a model may not.</b> <c>AppState</c> is
-/// serialized under <c>GG_STATE_DUMP</c> and handed to the diagnostics bundle,
-/// so what crosses is a pid, an exit code and the tail of a log. This is
-/// <c>ReaderSessions</c>' shape for the same reason: a session must retain
-/// nothing across a rebuild, so whoever composed the console owns the child and
-/// stops it at the end.
+/// <b>The pid file is the source, not the handle.</b> This held a handle on the
+/// child it spawned, so a console that had not spawned one could see nothing
+/// and stop nothing - and a runner a few minutes old has usually outlived the
+/// console that started it. The handle is kept only so a freshly started runner
+/// is visible before it has written its own file.
+/// </para>
+/// <para>
+/// <b>What crosses into the model is a pid.</b> <c>AppState</c> is serialized
+/// under <c>GG_STATE_DUMP</c> and handed to the diagnostics bundle, so a
+/// process handle there is both unserializable and a live resource in a
+/// document.
 /// </para>
 /// <para>
 /// <b>Not the same interface the screen holds.</b> Starting spawns and stopping
 /// signals, neither of which a UI session may do; the screen is given
-/// <see cref="IRunnerLog"/>, which reads a file and nothing else. Two
-/// interfaces rather than one is what keeps that difference structural.
+/// <see cref="IRunnerLog"/>, which reads a file and nothing else.
 /// </para>
 /// </remarks>
-public sealed class RunnerAtHand(IRunnerLog log, Func<Process?> spawn) : IDisposable
+public sealed class RunnerAtHand(
+    IRunnerLog log,
+    RunnerPidFile pidFile,
+    IRunnerProcesses processes,
+    Func<Process?> spawn) : IDisposable
 {
     private Process? _child;
 
     /// <summary>
-    /// Fold what is known about the child into the model.
+    /// The pid of the runner running here, or null if none is.
     /// </summary>
     /// <remarks>
-    /// <b>Between sessions, because it touches a process.</b> The log is read on
-    /// the session's own tick; whether the child is still up is asked here,
-    /// where spawning is allowed and the terminal is free.
+    /// <b>Checked, and the file corrected when it lies.</b> Pids are reused, so
+    /// a stale file naming one that now belongs to something else would have
+    /// this console report a stranger as its runner and then kill it.
+    /// </remarks>
+    private int? Running()
+    {
+        if (_child is { HasExited: false } child)
+        {
+            return child.Id;
+        }
+
+        if (pidFile.Read() is not { } pid)
+        {
+            return null;
+        }
+
+        if (processes.Alive(pid))
+        {
+            return pid;
+        }
+
+        pidFile.Clear();
+
+        return null;
+    }
+
+    /// <summary>
+    /// Fold what is known about the runner here into the model.
+    /// </summary>
+    /// <remarks>
+    /// Between sessions, because it looks at processes. The log is read on the
+    /// session's own tick, where reading a file is what the exception allows.
     /// </remarks>
     public AppState Advance(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (_child is null)
-        {
-            return state;
-        }
-
         return state with
         {
             Here = new RunnerHere
             {
-                Pid = _child.Id,
-                Exit = _child.HasExited ? _child.ExitCode : null,
+                Pid = Running(),
                 LogPath = log.Path,
                 Log = log.Read(),
             },
@@ -57,25 +87,32 @@ public sealed class RunnerAtHand(IRunnerLog log, Func<Process?> spawn) : IDispos
 
     /// <summary>Start one, unless one is already up.</summary>
     /// <remarks>
-    /// <b>Refused rather than doubled.</b> A second runner registered from one
-    /// machine is litter in the fleet, and the key that reaches this is meant to
-    /// be gone while one is running - this is the half that holds when it is
-    /// not, which is every race between the fleet's view and the child's.
+    /// <b>Refused rather than doubled, whoever started the first.</b> A second
+    /// runner registered from one machine is litter in the fleet, and which
+    /// console asked for the first one does not change that.
     /// </remarks>
     public AppState Start(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (_child is { HasExited: false })
+        if (Running() is { } already)
         {
             return state with
             {
-                LastRunner = $"A runner is already running here as process {_child.Id}.",
+                LastRunner = $"A runner is already running here as process {already}.",
             };
         }
 
         _child?.Dispose();
         _child = spawn();
+
+        if (_child is not null)
+        {
+            // WRITTEN HERE TOO, and the child writes the same number a moment
+            // later. Without it the modal that opens on the keypress would have
+            // nothing to show until the runner got round to saying where it is.
+            pidFile.Write(_child.Id);
+        }
 
         return Advance(state) with
         {
@@ -86,55 +123,46 @@ public sealed class RunnerAtHand(IRunnerLog log, Func<Process?> spawn) : IDispos
     }
 
     /// <summary>
-    /// Ask it to stop, and wait a moment for it to.
+    /// Shut the runner on this machine down.
     /// </summary>
     /// <remarks>
-    /// <b>Asked, then told.</b> A runner holding a lease should release it, so
-    /// the polite signal goes first; a child that has not gone after the grace
-    /// below is one that cannot, and leaving it running would leave the fleet
-    /// with a runner nobody in this console can reach.
+    /// <b>Through the pid, so it reaches one this console did not start.</b>
+    /// That is the ordinary case: `x' did nothing for a whole slice because it
+    /// signalled a handle, and the runner it was aimed at had outlived the
+    /// console that spawned it.
     /// </remarks>
     public AppState Stop(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (_child is not { HasExited: false } child)
+        if (Running() is not { } pid)
         {
-            return state with
-            {
-                LastRunner = "No runner started from this console is running.",
-            };
+            return state with { LastRunner = "No runner is running on this machine." };
         }
 
-        try
-        {
-            child.CloseMainWindow();
-            child.Kill(entireProcessTree: true);
-            child.WaitForExit(Grace);
-        }
-        catch (Exception failure) when (failure is InvalidOperationException
-                                            or NotSupportedException
-                                            or System.ComponentModel.Win32Exception)
-        {
-            return state with { LastRunner = "The runner would not stop: " + failure.Message };
-        }
+        var went = processes.Stop(pid);
+
+        // CLEARED EITHER WAY. A pid file outliving the process it names is the
+        // next console's stale answer, and one naming a process that would not
+        // stop is a file this console will keep offering to kill.
+        pidFile.Clear();
+        _child?.Dispose();
+        _child = null;
 
         return Advance(state) with
         {
-            LastRunner = child.HasExited
+            LastRunner = went
                 ? "The runner on this machine has been shut down."
-                : "The runner was asked to stop and has not yet.",
+                : $"Process {pid} was asked to stop and has not.",
         };
     }
 
-    /// <summary>How long a shutdown waits before saying it did not happen.</summary>
-    private const int Grace = 5000;
-
     public void Dispose()
     {
-        // NOT KILLED HERE. The console exiting is not a reason to take a runner
-        // down: somebody who started one and closed the console meant to leave
-        // it working, and the flight it holds outlives this process by design.
+        // NOT STOPPED HERE, and the pid file is left where it is. The console
+        // exiting is not a reason to take a runner down: somebody who started
+        // one and closed the console meant to leave it working, and the next
+        // console reads the file and finds it.
         _child?.Dispose();
         _child = null;
     }

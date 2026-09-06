@@ -68,7 +68,17 @@ public class SliceTwelveGuardTests
     /// well</b> - <c>loop.attended</c>, plus <c>AttendedGaps</c>, a closed
     /// vocabulary of three. The argument is below with the count.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.21.0";
+    /// <para>
+    /// <b>And to 0.22.0 by slice thirty step 3, which added no kind</b> -
+    /// <c>flight.nomination</c> gains an optional <c>note</c>, so the surface
+    /// moves and the count below does not. The same shape as 0.19.0: a version
+    /// move a reviewer sees, a ledger row behind it, and nothing smuggled in
+    /// beside it. The argument for admitting a THIRD member to a type whose
+    /// remark calls its own shape a ratchet is that a note is a value rather
+    /// than a permission - it carries what the first agent learned to the
+    /// second and names no move, no scope, no budget and no destination.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.22.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

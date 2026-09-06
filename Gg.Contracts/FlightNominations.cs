@@ -64,6 +64,45 @@ public sealed record FlightNomination
     /// </remarks>
     public required string Reason { get; init; }
 
+    /// <summary>
+    /// What the nominating agent would tell whoever picks this up, or null when
+    /// it has nothing to add.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What the first agent LEARNED, not a restatement of the item.</b>
+    /// Measured before it was designed: three real triage runs against a work
+    /// item describing a defect that did not exist all read the code, found the
+    /// described behaviour already correct, and spent the note saying which
+    /// question to ask the reporter instead. That is the case for carrying one
+    /// at all - a second agent starting from the item alone would have written
+    /// the fix the item asked for.
+    /// </para>
+    /// <para>
+    /// <b>ADVICE, NEVER AUTHORITY</b>, the rule <see cref="Reason"/> and
+    /// <c>LeaseFeedback</c> already hold. It reaches the next prompt fenced and
+    /// attributed as an agent's words, and it grants nothing: scope, moves and
+    /// budget come from the envelope, and an instruction to exceed them fails at
+    /// the manifest check. All three measured notes were shaped that way without
+    /// being asked - a warning not to start coding, the evidence, then what to
+    /// confirm with the reporter.
+    /// </para>
+    /// <para>
+    /// <b>Optional, so nothing already made has to change.</b> Null when there
+    /// is nothing to add; blank is refused, because a classifier that wrote an
+    /// empty string produced a field instead of declining to fill one, and a
+    /// fenced block with nothing in it attributes silence to somebody.
+    /// </para>
+    /// <para>
+    /// <b>One hop, and this type cannot enforce that.</b> A flight opened from a
+    /// nomination carries its note; a flight opened from THAT flight does not.
+    /// The rule lives where flights are opened, because a fact has no way to
+    /// know how many times it has been forwarded - which is why it is written
+    /// here as the thing the admission path owes.
+    /// </para>
+    /// </remarks>
+    public string? Note { get; init; }
+
     /// <summary>The most a nominated name may be.</summary>
     /// <remarks>
     /// A work kind is a name in a topology, and an unbounded one is a string
@@ -80,6 +119,17 @@ public sealed record FlightNomination
     /// sentence a person reads while deciding something is the wrong shape.
     /// </remarks>
     public const int MaxReason = 2000;
+
+    /// <summary>The most a note may be.</summary>
+    /// <remarks>
+    /// <b>Measured, and the same as <see cref="MaxReason"/> because the
+    /// measurement said so.</b> Three real triage runs wrote 728, 774 and 833
+    /// characters - the same magnitude as the reason's own measured ~700. Two
+    /// fields a classifier fills in one breath, both bounded at what one of them
+    /// was measured to need, and nothing here justifies letting the note run
+    /// longer than the reason it sits beside.
+    /// </remarks>
+    public const int MaxNote = MaxReason;
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(FlightNomination nomination)
@@ -102,6 +152,25 @@ public sealed record FlightNomination
         {
             return "A nomination says why. One with no reason is a decision with no record of "
                  + "what it rested on, which is the half that makes it reviewable.";
+        }
+
+        if (nomination.Note is { } note)
+        {
+            if (string.IsNullOrWhiteSpace(note))
+            {
+                return "A nomination's note is what the classifier would tell whoever picks "
+                     + "this up, and this one is blank. Leave it out rather than sending an "
+                     + "empty one: null says there is nothing to add, and an empty string "
+                     + "renders a fenced block attributing silence to an agent.";
+            }
+
+            if (note.Length > MaxNote)
+            {
+                return $"A nomination's note is at most {MaxNote} characters and this one is "
+                     + $"{note.Length}. Real notes measure around 800, so past this it is an "
+                     + "analysis rather than a handover - and it is refused rather than "
+                     + "truncated, because half a note reads as a whole one.";
+            }
         }
 
         return nomination.Reason.Length > MaxReason

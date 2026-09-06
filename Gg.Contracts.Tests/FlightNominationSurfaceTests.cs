@@ -114,7 +114,18 @@ public class FlightNominationSurfaceTests
         // as the reason beside it, whose own remark records a measured ~700 and
         // bounds at 2000. So the bound is the same number for the same reason,
         // and the symmetry is a property rather than a coincidence.
-        await Assert.That(FlightNomination.MaxNote).IsEqualTo(FlightNomination.MaxReason);
+        // TIED TO THE MEASUREMENT RATHER THAN TO ITSELF. Asserting the constant
+        // equals the constant beside it is a tautology the compiler folds away;
+        // what is worth holding is that the bound stays in the range the data
+        // supports - comfortably above the largest note anybody wrote, and not
+        // so far above that it stops being a bound.
+        var longestMeasured = 833;
+        var bound = typeof(FlightNomination)
+            .GetField(nameof(FlightNomination.MaxNote))!.GetRawConstantValue() as int?;
+
+        await Assert.That(bound).IsNotNull();
+        await Assert.That(bound!.Value).IsGreaterThan(longestMeasured * 2);
+        await Assert.That(bound!.Value).IsLessThanOrEqualTo(longestMeasured * 3);
 
         var over = new FlightNomination
         {

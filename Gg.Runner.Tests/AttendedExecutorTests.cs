@@ -549,8 +549,9 @@ public class AttendedExecutorTests
     /// declaring itself unprobeable would prove the loop reads a flag rather
     /// than that this executor sets it.
     /// </remarks>
-    private static async Task<(List<ExecutorRequest> Seen, FakeProtocol Protocol)> FlownAsync(
-        bool holdUntilRenewed = false, int wallClockSeconds = 600, string? edits = null)
+    internal static async Task<(List<ExecutorRequest> Seen, FakeProtocol Protocol)> FlownAsync(
+        bool holdUntilRenewed = false, int wallClockSeconds = 600, string? edits = null,
+        Func<string, string, (TakeoverReturn? Decision, string? Diagnosis)>? returns = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -618,7 +619,8 @@ public class AttendedExecutorTests
                 },
                 observer, new NoCredentialResolver(),
                 trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
-                executor: executor)
+                executor: executor,
+                returns: returns)
             {
                 HoldFor = TimeSpan.FromSeconds(3),
             }

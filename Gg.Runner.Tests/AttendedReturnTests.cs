@@ -1,0 +1,143 @@
+using Gg.Contracts;
+
+namespace Gg.Runner.Tests;
+
+/// <summary>
+/// What the person decided, and the disposition that matches it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A PERSON WHO WALKED AWAY READS AS `completed` TODAY.</b> The runner holds
+/// the tree for its window and then releases the lease with
+/// <c>RunnerDisposition.Completed</c>, unconditionally. That is right for an
+/// agent, whose outcome was measured and shipped before the release — and on an
+/// attended flight nothing was measured, so `completed` is not a report of what
+/// happened, it is the only value the code had.
+/// </para>
+/// <para>
+/// <b>The reader is HANDED to the runner, and the reference graph is why.</b>
+/// S26.7-01 asks for the decision to be read through
+/// <c>TakeoverReturnReader</c> rather than a fourth way of asking one question.
+/// That reader lives in <c>Gg.Client</c>, and <c>Gg.Runner</c> cannot see it:
+/// the runner is treated as hostile and the reference graph keeps them apart —
+/// <c>Gg.Local</c> is no help either, since it does not reference
+/// <c>Gg.Contracts</c> and the decision is a contract type. So <c>Gg.Cli</c>
+/// passes it in, which is the same join it already makes for credentials and
+/// says so: <i>"the two halves are joined here because this is the only project
+/// that can see both."</i>
+/// </para>
+/// <para>
+/// <b>Which is why this file asserts the MAPPING and not the parsing.</b> What
+/// a return file is, how large it may be and when it is refused are
+/// <c>TakeoverReturnReader</c>'s and are tested where it lives. What is here is
+/// the runner's half: a decision becomes a disposition, a diagnosis becomes a
+/// refusal that is not `completed`, and nothing at all becomes `abandoned`.
+/// </para>
+/// <para>
+/// <b>And the fleet is untouched, guarded where it already was.</b> A flight an
+/// agent flew has no person to decide and no return file, and it still releases
+/// `completed` — its outcome was measured and shipped before the release.
+/// Reading "no decision" as abandonment there would mark every agent flight in
+/// the estate as abandoned, and <c>RunnerLoopTests</c> goes red if it does: it
+/// asserts <c>release:7:completed</c> on an ordinary flight. Nothing is
+/// duplicated here to say so.
+/// </para>
+/// </remarks>
+public class AttendedReturnTests
+{
+    private static Func<string, string, (TakeoverReturn?, string?)> Left(
+        string? outcome = null, string? diagnosis = null) =>
+        (_, flightId) => (
+            outcome is null
+                ? null
+                : new TakeoverReturn { FlightId = flightId, Outcome = outcome },
+            diagnosis);
+
+    /// <summary>The disposition the lease was released with.</summary>
+    private static string ReleasedWith(FakeProtocol protocol) =>
+        protocol.Calls.Last(call => call.StartsWith("release:", StringComparison.Ordinal))
+            .Split(':')[2];
+
+    // ---- S26.7-04 ----
+
+    [Test]
+    public async Task A_person_who_walked_away_does_not_read_as_completed()
+    {
+        // NOT A FAILURE, AND NOT A COMPLETION. Somebody handed a terminal who
+        // wrote nothing is the ordinary end of an abandoned session, and it is
+        // recorded as itself. `completed` would be a claim about work nobody
+        // checked, on the one path where nothing else can correct it.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(returns: Left());
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Abandoned);
+    }
+
+    [Test]
+    public async Task A_person_who_finished_reads_as_completed()
+    {
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed));
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Completed);
+    }
+
+    [Test]
+    public async Task A_person_who_gave_up_says_so()
+    {
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Abandoned));
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Abandoned);
+    }
+
+    [Test]
+    public async Task Handing_it_back_is_not_finishing_it()
+    {
+        // THE THIRD OUTCOME, and it is the one that must not read as either of
+        // the others. Handing back is a person saying the flight should go on
+        // without them - the work is not done and they did not give up on it.
+        // What the fleet then does with it is step 9's; that it is not
+        // `completed` is this step's.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.HandingBack));
+
+        await Assert.That(ReleasedWith(protocol)).IsNotEqualTo(RunnerDisposition.Completed);
+    }
+
+    // ---- S26.7-03 ----
+
+    [Test]
+    public async Task A_refused_return_carries_its_diagnosis_and_does_not_complete_the_flight()
+    {
+        // NOT SILENTLY APPLIED. A decision file left over from a previous
+        // takeover in the same tree names a flight that is not this one, and
+        // applying it would close somebody's flight on a sentence they wrote
+        // about a different one. The reader produces the diagnosis; what is
+        // asserted here is that the runner CARRIES it rather than dropping it
+        // and releasing something plausible.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(diagnosis: "The return file decides flight 'other' and the flight "
+                                   + "taken was 'flight-1'."));
+
+        await Assert.That(ReleasedWith(protocol)).IsNotEqualTo(RunnerDisposition.Completed);
+
+        await Assert.That(protocol.Serialized.Last(line =>
+                line.Contains("disposition", StringComparison.Ordinal)))
+            .Contains("decides flight 'other'")
+            .Because("a refusal that says only 'wrong flight' sends somebody looking for "
+                   + "which, and the reader already composed the sentence that says.");
+    }
+
+    [Test]
+    public async Task A_diagnosis_beats_a_decision_that_came_with_it()
+    {
+        // BOTH CANNOT BE TRUE. The reader answers a decision OR a diagnosis, and
+        // a runner that preferred the decision would apply a file the reader had
+        // already refused - which is the whole of what "not silently applied"
+        // forbids, arriving through the caller instead of the parser.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed, diagnosis: "refused for a reason"));
+
+        await Assert.That(ReleasedWith(protocol)).IsNotEqualTo(RunnerDisposition.Completed);
+    }
+}

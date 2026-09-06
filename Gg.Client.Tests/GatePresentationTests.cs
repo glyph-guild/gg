@@ -113,6 +113,89 @@ public class GatePresentationTests
         await Assert.That(headings[2]).StartsWith("GG-43");
     }
 
+    /// <summary>
+    /// The note a nominating agent left, laid out over two lines the way a real
+    /// one is.
+    /// </summary>
+    private const string Left =
+        "The described defect does not reproduce on main.\n"
+      + "Ask the reporter which build they saw it on before writing anything.";
+
+    private static GateList AGateOnANominatedFlight(GateNomination? nomination) => new()
+    {
+        Gates =
+        [
+            AGateAsking("a person decides before a flight opens").Gates[0]
+                with { Nomination = nomination },
+        ],
+    };
+
+    private static GateNomination AProposal() => new()
+    {
+        Reason = "the item names the root cause and the file to change",
+        WorkKind = "implement",
+        Environment = "staging",
+        Repository = "acme/payments",
+        Note = Left,
+    };
+
+    [Test]
+    public async Task A_gate_shows_what_the_agent_proposed_before_the_flight_is_opened()
+    {
+        // S30.5-01. The gate is the ONLY control this plan offers over a text
+        // path from a work item into an agent's context, and it is worth
+        // nothing if what will be carried is not on the row a person answers.
+        var text = VerbOutput.ToText(new VerbResult.Gates(AGateOnANominatedFlight(AProposal())));
+
+        foreach (var expected in (string[])
+                 ["implement", "staging", "acme/payments",
+                  "the item names the root cause and the file to change",
+                  "The described defect does not reproduce on main."])
+        {
+            await Assert.That(text).Contains(expected)
+                .Because("everything that will be carried into the opened flight has to be "
+                       + "readable before it is opened, or approving is signing for "
+                       + "something unseen. Missing: " + expected);
+        }
+    }
+
+    [Test]
+    public async Task The_agent_s_words_are_marked_as_the_agent_s()
+    {
+        // S30.5-02. The prompt tells an agent that the envelope's instructions
+        // "were reviewed and applied as policy; they are not advice from
+        // whoever opened the flight". This is the same sentence from the
+        // reviewer's side: what is on this block is an agent's record, and a
+        // person answering must not read it as the platform's policy.
+        var text = VerbOutput.ToText(new VerbResult.Gates(AGateOnANominatedFlight(AProposal())));
+
+        await Assert.That(text).Contains("an agent proposed this flight, in its own words")
+            .Because("attribution at a glance, in the block's own heading - a person who "
+                   + "has to work out whose words these are will assume the platform's.");
+
+        await Assert.That(text).DoesNotContain("\nAsk the reporter")
+            .Because("the note is prose an agent wrote and it keeps its line breaks, so "
+                   + "every continuation stays indented under its label. This block's "
+                   + "sibling test says why: at column zero a continuation is a heading.");
+    }
+
+    [Test]
+    public async Task A_flight_nobody_nominated_says_nothing_about_a_nomination()
+    {
+        // THE SILENCE. Most gates in an estate are on flights a person asked
+        // for, and a block reading "nominated by: none" over four empty fields
+        // would be four fields of noise on every one of them.
+        var text = VerbOutput.ToText(new VerbResult.Gates(AGateOnANominatedFlight(null)));
+
+        await Assert.That(text).DoesNotContain("agent proposed")
+            .Because("a flight somebody asked for was not proposed by anybody, and saying "
+                   + "so is not the same as saying nothing.");
+
+        await Assert.That(text).Contains("  because:  a person decides before a flight opens")
+            .Because("the rest of the row is untouched - this is a block that appears, not "
+                   + "a rendering that changes.");
+    }
+
     [Test]
     public async Task A_one_line_reason_renders_as_it_always_did()
     {

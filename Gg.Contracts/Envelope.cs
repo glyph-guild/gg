@@ -1174,6 +1174,25 @@ public sealed record Envelope
     /// something there. Here it does not — absent and empty are the same
     /// policy — so the accessor absorbs it and no caller writes <c>?.</c>.
     /// </para>
+    /// <para>
+    /// <b>AND THAT CHOICE IS ALSO A WIRE DECISION, which is the half nothing
+    /// said until it cost something.</b> These contexts write with
+    /// <c>WhenWritingNull</c>, and an absorbing accessor never returns the null
+    /// that condition drops — so this member is on EVERY request forever, while
+    /// <c>Accepts</c> unset is not written at all. Against a control plane that
+    /// has not learned a member yet, one of those is a 400 and the other is
+    /// invisible. Measured, not reasoned:
+    /// <c>Gg.Cli.Tests.NullIsNotOnTheWireTests</c>.
+    /// </para>
+    /// <para>
+    /// <b>So absorbing is right for a member being REPAIRED and wrong for one
+    /// being ADDED</b>, and the two are indistinguishable at the declaration —
+    /// which is where somebody adding a member by copying a neighbour will look.
+    /// A member that already shipped has readers dereferencing it bare, and
+    /// absorbing is what stops them throwing; a member that has not shipped has
+    /// no such readers, and declaring it nullable is what lets it reach an older
+    /// control plane at all.
+    /// </para>
     /// </remarks>
     [Composes(MergeOperators.Append)]
     public IReadOnlyList<EnvelopeInstruction> Instructions

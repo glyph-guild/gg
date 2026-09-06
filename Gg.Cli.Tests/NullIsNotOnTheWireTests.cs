@@ -130,6 +130,33 @@ public class NullIsNotOnTheWireTests
     }
 
     [Test]
+    public async Task An_absorbing_accessor_is_on_the_wire_forever_and_a_nullable_one_is_not()
+    {
+        // WHAT A DECLARATION CHOICE DOES TO THE WIRE, measured rather than
+        // reasoned about, because the two look identical at the declaration and
+        // that is where somebody adding a member by copying a neighbour looks.
+        //
+        // `get => field ?? []` never returns the null WhenWritingNull drops, so
+        // an absorbing member is written on every request whether anyone set it
+        // or not - and against a control plane that has not learned it yet, that
+        // is a 400 rather than something invisible. A nullable member left unset
+        // does not appear at all.
+        //
+        // So absorbing is right for a member being REPAIRED - it already
+        // shipped, readers dereference it bare, and this is what stops them
+        // throwing - and wrong for one being ADDED, which has no such readers
+        // and needs to be able to reach an older control plane.
+        var neither = JsonSerializer.Deserialize(BareEnvelope, ProtocolJsonContext.Default.Envelope)!;
+
+        var written = JsonSerializer.Serialize(neither, ProtocolJsonContext.Default.Envelope);
+
+        await Assert.That(written).Contains("\"instructions\":[]")
+            .Because("absorbing, and unset: on the wire anyway.");
+        await Assert.That(written).DoesNotContain("accepts")
+            .Because("nullable, and unset: not on the wire.");
+    }
+
+    [Test]
     public async Task The_sweep_reaches_both_senders_and_the_member_that_broke()
     {
         // LIVENESS. A sweep that quietly reached one context, or stopped at the

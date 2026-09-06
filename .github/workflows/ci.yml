@@ -52,9 +52,37 @@ jobs:
       - name: The published binary actually runs
         run: ./artifacts/aot/gg --version
 
+  # THE ARTEFACT MOST PEOPLE INSTALL, and until now nothing ran it. The `aot`
+  # job above proves the NATIVE binary works; the tool package is IL, packed
+  # with -p:PublishAot=false, and is a different build of the same code. Once
+  # provisioning installs the tool, "CI is green" stopped meaning "the thing on
+  # the host runs" - so this installs the package and types the command.
+  tool:
+    name: tool
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # THE SAME COMMAND publish-cli.yml PACKS WITH. If these drift, this job
+      # proves a package nobody ships.
+      - name: Pack the tool exactly as the release does
+        run: dotnet pack Gg.Cli -c Release -p:PublishAot=false -o artifacts
+      # --tool-path RATHER THAN -g, and it is the point of the step. A global
+      # install lands in the runner's HOME and is invoked off PATH, so a green
+      # step could mean some other gg answered. This runs the shim by the path
+      # it was just written to, and nothing else can satisfy it.
+      - name: Install it from the package and run the command people type
+        run: |
+          dotnet tool install GlyphGuild.Gg.Cli \
+            --tool-path artifacts/tool \
+            --add-source artifacts
+          ./artifacts/tool/gg --version
+
   ci:
     name: CI
-    needs: [dotnet, aot]
+    needs: [dotnet, aot, tool]
     if: always()
     runs-on: ubuntu-latest
     steps:

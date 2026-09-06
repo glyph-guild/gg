@@ -11,11 +11,12 @@ on:
 # compiler - which is what a pool host has, and why provisioning should use
 # them rather than cloning and building.
 #
-# Nothing is pushed to nuget.org. No account exists, and the release asset is
-# the same channel Gg.Contracts already uses. The consequence, said plainly so
-# nobody hunts for it: `dotnet tool install --add-source` wants a FEED, not a
-# file URL, so installing the tool means downloading the .nupkg first. The
-# binaries are the easy path; the README says so.
+# THE TOOL GOES TO nuget.org, and the binaries stay release assets. Both are
+# still attached to the release - one place to see what a version shipped - but
+# the package is also pushed to a real feed, because `dotnet tool install
+# --add-source` takes a DIRECTORY and not a URL. Off a releases page the tool
+# is a download-then-install and `dotnet tool update` cannot see it at all;
+# that update path is the whole reason gg builds no updater of its own.
 
 jobs:
   pack:
@@ -133,11 +134,53 @@ jobs:
 
           Swap \`linux-x64\` for \`osx-arm64\` on an Apple-silicon Mac.
 
-          **As a .NET tool**, if you already have the SDK. \`--add-source\` needs a directory rather than a URL, so the package is downloaded first:
+          **As a .NET tool**, if you already have the SDK — from nuget.org, so there is nothing to download first:
 
           \`\`\`sh
-          curl -fsSL -O https://github.com/glyph-guild/gg/releases/download/$tag/GlyphGuild.Gg.Cli.$VERSION.nupkg
-          dotnet tool install -g --add-source . GlyphGuild.Gg.Cli
+          dotnet tool install -g GlyphGuild.Gg.Cli --version $VERSION
           \`\`\`
 
-          Either way the command is \`gg\`."
+          Drop \`--version\` to take the newest. Pinning is the better default on anything unattended, and \`dotnet tool update -g GlyphGuild.Gg.Cli --version X\` moves it later.
+
+          Either way the command is \`gg\`.
+
+          \`gg\` never replaces its own binary. It will tell you when it is behind and name the command; moving the bytes is \`dotnet\`'s job, or yours."
+
+  # LAST, AND DELIBERATELY SO. `needs: [release]` is not about artefacts - this
+  # job downloads its own - it is about order. A GitHub release can be deleted;
+  # a version on nuget.org cannot. Unlisting hides it from search and every
+  # client that already knows the number still resolves it, so the push is the
+  # one irreversible act in this workflow and it happens after the reversible
+  # one has succeeded.
+  nuget:
+    name: push the tool to nuget.org
+    needs: [pack, release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tool-package
+          path: artifacts
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      # --skip-duplicate CARRIES THE IDEMPOTENCE, and it is why this is its own
+      # job rather than another step in `release`. That job returns early when
+      # the tag already exists, so a run where the release succeeded and the
+      # push failed could never be repaired by re-running it: the second attempt
+      # would exit before reaching the push. Here a re-run is always safe -
+      # nuget.org answers 409 for a version it already has, and this turns that
+      # into a warning instead of a red build.
+      #
+      # THE KEY IS THE TRUST ROOT. Repository signing proves a package came
+      # through nuget.org's pipeline, not that glyph-guild sent it: anyone
+      # holding this key pushes, nuget.org signs, and every client accepts. It
+      # is the one credential in either repository that can ship gg to a fleet.
+      - name: Push
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push artifacts/*.nupkg \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "$NUGET_API_KEY" \
+            --skip-duplicate

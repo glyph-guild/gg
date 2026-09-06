@@ -82,6 +82,9 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.FromResult(new HeartbeatAccepted { NextHeartbeatSeconds = HeartbeatSeconds });
     }
 
+    /// <summary>Whether the control plane has finished evaluating this flight.</summary>
+    internal bool Settles { get; set; } = true;
+
     public Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
         string? flightId = null,
@@ -195,7 +198,11 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
         return Task.FromResult(new LandingDecision
         {
-            Settled = true,
+            // SETTLED MEANS EVERY FACT THIS FLIGHT SHIPPED HAS BEEN EVALUATED,
+            // so false is a flight still waiting on something - an open gate
+            // being the case a hand-flight meets while the person is still at
+            // the terminal deciding.
+            Settled = Settles,
             Push = Push,
             Admission = Admission,
         });

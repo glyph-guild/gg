@@ -149,4 +149,49 @@ public class AttendedReturnTests
 
         await Assert.That(ReleasedWith(protocol)).IsNotEqualTo(RunnerDisposition.Completed);
     }
+
+    // ---- S26.8-09 and S26.8-10 ----
+
+    [Test]
+    public async Task A_flight_still_waiting_on_something_does_not_land_because_the_person_said_so()
+    {
+        // THE PERSON ANSWERS FOR THEIR WORK; THEY DO NOT ANSWER THE GATE. A
+        // hand-flight can open one - the envelope decides that, not who flew it
+        // - and the person at the terminal is not who may close it. Rule 8.
+        //
+        // `completed` is the one disposition that ENDS a flight:
+        // LeaseDispositions.ExitFor maps it to `landed`, while `abandoned` and
+        // `expired` map to no ending at all, which is what lets the sweep
+        // re-offer work that is not finished. So releasing `completed` here
+        // would record a landing while a gate nobody answered is still open -
+        // and the exit claim is first-writer-wins, so the truthful write would
+        // lose to the premature one and there is no second chance.
+        //
+        // The runner cannot see the gate, and does not need to: `settled` means
+        // every fact this flight shipped has been evaluated, so unsettled is
+        // "still waiting on something" whatever that something is.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed), settles: false);
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Abandoned)
+            .Because("the person finished their work and the flight has not finished. "
+                   + "Abandoned maps to no ending, so nothing is closed and the work is "
+                   + "still there to be picked up once somebody answers.");
+
+        await Assert.That(Released(protocol).Detail).IsNotNull()
+            .Because("a release that says less than the person did is one they cannot "
+                   + "reconcile with what they typed.");
+    }
+
+    [Test]
+    public async Task A_settled_flight_still_lands_when_the_person_says_it_is_done()
+    {
+        // THE HALF THAT MUST NOT MOVE. Refusing to land whenever anything is
+        // unsettled would be easy and would mean no hand-flight ever completes,
+        // which is the same silence one condition further on.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed), settles: true);
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Completed);
+    }
 }

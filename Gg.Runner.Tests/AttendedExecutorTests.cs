@@ -551,12 +551,13 @@ public class AttendedExecutorTests
     /// </remarks>
     internal static async Task<(List<ExecutorRequest> Seen, FakeProtocol Protocol)> FlownAsync(
         bool holdUntilRenewed = false, int wallClockSeconds = 600, string? edits = null,
-        Func<string, string, (TakeoverReturn? Decision, string? Diagnosis)>? returns = null)
+        Func<string, string, (TakeoverReturn? Decision, string? Diagnosis)>? returns = null,
+        bool settles = true)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
-        var protocol = new FakeProtocol();
+        var protocol = new FakeProtocol { Settles = settles };
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, 1, wallClockSeconds)));
 
         var seen = new List<ExecutorRequest>();

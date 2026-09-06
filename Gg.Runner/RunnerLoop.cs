@@ -703,7 +703,7 @@ public sealed class RunnerLoop(
         // process. A fence answered mid-work means the flight is somebody
         // else's now: the work is cancelled, nothing ships, and the loop goes
         // back to claiming.
-        var (probe, run, lost) = await InvokeRenewingAsync(lease, workspace, cancellationToken);
+        var (probe, invoked, lost) = await InvokeRenewingAsync(lease, workspace, cancellationToken);
         if (lost)
         {
             _observer.Fenced(lease.LeaseId);
@@ -730,7 +730,7 @@ public sealed class RunnerLoop(
         // still be holding what it would push when the answer comes back. Said
         // out loud because it is the mechanism rather than an incidental
         // consequence of where the release happens to sit.
-        await ShipAsync(lease, workspace, run, probe, cancellationToken);
+        await ShipAsync(lease, workspace, invoked, probe, cancellationToken);
 
         // AND THEN IT ASKS, because shipping is accepted rather than answered.
         // The control plane records the batch and evaluates afterwards, so the
@@ -760,7 +760,7 @@ public sealed class RunnerLoop(
     /// an unhandled one once.
     /// </para>
     /// </remarks>
-    private async Task<(Execution.ProbeResult? Probe, ExecutorRun? Run, bool Lost)>
+    private async Task<(Execution.ProbeResult? Probe, Invocation Invoked, bool Lost)>
         InvokeRenewingAsync(
             LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
     {
@@ -804,12 +804,12 @@ public sealed class RunnerLoop(
 
         try
         {
-            var (probe, run) = await work;
-            return (probe, run, false);
+            var (probe, invoked) = await work;
+            return (probe, invoked, false);
         }
         catch (OperationCanceledException) when (fenced && !cancellationToken.IsCancellationRequested)
         {
-            return (null, null, true);
+            return (null, Invocation.Nothing, true);
         }
     }
 
@@ -834,7 +834,7 @@ public sealed class RunnerLoop(
     /// that, the probe moves with it - per loop, as the slice doc records.
     /// </para>
     /// </remarks>
-    private async Task<(Execution.ProbeResult? Probe, ExecutorRun? Run)> ProbeThenInvokeAsync(
+    private async Task<(Execution.ProbeResult? Probe, Invocation Invoked)> ProbeThenInvokeAsync(
         LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
     {
         if (_executor is null || lease.Loop is null)
@@ -853,8 +853,8 @@ public sealed class RunnerLoop(
         if (Gg.Local.IntentConfiguration.Unreadable(lease.IntentProvider, _readers)
             is { } unreadable)
         {
-            return (null, ExecutorRun.Failed(
-                lease.Loop.LoopId, unreadable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));
+            return (null, new Invocation(ExecutorRun.Failed(
+                lease.Loop.LoopId, unreadable, attempts: 1, took: TimeSpan.Zero, movesUsed: []), null));
         }
 
         // THE SAME SHAPE, ONE MOVE OVER. A loop that declares `propose` on a
@@ -866,8 +866,8 @@ public sealed class RunnerLoop(
         if (Execution.ToolServers.Unservable(
             lease.Loop.Moves, Gg.Local.SelfInvocation.Current) is { } unservable)
         {
-            return (null, ExecutorRun.Failed(
-                lease.Loop.LoopId, unservable, attempts: 1, took: TimeSpan.Zero, movesUsed: []));
+            return (null, new Invocation(ExecutorRun.Failed(
+                lease.Loop.LoopId, unservable, attempts: 1, took: TimeSpan.Zero, movesUsed: []), null));
         }
 
         // NOT EVERY EXECUTOR CAN BE PROBED, and the one that cannot is the one
@@ -894,7 +894,7 @@ public sealed class RunnerLoop(
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
         if (!probe.Bound)
         {
-            return (probe, null);
+            return (probe, Invocation.Nothing);
         }
 
         return (probe, await InvokeAsync(lease, workspace, cancellationToken));
@@ -916,7 +916,7 @@ public sealed class RunnerLoop(
     /// loop arriving early.
     /// </para>
     /// </remarks>
-    private async Task<ExecutorRun?> InvokeAsync(
+    private async Task<Invocation> InvokeAsync(
         LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
     {
         // NO LONGER GATED ON HAVING CLONED SOMETHING. A ticket, a text intent
@@ -932,11 +932,10 @@ public sealed class RunnerLoop(
             || !Execution.ExecutorRequest.NamesWork(
                 lease.IntentUri, lease.IntentProvider, lease.IntentId))
         {
-            return null;
+            return Invocation.Nothing;
         }
 
-        var run = await _executor.ExecuteAsync(
-            new ExecutorRequest
+        var request = new ExecutorRequest
             {
                 // ALWAYS, because this side cannot know whether anybody is
                 // watching: the console is a different process with no channel
@@ -977,8 +976,16 @@ public sealed class RunnerLoop(
                 Moves = loop.Moves,
                 WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
                 TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),
-            },
-            cancellationToken);
+        };
+
+        // TIMED HERE, because this is the only place that knows when the person
+        // was handed the terminal and when they gave it back. Rule 6 records the
+        // wall clock for an attended session and does not enforce it - nobody's
+        // session is killed at the envelope's budget - so this may exceed it,
+        // and an overrun somebody can SEE is the whole point of recording it.
+        var handedOver = _clock.UtcNow;
+        var run = await _executor.ExecuteAsync(request, cancellationToken);
+        var held = _clock.UtcNow - handedOver;
 
         // NOTHING MEASURED A LOOP, which is what an attended session answers:
         // a person held the terminal, so there is no outcome to append a
@@ -989,7 +996,31 @@ public sealed class RunnerLoop(
         // all. Both mean no loop fact; only this one means somebody flew it.
         if (run is null)
         {
-            return null;
+            // WHAT IT COULD NOT SEE, asked of the executor that could not see
+            // it. The runner supplies what only the LEASE knows - which loop,
+            // which rung, what budget - and the executor supplies what only
+            // running the session measured. Keeping the rung on this side is
+            // what makes it the loop's own declaration rather than something an
+            // executor decided: an attended frontier loop records `frontier`,
+            // because somebody sat at the terminal and an agent still did the
+            // work.
+            if (await _executor.AttendedAsync(request, held, cancellationToken)
+                is not { } session)
+            {
+                return Invocation.Nothing;
+            }
+
+            return new Invocation(null, new LoopAttended
+            {
+                LoopId = loop.LoopId,
+                Rung = loop.Executor,
+                Binary = session.Binary,
+                BinaryVersion = session.BinaryVersion,
+                BudgetSeconds = loop.WallClockSeconds,
+                HeldSeconds = (int)Math.Max(0, Math.Round(session.Held.TotalSeconds)),
+                Unmeasured = session.Unmeasured,
+                SettingsCleared = session.SettingsCleared,
+            });
         }
 
         // THE ENVELOPE'S SENTENCE, appended where the envelope is known. The
@@ -1020,7 +1051,24 @@ public sealed class RunnerLoop(
             _observer.MoveRefused(refusal);
         }
 
-        return run;
+        return new Invocation(run, null);
+    }
+
+    /// <summary>
+    /// What one invocation produced: a measured loop, or a declaration of what
+    /// was not measured, or neither.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two nullable members rather than a bigger tuple, because they are
+    /// mutually exclusive and the type should say so.</b> A run beside a
+    /// declaration is a session claiming both that it measured a loop and that
+    /// it could not; <c>Nothing</c> is a runner with no executor at all, which
+    /// ships neither and is a third state rather than a degraded second.
+    /// </remarks>
+    private sealed record Invocation(ExecutorRun? Run, LoopAttended? Attended)
+    {
+        /// <summary>No executor, or nothing that names work: no loop fact of any kind.</summary>
+        public static Invocation Nothing { get; } = new(null, null);
     }
 
     /// <summary>
@@ -1033,9 +1081,11 @@ public sealed class RunnerLoop(
     /// produces.
     /// </remarks>
     private async Task ShipAsync(
-        LeaseGranted lease, WorkspaceResult workspace, ExecutorRun? run,
+        LeaseGranted lease, WorkspaceResult workspace, Invocation invoked,
         Execution.ProbeResult? probe, CancellationToken cancellationToken)
     {
+        var run = invoked.Run;
+
         var payloads = new List<FactPayload>
         {
             new FactPayload.Environment(EnvironmentSurvey.Observe(
@@ -1105,6 +1155,17 @@ public sealed class RunnerLoop(
             {
                 payloads.Add(new FactPayload.Nomination(nomination));
             }
+        }
+        else if (invoked.Attended is { } attended)
+        {
+            // WHAT NOBODY SAW, said rather than left out. The three facts above
+            // this - the environment, the manifest, the provenance - all ship
+            // exactly as they do for an agent, because a person editing a tree
+            // measures identically to an agent editing it. This is the one that
+            // does not, and without it the control plane sees a flight that
+            // never mentioned a loop, which is also what a runner that died
+            // before invoking one looks like.
+            payloads.Add(new FactPayload.Attended(attended));
         }
 
         // STRIPPED BEFORE THE DIGEST, which the types enforce: Digest takes

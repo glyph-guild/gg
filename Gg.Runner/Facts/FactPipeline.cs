@@ -49,6 +49,18 @@ public abstract record FactPayload
 
     /// <summary>A question an agent could not answer from the work itself.</summary>
     public sealed record Question(LoopQuestion Value) : FactPayload;
+
+    /// <summary>
+    /// A session a person flew, and what holding the terminal cost the
+    /// measurement.
+    /// </summary>
+    /// <remarks>
+    /// The only payload here whose subject is an absence. It travels INSTEAD of
+    /// <see cref="Loop"/> rather than beside it: a session claiming both that it
+    /// measured a loop and that it could not is the contradiction the kind
+    /// exists to prevent.
+    /// </remarks>
+    public sealed record Attended(LoopAttended Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -183,6 +195,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Question = question.Value,
+                },
+
+                FactPayload.Attended attended => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Attended = attended.Value,
                 },
 
                 FactPayload.Nomination nomination => new FactEnvelope
@@ -362,6 +383,9 @@ public static class FactPipeline
         FactPayload.Question question => (
             FactKinds.LoopQuestion,
             JsonSerializer.Serialize(question.Value, FactJsonContext.Default.LoopQuestion)),
+        FactPayload.Attended attended => (
+            FactKinds.LoopAttended,
+            JsonSerializer.Serialize(attended.Value, FactJsonContext.Default.LoopAttended)),
         FactPayload.Landing landing => (
             FactKinds.DestinationLanded,
             JsonSerializer.Serialize(landing.Value, FactJsonContext.Default.DestinationLanded)),

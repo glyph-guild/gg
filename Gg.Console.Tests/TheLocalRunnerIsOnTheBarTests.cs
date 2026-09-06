@@ -121,10 +121,13 @@ public class TheLocalRunnerIsOnTheBarTests
         var pane = PaneText.ForTab(
             Fleet(null, ARunner("other-1", RunnerStates.Idle)), TabId.Runners);
 
-        await Assert.That(pane).Contains("gg runner up")
-            .Because("nothing registered here is not an error, it is a thing to go and do - "
-                   + "and a pane that only said `no local runner' would leave a person "
-                   + "guessing which command makes one.");
+        // THE KEY, NOT THE COMMAND. This said `gg runner up' and was right that
+        // a pane naming no remedy leaves a person guessing - and wrong about
+        // which remedy: gg owns the terminal it would be typed into, which is
+        // the dead end the sign-in modal exists to remove.
+        await Assert.That(pane).Contains("start a runner here")
+            .Because("nothing registered here is not an error, it is a thing to go and do, "
+                   + "and the doing has to be possible from this screen.");
     }
 
     [Test]

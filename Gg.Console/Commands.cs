@@ -100,6 +100,17 @@ public enum Command
     /// <remarks>The shell's: showing them is a read, and a session may not make one.</remarks>
     ToggleRepositories,
 
+    /// <summary>
+    /// Start a runner on this machine.
+    /// </summary>
+    /// <remarks>
+    /// <b>The shell's, because it spawns a child.</b> And offered only when
+    /// there is none running here: a second runner registered from one machine
+    /// is litter in the fleet, and Article XI says a key that appears to work is
+    /// worse than one that is not offered.
+    /// </remarks>
+    StartRunner,
+
     /// <summary>Show or hide the fleet, with this machine's runner first.</summary>
     /// <remarks>
     /// <b>NOT the shell's, unlike its four neighbours.</b> The boot already
@@ -270,6 +281,9 @@ public static class ShellCommands
 
         // A read, like browsing.
         Command.ToggleRepositories,
+
+        // SPAWNS A CHILD, so both halves of what this set means apply.
+        Command.StartRunner,
 
         // AND SO IS OPENING A FLIGHT, since the boot stopped reading a log for
         // every flight ever flown. The modal shows one flight's log; the flight

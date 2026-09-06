@@ -177,6 +177,25 @@ public static class Rows
         return rows;
     }
 
+    /// <summary>
+    /// Whether this machine has no runner running.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three cases and one predicate, because one command answers all
+    /// three.</b> Nothing registered here; registered and never heard from,
+    /// which is what <c>gg runner up</c> having been run once and the process
+    /// being gone looks like; and registered with a heartbeat that has gone
+    /// stale. <c>gg runner up</c> is the remedy for each, so a caller asking
+    /// "should I offer the start" is asking one question.
+    /// </remarks>
+    public static bool NoRunnerHere(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Runners(state).FirstOrDefault(r => r.Mine) is not { } mine
+            || mine.State == RunnerStates.Offline;
+    }
+
     /// <summary>The mark against this machine's own runner.</summary>
     private const string Ours = "→";
 

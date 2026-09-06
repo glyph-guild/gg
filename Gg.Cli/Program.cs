@@ -468,6 +468,14 @@ static async Task<int> BundleAsync(bool json)
     return 0;
 }
 
+/// <summary>Where a runner started from the console writes what it says.</summary>
+/// <remarks>
+/// Beside the live views rather than in the repository somebody happens to be
+/// standing in: a log that lands in a working tree is a log that gets committed.
+/// </remarks>
+static string RunnerLogPath() =>
+    Path.Combine(Gg.Local.LocalPaths.StateRoot(), "runner.log");
+
 static async Task<int> LaunchConsoleAsync()
 {
     // The queue is loaded through the VERBS, so what the console shows is what
@@ -629,6 +637,44 @@ static async Task<int> LaunchConsoleAsync()
         // flight still in the air - those are the only ones whose log can put a
         // row in the queue - so the detail modal reads its own.
         flightLog: current => ConsoleFlightLog.Read(data, current),
+        // A RUNNER ON THIS MACHINE, spawned and not waited for. `gg runner up`
+        // is a server, so handing it the terminal would mean a person could
+        // either watch a runner or use this console and not both.
+        startRunner: current => ConsoleHandFlight.Start(
+            current,
+            Gg.Local.SelfInvocation.Current,
+            log: RunnerLogPath(),
+            start: info =>
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(RunnerLogPath())!);
+                var writer = new StreamWriter(RunnerLogPath(), append: true);
+                var child = Process.Start(info);
+
+                if (child is null)
+                {
+                    writer.Dispose();
+                    return false;
+                }
+
+                // DRAINED, because a child whose pipes fill up stops. Both
+                // streams into one file, in the order they arrive, and the
+                // writer closes when the runner does.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.WhenAll(
+                            child.StandardOutput.BaseStream.CopyToAsync(writer.BaseStream),
+                            child.StandardError.BaseStream.CopyToAsync(writer.BaseStream));
+                    }
+                    finally
+                    {
+                        await writer.DisposeAsync();
+                    }
+                });
+
+                return true;
+            }),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the
         // child would be, and how to run it. The order - refuse before asking,

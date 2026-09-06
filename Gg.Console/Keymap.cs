@@ -55,7 +55,8 @@ public readonly record struct KeymapContext(
     TabId Showing = TabId.Queue,
     bool Frozen = false,
     bool Takeable = false,
-    bool HandedBackable = false)
+    bool HandedBackable = false,
+    bool RunnerStartable = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -98,7 +99,8 @@ public readonly record struct KeymapContext(
             state.ActiveTab,
             state.Frozen,
             state.TakeableTree is not null,
-            state.TakenOver)
+            state.TakenOver,
+            Rows.NoRunnerHere(state))
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -357,6 +359,16 @@ public static class Keymap
                     { When = "after you have taken it" }]
                 : [],
 
+            // ONLY WHEN THERE IS NOTHING RUNNING HERE. `gg runner up' is a
+            // command a person cannot type while this console owns the screen,
+            // which is the dead end the sign-in modal exists to remove - and a
+            // second runner registered from one machine is litter in the fleet,
+            // so the key goes away the moment one is up.
+            .. context.RunnerStartable
+                ? (KeyBinding[])[new(KeyStroke.Char('s'), Command.StartRunner,
+                    "start a runner here") { When = "when none is running here" }]
+                : [],
+
             // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
             // while it is open, and one of these reachable from a gate decision
             // would be a key doing something unrelated to the question on screen.
@@ -508,12 +520,16 @@ public static class Keymap
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
+        // A MACHINE WITH NO RUNNER, which is where `s` lives. Left out it would
+        // be the same defect as the one below: a key that resolves in the
+        // running console and appears on no page.
+        from startable in (bool[])[false, true]
         // THE SIGN-IN MODAL'S TWO STEPS, which are two sets of keys behind one
         // mode. Left out, `a` resolved in the running console and appeared on
         // no page - a key nobody could discover, which is the thing this
         // catalogue exists to prevent.
         from signInStarted in (bool[])[false, true]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack, startable)
         {
             SignInStarted = signInStarted,
         };

@@ -591,12 +591,35 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // THE EXACT RECORD, AND `/story` IS THE COMPOSED ONE. This answers with
+        // every entry as it was written, one row per event, and a support bundle
+        // and three walk scripts read it that way. What a PERSON should be sent
+        // to is `/v1/flights/{ref}/story` below: the same history in one shape,
+        // with the stage it reached, how it stands, and what it is waiting on.
+        //
+        // Superseded rather than deprecated, and there is deliberately no flag
+        // saying so. A member on this description type that nothing reads is the
+        // shape the story slice exists to remove; this remark is where a reader
+        // of the declaration learns there is another surface.
         new()
         {
             Method = "GET",
             Path = "/v1/flights/{ref}/log",
             Audience = Audience.Developer,
             Response = typeof(FlightLog),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
+        // ONE READ FOR ONE QUESTION. "What happened to this flight, and where is
+        // it now" was spread across the summary, the log, the attribution, the
+        // checklist and the seed, and a person had to know which held which half.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/flights/{ref}/story",
+            Audience = Audience.Developer,
+            Response = typeof(FlightStory),
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
@@ -1190,6 +1213,14 @@ public static class ProtocolSurface
                  "requiredLabels", "waiting", "state"],
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
+            [typeof(Actor)] = ["kind", "name"],
+            [typeof(StoryEntry)] =
+                ["at", "kind", "stage", "params", "attempt", "actor", "said"],
+            [typeof(FlightStory)] =
+            [
+                "flightId", "flightNumber", "workKind", "stage", "state",
+                "waiting", "heldBy", "heldUntil", "outstanding", "entries",
+            ],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
             [typeof(FlightWithdrawalRequest)] = ["because"],
             [typeof(RunnerSummary)] =

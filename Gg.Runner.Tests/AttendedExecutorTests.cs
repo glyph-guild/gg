@@ -383,6 +383,74 @@ public class AttendedExecutorTests
     }
 
     [Test]
+    public async Task A_binary_that_cannot_be_asked_its_version_is_recorded_as_unavailable()
+    {
+        // THE REAL PROBE, on a name nothing on any machine will resolve. Never
+        // empty is the property that matters: LoopAttended refuses a blank
+        // version, because a gap declared against an unnamed tool surface is a
+        // claim that expires quietly - so a machine where the binary has gone
+        // has to stay able to produce the fact.
+        //
+        // Unavailable rather than omitted, on EnvironmentSurvey's own pattern
+        // for git: a missing entry reads as "nobody looked" and this reads as
+        // "it was not there".
+        IExecutorPort attended = new AttendedExecutor(
+            "gg-no-such-binary-anywhere", [], announce: TextWriter.Null);
+
+        var session = await attended.AttendedAsync(
+            Request(), TimeSpan.FromMinutes(5), CancellationToken.None);
+
+        await Assert.That(session!.BinaryVersion).StartsWith("unavailable:");
+        await Assert.That(LoopAttended.Validate(new LoopAttended
+        {
+            LoopId = "implement",
+            Rung = ExecutorRungs.Frontier,
+            Binary = session.Binary,
+            BinaryVersion = session.BinaryVersion,
+            BudgetSeconds = 60,
+            HeldSeconds = 1,
+            Unmeasured = session.Unmeasured,
+            SettingsCleared = session.SettingsCleared,
+        })).IsNull().Because("the fact still has to be constructible on that machine.");
+    }
+
+    [Test]
+    public async Task A_persons_edits_produce_the_manifest_an_agents_would()
+    {
+        // THE SINGLE STRONGEST REASON THIS DESIGN IS CHEAP, and it is a claim
+        // about ChangeExtractor rather than about this executor: it reads the
+        // TREE and not the actor, so an edit made by a person at a terminal
+        // this process could not see produces the same fact an agent's edit
+        // would. Nothing in the attended path touches the manifest at all -
+        // ShipAsync extracts it outside the `run is not null` block, which is
+        // why it survives an executor that measured nothing.
+        //
+        // Written through the spawn because that is the only place a person
+        // exists in a test: the child owns the terminal, and what it leaves
+        // behind is a file on disk.
+        var (_, protocol) = await FlownAsync(edits: "PERSON.md");
+
+        var manifests = Shipped(protocol, FactKinds.ChangeManifest);
+
+        await Assert.That(manifests).Count().IsEqualTo(1);
+        await Assert.That(manifests[0].Change!.Paths.Select(p => p.Path))
+            .Contains("PERSON.md");
+    }
+
+    [Test]
+    public async Task A_hand_flown_flight_that_changed_nothing_still_measures_the_tree()
+    {
+        // EMPTY IS A MEASUREMENT AND ABSENT IS NOT, one step out from the fact
+        // vocabulary's own rule. A person who held the terminal and changed
+        // nothing produced a manifest saying so - which `changed nothing` reads
+        // to attach a gate - and that is a different state from a flight whose
+        // manifest never came.
+        var (_, protocol) = await FlownAsync();
+
+        await Assert.That(Shipped(protocol, FactKinds.ChangeManifest)).IsNotEmpty();
+    }
+
+    [Test]
     public async Task A_hand_flown_flight_ships_no_loop_outcome_and_no_digest()
     {
         // ASSERTED AS AN ABSENCE, because the failure mode is a helpful default
@@ -482,7 +550,7 @@ public class AttendedExecutorTests
     /// than that this executor sets it.
     /// </remarks>
     private static async Task<(List<ExecutorRequest> Seen, FakeProtocol Protocol)> FlownAsync(
-        bool holdUntilRenewed = false, int wallClockSeconds = 600)
+        bool holdUntilRenewed = false, int wallClockSeconds = 600, string? edits = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -504,7 +572,27 @@ public class AttendedExecutorTests
 
         var executor = new AttendedExecutor(
             "claude", [Tracker], announce: TextWriter.Null,
-            spawn: (info, _) => { seen.Add(Watching(info)); return child.Task; });
+            spawn: (info, _) =>
+            {
+                seen.Add(Watching(info));
+
+                // THE PERSON'S EDIT, and the whole point is that nothing
+                // downstream can tell it from an agent's. The child owns the
+                // terminal and this runner sees nothing of what happens in it;
+                // what it can see afterwards is the tree, which is where the
+                // manifest comes from either way.
+                if (edits is { Length: > 0 } file)
+                {
+                    File.WriteAllText(
+                        Path.Combine(info.WorkingDirectory, file), "a person was here\n");
+                }
+
+                return child.Task;
+            },
+            // ASKED OF A FAKE HERE, so no test spawns a real agent binary to
+            // find out its version. The real probe is exercised deliberately
+            // one test down rather than incidentally by every test in this file.
+            versionOf: (_, _) => Task.FromResult("2.1.261"));
 
         var observer = new RecordingObserver();
         using var stopping = new CancellationTokenSource();

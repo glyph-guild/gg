@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using Gg.Client;
+using Gg.Contracts;
 using Gg.Local;
 
 namespace Gg.Console;
 
 /// <summary>
-/// Hands the selected flight to the person sitting at the console.
+/// Opens a flight and hands the terminal to the person sitting at the console.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -84,5 +85,125 @@ public static class ConsoleHandFlight
         info.ArgumentList.Add("--hand");
 
         return info;
+    }
+
+    /// <summary>
+    /// Ask, refuse or hand over, and say which.
+    /// </summary>
+    /// <param name="plan">
+    /// What a flight would need of a machine, off the control plane.
+    /// </param>
+    /// <param name="advertised">
+    /// What THIS machine advertises. The plan prices against the fleet, and a
+    /// label some other runner has is useless to a person at this keyboard.
+    /// </param>
+    /// <param name="ask">
+    /// The intent, from the same editor <c>n new flight</c> opens. Supplied by
+    /// the loop, which owns the terminal.
+    /// </param>
+    /// <param name="start">
+    /// Runs the child and waits for it. Injected so this whole order is
+    /// testable without spawning anything.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>THE ORDER IS THE FEATURE, and it is the CLI verb's order with one
+    /// addition.</b> <c>FlyByHand.FlyAsync</c> reads the plan before it opens
+    /// anything, because a flight created and then abandoned because this laptop
+    /// was wrong is litter with a number on it. Here the prompt goes after the
+    /// refusal too: asking somebody to write a paragraph and then telling them
+    /// the machine was never eligible is the same refusal and an insult.
+    /// </para>
+    /// <para>
+    /// <b>The check is <see cref="HandRefusal.For"/>, which the verb also
+    /// uses.</b> A containment run written again here would be the second
+    /// evaluator this design forbids, one process further out, and the day the
+    /// two disagreed a person would be refused for a label no runner was ever
+    /// asked about.
+    /// </para>
+    /// <para>
+    /// <b>And every outcome lands in the model.</b> The child inherits the
+    /// terminal, so a person does see what it printed - and then this console
+    /// redraws over it. A line claiming a flight over a child that failed would
+    /// be the only record left, so the exit code is read rather than assumed.
+    /// </para>
+    /// </remarks>
+    public static AppState Fly(
+        AppState state,
+        Func<Checklist> plan,
+        IReadOnlyList<string> advertised,
+        Func<string> ask,
+        SelfInvocation? self,
+        Func<ProcessStartInfo, int> start)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(advertised);
+        ArgumentNullException.ThrowIfNull(ask);
+        ArgumentNullException.ThrowIfNull(start);
+
+        if (self is null)
+        {
+            // WHICH gg THE CHILD WOULD BE. SelfInvocation answers "this one" and
+            // returns null when it cannot - a bare `gg` off PATH is whichever is
+            // installed, which on a developer's machine is routinely not the one
+            // they are running.
+            return state with
+            {
+                LastHandFlight =
+                    "Nothing was created: this gg cannot work out how to re-run itself, so "
+                  + "the flight would be handed to whichever gg is on PATH.",
+            };
+        }
+
+        Checklist required;
+
+        try
+        {
+            required = plan();
+        }
+        catch (Exception failure) when (failure is NotSignedInException
+                                            or ProtocolTooOldException
+                                            or NoEnvelopeException
+                                            or HttpRequestException)
+        {
+            // ITS OWN FAILURE, said in the model. Rule 5's third sentence: what
+            // one read loses is one read's worth, and the rest of the console is
+            // still true.
+            return state with
+            {
+                LastHandFlight = "Nothing was created: " + failure.Message,
+            };
+        }
+
+        if (HandRefusal.For(required, advertised) is { } refused)
+        {
+            return state with
+            {
+                LastHandFlight = Refused(refused.Requirement, refused.Remedy),
+            };
+        }
+
+        var intent = ask().Trim();
+
+        if (intent.Length == 0)
+        {
+            // A flight opened by accident is a record somebody has to explain
+            // and a number that is now taken.
+            return state with
+            {
+                LastHandFlight = "Nothing was created: no intent was written.",
+            };
+        }
+
+        var exit = start(StartInfoFor(self, intent));
+
+        return state with
+        {
+            LastHandFlight = exit == 0
+                ? Flew(intent)
+                : $"'{intent}' was not flown: gg exited {exit}. Whatever it printed is above "
+                + "this screen.",
+        };
     }
 }

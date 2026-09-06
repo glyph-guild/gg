@@ -31,8 +31,8 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? flightLog = null,
 
     /// <summary>
-    /// Asks what a flight would need, and either refuses or hands over the
-    /// terminal.
+    /// Asks what a flight would need, and either refuses or takes an intent and
+    /// hands over the terminal.
     /// </summary>
     /// <remarks>
     /// <b>A delegate, and named for the act rather than the port</b> - `hand` is
@@ -46,7 +46,7 @@ public sealed class ConsoleLoop(
     /// act as one.
     /// </para>
     /// </remarks>
-    Func<AppState, AppState>? flyByHand = null,
+    Func<AppState, Func<string>, AppState>? flyByHand = null,
 
     /// <summary>
     /// Signs this machine in, one step at a time, with the terminal free.
@@ -365,13 +365,20 @@ public sealed class ConsoleLoop(
                     // sees what it printed - and then this console redraws over
                     // it, and a refusal nobody can see afterwards is a
                     // hand-flight that silently did nothing.
+                    //
+                    // THE PROMPT IS PASSED IN, because the editor is the loop's
+                    // and the order is not. Whether anybody is asked at all
+                    // depends on a read the loop may not make - a machine that
+                    // cannot serve the flight is told so before it asks somebody
+                    // to write a paragraph - so the port decides when to call
+                    // this, and the loop only says what "ask" means here.
                     state = flyByHand is null
                         ? state with
                         {
                             LastHandFlight =
                                 "This console is not configured to fly flights by hand.",
                         }
-                        : flyByHand(state);
+                        : flyByHand(state, () => editor.Edit(""));
                     break;
 
                 case Command.SignIn:

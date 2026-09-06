@@ -15,6 +15,24 @@ public sealed class StandardConsoleWriter : IConsoleWriter
 }
 
 /// <summary>
+/// What waiting on a device authorization came to.
+/// </summary>
+/// <remarks>
+/// <b>A sentence, never an exception.</b> Declined, expired and approved are
+/// all ordinary answers to "has somebody said yes yet"; a caller made to catch
+/// two of them would invent a policy for each, and the policy invented under
+/// time pressure is to carry on as though it had worked.
+/// </remarks>
+public sealed record SignInResult
+{
+    /// <summary>Whether this machine now holds a session.</summary>
+    public bool SignedIn { get; init; }
+
+    /// <summary>What a person reads. What HAPPENED, never what it becomes.</summary>
+    public required string Said { get; init; }
+}
+
+/// <summary>
 /// The three authentication verbs. No terminal UI here - that is step 4.
 /// </summary>
 public sealed class AuthCommands(
@@ -31,18 +49,39 @@ public sealed class AuthCommands(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
 
     /// <summary>
-    /// Starts a device authorization, shows the human what to do, and polls
-    /// until it resolves.
+    /// Begins a device authorization and hands back what a person must do.
     /// </summary>
-    public async Task<int> LoginAsync(string deviceLabel, CancellationToken cancellationToken = default)
-    {
-        var started = await _client.StartDeviceAuthorizationAsync(deviceLabel, cancellationToken);
+    /// <remarks>
+    /// <b>It shows nothing, and that is the difference between its two
+    /// callers.</b> The verb below prints the code to a terminal it owns; the
+    /// console draws it in a modal, and anything written to standard output
+    /// from there lands on a screen Terminal.Gui is about to paint over.
+    /// </remarks>
+    public Task<Gg.Contracts.DeviceAuthorizationStarted> StartAsync(
+        string deviceLabel, CancellationToken cancellationToken = default) =>
+        _client.StartDeviceAuthorizationAsync(deviceLabel, cancellationToken);
 
-        _output.WriteLine();
-        _output.WriteLine($"  Open:  {started.VerificationUri}");
-        _output.WriteLine($"  Code:  {started.UserCode}");
-        _output.WriteLine();
-        _output.WriteLine("Waiting for you to approve...");
+    /// <summary>
+    /// Waits for a person to approve what was started, and stores the session.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The only polling loop.</b> The cadence, the expiry check and the three
+    /// answers are decided here and nowhere else - a second copy would agree
+    /// with this one until somebody edited one of them, and what they would
+    /// disagree about is the interval the server asked for.
+    /// </para>
+    /// <para>
+    /// Bounded by the authorization's own expiry rather than by a timeout
+    /// invented here, so a caller that has given a person the screen gets it
+    /// back with a sentence rather than never.
+    /// </para>
+    /// </remarks>
+    public async Task<SignInResult> AwaitApprovalAsync(
+        Gg.Contracts.DeviceAuthorizationStarted started,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(started);
 
         // The server sets the cadence. Polling faster than it asked is how a
         // client earns a rate limit for everyone.
@@ -52,8 +91,7 @@ public sealed class AuthCommands(
         {
             if (_clock.UtcNow >= started.ExpiresAt)
             {
-                _output.WriteLine("That code expired before it was approved. Run gg login again.");
-                return 1;
+                return new SignInResult { Said = "That code expired before it was approved." };
             }
 
             await _delay(interval, cancellationToken);
@@ -64,8 +102,7 @@ public sealed class AuthCommands(
                     continue;
 
                 case DevicePollResult.Declined declined:
-                    _output.WriteLine(declined.Reason);
-                    return 1;
+                    return new SignInResult { Said = declined.Reason };
 
                 case DevicePollResult.Complete complete:
                     _sessions.Write(new StoredSession
@@ -75,12 +112,43 @@ public sealed class AuthCommands(
                         TenantId = complete.Session.TenantId,
                         PrincipalDisplay = complete.Session.PrincipalDisplay,
                     });
-                    _output.WriteLine($"Signed in as {complete.Session.PrincipalDisplay}.");
-                    return 0;
+
+                    return new SignInResult
+                    {
+                        SignedIn = true,
+                        Said = $"Signed in as {complete.Session.PrincipalDisplay}.",
+                    };
             }
         }
 
-        return 1;
+        return new SignInResult { Said = "Signing in was cancelled." };
+    }
+
+    /// <summary>
+    /// Starts a device authorization, shows the human what to do, and polls
+    /// until it resolves.
+    /// </summary>
+    /// <remarks>
+    /// The two halves above, and the printing between them. The remedy is
+    /// appended HERE rather than carried in the sentence, because this is the
+    /// caller that has a shell to run it in - the console is drawn over the one
+    /// a person would type it into.
+    /// </remarks>
+    public async Task<int> LoginAsync(string deviceLabel, CancellationToken cancellationToken = default)
+    {
+        var started = await StartAsync(deviceLabel, cancellationToken);
+
+        _output.WriteLine();
+        _output.WriteLine($"  Open:  {started.VerificationUri}");
+        _output.WriteLine($"  Code:  {started.UserCode}");
+        _output.WriteLine();
+        _output.WriteLine("Waiting for you to approve...");
+
+        var result = await AwaitApprovalAsync(started, cancellationToken);
+
+        _output.WriteLine(result.SignedIn ? result.Said : $"{result.Said} Run gg login again.");
+
+        return result.SignedIn ? 0 : 1;
     }
 
     /// <summary>

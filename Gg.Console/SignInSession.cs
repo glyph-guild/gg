@@ -1,3 +1,6 @@
+using Gg.Client;
+using Gg.Contracts;
+
 namespace Gg.Console;
 
 /// <summary>
@@ -66,4 +69,96 @@ public interface ISignInSession
     /// sentence rather than a terminal that never returns.
     /// </remarks>
     SignInStep Wait();
+}
+
+/// <summary>
+/// Signs this machine in through the same two halves <c>gg login</c> uses.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The device code lives in the field below and goes nowhere else.</b>
+/// Whoever holds it polls once the authorization is approved and is handed the
+/// session token, so it is a bearer capability - and this object is outside
+/// every UI lifetime, like the live tails, rather than in a record that is
+/// serialized to disk under <c>GG_STATE_DUMP</c> and mailed to us in a bundle.
+/// </para>
+/// <para>
+/// <b>Delegates rather than the commands themselves</b>, the shape
+/// <c>TakeSession</c>'s claim already has: the verbs are async and this is
+/// called from a synchronous shell, so the composition root owns the bridge -
+/// and a test can drive both halves without a control plane.
+/// </para>
+/// <para>
+/// <b>Nothing here throws.</b> The console is drawn over the terminal, so an
+/// exception out of this ends the process and takes the screen with it: a
+/// person would be left looking at a stack trace where their queue was. Every
+/// failure comes back as the sentence the modal draws.
+/// </para>
+/// </remarks>
+public sealed class SignInSession(
+    Func<DeviceAuthorizationStarted> start,
+    Func<DeviceAuthorizationStarted, SignInResult> wait) : ISignInSession
+{
+    /// <summary>The handle, held here and never handed out.</summary>
+    private DeviceAuthorizationStarted? _started;
+
+    public SignInStep Start()
+    {
+        try
+        {
+            _started = start();
+        }
+        catch (Exception failure) when (failure is HttpRequestException
+                                            or ProtocolTooOldException
+                                            or TaskCanceledException)
+        {
+            return new SignInStep
+            {
+                Said = $"Could not ask the control plane for a code: {failure.Message}",
+            };
+        }
+
+        return new SignInStep
+        {
+            // FOUR VALUES ARRIVE AND THREE CROSS. This is the line the whole
+            // arrangement exists for: DeviceCode is not among them.
+            Pending = new PendingSignIn
+            {
+                UserCode = _started.UserCode,
+                VerificationUri = _started.VerificationUri,
+                ExpiresAt = _started.ExpiresAt,
+            },
+            Said = "Waiting for you to approve it.",
+        };
+    }
+
+    public SignInStep Wait()
+    {
+        // The loop tracks whether something is pending to choose a key; this
+        // tracks it to hold a handle. They should agree, and a disagreement is
+        // a sentence in the modal rather than a crash in the shell.
+        if (_started is not { } started)
+        {
+            return new SignInStep { Said = "Nothing has been started here yet." };
+        }
+
+        // LET GO OF BEFORE THE WAIT, not after it. A device code is spent once
+        // the authorization resolves either way, and every path out of here -
+        // approved, declined, expired, unreachable - returns to the offer, so
+        // the next press has to start a fresh one.
+        _started = null;
+
+        try
+        {
+            var result = wait(started);
+
+            return new SignInStep { SignedIn = result.SignedIn, Said = result.Said };
+        }
+        catch (Exception failure) when (failure is HttpRequestException
+                                            or ProtocolTooOldException
+                                            or TaskCanceledException)
+        {
+            return new SignInStep { Said = $"Lost the control plane while waiting: {failure.Message}" };
+        }
+    }
 }

@@ -129,8 +129,18 @@ public class VerbParityTests
             ["RunnerMaintain"] = "a daemon. Correctly not a console verb.",
             ["RunnerTools"] = "a tool server spoken over stdio by an agent, never by a person.",
             ["RunnerRead"] = "a tool server spoken over stdio by an agent, never by a person.",
-            ["Login"] = "the console needs a session to start, so signing in from inside it "
-                      + "is a bootstrap problem rather than a parity gap.",
+            // MOVED, AND THE OLD REASON WAS FALSE ABOUT THIS PRODUCT. It read
+            // "the console needs a session to start, so signing in from inside
+            // it is a bootstrap problem rather than a parity gap" - and the
+            // console has always started without one. It opened, every read
+            // refused, and the model carried "Not signed in. Run gg login." as
+            // a diagnosis: an instruction to type a command into the terminal
+            // gg had just taken over. There was no bootstrap problem, only a
+            // dead end.
+            ["Login"] = "reachable: the loader opens a modal when the control plane refuses "
+                      + "for want of a session, and the two keys in it run the same device "
+                      + "authorization the verb does. The code is drawn in the modal rather "
+                      + "than printed, which is why the verb is split in two.",
             ["Logout"] = "the mirror of Login, and ending a session from inside the thing the "
                        + "session is running would leave the screen owned by nobody.",
             // REWORDED, because the declaration was true of the principal and

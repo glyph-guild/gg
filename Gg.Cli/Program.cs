@@ -477,6 +477,18 @@ static int LaunchConsole()
     var client = new ControlPlaneClient(http);
     var sessions = new FileSessionStore();
     var takes = new TakeCommands(client, sessions);
+
+    // SIGNING IN, WHICH THIS CONSOLE MAY DO BEFORE IT CAN DO ANYTHING ELSE.
+    // The same commands `gg login` uses and the same session file, so a person
+    // who signs in here is signed in at the command line and the other way
+    // round - two ways in, one credential, and no second notion of who you are.
+    //
+    // The writer is the real one: the shell runs with the terminal provably
+    // free, which is the same reason the secret prompt below is allowed to be.
+    var auth = new AuthCommands(
+        client, sessions, new StandardConsoleWriter(), new SystemClock(),
+        (span, token) => Task.Delay(span, token));
+
     var data = new ConsoleData(
         new FlightCommands(client, sessions),
         // The console can read the credential references and forget one. It
@@ -562,6 +574,19 @@ static int LaunchConsole()
         // THE CHECKLIST IS READ WHEN THE PANE IS OPENED, not at boot: it is off
         // by default, and a request for a pane nobody opened is a request
         // nobody wanted.
+        // THE ONE WRITE THAT WORKS BEFORE THERE IS A SESSION, and the reason
+        // this console is worth drawing on a machine that has none. The bridge
+        // at the edge again: async verbs, a synchronous shell, and the terminal
+        // is provably free while these run.
+        //
+        // The two halves of `gg login` rather than the verb, because the verb
+        // fetches the code and blocks on it in one breath - the code would only
+        // ever appear in what was printed before Terminal.Gui painted over it.
+        // The device code stays inside SignInSession; what comes back to the
+        // model is what a person reads off the screen.
+        signIn: new SignInSession(
+            () => auth.StartAsync(Environment.MachineName).GetAwaiter().GetResult(),
+            started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult()),
         checklist: current => ConsoleChecklist.Read(data, current),
         repositories: current => ConsoleRepositories.Read(data, current),
         envelope: current => ConsoleEnvelope.Read(data, current))

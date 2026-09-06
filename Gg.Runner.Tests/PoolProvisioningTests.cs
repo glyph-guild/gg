@@ -145,6 +145,47 @@ public class PoolProvisioningTests
     }
 
     [Test]
+    public async Task Unpacking_a_release_cannot_restore_the_ownership_recorded_in_it()
+    {
+        // FOUND ON A REAL MACHINE, and it defeated the test below rather than
+        // tripping it. Provisioning unpacks the pool-host bundle as root, and
+        // GNU tar run by root defaults to --same-owner: it restores the NUMERIC
+        // uid and gid recorded in the archive. The archive is built on a hosted
+        // CI runner, where the files belong to uid 1001.
+        //
+        // On the host that was migrated by hand, uid 1001 is `gg`. All three
+        // files landed owned by the account the runner runs as - including the
+        // systemd unit, which says which binary runs and as whom, and the
+        // proxy's allowlist, which says what the runner may reach. That is the
+        // exposure this whole step closed, arriving by a route no `chown`
+        // appears on, so Nothing_provisioning_leaves_behind_is_handed_to_the
+        // _runners_user stayed green throughout.
+        //
+        // It is not a coincidence worth relying on either way: cloud images
+        // number the first ordinary account 1000, and cloud-init creates `gg`
+        // right after one, so 1001 lands on it by construction rather than by
+        // luck.
+        var extracting = Uncommented(CloudInit())
+            .Where(l => Regex.IsMatch(l, @"\btar\b.*\b(xz|xzf|x)\b|\btar\s+x"))
+            .ToList();
+
+        await Assert.That(extracting).IsNotEmpty()
+            .Because("provisioning unpacks nothing, so either the bundle is gone or this guard is "
+                   + "watching a command that no longer exists.");
+
+        var unsafeExtracts = extracting
+            .Where(l => !l.Contains("--no-same-owner", StringComparison.Ordinal)
+                     && !Regex.IsMatch(l, @"\btar\s+[a-z]*o[a-z]*\b"))
+            .ToList();
+
+        await Assert.That(unsafeExtracts).IsEmpty()
+            .Because("root's tar restores the uid recorded in the archive, and the archive was "
+                   + "built somewhere else entirely. Ownership of what provisioning unpacks must "
+                   + "come from the machine unpacking it. Found: "
+                   + string.Join(" | ", unsafeExtracts));
+    }
+
+    [Test]
     public async Task Nothing_provisioning_leaves_behind_is_handed_to_the_runners_user()
     {
         // THE ExecStart-REWRITE PATH, closed. `chown -R gg:gg /opt/gg` gave the

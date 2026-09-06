@@ -290,6 +290,7 @@ public sealed class ConsoleScreen : Window
         _flightsTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
+        _runnersTable.ValueChanged += OnRowPointedAt;
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
@@ -829,6 +830,15 @@ public sealed class ConsoleScreen : Window
         {
             KeyDown -= OnScreenKeyDown;
             _runnerStart.Accepting -= OnStartRunner;
+
+            // ALL FOUR, and three of them were missed. The file already let go
+            // of the key handler and the queue's, so the convention was there
+            // and the tables were outside it - which is how the fourth came to
+            // be built without a subscription at all.
+            _flightsTable.ValueChanged -= OnRowPointedAt;
+            _browseTable.ValueChanged -= OnRowPointedAt;
+            _repositoriesTable.ValueChanged -= OnRowPointedAt;
+            _runnersTable.ValueChanged -= OnRowPointedAt;
             _queue.ValueChanged -= OnQueueSelectionChanged;
         }
         base.Dispose(disposing);

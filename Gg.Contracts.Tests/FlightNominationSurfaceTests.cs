@@ -57,10 +57,32 @@ public class FlightNominationSurfaceTests
             .Select(p => p.Name)
             .ToList();
 
+        // ENVIRONMENT AND REPOSITORY WERE ON THIS LIST AND HAVE BEEN TAKEN OFF,
+        // deliberately, with the argument written here rather than in a commit
+        // nobody reads again.
+        //
+        // The list is about one thing: an agent may not ask for the REGIME its
+        // work runs under. Everything still on it is a piece of that regime -
+        // the loop, the moves, the budget, the obligations, the approver, the
+        // destinations, and `layer`, which would choose which envelope composes.
+        //
+        // An environment is not one. Envelope.Environment's own remark settles
+        // it: "a selection, not a bound" - it composes root-only, is validated
+        // for MEMBERSHIP against the tenant's chart, and is never merged. A
+        // repository is the same shape, a registered slug.
+        //
+        // And the decisive part is what this type already permits. A nomination
+        // names a WORK KIND, which IS the regime - its loop, its moves, its
+        // budget, its destinations and which obligations apply - and that is
+        // safe because `opens:` is a menu a person wrote and anything outside it
+        // is refused. Selecting where the work runs is a strictly weaker ask
+        // than selecting what governs it, under the same kind of menu. Refusing
+        // the weaker one while permitting the stronger was the inconsistency,
+        // not the fix.
         foreach (var forbidden in (string[])
             ["Moves", "Scope", "Obligations", "Destination", "Destinations", "Budget",
              "WallClock", "Requires", "Approver", "Opens", "Accepts", "Produces", "Executor",
-             "Environment", "Repository", "Layer"])
+             "Layer"])
         {
             await Assert.That(members.Contains(forbidden, StringComparer.Ordinal)).IsFalse()
                 .Because($"'{forbidden}' on a nomination would let an agent ask for the regime "

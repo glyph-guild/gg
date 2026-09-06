@@ -670,6 +670,15 @@ public static class TranscriptDigest
             Note = Argument(input, "note") is { } note
                 ? Bound(note, Gg.Contracts.FlightNomination.MaxNote, prose: true)
                 : null,
+            // BOUNDED AT THE WORK KIND'S LENGTH, not the reason's: admission
+            // matches these exactly, so anything long enough to be a sentence
+            // was never going to match a menu entry anyway.
+            Environment = Argument(input, "environment") is { } environment
+                ? Bound(environment, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false)
+                : null,
+            Repository = Argument(input, "repository") is { } repository
+                ? Bound(repository, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false)
+                : null,
         }));
     }
 

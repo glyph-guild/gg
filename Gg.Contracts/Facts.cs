@@ -316,7 +316,7 @@ public static class FactVocabulary
     /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
     /// none still never crosses from a working runner - a broken bound
     /// releases the lease with the diagnosis instead of shipping anything.
-    public const string Version = "0.22.0";
+    public const string Version = "0.23.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

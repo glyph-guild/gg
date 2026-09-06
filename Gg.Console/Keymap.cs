@@ -291,6 +291,12 @@ public static class Keymap
                 { OffTheHintLine = true, Untaught = true },
             new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
                 { OffTheHintLine = true, Untaught = true },
+            // THE FLEET, AND IT COSTS NOTHING TO SHOW. `u' because every letter
+            // that reads is taken: r is repositories, n is new flight, e is
+            // envelope. It is in the word and it is free, which is the whole
+            // claim - see Tabs.KeyFor.
+            new(KeyStroke.Char('u'), Command.ToggleRunners,
+                Closes(context, TabId.Runners, "runners")) { OffTheHintLine = true },
             new(KeyStroke.Char('v'), Command.ToggleEvidence,
                 Closes(context, TabId.Evidence, "evidence")) { OffTheHintLine = true },
             // WHAT A SECOND PRESS WILL DO, and under tabs that is "close" only

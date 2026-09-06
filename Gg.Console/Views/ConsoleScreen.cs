@@ -42,6 +42,8 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _checklistPane;
     private readonly Label _envelope;
     private readonly FrameView _envelopePane;
+    private readonly Label _flights;
+    private readonly FrameView _flightsPane;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
     private readonly Label _hints;
@@ -184,6 +186,21 @@ public sealed class ConsoleScreen : Window
         _repositories = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _repositoriesPane.Add(_repositories);
 
+        // EVERY FLIGHT, NEEDED OR NOT. The queue is what needs a person and is
+        // right to be; this is the tab that answers "where did the thing I just
+        // started go". Open from the start, like the queue.
+        _flightsPane = new FrameView
+        {
+            Title = "Flights",
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _flights = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _flightsPane.Add(_flights);
+
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
@@ -201,8 +218,8 @@ public sealed class ConsoleScreen : Window
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
         _modal.Add(_modalBody);
 
-        Add(_queuePane, _flightPane, _evidencePane, _livePane, _browsePane, _repositoriesPane, _checklistPane, _envelopePane,
-            _activity, _hints, _modal);
+        Add(_queuePane, _flightPane, _flightsPane, _evidencePane, _livePane, _browsePane, _repositoriesPane,
+            _checklistPane, _envelopePane, _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
@@ -329,6 +346,8 @@ public sealed class ConsoleScreen : Window
         // answers true for exactly one tab, which is what "a view takes over
         // all the panes" means concretely - and it is asserted over states
         // rather than over pixels.
+        _flights.Text = PaneText.Flights(State);
+        _flightsPane.Visible = Tabs.Showing(State, TabId.Flights);
         _evidencePane.Visible = Tabs.Showing(State, TabId.Evidence);
         _livePane.Visible = Tabs.Showing(State, TabId.Live);
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
@@ -393,6 +412,9 @@ public sealed class ConsoleScreen : Window
 
         switch (State.ActiveTab)
         {
+            case TabId.Flights:
+                _flights.SetFocus();
+                break;
             case TabId.Evidence:
                 _evidence.SetFocus();
                 break;

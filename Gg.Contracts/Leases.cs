@@ -423,6 +423,20 @@ public sealed record LeaseGranted
     public string? NominationNote { get; init; }
 
     /// <summary>
+    /// What a classifier on this flight may nominate, already rendered, or null
+    /// when its envelope opens no flights.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered here for the reason <see cref="LeaseLoop.Instructions"/> is.</b>
+    /// The control plane composes the envelope and renders the permitted sets
+    /// from the destination that bounds admission; a runner that built its own
+    /// list would be a second statement of what admission accepts, and the two
+    /// would drift the first time somebody edited the envelope. Null on every
+    /// flight that is not a classify flight, which is nearly all of them.
+    /// </remarks>
+    public string? Menu { get; init; }
+
+    /// <summary>
     /// The loop this flight runs, when its envelope declares one.
     /// </summary>
     /// <remarks>

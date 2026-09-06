@@ -348,6 +348,82 @@ public static class EnvelopeText
         return text.ToString();
     }
 
+    /// <summary>
+    /// What a classifier may nominate, rendered from what bounds it, or null
+    /// when this envelope opens no flights.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE TOOL PROMISED THIS AND NOTHING PROVIDED IT.</b> The nomination
+    /// tool's description reads "One of the work kinds you were offered", and
+    /// the prompt offered none - an agent was asked to name a work kind it had
+    /// never been shown. Adding environments and repositories to that would have
+    /// been two more fields to guess at, under a rule that refuses rather than
+    /// clamps.
+    /// </para>
+    /// <para>
+    /// <b>Rendered from the destination that bounds admission, so the two cannot
+    /// drift.</b> A second list of permitted names, kept anywhere else, goes
+    /// stale the first time somebody edits the envelope - and its failure is an
+    /// agent offered something admission will refuse.
+    /// </para>
+    /// <para>
+    /// <b>A set that permits nothing renders no heading.</b> Null and empty
+    /// differ in the document and not here: an agent told "environments: none"
+    /// would reasonably try to name one, so the absence of the line is what says
+    /// this is not a choice it has.
+    /// </para>
+    /// </remarks>
+    public static string? RenderMenu(Envelope envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        var opening = envelope.Destinations
+            .Where(d => string.Equals(d.Kind, DestinationKinds.Flight, StringComparison.Ordinal))
+            .Where(d => d.Opens is { Count: > 0 })
+            .ToList();
+
+        if (opening.Count == 0)
+        {
+            return null;
+        }
+
+        var kinds = opening
+            .SelectMany(d => d.Opens ?? [])
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(k => k, StringComparer.Ordinal)
+            .ToList();
+
+        var text = new StringBuilder();
+        text.Append("\n\nIf you nominate a flight, these are what this destination admits. "
+                  + "Anything outside them is refused rather than adjusted, and no flight "
+                  + "opens - so if none of them fits, say which one you would have needed "
+                  + "and stop.\n");
+
+        text.Append("\n  work kinds: ").Append(string.Join(", ", kinds));
+
+        Offer(text, "environments", opening.SelectMany(d => d.MaySelect?.Environments ?? []));
+        Offer(text, "repositories", opening.SelectMany(d => d.MaySelect?.Repositories ?? []));
+
+        return text.ToString();
+    }
+
+    /// <summary>One permitted set, or nothing at all when it permits nothing.</summary>
+    private static void Offer(StringBuilder text, string heading, IEnumerable<string> values)
+    {
+        var offered = values
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(v => v, StringComparer.Ordinal)
+            .ToList();
+
+        if (offered.Count == 0)
+        {
+            return;
+        }
+
+        text.Append("\n  ").Append(heading).Append(": ").Append(string.Join(", ", offered));
+    }
+
     public static string Render(EnvelopeNarrowing narrowing)
     {
         ArgumentNullException.ThrowIfNull(narrowing);

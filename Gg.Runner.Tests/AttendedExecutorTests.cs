@@ -346,8 +346,9 @@ public class AttendedExecutorTests
 
         var declared = attended[0].Attended!;
         await Assert.That(declared.Unmeasured).IsEquivalentTo(AttendedGaps.All)
-            .Because("all three: nothing counted a turn, nothing saw a move, and the bound "
-                   + "was not probed because probing means handing a person the canary task.");
+            .Because("all four: nothing counted a turn, nothing saw a move, the bound was not "
+                   + "probed because probing means handing a person the canary task, and no "
+                   + "session file can be named because an interactive session announces no id.");
         await Assert.That(declared.LoopId).IsEqualTo("implement");
         await Assert.That(declared.Binary).IsEqualTo("claude");
         await Assert.That(declared.BinaryVersion).IsNotEmpty();

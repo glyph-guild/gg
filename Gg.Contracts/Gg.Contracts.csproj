@@ -14,7 +14,7 @@
          Pre-1.0: any wire change is a minor bump, and there is no compatibility
          promise. GgVersions.Protocol is a different number and moves only when
          the protocol itself becomes incompatible. -->
-    <Version>0.116.0</Version>
+    <Version>0.117.0</Version>
 
     <!-- A PACK IS LOCAL UNLESS IT SAYS OTHERWISE, and the default is the safe
          one on purpose.

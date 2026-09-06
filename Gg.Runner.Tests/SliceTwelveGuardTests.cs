@@ -95,7 +95,20 @@ public class SliceTwelveGuardTests
     /// version move with a ledger row behind it and no new fact smuggled in
     /// beside it.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.24.0";
+    /// <para>
+    /// <b>And to 0.25.0, which added no kind either</b> — <c>AttendedGaps</c>
+    /// gains <c>transcript</c>. Same shape as the entry above: the surface moves
+    /// because the closed vocabulary is part of it, the count below is
+    /// unchanged, and nothing was smuggled in beside it. The argument for a
+    /// FOURTH member of a vocabulary this file calls a closed set of three is
+    /// that it is the same kind of thing as the other three — a value a reader
+    /// would otherwise infer wrongly — and that it was already being asserted:
+    /// <c>AttendedTranscriptTests</c> said a reader learns the absence from
+    /// <c>loop.attended</c>, and <c>loop.attended</c> had no member that could
+    /// say it. The alternative was a member of its own with a vocabulary and a
+    /// validation arm, for one value that never varies on this path.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.25.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

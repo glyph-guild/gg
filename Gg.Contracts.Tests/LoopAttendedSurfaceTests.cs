@@ -78,6 +78,7 @@ public class LoopAttendedSurfaceTests
             AttendedGaps.Turns,
             AttendedGaps.Moves,
             AttendedGaps.MoveBound,
+            AttendedGaps.Transcript,
         });
     }
 

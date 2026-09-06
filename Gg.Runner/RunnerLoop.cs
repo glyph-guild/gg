@@ -990,6 +990,10 @@ public sealed class RunnerLoop(
                 // and does not derive anything from it: it hands the agent what a person
                 // said and lets the envelope keep deciding what may happen.
                 Feedback = lease.Feedback,
+                // THE CLASSIFIER'S HANDOVER, carried the same way and for the
+                // same reason: prose from outside this platform that the prompt
+                // must show and the agent must not obey.
+                NominationNote = lease.NominationNote,
                 // THE SAME DISPOSITION. Already rendered by the contract; the runner
                 // hands it over and the prompt says whose words it holds.
                 ResumesFrom = loop.ResumesFrom,

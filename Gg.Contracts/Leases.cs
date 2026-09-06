@@ -400,6 +400,29 @@ public sealed record LeaseGranted
     public string? IntentText { get; init; }
 
     /// <summary>
+    /// What the agent that nominated this flight told whoever picks it up, or
+    /// null when nobody nominated it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside <see cref="Feedback"/> because it is the same kind of thing.</b>
+    /// A person's rejection and a classifier's handover are both prose from
+    /// outside this platform that a prompt must carry and must not obey: advice,
+    /// never authority. Scope, moves and budget come from the envelope, and a
+    /// note asking for more fails at the manifest check like anything else.
+    /// </para>
+    /// <para>
+    /// <b>One hop, and the control plane is what enforces it.</b> A flight
+    /// opened from a nomination carries that nomination's note; a flight opened
+    /// from THAT flight does not. Nothing here can tell how many times a note
+    /// has been forwarded, which is why the rule lives where flights are opened
+    /// - recorded here as the thing that side owes, so a reader of this member
+    /// does not assume the type is holding the line.
+    /// </para>
+    /// </remarks>
+    public string? NominationNote { get; init; }
+
+    /// <summary>
     /// The loop this flight runs, when its envelope declares one.
     /// </summary>
     /// <remarks>

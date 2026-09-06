@@ -45,6 +45,9 @@ public static class FlyByHandCommand
         Func<CancellationToken, Task<VerbResult>> open,
         Func<string, CancellationToken, Task<int>> hold,
         Action<string> say,
+        Func<string, Task<IReadOnlyList<PendingGate>>> gates,
+        IGateAnswer answer,
+        Func<string, string, string, string?, Task<bool>> decide,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(fly);
@@ -73,6 +76,99 @@ public static class FlyByHandCommand
             return ExitCodes.For(flown.Opened!);
         }
 
-        return await hold(launched.Value.FlightId, cancellationToken);
+        var exit = await hold(launched.Value.FlightId, cancellationToken);
+
+        // A NUMBER OR NOTHING TO OFFER. The flight number is minted
+        // asynchronously, so a launch can answer before it exists - and a gate is
+        // asked for by the reference a person types. Saying so beats a prompt
+        // that silently never appears.
+        if (launched.Value.FlightNumber is not { Length: > 0 } number)
+        {
+            say("This flight has no number yet, so anything it is waiting on is not offered "
+              + "here. `gg gates` will have it once the number lands.");
+
+            return exit;
+        }
+
+        await AnsweringAsync(number, gates, answer, decide, say, fly.Json);
+
+        return exit;
+    }
+
+    /// <summary>
+    /// Offers whatever this flight is now waiting on, while the person is still
+    /// at the terminal.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>AFTER the work, because there is nothing to decide before it.</b> A
+    /// gate is opened by what the flight produced, so asking first would be
+    /// asking about a manifest that does not exist.
+    /// </para>
+    /// <para>
+    /// <b>Rendered by the one renderer.</b> What a gate looks like is
+    /// <c>gg gates</c>' answer and this shows the same thing - so a field added
+    /// there appears here without anybody remembering, and a second layout
+    /// cannot drift into showing less. <c>because</c> is the column that matters
+    /// most: when the condition is <i>loop asked for a decision</i> the Engine
+    /// composes that sentence from the fact, so the agent's own question is the
+    /// tail of it.
+    /// </para>
+    /// <para>
+    /// <b>Nothing waiting asks nothing.</b> The common case is a flight that
+    /// opened no gate, and a prompt that appeared anyway would make every
+    /// hand-flight cost a keystroke.
+    /// </para>
+    /// </remarks>
+    private static async Task AnsweringAsync(
+        string flightNumber,
+        Func<string, Task<IReadOnlyList<PendingGate>>> gates,
+        IGateAnswer answer,
+        Func<string, string, string, string?, Task<bool>> decide,
+        Action<string> say,
+        bool json)
+    {
+        var waiting = await gates(flightNumber);
+
+        if (waiting.Count == 0)
+        {
+            return;
+        }
+
+        // NOBODY TO ASK, OR AN ANSWER NOBODY WOULD READ. `--json` is a machine
+        // reading this and a prompt would block it for ever; redirected stdin is
+        // the same fact one layer down. Both say where the decision lives rather
+        // than printing a question into a pipe.
+        if (json || !answer.CanAsk)
+        {
+            say($"{waiting.Count} decision(s) are waiting on this flight. Run `gg gates` to "
+              + "see them and `gg decide` to answer.");
+
+            return;
+        }
+
+        foreach (var gate in waiting)
+        {
+            say(VerbOutput.ToText(new VerbResult.Gates(new GateList { Gates = [gate] })));
+
+            // A REASON TRAVELS WITH A REJECTION, because the product requires
+            // one: the loop runs again with it, and a rejection that says
+            // nothing sends the work back against the same instructions it just
+            // followed. Approving needs none.
+            //
+            // NULL IS NOBODY ANSWERING, which is not a decision. Somebody who
+            // closed the terminal leaves the gate exactly as it was.
+            if (answer.Ask(gate.ObligationId) is not var (outcome, reason))
+            {
+                say($"No answer, so {gate.ObligationId} is still waiting.");
+
+                return;
+            }
+
+            say(await decide(flightNumber, gate.ObligationId, outcome, reason)
+                ? $"Recorded: {gate.ObligationId} {outcome}."
+                : $"That decision was not recorded, and {gate.ObligationId} is still waiting. "
+                + "Nothing about the flight changed.");
+        }
     }
 }

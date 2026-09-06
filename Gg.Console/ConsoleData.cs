@@ -391,7 +391,20 @@ public static class ConsoleProjection
         return result switch
         {
             VerbResult.Flight flight => state with { Flight = flight.Value, Diagnosis = null },
-            VerbResult.Log log => state with { FlightLog = log.Value, Diagnosis = null },
+            // AND INTO THE MANY, keyed by the flight it is about. The single
+            // field is what the live pane reads; the dictionary is what the
+            // queue counts expiries in and what the detail modal renders. They
+            // were filled from different places - this arm and the boot's loop -
+            // so a log read on its own reached one of them and not the other.
+            VerbResult.Log log => state with
+            {
+                FlightLog = log.Value,
+                Logs = new Dictionary<string, FlightLog>(state.Logs, StringComparer.Ordinal)
+                {
+                    [log.Value.FlightId] = log.Value,
+                },
+                Diagnosis = null,
+            },
 
             // THE FLIGHT'S STORY, which is what `gg show` now answers. The pane
             // renders sentences from it; the log beside it stays the raw record

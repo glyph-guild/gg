@@ -504,6 +504,30 @@ public sealed record AppState
     /// </remarks>
     public PendingFlight? PendingFlight { get; init; }
 
+    /// <summary>
+    /// A device authorization waiting on a person, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is the ordinary state, and it means "nothing has been
+    /// started".</b> It is also what makes the sign-in key mean two things: the
+    /// loop asks the control plane for a code when this is null and waits on the
+    /// one already showing when it is not. Cleared the moment either half of
+    /// that resolves — a code that has been used, or has expired, is a code
+    /// nobody should still be reading off a screen.
+    /// <para>
+    /// It holds no polling handle. See <see cref="PendingSignIn"/>: that value
+    /// is a credential and this record is written to disk.
+    /// </para>
+    /// </remarks>
+    public PendingSignIn? SignIn { get; init; }
+
+    /// <summary>What became of the last attempt to sign in, or null.</summary>
+    /// <remarks>
+    /// Both outcomes, like <see cref="LastHandFlight"/>: signed in and did not
+    /// are one question answered, and the modal reads one line either way.
+    /// </remarks>
+    public string? LastSignIn { get; init; }
+
     public int BrowseSelected { get; init; }
 
     public bool BrowseVisible { get; init; }

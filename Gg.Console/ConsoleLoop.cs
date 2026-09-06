@@ -35,7 +35,17 @@ public sealed class ConsoleLoop(
     /// act as one.
     /// </para>
     /// </remarks>
-    Func<AppState, AppState>? flyByHand = null)
+    Func<AppState, AppState>? flyByHand = null,
+
+    /// <summary>
+    /// Signs this machine in, one step at a time, with the terminal free.
+    /// </summary>
+    /// <remarks>
+    /// A port like the takeover's rather than a delegate, because it has two
+    /// halves that share something the model may not hold — the device code is
+    /// a credential, so it lives here and never crosses back.
+    /// </remarks>
+    ISignInSession? signIn = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -335,6 +345,30 @@ public sealed class ConsoleLoop(
                         : flyByHand(state);
                     break;
 
+                case Command.SignIn:
+                    // THE ONE WRITE A PERSON REACHES BEFORE THERE IS A SESSION,
+                    // and the only reason the console is worth drawing on a
+                    // machine that has none. Two requests and a credential
+                    // written to disk, so it happens here with the terminal
+                    // provably free.
+                    //
+                    // AND RULE 4 AT ITS WIDEST. A sign-in does not invalidate
+                    // one pane, it invalidates every read the console makes -
+                    // the queue is empty because of exactly this. So the reload
+                    // is the point rather than the tidy-up, and it runs only
+                    // when a session actually arrived: reloading after a code
+                    // was merely fetched would spend a whole round trip to be
+                    // refused again.
+                    bool arrived;
+                    state = SignedIn(state, signIn, out arrived);
+
+                    if (arrived)
+                    {
+                        state = Reloaded(state, reload, asked: false);
+                    }
+
+                    break;
+
                 case Command.TakeFlight:
                     // The same shape, against something much larger: a person
                     // holds the terminal for minutes rather than an editor for
@@ -386,6 +420,7 @@ public sealed class ConsoleLoop(
         : after.LastTakeover != before.LastTakeover ? after.LastTakeover
         : after.LastHandBack != before.LastHandBack ? after.LastHandBack
         : after.LastHandFlight != before.LastHandFlight ? after.LastHandFlight
+        : after.LastSignIn != before.LastSignIn ? after.LastSignIn
         : before.LastAction;
 
     /// <summary>
@@ -494,6 +529,69 @@ public sealed class ConsoleLoop(
         return state with
         {
             LastDecision = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason),
+        };
+    }
+
+    /// <summary>
+    /// Takes one step of signing in, and says whether a session arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Which step is decided by the model, not by counting presses.</b>
+    /// Nothing waiting means ask for a code; a code waiting means the person
+    /// says they have approved it. Pressing the second key early is an ordinary
+    /// answer — the control plane says not yet, and they press it again — but
+    /// pressing the FIRST one twice would abandon the code on the screen and
+    /// fetch another, leaving the approved one with nobody polling it. The
+    /// keymap binds a different key to each step so that cannot happen by
+    /// timing.
+    /// </para>
+    /// <para>
+    /// <b>Failure returns to the offer rather than to the code.</b> Expired,
+    /// declined and pressed-too-early differ only in the sentence; all three
+    /// leave a person somewhere they can start again, which means clearing the
+    /// pending authorization. A modal still showing a dead code is a modal
+    /// whose only working key does nothing.
+    /// </para>
+    /// <para>
+    /// Public so what this console answers can be asserted directly, the same
+    /// reason <see cref="Took"/> is.
+    /// </para>
+    /// </remarks>
+    /// <param name="arrived">
+    /// Whether this machine now holds a session. The caller reloads on it — and
+    /// only on it, because a code merely fetched has changed nothing the
+    /// control plane would answer differently.
+    /// </param>
+    public static AppState SignedIn(AppState state, ISignInSession? signIn, out bool arrived)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        arrived = false;
+
+        if (signIn is null)
+        {
+            // Said, rather than a key that reaches its arm and returns the
+            // state unchanged. That shape has cost this console four dead keys,
+            // and here it would be worse: the modal exists to be the way out.
+            return state with
+            {
+                LastSignIn = "This console is not configured to sign in. Quit and run gg login.",
+            };
+        }
+
+        var step = state.SignIn is null ? signIn.Start() : signIn.Wait();
+
+        arrived = step.SignedIn;
+
+        return state with
+        {
+            // NORMAL ONLY WHEN THERE IS A SESSION. The modal is over the console
+            // it exists because of; closing it on anything less would hand a
+            // person back an empty queue with no way to ask again.
+            Mode = step.SignedIn ? UiMode.Normal : UiMode.SignIn,
+            SignIn = step.Pending,
+            LastSignIn = step.Said,
         };
     }
 

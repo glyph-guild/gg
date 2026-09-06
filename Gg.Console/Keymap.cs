@@ -38,7 +38,20 @@ public readonly record struct KeymapContext(
     TabId Showing = TabId.Queue,
     bool Frozen = false,
     bool Takeable = false,
-    bool HandedBackable = false);
+    bool HandedBackable = false)
+{
+    /// <summary>
+    /// Whether a code is already on the screen waiting to be approved.
+    /// </summary>
+    /// <remarks>
+    /// The sign-in modal's two steps ask for opposite things - one asks the
+    /// control plane for a code, the other says a person has approved it - and
+    /// this is what tells them apart. It is in the CONTEXT rather than read off
+    /// the model, like everything else here, so the hints and the dispatch
+    /// cannot disagree about which step is showing.
+    /// </remarks>
+    public bool SignInStarted { get; init; }
+}
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
 public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description)
@@ -146,10 +159,22 @@ public static class Keymap
         // Escaping is a real answer rather than a dismissal: somebody who wants
         // to look at an empty console, or who opened gg to read the help, is
         // allowed to.
-        UiMode.SignIn =>
-        [
-            new(KeyStroke.Esc, Command.CloseModal, "carry on signed out"),
-        ],
+        //
+        // TWO STEPS, TWO KEYS, AND NOT THE SAME ONE TWICE. ConfirmFlight's
+        // rule: the key that asks for a code is not the key that says the code
+        // was approved, because one key for both is a double-press away from
+        // waiting on something nobody was shown.
+        UiMode.SignIn => context.SignInStarted
+            ?
+            [
+                new(KeyStroke.Char('a'), Command.SignIn, "I have approved it"),
+                new(KeyStroke.Esc, Command.CloseModal, "give up"),
+            ]
+            :
+            [
+                new(KeyStroke.Char('y'), Command.SignIn, "sign in"),
+                new(KeyStroke.Esc, Command.CloseModal, "carry on signed out"),
+            ],
 
         _ =>
         [

@@ -60,8 +60,25 @@ internal static class StateGenerator
                 })
                 .ToList(),
             Diagnosis = random.Next(3) == 0 ? NextText(random) : null,
+
+            // A DEVICE AUTHORIZATION IN FLIGHT, so the record the sign-in modal
+            // draws is covered by the properties written over this generator
+            // rather than by whatever a hand-written test remembered. The
+            // round-trip is the one that matters: AppState is source-generated
+            // JSON, a member shape the context was not told about is refused in
+            // the published binary rather than here, and the console is rebuilt
+            // FROM the dump after every terminal release.
+            SignIn = random.Next(3) == 0 ? NextPendingSignIn(random) : null,
+            LastSignIn = random.Next(3) == 0 ? NextText(random) : null,
         };
     }
+
+    private static PendingSignIn NextPendingSignIn(Random random) => new()
+    {
+        UserCode = NextId(random),
+        VerificationUri = "https://control-plane.invalid/activate",
+        ExpiresAt = NextInstant(random),
+    };
 
     private static QueueRow NextRow(Random random) => new()
     {

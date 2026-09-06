@@ -1104,6 +1104,28 @@ public static class PaneText
         return text.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// What a person reads across the top of a modal.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written, not derived.</b> It was <c>Mode.ToString()</c>, so somebody
+    /// opening a refusal read <c>HandFlight</c> - a name that exists for the
+    /// compiler, on a screen, looking enough like a word to survive review.
+    /// Splitting the camel case would have been the same name with a space in
+    /// it; these say what the thing is.
+    /// </remarks>
+    public static string ModalTitle(UiMode mode) => mode switch
+    {
+        UiMode.Help => "Keys",
+        UiMode.FlightActions => "What can be done",
+        UiMode.FlightDetail => "This flight",
+        UiMode.HandFlight => "Nothing was created",
+        UiMode.ConfirmFlight => "This has flown before",
+        UiMode.GateDecision => "Waiting on you",
+        UiMode.SignIn => "Nobody is signed in",
+        _ => "",
+    };
+
     public static string Modal(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

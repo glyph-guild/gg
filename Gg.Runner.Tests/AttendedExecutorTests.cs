@@ -500,7 +500,16 @@ public class AttendedExecutorTests
     }
 
     /// <summary>Every fact of one kind the runner put on the wire.</summary>
-    private static IReadOnlyList<FactEnvelope> Shipped(FakeProtocol protocol, string kind) =>
+    /// <summary>
+    /// Every fact of one kind this flight shipped, in order.
+    /// </summary>
+    /// <remarks>
+    /// INTERNAL, because <see cref="AttendedTranscriptTests"/> asks the same
+    /// question of the same fact. A second copy would be a second answer to
+    /// "what did this flight ship", and the two would drift on the first change
+    /// to how a batch is shaped.
+    /// </remarks>
+    internal static IReadOnlyList<FactEnvelope> Shipped(FakeProtocol protocol, string kind) =>
     [
         .. protocol.ShippedFacts
             .SelectMany(batch => batch.Items)

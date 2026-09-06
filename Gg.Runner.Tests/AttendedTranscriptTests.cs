@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Runner.Execution;
 
 namespace Gg.Runner.Tests;
@@ -33,6 +34,42 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class AttendedTranscriptTests
 {
+    // ---- S26.9-04 ----
+
+    [Test]
+    public async Task It_declares_that_it_could_not_identify_the_session_file()
+    {
+        // WHAT S26.0-03 MEASURED, SAID OUT LOUD RATHER THAN LEFT TO A READER.
+        // The path is `~/.claude/projects/<mangled cwd>/<session_id>.jsonl`, and
+        // an attended session cannot name it: the id arrives in the
+        // `stream-json` init event, which an interactive session does not
+        // produce, and one flight's tree directory held TWO files - so the
+        // newest is a guess and a guess attributed to a flight is worse than an
+        // absence.
+        //
+        // THE COMMENT BELOW ASSERTED THIS AND NOTHING DID. It says a reader
+        // "learns that from the declaration on loop.attended", and there was no
+        // such declaration - AttendedGaps held turns, moves and move-bound, and
+        // AttendedExecutor mentions the transcript nowhere at all. So the
+        // absence was learned exactly the way S26.9-05 says it must not be: from
+        // an empty fetch.
+        //
+        // Declared as a GAP rather than as a member of its own, because that is
+        // what the other three are: a value a reader would otherwise infer
+        // wrongly. Null there reads as "not shipped yet" on a platform where
+        // facts arrive in batches, and "never, and here is why" is a different
+        // thing.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync();
+
+        var attended = AttendedExecutorTests.Shipped(protocol, FactKinds.LoopAttended);
+
+        await Assert.That(attended).Count().IsEqualTo(1);
+        await Assert.That(attended[0].Attended!.Unmeasured).Contains(AttendedGaps.Transcript)
+            .Because("a reader of a hand-flown flight has to be able to tell that no session "
+                   + "file will ever be referenced from a batch that has not carried one yet, "
+                   + "and only the flight's own record can say which.");
+    }
+
     // ---- S26.9-05 ----
 
     [Test]

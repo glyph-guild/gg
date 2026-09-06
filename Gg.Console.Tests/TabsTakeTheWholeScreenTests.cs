@@ -72,7 +72,11 @@ public class TabsTakeTheWholeScreenTests
         await Assert.That(Tabs.Showing(new AppState(), TabId.Queue)).IsTrue()
             .Because("the queue is where a console opens, and it is a tab like the others.");
 
-        var state = Reducer.Reduce(new AppState(), Command.ToggleBrowse);
+        // BrowseToggled rather than Reduce, and the difference is real: showing
+        // that pane is a READ, so the shell calls the reducer directly and
+        // Reduce has no arm for the command at all. A test that went through
+        // Reduce would have asserted nothing.
+        var state = Reducer.BrowseToggled(new AppState());
 
         await Assert.That(Tabs.Showing(state, TabId.Queue)).IsFalse()
             .Because("a view that took the screen took the queue's half of it too.");

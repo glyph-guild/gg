@@ -32,53 +32,58 @@ public class ReducerTests
     }
 
     [Test]
-    public async Task FocusCyclesThroughEveryVisiblePane()
+    public async Task TabStaysOnTheQueueWhenNothingElseIsOpen()
     {
-        // Hidden panes are skipped: tabbing into a pane that is not there
-        // strands the focus ring somewhere invisible, which reads as a frozen
-        // keyboard.
+        // WAS FocusCyclesThroughEveryVisiblePane, and the subject moved with
+        // the model. Tab used to cycle FOCUS between the panes that happened to
+        // be visible, which under one shared region was the same question as
+        // "which view has the screen". A view takes the whole screen now, so
+        // tab walks the open TABS - and a console with nothing open has one, so
+        // the honest assertion is that it stays put rather than that it moves.
         var state = new AppState { EvidenceVisible = false, LiveVisible = false };
-        var seen = new List<PaneId>();
+        var seen = new List<TabId>();
 
         for (var i = 0; i < 6; i++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
-            seen.Add(state.FocusedPane);
+            seen.Add(state.ActiveTab);
         }
 
-        await Assert.That(seen).DoesNotContain(PaneId.Evidence);
-        await Assert.That(seen).DoesNotContain(PaneId.Live);
-        await Assert.That(seen.Distinct().Order().ToList())
-            .IsEquivalentTo(new[] { PaneId.Queue, PaneId.Flight }.Order().ToList());
+        await Assert.That(seen.Distinct().ToList()).IsEquivalentTo((TabId[])[TabId.Queue])
+            .Because("tabbing onto a view nobody opened would draw an empty pane under a tab "
+                   + "nobody chose. Found: " + string.Join(", ", seen.Distinct()));
     }
 
     [Test]
-    public async Task FocusReachesAPaneOnceItIsShown()
+    public async Task TabReachesAViewOnceItIsOpen()
     {
         var state = new AppState { EvidenceVisible = true, LiveVisible = true };
-        var seen = new List<PaneId>();
+        var seen = new List<TabId>();
 
         for (var i = 0; i < 8; i++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
-            seen.Add(state.FocusedPane);
+            seen.Add(state.ActiveTab);
         }
 
-        await Assert.That(seen).Contains(PaneId.Evidence);
-        await Assert.That(seen).Contains(PaneId.Live);
+        await Assert.That(seen).Contains(TabId.Evidence);
+        await Assert.That(seen).Contains(TabId.Live);
+        await Assert.That(seen).Contains(TabId.Queue)
+            .Because("and the queue is in the ring, because it is a tab like the others.");
     }
 
     [Test]
-    public async Task HidingTheFocusedPaneMovesFocusSomewhereReal()
+    public async Task ClosingTheTabShowingLandsSomewhereReal()
     {
-        // Otherwise focus points at nothing and every key appears to do
-        // nothing, which is the same symptom as a hang.
-        var state = new AppState { LiveVisible = true, FocusedPane = PaneId.Live };
+        // Otherwise the screen shows a view nobody opened and every key appears
+        // to do nothing, which is the same symptom as a hang.
+        var state = new AppState { LiveVisible = true, ActiveTab = TabId.Live };
 
-        var hidden = Reducer.Reduce(state, Command.ToggleLive);
+        var closed = Reducer.Reduce(state, Command.ToggleLive);
 
-        await Assert.That(hidden.LiveVisible).IsFalse();
-        await Assert.That(hidden.FocusedPane).IsNotEqualTo(PaneId.Live);
+        await Assert.That(closed.LiveVisible).IsFalse();
+        await Assert.That(closed.ActiveTab).IsEqualTo(TabId.Queue);
+        await Assert.That(Tabs.IsOpen(closed, closed.ActiveTab)).IsTrue();
     }
 
     [Test]

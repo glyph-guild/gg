@@ -29,7 +29,7 @@ namespace Gg.Console.Tests;
 public class BrowseIsAKeyAndAPaneTests
 {
     private static KeymapContext Normal(bool browsing = false) =>
-        new(UiMode.Normal) { BrowseVisible = browsing };
+        new(UiMode.Normal, browsing ? TabId.Browse : TabId.Queue);
 
     [Test]
     public async Task The_key_is_bound_and_advertised_in_the_same_breath()
@@ -44,10 +44,14 @@ public class BrowseIsAKeyAndAPaneTests
     [Test]
     public async Task The_hint_says_which_way_the_key_goes()
     {
-        // ToggleLive's shape. A key labelled "browse" while the browser is open
-        // reads as a key that will do nothing.
+        // ToggleLive's shape. A key labelled "browse" while you are looking at
+        // the browser reads as a key that will do nothing.
+        //
+        // "close" rather than "hide" since a view took the whole screen: from
+        // any other tab the key BRINGS THIS ONE FORWARD rather than hiding it,
+        // and the word only changes where the behaviour does.
         await Assert.That(Keymap.Hints(Normal(browsing: false))).Contains("browse");
-        await Assert.That(Keymap.Hints(Normal(browsing: true))).Contains("hide browse");
+        await Assert.That(Keymap.Hints(Normal(browsing: true))).Contains("close browse");
     }
 
     [Test]
@@ -94,7 +98,7 @@ public class BrowseIsAKeyAndAPaneTests
         // A person who hides the pane and opens it again should not pay for a
         // second read of the tracker to see what they just saw.
         var listed = Reducer.Browsed(
-            new AppState { BrowseVisible = true },
+            new AppState { BrowseVisible = true, ActiveTab = TabId.Browse },
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));
@@ -107,17 +111,23 @@ public class BrowseIsAKeyAndAPaneTests
     }
 
     [Test]
-    public async Task The_browse_pane_and_the_other_two_do_not_all_show_at_once()
+    public async Task The_browse_pane_and_the_other_two_do_not_all_draw_at_once()
     {
-        // The screen gives one region to whichever pane is on. Two visible at
-        // once is two panes drawn over each other, which is what the existing
-        // EvidenceVisible/LiveVisible pair already avoids.
+        // WAS "do not all SHOW at once", and it asserted that opening browse
+        // turned the other two off - which is how one region was kept from
+        // being drawn over twice. A view takes the whole screen now, so three
+        // OPEN at once is the point and only one of them draws. The claim this
+        // test exists for is the same claim; the field it reads moved.
         var state = Reducer.BrowseToggled(
             new AppState { EvidenceVisible = true, LiveVisible = true });
 
         await Assert.That(state.BrowseVisible).IsTrue();
-        await Assert.That(state.EvidenceVisible).IsFalse();
-        await Assert.That(state.LiveVisible).IsFalse()
-            .Because("one region, one pane.");
+        await Assert.That(state.EvidenceVisible).IsTrue()
+            .Because("what somebody was reading is still open behind the tab they opened.");
+
+        var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
+
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Browse])
+            .Because("one screen, one view. Found: " + string.Join(", ", drawn));
     }
 }

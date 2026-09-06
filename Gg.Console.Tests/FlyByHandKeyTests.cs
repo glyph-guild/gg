@@ -74,12 +74,9 @@ public class FlyByHandKeyTests
         // whichever was written first - silently.
         foreach (var context in (KeymapContext[])
                  [
-                     Normal(),
-                     Normal() with { BrowseVisible = true },
-                     Normal() with { LiveVisible = true },
+                     .. Enum.GetValues<TabId>().Select(tab => Normal() with { Showing = tab }),
                      Normal() with { Takeable = true, HandedBackable = true },
-                     Normal() with { ChecklistVisible = true, EnvelopeVisible = true },
-                     Normal() with { RepositoriesVisible = true },
+                     Normal() with { Showing = TabId.Live, Frozen = true },
                  ])
         {
             var duplicates = Bindings(context)

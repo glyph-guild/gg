@@ -35,28 +35,10 @@ public readonly record struct KeyStroke(char? Input, bool Ctrl = false, bool Esc
 /// </remarks>
 public readonly record struct KeymapContext(
     UiMode Mode,
-    bool LiveVisible = false,
+    TabId Showing = TabId.Queue,
     bool Frozen = false,
     bool Takeable = false,
-    bool HandedBackable = false)
-{
-    /// <summary>Whether the browse pane is already showing.</summary>
-    /// <remarks>
-    /// An init property rather than another positional parameter: the record
-    /// already takes five, and a sixth bool that callers pass by position is a
-    /// swap waiting to happen.
-    /// </remarks>
-    public bool BrowseVisible { get; init; }
-
-    /// <summary>Whether the repositories pane is already showing.</summary>
-    public bool RepositoriesVisible { get; init; }
-
-    /// <summary>Whether the checklist pane has the region.</summary>
-    public bool ChecklistVisible { get; init; }
-
-    /// <summary>Whether the envelope pane has the region.</summary>
-    public bool EnvelopeVisible { get; init; }
-}
+    bool HandedBackable = false);
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
 public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description)
@@ -165,43 +147,42 @@ public static class Keymap
             new(KeyStroke.Char('?'), Command.ToggleHelp, "help"),
             new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
             new(KeyStroke.Char('d'), Command.OpenGate, "decide"),
-            new(KeyStroke.TabKey, Command.FocusNextPane, "switch pane"),
+            new(KeyStroke.TabKey, Command.FocusNextPane, "next tab"),
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.
             new(KeyStroke.Char('j'), Command.SelectNext, "down") { Hidden = true },
             new(KeyStroke.Char('k'), Command.SelectPrevious, "up") { Hidden = true },
-            new(KeyStroke.Char('v'), Command.ToggleEvidence, "evidence"),
-            new(KeyStroke.Char('l'), Command.ToggleLive, context.LiveVisible ? "hide live" : "live"),
-            new(KeyStroke.Char('b'), Command.ToggleBrowse,
-                context.BrowseVisible ? "hide browse" : "browse"),
+            new(KeyStroke.Char('v'), Command.ToggleEvidence,
+                Closes(context, TabId.Evidence, "evidence")),
+            // WHAT A SECOND PRESS WILL DO, and under tabs that is "close" only
+            // while you are looking at it. A key that said "hide" for an open
+            // tab you had switched away from would advertise a close that does
+            // not happen - the key brings it forward instead.
+            new(KeyStroke.Char('l'), Command.ToggleLive, Closes(context, TabId.Live, "live")),
+            new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse")),
             new(KeyStroke.Char('r'), Command.ToggleRepositories,
-                context.RepositoriesVisible ? "hide repositories" : "repositories"),
+                Closes(context, TabId.Repositories, "repositories")),
             // `p` for plan, which is the verb it calls.
             new(KeyStroke.Char('p'), Command.ToggleChecklist,
-                context.ChecklistVisible ? "hide checklist" : "checklist"),
+                Closes(context, TabId.Checklist, "checklist")),
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,
-                context.EnvelopeVisible ? "hide envelope" : "envelope"),
-            // TOTAL RATHER THAN TRUSTING THE REDUCER. BrowseToggled turns live
-            // off, so both flags on is a state the console cannot reach - but
-            // Bindings is a pure function that can be handed any context, and a
-            // key with two meanings in one list resolves to whichever was
-            // written first. So browse wins here explicitly, and a test over
-            // every combination says it stays that way.
-            .. context.LiveVisible && !context.BrowseVisible
+                Closes(context, TabId.Envelope, "envelope")),
+            // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH. This was two
+            // booleans with an explicit precedence between them, because live
+            // and browse shared a region: both flags on was a state the console
+            // could not reach and the pure function could still be handed.
+            // Exactly one tab is showing, so the ambiguity is gone by
+            // construction rather than by a rule somebody has to maintain.
+            .. context.Showing == TabId.Live
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.ToggleFreeze,
                     context.Frozen ? "unfreeze" : "freeze to copy")
-                    { When = "while the live pane is showing" }]
+                    { When = "while the live tab is showing" }]
                 : [],
-            // THE SAME KEY, AND THEY CANNOT BOTH BE OFFERED. Browse and live
-            // share one region and BrowseToggled turns the other off, so f is
-            // free while browsing - and 'fly' is what it should mean there.
-            // Asserted rather than reasoned about: a third pane over that
-            // region would break this silently otherwise.
-            .. context.BrowseVisible
+            .. context.Showing == TabId.Browse
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
-                    { When = "while browsing" }]
+                    { When = "while the browse tab is showing" }]
                 : [],
             // Only offered when there is something to take. A key advertised
             // against a flight with no held tree is a key that does nothing, and
@@ -321,7 +302,7 @@ public static class Keymap
         var entries = new List<KeyCatalogueEntry>();
 
         // BY WHAT IT DOES, NOT BY WHAT IT SAYS. A toggle's description reads
-        // the state it will change - "browse" and "hide browse" are one
+        // the state it will change - "browse" and "close browse" are one
         // binding - so keying this on the description put every toggle on the
         // page twice with the two halves of a sentence. Keyed on the command,
         // the first context wins, and the first context is the plainest one.
@@ -351,25 +332,30 @@ public static class Keymap
     /// Every shape of context that can change what is bound in one mode.
     /// </summary>
     /// <remarks>
-    /// The five flags are not independent - browse and live share a region, so
-    /// both on is a state the console cannot reach - but this is a pure
-    /// function over a struct and the union has to be complete rather than
-    /// reachable. Enumerating the product costs thirty-two calls to a
-    /// list-builder, once, when somebody opens help.
+    /// Every tab crossed with the three flags that change what is bound. The
+    /// union has to be complete rather than reachable: this is a pure function
+    /// over a struct, and a shape left out shows up as a key missing from the
+    /// help page, which is what HelpNamesEveryKeyTests asserts.
     /// </remarks>
     private static IEnumerable<KeymapContext> Shapes(UiMode mode) =>
-        // ORDER IS THE PAGE'S ORDER. The all-false shape comes first, so the
-        // keys that always work are listed first and in the order they are
-        // written; the flags after it are ordered so the conditional keys read
-        // in the order somebody meets them - browse and live before the two
-        // that depend on what a flight is doing.
-        from browse in (bool[])[false, true]
-        from live in (bool[])[false, true]
+        // ORDER IS THE PAGE'S ORDER. The plainest shape comes first - the queue
+        // tab, nothing frozen, nothing to take - so the keys that always work
+        // are listed first and in the order they are written.
+        from showing in Enum.GetValues<TabId>()
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
-        select new KeymapContext(mode, live, frozen, takeable, handedBack)
-        {
-            BrowseVisible = browse,
-        };
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack);
+
+    /// <summary>
+    /// A toggle's description: what a second press will do from here.
+    /// </summary>
+    /// <remarks>
+    /// "close" only while the tab is the one showing, because that is the only
+    /// place the key closes anything. From another tab it brings this one
+    /// forward, and advertising a close that does not happen is how a person
+    /// learns to stop trusting the line.
+    /// </remarks>
+    private static string Closes(KeymapContext context, TabId tab, string name) =>
+        context.Showing == tab ? $"close {name}" : name;
 }

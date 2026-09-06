@@ -48,6 +48,31 @@ jobs:
         with:
           name: tool-package
           path: artifacts/*.nupkg
+      # THE HALF OF A POOL HOST THAT IS NOT THE BINARY. Installing gg from a
+      # feed leaves the proxy without its compose file or its nginx config, and
+      # both used to come from the checkout provisioning no longer makes.
+      #
+      # Pasting them into cloud-init is the obvious alternative and
+      # PoolProvisioningTests forbids it, for the reason compose.yaml gives in
+      # its own comment: the allowlist names the reserved prefix, PoolPrefixTests
+      # compares THIS repository's copy against PoolNaming, and a second copy is
+      # where the halves of that contract start disagreeing.
+      #
+      # PATHS ARE PRESERVED, and that is the whole trick. compose.yaml mounts
+      # ../../scripts/pool-proxy/nginx.conf, so the tar is taken from the
+      # repository root and the relative path resolves wherever it is unpacked.
+      # Flattening this is a proxy that starts with nginx's default config and
+      # allows everything.
+      - name: Bundle what a pool host needs beside the binary
+        run: |
+          tar -czf artifacts/gg-pool-host.tar.gz \
+            deploy/pool-host/compose.yaml \
+            deploy/pool-host/gg-runner-maintain.service \
+            scripts/pool-proxy/nginx.conf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pool-host-bundle
+          path: artifacts/*.tar.gz
 
   binaries:
     name: ${{ matrix.rid }}

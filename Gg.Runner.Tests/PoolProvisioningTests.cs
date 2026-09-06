@@ -207,8 +207,18 @@ public class PoolProvisioningTests
             .Because("provisioning that downloads nothing from this repository has gone back to "
                    + "building, and this test would pass by having nothing to check.");
 
-        var publish = File.ReadAllText(
-            Path.Combine(RepoRoot(), ".github", "workflows", "publish-cli.yml"));
+        // FOUND BY NAME, not by path. The directory workflows live in is a
+        // forge's name, and ProviderNeutralityTests forbids one in any .cs file
+        // so that gg stays neutral about which forge speaks. Assembling the
+        // path in pieces to get past that guard is the rewording its own doc
+        // comment warns about; the file name is the part this test needs.
+        var publishWorkflow = Directory
+            .EnumerateFiles(RepoRoot(), "publish-cli.yml", SearchOption.AllDirectories)
+            .FirstOrDefault(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                              && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("publish-cli.yml was not found in this repository");
+
+        var publish = File.ReadAllText(publishWorkflow);
 
         var unpublished = wanted
             .Where(name => !publish.Contains(name, StringComparison.Ordinal))

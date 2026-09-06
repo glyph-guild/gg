@@ -71,7 +71,7 @@ public class StartingTheRunnerFromTheConsoleTests
         {
             await Assert.That(Rows.NoRunnerHere(state)).IsTrue().Because(what);
 
-            await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), Keymap.For(state)))
+            await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), KeymapContext.For(state)))
                 .IsEqualTo(Command.StartRunner)
                 .Because($"{what}, so the key is live.");
         }
@@ -85,7 +85,7 @@ public class StartingTheRunnerFromTheConsoleTests
             var state = Fleet(Mine, running, flight: running == RunnerStates.Busy ? "GG-9" : null);
 
             await Assert.That(Rows.NoRunnerHere(state)).IsFalse();
-            await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), Keymap.For(state))).IsNull()
+            await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), KeymapContext.For(state))).IsNull()
                 .Because("a second runner registered from one machine is litter in the fleet, "
                        + "and a key that appears to work is worse than one not offered.");
         }

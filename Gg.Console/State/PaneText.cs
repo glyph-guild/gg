@@ -797,6 +797,42 @@ public static class PaneText
     /// which command makes one.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What is wrong with this machine's runner, and the key that fixes it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The key, not the command.</b> It used to say <c>gg runner up</c>,
+    /// which is a command a person cannot type while this console owns the
+    /// terminal it is telling them to type into - the same dead end the sign-in
+    /// modal exists to remove.
+    /// </para>
+    /// <para>
+    /// <b>Empty when there is nothing to fix</b>, which is what lets the pane
+    /// and the view both ask "is there a notice" rather than each deciding.
+    /// </para>
+    /// </remarks>
+    public static string RunnerNotice(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (!Rows.NoRunnerHere(state))
+        {
+            return "";
+        }
+
+        var mine = Rows.Runners(state).FirstOrDefault(r => r.Mine);
+
+        var what = mine is null
+            ? "No runner is registered on this machine, so nothing here can fly a flight."
+            : mine.Heard == "never"
+                ? "This machine has a runner registered and the control plane has never heard "
+                + "from it, so it is not running."
+                : $"This machine's runner has stopped heartbeating - last heard {mine.Heard}.";
+
+        return what + "  [ s  start a runner here ]";
+    }
+
     public static string Runners(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -804,27 +840,17 @@ public static class PaneText
         var rows = Rows.Runners(state);
         var text = new StringBuilder();
 
-        if (rows.FirstOrDefault(r => r.Mine) is { } mine)
+        // ABOVE THE TABLE, which is where somebody looks before they read a
+        // list of runners that does not have theirs in it.
+        if (RunnerNotice(state) is { Length: > 0 } notice)
         {
-            text.AppendLine(mine.State switch
-            {
-                RunnerStates.Busy =>
-                    $"This machine's runner is working on {mine.Work}.",
-                RunnerStates.Idle =>
-                    "This machine's runner is up and waiting for work.",
-                _ when mine.Heard == "never" =>
-                    "This machine has a runner registered and the control plane has never "
-                  + "heard from it. Start it with `gg runner up`.",
-                _ =>
-                    $"This machine's runner has stopped heartbeating - last heard {mine.Heard}. "
-                  + "Start it again with `gg runner up`.",
-            });
+            text.AppendLine(notice);
         }
-        else
+        else if (rows.FirstOrDefault(r => r.Mine) is { } mine)
         {
-            text.AppendLine(
-                "No runner is registered on this machine, so nothing here can fly a flight. "
-              + "`gg runner up` registers one and starts it.");
+            text.AppendLine(mine.State == RunnerStates.Busy
+                ? $"This machine's runner is working on {mine.Work}."
+                : "This machine's runner is up and waiting for work.");
         }
 
         text.AppendLine();

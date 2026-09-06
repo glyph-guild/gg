@@ -721,6 +721,14 @@ public sealed record AppState
     /// </remarks>
     public string? HandFlightProblem { get; init; }
 
+    /// <summary>What became of the last attempt to start a runner here, or null.</summary>
+    /// <remarks>
+    /// Its own field rather than sharing one, for <c>Said</c>'s reason: each arm
+    /// records its outcome in its own slot and the sentence a person reads is
+    /// whichever changed, so a new arm cannot forget to say anything.
+    /// </remarks>
+    public string? LastRunner { get; init; }
+
     /// <summary>What came of the last gate this console answered.</summary>
     /// <remarks>
     /// The sentence a person reads after pressing the key, and the only thing the

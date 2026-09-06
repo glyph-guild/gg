@@ -88,6 +88,77 @@ public static class ConsoleHandFlight
     }
 
     /// <summary>
+    /// Starts a runner on this machine, and does not wait for it.
+    /// </summary>
+    /// <param name="log">
+    /// Where the child's output goes, because nobody is watching it.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>NOT the terminal, unlike flying by hand.</b> <c>gg runner up</c> is a
+    /// server: it runs until it is stopped, and handing it the screen would mean
+    /// a person could either watch a runner or use this console and not both.
+    /// So it is spawned with its output redirected to a file and this returns
+    /// immediately.
+    /// </para>
+    /// <para>
+    /// <b>Which means what comes back is "starting", not "started".</b> The
+    /// runner registers and then heartbeats, and the tab reads the control
+    /// plane's derived state - so it appears a beat later, under a refresh. A
+    /// sentence claiming it is up would be this console reporting its own
+    /// optimism.
+    /// </para>
+    /// <para>
+    /// <b>And it lives as long as this terminal does.</b> The child is not
+    /// detached from the session, so closing the terminal takes the runner with
+    /// it. That is the honest behaviour for a runner somebody started from a
+    /// console they are sitting at, and it is said here rather than discovered.
+    /// </para>
+    /// </remarks>
+    public static AppState Start(
+        AppState state,
+        SelfInvocation? self,
+        string log,
+        Func<ProcessStartInfo, bool> start)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(start);
+
+        if (self is null)
+        {
+            return state with
+            {
+                LastRunner =
+                    "Nothing was started: this gg cannot work out how to re-run itself, so the "
+                  + "runner would be whichever gg is on PATH.",
+            };
+        }
+
+        var info = new ProcessStartInfo(self.Command)
+        {
+            RedirectStandardInput = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        foreach (var argument in self.Under("runner"))
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        info.ArgumentList.Add("up");
+
+        return state with
+        {
+            LastRunner = start(info)
+                ? $"A runner is starting on this machine. Its output is in {log}, and it "
+                + "appears in this tab a beat after it registers - press g."
+                : "Nothing was started: the runner process would not start.",
+        };
+    }
+
+    /// <summary>
     /// Ask, refuse or hand over, and say which.
     /// </summary>
     /// <param name="plan">

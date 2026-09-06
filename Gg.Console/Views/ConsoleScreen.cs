@@ -451,7 +451,7 @@ public sealed class ConsoleScreen : Window
         IReadOnlyList<T> rows,
         IReadOnlyList<string> columns,
         int cursor,
-        Func<T, object[]> cells)
+        Func<T, string[]> cells)
     {
         table.Visible = rows.Count > 0;
 
@@ -466,17 +466,11 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        var data = new System.Data.DataTable();
-
-        foreach (var column in columns)
-        {
-            data.Columns.Add(column, typeof(string));
-        }
-
-        foreach (var row in rows)
-        {
-            data.Rows.Add(cells(row));
-        }
+        // THE COLUMNS AND THE CELLS, BUILT WHERE A TEST CAN READ THEM. A
+        // nameless column came back captioned `Column1' because DataTable
+        // invents one, and nothing here could be asked what heading it had
+        // produced.
+        var data = CollectionViews.Rows(columns, [.. rows.Select(row => cells(row))]);
 
         CollectionViews.Fill(table, new DataTableSource(data));
         table.SetSelection(0, Math.Clamp(cursor, 0, rows.Count - 1), extendExistingSelection: false, null);
@@ -713,7 +707,7 @@ public sealed class ConsoleScreen : Window
         }
 
         _modal.Visible = State.Mode != UiMode.Normal;
-        _modal.Title = State.Mode.ToString();
+        _modal.Title = PaneText.ModalTitle(State.Mode);
         _modalBody.Text = PaneText.Modal(State);
 
         // SIZED BY WHAT IS IN IT. A question with two answers wants a box a

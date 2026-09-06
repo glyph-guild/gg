@@ -230,4 +230,26 @@ public static class RunnerDisposition
     public const string Completed = "completed";
     public const string Abandoned = "abandoned";
     public const string Failed = "failed";
+
+    /// <summary>
+    /// This runner's turn is over, its work landed nowhere, and somebody owes
+    /// the flight an answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Terminal without being a conclusion, which is the pair the other
+    /// three could not say.</b> <c>completed</c> and <c>failed</c> are
+    /// conclusions and end the flight; <c>abandoned</c> is an interruption and
+    /// puts it back on the queue. A flight whose push was cleared and whose
+    /// proposal was not is neither: nothing is finished, and handing it to
+    /// another runner flies it into the same unanswered gate and opens a second
+    /// one against the first one's work.
+    /// </para>
+    /// <para>
+    /// <b>A CONTROL PLANE OLDER THAN THIS REFUSES IT WITH A 400</b>, which is
+    /// why good-grief taught its release door the word first and shipped
+    /// nothing that sent it. Sending it is the second step and this is it.
+    /// </para>
+    /// </remarks>
+    public const string Outstanding = "outstanding";
 }

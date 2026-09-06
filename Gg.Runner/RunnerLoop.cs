@@ -780,8 +780,17 @@ public sealed class RunnerLoop(
         // before this point, so `completed` there is a report. Here nothing was
         // measured, and `completed` with nobody having said so is a claim about
         // work nobody checked.
+        //
+        // AND `completed` IS NOT UNCONDITIONAL HERE EITHER, which is what
+        // recorded a landing on a flight that landed nowhere. This chose its
+        // answer from whether the flight was attended and never from what the
+        // landing said, so a push the control plane cleared with a proposal it
+        // did not admit - the whole point of a gate - reported a conclusion.
+        // `completed` maps to `landed` and the exit claim is first-writer-wins.
         var (disposition, detail) = invoked.Attended is null
-            ? (RunnerDisposition.Completed, (string?)null)
+            ? (Outstanding(decision)
+                ? RunnerDisposition.Outstanding
+                : RunnerDisposition.Completed, (string?)null)
             : Decided(lease, workspace, decision);
 
         await HoldAsync(runnerId, labels, lease, cancellationToken, disposition, detail);
@@ -1621,6 +1630,29 @@ public sealed class RunnerLoop(
     /// question from how this lease ends.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether this flight's work reached the remote and was admitted nowhere.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The pair the landing already carries, read once for both paths.</b>
+    /// The push and the proposal are decided independently — the push granted
+    /// when no machine obligation is violated, the proposal when every
+    /// requirement is satisfied — so cleared-to-push-and-not-admitted is a
+    /// decision somebody has not made. Neither present is a different thing
+    /// entirely (no destination at all, or a violated obligation) and is not
+    /// this.
+    /// </para>
+    /// <para>
+    /// <b>It does not read the branch.</b> A preserved handoff branch and a
+    /// gated push are the same state — work on the remote admitted nowhere —
+    /// and which of them it is, is already recorded by the pushed fact. Deciding
+    /// a disposition from a branch name would put that in two places.
+    /// </para>
+    /// </remarks>
+    private static bool Outstanding(LandingDecision? landing) =>
+        landing is { Push: not null, Admission: null };
+
     private (string Disposition, string? Detail) Decided(
         LeaseGranted lease, WorkspaceResult workspace, LandingDecision? landing)
     {
@@ -1671,14 +1703,18 @@ public sealed class RunnerLoop(
         // satisfied - so cleared-to-push-and-not-admitted is a decision somebody
         // has not made. Neither present is a different thing entirely (no
         // destination, or a violated obligation) and is not this.
-        var outstanding = landing is { Push: not null, Admission: null };
+        var outstanding = Outstanding(landing);
 
         if (landing is { Settled: true } && !outstanding)
         {
             return (RunnerDisposition.Completed, decision.Note);
         }
 
-        return (RunnerDisposition.Abandoned,
+        // OUTSTANDING WHERE THE WORK IS WAITING ON A PERSON, abandoned where
+        // this side simply does not know yet. Both record no ending; only the
+        // second is safe to re-offer, and telling them apart is the whole of
+        // what the new disposition buys.
+        return (outstanding ? RunnerDisposition.Outstanding : RunnerDisposition.Abandoned,
             (outstanding
                 ? "You recorded this flight as finished, and the gate your work opened has "
                 + "not been answered yet. Nothing was closed and your work is pushed where "

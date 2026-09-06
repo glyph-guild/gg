@@ -1077,6 +1077,33 @@ public static class PaneText
         };
     }
 
+    /// <summary>
+    /// Why a flight was not flown by hand, in full.
+    /// </summary>
+    /// <remarks>
+    /// <b>Wrapped, which is the whole reason this is a modal.</b> The same words
+    /// on the activity line lost their last clause off the right edge, and the
+    /// clause it lost was the remedy.
+    /// </remarks>
+    private static string HandFlight(AppState state)
+    {
+        if (state.HandFlightProblem is not { Length: > 0 } problem)
+        {
+            return "";
+        }
+
+        var text = new StringBuilder();
+
+        // ONE SENTENCE PER LINE. The refusal is a requirement followed by a
+        // remedy, and a paragraph of them is read as one thing to give up on.
+        foreach (var sentence in problem.Split(". ", StringSplitOptions.RemoveEmptyEntries))
+        {
+            text.AppendLine(sentence.TrimEnd('.') + ".");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     public static string Modal(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1085,6 +1112,7 @@ public static class PaneText
         {
             UiMode.Help => Help(state),
             UiMode.FlightDetail => FlightDetail(state),
+            UiMode.HandFlight => HandFlight(state),
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.SignIn => SignIn(state),

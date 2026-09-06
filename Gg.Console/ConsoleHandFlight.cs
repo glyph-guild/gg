@@ -153,6 +153,9 @@ public static class ConsoleHandFlight
                 LastHandFlight =
                     "Nothing was created: this gg cannot work out how to re-run itself, so "
                   + "the flight would be handed to whichever gg is on PATH.",
+                HandFlightProblem =
+                    "Nothing was created: this gg cannot work out how to re-run itself, so "
+                  + "the flight would be handed to whichever gg is on PATH.",
             };
         }
 
@@ -173,6 +176,7 @@ public static class ConsoleHandFlight
             return state with
             {
                 LastHandFlight = "Nothing was created: " + failure.Message,
+                HandFlightProblem = "Nothing was created: " + failure.Message,
             };
         }
 
@@ -181,6 +185,7 @@ public static class ConsoleHandFlight
             return state with
             {
                 LastHandFlight = Refused(refused.Requirement, refused.Remedy),
+                HandFlightProblem = Refused(refused.Requirement, refused.Remedy),
             };
         }
 
@@ -193,17 +198,25 @@ public static class ConsoleHandFlight
             return state with
             {
                 LastHandFlight = "Nothing was created: no intent was written.",
+                HandFlightProblem = "Nothing was created: no intent was written.",
             };
         }
 
         var exit = start(StartInfoFor(self, intent));
 
+        var trouble = exit == 0
+            ? null
+            : $"'{intent}' was not flown: gg exited {exit}. Whatever it printed is above this "
+            + "screen, and this console has drawn over it.";
+
         return state with
         {
-            LastHandFlight = exit == 0
-                ? Flew(intent)
-                : $"'{intent}' was not flown: gg exited {exit}. Whatever it printed is above "
-                + "this screen.",
+            LastHandFlight = trouble ?? Flew(intent),
+
+            // NULL ON THE WAY THROUGH, deliberately. A person who is refused,
+            // fixes it and flies must not meet the old refusal again, and this
+            // field is what the loop reads to decide whether to open the modal.
+            HandFlightProblem = trouble,
         };
     }
 }

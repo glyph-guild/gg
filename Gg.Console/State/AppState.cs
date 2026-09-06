@@ -32,6 +32,18 @@ public enum UiMode
     FlightDetail,
 
     /// <summary>
+    /// Why a flight was not flown by hand, and what to do about it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A modal because the answer is three sentences and the activity line is
+    /// one.</b> The refusal names a requirement and then a remedy, and the
+    /// remedy - the half somebody can act on - ran off the right edge of the
+    /// screen. Only for the outcomes where nothing was created: a flight that
+    /// was flown by hand was watched by the person who flew it.
+    /// </remarks>
+    HandFlight,
+
+    /// <summary>
     /// A work item that already has a flight, and whether to open a second.
     /// </summary>
     /// <remarks>
@@ -696,6 +708,18 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public string? LastHandFlight { get; init; }
+
+    /// <summary>
+    /// Why the last hand-flight created nothing, or null when it flew.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried rather than read back out of the sentence.</b> The loop opens
+    /// a modal over a refusal and not over a success, and deciding which by
+    /// looking for a phrase in <see cref="LastHandFlight"/> would make the
+    /// wording load-bearing - and the wording is the part most likely to be
+    /// improved by somebody who does not know that.
+    /// </remarks>
+    public string? HandFlightProblem { get; init; }
 
     /// <summary>What came of the last gate this console answered.</summary>
     /// <remarks>

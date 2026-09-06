@@ -17,6 +17,22 @@ public sealed record FlightRow(
 public sealed record RepositoryRow(string Chosen, string Path, string Name);
 
 /// <summary>
+/// One runner in the fleet, and whether it is this machine's.
+/// </summary>
+/// <param name="Mine">
+/// Whether this row is the runner registered on this machine.
+/// </param>
+/// <param name="Here">
+/// The mark that says so, because a bool cannot be a cell.
+/// </param>
+/// <param name="Work">
+/// The flight it holds, or empty. Empty rather than a dash: idle and holding a
+/// flight are different answers and one placeholder for both says neither.
+/// </param>
+public sealed record RunnerRow(
+    bool Mine, string Here, string Runner, string State, string Work, string Heard);
+
+/// <summary>
 /// The rows behind the three tables, and the names of their columns.
 /// </summary>
 /// <remarks>
@@ -41,6 +57,17 @@ public static class Rows
         ["flight", "state", "loop", "age", "work"];
 
     public static IReadOnlyList<string> BrowseColumns { get; } = ["item", "state", "title"];
+
+    /// <summary>
+    /// The runners' columns, the first of which has no name.
+    /// </summary>
+    /// <remarks>
+    /// It holds the mark against this machine's own runner, for the reason the
+    /// repositories' first column has none: a heading over a column of marks is
+    /// a word explaining a symbol that already explains itself.
+    /// </remarks>
+    public static IReadOnlyList<string> RunnerColumns { get; } =
+        ["", "runner", "state", "working on", "last heard"];
 
     /// <summary>
     /// The repositories' columns, the first of which has no name.
@@ -93,6 +120,86 @@ public static class Rows
 
         return state.Browse?.Items ?? [];
     }
+
+    /// <summary>
+    /// The fleet, this machine first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Ours first, and it is the only row here anybody can act on.</b>
+    /// Another tenant's runner being busy is information; this one being absent
+    /// means <c>gg runner up</c> was never run or has died, which is a thing to
+    /// go and do. The rest keep the order the control plane sent.
+    /// </para>
+    /// <para>
+    /// <b>And a runner registered here that the fleet has never seen is still a
+    /// row.</b> That is the case a person is most likely to be in - the machine
+    /// is registered and the process is not running, so it has never
+    /// heartbeated and the control plane has nothing to list. A tab that showed
+    /// only what the fleet knows would be blank in exactly the situation
+    /// somebody opened it to diagnose.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<RunnerRow> Runners(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var fleet = state.Runners?.Runners ?? [];
+        var mine = state.LocalRunnerId;
+
+        var rows = fleet
+            .Select(r => Row(r, string.Equals(r.RunnerId, mine, StringComparison.Ordinal)))
+            .ToList();
+
+        var ours = rows.FindIndex(r => r.Mine);
+
+        if (ours > 0)
+        {
+            var row = rows[ours];
+            rows.RemoveAt(ours);
+            rows.Insert(0, row);
+        }
+        else if (ours < 0 && mine is { Length: > 0 })
+        {
+            // REGISTERED AND NEVER HEARD FROM, which is what offline means.
+            // Inventing a fourth word for it here would be a second vocabulary
+            // for the same fact, and RunnerStates is the one the control plane
+            // derives.
+            rows.Insert(0, new RunnerRow(
+                Mine: true,
+                Here: Ours,
+                Runner: Short(mine),
+                State: RunnerStates.Offline,
+                Work: "",
+                Heard: "never"));
+        }
+
+        return rows;
+    }
+
+    /// <summary>The mark against this machine's own runner.</summary>
+    private const string Ours = "→";
+
+    private static RunnerRow Row(RunnerSummary runner, bool mine) => new(
+        Mine: mine,
+        Here: mine ? Ours : " ",
+        Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
+            ? "  " + label
+            : ""),
+        State: runner.State,
+        Work: runner.CurrentFlightNumber ?? "",
+        Heard: runner.LastHeartbeatAt is { } at ? at.ToString("u") : "never");
+
+    /// <summary>
+    /// Enough of an id to tell two runners apart, and no more.
+    /// </summary>
+    /// <remarks>
+    /// A full uuid in a cell pushes the columns a person is reading off the
+    /// screen, and nobody types one of these - the label is how a runner is
+    /// recognised and the prefix is how it is disambiguated.
+    /// </remarks>
+    private static string Short(string runnerId) =>
+        runnerId.Length <= 8 ? runnerId : runnerId[..8];
 
     /// <summary>What this tenant may fly against.</summary>
     public static IReadOnlyList<RepositoryRow> Repositories(AppState state)

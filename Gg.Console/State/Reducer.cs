@@ -45,7 +45,11 @@ public static class Reducer
                     : HelpPage.Keys,
             },
 
-            Command.FocusNextPane => state with { FocusedPane = NextVisible(state) },
+            // TAB WALKS THE OPEN TABS. It used to move focus between the panes
+            // that happened to be visible, which under one shared region was
+            // the same question; a view takes the whole screen now, so "the
+            // next thing" is the next tab and focus follows it.
+            Command.FocusNextPane => state with { ActiveTab = Tabs.Next(state) },
 
             // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
             // two lists, and moving the queue underneath a person reading work
@@ -54,7 +58,7 @@ public static class Reducer
             Command.SelectNext => Moved(state, +1),
             Command.SelectPrevious => Moved(state, -1),
 
-            Command.ToggleEvidence => Reveal(state with { EvidenceVisible = !state.EvidenceVisible }),
+            Command.ToggleEvidence => Toggled(state, TabId.Evidence),
             Command.ToggleLive => ToggleLive(state),
             Command.ToggleFreeze => ToggleFreeze(state),
 
@@ -91,33 +95,43 @@ public static class Reducer
     /// focus ring reads exactly like a frozen keyboard, and the person's next
     /// move is to kill the terminal.
     /// </remarks>
-    private static PaneId NextVisible(AppState state)
+    /// <summary>
+    /// Shows a view, or closes it when it is already the one showing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE KEY MEANS "SHOW ME THIS".</b> It only means "close it" when it is
+    /// already what you are looking at - so pressing <c>v</c> while reading the
+    /// live view brings the evidence tab forward rather than silently
+    /// discarding it. A key that closed an open-but-not-showing tab would throw
+    /// away what somebody was comparing against, which is the thing this whole
+    /// change exists to stop.
+    /// </para>
+    /// <para>
+    /// <b>Closing lands on the queue.</b> It is the one tab that cannot be
+    /// closed, which is what makes closing the tab you are on a move with
+    /// somewhere to go.
+    /// </para>
+    /// </remarks>
+    private static AppState Showing(AppState state, TabId tab, bool open) => state with
     {
-        var panes = Enum.GetValues<PaneId>();
-        var start = Array.IndexOf(panes, state.FocusedPane);
-
-        for (var step = 1; step <= panes.Length; step++)
-        {
-            var candidate = panes[(start + step) % panes.Length];
-            if (IsVisible(state, candidate))
-            {
-                return candidate;
-            }
-        }
-
-        return PaneId.Queue;
-    }
-
-    private static bool IsVisible(AppState state, PaneId pane) => pane switch
-    {
-        PaneId.Evidence => state.EvidenceVisible,
-        PaneId.Live => state.LiveVisible,
-        _ => true,
+        ActiveTab = open ? tab : TabId.Queue,
+        EvidenceVisible = tab == TabId.Evidence ? open : state.EvidenceVisible,
+        LiveVisible = tab == TabId.Live ? open : state.LiveVisible,
+        BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
+        RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
+        ChecklistVisible = tab == TabId.Checklist ? open : state.ChecklistVisible,
+        EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
     };
 
-    /// <summary>Pulls focus back out of a pane that has just been hidden.</summary>
-    private static AppState Reveal(AppState state) =>
-        IsVisible(state, state.FocusedPane) ? state : state with { FocusedPane = NextVisible(state) };
+    /// <summary>What a view's own key does to it.</summary>
+    /// <remarks>
+    /// One function so the six keys cannot disagree about what a second press
+    /// means. Returns whether the view is open afterwards, because the shell
+    /// reads that to decide whether to fetch anything.
+    /// </remarks>
+    internal static AppState Toggled(AppState state, TabId tab) =>
+        Showing(state, tab, open: !(state.ActiveTab == tab && Tabs.IsOpen(state, tab)));
 
     /// <summary>
     /// Moves the cursor, and marks what it lands on as read.
@@ -220,8 +234,12 @@ public static class Reducer
     /// </remarks>
     private static AppState ToggleLive(AppState state)
     {
-        var showing = !state.LiveVisible;
-        return RecordAttach(Reveal(state with { LiveVisible = showing }), showing);
+        var next = Toggled(state, TabId.Live);
+
+        // THE FACT IS ABOUT ATTACHING, not about which tab is showing. Bringing
+        // an already-open live tab forward is not a second attach, and counting
+        // it as one would double every number on a rate that should fall.
+        return RecordAttach(next, next.LiveVisible && !state.LiveVisible);
     }
 
     /// <summary>
@@ -337,19 +355,17 @@ public static class Reducer
     /// answer to what you just did.
     /// </para>
     /// </remarks>
-    /// <summary>Show or hide the repositories, keeping what was read.</summary>
-    /// <remarks>One region, one pane - the rule <see cref="BrowseToggled"/> follows.</remarks>
+    /// <summary>Show the repositories, or close them, keeping what was read.</summary>
+    /// <remarks>
+    /// Through <see cref="Toggled"/> like the other five, so what a second
+    /// press means is decided in one place. It used to clear three other flags,
+    /// because all four drew into one region.
+    /// </remarks>
     public static AppState RepositoriesToggled(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state with
-        {
-            RepositoriesVisible = !state.RepositoriesVisible,
-            BrowseVisible = false,
-            EvidenceVisible = false,
-            LiveVisible = false,
-        };
+        return Toggled(state, TabId.Repositories);
     }
 
     /// <summary>
@@ -483,14 +499,18 @@ public static class Reducer
         return state with { Mode = UiMode.Normal, PendingFlight = null };
     }
 
-    public static AppState BrowseToggled(AppState state) => state with
+    /// <summary>Show the tracker's items, or close them.</summary>
+    /// <remarks>
+    /// It used to clear four flags: browse shared its region with evidence,
+    /// live, the checklist and the envelope, so showing it meant hiding them.
+    /// Only the tab showing is drawn now.
+    /// </remarks>
+    public static AppState BrowseToggled(AppState state)
     {
-        BrowseVisible = !state.BrowseVisible,
-        EvidenceVisible = false,
-        LiveVisible = false,
-        ChecklistVisible = false,
-        EnvelopeVisible = false,
-    };
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Toggled(state, TabId.Browse);
+    }
 
     /// <summary>Shows or hides the checklist, and gives it the region.</summary>
     /// <remarks>
@@ -504,14 +524,7 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state with
-        {
-            ChecklistVisible = !state.ChecklistVisible,
-            EvidenceVisible = false,
-            LiveVisible = false,
-            BrowseVisible = false,
-            EnvelopeVisible = false,
-        };
+        return Toggled(state, TabId.Checklist);
     }
 
     /// <summary>Shows or hides the envelope, and gives it the region.</summary>
@@ -520,14 +533,7 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state with
-        {
-            EnvelopeVisible = !state.EnvelopeVisible,
-            EvidenceVisible = false,
-            LiveVisible = false,
-            BrowseVisible = false,
-            ChecklistVisible = false,
-        };
+        return Toggled(state, TabId.Envelope);
     }
 
     public static AppState Browsed(AppState state, string providerKey, BrowseOutcome outcome)

@@ -71,9 +71,9 @@ public class AppStateJsonTests
         {
             await Assert.That(states.Any(s => s.Mode == mode)).IsTrue().Because($"no state had mode {mode}.");
         }
-        foreach (var pane in Enum.GetValues<PaneId>())
+        foreach (var pane in Enum.GetValues<TabId>())
         {
-            await Assert.That(states.Any(s => s.FocusedPane == pane)).IsTrue()
+            await Assert.That(states.Any(s => s.ActiveTab == pane)).IsTrue()
                 .Because($"no state focused {pane}.");
         }
     }
@@ -175,7 +175,7 @@ public class AppStateJsonTests
     {
         // Serialized as numbers, inserting a mode would silently change what
         // every stored state means. This is cheap now and unrecoverable later.
-        var json = AppStateJson.Serialize(new AppState { Mode = UiMode.Help, FocusedPane = PaneId.Live });
+        var json = AppStateJson.Serialize(new AppState { Mode = UiMode.Help, LiveVisible = true, ActiveTab = TabId.Live });
 
         await Assert.That(json).Contains("\"Help\"");
         await Assert.That(json).Contains("\"Live\"");
@@ -188,7 +188,7 @@ public class AppStateJsonTests
         // than conveniences.
         var fresh = new AppState();
 
-        await Assert.That(fresh.FocusedPane).IsEqualTo(PaneId.Queue)
+        await Assert.That(fresh.ActiveTab).IsEqualTo(TabId.Queue)
             .Because("the queue is what a person is here for.");
         await Assert.That(fresh.LiveVisible).IsFalse()
             .Because("the live view is a trust artifact meant to decay; on by default is the opposite.");

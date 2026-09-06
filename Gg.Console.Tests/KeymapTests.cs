@@ -25,10 +25,14 @@ public class KeymapTests
     /// <summary>Every context the console can be in.</summary>
     internal static IReadOnlyList<KeymapContext> EveryContext { get; } =
     [
+        // EVERY TAB, not just whether the live pane was showing. The context
+        // used to carry five booleans over one shared region and this crossed
+        // exactly one of them; a view takes the whole screen now, so the tab
+        // showing is the whole of that axis and the product is complete.
         .. from mode in Enum.GetValues<UiMode>()
-           from live in (bool[])[false, true]
+           from showing in Enum.GetValues<TabId>()
            from frozen in (bool[])[false, true]
-           select new KeymapContext(mode, live, frozen),
+           select new KeymapContext(mode, showing, frozen),
     ];
 
     [Test]
@@ -173,8 +177,8 @@ public class KeymapTests
     {
         // An advertised key that does nothing teaches people to distrust the
         // hint line, which is the one thing telling them what works.
-        var hidden = new KeymapContext(UiMode.Normal, LiveVisible: false);
-        var shown = new KeymapContext(UiMode.Normal, LiveVisible: true);
+        var hidden = new KeymapContext(UiMode.Normal, TabId.Queue);
+        var shown = new KeymapContext(UiMode.Normal, TabId.Live);
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), hidden)).IsNull();
         await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), shown)).IsEqualTo(Command.ToggleFreeze);
@@ -183,9 +187,14 @@ public class KeymapTests
     [Test]
     public async Task The_hint_for_a_toggle_says_what_pressing_it_will_do()
     {
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, LiveVisible: false))).Contains("l live");
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, LiveVisible: true))).Contains("l hide live");
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, LiveVisible: true, Frozen: true))).Contains("f unfreeze");
+        // "close" rather than "hide", and only from the tab itself: from
+        // anywhere else the key brings it forward, and advertising a close that
+        // does not happen is how a person learns to stop trusting the line.
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Queue))).Contains("l live");
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Live))).Contains("l close live");
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Evidence))).Contains("l live")
+            .Because("the live tab may be open behind this one, and l goes to it.");
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Live, Frozen: true))).Contains("f unfreeze");
     }
 
     [Test]

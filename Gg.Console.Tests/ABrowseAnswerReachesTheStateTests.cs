@@ -124,15 +124,20 @@ public class ABrowseAnswerReachesTheStateTests
     [Test]
     public async Task Nothing_else_in_the_state_moves()
     {
-        // A reducer that quietly reset the selection or the focused pane while
+        // A reducer that quietly reset the selection or the tab showing while
         // a person was reading something else is a console that loses their
         // place because a background fetch returned.
-        var before = new AppState { SelectedRow = 3, FocusedPane = PaneId.Flight };
+        var before = new AppState
+        {
+            SelectedRow = 3,
+            EvidenceVisible = true,
+            ActiveTab = TabId.Evidence,
+        };
 
         var after = Reducer.Browsed(
             before, "a-tracker", new BrowseOutcome.Listed(APage()));
 
         await Assert.That(after.SelectedRow).IsEqualTo(3);
-        await Assert.That(after.FocusedPane).IsEqualTo(PaneId.Flight);
+        await Assert.That(after.ActiveTab).IsEqualTo(TabId.Evidence);
     }
 }

@@ -25,7 +25,7 @@ public class ModalEscapeTests
     /// <summary>Applies a key the way the screen does: resolve, then reduce.</summary>
     private static AppState Press(AppState state, KeyStroke key)
     {
-        var context = new KeymapContext(state.Mode, state.LiveVisible, state.Frozen);
+        var context = new KeymapContext(state.Mode, state.ActiveTab, state.Frozen);
         var command = Keymap.Resolve(key, context);
 
         // THE SAME DECLARATION THE SCREEN READS. This held a third literal copy of
@@ -56,7 +56,7 @@ public class ModalEscapeTests
                 continue;
             }
 
-            var hatch = Keymap.EscapeHatch(new KeymapContext(state.Mode, state.LiveVisible, state.Frozen));
+            var hatch = Keymap.EscapeHatch(new KeymapContext(state.Mode, state.ActiveTab, state.Frozen));
             await Assert.That(hatch).IsNotNull().Because($"seed {seed} reached {state.Mode} with no way out.");
 
             var after = Press(state, hatch!.Value);
@@ -172,21 +172,19 @@ public class ModalEscapeTests
         for (var seed = 0; seed < Sequences; seed++)
         {
             var random = new Random(seed);
-            var state = StateGenerator.Next(random) with { FocusedPane = PaneId.Queue };
+            var state = StateGenerator.Next(random) with { ActiveTab = TabId.Queue };
 
             for (var step = 0; step < random.Next(1, MaxLength); step++)
             {
                 state = Press(state, KeymapTests.Universe[random.Next(KeymapTests.Universe.Count)]);
 
-                var visible = state.FocusedPane switch
-                {
-                    PaneId.Evidence => state.EvidenceVisible,
-                    PaneId.Live => state.LiveVisible,
-                    _ => true,
-                };
-
-                await Assert.That(visible).IsTrue()
-                    .Because($"seed {seed} left focus on {state.FocusedPane}, which is not on screen.");
+                // THE SAME CLAIM, ONE FIELD DOWN. It used to be "focus is on a
+                // visible pane"; a view takes the whole screen now, so it is
+                // "the tab showing is one somebody opened" - and Tabs.Showing
+                // is what the view reads, so this asserts what is drawn rather
+                // than a flag beside it.
+                await Assert.That(Tabs.IsOpen(state, state.ActiveTab)).IsTrue()
+                    .Because($"seed {seed} left {state.ActiveTab} showing, which nobody opened.");
             }
         }
     }

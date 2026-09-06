@@ -33,7 +33,35 @@ public static class AccountConfirmations
     /// </remarks>
     public const string Replaced = "replaced";
 
-    public static IReadOnlyList<string> All { get; } = [Accepted, Edited, Replaced];
+    /// <summary>
+    /// Written from nothing, because nothing was proposed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>NOT <see cref="Replaced"/>, and the difference is a signal rather than
+    /// a shade of meaning.</b> Replaced says a proposal was made and was bad
+    /// enough to throw away - it is how this feature reports that it is not
+    /// working. An account with no proposal behind it has nothing to report
+    /// about the inference, and recording `replaced` for it would fire that
+    /// signal wherever the inference had simply never run.
+    /// </para>
+    /// <para>
+    /// <b>The state <see cref="HumanAccount.WasProposed"/> already named.</b> Its
+    /// remark distinguishes "a replaced account had a proposal that was
+    /// discarded" from "one written with no inference at all", and until this
+    /// value existed the second could not be said.
+    /// </para>
+    /// <para>
+    /// <b>Where it comes from today: a hand-flight.</b> A person handed a
+    /// terminal writes what they did in the return file, and nothing proposed
+    /// anything to them - <c>HandSession</c> runs on the takeover path and not
+    /// that one. Their words are the only account such a flight has.
+    /// </para>
+    /// </remarks>
+    public const string Unaided = "unaided";
+
+    public static IReadOnlyList<string> All { get; } =
+        [Accepted, Edited, Replaced, Unaided];
 }
 
 /// <summary>

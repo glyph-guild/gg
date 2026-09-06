@@ -1140,7 +1140,8 @@ public static class ProtocolSurface
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
-                 "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "loop", "feedback"],
+                 "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText",
+                 "loop", "feedback"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],

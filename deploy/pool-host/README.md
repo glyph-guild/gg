@@ -107,12 +107,18 @@ With no lease held on the host:
 sudo systemctl stop gg-runner-maintain
 sudo dotnet tool update GlyphGuild.Gg.Cli --version <new> --tool-path /usr/local/lib/gg
 curl -fsSL https://github.com/glyph-guild/gg/releases/download/v<new>/gg-pool-host.tar.gz \
-  | sudo tar xz -C /opt/gg-pool-host
+  | sudo tar xz --no-same-owner -C /opt/gg-pool-host
 sudo systemctl daemon-reload && sudo systemctl start gg-runner-maintain
 ```
 
 **Take both, or neither.** The binary and the bundle ship as one version, and a
 host running one against the other comes up looking entirely healthy.
+
+**`--no-same-owner` is not optional.** `tar` run by root restores the numeric
+uid recorded in the archive, and the archive is built on a CI runner where
+everything belongs to uid 1001 — which on a cloud image is `gg`. Without the
+flag the unit and the proxy's allowlist end up owned by the account the runner
+runs as, which is the one thing this host is built to prevent.
 
 **`--version` is not optional in practice.** `dotnet tool update` with none
 takes whatever was pushed last, and what was pushed last is whatever reached

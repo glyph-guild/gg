@@ -127,8 +127,22 @@ runcmd:
   #
   # NOT A CHECKOUT, and nothing is chowned to `gg`. Root owns this tree, so the
   # unit linked out of it below is a file the runner's user cannot rewrite.
+  #
+  # --no-same-owner IS THE SECURITY FLAG HERE, and it is not tidiness. Found by
+  # migrating a real host: GNU tar run by ROOT defaults to --same-owner and
+  # restores the NUMERIC uid recorded in the archive. This archive is built on a
+  # hosted CI runner, where every file belongs to uid 1001 - `tar tzvf` on the
+  # published asset says `runner/runner`.
+  #
+  # On a cloud image uid 1000 is the admin account cloud-init created and 1001
+  # is `gg`, by construction rather than by luck. So without this flag the unit
+  # and the proxy's allowlist land owned by the account the resident runner runs
+  # as: it can rewrite what starts, as whom, and what it is allowed to reach.
+  # That is the exposure the clone-and-chown version had, arriving by a route
+  # with no chown in it - which is why the guard against `chown ... gg` did not
+  # see it. PoolProvisioningTests now holds the extraction itself.
   - [mkdir, '-p', /opt/gg-pool-host]
-  - [sh, -c, 'curl -fsSL https://github.com/glyph-guild/gg/releases/download/v0.4.0/gg-pool-host.tar.gz | tar xz -C /opt/gg-pool-host']
+  - [sh, -c, 'curl -fsSL https://github.com/glyph-guild/gg/releases/download/v0.4.0/gg-pool-host.tar.gz | tar xz --no-same-owner -C /opt/gg-pool-host']
 
   # The proxy. Brought up as root, which is why `gg` needs no access to Docker
   # at all - the one thing that talks to the daemon on this machine is this

@@ -51,7 +51,14 @@ public class SliceThreeGuardTests
     /// what this guard is for: adding one is a line in a diff beside a ledger
     /// row, and swapping one for another is caught as well as adding one.
     /// </remarks>
-    private const int KindsThatCross = 11;
+    /// <remarks>
+    /// Twelve: <c>loop.attended</c> at slice twenty-six, step 6. It is the
+    /// first whose subject is an ABSENCE - what a session could not measure,
+    /// because a person held the terminal and there was no stream to read - and
+    /// the argument for it being a fact at all is made where this guard's
+    /// criterion lives, in <c>SliceTwelveGuardTests</c>.
+    /// </remarks>
+    private const int KindsThatCross = 12;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -131,9 +138,11 @@ public class SliceThreeGuardTests
         // The version and the count are two facts about the same thing, and a
         // version bumped for a rename would pass the assertion above.
         //
-        // ELEVEN. The tenth is flight.nomination and the eleventh is
-        // loop.question - the question an agent could not answer from the work
-        // itself, which belongs to the flight whose loop asked it. This test
+        // TWELVE. The tenth is flight.nomination, the eleventh is loop.question
+        // - the question an agent could not answer from the work itself, which
+        // belongs to the flight whose loop asked it - and the twelfth is
+        // loop.attended, which belongs to the flight a person flew by hand.
+        // This test
         // used to say "no fact
         // kind has been added" and the halt it produced is what sent the decision
         // back for a ruling rather than letting a fact quietly grow a member. What it
@@ -150,6 +159,7 @@ public class SliceThreeGuardTests
                 FactKinds.EnvironmentIdentity,
                 FactKinds.FlightNomination,
                 FactKinds.HumanAccount,
+                FactKinds.LoopAttended,
                 FactKinds.LoopDigest,
                 FactKinds.LoopOutcome,
                 FactKinds.LoopQuestion,

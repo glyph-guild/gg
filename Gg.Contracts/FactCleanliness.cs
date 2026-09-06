@@ -165,6 +165,22 @@ public static class FactCleanliness
             return Diagnosis(badQuestion);
         }
 
+        if (fact.Attended is { } attended && First(
+            [
+                ("attended.loopId", attended.LoopId, false),
+                ("attended.rung", attended.Rung, false),
+                ("attended.binary", attended.Binary, false),
+                // A VERSION STRING A TOOL PRINTED, not prose. Nothing here was
+                // written for a reader, and a line break in one of these is a
+                // value captured with its own newline still attached.
+                ("attended.binaryVersion", attended.BinaryVersion, false),
+                .. attended.Unmeasured.Select(g => ("attended.unmeasured", g, false)),
+                .. attended.SettingsCleared.Select(c => ("attended.settingsCleared", c, false)),
+            ]) is { } badAttended)
+        {
+            return Diagnosis(badAttended);
+        }
+
         if (fact.LoopDigest is { } summary && First(
             [
                 ("loopDigest.loopId", summary.LoopId, false),

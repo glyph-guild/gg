@@ -791,7 +791,7 @@ public sealed class ConsoleScreen : Window
         // help page is twenty-one keys and a flight's detail is its whole log,
         // and both were being drawn into fifty-two columns by twelve rows -
         // which is a scrollbar where a reader wanted a page.
-        var document = State.Mode is UiMode.Help or UiMode.FlightDetail;
+        var document = PaneText.ModalIsADocument(State.Mode);
 
         _modal.Width = document ? Dim.Percent(92) : 52;
         _modal.Height = document ? Dim.Percent(88) : 12;

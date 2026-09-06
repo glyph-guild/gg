@@ -569,7 +569,10 @@ static async Task<int> LaunchConsoleAsync()
     var final = new ConsoleLoop(
         new TerminalGuiSession(tails),
         new EditorSession(),
-        new TakeSession(claim: reference =>
+        // NAMED, like every other port. Fourteen optional arguments and one
+        // positional is how a port gets passed to the wrong slot, and
+        // EveryPortIsPassedTests can only see the ones that say their name.
+        take: new TakeSession(claim: reference =>
             takes.ClaimAsync(reference).GetAwaiter().GetResult()),
         hand: null,
         // THE WRITE PATH. Async verbs, a synchronous shell, and the bridge at the

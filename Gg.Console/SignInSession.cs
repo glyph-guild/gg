@@ -97,10 +97,21 @@ public interface ISignInSession
 /// </remarks>
 public sealed class SignInSession(
     Func<DeviceAuthorizationStarted> start,
-    Func<DeviceAuthorizationStarted, SignInResult> wait) : ISignInSession
+    Func<DeviceAuthorizationStarted, SignInResult> wait,
+    IConsoleWriter? output = null) : ISignInSession
 {
     /// <summary>The handle, held here and never handed out.</summary>
     private DeviceAuthorizationStarted? _started;
+
+    /// <summary>
+    /// Where the code goes when the modal cannot draw it.
+    /// </summary>
+    /// <remarks>
+    /// Writing to the terminal from the console's own assembly is allowed here
+    /// for the reason <c>TakeSession</c> already writes to it: this runs
+    /// BETWEEN UI sessions, with the screen provably nobody's.
+    /// </remarks>
+    private readonly IConsoleWriter _output = output ?? new StandardConsoleWriter();
 
     public SignInStep Start()
     {
@@ -147,6 +158,15 @@ public sealed class SignInSession(
         // approved, declined, expired, unreachable - returns to the offer, so
         // the next press has to start a fresh one.
         _started = null;
+
+        // SAID BEFORE THE WAIT, because the modal that was drawing this is
+        // already gone: the UI session ended to get here, and what follows can
+        // block until the code expires. Somebody who pressed approve a moment
+        // early would otherwise be looking at a blank terminal with nothing on
+        // it to approve. TakeSession's rule - once the screen stops being ours,
+        // nothing of ours is read again until it comes back.
+        AuthCommands.ShowCode(_output, started);
+        _output.WriteLine("Waiting for you to approve it. The console comes back after that.");
 
         try
         {

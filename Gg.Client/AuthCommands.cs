@@ -62,6 +62,27 @@ public sealed class AuthCommands(
         _client.StartDeviceAuthorizationAsync(deviceLabel, cancellationToken);
 
     /// <summary>
+    /// The lines a person needs, written by whoever holds the terminal.
+    /// </summary>
+    /// <remarks>
+    /// <b>Static and given its output, because both callers write these and
+    /// neither at the same moment.</b> The verb writes them once, before it
+    /// waits. The console writes them again as its UI session comes down - the
+    /// modal that had been drawing the code is gone by then, and the wait it is
+    /// about to start can outlast a person's patience.
+    /// </remarks>
+    public static void ShowCode(IConsoleWriter output, Gg.Contracts.DeviceAuthorizationStarted started)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(started);
+
+        output.WriteLine();
+        output.WriteLine($"  Open:  {started.VerificationUri}");
+        output.WriteLine($"  Code:  {started.UserCode}");
+        output.WriteLine();
+    }
+
+    /// <summary>
     /// Waits for a person to approve what was started, and stores the session.
     /// </summary>
     /// <remarks>
@@ -138,10 +159,7 @@ public sealed class AuthCommands(
     {
         var started = await StartAsync(deviceLabel, cancellationToken);
 
-        _output.WriteLine();
-        _output.WriteLine($"  Open:  {started.VerificationUri}");
-        _output.WriteLine($"  Code:  {started.UserCode}");
-        _output.WriteLine();
+        ShowCode(_output, started);
         _output.WriteLine("Waiting for you to approve...");
 
         var result = await AwaitApprovalAsync(started, cancellationToken);

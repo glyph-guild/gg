@@ -93,7 +93,43 @@ public static class TenantNoticeCodes
     /// </remarks>
     public const string Egress = "egress";
 
-    public static IReadOnlyList<string> All { get; } = [Egress];
+    /// <summary>
+    /// The gg on this machine is older than the one the control plane publishes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The third version, arriving on a channel that already exists.</b> The
+    /// protocol has a floor and a 426; the fact vocabulary has a header printed
+    /// on purpose; the binary had neither, which is why it is the one that
+    /// drifts. A tenant learns about it here rather than through a fourth
+    /// signal invented for the purpose.
+    /// </para>
+    /// <para>
+    /// <b>Only the control plane can raise it.</b> It knows what is current and
+    /// has received <c>GG-Runner-Version</c> on every request since the header
+    /// existed, so it can see a fleet drifting; nothing has ever asked it.
+    /// </para>
+    /// <para>
+    /// <b>Named for the fact, not the channel.</b> Not "nuget", not a forge:
+    /// how gg is distributed has changed once already and this code is meant to
+    /// outlive the next change. What it means is <i>this binary is old</i>.
+    /// </para>
+    /// </remarks>
+    public const string Binary = "binary";
+
+    public static IReadOnlyList<string> All { get; } = [Egress, Binary];
+
+    /// <summary>
+    /// Codes that may never stop a person working, whatever a sender says.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rule 6, as a list rather than a promise.</b> Being behind is
+    /// reported; the protocol floor already refuses with a 426 and that stays
+    /// the only thing in this design that does. <c>Blocking</c> is otherwise
+    /// the control plane's to decide and a reader may never promote a notice -
+    /// this is the one direction that is fixed at the contract instead.
+    /// </remarks>
+    public static IReadOnlyList<string> AdvisoryOnly { get; } = [Binary];
 }
 
 /// <summary>

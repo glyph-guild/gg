@@ -39,18 +39,28 @@ public class UpdateBoundaryTests
         .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                  && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
 
+    /// <summary>What the runner role may not name, and why each matters.</summary>
+private static readonly (string What, Regex Pattern)[] Forbidden =
+    {
+        ("the update advice", new Regex(@"\bUpdateAdvice\b")),
+        ("the install shape", new Regex(@"\bInstallShape\b|\bInstallKind\b")),
+        ("a tool update", new Regex(@"dotnet\s+tool\s+(update|install)")),
+
+        // S32.2-05. THE CLAIM LOOP IS THE REASON THIS ONE IS HERE. A
+        // version comparison per poll is a request per poll for a number
+        // that moves weekly - and the runner polls forever, on every host,
+        // so the cheapest place to put it is the most expensive place it
+        // could go. It is also the runner learning something it has no use
+        // for: it cannot act on being behind, because it may not update.
+        ("the version oracle", new Regex(@"\bCurrentVersionAsync\b|\bVersionStanding\b")),
+    };
+
     [Test]
     public async Task The_runner_role_names_nothing_that_could_update_this_binary()
     {
         // Rule 2. Not "does not call it today" - may not NAME it, so that the
         // next person wiring a convenience has to delete a test with a reason
         // in it rather than add a line.
-        var forbidden = new (string What, Regex Pattern)[]
-        {
-            ("the update advice", new Regex(@"\bUpdateAdvice\b")),
-            ("the install shape", new Regex(@"\bInstallShape\b|\bInstallKind\b")),
-            ("a tool update", new Regex(@"dotnet\s+tool\s+(update|install)")),
-        };
 
         var offenders = new List<string>();
 
@@ -58,7 +68,7 @@ public class UpdateBoundaryTests
         {
             var text = File.ReadAllText(file);
 
-            foreach (var (what, pattern) in forbidden)
+            foreach (var (what, pattern) in Forbidden)
             {
                 if (pattern.IsMatch(text))
                 {
@@ -80,20 +90,19 @@ public class UpdateBoundaryTests
         // THE HALF THAT MATTERS. The test above is an absence, and an absence
         // check that cannot fail is worse than none - it reports a boundary
         // nobody is holding. These are the shapes a real reach takes.
-        var patterns = new Regex[]
-        {
-            new(@"\bUpdateAdvice\b"),
-            new(@"\bInstallShape\b|\bInstallKind\b"),
-            new(@"dotnet\s+tool\s+(update|install)"),
-        };
+        // THE SAME LIST THE SCAN USES. A second copy drifted the moment the
+        // first one grew - this test failed on a reach the scan already caught,
+        // which is the exact defect it exists to prevent, aimed at itself.
 
         foreach (var reach in (string[])
                  ["var advice = UpdateAdvice.For(shape, current);",
                   "if (InstallShape.Current.Kind == InstallKind.ToolPath)",
                   "Process.Start(\"dotnet tool update -g GlyphGuild.Gg.Cli\");",
-                  "// just run dotnet tool install here"])
+                  "// just run dotnet tool install here",
+                  "var current = await _control.CurrentVersionAsync(token);",
+                  "if (VersionStanding.For(mine, theirs).IsReassuring)"])
         {
-            await Assert.That(patterns.Any(p => p.IsMatch(reach))).IsTrue()
+            await Assert.That(Forbidden.Any(f => f.Pattern.IsMatch(reach))).IsTrue()
                 .Because($"'{reach}' is the runner reaching the update path and the guard did not "
                        + "see it.");
         }

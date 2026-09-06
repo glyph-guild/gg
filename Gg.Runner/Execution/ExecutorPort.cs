@@ -559,4 +559,78 @@ public interface IExecutorPort
     /// </para>
     /// </remarks>
     Task<ExecutorRun?> ExecuteAsync(ExecutorRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What this executor could not measure about the session it just ran, or
+    /// null when it measures loops.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The other half of answering null.</b> <see cref="ExecuteAsync"/> says
+    /// nothing measured a loop; this says WHAT was not measured, which is rule
+    /// 3 — absence is declared and never implied by a default. A control plane
+    /// given only the null sees a flight that shipped an environment and a
+    /// manifest and never mentioned a loop, which is what a runner that died
+    /// before invoking one also looks like.
+    /// </para>
+    /// <para>
+    /// <b>Asked, rather than a constant on the executor.</b> The binary's
+    /// version is a measurement taken from the machine the session ran on, and
+    /// which settings sources were cleared is read from the arguments the
+    /// launch actually passed — so a flag dropped in a refactor changes the
+    /// fact rather than leaving it asserting a bound that stopped being
+    /// applied.
+    /// </para>
+    /// <para>
+    /// <b>Null by default, and that default is the ratchet.</b> A declaration
+    /// beside a <c>loop.outcome</c> would be a session claiming both that it
+    /// measured a loop and that it could not, and a port answering one by
+    /// default is exactly how that would arrive.
+    /// </para>
+    /// </remarks>
+    /// <param name="held">
+    /// How long the person actually had the terminal, measured by the caller.
+    /// Recorded and never enforced: nobody's session is killed at the
+    /// envelope's wall clock, so this may exceed it.
+    /// </param>
+    Task<AttendedSession?> AttendedAsync(
+        ExecutorRequest request, TimeSpan held, CancellationToken cancellationToken)
+        => Task.FromResult<AttendedSession?>(null);
+}
+
+/// <summary>
+/// What one attended session could not see, and what it was measured against.
+/// </summary>
+/// <remarks>
+/// <b>The executor's half of <c>loop.attended</c>.</b> The loop id, the rung and
+/// the budget are the LEASE's — the runner holds those and the executor is never
+/// told the rung at all — so this carries only what running the session
+/// measured. Assembling the two in <c>RunnerLoop</c> is what keeps the rung the
+/// loop's own declaration rather than something an executor decided.
+/// </remarks>
+public sealed record AttendedSession
+{
+    /// <summary>The agent binary the person was handed.</summary>
+    public required string Binary { get; init; }
+
+    /// <summary>
+    /// What that binary answered when asked its version, or why it could not be
+    /// asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Recorded as unavailable rather than omitted</b>, on
+    /// <c>EnvironmentSurvey</c>'s own pattern for git: a missing entry reads as
+    /// "nobody looked" and this reads as "it was not there". Never empty, so a
+    /// gap declared against an unnamed tool surface cannot be constructed.
+    /// </remarks>
+    public required string BinaryVersion { get; init; }
+
+    /// <summary>How long the person held the terminal.</summary>
+    public required TimeSpan Held { get; init; }
+
+    /// <summary>What this session could not measure. See <c>AttendedGaps</c>.</summary>
+    public required IReadOnlyList<string> Unmeasured { get; init; }
+
+    /// <summary>Which of the operator's settings sources the launch cleared.</summary>
+    public required IReadOnlyList<string> SettingsCleared { get; init; }
 }

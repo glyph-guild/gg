@@ -185,6 +185,21 @@ public static class FactHygiene
             Question = Prose(question.Value.Question),
         }),
 
+        FactPayload.Attended attended => new FactPayload.Attended(attended.Value with
+        {
+            // TIGHT THROUGHOUT, and it is the only payload here where that is
+            // true of every member. Nothing on this fact was written for a
+            // reader - a loop id, a rung, a binary name, a version string a tool
+            // printed - so a line break in one of them is a value captured with
+            // its own newline still attached rather than somebody's formatting.
+            LoopId = Text(attended.Value.LoopId),
+            Rung = Text(attended.Value.Rung),
+            Binary = Text(attended.Value.Binary),
+            BinaryVersion = Text(attended.Value.BinaryVersion),
+            Unmeasured = [.. attended.Value.Unmeasured.Select(Text)],
+            SettingsCleared = [.. attended.Value.SettingsCleared.Select(Text)],
+        }),
+
         // Unreachable while every payload is handled above, and a compile error
         // is not available for a switch over a hierarchy. Throwing beats
         // returning the payload unchanged: a new fact type that quietly skipped

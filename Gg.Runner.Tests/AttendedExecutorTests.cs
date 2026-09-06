@@ -419,8 +419,15 @@ public class AttendedExecutorTests
         // would be a session claiming both that it measured a loop and that it
         // could not - and the port answering a declaration by default is how
         // that would arrive.
+        // THROUGH THE PORT, which is how the runner asks. AttendedAsync is a
+        // default interface member precisely so that not answering is what an
+        // executor does by saying nothing - a concrete method on every executor
+        // would make declaring an absence something each one had to remember
+        // NOT to do.
+        IExecutorPort headless = new ClaudeCodeExecutor("claude", []);
+
         await Assert.That(
-            await new ClaudeCodeExecutor("claude", []).AttendedAsync(
+            await headless.AttendedAsync(
                 Request(), TimeSpan.FromMinutes(5), CancellationToken.None)).IsNull();
     }
 

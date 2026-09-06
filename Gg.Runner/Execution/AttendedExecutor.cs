@@ -83,7 +83,8 @@ public sealed class AttendedExecutor(
     Func<string, string?>? secretFor = null,
     SelfInvocation? self = null,
     TextWriter? announce = null,
-    Func<ProcessStartInfo, CancellationToken, Task<int?>>? spawn = null) : IExecutorPort
+    Func<ProcessStartInfo, CancellationToken, Task<int?>>? spawn = null,
+    Func<string, CancellationToken, Task<string>>? versionOf = null) : IExecutorPort
 {
     private readonly string _binary = binary;
     private readonly IReadOnlyList<IntentReader> _readers = readers;
@@ -92,6 +93,9 @@ public sealed class AttendedExecutor(
     private readonly TextWriter _announce = announce ?? System.Console.Out;
     private readonly Func<ProcessStartInfo, CancellationToken, Task<int?>> _spawn =
         spawn ?? InheritAsync;
+
+    private readonly Func<string, CancellationToken, Task<string>> _versionOf =
+        versionOf ?? ReportedVersionAsync;
 
     /// <summary>
     /// Running this executor cannot measure its own bound.
@@ -236,6 +240,101 @@ public sealed class AttendedExecutor(
         // used and an outcome are all required on ExecutorRun and all three
         // would be invented here.
         return null;
+    }
+
+    /// <summary>
+    /// What this session could not measure, and what it was measured against.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every one of the three is unavailable for the same reason and none of
+    /// them is inferred.</b> There was no stream: nothing counted a turn,
+    /// nothing saw a move, and the bound was not probed because probing means
+    /// invoking the port, which here means handing a person the canary task and
+    /// waiting for them.
+    /// </remarks>
+    public async Task<AttendedSession?> AttendedAsync(
+        ExecutorRequest request, TimeSpan held, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new AttendedSession
+        {
+            Binary = _binary,
+            BinaryVersion = await _versionOf(_binary, cancellationToken),
+            Held = held,
+            Unmeasured = [.. Gg.Contracts.AttendedGaps.All],
+            SettingsCleared = Cleared(StartInfoFor(request, _readers, null, _self, _binary)),
+        };
+    }
+
+    /// <summary>
+    /// Which of the operator's settings sources this launch actually cleared.
+    /// </summary>
+    /// <remarks>
+    /// <b>READ FROM THE ARGUMENTS, not from what this file believes it passes.</b>
+    /// The two flags are what makes the envelope's bound mean anything on an
+    /// attended session, and a fact that named them from a constant would go on
+    /// asserting a bound after a refactor dropped one. Measured at CLI 2.1.261:
+    /// with these the session reports permission mode <c>default</c> and no tool
+    /// servers; without them, the operator's own mode with their own servers
+    /// attached.
+    /// </remarks>
+    private static IReadOnlyList<string> Cleared(ProcessStartInfo info)
+    {
+        var cleared = new List<string>();
+
+        if (info.ArgumentList.Contains("--setting-sources", StringComparer.Ordinal))
+        {
+            cleared.Add("setting-sources");
+        }
+
+        if (info.ArgumentList.Contains("--strict-mcp-config", StringComparer.Ordinal))
+        {
+            cleared.Add("mcp-servers");
+        }
+
+        return cleared;
+    }
+
+    /// <summary>What the binary says it is, or why it could not be asked.</summary>
+    /// <remarks>
+    /// <b>Unavailable rather than omitted</b>, on <c>EnvironmentSurvey</c>'s own
+    /// pattern for git: a missing entry reads as "nobody looked" and this reads
+    /// as "it was not there". Never empty, so the fact stays constructible on a
+    /// machine where the binary has gone.
+    /// </remarks>
+    private static async Task<string> ReportedVersionAsync(
+        string binary, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var asking = Process.Start(new ProcessStartInfo
+            {
+                FileName = binary,
+                ArgumentList = { "--version" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            });
+
+            if (asking is null)
+            {
+                return "unavailable: the process could not be started";
+            }
+
+            var reported = await asking.StandardOutput.ReadToEndAsync(cancellationToken);
+            await asking.WaitForExitAsync(cancellationToken);
+
+            return reported.Trim() is { Length: > 0 } said
+                ? said
+                : "unavailable: it printed nothing";
+        }
+        catch (Exception failure) when (failure is System.ComponentModel.Win32Exception
+                                            or InvalidOperationException
+                                            or FileNotFoundException)
+        {
+            return "unavailable: " + failure.Message;
+        }
     }
 
     /// <summary>A child that would not start, named.</summary>

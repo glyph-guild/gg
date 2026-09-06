@@ -266,6 +266,7 @@ public sealed class ConsoleScreen : Window
             HotKeySpecifier = new System.Text.Rune('\uffff'),
         };
         _runnerStart.Accepting += OnStartRunner;
+        _runnerStart.KeyDown += OnButtonKeyDown;
         _runnersPane.Add(_runners, _runnerNotice, _runnerStart);
 
         // EVERY FLIGHT, NEEDED OR NOT. The queue is what needs a person and is
@@ -294,6 +295,7 @@ public sealed class ConsoleScreen : Window
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
+        _runnersTable.KeyDown += OnTableKeyDown;
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
@@ -626,53 +628,55 @@ public sealed class ConsoleScreen : Window
     }
 
     /// <summary>
-    /// Move the focus ring where an arrow key has nowhere else to go.
+    /// Up from the top of the runners table reaches the button above it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Focus is the view's, which is why this is not a command.</b> The
-    /// arrows already move a table's cursor without the keymap knowing, for the
-    /// same reason: what the widget does with the screen is not what a key
-    /// MEANS. The keymap stays the only place a printable key means anything.
+    /// <b>On the table rather than on the screen, because the tab bar is in
+    /// between.</b> A key the table declines bubbles through the pane to
+    /// <c>Tabs</c>, which answers an up arrow by moving to the previous tab -
+    /// so a handler on the root saw the key only after the bar had already
+    /// acted on it. Measured: pressing up on the fleet landed on Repositories.
     /// </para>
     /// <para>
-    /// <b>It only fires where the arrow was going nowhere.</b> A table at its
-    /// top row declines an up arrow and a button declines a down one - both
-    /// measured, both Terminal.Gui's - so this sees the key only after the
-    /// widget has said it has no use for it. Anywhere else the cursor moves and
-    /// this never runs.
+    /// <b>Which means asking the cursor rather than being told.</b> This runs
+    /// before the table's own bindings, so "there is nowhere to go" has to be
+    /// checked here instead of inferred from the table declining the key.
+    /// </para>
+    /// <para>
+    /// Focus is the view's, for the reason the arrows already move a table's
+    /// cursor without the keymap knowing: what a widget does with the screen is
+    /// not what a key MEANS, and <c>Keymap</c> stays the only place a printable
+    /// key means anything.
     /// </para>
     /// </remarks>
-    private bool FocusStepped(Key key)
+    private void OnTableKeyDown(object? sender, Key key)
     {
-        if (State.ActiveTab != TabId.Runners || !_runnerStart.Visible)
+        if (key != Key.CursorUp
+            || !_runnerStart.Visible
+            || _runnersTable.Value?.SelectedCell.Y is not 0)
         {
-            return false;
+            return;
         }
 
-        if (key == Key.CursorUp && !_runnerStart.HasFocus)
+        _runnerStart.SetFocus();
+        key.Handled = true;
+    }
+
+    /// <summary>And down off the button goes back to what it is about.</summary>
+    private void OnButtonKeyDown(object? sender, Key key)
+    {
+        if (key != Key.CursorDown)
         {
-            _runnerStart.SetFocus();
-            return true;
+            return;
         }
 
-        if (key == Key.CursorDown && _runnerStart.HasFocus)
-        {
-            (_runnersTable.Visible ? (View)_runnersTable : _runners).SetFocus();
-            return true;
-        }
-
-        return false;
+        (_runnersTable.Visible ? (View)_runnersTable : _runners).SetFocus();
+        key.Handled = true;
     }
 
     private void OnScreenKeyDown(object? sender, Key key)
     {
-        if (FocusStepped(key))
-        {
-            key.Handled = true;
-            return;
-        }
-
         var stroke = KeyTranslator.Translate(key);
         var command = Keymap.Resolve(stroke, Context());
         if (command is null)
@@ -906,6 +910,8 @@ public sealed class ConsoleScreen : Window
         {
             KeyDown -= OnScreenKeyDown;
             _runnerStart.Accepting -= OnStartRunner;
+            _runnerStart.KeyDown -= OnButtonKeyDown;
+            _runnersTable.KeyDown -= OnTableKeyDown;
 
             // ALL FOUR, and three of them were missed. The file already let go
             // of the key handler and the queue's, so the convention was there

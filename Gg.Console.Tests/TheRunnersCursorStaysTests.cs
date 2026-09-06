@@ -128,4 +128,32 @@ public class TheRunnersCursorStaysTests
                        + $"resets under the person using it. Found:\n{fill[..120]}");
         }
     }
+
+    [Test]
+    public async Task Every_table_is_wired_to_the_thing_that_moves_the_model()
+    {
+        // THE HALF THE FILL RATCHET CANNOT SEE, and the half that was actually
+        // broken. The runners table was built, added to its pane, filled from
+        // the model - and never subscribed, so an arrow moved the widget's own
+        // cursor, raised an event nothing was listening to, and the next render
+        // put it back. Reducer.Pointed had the arm; nothing called it.
+        //
+        // Arrows never reach Keymap at all: the table binds them itself and
+        // marks them handled, so this subscription IS the keyboard for these
+        // four panes.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        var built = screen.Split("CollectionViews.Table()").Length - 1;
+        var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
+        var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
+
+        await Assert.That(built).IsEqualTo(4)
+            .Because("four tables, and the count is here so a fifth has to come past this.");
+        await Assert.That(wired).IsEqualTo(built)
+            .Because($"a table nobody subscribed is a table whose cursor the model never "
+                   + $"learns about. Built {built}, wired {wired}.");
+        await Assert.That(released).IsEqualTo(built)
+            .Because("and each one is let go when the session is torn down, because the "
+                   + "screen is rebuilt from the model on every pass.");
+    }
 }

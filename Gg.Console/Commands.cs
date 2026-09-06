@@ -123,14 +123,24 @@ public enum Command
     HandBack,
 
     /// <summary>
-    /// Fly the selected flight yourself, on this machine, at a Claude Code
+    /// Open a flight and fly it yourself, on this machine, at a Claude Code
     /// prompt.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Its own key rather than a modifier on flying.</b> Flying by hand and
     /// flying on the fleet are the same act with different consequences for
     /// where the work happens, and a person choosing between them is choosing
     /// before they press rather than after.
+    /// </para>
+    /// <para>
+    /// <b>It opens a NEW flight, and this used to say `the selected flight'.</b>
+    /// The machinery never could do that: <c>ConsoleHandFlight.StartInfoFor</c>
+    /// spawns <c>gg fly &lt;intent&gt; --hand</c>, which takes an intent and
+    /// mints a number. So this key is <see cref="OpenFlight"/>'s prompt with the
+    /// terminal handed over, and the sentence that said otherwise was prose
+    /// nothing checked.
+    /// </para>
     /// </remarks>
     FlyByHand,
 

@@ -619,6 +619,30 @@ static async Task<int> LaunchConsoleAsync()
         // flight still in the air - those are the only ones whose log can put a
         // row in the queue - so the detail modal reads its own.
         flightLog: current => ConsoleFlightLog.Read(data, current),
+        // FLYING BY HAND, which is `n new flight` with the terminal handed over.
+        // What only this project can supply: this machine's labels, which gg the
+        // child would be, and how to run it. The order - refuse before asking,
+        // ask before creating - is ConsoleHandFlight's, where a test can reach
+        // it.
+        flyByHand: (current, ask) => ConsoleHandFlight.Fly(
+            current,
+            plan: () => data.PlanAsync().GetAwaiter().GetResult() is VerbResult.Plan plan
+                ? plan.Value
+                : throw new Gg.Client.NoEnvelopeException(
+                    "No envelope has been applied, so there is nothing to plan against."),
+            // WHAT THIS MACHINE ADVERTISES, read the same way `gg fly --hand`
+            // reads it. The plan prices against the fleet, and a label some
+            // other runner has is useless to a person at this keyboard.
+            advertised: (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            ask: ask,
+            self: Gg.Local.SelfInvocation.Current,
+            start: info =>
+            {
+                using var child = Process.Start(info);
+                child?.WaitForExit();
+                return child?.ExitCode ?? -1;
+            }),
         repositories: current => ConsoleRepositories.Read(data, current),
         envelope: current => ConsoleEnvelope.Read(data, current),
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))

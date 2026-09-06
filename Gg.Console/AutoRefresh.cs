@@ -106,12 +106,27 @@ public sealed class AutoRefresh(
         };
     }
 
-    /// <summary>How the hint line says what this is doing.</summary>
+    /// <summary>
+    /// How the hint line says what this is doing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing counted is nothing to say, not zero.</b> The line is drawn
+    /// once before the first tick, and a console that opened with
+    /// <c>g refresh 0s</c> read as a clock that had stopped - on the one frame
+    /// a person looks at hardest. Busy still outranks the number, because the
+    /// number is zero while a read is in the air and the mark is what that
+    /// means.
+    /// </remarks>
     public static string Says(RefreshState refresh)
     {
         ArgumentNullException.ThrowIfNull(refresh);
 
-        return refresh.Busy ? Working : $"{refresh.NextIn}s";
+        return refresh switch
+        {
+            { Busy: true } => Working,
+            { NextIn: > 0 } counted => $"{counted.NextIn}s",
+            _ => "",
+        };
     }
 
     /// <summary>

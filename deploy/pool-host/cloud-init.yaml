@@ -22,24 +22,29 @@
 # in its own words: "Registering a runner is a person's action". Enabling the
 # unit here buys a restart every ten seconds until somebody signs in, and the
 # first real failure would be indistinguishable from that noise.
+#
+# It does not build anything. This file used to clone the default branch and
+# AOT-publish it at boot, which meant a pool host ran whatever was on `main`
+# the minute it provisioned - no tag, no commit - and two hosts an hour apart
+# ran different code while reporting the same version. Both artefacts below are
+# pinned, released, and the same version as each other.
 
 package_update: true
 packages:
   - ca-certificates
   - curl
+  # FOR THE RUNNER, NOT FOR PROVISIONING. Nothing here clones any more, and
+  # this looks like the next thing to delete along with the clone. It is not:
+  # Gg.Runner/Vcs/GitInvocation.cs and EnvironmentSurvey both shell out to
+  # `git`, so a host without it provisions perfectly and fails on the first
+  # flight - a long way from here, and looking nothing like this file.
   - git
-  # THE PLATFORM LINKER, and it is not optional. This CLI is AOT-published
-  # below, and NativeAOT shells out to clang; a cloud image has no compiler at
-  # all. Without these the publish runs for minutes, compiles every project
-  # successfully, and dies on the final link with "Platform linker ('clang' or
-  # 'gcc') not found in PATH".
   #
-  # CI cannot catch this: the hosted runner image ships them preinstalled, so
-  # the aot job proves the code AOT-publishes and says nothing about a machine
-  # provisioned from this file. Found by provisioning one.
-  - clang
-  - zlib1g-dev
-  - build-essential
+  # NO clang, NO build-essential, NO zlib1g-dev. Those were here because the
+  # host AOT-published this CLI, and NativeAOT shells out to a platform linker
+  # a cloud image does not have. That was found on a real machine, after a
+  # publish that compiled for minutes and died on the final link. Nothing here
+  # links anything now, and PoolProvisioningTests holds them out.
 
 users:
   # `default` FIRST, and it is not decoration. A `users:` block REPLACES the
@@ -57,8 +62,8 @@ users:
 
 write_files:
   # The per-host half of the unit, and the only file an operator edits. The
-  # unit itself is linked from the checkout rather than copied, so the endpoint
-  # and the reserved prefix keep living in one place.
+  # unit itself is linked from the released bundle rather than copied, so the
+  # endpoint and the reserved prefix keep living in one place.
   - path: /etc/systemd/system/gg-runner-maintain.service.d/10-host.conf
     permissions: '0644'
     content: |
@@ -78,37 +83,69 @@ runcmd:
   - [sh, -c, 'curl -fsSL https://get.docker.com | sh']
   - [systemctl, enable, --now, docker]
 
-  # The .NET SDK, to build the binary. There is no published gg release asset
-  # to curl - the only assets on this repository's releases are the contracts
-  # package - so the host builds what it runs.
+  # The .NET SDK, and it is deliberate rather than left over. `gg` ships as a
+  # .NET tool, so the SDK is what installs it and what would later update it -
+  # this host keeps the SDK for a stated reason now, where before it kept one
+  # to run a build that no longer happens.
+  #
+  # /usr/share/dotnet is not an arbitrary directory: it is the location the
+  # apphost shim probes by default on Linux, which is why the shim below runs
+  # under systemd with almost no environment at all.
   - [sh, -c, 'curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh']
   - [sh, -c, 'sh /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet']
   - [ln, -sf, /usr/share/dotnet/dotnet, /usr/local/bin/dotnet]
 
-  # The repository, public and cloned without a credential. Everything below
-  # runs out of this checkout: the compose file resolves the proxy's config
-  # through its own relative path, and the unit is linked where it lies.
-  - [git, clone, --depth, '1', 'https://github.com/glyph-guild/gg', /opt/gg]
+  # gg, PINNED, FROM A FEED, INTO A DIRECTORY THE RUNNER CANNOT WRITE.
+  #
+  # --version, because `dotnet tool install` without one takes whatever was
+  # pushed last, and what was pushed last is attacker-controlled: a stolen
+  # nuget.org API key produces a package nuget.org signs and every client
+  # accepts. Pinning is the default here and *latest* is a choice somebody
+  # makes on purpose.
+  #
+  # --tool-path rather than -g, and this is the load-bearing flag. A global
+  # install lands in $HOME/.dotnet/tools of whoever ran it - user-writable by
+  # construction. The runner is treated as hostile and the OS keeps it apart
+  # from the console; it also kept it apart from its own executable, because
+  # /usr/local/bin/gg was root-owned and the unit runs as User=gg. A global
+  # install would hand that back silently, and every other test on these files
+  # would keep passing.
+  - [sh, -c, 'dotnet tool install GlyphGuild.Gg.Cli --version 0.4.0 --tool-path /usr/local/lib/gg']
+  # So that a person who signs in types `gg`, and the unit names an absolute
+  # path. Root owns both the link and its target.
+  - [ln, -sf, /usr/local/lib/gg/gg, /usr/local/bin/gg]
 
-  # The binary, self-contained and AOT-published - the same command CI proves
-  # runs on linux-x64. Published to a staging directory because the output
-  # carries more than the executable.
-  - [sh, -c, 'cd /opt/gg && dotnet publish Gg.Cli -c Release -r linux-x64 -o /opt/gg/.publish']
-  - [install, -m, '0755', /opt/gg/.publish/gg, /usr/local/bin/gg]
+  # The half of a pool host that is not the binary: the proxy's compose file,
+  # its nginx config, and the unit. Same version as the tool above, and
+  # PoolProvisioningTests holds the two pins to each other - a bundle from one
+  # version against a binary from another comes up looking entirely healthy.
+  #
+  # The tar preserves repository-relative paths on purpose. compose.yaml mounts
+  # ../../scripts/pool-proxy/nginx.conf and that resolves under /opt/gg-pool-host
+  # exactly as it does in a checkout, which is what lets the allowlist stay
+  # referenced rather than copied.
+  #
+  # NOT A CHECKOUT, and nothing is chowned to `gg`. Root owns this tree, so the
+  # unit linked out of it below is a file the runner's user cannot rewrite.
+  - [mkdir, '-p', /opt/gg-pool-host]
+  - [sh, -c, 'curl -fsSL https://github.com/glyph-guild/gg/releases/download/v0.4.0/gg-pool-host.tar.gz | tar xz -C /opt/gg-pool-host']
 
   # The proxy. Brought up as root, which is why `gg` needs no access to Docker
   # at all - the one thing that talks to the daemon on this machine is this
   # command, and afterwards the container it started.
-  - [sh, -c, 'cd /opt/gg/deploy/pool-host && docker compose up -d']
+  - [sh, -c, 'cd /opt/gg-pool-host/deploy/pool-host && docker compose up -d']
 
   # The unit, LINKED rather than copied, for the same reason compose.yaml
   # references the proxy config instead of pasting it: GG_POOL_ENDPOINT and the
   # reserved prefix are one half of a contract each, and a second copy is where
   # the halves start disagreeing. The drop-in above supplies the rest.
-  - [systemctl, link, /opt/gg/deploy/pool-host/gg-runner-maintain.service]
+  #
+  # What changed is not the linking - it is what is linked FROM. This used to
+  # point into a git checkout that was then handed to the `gg` user, so the
+  # account the runner runs as could rewrite its own ExecStart and User= and
+  # wait for a reboot. It now points into a root-owned release bundle.
+  - [systemctl, link, /opt/gg-pool-host/deploy/pool-host/gg-runner-maintain.service]
   - [systemctl, daemon-reload]
-
-  - [chown, '-R', 'gg:gg', /opt/gg]
 
 final_message: |
   This host is provisioned and the runner is NOT running.
@@ -125,3 +162,10 @@ final_message: |
   After that sign-in the host restarts on its own for thirty days: the
   runner keeps its own credential, not the person's. At thirty days a
   person signs in again - nothing renews a runner token.
+
+  This host runs gg 0.4.0 and nothing on it updates itself. `gg` replaces
+  no binary of its own, by design. To move it, a person runs:
+
+    dotnet tool update GlyphGuild.Gg.Cli --version <new> --tool-path /usr/local/lib/gg
+
+  with no lease held, and takes the matching pool-host bundle.

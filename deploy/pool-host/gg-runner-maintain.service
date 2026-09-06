@@ -23,6 +23,18 @@ Environment=GG_CONTROL_PLANE=https://CHANGEME.example
 # The pool this host maintains. Every pool carries the reserved prefix,
 # because the proxy allows creating a member only under it - see PoolNaming.
 Environment=GG_POOL=gg-pool-CHANGEME
+# AN ABSOLUTE PATH THE RUNNER CANNOT WRITE, and after the move to a .NET tool
+# that is a property rather than an accident. /usr/local/bin/gg is a root-owned
+# symlink to a root-owned /usr/local/lib/gg/gg, put there by a --tool-path
+# install. `dotnet tool install -g` would have placed the same shim inside
+# $HOME/.dotnet/tools of whoever ran it - and this unit runs as User=gg, so the
+# process the OS is holding apart from the console could have replaced what the
+# OS starts. PoolHostTests holds this line to a path outside that home.
+#
+# The shim is IL and finds the runtime itself: cloud-init installs .NET at
+# /usr/share/dotnet, which is the default probe location on Linux, so no
+# DOTNET_ROOT is set here. If that ever moves, this unit fails at start saying
+# so - which is the loud kind of wrong, and the reason it is not written twice.
 ExecStart=/usr/local/bin/gg runner maintain ${GG_POOL}
 Restart=on-failure
 RestartSec=10

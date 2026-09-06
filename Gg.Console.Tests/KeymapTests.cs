@@ -23,6 +23,12 @@ public class KeymapTests
     ];
 
     /// <summary>Every context the console can be in.</summary>
+    /// <remarks>
+    /// <b>The sign-in axis is crossed too</b>, because of what it can change.
+    /// It swaps one MODAL's bindings for another set, which is exactly what "a
+    /// modal answers only its own keys" quantifies over - left out, half of
+    /// that modal would be unexamined.
+    /// </remarks>
     internal static IReadOnlyList<KeymapContext> EveryContext { get; } =
     [
         // EVERY TAB, not just whether the live pane was showing. The context
@@ -32,7 +38,8 @@ public class KeymapTests
         .. from mode in Enum.GetValues<UiMode>()
            from showing in Enum.GetValues<TabId>()
            from frozen in (bool[])[false, true]
-           select new KeymapContext(mode, showing, frozen),
+           from started in (bool[])[false, true]
+           select new KeymapContext(mode, showing, frozen) { SignInStarted = started },
     ];
 
     [Test]

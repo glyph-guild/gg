@@ -112,7 +112,9 @@ public class TwoGateTests
 
     private static RunnerLoop Build(
         FakeProtocol protocol, MovableClock clock, RecordingObserver observer,
-        IWorkspace workspace, IDestinationAdapter destination, ScriptedResolver resolver) =>
+        IWorkspace workspace, IDestinationAdapter destination, ScriptedResolver resolver,
+        Execution.IExecutorPort? executor = null,
+        Func<string, string, (TakeoverReturn? Decision, string? Diagnosis)>? returns = null) =>
         new(protocol, clock,
             (span, token) =>
             {
@@ -123,7 +125,9 @@ public class TwoGateTests
             observer,
             resolver,
             workspace,
-            destinations: [destination])
+            executor: executor,
+            destinations: [destination],
+            returns: returns)
         {
             HoldFor = TimeSpan.FromSeconds(3),
         };
@@ -148,7 +152,8 @@ public class TwoGateTests
             GitFixture fixture,
             BranchPush? push,
             DestinationAdmission? admission,
-            bool pushSucceeds = true)
+            bool pushSucceeds = true,
+            bool byHand = false)
     {
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol { Admission = admission, Push = push };
@@ -157,10 +162,27 @@ public class TwoGateTests
         var destination = new RecordingDestination(pushSucceeds);
         var trees = new ScratchTreeRoot();
 
+        // THE OTHER EXECUTOR, THROUGH THE SAME EVERYTHING ELSE. A person held
+        // the terminal instead of an agent; the workspace, the destination, the
+        // resolver and the loop are the fixture the fleet cases use, because
+        // what is being asserted is that the landing does not know the
+        // difference.
+        Execution.IExecutorPort? executor = byHand
+            ? new Execution.AttendedExecutor(
+                "claude", [], announce: TextWriter.Null,
+                spawn: (_, _) => Task.FromResult<int?>(0),
+                versionOf: (_, _) => Task.FromResult("2.1.261"))
+            : null;
+
         using var stopping = StopAfter(observer, 8);
         await Build(protocol, clock, observer,
                 trees.Workspace(new AuthenticatingProvider(new LocalVcsAdapter(fixture.Directory))), destination,
-                Resolver(fixture))
+                Resolver(fixture), executor,
+                byHand ? (_, flight) => (new TakeoverReturn
+                {
+                    FlightId = flight,
+                    Outcome = TakeoverOutcomes.Completed,
+                }, null) : null)
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         return (destination, trees, protocol, observer);
@@ -231,6 +253,62 @@ public class TwoGateTests
         await Assert.That(string.Join(",", destination.Calls))
             .IsEqualTo("push:gg/GG-1042,propose:gg/GG-1042")
             .Because("a proposal on a branch that is not there yet is a proposal against nothing.");
+    }
+
+    // ---- slice twenty-six: the same two gates, flown by hand ----
+
+    [Test]
+    public async Task A_hand_flown_flight_pushes_and_proposes_through_the_same_two_gates()
+    {
+        // RULE 1 AT THE FAR END, and the reason these four criteria needed no
+        // second implementation. LandAsync is not told which executor ran - it
+        // reads the landing decision and the workspace, and both are the same
+        // whoever did the work. A person's edits reach the remote exactly as an
+        // agent's do, and the proposal opens on the same admission.
+        using var fixture = new GitFixture();
+        var (destination, trees, _, _) = await RunAsync(
+            fixture, APush(fixture), AnAdmission(fixture), byHand: true);
+        using var _t = trees;
+
+        await Assert.That(string.Join(",", destination.Calls))
+            .IsEqualTo("push:gg/GG-1042,propose:gg/GG-1042");
+    }
+
+    [Test]
+    public async Task A_hand_flown_flight_with_a_decision_outstanding_pushes_and_proposes_nothing()
+    {
+        // THE GATE A HAND-FLIGHT OPENED, unanswered. The work reaches the remote
+        // so whoever answers can read it, and no pull request is opened because
+        // the decision is outstanding - which is the fleet's own shape, reached
+        // by a flight a person flew.
+        //
+        // This is also the state that makes the release condition matter: the
+        // flight is SETTLED and outstanding at once, so a runner reading only
+        // `settled` would record a landing here.
+        using var fixture = new GitFixture();
+        var (destination, trees, _, _) = await RunAsync(
+            fixture, APush(fixture), admission: null, byHand: true);
+        using var _t = trees;
+
+        await Assert.That(destination.Calls.Count(c => c.StartsWith("push", StringComparison.Ordinal)))
+            .IsEqualTo(1);
+        await Assert.That(destination.Calls.Any(c => c.StartsWith("propose", StringComparison.Ordinal)))
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task A_hand_flown_flight_refused_a_push_reaches_the_remote_at_all()
+    {
+        // ON REJECTION NOTHING IS PROPOSED AND NOTHING IS PUSHED. A machine
+        // obligation violated is the control plane declining both gates, and a
+        // person having flown the work does not soften either - which is the
+        // half of rule 1 that costs something rather than the half that is free.
+        using var fixture = new GitFixture();
+        var (destination, trees, _, _) = await RunAsync(
+            fixture, push: null, admission: null, byHand: true);
+        using var _t = trees;
+
+        await Assert.That(destination.Calls).IsEmpty();
     }
 
     [Test]

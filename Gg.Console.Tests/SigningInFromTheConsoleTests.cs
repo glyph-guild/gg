@@ -118,6 +118,24 @@ public class SigningInFromTheConsoleTests
     }
 
     [Test]
+    public async Task The_console_stops_repeating_the_one_instruction_it_cannot_carry_out()
+    {
+        // THE SENTENCE THIS WHOLE SLICE IS ABOUT, and it is drawn BEHIND the
+        // modal as well as in front of it. PaneText.Flight renders the
+        // diagnosis, so "Not signed in. Run gg login." is what a person reads
+        // the moment they escape the offer - the same dead end, one keypress
+        // later. The verbs are right to say it, because every other caller is
+        // standing in a shell; this one has taken the shell away.
+        var state = await ConsoleStart.LoadAsync(SignedOut());
+
+        await Assert.That(state.Diagnosis).DoesNotContain("gg login");
+        await Assert.That(PaneText.Flight(state)).DoesNotContain("gg login");
+        await Assert.That(state.Diagnosis).IsNotNull()
+            .Because("a console that forgets why it is empty is a console that looks like "
+                   + "it is working; what changes is the remedy, not the reason.");
+    }
+
+    [Test]
     public async Task Being_asked_to_sign_in_does_not_cost_the_reason()
     {
         // The modal is what a person does about it; the diagnosis is what

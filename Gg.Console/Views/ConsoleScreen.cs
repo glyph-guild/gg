@@ -309,6 +309,11 @@ public sealed class ConsoleScreen : Window
         // rather than picking from them, and reading is what grey is for; the
         // queue and the tables keep the scheme their widgets came with, because
         // a highlighted row has to stand out from what is around it.
+        // THE WHOLE WINDOW FIRST, and the document panes after. Views inherit
+        // their scheme from the one above them, so grounding the window is what
+        // puts every border, header and label on the same dark surface - and
+        // what makes "muted" mean something relative to it.
+        SetScheme(ConsoleTheme.Grounded());
         Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody);
 
         Add(_bar, _activity, _hints, _modal);
@@ -478,32 +483,19 @@ public sealed class ConsoleScreen : Window
     }
 
     /// <summary>
-    /// Grey on whatever the terminal already has behind it.
+    /// The document panes, dimmer than the console around them.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The panes that are documents were coming out black on white</b> - an
-    /// explicit light background painted over a terminal that may be anything -
-    /// which is the one combination that looks wrong in every theme somebody
-    /// has chosen for themselves.
-    /// </para>
-    /// <para>
-    /// <b>The background stays <c>None</c>, and that is the important half.</b>
-    /// Base's own Normal is None on None, meaning "whatever is already there";
-    /// carrying that through and setting only the foreground gives muted text
-    /// on a light terminal and on a dark one, where a named background would be
-    /// right on exactly one of them.
-    /// </para>
+    /// <b>The colours moved to <see cref="ConsoleTheme"/> and the reason is that
+    /// they were wrong here.</b> Mixed in this class they were beyond the reach
+    /// of any test - nothing can construct a <c>ConsoleScreen</c> without a
+    /// terminal - and they shipped inverted: black text on a grey block. What is
+    /// left here is which panes are documents, which is a judgement about the
+    /// content and belongs in the view.
     /// </remarks>
     private static void Muted(params View[] views)
     {
-        var basis = Terminal.Gui.Configuration.SchemeManager.GetScheme("Base");
-        var muted = new Terminal.Gui.Drawing.Scheme(basis)
-        {
-            Normal = new Terminal.Gui.Drawing.Attribute(
-                new Terminal.Gui.Drawing.Color(Terminal.Gui.Drawing.StandardColor.Gray),
-                basis.Normal.Background),
-        };
+        var muted = ConsoleTheme.Muted();
 
         foreach (var view in views)
         {

@@ -169,7 +169,8 @@ public static class RunnerHost
         IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null,
         Execution.IExecutorPort? executor = null,
         IReadOnlyList<Gg.Local.IntentReader>? readers = null,
-        IReadOnlyList<Vcs.HostDeclaration>? hosts = null)
+        IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
+        string? flightId = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -225,11 +226,23 @@ public static class RunnerHost
             }
         }
 
+        // A RUNNER THAT CAME FOR ONE FLIGHT GOES HOME WHEN IT IS DONE, and that
+        // is DERIVED from having been sent for one rather than being a second
+        // flag. The two could not disagree without one of them being wrong: a
+        // directed claim only ever means "I came for this one", and a person's
+        // runner that lingered would take fleet work onto their laptop after
+        // they walked away from it.
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        var narration = flightId is { Length: > 0 }
+            ? new StopsAfterOneFlight(new ConsoleObserver(), stopping)
+            : (IRunnerObserver)new ConsoleObserver();
+
         var loop = new RunnerLoop(
             new RunnerProtocolClient(http, runnerToken),
             new SystemClock(),
             (span, token) => Task.Delay(span, token),
-            new ConsoleObserver(),
+            narration,
             credentials,
             workspace,
             executor,
@@ -250,6 +263,6 @@ public static class RunnerHost
             $"gg-runner {runnerId} (pid {Environment.ProcessId}) against {controlPlane} " +
             $"labels [{string.Join(", ", labels)}]");
 
-        return await loop.RunAsync(runnerId, labels, cancellationToken);
+        return await loop.RunAsync(runnerId, labels, stopping.Token, flightId);
     }
 }

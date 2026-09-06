@@ -29,6 +29,10 @@ return CliArgs.Parse(args) switch
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
 
+    // BEFORE THE ORDINARY ARM, because a pattern that matched both would take
+    // whichever came first - and it was the ordinary one, which is how
+    // `--hand` parsed for a whole slice and did nothing.
+    CliAction.Fly { ByHand: true } hand => await HandAsync(hand),
     CliAction.Fly fly => await EmitAsync(
         fly.Json, c => c.FlyAsync(
             fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository)),
@@ -607,6 +611,118 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
         Console.Error.WriteLine($"Could not reach the control plane at {baseAddress}: {failure.Message}");
         return ExitCodes.Unavailable;
     }
+}
+
+/// <summary>
+/// `gg fly --hand`: open the flight and hand this terminal to the person.
+/// </summary>
+/// <remarks>
+/// <b>Wiring only.</b> The order, the refusal and the three outcomes live in
+/// <see cref="FlyByHandCommand"/>, where a test can reach them. What is here is
+/// what only this project can supply: the control plane's address, this
+/// machine's session, its own runner slot, and the attended executor.
+/// </remarks>
+static async Task<int> HandAsync(CliAction.Fly fly)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        // THE SAME WORDS `gg runner up` USES, because this does the same thing:
+        // a hand-flight registers a runner on this machine, and registering a
+        // runner is a person's action.
+        return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
+    }
+
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    var client = new ControlPlaneClient(http);
+    var commands = new FlightCommands(client, new FileSessionStore());
+
+    var labels = (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    return await FlyByHandCommand.RunAsync(
+        fly,
+        plan: async token => await client.GetPlanAsync(session.SessionToken, token)
+            ?? throw new InvalidOperationException(
+                "the control plane served no plan, so what this flight would need is unknown"),
+        // WHAT THIS MACHINE ADVERTISES. The plan prices against the fleet, and a
+        // label some other runner has is useless to a person at this keyboard.
+        advertised: labels,
+        open: _ => commands.FlyAsync(
+            fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository),
+        hold: (flightId, token) => HoldAsync(baseAddress, http, session, labels, flightId, token),
+        say: Console.WriteLine);
+}
+
+/// <summary>
+/// Runs the attended runner for one named flight, and goes home after it.
+/// </summary>
+/// <remarks>
+/// <b>Its own credential slot, under the machine's name plus a suffix.</b>
+/// <c>FileRunnerStore.PathFor</c> keys a runner's identity by name, so a
+/// hand-flight sharing the fleet runner's slot would have the two overwrite
+/// each other's token - and read-or-register keeps one host from appearing as
+/// eleven runners, which is the defect that mechanism exists for.
+/// </remarks>
+static async Task<int> HoldAsync(
+    string baseAddress, HttpClient http, StoredSession session,
+    IReadOnlyList<string> labels, string flightId, CancellationToken cancellationToken)
+{
+    // NAMED, NOT SILENT. FromEnvironment answers null for an unconfigured
+    // machine and the fleet runner treats that as "this host has no agent" - on
+    // a hand-flight there is a person waiting at a terminal for one, so it is
+    // said rather than discovered as a session that never starts.
+    if (Environment.GetEnvironmentVariable(
+            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is not { Length: > 0 } binary)
+    {
+        return Fail(
+            $"this machine declares no agent — set {Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable} "
+          + "to the binary you want handed the flight.");
+    }
+
+    var name = Gg.Client.AttendedRunner.NameFor(Environment.MachineName);
+
+    var registered = await RunnerIdentity.EnsureAsync(
+        new FileRunnerStore(FileRunnerStore.PathFor(name)),
+        async () =>
+        {
+            var fresh = await new ControlPlaneClient(http)
+                .RegisterRunnerAsync(session.SessionToken, name);
+
+            return new StoredRunner
+            {
+                RunnerId = fresh.RunnerId,
+                RunnerToken = fresh.RunnerToken,
+                // THE SAME THIRTY DAYS the fleet runner's slot gets. A shorter
+                // life here would make a person re-register on a machine they
+                // hand-fly from weekly, which is the friction read-or-register
+                // exists to remove.
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+            };
+        },
+        DateTimeOffset.UtcNow);
+
+    return await Gg.Runner.RunnerHost.RunAsync(
+        new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels,
+        TimeSpan.Zero,
+        new LocalCredentialResolver(new FileCredentialStore()),
+        new Gg.Runner.Workspace(
+            Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot()),
+        cancellationToken,
+        destinations: Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
+            api => new HttpClient { BaseAddress = new Uri(api) }),
+        // THE OTHER EXECUTOR, and the only line that decides a person rather
+        // than an agent does the work. The SAME binary the fleet runs, from the
+        // same variable: a hand-flight and a fleet flight run the same agent,
+        // and a second way to name it would be a second answer to which one
+        // this machine has.
+        executor: new Gg.Runner.Execution.AttendedExecutor(
+            binary,
+            Gg.Local.IntentConfiguration.FromEnvironment(),
+            secretFor: locator => new FileCredentialStore().Read(locator),
+            self: Gg.Local.SelfInvocation.Current),
+        flightId: flightId);
 }
 
 static async Task<int> RunnerUpAsync()

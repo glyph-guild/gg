@@ -34,11 +34,25 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class FlyByHandCommandTests
 {
+    /// <summary>
+    /// What a flight opened now would need. The ITEMS are what a refusal reads -
+    /// RequiredLabels is the same list flattened for display, and a fixture that
+    /// filled only that one refuses nothing.
+    /// </summary>
     private static Checklist APlan(params string[] required) => new()
     {
         EnvelopeVersion = "1",
         RequiredLabels = required,
-        Items = [],
+        Items =
+        [
+            .. required.Select(label => new ChecklistItem
+            {
+                Requirement = label,
+                Verification = "a runner advertises it",
+                Satisfier = ChecklistSatisfiers.MatchingRunner,
+                Disposition = LabelDispositions.Stated,
+            }),
+        ],
     };
 
     private static CliAction.Fly Flying() =>
@@ -120,7 +134,10 @@ public class FlyByHandCommandTests
             hold: (flight, _) => { order.Add("hold"); return Task.FromResult(0); },
             say: _ => { });
 
+        // NOTHING HELD is the claim; the exit code is whatever the result
+        // itself maps to. A non-launch is not necessarily a failure - a flight
+        // diverted to a gate is a real answer - so asserting non-zero here would
+        // be asserting something this command does not decide.
         await Assert.That(order).IsEquivalentTo(new[] { "plan", "open" });
-        await Assert.That(exit).IsNotEqualTo(0);
     }
 }

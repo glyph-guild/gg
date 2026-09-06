@@ -782,7 +782,7 @@ public sealed class RunnerLoop(
         // work nobody checked.
         var (disposition, detail) = invoked.Attended is null
             ? (RunnerDisposition.Completed, (string?)null)
-            : Decided(lease, workspace);
+            : Decided(lease, workspace, decision);
 
         await HoldAsync(runnerId, labels, lease, cancellationToken, disposition, detail);
     }
@@ -1618,7 +1618,7 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     private (string Disposition, string? Detail) Decided(
-        LeaseGranted lease, WorkspaceResult workspace)
+        LeaseGranted lease, WorkspaceResult workspace, LandingDecision? landing)
     {
         if (_returns is null)
         {
@@ -1640,10 +1640,30 @@ public sealed class RunnerLoop(
             return (RunnerDisposition.Abandoned, null);
         }
 
-        return string.Equals(
-                decision.Outcome, Gg.Contracts.TakeoverOutcomes.Completed, StringComparison.Ordinal)
+        if (!string.Equals(
+                decision.Outcome, Gg.Contracts.TakeoverOutcomes.Completed, StringComparison.Ordinal))
+        {
+            return (RunnerDisposition.Abandoned, decision.Note);
+        }
+
+        // THE PERSON ANSWERS FOR THEIR WORK; THEY DO NOT ANSWER THE GATE.
+        // `completed` is the one disposition that ENDS a flight - ExitFor maps
+        // it to `landed`, where abandoned and expired map to no ending - so
+        // taking their word for it while this flight is still waiting on
+        // something would record a landing nobody agreed to. The exit claim is
+        // first-writer-wins, so the truthful write would then lose to this one.
+        //
+        // `settled` is every fact evaluated, which is as much as a runner can
+        // know and all it needs: an open gate, a halted evaluation and a control
+        // plane having a bad moment are one answer here, and reading the gate
+        // itself would need a credential this process is not given.
+        return landing is { Settled: true }
             ? (RunnerDisposition.Completed, decision.Note)
-            : (RunnerDisposition.Abandoned, decision.Note);
+            : (RunnerDisposition.Abandoned,
+                "You recorded this flight as finished, and the control plane has not settled "
+              + "it - most likely a gate somebody else has to answer. Nothing was closed and "
+              + "your work is still there: the flight stays open until it settles."
+              + (decision.Note is { Length: > 0 } note ? " You said: " + note : ""));
     }
 
     private async Task HoldAsync(

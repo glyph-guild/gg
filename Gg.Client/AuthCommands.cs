@@ -76,9 +76,13 @@ public sealed class AuthCommands(
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(started);
 
+        // STRIPPED HERE BECAUSE NOTHING IS AFTER THIS. Both strings are a
+        // control plane's, and these lines go to a terminal that acts on escape
+        // sequences with no renderer in between - the console's PaneText cleans
+        // as a last line of defence and there is no PaneText on this path.
         output.WriteLine();
-        output.WriteLine($"  Open:  {started.VerificationUri}");
-        output.WriteLine($"  Code:  {started.UserCode}");
+        output.WriteLine($"  Open:  {Gg.Contracts.ControlText.Strip(started.VerificationUri)}");
+        output.WriteLine($"  Code:  {Gg.Contracts.ControlText.Strip(started.UserCode)}");
         output.WriteLine();
     }
 
@@ -126,18 +130,27 @@ public sealed class AuthCommands(
                     return new SignInResult { Said = declined.Reason };
 
                 case DevicePollResult.Complete complete:
+                    // A DISPLAY NAME IS TEXT SOMEBODY ELSE CHOSE, and this is
+                    // where it enters. It goes straight to a terminal in the
+                    // sentence below and into the session file above - which the
+                    // console reads back as AppState.Principal for a whole
+                    // session, and which is read by things that are not a
+                    // renderer. Cleaned before it is written down, which is the
+                    // rule; the renderers clean again, which is the belt.
+                    var principal = Gg.Contracts.ControlText.Strip(complete.Session.PrincipalDisplay);
+
                     _sessions.Write(new StoredSession
                     {
                         SessionToken = complete.Session.SessionToken,
                         ExpiresAt = complete.Session.ExpiresAt,
                         TenantId = complete.Session.TenantId,
-                        PrincipalDisplay = complete.Session.PrincipalDisplay,
+                        PrincipalDisplay = principal,
                     });
 
                     return new SignInResult
                     {
                         SignedIn = true,
-                        Said = $"Signed in as {complete.Session.PrincipalDisplay}.",
+                        Said = $"Signed in as {principal}.",
                     };
             }
         }

@@ -925,8 +925,8 @@ public static class PaneText
 
         if (state.SignIn is { } pending)
         {
-            text.AppendLine($"  Open:  {pending.VerificationUri}");
-            text.AppendLine($"  Code:  {pending.UserCode}");
+            text.AppendLine($"  Open:  {Clean(pending.VerificationUri)}");
+            text.AppendLine($"  Code:  {Clean(pending.UserCode)}");
             text.AppendLine();
             // LABELLED, AND CONVERTED SO THE LABEL IS TRUE. Every other time
             // this product puts in front of a person is written UTC and said to
@@ -952,7 +952,10 @@ public static class PaneText
         if (!string.IsNullOrWhiteSpace(state.LastSignIn))
         {
             text.AppendLine();
-            text.AppendLine(state.LastSignIn);
+
+            // Cleaned like every other line here: this one can carry a display
+            // name the control plane chose, in "Signed in as …".
+            text.AppendLine(Clean(state.LastSignIn));
         }
 
         return text.ToString().TrimEnd();

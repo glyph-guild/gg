@@ -1,3 +1,4 @@
+using System.Data;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -110,6 +111,42 @@ public static class CollectionViews
     /// the factory silencing it and nothing else, all twenty-one keys were eaten
     /// again the moment the rows arrived.
     /// </remarks>
+    /// <summary>
+    /// The rows of a table, as the widget's source wants them.
+    /// </summary>
+    /// <remarks>
+    /// <b>A nameless column is blank, and it takes a space to say so.</b>
+    /// <c>DataTable</c> answers an empty name by inventing <c>Column1</c>, which
+    /// is then drawn as the heading - so the mark columns, which are nameless on
+    /// purpose, were captioned with a name a library made up. A space is the
+    /// blank heading they were asking for, and a widening one keeps two of them
+    /// from colliding, because <c>DataTable</c> refuses two columns with the
+    /// same name and "" twice is the same name twice.
+    /// </remarks>
+    public static DataTable Rows(
+        IReadOnlyList<string> columns, IReadOnlyList<IReadOnlyList<string>> rows)
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var table = new DataTable();
+        var blanks = 0;
+
+        foreach (var column in columns)
+        {
+            table.Columns.Add(
+                column.Length > 0 ? column : new string(' ', ++blanks),
+                typeof(string));
+        }
+
+        foreach (var row in rows)
+        {
+            table.Rows.Add([.. row]);
+        }
+
+        return table;
+    }
+
     public static void Fill(TableView table, ITableSource? source)
     {
         ArgumentNullException.ThrowIfNull(table);

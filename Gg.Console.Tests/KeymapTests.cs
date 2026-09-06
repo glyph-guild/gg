@@ -67,15 +67,38 @@ public class KeymapTests
     {
         // The rendered string, not just the binding list - because the string
         // is what a person actually reads.
+        //
+        // AMENDED WHEN j AND k STOPPED BEING TAUGHT, and amended by tightening:
+        // it asserted presence only, so it would have passed just as well if
+        // the line had lost a key nobody meant to hide. It now says the line
+        // holds every live binding that is not hidden AND holds no hidden one.
+        //
+        // Hiding is about the page and never about the keyboard, which is why
+        // Advertised_keys_are_exactly_the_keys_that_do_something above is
+        // untouched: it reads Bindings, which still carries j and k, and it
+        // still proves advertised keys and live keys are one set.
         foreach (var context in EveryContext)
         {
             var hints = Keymap.Hints(context);
 
             foreach (var binding in Keymap.Bindings(context))
             {
+                if (binding.Hidden)
+                {
+                    await Assert.That(hints).DoesNotContain($"{binding.Key.Name} {binding.Description}")
+                        .Because($"{context} teaches {binding.Key.Name}, which is bound and not "
+                               + "advertised. Line: " + hints);
+                    continue;
+                }
+
                 await Assert.That(hints).Contains(binding.Key.Name)
                     .Because($"{context} does not advertise {binding.Key.Name}.");
             }
+
+            // THE ANCHOR FOR THE ARM ABOVE. A keymap that hid everything would
+            // satisfy every DoesNotContain in this loop.
+            await Assert.That(Keymap.Bindings(context).Any(b => !b.Hidden)).IsTrue()
+                .Because($"{context} advertises nothing at all.");
         }
     }
 

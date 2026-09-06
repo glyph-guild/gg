@@ -873,22 +873,77 @@ public static class PaneText
         return text.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Every key, grouped by what owns the keyboard when it works.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>FROM THE CATALOGUE RATHER THAN FROM ONE CONTEXT.</b> This asked the
+    /// keymap for the bindings of the context the console happened to be in, so
+    /// the page was missing <c>f</c> whenever neither the live pane nor browse
+    /// was showing - which is how a console starts - and it never held the gate
+    /// modal's <c>a</c> and <c>r</c> at all. The hint line is right to show
+    /// only what is live. Somebody reading this page is here because they do
+    /// not know a key.
+    /// </para>
+    /// <para>
+    /// <b>Grouped by mode, because a key means what the mode says it means.</b>
+    /// <c>a</c> is actions in Normal and approve in a gate decision, and a flat
+    /// list of every key would put those two rows next to each other reading as
+    /// a contradiction. The Normal group carries no heading: it is what the
+    /// console is doing when nobody opened anything.
+    /// </para>
+    /// <para>
+    /// The hidden bindings are not here either - see <c>KeyBinding.Hidden</c>,
+    /// which is exactly two keys and a second way to do what they do.
+    /// </para>
+    /// </remarks>
     private static string HelpKeys(AppState state)
     {
         var text = new StringBuilder();
-        foreach (var binding in Keymap.Bindings(
-            new KeymapContext(UiMode.Normal, state.LiveVisible, state.Frozen,
-                state.TakeableTree is not null, state.TakenOver)))
+
+        foreach (var group in Keymap.Catalogue()
+                     .Where(entry => !entry.Binding.Hidden)
+                     .GroupBy(entry => entry.Mode))
         {
-            text.AppendLine($"  {binding.Key.Name,-8}{binding.Description}");
+            if (group.Key != UiMode.Normal)
+            {
+                text.AppendLine();
+                text.AppendLine($"  {ModeHeading(group.Key)}");
+            }
+
+            foreach (var entry in group)
+            {
+                var when = entry.Binding.When is { Length: > 0 } condition
+                    ? $"   ({condition})"
+                    : "";
+                text.AppendLine($"  {entry.Binding.Key.Name,-8}{entry.Binding.Description}{when}");
+            }
         }
+
+        text.AppendLine();
         text.AppendLine($"  {Keymap.Interrupt.Name,-8}quit from anywhere");
         text.AppendLine();
         text.AppendLine($"  queue order: {QueueSort.Default.Name}");
 
-        // A SECOND PAGE NOBODY IS TOLD ABOUT IS A SECOND PAGE NOBODY FINDS.
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>What to call a mode on the help page.</summary>
+    /// <remarks>
+    /// The enum name would do for three of the five and not for
+    /// <c>ConfirmFlight</c>, which is a question rather than a place. Written
+    /// out as the sentence a person would use: they are reading this because
+    /// something is on the screen and they do not know what it wants.
+    /// </remarks>
+    private static string ModeHeading(UiMode mode) => mode switch
+    {
+        UiMode.Help => "While this page is open",
+        UiMode.FlightActions => "While the actions list is open",
+        UiMode.ConfirmFlight => "When asked whether to open a second flight",
+        UiMode.GateDecision => "While answering a gate",
+        _ => "",
+    };
 
     /// <summary>
     /// What can be done to the selected flight.

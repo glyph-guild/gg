@@ -593,32 +593,21 @@ static async Task<int> LaunchConsoleAsync()
 
         info.ArgumentList.Add("up");
 
-        Directory.CreateDirectory(Path.GetDirectoryName(RunnerLogPath())!);
-        var writer = new StreamWriter(RunnerLogPath(), append: true) { AutoFlush = true };
         var child = Process.Start(info);
 
         if (child is null)
         {
-            writer.Dispose();
             return null;
         }
 
-        // DRAINED, because a child whose pipes fill up stops. Both streams into
-        // one file, in the order they arrive, and the writer closes when the
-        // runner does.
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.WhenAll(
-                    child.StandardOutput.BaseStream.CopyToAsync(writer.BaseStream),
-                    child.StandardError.BaseStream.CopyToAsync(writer.BaseStream));
-            }
-            finally
-            {
-                await writer.DisposeAsync();
-            }
-        });
+        // DRAINED AND FLUSHED, because a child whose pipes fill up stops and a
+        // log nothing flushes is empty until the runner exits. RunnerLog owns
+        // both halves, where a test can hold them.
+        _ = Task.WhenAll(
+            RunnerLog.CaptureAsync(
+                child.StandardOutput.BaseStream, RunnerLogPath(), CancellationToken.None),
+            RunnerLog.CaptureAsync(
+                child.StandardError.BaseStream, RunnerLogPath(), CancellationToken.None));
 
         return child;
     });

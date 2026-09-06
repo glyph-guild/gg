@@ -1125,18 +1125,37 @@ public static class PaneText
         var text = new StringBuilder();
         var here = state.Here;
 
-        text.AppendLine(here switch
+        // THE CHILD THIS CONSOLE HOLDS FIRST, because it knows things the fleet
+        // cannot - a pid, and an exit code the moment it happens. Then the
+        // fleet's own answer, because a runner started in another terminal is
+        // how most of them start and "this console did not start one" is not
+        // what somebody opened this to ask.
+        var fleet = Rows.Runners(state).FirstOrDefault(r => r.Mine);
+
+        text.AppendLine((here, fleet) switch
         {
-            null =>
-                "This console has not started a runner. The fleet may still have one from "
-              + "another terminal - the tab behind this says.",
-            { Up: true } up =>
+            ({ Up: true } up, { State: RunnerStates.Busy } busy) =>
+                $"Running here as process {up.Pid}, working on {busy.Work}.",
+            ({ Up: true } up, _) =>
                 $"Running here as process {up.Pid}. It registers with the control plane and "
               + "then heartbeats, so the tab behind this catches up a beat later.",
-            { Exit: 0 } =>
+            ({ Exit: 0 }, _) =>
                 "The runner this console started has shut down.",
-            var gone =>
+            ({ Exit: not null } gone, _) =>
                 $"The runner this console started exited {gone.Exit}. What it said is below.",
+
+            // NOT OURS, AND STILL THIS MACHINE'S. The fleet derives the state
+            // and this row is the one carrying the arrow on the tab behind.
+            (_, { State: RunnerStates.Busy } busy) =>
+                $"{busy.Runner} is {RunnerStates.Busy} on this machine, working on {busy.Work}.",
+            (_, { State: RunnerStates.Idle } idle) =>
+                $"{idle.Runner} is {RunnerStates.Idle} on this machine, waiting for work.",
+            (_, { } stale) =>
+                $"{stale.Runner} is registered to this machine and is {stale.State} - last "
+              + $"heard {stale.Heard}.",
+            _ =>
+                "There is no runner on this machine: none registered here, and none started "
+              + "from this console.",
         });
 
         if (here is { LogPath.Length: > 0 } logged)

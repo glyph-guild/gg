@@ -258,10 +258,22 @@ public static class ConsoleStart
             // OPENED HERE BECAUSE THIS METHOD IS BOTH. A session that expires
             // while somebody is watching the console is the same fact arriving
             // later, and the refresh key comes back through this line.
+            // AND IT SAYS IT IN THE CONSOLE'S OWN WORDS. The verbs word this
+            // refusal `Not signed in. Run gg login.` and are right to: every
+            // other caller of them is standing in a shell. This one has taken
+            // the shell away, and the diagnosis is drawn in the flight pane
+            // BEHIND the modal - so left alone it is the same dead end, one
+            // keypress later. The reason stays and the remedy goes, because a
+            // console that forgets why it is empty looks like one that is
+            // working.
+            var signedOut = failure is Gg.Client.NotSignedInException;
+
             return start with
             {
-                Diagnosis = failure.Message,
-                Mode = failure is Gg.Client.NotSignedInException ? UiMode.SignIn : start.Mode,
+                Diagnosis = signedOut
+                    ? "Nobody is signed in here, so nothing could be read."
+                    : failure.Message,
+                Mode = signedOut ? UiMode.SignIn : start.Mode,
             };
         }
     }

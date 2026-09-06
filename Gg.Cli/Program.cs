@@ -60,7 +60,7 @@ return CliArgs.Parse(args) switch
     CliAction.Decide decide => await EmitAsync(decide.Json, c => c.DecideAsync(
         decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json), decide.Reason)),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
-    CliAction.Update update => UpdateReport(update.Json),
+    CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 
     CliAction.EnvelopeShow show => await EnvelopeAsync(show.Json, c => c.ShowAsync()),
@@ -1118,13 +1118,21 @@ static int Fail(string message)
 /// on somebody else's machine.
 /// </para>
 /// </remarks>
-static int UpdateReport(bool json)
+static async Task<int> UpdateReportAsync(bool json)
 {
-    // NOT KNOWN YET, and said rather than guessed. Until the control plane
-    // answers what is current, UpdateAdvice renders the absence - it does not
-    // render currency, and it prints no --version flag carrying a number
-    // nobody supplied.
-    var advice = Gg.Local.UpdateAdvice.For(Gg.Local.InstallShape.Current, current: null);
+    // THE ONE CHANNEL THAT IS NOT THE FEED. Asking nuget.org what is current
+    // would be asking the party a stolen key lets lie: `dotnet tool update`
+    // with no version takes whatever was pushed last, and repository signing
+    // proves the pipeline rather than the publisher.
+    //
+    // CurrentVersionAsync returns null for every way this can fail, on purpose,
+    // and UpdateAdvice renders null as an absence rather than as currency. So
+    // the control plane being down costs a person the ANSWER and never gives
+    // them a wrong one.
+    using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+    var current = await new ControlPlaneClient(http).CurrentVersionAsync();
+
+    var advice = Gg.Local.UpdateAdvice.For(Gg.Local.InstallShape.Current, current);
 
     if (json)
     {

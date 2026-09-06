@@ -12,6 +12,19 @@ public static class DoctorChecks
 {
     public const string ControlPlane = "control plane";
     public const string Protocol = "protocol";
+
+    /// <summary>
+    /// The version of this executable, against what the control plane published.
+    /// </summary>
+    /// <remarks>
+    /// <b>The third version, and the only one nothing watched.</b> The protocol
+    /// has a floor and a 426 that enforces it; the fact vocabulary has a header
+    /// printed on purpose; the binary had neither, which is why it is the one
+    /// that drifts. It is deliberately NOT blocking - being behind is reported,
+    /// never refused, and the 426 stays the only thing in this design that
+    /// stops anybody.
+    /// </remarks>
+    public const string Binary = "binary";
     public const string Session = "session";
 
     /// <summary>Reporting a flight's result back to where it came from.</summary>
@@ -360,7 +373,12 @@ public sealed class Doctor(
                 // why the refusal has to reach them as a diagnosis naming the
                 // range rather than as a bare 426.
                 Fixable = true,
-                Fix = "install a newer gg",
+                // NAMES THE VERB, because "install a newer gg" is true and is
+                // not an instruction. The command differs by install shape, and
+                // the obvious guess - `dotnet tool update -g` - is wrong on a
+                // pool host in a way that reports success and changes nothing.
+                // `gg update` knows which shape this is.
+                Fix = "gg update - it names the command for this install",
             }
             : new DoctorCheck
             {
@@ -378,6 +396,7 @@ public sealed class Doctor(
                 Fix = reachable ? "install a newer gg" : null,
             });
 
+        checks.Add(await BinaryCheckAsync(reachable, cancellationToken));
         checks.Add(await SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(RunnerCheck(stored));
@@ -857,6 +876,66 @@ public sealed class Doctor(
             // somebody looking for a setting that does not exist.
             Fixable = false,
         };
+
+    /// <summary>
+    /// Where this binary stands against what the control plane published.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never blocking, whatever it finds.</b> Rule 6: being behind is
+    /// reported and the 426 remains the only refusal in this design. A blocking
+    /// check here would stop somebody working over a number that moves weekly.
+    /// </para>
+    /// <para>
+    /// <b>An oracle that did not answer is said, not smoothed over.</b>
+    /// <c>Passed</c> is true only when the versions actually match — an
+    /// unreachable control plane leaves this reporting an absence, because a
+    /// person told "fine" by a check that never ran is a person who never
+    /// updates. The same reasoning as the protocol check one row up, on the
+    /// field where the consequence is quietest.
+    /// </para>
+    /// </remarks>
+    private async Task<DoctorCheck> BinaryCheckAsync(
+        bool reachable, CancellationToken cancellationToken)
+    {
+        var current = reachable
+            ? await _client.CurrentVersionAsync(cancellationToken)
+            : null;
+
+        var standing = VersionStanding.For(GgVersions.Binary, current);
+
+        return new DoctorCheck
+        {
+            Name = DoctorChecks.Binary,
+            Passed = standing.IsReassuring,
+            Detail = standing.Kind switch
+            {
+                VersionStandingKind.Current =>
+                    $"{standing.Installed}, which is current",
+                VersionStandingKind.Behind =>
+                    $"{standing.Installed}, and {standing.Current} is current",
+                VersionStandingKind.Unrecognised =>
+                    $"{standing.Installed}, which the control plane has never published - it "
+                    + $"knows {standing.Current}. Worth asking where this one came from",
+                _ => reachable
+                    ? $"{standing.Installed}. What is current could not be established, so this "
+                    + "may or may not be it"
+                    : $"{standing.Installed}. Not checked: the control plane could not be reached",
+            },
+
+            // RULE 6, AS A FIELD. Nothing about a version may stop a person.
+            Blocking = false,
+
+            // A check that could not run has no fix to offer, for the reason
+            // the protocol check gives when the control plane is down: sending
+            // somebody to reinstall gg over a network problem costs them time
+            // and changes nothing.
+            Fixable = standing.Kind == VersionStandingKind.Behind,
+            Fix = standing.Kind == VersionStandingKind.Behind
+                ? "gg update - it names the command for this install"
+                : null,
+        };
+    }
 
     private static DoctorCheck RunnerCheck(StoredSession? stored) =>
         new()

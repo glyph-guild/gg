@@ -34,6 +34,66 @@ public sealed class RunnerLog(string path) : IRunnerLog
 
     public string Path => path;
 
+    /// <summary>
+    /// Copy what a runner is saying into its log, as it says it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Flushed every chunk, which is the whole of this method.</b> The
+    /// obvious spelling - <c>CopyToAsync</c> into a <c>StreamWriter</c>'s base
+    /// stream - writes into a <c>FileStream</c> buffer that nothing empties
+    /// until the process exits, so the log of a runner that has been up for an
+    /// hour is zero bytes and the log of one you just killed is complete. That
+    /// is exactly backwards from what a log is for.
+    /// </para>
+    /// <para>
+    /// <b>Here rather than in the composition root</b> for the reason the
+    /// colours and the modal titles moved: it was four lines of plumbing in a
+    /// place no test can reach, and it was wrong.
+    /// </para>
+    /// <para>
+    /// It appends, so a restart adds to the story rather than erasing it, and
+    /// it never throws - a log that fails must not take the runner's output
+    /// with it.
+    /// </para>
+    /// </remarks>
+    public static async Task CaptureAsync(
+        Stream source, string path, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+
+            await using var file = new FileStream(
+                path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+
+            var chunk = new byte[4096];
+
+            while (true)
+            {
+                var got = await source.ReadAsync(chunk, cancellationToken);
+
+                if (got == 0)
+                {
+                    return;
+                }
+
+                await file.WriteAsync(chunk.AsMemory(0, got), cancellationToken);
+                await file.FlushAsync(cancellationToken);
+            }
+        }
+        catch (Exception failure) when (failure is IOException
+                                            or UnauthorizedAccessException
+                                            or ObjectDisposedException
+                                            or OperationCanceledException)
+        {
+            // Nothing to do and nowhere to say it: this runs behind a runner
+            // whose output is the thing being captured.
+        }
+    }
+
     public IReadOnlyList<string> Read()
     {
         try

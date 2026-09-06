@@ -71,9 +71,9 @@ public class StartingTheRunnerFromTheConsoleTests
         {
             await Assert.That(Rows.NoRunnerHere(state)).IsTrue().Because(what);
 
-            await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), KeymapContext.For(state)))
-                .IsEqualTo(Command.StartRunner)
-                .Because($"{what}, so the key is live.");
+            await Assert.That(PaneText.RunnerNotice(state)).IsNotEmpty()
+                .Because($"{what}, so the notice is there and the button under it with it - "
+                       + "the screen shows one exactly when the other has something to say.");
         }
     }
 
@@ -85,22 +85,29 @@ public class StartingTheRunnerFromTheConsoleTests
             var state = Fleet(Mine, running, flight: running == RunnerStates.Busy ? "GG-9" : null);
 
             await Assert.That(Rows.NoRunnerHere(state)).IsFalse();
-            await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), KeymapContext.For(state))).IsNull()
+            await Assert.That(PaneText.RunnerNotice(state)).IsEmpty()
                 .Because("a second runner registered from one machine is litter in the fleet, "
-                       + "and a key that appears to work is worse than one not offered.");
+                       + "so the offer goes away rather than sitting there doing harm.");
         }
     }
 
     [Test]
-    public async Task The_notice_is_above_the_table_and_names_the_key()
+    public async Task The_notice_is_above_the_table_and_the_button_is_under_it()
     {
         var pane = PaneText.Runners(Fleet(local: null, state: null));
         var notice = PaneText.RunnerNotice(Fleet(local: null, state: null));
 
         await Assert.That(notice).IsNotEmpty();
-        await Assert.That(notice).Contains("s ")
-            .Because("the remedy is a key on this screen, not a command a person cannot type "
-                   + "while gg owns the terminal.");
+
+        // THE REMEDY IS THE BUTTON, and it was a key named in this sentence
+        // until the button could be reached with an arrow. What the notice owes
+        // a person is the problem; the thing under it does something about it,
+        // and the screen shows the two together or neither.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen).Contains("_runnerStart.Visible = notice.Length > 0")
+            .Because("one condition for both, so a notice with no button under it is not a "
+                   + "state the screen can be in.");
         await Assert.That(pane.StartsWith(notice, StringComparison.Ordinal)).IsTrue()
             .Because("above the table, which is where somebody looks before they read a list "
                    + "of runners that does not have theirs in it.");

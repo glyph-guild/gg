@@ -562,6 +562,12 @@ public sealed class ClaudeCodeExecutor(
       // accident of order. Reviewed policy is read before one agent's advice to
       // another, and the block below says which is which - an agent asked to
       // infer a precedence would eventually infer the wrong one.
+      // AFTER THE OPERATOR'S INSTRUCTIONS AND BEFORE THE HANDOVER. The menu is
+      // a fact about the destination rather than guidance, so it does not
+      // outrank reviewed policy - and it comes before another agent's advice
+      // because what this flight MAY ask for bounds how that advice can be
+      // acted on.
+      + (request.Menu is { Length: > 0 } menu ? menu : string.Empty)
       + (request.NominationNote is { Length: > 0 } note ? Handover(note) : string.Empty)
       + (request.ResumesFrom is { Length: > 0 } seed ? Resumption(seed) : string.Empty)
       + (request.Feedback is { } feedback ? Feedback(feedback) : string.Empty);

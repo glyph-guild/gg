@@ -290,6 +290,17 @@ public sealed record ExecutorRequest
     /// </remarks>
     public string? NominationNote { get; init; }
 
+    /// <summary>
+    /// What this flight may nominate, when it may nominate anything.
+    /// </summary>
+    /// <remarks>
+    /// Passed through and never interpreted, the disposition every rendered
+    /// document on this request has. The runner does not parse the menu and does
+    /// not check a nomination against it - admission does that, from the same
+    /// declaration this was rendered from.
+    /// </remarks>
+    public string? Menu { get; init; }
+
     /// <summary>What the envelope permits. Passed through, and not enforced.</summary>
     public required IReadOnlyList<string> Moves { get; init; }
 

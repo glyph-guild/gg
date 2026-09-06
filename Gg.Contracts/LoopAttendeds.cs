@@ -56,8 +56,40 @@ public static class AttendedGaps
     /// </remarks>
     public const string MoveBound = "move-bound";
 
+    /// <summary>
+    /// Which file holds the conversation.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not measured, and not measurable — which is a stronger statement than
+    /// the other three and the reason it is a gap rather than a null.</b> The
+    /// interactive session file is at
+    /// <c>~/.claude/projects/&lt;cwd with / and . replaced by -&gt;/&lt;session_id&gt;.jsonl</c>.
+    /// The id arrives in the <c>stream-json</c> init event, which an interactive
+    /// session does not produce, so an attended executor cannot learn it; and one
+    /// flight's tree directory was observed holding TWO files, with the directory
+    /// outliving the tree that is swept. So the newest is a guess, and a guess
+    /// attributed to a flight is worse than an absence.
+    /// </para>
+    /// <para>
+    /// <b>A missing <c>loop.transcript</c> means two different things.</b> Facts
+    /// arrive in batches, so a flight that has shipped none yet and a flight that
+    /// will never ship one look identical to a reader — and only one of them is
+    /// worth waiting for. This is what tells them apart, and without it the
+    /// absence is learned from an empty fetch, which is exactly what the
+    /// transcript's own placement rule exists to avoid.
+    /// </para>
+    /// <para>
+    /// <b>It also says nothing was captured, rather than that capture failed.</b>
+    /// <c>ClaudeCodeExecutor</c> redirects the child's output; the attended one
+    /// redirects nothing, because a person is at the keyboard and the child owns
+    /// the screen. There was never a stream to write down.
+    /// </para>
+    /// </remarks>
+    public const string Transcript = "transcript";
+
     /// <summary>Every gap that validates.</summary>
-    public static IReadOnlyList<string> All { get; } = [Turns, Moves, MoveBound];
+    public static IReadOnlyList<string> All { get; } = [Turns, Moves, MoveBound, Transcript];
 }
 
 /// <summary>

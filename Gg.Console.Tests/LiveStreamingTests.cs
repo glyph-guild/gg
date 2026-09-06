@@ -118,6 +118,15 @@ public class LiveStreamingTests
             Path.Combine(RepoRoot(), "Gg.Console", "Views", "ConsoleScreen.cs"),
             Path.Combine(RepoRoot(), "Gg.Console", "LiveTails.cs"),
             Path.Combine(RepoRoot(), "Gg.Console", "LiveTail.cs"),
+
+            // THE SECOND THING A SESSION READS, and it is the same kind of
+            // thing: the log a runner started from this console writes, at a
+            // path this console chose. The exception was written for a file
+            // whose path the console holds and this is one - what it must not
+            // become is the door somebody spawns through, which is why starting
+            // and stopping the runner live behind a different interface and in
+            // the shell.
+            Path.Combine(RepoRoot(), "Gg.Console", "RunnerLog.cs"),
         };
 
         foreach (var file in sessionSources)

@@ -130,6 +130,50 @@ public class TheConsoleSignsInForRealTests
             .Because("there is nothing left to poll, and saying so beats polling a spent code.");
     }
 
+    private sealed class RecordingWriter : IConsoleWriter
+    {
+        public List<string> Lines { get; } = [];
+        public void WriteLine(string line = "") => Lines.Add(line);
+        public string All => string.Join("\n", Lines);
+    }
+
+    [Test]
+    public async Task Waiting_says_what_it_is_waiting_for_because_the_modal_has_gone()
+    {
+        // THE MOMENT THE CODE LEAVES THE SCREEN. The UI session ends before the
+        // shell runs, so the modal that was drawing the code is torn down - and
+        // this call then blocks until somebody approves or the code expires.
+        // Anybody who pressed approve a moment early is left looking at a blank
+        // terminal with nothing on it to approve, and their only move is to
+        // interrupt the process.
+        var output = new RecordingWriter();
+
+        var session = new SignInSession(
+            Authorization,
+            _ => new SignInResult { Said = "That code expired before it was approved." },
+            output);
+
+        session.Start();
+        session.Wait();
+
+        await Assert.That(output.All).Contains("WDJB-MJHT");
+        await Assert.That(output.All).Contains("https://example.test/device");
+        await Assert.That(output.All).Contains("Waiting");
+    }
+
+    [Test]
+    public async Task Starting_prints_nothing_because_the_console_is_about_to_redraw()
+    {
+        // The other half of the same rule. Start returns to the loop, which
+        // opens a new UI session immediately - so anything written here is
+        // painted over within milliseconds by the modal that draws it properly.
+        var output = new RecordingWriter();
+
+        new SignInSession(Authorization, _ => new SignInResult { Said = "" }, output).Start();
+
+        await Assert.That(output.Lines).IsEmpty();
+    }
+
     [Test]
     public async Task The_composition_root_passes_one()
     {

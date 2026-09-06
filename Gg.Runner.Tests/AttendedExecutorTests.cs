@@ -329,6 +329,109 @@ public class AttendedExecutorTests
     private static readonly DateTimeOffset T0 = new(2026, 9, 5, 9, 0, 0, TimeSpan.Zero);
 
     /// <summary>A lease whose loop an attended session will fly.</summary>
+    [Test]
+    public async Task A_hand_flown_flight_ships_what_it_could_not_measure()
+    {
+        // RULE 3, AT THE FAR END. The executor answers null because it measured
+        // no loop; this is where that absence becomes something a person on the
+        // other side can read. Without it the control plane sees a flight that
+        // shipped an environment and a manifest and simply never mentioned a
+        // loop - which is indistinguishable from a runner that crashed before
+        // invoking one.
+        var (_, protocol) = await FlownAsync();
+
+        var attended = Shipped(protocol, FactKinds.LoopAttended);
+
+        await Assert.That(attended).Count().IsEqualTo(1);
+
+        var declared = attended[0].Attended!;
+        await Assert.That(declared.Unmeasured).IsEquivalentTo(AttendedGaps.All)
+            .Because("all three: nothing counted a turn, nothing saw a move, and the bound "
+                   + "was not probed because probing means handing a person the canary task.");
+        await Assert.That(declared.LoopId).IsEqualTo("implement");
+        await Assert.That(declared.Binary).IsEqualTo("claude");
+        await Assert.That(declared.BinaryVersion).IsNotEmpty();
+        await Assert.That(declared.BudgetSeconds).IsEqualTo(600);
+    }
+
+    [Test]
+    public async Task It_records_the_rung_the_loop_declared_rather_than_that_a_person_was_there()
+    {
+        // THE LEASE DECLARES frontier AND A PERSON FLEW IT. Recording `human`
+        // here because somebody sat at the terminal would make every later count
+        // of how much the machine did wrong in the flattering direction, on the
+        // one measurement this product exists to be honest about.
+        var (_, protocol) = await FlownAsync();
+
+        await Assert.That(Shipped(protocol, FactKinds.LoopAttended)[0].Attended!.Rung)
+            .IsEqualTo(ExecutorRungs.Frontier);
+    }
+
+    [Test]
+    public async Task It_names_the_settings_sources_it_actually_cleared()
+    {
+        // RULE 10, AND READ FROM THE ARGUMENTS RATHER THAN BELIEVED. What this
+        // reports is what the launch actually passed, so a flag dropped in a
+        // refactor changes the fact rather than leaving it asserting a bound
+        // that stopped being applied.
+        var (_, protocol) = await FlownAsync();
+
+        var cleared = Shipped(protocol, FactKinds.LoopAttended)[0].Attended!.SettingsCleared;
+
+        await Assert.That(cleared).Contains("setting-sources");
+        await Assert.That(cleared).Contains("mcp-servers");
+    }
+
+    [Test]
+    public async Task A_hand_flown_flight_ships_no_loop_outcome_and_no_digest()
+    {
+        // ASSERTED AS AN ABSENCE, because the failure mode is a helpful default
+        // rather than an error. Attempts = 0 and MovesUsed = [] are both
+        // expressible and both false, and an empty moves list DISCHARGES a move
+        // obligation rather than halting it - so a loop.outcome invented here
+        // would switch off every move-gate on every hand-flown flight with
+        // nothing thrown and nothing logged.
+        var (_, protocol) = await FlownAsync();
+
+        await Assert.That(Shipped(protocol, FactKinds.LoopOutcome)).IsEmpty();
+        await Assert.That(Shipped(protocol, FactKinds.LoopDigest)).IsEmpty();
+        await Assert.That(Shipped(protocol, FactKinds.LoopTranscript)).IsEmpty();
+    }
+
+    [Test]
+    public async Task The_facts_a_person_and_an_agent_both_produce_still_ship()
+    {
+        // THE SINGLE STRONGEST REASON THIS DESIGN IS CHEAP. A person editing a
+        // tree measures identically to an agent editing it, because the
+        // extractor reads the TREE and not the actor - so the halt is scoped to
+        // what is genuinely unmeasurable rather than to attended flights as a
+        // class.
+        var (_, protocol) = await FlownAsync();
+
+        await Assert.That(Shipped(protocol, FactKinds.EnvironmentIdentity)).IsNotEmpty();
+        await Assert.That(Shipped(protocol, FactKinds.SourceProvenance)).IsNotEmpty();
+    }
+
+    [Test]
+    public async Task A_headless_flight_declares_no_attended_session()
+    {
+        // THE RATCHET ON THE OTHER SIDE. A loop.attended beside a loop.outcome
+        // would be a session claiming both that it measured a loop and that it
+        // could not - and the port answering a declaration by default is how
+        // that would arrive.
+        await Assert.That(
+            await new ClaudeCodeExecutor("claude", []).AttendedAsync(
+                Request(), TimeSpan.FromMinutes(5), CancellationToken.None)).IsNull();
+    }
+
+    /// <summary>Every fact of one kind the runner put on the wire.</summary>
+    private static IReadOnlyList<FactEnvelope> Shipped(FakeProtocol protocol, string kind) =>
+    [
+        .. protocol.ShippedFacts
+            .SelectMany(batch => batch.Items)
+            .Where(fact => string.Equals(fact.Kind, kind, StringComparison.Ordinal)),
+    ];
+
     private static LeaseGranted ALease(GitFixture fixture, int number, int wallClockSeconds = 600)
         => new()
     {

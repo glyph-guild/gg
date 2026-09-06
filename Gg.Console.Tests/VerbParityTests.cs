@@ -148,6 +148,13 @@ public class VerbParityTests
             ["Doctor"] = "deliberately outside: it is the verb a person reaches for when the "
                        + "console looks broken, which makes inside the console the worst "
                        + "place to run it from. The help modal says to run it outside.",
+            ["Update"] = "deliberately outside, and for a reason one layer past Doctor's. It "
+                       + "prints a command for a person to run in a shell, and the console has "
+                       + "no shell - copying a line out of a pane to paste into the terminal "
+                       + "you were already in is worse than being in the terminal. The console "
+                       + "shows that a newer gg exists through WhoAmI.Notices, which is the "
+                       + "channel for something a tenant should act on; what to TYPE belongs "
+                       + "where typing happens.",
             ["Unknown"] = "not a verb - the parse's own answer for something that is not one.",
 
             // --- absent, and out of scope for this slice, with the reason ---

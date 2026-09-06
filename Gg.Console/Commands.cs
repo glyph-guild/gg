@@ -111,6 +111,25 @@ public enum Command
     /// </remarks>
     StartRunner,
 
+    /// <summary>Show what the runner on this machine is doing.</summary>
+    /// <remarks>
+    /// Pure: what it is doing is already in the model, folded in between
+    /// sessions and on the tick by the thing that reads its log.
+    /// </remarks>
+    ShowRunner,
+
+    /// <summary>Stop it and start it again.</summary>
+    /// <remarks>
+    /// The shell's, and it is a stop followed by a start rather than a port of
+    /// its own - a third way to spawn the same child is a third place for the
+    /// two of them to disagree.
+    /// </remarks>
+    RestartRunner,
+
+    /// <summary>Shut the runner on this machine down.</summary>
+    /// <remarks>The shell's: it signals a child, which a UI session may not.</remarks>
+    StopRunner,
+
     /// <summary>Show or hide the fleet, with this machine's runner first.</summary>
     /// <remarks>
     /// <b>NOT the shell's, unlike its four neighbours.</b> The boot already
@@ -284,6 +303,10 @@ public static class ShellCommands
 
         // SPAWNS A CHILD, so both halves of what this set means apply.
         Command.StartRunner,
+
+        // Signals one, and spawns one again after.
+        Command.StopRunner,
+        Command.RestartRunner,
 
         // AND SO IS OPENING A FLIGHT, since the boot stopped reading a log for
         // every flight ever flown. The modal shows one flight's log; the flight

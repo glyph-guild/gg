@@ -58,6 +58,26 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? startRunner = null,
 
     /// <summary>
+    /// Shuts the runner this console started down, and says what became of it.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, like its neighbour: it signals a child, and the
+    /// handle on that child is the root's because a process handle may not sit
+    /// in a model that gets written to disk.
+    /// </remarks>
+    Func<AppState, AppState>? stopRunner = null,
+
+    /// <summary>
+    /// Folds what is known about the runner this console started into the model.
+    /// </summary>
+    /// <remarks>
+    /// Between sessions, because asking whether a child is still up touches a
+    /// process. The log it wrote is read on the session's own tick, out of a
+    /// file, which is the part a session is allowed to do.
+    /// </remarks>
+    Func<AppState, AppState>? runnerHere = null,
+
+    /// <summary>
     /// Signs this machine in, one step at a time, with the terminal free.
     /// </summary>
     /// <remarks>
@@ -163,6 +183,7 @@ public sealed class ConsoleLoop(
         while (true)
         {
             state = tails?.Advance(state) ?? state;
+            state = runnerHere?.Invoke(state) ?? state;
 
             var outcome = ui.Run(state);
             state = outcome.State;
@@ -254,12 +275,24 @@ public sealed class ConsoleLoop(
                     // as hostile and the OS is what keeps it apart from the
                     // console; this arm only knows that something was asked for
                     // and what came back.
-                    state = startRunner is null
-                        ? state with
-                        {
-                            LastRunner = "This console is not configured to start a runner.",
-                        }
-                        : startRunner(state);
+                    state = Started(state, startRunner);
+
+                    // AND THE MODAL OVER IT, because what came back is a
+                    // sentence with a path in it and the activity line lost the
+                    // path off the right edge. It is also where somebody watches
+                    // it come up, which is the next thing they want.
+                    state = Reducer.RunnerShown(state);
+                    break;
+
+                case Command.StopRunner:
+                    state = Stopped(state, stopRunner);
+                    break;
+
+                case Command.RestartRunner:
+                    // A STOP AND A START, rather than a port of its own. A third
+                    // way to spawn the same child is a third place for the two
+                    // of them to disagree about where its log goes.
+                    state = Started(Stopped(state, stopRunner), startRunner);
                     break;
 
                 case Command.ToggleChecklist:
@@ -479,6 +512,16 @@ public sealed class ConsoleLoop(
     /// worth a test rather than a comment, because arms have forgotten before.
     /// </para>
     /// </remarks>
+    private static AppState Started(AppState state, Func<AppState, AppState>? start) =>
+        start is null
+            ? state with { LastRunner = "This console is not configured to start a runner." }
+            : start(state);
+
+    private static AppState Stopped(AppState state, Func<AppState, AppState>? stop) =>
+        stop is null
+            ? state with { LastRunner = "This console is not configured to stop a runner." }
+            : stop(state);
+
     public static string? Said(AppState before, AppState after) =>
         after.LastFlightOpened != before.LastFlightOpened ? after.LastFlightOpened
         : after.LastCredential != before.LastCredential ? after.LastCredential

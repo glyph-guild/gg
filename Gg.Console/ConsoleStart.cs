@@ -245,7 +245,24 @@ public static class ConsoleStart
             // network down emptied the console - and did it THROUGH
             // ConsoleLoop.Reloaded's catch rather than into it, because this
             // catch fires first and returns normally.
-            return start with { Diagnosis = failure.Message };
+            //
+            // AND ONE OF THE FOUR IS ABOUT A PERSON RATHER THAN A SERVICE.
+            // `Not signed in. Run gg login.` is an instruction to type a
+            // command into the terminal this console is drawing on, which is
+            // the one place a person cannot type it. So that refusal opens the
+            // modal that offers to do it here, and the other three do not: a
+            // control plane nobody can reach would send somebody to
+            // re-authenticate against a service that is refusing them for a
+            // reason which has nothing to do with who they are.
+            //
+            // OPENED HERE BECAUSE THIS METHOD IS BOTH. A session that expires
+            // while somebody is watching the console is the same fact arriving
+            // later, and the refresh key comes back through this line.
+            return start with
+            {
+                Diagnosis = failure.Message,
+                Mode = failure is Gg.Client.NotSignedInException ? UiMode.SignIn : start.Mode,
+            };
         }
     }
 }

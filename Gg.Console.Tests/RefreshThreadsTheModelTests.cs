@@ -35,12 +35,24 @@ public class RefreshThreadsTheModelTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 9, 5, 9, 0, 0, TimeSpan.Zero);
 
-    /// <summary>A control plane at a port nothing listens on.</summary>
+    /// <summary>
+    /// A control plane at a port nothing listens on.
+    /// </summary>
+    /// <remarks>
+    /// <b>It held a session store with nothing in it, so it was never
+    /// unreachable.</b> The verbs read the session BEFORE they ask, and refuse
+    /// with <c>NotSignedInException</c> when there is none - so no socket was
+    /// ever opened and this double, named for a dead port, exercised the one
+    /// path that never touches a port at all. The two failures were
+    /// interchangeable while the loader answered both the same way, and they
+    /// are not: a machine that holds a session and cannot reach anybody is the
+    /// case this file is about.
+    /// </remarks>
     private static ConsoleData Unreachable()
     {
         var http = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:1/") };
         var client = new ControlPlaneClient(http);
-        var sessions = new NoSession();
+        var sessions = new HasSession();
 
         return new ConsoleData(
             new FlightCommands(client, sessions),
@@ -111,9 +123,24 @@ public class RefreshThreadsTheModelTests
         Since = T0,
     };
 
-    private sealed class NoSession : ISessionStore
+    /// <summary>
+    /// A session this machine holds and cannot use, because nobody answers.
+    /// </summary>
+    /// <remarks>
+    /// The point of this file: what a refresh does when the READ fails. A store
+    /// with nothing in it would make every verb refuse before it asked, which
+    /// is a different failure with a different answer - see
+    /// <c>SigningInFromTheConsoleTests</c>.
+    /// </remarks>
+    private sealed class HasSession : ISessionStore
     {
-        public StoredSession? Read() => null;
+        public StoredSession? Read() => new()
+        {
+            SessionToken = "a-token",
+            ExpiresAt = new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            TenantId = Guid.Empty.ToString(),
+            PrincipalDisplay = "somebody",
+        };
 
         public void Write(StoredSession session) { }
 

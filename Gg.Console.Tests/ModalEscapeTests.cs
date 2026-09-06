@@ -106,6 +106,16 @@ public class ModalEscapeTests
     /// </remarks>
     private static readonly Dictionary<UiMode, string> OpenedByTheLoop = new()
     {
+        [UiMode.SignIn] =
+            "opened by ConsoleStart.LoadAsync when the control plane refuses the load "
+          + "because nobody is signed in - which is a read, so no key can reach it and no "
+          + "key should: it is not a question somebody asks, it is the reason the console "
+          + "behind it is empty. SigningInFromTheConsoleTests drives the real loader into "
+          + "it and asserts an unreachable control plane does NOT open it. Being escapable "
+          + "is covered above rather than separately: StateGenerator emits every UiMode, so "
+          + "The_escape_hatch_always_returns_to_a_non_modal_state already walks arbitrary "
+          + "key sequences out of this one.",
+
         [UiMode.ConfirmFlight] =
             "opened by ConsoleLoop.FlewPicked after asking the control plane whether this "
           + "work item has already flown - a read, so it cannot happen inside a UI session "

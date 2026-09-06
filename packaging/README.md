@@ -67,10 +67,39 @@ installs without a word. Verifying a signature that is present is a different
 thing from requiring one, and requiring a *particular* signer needs trusted
 signers configured in `nuget.config`. None of that is set up here.
 
-So the honest summary: **the API key is the trust root**, and the signature is
-a tamper seal on the pipeline rather than a statement about who published.
-Author signing is the only thing that would change that, and it costs a
-certificate and its custody — see the plan's open question 2.
+So the honest summary: **whatever can push is the trust root**, and the
+signature is a tamper seal on the pipeline rather than a statement about who
+published.
+
+## Which is why nothing here holds a publishing key
+
+**Trusted publishing, not a stored secret.** The `nuget` job presents a
+short-lived OIDC token, nuget.org validates it against a policy naming this
+repository *and this workflow file*, and returns an API key good for **one hour
+and one push**. There is no long-lived credential to leak, rotate, or find in a
+log — and a `ToolPublishingTests` case fails the build if one reappears under
+any name.
+
+Three things about that job are load-bearing and none of them is obvious:
+
+- **`permissions:` replaces the default set rather than adding to it.** Trimming
+  that block reads like hygiene and silently ends publishing, at the one step
+  that runs only on `main` after a version bump.
+- **`id-token: write` is granted to the job, not to a step**, so every action in
+  it can mint the token. All three are pinned to commit SHAs — the only place in
+  this repository where that is worth the awkwardness.
+- **The exchange is the step immediately before the push.** An hour is
+  generous, but a token minted at the top of a job that waits on a release is a
+  token that can expire, and the failure lands on `main`.
+
+The account also needs a `NUGET_USER` secret: a nuget.org **profile name**, not
+an email address. It is not really a credential — the worst a leak costs is a
+username — but it is configuration rather than something to commit.
+
+Author signing remains the only thing that would prove *glyph-guild published
+this* rather than *this pipeline did*, and on Linux and macOS it would buy
+nothing without `DOTNET_NUGET_SIGNATURE_VERIFICATION` and trusted signers
+configured on every host. See the plan's open question 2.
 
 ## Asking what is current, without an account
 

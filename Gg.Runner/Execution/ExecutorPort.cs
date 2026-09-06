@@ -280,6 +280,16 @@ public sealed record ExecutorRequest
     /// </remarks>
     public string? IntentText { get; init; }
 
+    /// <summary>
+    /// What the agent that nominated this flight left for whoever picks it up.
+    /// </summary>
+    /// <remarks>
+    /// Passed through and never interpreted, the disposition <c>Feedback</c> and
+    /// <c>ResumesFrom</c> already have. The runner does not summarise it, does
+    /// not act on it, and does not let it change what the envelope permits.
+    /// </remarks>
+    public string? NominationNote { get; init; }
+
     /// <summary>What the envelope permits. Passed through, and not enforced.</summary>
     public required IReadOnlyList<string> Moves { get; init; }
 

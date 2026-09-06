@@ -136,6 +136,37 @@ public class PoolHostTests
                    + "host is by definition not the machine the control plane runs on.");
     }
 
+    [Test]
+    public async Task What_the_unit_runs_is_not_a_file_the_runners_user_could_have_written()
+    {
+        // THE SAME BOUNDARY AS THE SOCKET, one layer down. The runner is
+        // treated as hostile and the OS keeps it apart from the console; until
+        // now the OS also kept it apart from its own executable, because
+        // /usr/local/bin/gg was root-owned and the unit ran as User=gg.
+        //
+        // `dotnet tool install -g` would end that quietly. The tool lands in
+        // $HOME/.dotnet/tools of whoever installed it, so an ExecStart naming a
+        // home directory is one the runner can replace the contents of - and
+        // every other test on this file keeps passing.
+        var execStart = File.ReadAllLines(Host("gg-runner-maintain.service"))
+            .Where(l => l.TrimStart().StartsWith("ExecStart=", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(execStart).IsNotEmpty()
+            .Because("a unit with no ExecStart runs nothing; there is no boundary to check.");
+
+        var reachable = execStart
+            .Where(l => l.Contains("/home/", StringComparison.Ordinal)
+                     || l.Contains("~", StringComparison.Ordinal)
+                     || l.Contains(".dotnet/tools", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(reachable).IsEmpty()
+            .Because("that path is inside the account this unit runs as, so the process the OS "
+                   + "was separating could replace what the OS starts. Found: "
+                   + string.Join(" | ", reachable));
+    }
+
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

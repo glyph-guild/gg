@@ -891,8 +891,71 @@ public static class PaneText
             UiMode.Help => Help(state),
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
+            UiMode.SignIn => SignIn(state),
             _ => "",
         };
+    }
+
+    /// <summary>
+    /// Why the console behind this is empty, and the two steps out of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It names no command.</b> What this replaced was <i>"Not signed in.
+    /// Run gg login."</i> - true, and impossible to act on, because gg had the
+    /// terminal it was telling somebody to type into. Everything here is done
+    /// with the keys on the hint line.
+    /// </para>
+    /// <para>
+    /// <b>Two lines, because a modal is read standing up.</b> The queue behind
+    /// it says "nothing needs you" whether nothing does or nobody could be
+    /// asked, so the cause is worth one sentence - and the rest of what could
+    /// be said here is either on the hint line already or is not what somebody
+    /// blocked from their own console wants to read.
+    /// </para>
+    /// <para>
+    /// <b>The address and the code get a line each, indented.</b> They are
+    /// transcribed by a human being into another device, and a code inside a
+    /// sentence is a code somebody reads the punctuation of.
+    /// </para>
+    /// </remarks>
+    private static string SignIn(AppState state)
+    {
+        var text = new StringBuilder();
+
+        if (state.SignIn is { } pending)
+        {
+            text.AppendLine($"  Open:  {pending.VerificationUri}");
+            text.AppendLine($"  Code:  {pending.UserCode}");
+            text.AppendLine();
+            // LABELLED, AND CONVERTED SO THE LABEL IS TRUE. Every other time
+            // this product puts in front of a person is written UTC and said to
+            // be - an unlabelled local time is ambiguous the moment the text is
+            // read anywhere but the machine that drew it, and this record ends
+            // up in a state dump and a diagnostics bundle. ToUniversalTime
+            // rather than trusting the offset that arrived, so the three
+            // letters cannot become a lie if the control plane ever sends one.
+            text.AppendLine(
+                $"Approve it there, then come back. Expires {pending.ExpiresAt.ToUniversalTime():HH:mm} UTC.");
+
+            return text.ToString().TrimEnd();
+        }
+
+        text.AppendLine("You are not signed in, so there is nothing to show.");
+        text.AppendLine();
+        text.AppendLine("Signing in gives you a code to type into a browser.");
+
+        // WHAT THE LAST TRY CAME TO, and only when there was one. Expired,
+        // declined and pressed-a-moment-early all land back on this screen, and
+        // a person who reads the same offer as before concludes the key did
+        // nothing.
+        if (!string.IsNullOrWhiteSpace(state.LastSignIn))
+        {
+            text.AppendLine();
+            text.AppendLine(state.LastSignIn);
+        }
+
+        return text.ToString().TrimEnd();
     }
 
     /// <summary>

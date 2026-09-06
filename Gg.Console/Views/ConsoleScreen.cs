@@ -316,7 +316,18 @@ public sealed class ConsoleScreen : Window
         }
     }
 
-    private KeymapContext Context() => new(State.Mode, State.ActiveTab, State.Frozen);
+    /// <summary>
+    /// What the keymap is dispatching on, derived rather than restated.
+    /// </summary>
+    /// <remarks>
+    /// This was a literal beside the model, and it did not carry
+    /// <c>Takeable</c>, <c>HandedBackable</c> or which step the sign-in modal
+    /// is on - so the help page could name a key this would not resolve. One
+    /// derivation, read here and by the tests, is what stops the advertised
+    /// keys and the live ones drifting - the same argument
+    /// <c>ShellCommands.Handled</c> already carries one type over.
+    /// </remarks>
+    private KeymapContext Context() => KeymapContext.For(State);
 
     /// <summary>One-way: model in, pixels out.</summary>
     private void Render()

@@ -147,12 +147,46 @@ public class ProtocolConformanceTests
     [Test]
     public async Task The_client_recognises_the_declared_protocol_refusal()
     {
+        // ONE EXCEPTION, LIFTED WITH AN ARGUMENT rather than left in a commit
+        // message - the practice contract 0.111.0 states in as many words.
+        //
+        // GET /v1/version answers what gg a person should be running, and it is
+        // the remedy for being below the floor rather than a thing the floor
+        // governs. A 426 there is reachable only by binaries new enough not to
+        // need the answer: the older a gg is, the more it needs to be told what
+        // to install, and the more certainly it would be refused. The refusal
+        // and the cure cannot be the same door.
+        //
+        // It is safe to exempt precisely because it is not governed. It takes
+        // no session, carries no tenant data, and its response is one string
+        // that means the same thing to every protocol revision there has ever
+        // been - so there is no version skew for a floor to protect against.
+        // Anything that ever needs a session or a tenant belongs on a governed
+        // door and back inside this check.
+        const string TheRemedy = "/v1/version";
+
         var withoutRefusal = ProtocolSurface.Endpoints
+            .Where(e => !string.Equals(e.Path, TheRemedy, StringComparison.Ordinal))
             .Where(e => !e.Statuses.Contains(ProtocolSurface.ProtocolTooOld))
             .Select(e => e.Path)
             .ToList();
         await Assert.That(withoutRefusal).IsEmpty()
             .Because("every governed endpoint may refuse a caller below the floor.");
+
+        // AND THE EXEMPTION IS HELD TO ITS OWN TERMS, so it cannot quietly grow
+        // into the thing it was excused from being.
+        var remedy = ProtocolSurface.Endpoints.Single(e =>
+            string.Equals(e.Path, TheRemedy, StringComparison.Ordinal));
+
+        await Assert.That(remedy.Audience).IsEqualTo(Audience.Anonymous)
+            .Because("it was exempted for being ungoverned. A door that needs a session is "
+                   + "governed, and belongs back inside the check above.");
+        await Assert.That(remedy.RequiredHeaders ?? []).IsEmpty()
+            .Because("a required header is a thing a caller can be too old to send, which is the "
+                   + "floor arriving by another name.");
+        await Assert.That(remedy.Statuses).IsEquivalentTo((int[])[200])
+            .Because("one answer and no refusals. Every status added here is a way for the cure "
+                   + "to fail for the patients who need it most.");
 
         await using var stub = new StubControlPlane
         {

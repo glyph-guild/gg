@@ -377,8 +377,17 @@ public sealed class ConsoleLoop(
                         {
                             LastHandFlight =
                                 "This console is not configured to fly flights by hand.",
+                            HandFlightProblem =
+                                "This console is not configured to fly flights by hand.",
                         }
                         : flyByHand(state, () => editor.Edit(""));
+
+                    // OVER THE CONSOLE, when nothing was created. The refusal is
+                    // three sentences and the activity line is one, so the
+                    // remedy - the half somebody can act on - ran off the right
+                    // edge of the screen. A flight that flew opens nothing: they
+                    // watched it happen at a prompt the child owned.
+                    state = Reducer.HandFlightAnswered(state);
                     break;
 
                 case Command.SignIn:

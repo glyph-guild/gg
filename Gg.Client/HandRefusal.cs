@@ -118,3 +118,94 @@ public sealed record HandRefusal
         return null;
     }
 }
+
+/// <summary>
+/// How a person at a terminal is asked about a gate their own flight opened.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A port for <see cref="ISecretPrompt"/>'s reason.</b> Reading a terminal is
+/// something only one implementation can do and every test has to do without, and
+/// the alternative — a loop over <c>Console.ReadLine</c> inside a command — is a
+/// loop nothing can reach. The first version of this was exactly that, and it
+/// spun for ever on end-of-input.
+/// </para>
+/// <para>
+/// <b><see cref="CanAsk"/> is asked BEFORE the gate is rendered</b>, so a
+/// non-interactive run says where the decision lives instead of printing a
+/// question nobody will see. Piped stdin, a CI step and <c>--json</c> are all the
+/// same answer: not here.
+/// </para>
+/// </remarks>
+public interface IGateAnswer
+{
+    /// <summary>Whether there is anybody here to ask.</summary>
+    bool CanAsk { get; }
+
+    /// <summary>
+    /// What they decided, or null when they gave no answer at all.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than a default, because "they closed the terminal" and "they
+    /// approved" are different facts and only one of them happened. A rejection
+    /// carries its reason: the loop runs again with it.
+    /// </remarks>
+    (string Outcome, string? Reason)? Ask(string obligationId);
+}
+
+/// <summary>Asks at the terminal this process owns.</summary>
+public sealed class ConsoleGateAnswer : IGateAnswer
+{
+    /// <summary>
+    /// Redirected input is not a person.
+    /// </summary>
+    /// <remarks>
+    /// The opposite call from <see cref="ConsoleSecretPrompt.ReadSecret"/>, and
+    /// for the opposite reason: piping a secret in is an honest scripted case,
+    /// and piping in an approval is a decision nobody made.
+    /// </remarks>
+    public bool CanAsk => !System.Console.IsInputRedirected;
+
+    public (string Outcome, string? Reason)? Ask(string obligationId)
+    {
+        while (true)
+        {
+            System.Console.Write($"Approve {obligationId}? [y/N] ");
+
+            // NULL IS END-OF-INPUT AND IT ENDS THE ASKING. Treating it as "not
+            // y" and looping is what the first version did, and with no more
+            // input ever coming it spun for ever - after the work was done and
+            // the lease released, which is the worst place to hang.
+            if (System.Console.ReadLine() is not { } typed)
+            {
+                return null;
+            }
+
+            typed = typed.Trim();
+
+            if (string.Equals(typed, "y", StringComparison.OrdinalIgnoreCase))
+            {
+                return (DecisionOutcomes.Approved, null);
+            }
+
+            if (typed is not ("n" or "N" or ""))
+            {
+                continue;
+            }
+
+            System.Console.Write("Why? ");
+
+            if (System.Console.ReadLine() is not { } why)
+            {
+                return null;
+            }
+
+            if (why.Trim() is { Length: > 0 } reason)
+            {
+                return (DecisionOutcomes.Rejected, reason);
+            }
+
+            System.Console.WriteLine("A rejection needs a reason - the loop runs again with it.");
+        }
+    }
+}

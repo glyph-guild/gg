@@ -3,6 +3,7 @@ using System.Reflection;
 using Gg.Cli;
 using Gg.Client;
 using Gg.Console;
+using Gg.Contracts;
 
 return CliArgs.Parse(args) switch
 {
@@ -652,7 +653,32 @@ static async Task<int> HandAsync(CliAction.Fly fly)
         open: _ => commands.FlyAsync(
             fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository),
         hold: (flightId, token) => HoldAsync(baseAddress, http, session, labels, flightId, token),
-        say: Console.WriteLine);
+        say: Console.WriteLine,
+        // THE PERSON'S SESSION, ON A DOOR THAT ANSWERS TO ONE. Rule 8: the
+        // launcher answers gates and the attended runner never does - and the
+        // reason it never does is here rather than in a check, because this is
+        // the process holding the session and the runner holds a runner token
+        // it was handed. Neither is interchangeable with the other.
+        gates: async flightNumber =>
+        [
+            .. (await client.GatesAsync(session.SessionToken)).Gates
+                .Where(gate => string.Equals(
+                    gate.FlightNumber, flightNumber, StringComparison.Ordinal)),
+        ],
+        answer: new ConsoleGateAnswer(),
+        decide: async (flightNumber, obligation, outcome, reason) =>
+        {
+            // MEASURED, NOT CLAIMED. The observations say a person was asked
+            // interactively and shown the evidence, and both are true HERE in a
+            // way they are not on a scripted call - the gate was rendered to a
+            // terminal a person was sitting at, seconds ago.
+            var recorded = await commands.DecideAsync(
+                flightNumber, obligation, outcome,
+                new DecisionObservations { Interactive = true, EvidenceRendered = true },
+                reason);
+
+            return recorded is not null;
+        });
 }
 
 /// <summary>

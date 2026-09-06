@@ -74,7 +74,10 @@ public class FlyByHandCommandTests
                     new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" }));
             },
             hold: (flight, _) => { order.Add("hold:" + flight); return Task.FromResult(0); },
-            say: _ => { });
+            say: _ => { },
+            gates: NothingWaiting,
+            answer: new NobodyAsked(),
+            decide: (_, _, _, _) => Task.FromResult(true));
 
         await Assert.That(order).IsEquivalentTo(new[] { "plan", "open", "hold:flight-9" })
             .Because("the plan is read FIRST because everything after it creates something, "
@@ -97,7 +100,10 @@ public class FlyByHandCommandTests
             advertised: ["linux"],
             open: _ => { order.Add("open"); return Task.FromResult<VerbResult>(null!); },
             hold: (flight, _) => { order.Add("hold"); return Task.FromResult(0); },
-            say: said.Add);
+            say: said.Add,
+            gates: NothingWaiting,
+            answer: new NobodyAsked(),
+            decide: (_, _, _, _) => Task.FromResult(true));
 
         await Assert.That(order).IsEquivalentTo(new[] { "plan" })
             .Because("reading the plan after the flight is open answers the same question and "
@@ -132,7 +138,10 @@ public class FlyByHandCommandTests
             },
             advertised: [],
             hold: (flight, _) => { order.Add("hold"); return Task.FromResult(0); },
-            say: _ => { });
+            say: _ => { },
+            gates: NothingWaiting,
+            answer: new NobodyAsked(),
+            decide: (_, _, _, _) => Task.FromResult(true));
 
         // NOTHING HELD is the claim; the exit code is whatever the result
         // itself maps to. A non-launch is not necessarily a failure - a flight
@@ -179,8 +188,8 @@ public class FlyByHandCommandTests
             hold: (_, _) => Task.FromResult(0),
             say: said.Add,
             gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
-            answer: _ => DecisionOutcomes.Approved,
-            decide: (_, _, _) => Task.FromResult(true));
+            answer: new Answers(DecisionOutcomes.Approved),
+            decide: (_, _, _, _) => Task.FromResult(true));
 
         var offered = string.Join("\n", said);
         var asGgGatesWouldShowIt = VerbOutput.ToText(
@@ -205,16 +214,16 @@ public class FlyByHandCommandTests
             hold: (_, _) => Task.FromResult(0),
             say: _ => { },
             gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
-            answer: _ => DecisionOutcomes.Rejected,
-            decide: (flight, obligation, outcome) =>
+            answer: new Answers(DecisionOutcomes.Rejected, "the migration needs a rollback"),
+            decide: (flight, obligation, outcome, reason) =>
             {
-                posted.Add($"{flight}:{obligation}:{outcome}");
+                posted.Add($"{flight}:{obligation}:{outcome}:{reason}");
                 return Task.FromResult(true);
             });
 
         await Assert.That(posted).IsEquivalentTo(new[]
         {
-            "GG-9:somebody-looks:" + DecisionOutcomes.Rejected,
+            "GG-9:somebody-looks:" + DecisionOutcomes.Rejected + ":the migration needs a rollback",
         });
     }
 
@@ -224,7 +233,7 @@ public class FlyByHandCommandTests
         // THE COMMON CASE GAINS NO PROMPT. A hand-flight whose envelope opened
         // nothing is the ordinary one, and a prompt that appeared anyway - even
         // an empty one - would make every flight cost a keystroke.
-        var asked = 0;
+        var counted = new Answers(DecisionOutcomes.Approved);
 
         await FlyByHandCommand.RunAsync(
             Flying(),
@@ -235,9 +244,119 @@ public class FlyByHandCommandTests
             hold: (_, _) => Task.FromResult(0),
             say: _ => { },
             gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([]),
-            answer: _ => { asked++; return DecisionOutcomes.Approved; },
-            decide: (_, _, _) => Task.FromResult(true));
+            answer: counted,
+            decide: (_, _, _, _) => Task.FromResult(true));
 
-        await Assert.That(asked).IsEqualTo(0);
+        await Assert.That(counted.Asked).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Nobody_to_ask_says_where_the_decision_lives_instead_of_asking()
+    {
+        // REDIRECTED STDIN IS NOT A PERSON. A prompt printed into a pipe is a
+        // question nobody will see, and the version of this that looped on
+        // Console.ReadLine spun for ever on end-of-input - after the work was
+        // done and the lease released, which is the worst place to hang.
+        var said = new List<string>();
+        var nobody = new NobodyAsked();
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: said.Add,
+            gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
+            answer: nobody,
+            decide: (_, _, _, _) => Task.FromResult(true));
+
+        await Assert.That(nobody.Asked).IsEqualTo(0);
+        await Assert.That(string.Join("\n", said)).Contains("gg decide")
+            .Because("somebody reading this later needs to know the decision is still theirs "
+                   + "to make, and where.");
+    }
+
+    [Test]
+    public async Task A_machine_reading_this_is_not_prompted_either()
+    {
+        // `--json` IS A MACHINE, and a prompt would block it for ever. Same
+        // answer as redirected stdin, one layer up: the gate is named and the
+        // decision is left where a person can find it.
+        var asked = new Answers(DecisionOutcomes.Approved);
+
+        await FlyByHandCommand.RunAsync(
+            new CliAction.Fly("fix the timeout", null, Json: true, ByHand: true),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: _ => { },
+            gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
+            answer: asked,
+            decide: (_, _, _, _) => Task.FromResult(true));
+
+        await Assert.That(asked.Asked).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Somebody_who_answers_nothing_leaves_the_gate_as_it_was()
+    {
+        // NULL IS NOT A DECISION. Somebody who closed the terminal rather than
+        // answering has not approved anything, and inferring one from their
+        // absence is what Article XII forbids one field over.
+        var posted = 0;
+        var said = new List<string>();
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: said.Add,
+            gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
+            answer: new Answers(outcome: null),
+            decide: (_, _, _, _) => { posted++; return Task.FromResult(true); });
+
+        await Assert.That(posted).IsEqualTo(0);
+        await Assert.That(string.Join("\n", said)).Contains("still waiting");
+    }
+
+    /// <summary>A flight with nothing waiting on it.</summary>
+    private static Task<IReadOnlyList<PendingGate>> NothingWaiting(string flightNumber) =>
+        Task.FromResult<IReadOnlyList<PendingGate>>([]);
+
+    /// <summary>Answers whatever it was told to, and counts being asked.</summary>
+    private sealed class Answers(string? outcome, string? reason = null) : IGateAnswer
+    {
+        internal int Asked { get; private set; }
+
+        public bool CanAsk => true;
+
+        public (string Outcome, string? Reason)? Ask(string obligationId)
+        {
+            Asked++;
+
+            return outcome is null ? null : (outcome, reason);
+        }
+    }
+
+    /// <summary>A terminal with nobody at it.</summary>
+    private sealed class NobodyAsked : IGateAnswer
+    {
+        internal int Asked { get; private set; }
+
+        public bool CanAsk => false;
+
+        public (string Outcome, string? Reason)? Ask(string obligationId)
+        {
+            Asked++;
+
+            return null;
+        }
     }
 }

@@ -192,6 +192,16 @@ public class TheScreenRefreshesItselfTests
         await Assert.That(plain).Contains("g refresh ·")
             .Because("and with nothing to say it is the word on its own, so the help page - "
                    + "which is a union over contexts - does not carry a stopped clock.");
+
+        // THE FIRST FRAME, which is drawn before the first tick. Observed: the
+        // console opened saying `g refresh 0s', because a countdown nobody has
+        // counted yet is zero seconds and reads as a clock that has stopped.
+        await Assert.That(AutoRefresh.Says(new RefreshState())).IsEmpty()
+            .Because("nothing counted is nothing to say, not zero.");
+        await Assert.That(AutoRefresh.Says(new RefreshState { NextIn = 7 })).IsEqualTo("7s");
+        await Assert.That(AutoRefresh.Says(new RefreshState { Busy = true })).IsEqualTo("⟳")
+            .Because("and busy outranks the number, which is zero while a read is in the "
+                   + "air.");
     }
 
     [Test]

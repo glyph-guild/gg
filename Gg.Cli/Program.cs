@@ -532,7 +532,13 @@ static async Task<int> LaunchConsoleAsync()
             // serialized under GG_STATE_DUMP and handed to the diagnostics
             // bundle. Read here for the reason the principal is - it is a file
             // this machine already wrote, not a verb.
-            LocalRunnerId = new FileRunnerStore().Read()?.RunnerId,
+            // THE NAMED SLOT, which is the one `gg runner up` writes. The
+            // unnamed one is `gg runner maintain`'s and keeps its name so an
+            // upgrade does not take a pool host down - reading it here said a
+            // pool host's maintain runner was the one you are sitting at, and
+            // on a laptop said there was no runner at all while one was up.
+            LocalRunnerId = new FileRunnerStore(
+                FileRunnerStore.PathFor(Environment.MachineName)).Read()?.RunnerId,
         };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor

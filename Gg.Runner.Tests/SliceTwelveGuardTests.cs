@@ -86,7 +86,16 @@ public class SliceTwelveGuardTests
     /// its shape a ratchet is that both are selections bounded by a menu a
     /// person wrote, not pieces of the regime the work kind already selects.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.23.0";
+    /// <para>
+    /// <b>And to 0.24.0, which added NO kind</b> - so slice twelve's decision is
+    /// noted rather than re-argued. The surface moved because
+    /// AccountConfirmations is part of it and gained `unaided`: an account
+    /// written from nothing, because nothing was proposed. The count below is
+    /// unchanged, which is the shape this guard was built to make visible - a
+    /// version move with a ledger row behind it and no new fact smuggled in
+    /// beside it.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.24.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

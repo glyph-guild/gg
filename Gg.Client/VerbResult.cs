@@ -1468,6 +1468,44 @@ public static class VerbOutput
             // the agent's own question is the tail of it.
             text.AppendLine($"  because:  {Prose(gate.Because, 12)}");
             text.AppendLine($"  since:    {gate.AwaitingSince:u}");
+
+            // WHAT WILL BE CARRIED, BEFORE IT IS CARRIED. A nomination's note
+            // reaches the next agent's prompt, and the person answering this
+            // gate is the only review it gets. Under its own heading rather
+            // than as five more fields: the block above is the platform's, and
+            // a reader who has to work out whose words these are will assume
+            // the platform's too.
+            if (gate.Nomination is { } nomination)
+            {
+                text.AppendLine("  an agent proposed this flight, in its own words - a record, "
+                              + "not this platform's policy:");
+
+                if (nomination.WorkKind is { Length: > 0 } kind)
+                {
+                    text.AppendLine($"    kind:        {Clean(kind)}");
+                }
+
+                // A selection that was not made is not shown. The menu refuses
+                // rather than clamps, so "no environment" is an answer the
+                // destination gave and an empty label would read as a lost one.
+                if (nomination.Environment is { Length: > 0 } environment)
+                {
+                    text.AppendLine($"    environment: {Clean(environment)}");
+                }
+
+                if (nomination.Repository is { Length: > 0 } repository)
+                {
+                    text.AppendLine($"    repository:  {Clean(repository)}");
+                }
+
+                // Column 17, where "    why:         " ends.
+                text.AppendLine($"    why:         {Prose(nomination.Reason, 17)}");
+
+                if (nomination.Note is { Length: > 0 } note)
+                {
+                    text.AppendLine($"    note:        {Prose(note, 17)}");
+                }
+            }
         }
 
         return text.ToString().TrimEnd();

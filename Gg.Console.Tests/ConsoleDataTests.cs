@@ -557,6 +557,10 @@ public class ConsoleStartTests
     [Test]
     public async Task An_empty_queue_says_so_rather_than_showing_nothing()
     {
-        await Assert.That(PaneText.QueueRows(new AppState()).Single()).IsEqualTo("nothing needs you");
+        // The sentence gained a second half when the flights tab landed: an
+        // empty queue is where a person is told nothing needs them, and it is
+        // the one place worth saying where to look instead.
+        await Assert.That(PaneText.QueueRows(new AppState()).Single())
+            .IsEqualTo("nothing needs you · tab for every recent flight");
     }
 }

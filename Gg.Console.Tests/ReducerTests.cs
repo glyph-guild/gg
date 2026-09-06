@@ -32,14 +32,14 @@ public class ReducerTests
     }
 
     [Test]
-    public async Task TabStaysOnTheQueueWhenNothingElseIsOpen()
+    public async Task TabWalksThePermanentTabsWhenNothingElseIsOpen()
     {
-        // WAS FocusCyclesThroughEveryVisiblePane, and the subject moved with
-        // the model. Tab used to cycle FOCUS between the panes that happened to
-        // be visible, which under one shared region was the same question as
-        // "which view has the screen". A view takes the whole screen now, so
-        // tab walks the open TABS - and a console with nothing open has one, so
-        // the honest assertion is that it stays put rather than that it moves.
+        // WAS FocusCyclesThroughEveryVisiblePane, and the subject has moved
+        // twice. Tab used to cycle FOCUS between the panes that happened to be
+        // visible, which under one shared region was the same question as
+        // "which view has the screen"; a view takes the whole screen now, so
+        // tab walks the open TABS. Two of them cannot be closed - what needs a
+        // person, and what has happened - so a bare console has two.
         var state = new AppState { EvidenceVisible = false, LiveVisible = false };
         var seen = new List<TabId>();
 
@@ -49,7 +49,8 @@ public class ReducerTests
             seen.Add(state.ActiveTab);
         }
 
-        await Assert.That(seen.Distinct().ToList()).IsEquivalentTo((TabId[])[TabId.Queue])
+        await Assert.That(seen.Distinct().Order().ToList())
+            .IsEquivalentTo(new[] { TabId.Queue, TabId.Flights }.Order().ToList())
             .Because("tabbing onto a view nobody opened would draw an empty pane under a tab "
                    + "nobody chose. Found: " + string.Join(", ", seen.Distinct()));
     }

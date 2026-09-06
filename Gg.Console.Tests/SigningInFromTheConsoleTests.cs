@@ -82,10 +82,20 @@ public class SigningInFromTheConsoleTests
             new EnvelopeCommands(client, sessions));
     }
 
+    /// <summary>
+    /// A console this machine holds no session for.
+    /// </summary>
+    /// <remarks>
+    /// Shared, because the property beside it in
+    /// <c>SigningInIsTheShellsWorkTests</c> is about the same refusal and a
+    /// second copy of this wiring is a second thing to keep in step.
+    /// </remarks>
+    internal static ConsoleData SignedOut() => Reading(new NoSession());
+
     [Test]
     public async Task A_console_nobody_is_signed_in_on_asks_them_to()
     {
-        var state = await ConsoleStart.LoadAsync(Reading(new NoSession()));
+        var state = await ConsoleStart.LoadAsync(SignedOut());
 
         await Assert.That(state.Mode).IsEqualTo(UiMode.SignIn)
             .Because("an empty queue and a diagnosis naming a command in a terminal this "
@@ -113,7 +123,7 @@ public class SigningInFromTheConsoleTests
         // The modal is what a person does about it; the diagnosis is what
         // happened. A console that swapped one for the other would be a console
         // that forgot why it is empty the moment it offered a way out.
-        var state = await ConsoleStart.LoadAsync(Reading(new NoSession()));
+        var state = await ConsoleStart.LoadAsync(SignedOut());
 
         await Assert.That(state.Diagnosis).IsNotNull();
         await Assert.That(state.Queue).IsEmpty();

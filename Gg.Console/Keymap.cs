@@ -236,6 +236,16 @@ public static class Keymap
         // here would act on a console the person cannot see.
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
+        // THE TWO THINGS THAT CAN BE DONE TO A RUNNER, and the way out. `r' and
+        // `x' are repositories and forget-a-credential in Normal mode and mean
+        // these here, which is what a modal owning the keyboard is for.
+        UiMode.Runner =>
+        [
+            new(KeyStroke.Char('r'), Command.RestartRunner, "restart it"),
+            new(KeyStroke.Char('x'), Command.StopRunner, "shut it down"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.FlightDetail =>
         [
             new(KeyStroke.Esc, Command.CloseModal, "close"),
@@ -289,8 +299,14 @@ public static class Keymap
             // on the hint line: a person presses enter on a row without being
             // told to, and the two lists that answer it are a table and a
             // queue, where it is the obvious thing to try.
-            new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
-                { OffTheHintLine = true },
+            // ON THE ROW UNDER THE CURSOR, and which row that is depends on
+            // which tab has the screen. On the fleet it is this machine's
+            // runner, which is where the log and the two actions live.
+            context.Showing == TabId.Runners
+                ? new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
+                    { OffTheHintLine = true }
+                : new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
+                    { OffTheHintLine = true },
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.

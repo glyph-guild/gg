@@ -100,6 +100,7 @@ public sealed class ConsoleScreen : Window
     public Command ExitCommand { get; private set; } = Command.Quit;
 
     private readonly LiveTails? _tails;
+    private readonly IRunnerLog? _runnerLog;
 
     /// <summary>How often the pane looks, when somebody is watching.</summary>
     /// <remarks>
@@ -112,10 +113,12 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private static readonly TimeSpan LookEvery = TimeSpan.FromMilliseconds(250);
 
-    public ConsoleScreen(IApplication app, AppState state, LiveTails? tails = null)
+    public ConsoleScreen(
+        IApplication app, AppState state, LiveTails? tails = null, IRunnerLog? runnerLog = null)
     {
         _app = app;
         _tails = tails;
+        _runnerLog = runnerLog;
         State = state;
         Title = "Good Grief";
 
@@ -395,25 +398,52 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Watch()
     {
-        if (_tails is null)
+        if (_tails is not null)
+        {
+            _app.AddTimeout(LookEvery, () =>
+            {
+                if (!State.LiveVisible)
+                {
+                    return false;
+                }
+
+                var advanced = _tails.Advance(State);
+                if (ReferenceEquals(advanced, State))
+                {
+                    return true;
+                }
+
+                State = advanced;
+                Render();
+                return true;
+            });
+        }
+
+        if (_runnerLog is null)
         {
             return;
         }
 
+        // THE SAME EXCEPTION, THE SAME SHAPE. A runner coming up is watched for
+        // a few seconds and the whole reason to open the modal is to see it
+        // happen - so the log is read on a tick, out of a local file whose path
+        // this console chose, which is exactly what the live pane's exception
+        // allows and no more. The timer stops the moment the modal closes.
         _app.AddTimeout(LookEvery, () =>
         {
-            if (!State.LiveVisible)
+            if (State.Mode != UiMode.Runner)
             {
                 return false;
             }
 
-            var advanced = _tails.Advance(State);
-            if (ReferenceEquals(advanced, State))
+            var lines = _runnerLog.Read();
+
+            if (State.Here is not { } here || here.Log.SequenceEqual(lines))
             {
                 return true;
             }
 
-            State = advanced;
+            State = State with { Here = here with { Log = lines } };
             Render();
             return true;
         });

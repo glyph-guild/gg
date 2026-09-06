@@ -74,6 +74,7 @@ public static class Reducer
             // the model from the boot. Its four neighbours are the shell's
             // because opening them fetches something.
             Command.ToggleRunners => Toggled(state, TabId.Runners),
+            Command.ShowRunner => RunnerShown(state),
             Command.ToggleLive => ToggleLive(state),
             Command.ToggleFreeze => ToggleFreeze(state),
 
@@ -407,6 +408,22 @@ public static class Reducer
     /// belongs to a shell command, and a <c>Reduce</c> arm that opened a modal
     /// would open it whether or not the attempt had been made.
     /// </remarks>
+    /// <summary>
+    /// Open the modal over the runner on this machine.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pure, unlike its neighbours.</b> What the runner is doing is already
+    /// in the model - the thing that owns the child folds it in between sessions
+    /// and on the tick - so opening this reads nothing and the reducer can do
+    /// the whole of it.
+    /// </remarks>
+    public static AppState RunnerShown(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Modal(state, UiMode.Runner);
+    }
+
     public static AppState HandFlightAnswered(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

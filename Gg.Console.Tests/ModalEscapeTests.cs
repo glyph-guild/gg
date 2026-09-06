@@ -183,13 +183,20 @@ public class ModalEscapeTests
         // console that has loaded nothing could never reach that modal. What
         // the walk is about is whether a KEY can open each one, and a list with
         // a row in it is the smallest state where that question is meaningful.
-        var loaded = new AppState { Flights = OneFlight() };
+        // AND FROM EVERY TAB, because enter means the row under the cursor and
+        // which row that is depends on which tab has the screen. One fixed tab
+        // made this a walk over the keys of one pane, which would have called
+        // the runner modal unreachable while a key opened it.
+        var everywhere = Enum.GetValues<TabId>()
+            .Select(tab => new AppState { Flights = OneFlight(), ActiveTab = tab })
+            .ToList();
 
         foreach (var mode in Enum.GetValues<UiMode>()
                      .Where(m => m != UiMode.Normal && !OpenedByTheLoop.ContainsKey(m)))
         {
-            var opened = KeymapTests.Universe
-                .Select(key => Press(loaded, key))
+            var opened = (from loaded in everywhere
+                          from key in KeymapTests.Universe
+                          select Press(loaded, key))
                 .Any(state => state.Mode == mode);
 
             await Assert.That(opened).IsTrue().Because($"{mode} cannot be opened by any key.");

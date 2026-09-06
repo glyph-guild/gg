@@ -560,6 +560,63 @@ static async Task<int> LaunchConsoleAsync()
     // lifetime, which is what keeps "a session retains nothing" true.
     var tails = new LiveTails(flightId => new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)));
 
+    // THE RUNNER THIS CONSOLE MAY START, and the log it writes. The handle on
+    // the child is owned here, outside every UI lifetime, for the reason the
+    // reader sessions are: a model that is written to disk may hold a pid and
+    // not a process, and a session must retain nothing across a rebuild.
+    var runnerLog = new RunnerLog(RunnerLogPath());
+    using var runner = new RunnerAtHand(runnerLog, () =>
+    {
+        if (Gg.Local.SelfInvocation.Current is not { } self)
+        {
+            return null;
+        }
+
+        var info = new ProcessStartInfo(self.Command)
+        {
+            RedirectStandardInput = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        foreach (var argument in self.Under("runner"))
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        info.ArgumentList.Add("up");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(RunnerLogPath())!);
+        var writer = new StreamWriter(RunnerLogPath(), append: true) { AutoFlush = true };
+        var child = Process.Start(info);
+
+        if (child is null)
+        {
+            writer.Dispose();
+            return null;
+        }
+
+        // DRAINED, because a child whose pipes fill up stops. Both streams into
+        // one file, in the order they arrive, and the writer closes when the
+        // runner does.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.WhenAll(
+                    child.StandardOutput.BaseStream.CopyToAsync(writer.BaseStream),
+                    child.StandardError.BaseStream.CopyToAsync(writer.BaseStream));
+            }
+            finally
+            {
+                await writer.DisposeAsync();
+            }
+        });
+
+        return child;
+    });
+
     // THE TRACKERS THIS MACHINE CAN BROWSE, and this line is the whole of what
     // was missing. `ConsoleLoop` has taken a browser since the pane was built;
     // nothing ever passed one, so `ConfiguredWorkBrowser` was constructed
@@ -585,7 +642,7 @@ static async Task<int> LaunchConsoleAsync()
         Gg.Local.IntentConfiguration.FromEnvironment(), TimeSpan.FromSeconds(15));
 
     var final = new ConsoleLoop(
-        new TerminalGuiSession(tails),
+        new TerminalGuiSession(tails, runnerLog),
         new EditorSession(),
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and
@@ -637,44 +694,12 @@ static async Task<int> LaunchConsoleAsync()
         // flight still in the air - those are the only ones whose log can put a
         // row in the queue - so the detail modal reads its own.
         flightLog: current => ConsoleFlightLog.Read(data, current),
-        // A RUNNER ON THIS MACHINE, spawned and not waited for. `gg runner up`
-        // is a server, so handing it the terminal would mean a person could
-        // either watch a runner or use this console and not both.
-        startRunner: current => ConsoleHandFlight.Start(
-            current,
-            Gg.Local.SelfInvocation.Current,
-            log: RunnerLogPath(),
-            start: info =>
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(RunnerLogPath())!);
-                var writer = new StreamWriter(RunnerLogPath(), append: true);
-                var child = Process.Start(info);
-
-                if (child is null)
-                {
-                    writer.Dispose();
-                    return false;
-                }
-
-                // DRAINED, because a child whose pipes fill up stops. Both
-                // streams into one file, in the order they arrive, and the
-                // writer closes when the runner does.
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.WhenAll(
-                            child.StandardOutput.BaseStream.CopyToAsync(writer.BaseStream),
-                            child.StandardError.BaseStream.CopyToAsync(writer.BaseStream));
-                    }
-                    finally
-                    {
-                        await writer.DisposeAsync();
-                    }
-                });
-
-                return true;
-            }),
+        // THE RUNNER ON THIS MACHINE: start it, stop it, and keep the model's
+        // picture of it current. Three verbs on one object, each named, so
+        // EveryPortIsPassedTests can see all three.
+        startRunner: runner.Start,
+        stopRunner: runner.Stop,
+        runnerHere: runner.Advance,
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the
         // child would be, and how to run it. The order - refuse before asking,

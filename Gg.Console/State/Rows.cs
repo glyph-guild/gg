@@ -192,6 +192,16 @@ public static class Rows
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // A CHILD THIS CONSOLE STARTED AND HAS NOT SEEN DIE IS NOT NOTHING.
+        // It registers and then heartbeats, so for a few seconds the fleet has
+        // no row for it and the honest answer is "coming up" rather than "none
+        // here" - and a start key that is live during those seconds is a second
+        // runner one press away.
+        if (state.Here is { Up: true })
+        {
+            return false;
+        }
+
         return Runners(state).FirstOrDefault(r => r.Mine) is not { } mine
             || mine.State == RunnerStates.Offline;
     }

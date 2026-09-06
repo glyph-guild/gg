@@ -9,7 +9,8 @@ namespace Gg.Console;
 /// the terminal is fully released — nothing of the UI survives except the
 /// returned state.
 /// </summary>
-public sealed class TerminalGuiSession(LiveTails? tails = null) : IUiSession
+public sealed class TerminalGuiSession(
+    LiveTails? tails = null, IRunnerLog? runnerLog = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -20,7 +21,7 @@ public sealed class TerminalGuiSession(LiveTails? tails = null) : IUiSession
 
         using var app = Application.Create();
         app.Init();
-        using var screen = new ConsoleScreen(app, state, tails);
+        using var screen = new ConsoleScreen(app, state, tails, runnerLog);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

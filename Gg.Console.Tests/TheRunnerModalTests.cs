@@ -145,7 +145,6 @@ public class TheRunnerModalTests
         var did = new List<string>();
 
         var ui = new ScriptedUi(
-            state => new UiOutcome(Command.StopRunner, state),
             state => new UiOutcome(Command.RestartRunner, state),
             state => new UiOutcome(Command.Quit, state));
 
@@ -157,9 +156,26 @@ public class TheRunnerModalTests
             .Run(Running());
 
         await Assert.That(did).IsEquivalentTo(new[] { "stop", "start" })
-            .Because("a restart is a stop and a start, and doing it with one port would be a "
-                   + "second way to spawn the same child.");
-        await Assert.That(final.LastRunner).IsEqualTo("starting");
+            .Because("a restart is a stop and a start, in that order, and doing it with one "
+                   + "port would be a second way to spawn the same child.");
+        await Assert.That(final.LastRunner).IsEqualTo("starting")
+            .Because("what a person is told is what the second half of it did.");
+
+        var stopped = new ScriptedUi(
+            state => new UiOutcome(Command.StopRunner, state),
+            state => new UiOutcome(Command.Quit, state));
+
+        did.Clear();
+
+        new ConsoleLoop(
+            stopped,
+            new NoEditor(),
+            startRunner: state => { did.Add("start"); return state; },
+            stopRunner: state => { did.Add("stop"); return state; })
+            .Run(Running());
+
+        await Assert.That(did).IsEquivalentTo(new[] { "stop" })
+            .Because("and a shutdown is only the first half.");
     }
 
     [Test]

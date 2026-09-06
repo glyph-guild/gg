@@ -852,6 +852,14 @@ public static class PaneText
                 ? $"This machine's runner is working on {mine.Work}."
                 : "This machine's runner is up and waiting for work.");
         }
+        else if (state.Here is { Up: true } starting)
+        {
+            // COMING UP, which the fleet cannot say yet. It registers and then
+            // heartbeats, so for a few seconds there is no row for it and the
+            // only thing that knows is the console that started it.
+            text.AppendLine(
+                $"A runner is coming up here as process {starting.Pid} - enter to watch it.");
+        }
 
         text.AppendLine();
 
@@ -1104,6 +1112,50 @@ public static class PaneText
     }
 
     /// <summary>
+    /// What the runner on this machine is doing, and what it has said.
+    /// </summary>
+    /// <remarks>
+    /// <b>The state first, the path second, the log after.</b> Somebody opens
+    /// this while a runner is coming up, so the top line has to answer "is it
+    /// working" without being read past - and the path is here because a log
+    /// this modal shows the tail of is a log somebody will want the whole of.
+    /// </remarks>
+    private static string Runner(AppState state)
+    {
+        var text = new StringBuilder();
+        var here = state.Here;
+
+        text.AppendLine(here switch
+        {
+            null =>
+                "This console has not started a runner. The fleet may still have one from "
+              + "another terminal - the tab behind this says.",
+            { Up: true } up =>
+                $"Running here as process {up.Pid}. It registers with the control plane and "
+              + "then heartbeats, so the tab behind this catches up a beat later.",
+            { Exit: 0 } =>
+                "The runner this console started has shut down.",
+            var gone =>
+                $"The runner this console started exited {gone.Exit}. What it said is below.",
+        });
+
+        if (here is { LogPath.Length: > 0 } logged)
+        {
+            text.AppendLine($"Log: {logged.LogPath}");
+        }
+
+        text.AppendLine();
+
+        var lines = here?.Log ?? [];
+
+        text.AppendLine(lines.Count == 0
+            ? "It has said nothing yet."
+            : string.Join("\n", lines));
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// Why a flight was not flown by hand, in full.
     /// </summary>
     /// <remarks>
@@ -1146,6 +1198,7 @@ public static class PaneText
         UiMode.FlightActions => "What can be done",
         UiMode.FlightDetail => "This flight",
         UiMode.HandFlight => "Nothing was created",
+        UiMode.Runner => "The runner here",
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
@@ -1161,6 +1214,7 @@ public static class PaneText
             UiMode.Help => Help(state),
             UiMode.FlightDetail => FlightDetail(state),
             UiMode.HandFlight => HandFlight(state),
+            UiMode.Runner => Runner(state),
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.SignIn => SignIn(state),

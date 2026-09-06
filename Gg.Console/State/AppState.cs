@@ -32,6 +32,18 @@ public enum UiMode
     FlightDetail,
 
     /// <summary>
+    /// What the runner on this machine is doing, what it has said, and the two
+    /// things that can be done to it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A modal because the answer does not fit on the activity line.</b> The
+    /// starting sentence carried a path and lost it off the right edge, and
+    /// watching a runner come up is a thing somebody does for a few seconds
+    /// rather than a receipt they glance at.
+    /// </remarks>
+    Runner,
+
+    /// <summary>
     /// Why a flight was not flown by hand, and what to do about it.
     /// </summary>
     /// <remarks>
@@ -113,6 +125,45 @@ public enum HelpPage
 /// evidence next because it is the one about the flight the queue selected.
 /// </para>
 /// </remarks>
+/// <summary>
+/// The runner process this console started, as far as this console knows.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Numbers and lines, because the model is written to disk.</b> A
+/// <c>Process</c> handle is unserializable and is a live resource in a
+/// document; what crosses is a pid, an exit code and what the log said. The
+/// handle itself is the composition root's, like the reader sessions'.
+/// </para>
+/// <para>
+/// <b>Absent means this console did not start one.</b> A runner started by
+/// hand in another terminal is a runner the fleet knows about and this does
+/// not, which is exactly right: the two things it offers are stopping and
+/// restarting the child it holds.
+/// </para>
+/// </remarks>
+public sealed record RunnerHere
+{
+    /// <summary>The child, while it is running.</summary>
+    public int? Pid { get; init; }
+
+    /// <summary>What it exited with, once it has.</summary>
+    public int? Exit { get; init; }
+
+    /// <summary>Where its output goes, so the modal can say where to look.</summary>
+    public string LogPath { get; init; } = "";
+
+    /// <summary>The tail of that log, newest last.</summary>
+    public IReadOnlyList<string> Log
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>Whether the child this console started is still up.</summary>
+    public bool Up => Pid is not null && Exit is null;
+}
+
 public enum TabId
 {
     /// <summary>Flights needing me, and the detail of the selected one.</summary>
@@ -688,6 +739,11 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public string? LocalRunnerId { get; init; }
+
+    /// <summary>
+    /// The runner process this console started, or null if it started none.
+    /// </summary>
+    public RunnerHere? Here { get; init; }
 
     /// <summary>Which row of the runners table the cursor is on.</summary>
     /// <remarks>

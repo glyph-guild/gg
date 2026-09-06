@@ -684,11 +684,12 @@ public sealed class ConsoleScreen : Window
                 State.RepositorySelected,
                 r => [r.Chosen, r.Path, r.Name]);
 
-            // NO CURSOR OF ITS OWN. Nothing on this tab is selectable yet -
-            // there is no key that acts on a runner - so the cursor rests on the
-            // row that matters, which is this machine's and is first.
+            // OFF THE MODEL, like the other three. This passed a literal 0 and
+            // a comment saying nothing here is selectable - true of the model
+            // and never true of the widget, so the cursor snapped back to the
+            // top on every render under the person moving it.
             Fill(_runnersTable, _runners, Rows.Runners(State), Rows.RunnerColumns,
-                0,
+                State.RunnerSelected,
                 r => [r.Here, r.Runner, r.State, r.Work, r.Heard]);
 
             // THE NOTICE LABEL ONLY WHEN THE TABLE IS SHOWING. With no rows the

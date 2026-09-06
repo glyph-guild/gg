@@ -171,9 +171,12 @@ public class EveryRecentFlightIsVisibleTests
         // f is freeze and fly-this, l is live - and a person who has to learn a
         // key to find out what their flights did will not learn it. Two
         // permanent tabs and one tab key is the whole discovery path.
-        await Assert.That(Tabs.Open(new AppState())).Contains(TabId.Flights);
-        await Assert.That(Tabs.Bar(new AppState())).Contains("Flights", StringComparison.Ordinal);
+        await Assert.That(Tabs.All).Contains(TabId.Flights);
+        await Assert.That(Tabs.Title(new AppState(), TabId.Flights))
+            .Contains("Flights", StringComparison.Ordinal);
         await Assert.That(Tabs.Next(new AppState())).IsEqualTo(TabId.Flights)
             .Because("one press of tab from where a console opens.");
+        await Assert.That(Tabs.KeyFor(TabId.Flights)).IsNull()
+            .Because("no key, deliberately: every letter that reads as 'flights' is taken.");
     }
 }

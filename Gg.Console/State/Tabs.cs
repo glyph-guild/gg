@@ -20,44 +20,107 @@ namespace Gg.Console;
 public static class Tabs
 {
     /// <summary>
-    /// Every open tab, in the order the bar shows them.
+    /// Every tab, in the order the bar shows them.
     /// </summary>
     /// <remarks>
-    /// The queue is always in it. It is the view a console opens on and the one
-    /// tab that cannot be closed, which is what makes "close the tab you are
-    /// looking at" a move with somewhere to land.
+    /// <b>ALL OF THEM, ALWAYS.</b> The first version listed the tabs whose view
+    /// had been opened, so the bar could only tell a person about views they had
+    /// already found - a repositories tab appeared once you knew how to reach
+    /// the repositories. A bar's whole job is to say what there is.
     /// </remarks>
-    public static IReadOnlyList<TabId> Open(AppState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
+    public static IReadOnlyList<TabId> All { get; } = [.. Enum.GetValues<TabId>()];
 
-        return [.. Enum.GetValues<TabId>().Where(tab => IsOpen(state, tab))];
-    }
-
-    /// <summary>Whether this view is open as a tab.</summary>
-    public static bool IsOpen(AppState state, TabId tab)
+    /// <summary>
+    /// Whether this view holds anything yet.
+    /// </summary>
+    /// <remarks>
+    /// Not about the BAR any more - every tab is on that. This is what the
+    /// pane behind it has to say for itself: the four read-backed views are
+    /// empty until the shell has fetched them, and each one says so in its own
+    /// words rather than rendering blank.
+    /// </remarks>
+    public static bool HasRead(AppState state, TabId tab)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         return tab switch
         {
-            // THE TWO THAT CANNOT BE CLOSED. What needs a person, and what has
-            // happened - the second exists because the first is honest about
-            // needing nobody and that answered nothing.
             TabId.Queue => true,
-            TabId.Flights => true,
+            TabId.Flights => state.Flights is not null,
             TabId.Evidence => state.EvidenceVisible,
             TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
             TabId.Checklist => state.ChecklistVisible,
             TabId.Envelope => state.EnvelopeVisible,
-
-            // TOTAL, AND LOUD. A tab added to the enum and forgotten here would
-            // otherwise be a tab that is never open and never drawn - a view
-            // somebody built and nobody can reach.
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
+    }
+
+    /// <summary>
+    /// The key that jumps to this tab, or null for the two that are always
+    /// where a person already is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read off this rather than typed onto a label.</b> The title is built
+    /// from it and <c>EveryTabIsOnTheBarTests</c> checks the keymap resolves the
+    /// same key to the same tab, so a tab cannot advertise a key that does
+    /// nothing - which is worse than a tab with no key on it.
+    /// </remarks>
+    public static KeyStroke? KeyFor(TabId tab) => tab switch
+    {
+        TabId.Queue or TabId.Flights => null,
+        TabId.Evidence => KeyStroke.Char('v'),
+        TabId.Live => KeyStroke.Char('l'),
+        TabId.Browse => KeyStroke.Char('b'),
+        TabId.Repositories => KeyStroke.Char('r'),
+        TabId.Checklist => KeyStroke.Char('p'),
+        TabId.Envelope => KeyStroke.Char('e'),
+        _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
+    };
+
+    /// <summary>
+    /// What clicking this tab asks for, or null when it needs nothing asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>One path, whether a person clicked or typed.</b> Four of these are
+    /// SHELL commands - showing that view is a read, and a UI session may not
+    /// make one - so a click ends the session exactly as the key does, and the
+    /// next session renders what came back. A tab bar that changed the model
+    /// itself would be a second way to do one thing.
+    /// </remarks>
+    public static Command? CommandFor(TabId tab) => tab switch
+    {
+        TabId.Queue or TabId.Flights => null,
+        TabId.Evidence => Command.ToggleEvidence,
+        TabId.Live => Command.ToggleLive,
+        TabId.Browse => Command.ToggleBrowse,
+        TabId.Repositories => Command.ToggleRepositories,
+        TabId.Checklist => Command.ToggleChecklist,
+        TabId.Envelope => Command.ToggleEnvelope,
+        _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
+    };
+
+    /// <summary>
+    /// What goes on the tab: its name, its key, and a mark when it is holding
+    /// nothing yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>The key is on the tab because the hint line is one line.</b> Six of
+    /// these keys were on it, saying what the bar now says, and the line is
+    /// where a person finds the keys that have nowhere else to live.
+    /// </remarks>
+    public static string Title(AppState state, TabId tab)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var key = KeyFor(tab) is { } stroke ? $" {stroke.Name}" : "";
+
+        // A DOT FOR A VIEW NOBODY HAS FETCHED, and nothing louder. It is a tab
+        // that will read something when you go there, not a fault.
+        var unread = HasRead(state, tab) ? "" : " ·";
+
+        return $"{Name(tab)}{key}{unread}";
     }
 
     /// <summary>
@@ -73,20 +136,20 @@ public static class Tabs
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return IsOpen(state, state.ActiveTab)
-            ? state.ActiveTab == tab
-            : tab == TabId.Queue;
+        return state.ActiveTab == tab;
     }
 
     /// <summary>The tab after the one showing, wrapping.</summary>
     /// <remarks>
-    /// Over the OPEN tabs only. Landing on a view nobody opened would render an
-    /// empty pane, and a key that sometimes does nothing is a key people stop
-    /// pressing.
+    /// Over every tab, because every tab is on the bar. It used to walk the
+    /// open ones so it could not land on an empty pane; a pane that says what
+    /// it is waiting for is a better answer than a tab a person cannot reach.
     /// </remarks>
     public static TabId Next(AppState state)
     {
-        var open = Open(state);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var open = All;
         var showing = -1;
         for (var i = 0; i < open.Count; i++)
         {
@@ -98,35 +161,6 @@ public static class Tabs
         }
 
         return showing < 0 ? TabId.Queue : open[(showing + 1) % open.Count];
-    }
-
-    /// <summary>
-    /// The bar, for the line the title is on.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Always two cells at least.</b> It answered "" for a single tab, which
-    /// was right when the queue was alone on it - a bar with one cell is
-    /// decoration on the line a person reads without being asked to. The queue
-    /// and the flights are both permanent now, so there is always somewhere to
-    /// switch to and the guard had become unreachable.
-    /// </para>
-    /// <para>
-    /// <b>Marked the way the help page marks its own pages.</b> Brackets rather
-    /// than colour, because a console that has to render in a terminal with two
-    /// colours renders the same thing in one with sixteen.
-    /// </para>
-    /// </remarks>
-    public static string Bar(AppState state)
-    {
-        var open = Open(state);
-
-        // JOINED WITH NOTHING, because each cell carries its own two columns
-        // either side - brackets on the one showing, spaces on the rest. So the
-        // names sit at the same place whichever one is marked, and the bar does
-        // not shift under a person's eye when they press tab.
-        return string.Concat(open.Select(tab =>
-            Showing(state, tab) ? $"[ {Name(tab)} ]" : $"  {Name(tab)}  "));
     }
 
     /// <summary>What a tab is called where a person reads it.</summary>

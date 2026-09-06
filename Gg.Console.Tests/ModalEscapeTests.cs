@@ -188,13 +188,17 @@ public class ModalEscapeTests
             {
                 state = Press(state, KeymapTests.Universe[random.Next(KeymapTests.Universe.Count)]);
 
-                // THE SAME CLAIM, ONE FIELD DOWN. It used to be "focus is on a
-                // visible pane"; a view takes the whole screen now, so it is
-                // "the tab showing is one somebody opened" - and Tabs.Showing
-                // is what the view reads, so this asserts what is drawn rather
-                // than a flag beside it.
-                await Assert.That(Tabs.IsOpen(state, state.ActiveTab)).IsTrue()
-                    .Because($"seed {seed} left {state.ActiveTab} showing, which nobody opened.");
+                // THE SAME CLAIM, TWICE MOVED. It was "focus is on a visible
+                // pane"; then a view took the whole screen and it became "the
+                // tab showing is one somebody opened"; and now every tab is on
+                // the bar, so being open is not a thing a tab can fail to be.
+                // What is still worth asserting over generated keys is that
+                // exactly one view is ever drawn - the invariant the whole
+                // layout rests on.
+                var drawn = Tabs.All.Count(tab => Tabs.Showing(state, tab));
+
+                await Assert.That(drawn).IsEqualTo(1)
+                    .Because($"seed {seed} draws {drawn} views at once.");
             }
         }
     }

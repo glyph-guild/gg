@@ -83,49 +83,48 @@ public class TabsTakeTheWholeScreenTests
     }
 
     [Test]
-    public async Task Tab_moves_to_the_next_open_tab_and_comes_back_round()
+    public async Task Tab_moves_to_the_next_tab_in_the_order_the_bar_shows_them()
     {
+        // AMENDED WHEN EVERY TAB WENT ON THE BAR. It walked the OPEN tabs, so
+        // this pressed tab four times and expected to come back round; it walks
+        // all eight now, in the order the enum declares them, which is the
+        // order of the bar. ReducerTests.TabWalksEveryTabAndComesBackRound is
+        // the full circuit; this is the order.
         var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
-        state = Reducer.Reduce(state, Command.ToggleLive);
 
-        // Live is showing; the open set is queue, flights, evidence, live - in
-        // the order the enum declares them, which is the order of the bar.
-        state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Queue);
-
-        state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Flights);
-
-        state = Reducer.Reduce(state, Command.FocusNextPane);
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Evidence);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Live)
-            .Because("four open tabs and tab pressed four times is where it started.");
+            .Because("live is the tab after evidence on the bar.");
+
+        state = Reducer.Reduce(state, Command.FocusNextPane);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse);
     }
 
     [Test]
-    public async Task Tab_never_lands_on_a_view_nobody_opened()
+    public async Task A_tab_a_person_lands_on_says_what_it_is_waiting_for()
     {
-        // AMENDED WHEN THE FLIGHTS TAB BECAME PERMANENT. It asserted that tab
-        // from a bare console stays on the queue, which was true while the
-        // queue was the only tab that could not be closed. The claim it exists
-        // for is the one below: tab reaches the tabs that are OPEN and no
-        // others, because a tab showing a view nobody opened would draw an
-        // empty pane.
+        // AMENDED TWICE, and this is the third subject. It asserted tab stays
+        // on the queue from a bare console; then that it walks the two
+        // permanent tabs; and now every tab is on the bar, so landing on a view
+        // nobody has fetched is a thing that HAPPENS - and what makes that all
+        // right is the pane saying so rather than drawing blank.
         var state = new AppState();
-        var seen = new List<TabId>();
 
-        for (var press = 0; press < 5; press++)
+        for (var press = 0; press < Tabs.All.Count; press++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
-            seen.Add(state.ActiveTab);
-        }
 
-        await Assert.That(seen.Distinct().Order().ToList())
-            .IsEquivalentTo(new[] { TabId.Queue, TabId.Flights }.Order().ToList())
-            .Because("the two permanent tabs and nothing else. Found: "
-                   + string.Join(", ", seen.Distinct()));
+            if (Tabs.HasRead(state, state.ActiveTab))
+            {
+                continue;
+            }
+
+            await Assert.That(PaneText.ForTab(state, state.ActiveTab)).IsNotEmpty()
+                .Because($"{state.ActiveTab} has read nothing yet, and a pane that draws "
+                       + "blank is indistinguishable from a broken one.");
+        }
     }
 
     [Test]
@@ -164,28 +163,35 @@ public class TabsTakeTheWholeScreenTests
         var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
         state = Reducer.Reduce(state, Command.ToggleLive);
 
-        var bar = Tabs.Bar(state);
-
-        await Assert.That(bar).Contains("[ Live ]", StringComparison.Ordinal)
-            .Because("the one showing is marked, the way the help page's own pages are.");
-        await Assert.That(bar).Contains("Queue", StringComparison.Ordinal);
-        await Assert.That(bar).Contains("Evidence", StringComparison.Ordinal);
-        await Assert.That(bar).DoesNotContain("Envelope", StringComparison.Ordinal)
-            .Because("a tab for a view nobody opened is a tab that shows an empty pane.");
+        // WAS ABOUT A STRING IN THE TITLE, which is what the bar used to be.
+        // The component marks the one showing itself, so what the model owes it
+        // is which tab that is - and Tabs.Showing is where that is asserted,
+        // one test up. What is left here is the titles, which are the model's.
+        await Assert.That(Tabs.Title(state, TabId.Live)).Contains("Live", StringComparison.Ordinal);
+        await Assert.That(Tabs.Title(state, TabId.Envelope))
+            .Contains("Envelope", StringComparison.Ordinal)
+            .Because("every tab is on the bar now, including the views nobody has opened - "
+                   + "the bar's job is to say what there is.");
+        await Assert.That(Tabs.Showing(state, TabId.Live)).IsTrue();
     }
 
     [Test]
-    public async Task The_bar_names_the_two_tabs_that_are_always_there()
+    public async Task A_tab_that_has_read_nothing_says_so_rather_than_hiding()
     {
-        // WAS "says nothing when only the queue is open", and that case no
-        // longer exists: the flights tab is permanent too, so there is always
-        // somewhere to switch to. The rule it encoded - a bar with one cell is
-        // decoration on the most expensive line on the screen - is why Bar's
-        // guard was deleted rather than left unreachable.
-        var bar = Tabs.Bar(new AppState());
+        // WAS about which tabs the bar names, twice over: first "nothing when
+        // only the queue is open", then "the two that are always there". Every
+        // tab is on the bar now, so what is left to say is how a person can
+        // tell the difference between a view with something in it and one that
+        // will fetch when they go there.
+        var bare = new AppState();
 
-        await Assert.That(bar).Contains("[ Queue ]", StringComparison.Ordinal);
-        await Assert.That(bar).Contains("Flights", StringComparison.Ordinal);
-        await Assert.That(bar).DoesNotContain("Evidence", StringComparison.Ordinal);
+        await Assert.That(Tabs.HasRead(bare, TabId.Queue)).IsTrue();
+        await Assert.That(Tabs.HasRead(bare, TabId.Repositories)).IsFalse();
+
+        await Assert.That(Tabs.Title(bare, TabId.Repositories))
+            .IsNotEqualTo(Tabs.Title(
+                bare with { RepositoriesVisible = true }, TabId.Repositories))
+            .Because("a tab holding nothing yet and a tab holding something read the same "
+                   + "otherwise, and one of them costs a read to visit.");
     }
 }

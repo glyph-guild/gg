@@ -27,6 +27,37 @@ namespace Gg.Console;
 /// </remarks>
 public static class PaneText
 {
+    /// <summary>
+    /// What one tab's pane says, whichever tab it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because a tab a person can reach is a tab that has to say
+    /// something.</b> Every view is on the bar from the start, so tabbing lands
+    /// on views the shell has not fetched - and a pane that draws blank there
+    /// is indistinguishable from a broken one. Each renderer already answers
+    /// for its own absence; this is the one place that says all of them do,
+    /// which is what <c>TabsTakeTheWholeScreenTests</c> asserts over every tab.
+    /// </remarks>
+    public static string ForTab(AppState state, TabId tab)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return tab switch
+        {
+            // The queue is a list rather than a block of text, so its rows are
+            // joined here: what this answers is "does this tab say anything".
+            TabId.Queue => string.Join("\n", QueueRows(state)),
+            TabId.Flights => Flights(state),
+            TabId.Evidence => Evidence(state),
+            TabId.Live => Live(state),
+            TabId.Browse => Browse(state),
+            TabId.Repositories => Repositories(state),
+            TabId.Checklist => Checklist(state),
+            TabId.Envelope => Envelope(state),
+            _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
+        };
+    }
+
     /// <summary>One line per flight needing me.</summary>
     public static IReadOnlyList<string> QueueRows(AppState state)
     {
@@ -1065,8 +1096,11 @@ public static class PaneText
     /// console is doing when nobody opened anything.
     /// </para>
     /// <para>
-    /// The hidden bindings are not here either - see <c>KeyBinding.Hidden</c>,
-    /// which is exactly two keys and a second way to do what they do.
+    /// <b>Every key, including the ones that are not on the hint line.</b> The
+    /// two are different claims: a key leaves the LINE because it is advertised
+    /// somewhere else - on its own tab, or here - and leaves THIS PAGE only
+    /// when the thing it does has another key entirely. That is j and k, whose
+    /// work the arrows do.
     /// </para>
     /// </remarks>
     private static string HelpKeys(AppState state)
@@ -1074,7 +1108,7 @@ public static class PaneText
         var text = new StringBuilder();
 
         foreach (var group in Keymap.Catalogue()
-                     .Where(entry => !entry.Binding.Hidden)
+                     .Where(entry => !entry.Binding.Untaught)
                      .GroupBy(entry => entry.Mode))
         {
             if (group.Key != UiMode.Normal)

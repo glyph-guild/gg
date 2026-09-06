@@ -79,7 +79,7 @@ public class KeymapTests
         // The rendered string, not just the binding list - because the string
         // is what a person actually reads.
         //
-        // AMENDED WHEN j AND k STOPPED BEING TAUGHT, and amended by tightening:
+        // AMENDED WHEN KEYS STARTED LEAVING THE LINE, and amended by tightening:
         // it asserted presence only, so it would have passed just as well if
         // the line had lost a key nobody meant to hide. It now says the line
         // holds every live binding that is not hidden AND holds no hidden one.
@@ -94,7 +94,7 @@ public class KeymapTests
 
             foreach (var binding in Keymap.Bindings(context))
             {
-                if (binding.Hidden)
+                if (binding.OffTheHintLine)
                 {
                     await Assert.That(hints).DoesNotContain($"{binding.Key.Name} {binding.Description}")
                         .Because($"{context} teaches {binding.Key.Name}, which is bound and not "
@@ -108,7 +108,7 @@ public class KeymapTests
 
             // THE ANCHOR FOR THE ARM ABOVE. A keymap that hid everything would
             // satisfy every DoesNotContain in this loop.
-            await Assert.That(Keymap.Bindings(context).Any(b => !b.Hidden)).IsTrue()
+            await Assert.That(Keymap.Bindings(context).Any(b => !b.OffTheHintLine)).IsTrue()
                 .Because($"{context} advertises nothing at all.");
         }
     }
@@ -197,11 +197,26 @@ public class KeymapTests
         // "close" rather than "hide", and only from the tab itself: from
         // anywhere else the key brings it forward, and advertising a close that
         // does not happen is how a person learns to stop trusting the line.
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Queue))).Contains("l live");
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Live))).Contains("l close live");
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Evidence))).Contains("l live")
-            .Because("the live tab may be open behind this one, and l goes to it.");
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Live, Frozen: true))).Contains("f unfreeze");
+        //
+        // OFF THE BINDING FOR THE TAB KEYS, because the hint line no longer
+        // carries them - each is advertised on its own tab. The description is
+        // what the help page renders, and it is the thing this test is about.
+        string Toggle(KeymapContext context, Command command) => Keymap
+            .Bindings(context).Single(b => b.Command == command).Description;
+
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Queue), Command.ToggleLive))
+            .IsEqualTo("live");
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Live), Command.ToggleLive))
+            .IsEqualTo("close live");
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Evidence), Command.ToggleLive))
+            .IsEqualTo("live")
+            .Because("the live tab is still there behind this one, and l goes to it.");
+
+        // f IS NOT A TAB, so it stays on the line - which is the anchor for the
+        // three above: they moved because their keys moved, not because the
+        // line stopped saying what a key will do.
+        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Live, Frozen: true)))
+            .Contains("f unfreeze");
     }
 
     [Test]

@@ -145,6 +145,18 @@ public static class FactKinds
     /// </remarks>
     public const string LoopQuestion = "loop.question";
 
+    /// <summary>
+    /// A session a person flew, and what holding the terminal cost the
+    /// measurement.
+    /// </summary>
+    /// <remarks>
+    /// Rule 3: absence is declared rather than implied by a default. It carries
+    /// no outcome, no attempts and no moves used - those are the three an
+    /// attended session cannot see, and all three have a plausible, expressible,
+    /// silently wrong value.
+    /// </remarks>
+    public const string LoopAttended = "loop.attended";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -159,7 +171,7 @@ public static class FactKinds
          DestinationPushed,
          LoopDigest,
          HumanAccount,
-         FlightNomination, LoopQuestion];
+         FlightNomination, LoopQuestion, LoopAttended];
 }
 
 /// <summary>
@@ -304,7 +316,7 @@ public static class FactVocabulary
     /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
     /// none still never crosses from a working runner - a broken bound
     /// releases the lease with the diagnosis instead of shipping anything.
-    public const string Version = "0.20.0";
+    public const string Version = "0.21.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -955,6 +967,16 @@ public sealed record FactEnvelope
     /// </remarks>
     public LoopQuestion? Question { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopAttended"/>.
+    /// </summary>
+    /// <remarks>
+    /// Its own slot rather than members on <see cref="Loop"/>, because the whole
+    /// claim is that no loop was measured: hanging it off the payload that says
+    /// one was is the contradiction the fact exists to prevent.
+    /// </remarks>
+    public LoopAttended? Attended { get; init; }
+
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
@@ -999,6 +1021,7 @@ public sealed record FactEnvelope
             (FactKinds.HumanAccount, envelope.Human is not null),
             (FactKinds.FlightNomination, envelope.Nomination is not null),
             (FactKinds.LoopQuestion, envelope.Question is not null),
+            (FactKinds.LoopAttended, envelope.Attended is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();
@@ -1039,6 +1062,12 @@ public sealed record FactEnvelope
             && LoopQuestion.Validate(question) is { } badQuestion)
         {
             return badQuestion;
+        }
+
+        if (envelope.Attended is { } attended
+            && LoopAttended.Validate(attended) is { } badAttended)
+        {
+            return badAttended;
         }
 
         if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)

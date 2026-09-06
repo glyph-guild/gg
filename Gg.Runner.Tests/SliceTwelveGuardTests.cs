@@ -63,7 +63,12 @@ public class SliceTwelveGuardTests
     /// so the count below moves too, and the argument is made rather than
     /// noted. See it there.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.20.0";
+    /// <para>
+    /// <b>And to 0.21.0 by slice twenty-six step 6, which added a kind as
+    /// well</b> - <c>loop.attended</c>, plus <c>AttendedGaps</c>, a closed
+    /// vocabulary of three. The argument is below with the count.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.21.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -92,12 +97,36 @@ public class SliceTwelveGuardTests
     /// agent's requests rather than measurements, and that is the direction
     /// this number exists to make somebody look at.
     /// </para>
+    /// <para>
+    /// <b>The twelfth is <c>loop.attended</c>, and here is the argument.</b>
+    /// The criterion is that <i>a fact belongs to a flight and a routine action
+    /// has none</i>. An attended session is a LOOP of a flight's envelope,
+    /// flown at a terminal: it is produced by that loop, ships on that flight's
+    /// lease, is keyed on that flight's id, and is read back beside that
+    /// flight's other facts when somebody works out why a move condition halted.
+    /// There is no attended session without a flight to fly, which is exactly
+    /// what slice twelve found was untrue of a pool attestation.
+    /// </para>
+    /// <para>
+    /// <b>And it is a THIRD direction this number should make somebody look
+    /// at.</b> Nine of the twelve are measurements, two are an agent's requests,
+    /// and this one is a declaration of what was NOT measured. A vocabulary
+    /// growing a second fact whose subject is an absence would be worth
+    /// stopping over - one is rule 3 applied where a person holds the terminal,
+    /// and two would be a habit of describing sessions nothing watched.
+    /// </para>
     /// </remarks>
-    private const int KindsThatCross = 11;
+    private const int KindsThatCross = 12;
 
     [Test]
-    public async Task Attestations_are_not_facts_and_the_kind_count_stays_nine()
+    public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()
     {
+        // NAMED FOR WHAT IT CHECKS, three kinds after it stopped being nine.
+        // The old name said "stays nine" while the literal said eleven, which is
+        // the shape four separate findings took this week: prose stating a
+        // property directly above code that no longer has it. A guard whose name
+        // is wrong is one a reader stops trusting, and this one's whole value is
+        // that somebody reads it.
         await Assert.That(FactKinds.All.Count).IsEqualTo(KindsThatCross)
             .Because("an attestation from a resident runner is runner-origin and measured - "
                    + "it survives both prior arguments against new kinds - and it is STILL "

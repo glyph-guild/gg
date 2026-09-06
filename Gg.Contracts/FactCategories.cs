@@ -90,6 +90,12 @@ public static class FactCategories
         // could rule out an agent asking a question - so it is categorised
         // rather than vetoed.
         [FactKinds.LoopQuestion] = Flight,
+
+        // THE EPISODE, AND NOTHING BUT. It measures the session a person flew -
+        // how long they held it, what the machine could not see - and names no
+        // subject at all, so Tree would make it unproducible by the one kind of
+        // flight that produces it.
+        [FactKinds.LoopAttended] = Flight,
         [FactKinds.DestinationPushed] = Flight,
         [FactKinds.DestinationLanded] = Flight,
     };

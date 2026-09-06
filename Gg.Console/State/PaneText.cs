@@ -55,10 +55,12 @@ public static class PaneText
     /// Everything known about one flight: what it is, and what happened to it.
     /// </summary>
     /// <remarks>
-    /// <b>Out of what the boot already fetched</b>, which is why enter costs no
-    /// request - the flight from the list and the log from the logs it fetched
-    /// beside it. A flight whose log did not load says so rather than reading
-    /// as a flight that nothing happened to.
+    /// <b>Out of the model, and the model is filled two ways.</b> The flight
+    /// comes from the list the boot read. The log comes from the boot for a
+    /// flight still in the air, and from <c>ConsoleFlightLog</c> on the keypress
+    /// for one that landed - which is most of them, and is why the boot stopped
+    /// fetching fifty logs to make this free. A flight whose log did not load
+    /// says so rather than reading as a flight that nothing happened to.
     /// </remarks>
     private static string FlightDetail(AppState state)
     {

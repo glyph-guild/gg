@@ -155,29 +155,43 @@ public static class ConsoleStart
             // produced by nothing.
             var gates = await waiting is VerbResult.Gates open ? open.Value : null;
 
-            // ROUND TWO: A LOG PER FLIGHT, ALL OF THEM AT ONCE UP TO A BOUND.
-            // The count is unchanged and is not the defect - the log is what
-            // fills the queue's two log-derived reasons and what makes the detail
-            // modal free when somebody presses enter. What was wrong is that a
-            // tenant with fifty flights waited for fifty round trips in a row,
-            // and the wait grew by one for every flight they ever flew.
+            // ROUND TWO: A LOG FOR EVERY FLIGHT THAT IS STILL FLYING, AND FOR
+            // NO OTHER. It was one per flight ever flown, which on a tenant with
+            // fifty was fifty round trips before the console drew anything -
+            // and forty-eight of them could not have changed a row. Both of the
+            // queue's log-derived reasons are about a flight that is still
+            // running: a lease that expired twice, and a runner that went
+            // offline holding it. A flight that has landed needs nobody.
+            //
+            // THE DETAIL MODAL READS ITS OWN NOW, which is the other half of
+            // this and is in ConsoleLoop. Enter on a landed flight is one
+            // request on a keypress, with the terminal released, exactly like
+            // every tab in this console.
+            //
+            // STILL BOUNDED. One task per flight would open a connection per
+            // flight, and a tenant can have any number in the air at once.
             using var room = new SemaphoreSlim(LogsAtOnce);
 
-            var reading = flights.Value.Flights.Select(async flight =>
-            {
-                await room.WaitAsync(cancellationToken);
-                try
+            var reading = flights.Value.Flights
+                .Where(flight => flight.State == Gg.Contracts.FlightStates.Open)
+                .Select(async flight =>
                 {
-                    return (flight.FlightId, Answer: await data.LogAsync(
-                        flight.FlightId, cancellationToken));
-                }
-                finally
-                {
-                    room.Release();
-                }
-            }).ToList();
+                    await room.WaitAsync(cancellationToken);
+                    try
+                    {
+                        return (flight.FlightId, Answer: await data.LogAsync(
+                            flight.FlightId, cancellationToken));
+                    }
+                    finally
+                    {
+                        room.Release();
+                    }
+                })
+                .ToList();
 
-            var logs = new Dictionary<string, Gg.Contracts.FlightLog>(StringComparer.Ordinal);
+            var logs = new Dictionary<string, Gg.Contracts.FlightLog>(
+                start.Logs, StringComparer.Ordinal);
+
             foreach (var (flightId, answer) in await Task.WhenAll(reading))
             {
                 if (answer is VerbResult.Log log)

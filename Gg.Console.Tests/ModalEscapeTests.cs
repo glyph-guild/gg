@@ -124,6 +124,15 @@ public class ModalEscapeTests
           + "for it by ASecondFlightIsWarnedAboutTests: it is entered through FlyPicked and "
           + "left through CloseModal, and Every_modal_has_exactly_one_escape_hatch above "
           + "already covers it.",
+
+        [UiMode.FlightDetail] =
+            "opened by ConsoleLoop's ShowFlight arm after reading that flight's log - a "
+          + "read, so it cannot happen inside a UI session. The boot fetches a log only "
+          + "for a flight still in the air, and the modal is usually opened on one that "
+          + "landed, so opening it from a key would show `no log fetched' over a pane "
+          + "that never comes back to correct itself. Entered through Reducer.FlightShown "
+          + "and left through CloseModal; TheBootReadsWhatItShowsTests drives the real "
+          + "loop into it and asserts the log it renders is the one just read.",
     };
 
     /// <summary>The smallest list a cursor can point into.</summary>

@@ -253,6 +253,12 @@ public static class ShellCommands
         // A read, like browsing.
         Command.ToggleRepositories,
 
+        // AND SO IS OPENING A FLIGHT, since the boot stopped reading a log for
+        // every flight ever flown. The modal shows one flight's log; the flight
+        // it shows is usually one that landed, whose log the boot deliberately
+        // skips. One request, on a keypress, with the terminal released.
+        Command.ShowFlight,
+
         // TWO REQUESTS AND A CREDENTIAL WRITTEN TO DISK, which is as far from
         // "a session may read a local file" as this console gets. It is also
         // the only one of these a person can reach before there is a session at

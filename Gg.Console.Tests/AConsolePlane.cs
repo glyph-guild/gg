@@ -138,10 +138,15 @@ internal sealed class AConsolePlane : HttpMessageHandler
     {
         if (path.EndsWith("/log", StringComparison.Ordinal))
         {
+            // THE ID IT WAS ASKED FOR. A constant here keyed every log under
+            // one flight, so a test could not tell a log that arrived for the
+            // right flight from one that arrived for any flight.
+            var asked = path.Split('/')[^2];
+
             return JsonSerializer.Serialize(
                 new FlightLog
                 {
-                    FlightId = "f",
+                    FlightId = asked,
                     FlightNumber = "GG-1",
                     Entries =
                     [

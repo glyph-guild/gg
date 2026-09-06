@@ -131,7 +131,7 @@ public static class Reducer
     /// reads that to decide whether to fetch anything.
     /// </remarks>
     internal static AppState Toggled(AppState state, TabId tab) =>
-        Showing(state, tab, open: !(state.ActiveTab == tab && Tabs.IsOpen(state, tab)));
+        Showing(state, tab, open: !(state.ActiveTab == tab && Tabs.HasRead(state, tab)));
 
     /// <summary>
     /// Moves the cursor, and marks what it lands on as read.

@@ -108,18 +108,39 @@ public readonly record struct KeyBinding(KeyStroke Key, Command Command, string 
     public string? When { get; init; }
 
     /// <summary>
-    /// Bound, and deliberately not advertised.
+    /// Bound, and kept off the hint line.
     /// </summary>
     /// <remarks>
-    /// <b>ONLY j AND k, and only because there is a second way to do it.</b>
-    /// The arrows move the queue through the list widget, so a person who never
-    /// learned vim already has the key - and the hint line is one line, where
-    /// every slot spent is one a key nobody knows could have had. Hidden is
-    /// about the page, never about the keyboard: <see cref="Keymap.Resolve"/>
+    /// <para>
+    /// <b>THE LINE IS ONE LINE, and every slot spent is one a key nobody knows
+    /// could have had.</b> Three kinds of key are off it and each has somewhere
+    /// else to be found: the six tab keys are printed on their own tabs, the
+    /// two credential keys are in help and used about twice a year, and j and k
+    /// are what the arrows already do.
+    /// </para>
+    /// <para>
+    /// <b>Off the LINE, not out of the program.</b> <see cref="Keymap.Resolve"/>
     /// does not look at this, and <c>KeymapTests</c> still proves advertised
-    /// keys and live keys are the same set.
+    /// keys and live keys are one set. The help page shows these; see
+    /// <see cref="Untaught"/> for the only two it does not.
+    /// </para>
     /// </remarks>
-    public bool Hidden { get; init; }
+    public bool OffTheHintLine { get; init; }
+
+    /// <summary>
+    /// Not on the help page either.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONLY j AND k, and only because the arrows do the same thing.</b> Two
+    /// properties rather than one because they are two different claims, and
+    /// collapsing them cost something: when the six tab keys were marked as
+    /// merely hidden, the help page - which exists to name EVERY key - stopped
+    /// naming them, and the test that says it names every key was iterating the
+    /// same flag, so it passed while the page was wrong. A key is taken off the
+    /// line because it is advertised elsewhere; it is taken out of help only
+    /// when there is another way to do the thing itself.
+    /// </remarks>
+    public bool Untaught { get; init; }
 }
 
 /// <summary>One catalogue entry: a binding and the mode it belongs to.</summary>
@@ -234,24 +255,34 @@ public static class Keymap
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.
-            new(KeyStroke.Char('j'), Command.SelectNext, "down") { Hidden = true },
-            new(KeyStroke.Char('k'), Command.SelectPrevious, "up") { Hidden = true },
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { OffTheHintLine = true, Untaught = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { OffTheHintLine = true, Untaught = true },
             new(KeyStroke.Char('v'), Command.ToggleEvidence,
-                Closes(context, TabId.Evidence, "evidence")),
+                Closes(context, TabId.Evidence, "evidence")) { OffTheHintLine = true },
             // WHAT A SECOND PRESS WILL DO, and under tabs that is "close" only
             // while you are looking at it. A key that said "hide" for an open
             // tab you had switched away from would advertise a close that does
             // not happen - the key brings it forward instead.
-            new(KeyStroke.Char('l'), Command.ToggleLive, Closes(context, TabId.Live, "live")),
-            new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse")),
+            //
+            // HIDDEN BECAUSE THE TAB SAYS IT. Each of these six is on its own
+            // tab in the bar, with its key on the label - so the hint line,
+            // which is one line, keeps only the keys that have nowhere else to
+            // be advertised. Bound, not advertised twice: the rule
+            // KeyBinding.Hidden was written for.
+            new(KeyStroke.Char('l'), Command.ToggleLive, Closes(context, TabId.Live, "live"))
+                { OffTheHintLine = true },
+            new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse"))
+                { OffTheHintLine = true },
             new(KeyStroke.Char('r'), Command.ToggleRepositories,
-                Closes(context, TabId.Repositories, "repositories")),
+                Closes(context, TabId.Repositories, "repositories")) { OffTheHintLine = true },
             // `p` for plan, which is the verb it calls.
             new(KeyStroke.Char('p'), Command.ToggleChecklist,
-                Closes(context, TabId.Checklist, "checklist")),
+                Closes(context, TabId.Checklist, "checklist")) { OffTheHintLine = true },
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,
-                Closes(context, TabId.Envelope, "envelope")),
+                Closes(context, TabId.Envelope, "envelope")) { OffTheHintLine = true },
             // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH. This was two
             // booleans with an explicit precedence between them, because live
             // and browse shared a region: both flags on was a state the console
@@ -287,10 +318,16 @@ public static class Keymap
             // while it is open, and one of these reachable from a gate decision
             // would be a key doing something unrelated to the question on screen.
             new(KeyStroke.Char('n'), Command.OpenFlight, "new flight"),
-            new(KeyStroke.Char('c'), Command.AddCredential, "add credential"),
+            // THE TWO CREDENTIAL KEYS ARE IN HELP AND NOT ON THE LINE. Adding
+            // and forgetting a credential is a thing a person does when they
+            // set the tenant up and then about twice a year, and it was
+            // spending two of the line's slots every second of every session.
+            new(KeyStroke.Char('c'), Command.AddCredential, "add credential")
+                { OffTheHintLine = true },
             // `x` for forget, because `f` is freeze and fly-this and `r` is
             // reject. A store you cannot clean is a store people work around.
-            new(KeyStroke.Char('x'), Command.ForgetCredential, "forget credential"),
+            new(KeyStroke.Char('x'), Command.ForgetCredential, "forget credential")
+                { OffTheHintLine = true },
             new(KeyStroke.Char('i'), Command.Invite, "invite"),
             // `y` because every letter in `fly by hand` is taken: f is freeze
             // and fly-this, l is nothing yet but reads as live, b is browse, h
@@ -348,7 +385,7 @@ public static class Keymap
     /// </remarks>
     public static string Hints(KeymapContext context) =>
         string.Join(" · ", Bindings(context)
-            .Where(b => !b.Hidden)
+            .Where(b => !b.OffTheHintLine)
             .Select(b => $"{b.Key.Name} {b.Description}"));
 
     /// <summary>

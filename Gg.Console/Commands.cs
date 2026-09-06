@@ -157,6 +157,18 @@ public enum Command
     /// <c>SeedPlacer</c>, and the model records WHERE rather than WHAT.
     /// </remarks>
     Invite,
+
+    /// <summary>
+    /// Sign this machine in, one step of a device authorization at a time.
+    /// </summary>
+    /// <remarks>
+    /// <b>One command, two meanings, decided by whether a code is already
+    /// waiting</b> — <see cref="FlyPicked"/>'s shape. Pressed with nothing
+    /// started it asks the control plane for a code; pressed with one on the
+    /// screen it says the person has approved it. The keymap binds a different
+    /// key to each, so nothing downstream depends on how fast somebody types.
+    /// </remarks>
+    SignIn,
 }
 
 /// <summary>
@@ -230,5 +242,12 @@ public static class ShellCommands
 
         // A read, like browsing.
         Command.ToggleRepositories,
+
+        // TWO REQUESTS AND A CREDENTIAL WRITTEN TO DISK, which is as far from
+        // "a session may read a local file" as this console gets. It is also
+        // the only one of these a person can reach before there is a session at
+        // all - every other write here would be refused by the control plane on
+        // the machine this one exists to fix.
+        Command.SignIn,
     };
 }

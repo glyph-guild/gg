@@ -57,7 +57,8 @@ public class NoticeRowTests
         // stop reading, which would cost this one its only job.
         var rows = PaneText.QueueRows(new AppState());
 
-        await Assert.That(rows).IsEquivalentTo((string[])["nothing needs you"]);
+        await Assert.That(rows)
+            .IsEquivalentTo((string[])["nothing needs you · tab for every recent flight"]);
     }
 
     [Test]

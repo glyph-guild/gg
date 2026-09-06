@@ -88,31 +88,44 @@ public class TabsTakeTheWholeScreenTests
         var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
         state = Reducer.Reduce(state, Command.ToggleLive);
 
-        // Live is showing; the open set is queue, evidence, live.
+        // Live is showing; the open set is queue, flights, evidence, live - in
+        // the order the enum declares them, which is the order of the bar.
         state = Reducer.Reduce(state, Command.FocusNextPane);
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Queue);
+
+        state = Reducer.Reduce(state, Command.FocusNextPane);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Flights);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Evidence);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Live)
-            .Because("three open tabs and tab pressed three times is where it started.");
+            .Because("four open tabs and tab pressed four times is where it started.");
     }
 
     [Test]
     public async Task Tab_never_lands_on_a_view_nobody_opened()
     {
+        // AMENDED WHEN THE FLIGHTS TAB BECAME PERMANENT. It asserted that tab
+        // from a bare console stays on the queue, which was true while the
+        // queue was the only tab that could not be closed. The claim it exists
+        // for is the one below: tab reaches the tabs that are OPEN and no
+        // others, because a tab showing a view nobody opened would draw an
+        // empty pane.
         var state = new AppState();
+        var seen = new List<TabId>();
 
-        for (var press = 0; press < 4; press++)
+        for (var press = 0; press < 5; press++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
-
-            await Assert.That(state.ActiveTab).IsEqualTo(TabId.Queue)
-                .Because("nothing else is open, so there is nowhere else to go - and a tab "
-                       + "showing a view that was never opened would render an empty pane.");
+            seen.Add(state.ActiveTab);
         }
+
+        await Assert.That(seen.Distinct().Order().ToList())
+            .IsEquivalentTo(new[] { TabId.Queue, TabId.Flights }.Order().ToList())
+            .Because("the two permanent tabs and nothing else. Found: "
+                   + string.Join(", ", seen.Distinct()));
     }
 
     [Test]
@@ -162,10 +175,17 @@ public class TabsTakeTheWholeScreenTests
     }
 
     [Test]
-    public async Task The_bar_says_nothing_about_tabs_when_only_the_queue_is_open()
+    public async Task The_bar_names_the_two_tabs_that_are_always_there()
     {
-        // A bar with one tab on it is decoration: there is nowhere to switch to
-        // and the title line is the most expensive line on the screen.
-        await Assert.That(Tabs.Bar(new AppState())).IsEmpty();
+        // WAS "says nothing when only the queue is open", and that case no
+        // longer exists: the flights tab is permanent too, so there is always
+        // somewhere to switch to. The rule it encoded - a bar with one cell is
+        // decoration on the most expensive line on the screen - is why Bar's
+        // guard was deleted rather than left unreachable.
+        var bar = Tabs.Bar(new AppState());
+
+        await Assert.That(bar).Contains("[ Queue ]", StringComparison.Ordinal);
+        await Assert.That(bar).Contains("Flights", StringComparison.Ordinal);
+        await Assert.That(bar).DoesNotContain("Evidence", StringComparison.Ordinal);
     }
 }

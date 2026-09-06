@@ -44,7 +44,14 @@ public static class PaneText
             return
             [
                 .. notices,
-                state.Diagnosis is { Length: > 0 } ? "(could not load)" : "nothing needs you",
+                // AND WHERE TO LOOK INSTEAD. "Nothing needs you" is true of a
+                // tenant whose flight asked a question the envelope never
+                // turned into a gate, and a person reading it had nowhere to
+                // go. The tab is on the title line above; this is the sentence
+                // that sends them to it.
+                state.Diagnosis is { Length: > 0 }
+                    ? "(could not load)"
+                    : "nothing needs you · tab for every recent flight",
             ];
         }
 
@@ -96,6 +103,104 @@ public static class PaneText
     /// than omitted, because a pane that silently lacks a section reads as a
     /// flight that has nothing to say.
     /// </remarks>
+    /// <summary>
+    /// Every flight this tenant has recently, newest first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE PANE THAT ANSWERS "where did the thing I just started go".</b>
+    /// The queue is flights NEEDING ME and it is right to be: a flight with no
+    /// gate, no expired lease and no stranded runner needs nobody. GG-52 was
+    /// exactly that - an agent asked a question, the envelope had no obligation
+    /// conditioned on one, so the flight landed needing nothing - and the
+    /// console said "nothing needs you", which was true and left a person with
+    /// nowhere to look.
+    /// </para>
+    /// <para>
+    /// <b>Over a read that already happened.</b> <c>AppState.Flights</c> is
+    /// what the boot fetched to derive the queue; this costs no request.
+    /// </para>
+    /// <para>
+    /// <b>The loop's outcome sits beside the flight's state, and that is the
+    /// column worth having.</b> GG-52 is <c>landed</c> AND its loop was
+    /// <c>blocked</c>: the flight reached an ending and the work did not. A row
+    /// carrying only the state reads as a success. Nothing is invented for a
+    /// flight whose facts say nothing about a loop - "completed" there would be
+    /// the console answering for a runner.
+    /// </para>
+    /// </remarks>
+    public static string Flights(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Flights is not { } list)
+        {
+            // NOT "no flights". A tenant with none and a request that did not
+            // answer are different facts, and a person shown the first when the
+            // second happened stops looking.
+            return "  (could not load the flight list)";
+        }
+
+        if (list.Flights.Count == 0)
+        {
+            return "  no flights yet. `n` opens one.";
+        }
+
+        var text = new StringBuilder();
+
+        foreach (var flight in list.Flights.OrderByDescending(f => f.CreatedAt))
+        {
+            // Newest first, because a person opens this pane after doing
+            // something and the thing they did is the thing they are looking
+            // for.
+            text.AppendLine(
+                $"  {Clean(flight.FlightNumber),-8}{Clean(flight.State),-10}"
+              + $"{LoopEnding(flight),-10}{Age(flight.CreatedAt),-6}{Clean(flight.Name)}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// How this flight's last loop ended, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// The LAST one by observation, because a flight can run more than one
+    /// attempt and the newest is the one a person is deciding about. Empty
+    /// rather than a word when no <c>loop.outcome</c> fact reached the control
+    /// plane: a runner that has not spoken has not said "completed".
+    /// </remarks>
+    private static string LoopEnding(FlightSummary flight) =>
+        flight.Facts
+            .Where(f => string.Equals(f.Kind, FactKinds.LoopOutcome, StringComparison.Ordinal))
+            .OrderByDescending(f => f.ObservedAt)
+            .Select(f => f.Loop?.Outcome)
+            .FirstOrDefault(outcome => outcome is { Length: > 0 }) is { } ending
+            ? Clean(ending)
+            : "";
+
+    /// <summary>How long ago, in the coarsest unit that is still true.</summary>
+    /// <remarks>
+    /// A timestamp is what the flight pane shows, and it is the right answer
+    /// there. On a list of twenty rows it is twenty things to subtract, so this
+    /// says 3m, 2h, 4d - and nothing at all for a clock that disagrees with the
+    /// row, because a negative age reads as a bug in the row rather than in the
+    /// clock.
+    /// </remarks>
+    private static string Age(DateTimeOffset created)
+    {
+        var since = DateTimeOffset.UtcNow - created;
+
+        return since switch
+        {
+            { Ticks: < 0 } => "",
+            { TotalMinutes: < 1 } => "now",
+            { TotalHours: < 1 } => $"{(int)since.TotalMinutes}m",
+            { TotalDays: < 1 } => $"{(int)since.TotalHours}h",
+            _ => $"{(int)since.TotalDays}d",
+        };
+    }
+
     public static string Flight(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

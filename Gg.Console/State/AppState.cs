@@ -83,6 +83,18 @@ public enum TabId
     /// </remarks>
     Queue,
 
+    /// <summary>
+    /// Every flight this tenant has recently, needed or not.
+    /// </summary>
+    /// <remarks>
+    /// <b>OPEN BEFORE ANYBODY ASKS, like the queue.</b> A flight whose loop
+    /// asked a question the envelope never turned into a gate lands, needs
+    /// nobody, and was invisible - the queue was telling the truth and a person
+    /// still could not find what they had just started. A view you have to
+    /// learn a key to reach is one somebody in that position does not reach.
+    /// </remarks>
+    Flights,
+
     /// <summary>The digest, rendered. On demand.</summary>
     Evidence,
 

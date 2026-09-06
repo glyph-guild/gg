@@ -41,7 +41,11 @@ public static class Tabs
 
         return tab switch
         {
+            // THE TWO THAT CANNOT BE CLOSED. What needs a person, and what has
+            // happened - the second exists because the first is honest about
+            // needing nobody and that answered nothing.
             TabId.Queue => true,
+            TabId.Flights => true,
             TabId.Evidence => state.EvidenceVisible,
             TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
@@ -101,9 +105,11 @@ public static class Tabs
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Empty while only the queue is open.</b> A bar with one tab on it is
-    /// decoration, and the title line is the most expensive line on the screen:
-    /// it is the one a person reads without being asked to.
+    /// <b>Always two cells at least.</b> It answered "" for a single tab, which
+    /// was right when the queue was alone on it - a bar with one cell is
+    /// decoration on the line a person reads without being asked to. The queue
+    /// and the flights are both permanent now, so there is always somewhere to
+    /// switch to and the guard had become unreachable.
     /// </para>
     /// <para>
     /// <b>Marked the way the help page marks its own pages.</b> Brackets rather
@@ -114,11 +120,6 @@ public static class Tabs
     public static string Bar(AppState state)
     {
         var open = Open(state);
-
-        if (open.Count < 2)
-        {
-            return "";
-        }
 
         // JOINED WITH NOTHING, because each cell carries its own two columns
         // either side - brackets on the one showing, spaces on the rest. So the
@@ -138,6 +139,7 @@ public static class Tabs
     public static string Name(TabId tab) => tab switch
     {
         TabId.Queue => "Queue",
+        TabId.Flights => "Flights",
         TabId.Evidence => "Evidence",
         TabId.Live => "Live",
         TabId.Browse => "Browse",

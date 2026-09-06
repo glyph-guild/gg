@@ -375,16 +375,6 @@ public static class Keymap
                     { When = "after you have taken it" }]
                 : [],
 
-            // ONLY WHEN THERE IS NOTHING RUNNING HERE. `gg runner up' is a
-            // command a person cannot type while this console owns the screen,
-            // which is the dead end the sign-in modal exists to remove - and a
-            // second runner registered from one machine is litter in the fleet,
-            // so the key goes away the moment one is up.
-            .. context.RunnerStartable
-                ? (KeyBinding[])[new(KeyStroke.Char('s'), Command.StartRunner,
-                    "start a runner here") { When = "when none is running here" }]
-                : [],
-
             // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
             // while it is open, and one of these reachable from a gate decision
             // would be a key doing something unrelated to the question on screen.

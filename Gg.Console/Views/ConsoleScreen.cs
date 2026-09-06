@@ -625,8 +625,54 @@ public sealed class ConsoleScreen : Window
         Render();
     }
 
+    /// <summary>
+    /// Move the focus ring where an arrow key has nowhere else to go.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Focus is the view's, which is why this is not a command.</b> The
+    /// arrows already move a table's cursor without the keymap knowing, for the
+    /// same reason: what the widget does with the screen is not what a key
+    /// MEANS. The keymap stays the only place a printable key means anything.
+    /// </para>
+    /// <para>
+    /// <b>It only fires where the arrow was going nowhere.</b> A table at its
+    /// top row declines an up arrow and a button declines a down one - both
+    /// measured, both Terminal.Gui's - so this sees the key only after the
+    /// widget has said it has no use for it. Anywhere else the cursor moves and
+    /// this never runs.
+    /// </para>
+    /// </remarks>
+    private bool FocusStepped(Key key)
+    {
+        if (State.ActiveTab != TabId.Runners || !_runnerStart.Visible)
+        {
+            return false;
+        }
+
+        if (key == Key.CursorUp && !_runnerStart.HasFocus)
+        {
+            _runnerStart.SetFocus();
+            return true;
+        }
+
+        if (key == Key.CursorDown && _runnerStart.HasFocus)
+        {
+            (_runnersTable.Visible ? (View)_runnersTable : _runners).SetFocus();
+            return true;
+        }
+
+        return false;
+    }
+
     private void OnScreenKeyDown(object? sender, Key key)
     {
+        if (FocusStepped(key))
+        {
+            key.Handled = true;
+            return;
+        }
+
         var stroke = KeyTranslator.Translate(key);
         var command = Keymap.Resolve(stroke, Context());
         if (command is null)

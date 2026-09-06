@@ -830,7 +830,10 @@ public static class PaneText
                 + "from it, so it is not running."
                 : $"This machine's runner has stopped heartbeating - last heard {mine.Heard}.";
 
-        return what + "  [ s  start a runner here ]";
+        // NO KEY NAMED. There is a button under this saying what it does, one
+        // arrow up from the table - and a notice naming a key nothing resolves
+        // is the shape this console has a guard for.
+        return what;
     }
 
     public static string Runners(AppState state)

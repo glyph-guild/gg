@@ -121,13 +121,14 @@ public class TheLocalRunnerIsOnTheBarTests
         var pane = PaneText.ForTab(
             Fleet(null, ARunner("other-1", RunnerStates.Idle)), TabId.Runners);
 
-        // THE KEY, NOT THE COMMAND. This said `gg runner up' and was right that
-        // a pane naming no remedy leaves a person guessing - and wrong about
-        // which remedy: gg owns the terminal it would be typed into, which is
-        // the dead end the sign-in modal exists to remove.
-        await Assert.That(pane).Contains("start a runner here")
+        // THE PROBLEM IN WORDS, and the doing is the button under it. This
+        // asserted `gg runner up' first - right that a pane naming no remedy
+        // leaves a person guessing, wrong about the remedy, because gg owns the
+        // terminal that command would be typed into. Then it asserted a key,
+        // which the button replaced the moment an arrow could reach it.
+        await Assert.That(pane).Contains("No runner is registered on this machine")
             .Because("nothing registered here is not an error, it is a thing to go and do, "
-                   + "and the doing has to be possible from this screen.");
+                   + "and saying which thing is what the notice is for.");
     }
 
     [Test]

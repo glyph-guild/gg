@@ -32,27 +32,28 @@ public class ReducerTests
     }
 
     [Test]
-    public async Task TabWalksThePermanentTabsWhenNothingElseIsOpen()
+    public async Task TabWalksEveryTabAndComesBackRound()
     {
         // WAS FocusCyclesThroughEveryVisiblePane, and the subject has moved
-        // twice. Tab used to cycle FOCUS between the panes that happened to be
-        // visible, which under one shared region was the same question as
-        // "which view has the screen"; a view takes the whole screen now, so
-        // tab walks the open TABS. Two of them cannot be closed - what needs a
-        // person, and what has happened - so a bare console has two.
-        var state = new AppState { EvidenceVisible = false, LiveVisible = false };
+        // three times. Tab cycled FOCUS between the panes that happened to be
+        // visible; then a view took the whole screen and it walked the open
+        // tabs; and now every tab is on the bar, so it walks all of them. A
+        // pane that says what it is waiting for is a better answer than a tab
+        // a person cannot reach.
+        var state = new AppState();
         var seen = new List<TabId>();
 
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < Tabs.All.Count; i++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
             seen.Add(state.ActiveTab);
         }
 
-        await Assert.That(seen.Distinct().Order().ToList())
-            .IsEquivalentTo(new[] { TabId.Queue, TabId.Flights }.Order().ToList())
-            .Because("tabbing onto a view nobody opened would draw an empty pane under a tab "
-                   + "nobody chose. Found: " + string.Join(", ", seen.Distinct()));
+        await Assert.That(seen.Distinct().Count()).IsEqualTo(Tabs.All.Count)
+            .Because("one press per tab reaches each one exactly once. Found: "
+                   + string.Join(", ", seen));
+        await Assert.That(seen[^1]).IsEqualTo(TabId.Queue)
+            .Because("and comes back to where the console opened.");
     }
 
     [Test]
@@ -84,7 +85,7 @@ public class ReducerTests
 
         await Assert.That(closed.LiveVisible).IsFalse();
         await Assert.That(closed.ActiveTab).IsEqualTo(TabId.Queue);
-        await Assert.That(Tabs.IsOpen(closed, closed.ActiveTab)).IsTrue();
+        await Assert.That(Tabs.All).Contains(closed.ActiveTab);
     }
 
     [Test]

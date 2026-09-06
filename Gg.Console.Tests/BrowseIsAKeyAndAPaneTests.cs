@@ -47,11 +47,20 @@ public class BrowseIsAKeyAndAPaneTests
         // ToggleLive's shape. A key labelled "browse" while you are looking at
         // the browser reads as a key that will do nothing.
         //
+        // READ OFF THE BINDING RATHER THAN THE HINT LINE, because the line no
+        // longer carries this key: browse is a tab, its key is on the tab, and
+        // the line keeps only the keys with nowhere else to be advertised. The
+        // description is still what the help page renders, so what this test is
+        // about - the word changing with what the key will do - is unmoved.
+        //
         // "close" rather than "hide" since a view took the whole screen: from
         // any other tab the key BRINGS THIS ONE FORWARD rather than hiding it,
         // and the word only changes where the behaviour does.
-        await Assert.That(Keymap.Hints(Normal(browsing: false))).Contains("browse");
-        await Assert.That(Keymap.Hints(Normal(browsing: true))).Contains("close browse");
+        string Description(KeymapContext context) => Keymap.Bindings(context)
+            .Single(b => b.Command == Command.ToggleBrowse).Description;
+
+        await Assert.That(Description(Normal(browsing: false))).IsEqualTo("browse");
+        await Assert.That(Description(Normal(browsing: true))).IsEqualTo("close browse");
     }
 
     [Test]

@@ -170,7 +170,8 @@ public static class RunnerHost
         Execution.IExecutorPort? executor = null,
         IReadOnlyList<Gg.Local.IntentReader>? readers = null,
         IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
-        string? flightId = null)
+        string? flightId = null,
+        Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -254,7 +255,10 @@ public static class RunnerHost
             // already came from. Two things read it: whether a link is one this
             // runner should fetch at all, and which tracker can read one.
             hosts ?? Vcs.VcsConfiguration.DeclaredHosts(),
-            destinations: destinations)
+            destinations: destinations,
+            // HOW THIS RUNNER LEARNS WHAT A PERSON DECIDED. Null for a fleet
+            // runner, which has no person and no file to look for.
+            returns: returns)
         {
             HoldFor = holdFor,
         };

@@ -206,7 +206,8 @@ public sealed class RunnerLoop(
     IReadOnlyList<Gg.Local.IntentReader>? readers = null,
     IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
     TranscriptStore? transcripts = null,
-    IReadOnlyList<IDestinationAdapter>? destinations = null)
+    IReadOnlyList<IDestinationAdapter>? destinations = null,
+    Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -312,6 +313,28 @@ public sealed class RunnerLoop(
     /// surviving as the default.
     /// </remarks>
     private readonly IReadOnlyList<IDestinationAdapter> _destinations = destinations ?? [];
+
+    /// <summary>
+    /// What the person who was handed this terminal decided, given the tree they
+    /// worked in and the flight they were flying.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Handed in, because this project cannot see the reader.</b>
+    /// <c>TakeoverReturnReader</c> is in <c>Gg.Client</c> and the reference
+    /// graph keeps the runner and the client apart - the runner is treated as
+    /// hostile - so <c>Gg.Cli</c>, the one project that can see both, passes it.
+    /// The alternative was a second implementation of one question, with its own
+    /// size bound and its own three diagnoses to drift from the first.
+    /// </para>
+    /// <para>
+    /// <b>Null is a fleet runner, and it is the ordinary case.</b> An agent's
+    /// outcome was measured and shipped before the release, so there is nothing
+    /// for a person to have decided and no file to look for.
+    /// </para>
+    /// </remarks>
+    private readonly Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>?
+        _returns = returns;
 
     /// <summary>
     /// Flights whose work reached a remote, so their tree is finished with.
@@ -752,7 +775,16 @@ public sealed class RunnerLoop(
 
         await LandAsync(lease, workspace, decision, secretsByLocator, cancellationToken);
 
-        await HoldAsync(runnerId, labels, lease, cancellationToken);
+        // WHAT THE PERSON DECIDED, and the disposition that matches it. Only an
+        // attended flight has one: an agent's outcome was measured and shipped
+        // before this point, so `completed` there is a report. Here nothing was
+        // measured, and `completed` with nobody having said so is a claim about
+        // work nobody checked.
+        var (disposition, detail) = invoked.Attended is null
+            ? (RunnerDisposition.Completed, (string?)null)
+            : Decided(lease, workspace);
+
+        await HoldAsync(runnerId, labels, lease, cancellationToken, disposition, detail);
     }
 
     /// <summary>
@@ -1560,8 +1592,60 @@ public sealed class RunnerLoop(
         }
     }
 
+    /// <summary>
+    /// The disposition a hand-flight ends on, from what the person left behind.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing at all is ABANDONED, and that is not a failure.</b> Somebody
+    /// handed a terminal who wrote nothing is the ordinary end of a session they
+    /// walked away from, recorded as itself.
+    /// </para>
+    /// <para>
+    /// <b>A diagnosis beats a decision that came with it.</b> The reader answers
+    /// one or the other, and preferring the decision would apply a file the
+    /// reader had already refused - "not silently applied" defeated by the
+    /// caller rather than by the parser.
+    /// </para>
+    /// <para>
+    /// <b>Handing back is neither.</b> The work is not done and the person did
+    /// not give up on it; what the fleet does with it next is a different
+    /// question from how this lease ends.
+    /// </para>
+    /// </remarks>
+    private (string Disposition, string? Detail) Decided(
+        LeaseGranted lease, WorkspaceResult workspace)
+    {
+        if (_returns is null)
+        {
+            return (RunnerDisposition.Abandoned,
+                "This runner was not given a way to read what the person decided, so nothing "
+              + "was read. The flight is untouched.");
+        }
+
+        var tree = workspace.Trees.Count > 0 ? workspace.Trees[0].Path : workspace.Root;
+        var (decision, diagnosis) = _returns(tree, lease.FlightId);
+
+        if (diagnosis is { Length: > 0 })
+        {
+            return (RunnerDisposition.Abandoned, diagnosis);
+        }
+
+        if (decision is null)
+        {
+            return (RunnerDisposition.Abandoned, null);
+        }
+
+        return string.Equals(
+                decision.Outcome, Gg.Contracts.TakeoverOutcomes.Completed, StringComparison.Ordinal)
+            ? (RunnerDisposition.Completed, decision.Note)
+            : (RunnerDisposition.Abandoned, decision.Note);
+    }
+
     private async Task HoldAsync(
-        string runnerId, IReadOnlyList<string> labels, LeaseGranted lease, CancellationToken cancellationToken)
+        string runnerId, IReadOnlyList<string> labels, LeaseGranted lease,
+        CancellationToken cancellationToken,
+        string disposition = RunnerDisposition.Completed, string? detail = null)
     {
         var expiresAt = lease.ExpiresAt;
         var until = _clock.UtcNow + HoldFor;
@@ -1600,12 +1684,12 @@ public sealed class RunnerLoop(
         }
 
         var release = await _protocol.ReleaseAsync(
-            lease.LeaseId, lease.Generation, RunnerDisposition.Completed,
-            detail: null, credentialFailure: null, cancellationToken);
+            lease.LeaseId, lease.Generation, disposition,
+            detail: detail, credentialFailure: null, cancellationToken);
 
         if (release is ReleaseResult.Released)
         {
-            _observer.Released(lease.LeaseId, RunnerDisposition.Completed);
+            _observer.Released(lease.LeaseId, disposition);
         }
         else
         {

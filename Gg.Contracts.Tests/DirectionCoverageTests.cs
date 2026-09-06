@@ -57,8 +57,8 @@ public class DirectionCoverageTests
     private static Envelope Doc() => new()
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
-        Environment = "dev",
-        Repository = "payments",
+        Environments = ["dev"],
+        Repositories = ["payments"],
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
         Obligations =
@@ -132,11 +132,15 @@ public class DirectionCoverageTests
             Doc() with { Context = new ContextBinding { Scope = "src/**", Constitution = "1.1.0" } },
             ReverseAlsoWidens: true),
 
-        new("Envelope.Environment", "environment",
-            Doc(), Doc() with { Environment = "prod" }, ReverseAlsoWidens: true),
+        // GROWING WIDENS AND SHRINKING DOES NOT, now that the bound is a set.
+        // It was ReverseAlsoWidens: true because a single selection had no
+        // order - any change was a widening. A set has a direction.
+        new("Envelope.Environments", "environments",
+            Doc(), Doc() with { Environments = ["dev", "prod"] }, ReverseAlsoWidens: false),
 
-        new("Envelope.Repository", "repository",
-            Doc(), Doc() with { Repository = "ledger" }, ReverseAlsoWidens: true),
+        new("Envelope.Repositories", "repositories",
+            Doc(), Doc() with { Repositories = ["payments", "ledger"] },
+            ReverseAlsoWidens: false),
 
         // CONTAINMENT, NOT EQUALITY, and dropping is the widening: a subject
         // kind this work no longer takes makes every fact about it unproducible.

@@ -1342,34 +1342,105 @@ public sealed record Envelope
     public IReadOnlyList<string>? Produces { get; init; }
 
     /// <summary>
-    /// The environment this envelope's flights are about: a charted name, or
-    /// null when unselected.
+    /// The environments this envelope's flights may be about: charted names, or
+    /// null when unbounded.
     /// </summary>
     /// <remarks>
-    /// <b>A selection, not a bound.</b> Every other field composes across
-    /// layers through a merge operator; this one gets none, deliberately. Two
-    /// layers naming different environments is not an empty intersection - it
-    /// is a mistake, and the composer refuses it rather than merging it. A
-    /// selection is declared once, validated for MEMBERSHIP at apply against
-    /// the tenant's chart, and never merged. What Validate owns here is only
-    /// the shape: membership is the control plane's question, because the
-    /// control plane has the chart.
+    /// <para>
+    /// <b>A BOUND, AND IT WAS A SINGLE SELECTION UNTIL A DESIGN NEEDED TO CHOOSE.</b>
+    /// It held one name, and the door below required a flight's declared
+    /// environment to EQUAL it - so a flight could only ever be in that one
+    /// environment. A destination permitting a classifier to choose between
+    /// <c>dev</c> and <c>staging</c> was therefore unimplementable: every
+    /// refusal worked and the permission was unreachable. A set with membership
+    /// is what makes choosing possible, and it is the shape
+    /// <see cref="Destination.Opens"/> already has for work kinds.
+    /// </para>
+    /// <para>
+    /// <b>The flight still names one.</b> A flight runs in one environment;
+    /// this is what the envelope PERMITS. Declaring nothing inherits the bound
+    /// when it names exactly one, which is what every document written before
+    /// this meant.
+    /// </para>
+    /// <para>
+    /// <b>Root-only, still, and for the original reason.</b> Two layers naming
+    /// different environments is not an empty intersection - it is a mistake,
+    /// and the composer refuses it rather than merging it. What Validate owns
+    /// here is only the shape: membership against the tenant's chart is the
+    /// control plane's question, because the control plane has the chart.
+    /// </para>
+    /// <para>
+    /// <b>Null is unbounded and empty is refused.</b> A declared, empty set
+    /// would permit no environment while forbidding a flight from declaring
+    /// one - a document that can only refuse its own flights.
+    /// </para>
     /// </remarks>
     [Composes(MergeOperators.RootOnly)]
+    public IReadOnlyList<string>? Environments
+    {
+        get => field ?? (Environment is { Length: > 0 } legacy ? [legacy] : null);
+        init;
+    }
+
+    /// <summary>
+    /// The single environment this envelope bound before the bound became a
+    /// set. Read for compatibility and never written.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WITHOUT THIS, A DEPLOY SILENTLY UNBOUNDS EVERY ENVELOPE THAT EXISTS.</b>
+    /// Applied envelopes are stored as this type's JSON, so every one already in
+    /// a control plane carries <c>"environment": "dev"</c>. A reader that only
+    /// knew the plural would find no bound - and null here means UNBOUNDED, so
+    /// the effect would be every tenant's environment restriction disappearing
+    /// on an upgrade, with nothing recorded and no gate. A widening applied by a
+    /// deployment is the worst shape this repository has a word for.
+    /// </para>
+    /// <para>
+    /// <b>Folded in by the accessor above, so no caller has to remember.</b>
+    /// <see cref="Environments"/> falls back to this when it has nothing of its
+    /// own - the same absorbing shape the optional collections use, pointed at a
+    /// legacy spelling instead of at an absent key. Nothing reads this member
+    /// directly and nothing should.
+    /// </para>
+    /// <para>
+    /// <b>Never rendered.</b> The canonical text form emits the plural only, so
+    /// a document re-applied through <c>gg envelope apply</c> is normalised on
+    /// the way past. This member can be removed once no stored document carries
+    /// it, which is a question only a control plane can answer.
+    /// </para>
+    /// </remarks>
     public string? Environment { get; init; }
 
     /// <summary>
-    /// The repository this envelope's flights are about: a slug, or null when
-    /// unconstrained.
+    /// The repositories this envelope's flights may be about: slugs, or null
+    /// when unconstrained.
     /// </summary>
     /// <remarks>
-    /// The same selection shape as <see cref="Environment"/>, resolved
-    /// differently: a repository was always a subject declared at flight
-    /// creation, so this selection is validated against the flight's intent
-    /// there - it never compiles to a runner label, because a runner does not
-    /// advertise a repository; credentials already carry that.
+    /// The same bound shape as <see cref="Environments"/> and it became a set
+    /// for the same reason, resolved differently: a repository was always a
+    /// subject declared at flight creation, so the membership check happens
+    /// against the flight's intent there - it never compiles to a runner label,
+    /// because a runner does not advertise a repository; credentials already
+    /// carry that.
     /// </remarks>
     [Composes(MergeOperators.RootOnly)]
+    public IReadOnlyList<string>? Repositories
+    {
+        get => field ?? (Repository is { Length: > 0 } legacy ? [legacy] : null);
+        init;
+    }
+
+    /// <summary>
+    /// The single repository this envelope bound before the bound became a set.
+    /// Read for compatibility and never written.
+    /// </summary>
+    /// <remarks>
+    /// The same legacy member as <see cref="Environment"/>, kept for the same
+    /// reason and with the same consequence if it were not: every stored
+    /// envelope carries this spelling, and losing it would leave those flights
+    /// unbounded.
+    /// </remarks>
     public string? Repository { get; init; }
 
     /// <summary>
@@ -1498,12 +1569,12 @@ public sealed record Envelope
             return instructions;
         }
 
-        if (Selection(envelope.Environment, "environment") is { } environment)
+        if (Bound(envelope.Environments, "environments") is { } environment)
         {
             return environment;
         }
 
-        if (Selection(envelope.Repository, "repository") is { } repository)
+        if (Bound(envelope.Repositories, "repositories") is { } repository)
         {
             return repository;
         }
@@ -2051,16 +2122,50 @@ public sealed record Envelope
             + "tell that it read half.";
     }
 
-    private static string? Selection(string? value, string key) =>
-        value is null
-            ? null
-        : string.IsNullOrWhiteSpace(value)
-            ? $"{key} is blank. Select a name, or remove the line - a blank selection is a "
-            + "typo wearing a selection's clothes, not an absence."
-        : value.Contains('\n', StringComparison.Ordinal) || value.Contains('\r', StringComparison.Ordinal)
-            ? $"{key} spans more than one line. A selection is one name; the label the fleet "
-            + "matches on cannot carry a line break."
-            : null;
+    /// <summary>
+    /// One bound's shape: null is unbounded, empty is refused, and every name
+    /// in it is a name.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty is refused rather than treated as unbounded.</b> A declared,
+    /// empty set permits nothing while forbidding a flight from declaring
+    /// anything - a document that can only ever refuse its own flights. Null
+    /// already means unbounded, so there is nothing left for empty to mean, and
+    /// the permissive reading would make the most restrictive-looking line in
+    /// the file the least restrictive one.
+    /// </remarks>
+    private static string? Bound(IReadOnlyList<string>? values, string key)
+    {
+        if (values is null)
+        {
+            return null;
+        }
+
+        if (values.Count == 0)
+        {
+            return $"{key} is declared and empty. Remove the line to leave it unbounded - a "
+                 + "bound permitting nothing forbids every flight from naming one, which is a "
+                 + "document that can only refuse its own work.";
+        }
+
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return $"{key} carries a blank name. Name one, or remove it - a blank is a typo "
+                     + "wearing a selection's clothes, not an absence.";
+            }
+
+            if (value.Contains('\n', StringComparison.Ordinal)
+                || value.Contains('\r', StringComparison.Ordinal))
+            {
+                return $"{key} carries a name spanning more than one line. Each is one name; "
+                     + "the label the fleet matches on cannot carry a line break.";
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Whether <c>accepts:</c> and <c>context.scope</c> agree — ADR-0020 § 1,

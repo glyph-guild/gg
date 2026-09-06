@@ -45,7 +45,7 @@ public class EnvelopeDirectionTests
         return new Envelope
         {
             Context = new ContextBinding { Scope = scope, Constitution = constitution },
-            Environment = environment,
+            Environments = environment is null ? null : [environment],
             Obligations =
             [
                 new Obligation
@@ -171,10 +171,15 @@ public class EnvelopeDirectionTests
         await Assert.That(EnvelopeDirection.Widening(
                 Doc(executor: ExecutorRungs.Frontier), Doc(executor: ExecutorRungs.Human))!.Field)
             .IsEqualTo("loops.implement.executor");
-        await Assert.That(EnvelopeDirection.Widening(
-                Doc(environment: null), Doc(environment: "aspire-payments"))!.Field)
-            .IsEqualTo("environment")
-            .Because("a selection where none was has no declared order either.");
+        // THE ENVIRONMENT CASE MOVED OUT OF THIS FAMILY, and the reason is a
+        // semantic change rather than a correction. It used to hold one name and
+        // be a SELECTION - what the flights are about - so a name where there
+        // was none had no declared order and the conservative answer was
+        // widening. It is now a BOUND: a set of environments flights may be
+        // about, checked by membership. Writing a bound down where there was
+        // none is strictly more restrictive, so it narrows, and calling it a
+        // widening would demand a gate for the act of restricting something.
+        // Asserted in A_bound_written_down_narrows_and_a_bound_withdrawn_widens.
         await Assert.That(EnvelopeDirection.Widening(
                 Doc(destinationKind: DestinationKinds.PullRequest),
                 Doc(destinationKind: DestinationKinds.EnvelopeChange))!.Field)
@@ -428,5 +433,35 @@ public class EnvelopeDirectionTests
         // rather than that the type merely loaded.
         await Assert.That(EnvelopeDirection.Rules["Envelope.Instructions"])
             .IsEqualTo(MergeOperators.Append);
+    }
+
+    [Test]
+    public async Task A_bound_written_down_narrows_and_a_bound_withdrawn_widens()
+    {
+        // Null is unbounded. So the direction is asymmetric, which is the whole
+        // difference between a bound and the single selection this used to be.
+        await Assert.That(EnvelopeDirection.Widening(
+                Doc(environment: null), Doc(environment: "aspire-payments")))
+            .IsNull()
+            .Because("bounding flights to one environment where nothing bounded them is a "
+                   + "restriction, and a gate for restricting something would make the "
+                   + "cautious change the expensive one.");
+
+        await Assert.That(EnvelopeDirection.Widening(
+                Doc(environment: "aspire-payments"), Doc(environment: null))!.Field)
+            .IsEqualTo("environments")
+            .Because("afterwards nothing is refused, which is more than was permitted before.");
+    }
+
+    [Test]
+    public async Task Adding_a_permitted_environment_widens_and_removing_one_does_not()
+    {
+        var one = Doc(environment: "dev");
+        var two = one with { Environments = ["dev", "production"] };
+
+        await Assert.That(EnvelopeDirection.Widening(one, two)!.Field)
+            .IsEqualTo("environments")
+            .Because("somewhere work may newly run is what the bound exists to decide.");
+        await Assert.That(EnvelopeDirection.Widening(two, one)).IsNull();
     }
 }

@@ -96,6 +96,16 @@ public static class EnvelopeComposition
             [$"{nameof(Loop)}.{nameof(Loop.Discharges)}"] =
                 "intra-document wiring: it names its own document's obligations and travels "
               + "with its loop, which the sets' operator owns",
+            // THE LEGACY SPELLINGS OF THE TWO ROOT BOUNDS. They are read so that
+            // envelopes stored before the bound became a set still carry it -
+            // Environments falls back to Environment in its accessor - and they
+            // are never composed, never rendered and never written. Composing
+            // them would be composing the same value twice under two names.
+            [$"{nameof(Envelope)}.{nameof(Envelope.Environment)}"] =
+                "a legacy spelling of environments, folded in by that accessor and never "
+              + "composed; removable once no stored document carries it",
+            [$"{nameof(Envelope)}.{nameof(Envelope.Repository)}"] =
+                "a legacy spelling of repositories, on the same terms",
             [$"{nameof(Destination)}.{nameof(Destination.MaySelect)}"] =
                 "a container; its leaves declare (both menus intersect, the way opens does)",
             [$"{nameof(Loop)}.{nameof(Loop.Budget)}"] =
@@ -261,8 +271,8 @@ public static class EnvelopeComposition
         // envelopes carry them - a narrowing cannot express any of this, which
         // is the strongest form of the operator table.
         var context = baseDocument.Context;
-        var environment = baseDocument.Environment;
-        var repository = baseDocument.Repository;
+        var environments = baseDocument.Environments;
+        var repositories = baseDocument.Repositories;
 
         if (root is not null && !ReferenceEquals(@base, root))
         {
@@ -275,20 +285,20 @@ public static class EnvelopeComposition
                 return new Composition { Refused = constitution };
             }
 
-            if (Moved(@base, floor.Environment, baseDocument.Environment, "environment",
-                    Op(nameof(Envelope), nameof(Envelope.Environment))) is { } environmentMoved)
+            if (Moved(@base, floor.Environments, baseDocument.Environments, "environments",
+                    Op(nameof(Envelope), nameof(Envelope.Environments))) is { } environmentMoved)
             {
                 return new Composition { Refused = environmentMoved };
             }
 
-            if (Moved(@base, floor.Repository, baseDocument.Repository, "repository",
-                    Op(nameof(Envelope), nameof(Envelope.Repository))) is { } repositoryMoved)
+            if (Moved(@base, floor.Repositories, baseDocument.Repositories, "repositories",
+                    Op(nameof(Envelope), nameof(Envelope.Repositories))) is { } repositoryMoved)
             {
                 return new Composition { Refused = repositoryMoved };
             }
 
-            environment = floor.Environment;
-            repository = floor.Repository;
+            environments = floor.Environments;
+            repositories = floor.Repositories;
 
             // SCOPE INTERSECTS, and an intersection nobody can express as one
             // glob is a refusal naming both rather than a silent pick.
@@ -351,8 +361,8 @@ public static class EnvelopeComposition
             Composed = baseDocument with
             {
                 Context = context,
-                Environment = environment,
-                Repository = repository,
+                Environments = environments,
+                Repositories = repositories,
                 Obligations = composed,
                 Instructions = instructions,
                 Destinations = destinations,
@@ -500,6 +510,43 @@ public static class EnvelopeComposition
             + $"'{declared ?? "nothing"}', and {field} is {@operator}: only the root document "
             + "may move it. Echoing the governing value is allowed; moving it is asking for "
             + "the floor's authority.";
+
+    /// <summary>
+    /// The same rule for a bound that is a set: echoing it is allowed, moving
+    /// it is not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Order-insensitive, unlike the scalar overload it sits beside.</b> Two
+    /// documents naming the same environments in a different order are the same
+    /// bound, and refusing one for the order somebody typed would be a rule
+    /// about formatting wearing a governance rule's clothes.
+    /// </remarks>
+    private static string? Moved(
+        EnvelopeLayer layer,
+        IReadOnlyList<string>? governing,
+        IReadOnlyList<string>? declared,
+        string field,
+        string @operator) =>
+        Same(governing, declared)
+            ? null
+            : $"'{layer.Name}' moves {field} from '{Named(governing)}' to "
+            + $"'{Named(declared)}', and {field} is {@operator}: only the root document "
+            + "may move it. Echoing the governing value is allowed; moving it is asking for "
+            + "the floor's authority.";
+
+    private static bool Same(IReadOnlyList<string>? left, IReadOnlyList<string>? right) =>
+        (left, right) switch
+        {
+            (null, null) => true,
+            (null, _) or (_, null) => false,
+            _ => left.Count == right.Count
+                 && left.OrderBy(v => v, StringComparer.Ordinal)
+                     .SequenceEqual(right.OrderBy(v => v, StringComparer.Ordinal),
+                         StringComparer.Ordinal),
+        };
+
+    private static string Named(IReadOnlyList<string>? values) =>
+        values is null ? "nothing" : string.Join(", ", values);
 
     /// <summary>
     /// The meet of two scopes, when one contains the other - or why there is

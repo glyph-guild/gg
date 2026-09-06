@@ -200,4 +200,48 @@ public class TheBoundIsASetTests
 
         await Assert.That(parsed.Diagnosis).IsNotNull();
     }
+
+    [Test]
+    public async Task A_stored_document_written_before_the_set_still_carries_its_bound()
+    {
+        // THE ONE THAT WOULD HAVE BEEN A SILENT WIDENING. Applied envelopes are
+        // stored as this type's JSON, so every one already in a control plane
+        // carries "environment": "dev". A reader that only knew the plural would
+        // find no bound - and null here means UNBOUNDED, so the effect of an
+        // upgrade would be every tenant's environment restriction disappearing,
+        // with nothing recorded and no gate.
+        var stored = System.Text.Json.JsonSerializer.Deserialize<Envelope>(
+            """
+            {"context":{"scope":"src/**","constitution":"1.0.0"},
+             "environment":"dev",
+             "repository":"acme/payments",
+             "obligations":[{"id":"in-scope","check":"machine","rule":"no-file-outside-scope"}],
+             "loops":[{"id":"implement","executor":"frontier","discharges":["in-scope"],
+                       "moves":["read"],"budget":{"wallClock":"20m"},
+                       "onExhaustion":"handoff-to-human"}],
+             "destinations":[{"id":"forge","kind":"pull-request","requires":["in-scope"]}]}
+            """,
+            System.Text.Json.JsonSerializerOptions.Web)!;
+
+        await Assert.That(stored.Environments).IsEquivalentTo((string[])["dev"])
+            .Because("the accessor folds the legacy spelling in, so no reader has to "
+                   + "remember - and a bound that vanished on an upgrade would be a "
+                   + "widening applied by a deployment.");
+        await Assert.That(stored.Repositories).IsEquivalentTo((string[])["acme/payments"]);
+        await Assert.That(Envelope.Validate(stored)).IsNull()
+            .Because("a document written before the set must still be a valid one.");
+    }
+
+    [Test]
+    public async Task The_legacy_spelling_is_never_rendered_back()
+    {
+        // Normalised on the way past: a document re-applied through the text
+        // form comes out plural, so the legacy member drains rather than
+        // persisting for ever.
+        var rendered = EnvelopeText.Render(Bounding(environments: ["dev"]));
+
+        await Assert.That(rendered).Contains("environments: dev");
+        await Assert.That(rendered.Contains("\nenvironment:", StringComparison.Ordinal))
+            .IsFalse();
+    }
 }

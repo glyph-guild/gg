@@ -22,11 +22,14 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class EnvelopeSelectionTests
 {
+    // ONE NAME, WRAPPED. The bound became a set; every test below is about the
+    // SHAPE of a name in it - blank, multiline, rendered, read back - and those
+    // questions are unchanged by there being room for a second one.
     private static Envelope Governing(string? environment = null, string? repository = null) => new()
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
-        Environment = environment,
-        Repository = repository,
+        Environments = environment is null ? null : [environment],
+        Repositories = repository is null ? null : [repository],
         Obligations =
         [
             new Obligation
@@ -69,10 +72,10 @@ public class EnvelopeSelectionTests
                    + "the control plane's question, and it has the chart.");
 
         var text = EnvelopeText.Render(envelope);
-        await Assert.That(text).Contains("environment: aspire-payments\n");
+        await Assert.That(text).Contains("environments: aspire-payments\n");
         // Quoted by the canonical form's allow-list: '/' is not on it, and
         // every mistake that list makes is an extra pair of quotes.
-        await Assert.That(text).Contains("repository: \"acme/payments\"\n");
+        await Assert.That(text).Contains("repositories: \"acme/payments\"\n");
     }
 
     [Test]
@@ -97,7 +100,7 @@ public class EnvelopeSelectionTests
         var diagnosis = Envelope.Validate(Governing(environment: "   "));
 
         await Assert.That(diagnosis).IsNotNull();
-        await Assert.That(diagnosis!).Contains("environment");
+        await Assert.That(diagnosis!).Contains("environments");
     }
 
     [Test]
@@ -109,8 +112,8 @@ public class EnvelopeSelectionTests
         var environment = Envelope.Validate(Governing(environment: "one\ntwo"));
         var repository = Envelope.Validate(Governing(repository: "acme\npayments"));
 
-        await Assert.That(environment!).Contains("environment");
-        await Assert.That(repository!).Contains("repository");
+        await Assert.That(environment!).Contains("environments");
+        await Assert.That(repository!).Contains("repositories");
     }
 
     [Test]
@@ -118,8 +121,8 @@ public class EnvelopeSelectionTests
     {
         var members = Description.ProtocolSurface.JsonMembers[typeof(Envelope)];
 
-        await Assert.That(members).Contains("environment");
-        await Assert.That(members).Contains("repository");
+        await Assert.That(members).Contains("environments");
+        await Assert.That(members).Contains("repositories");
     }
 
     [Test]

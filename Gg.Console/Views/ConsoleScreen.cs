@@ -122,7 +122,7 @@ public sealed class ConsoleScreen : Window
             Width = Dim.Percent(38),
             Height = Dim.Fill(1),
         };
-        _queue = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
+        _queue = CollectionViews.List();
         _queuePane.Add(_queue);
 
         _flightPane = new FrameView
@@ -240,11 +240,11 @@ public sealed class ConsoleScreen : Window
             Visible = false,
         };
         _flights = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _flightsTable = Table();
+        _flightsTable = CollectionViews.Table();
         _flightsPane.Add(_flights, _flightsTable);
-        _browseTable = Table();
+        _browseTable = CollectionViews.Table();
         _browsePane.Add(_browseTable);
-        _repositoriesTable = Table();
+        _repositoriesTable = CollectionViews.Table();
         _repositoriesPane.Add(_repositoriesTable);
 
         _flightsTable.ValueChanged += OnRowPointedAt;
@@ -387,25 +387,6 @@ public sealed class ConsoleScreen : Window
     /// every cell spend a column of screen on each border and these tables are
     /// three, four and five columns wide.
     /// </remarks>
-    private static TableView Table() => new()
-    {
-        X = 0,
-        Y = 0,
-        Width = Dim.Fill(),
-        Height = Dim.Fill(),
-        CanFocus = true,
-        FullRowSelect = true,
-        MultiSelect = false,
-        Style =
-        {
-            ShowHeaders = true,
-            ShowHorizontalHeaderUnderline = true,
-            ShowHorizontalHeaderOverline = false,
-            ShowVerticalCellLines = false,
-            ExpandLastColumn = true,
-        },
-    };
-
     /// <summary>
     /// A person put the cursor on a row - by clicking it, or by any of the
     /// movements the widget knows and the keymap does not.
@@ -461,7 +442,7 @@ public sealed class ConsoleScreen : Window
 
         if (rows.Count == 0)
         {
-            table.Table = null;
+            CollectionViews.Fill(table, null);
             return;
         }
 
@@ -477,7 +458,7 @@ public sealed class ConsoleScreen : Window
             data.Rows.Add(cells(row));
         }
 
-        table.Table = new DataTableSource(data);
+        CollectionViews.Fill(table, new DataTableSource(data));
         table.SetSelection(0, Math.Clamp(cursor, 0, rows.Count - 1), extendExistingSelection: false, null);
         table.EnsureValidSelection();
     }

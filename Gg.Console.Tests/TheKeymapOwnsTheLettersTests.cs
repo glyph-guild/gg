@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Data;
+using Gg.Console.Views;
 using Terminal.Gui.Input;
 using Terminal.Gui.Views;
 
@@ -109,7 +110,7 @@ public class TheKeymapOwnsTheLettersTests
             .Where(c =>
             {
                 var table = CollectionViews.Table();
-                table.Table = new DataTableSource(ATable(c));
+                CollectionViews.Fill(table, new DataTableSource(ATable(c)));
                 return table.NewKeyDownEvent(new Key(c));
             })
             .ToList();
@@ -132,5 +133,8 @@ public class TheKeymapOwnsTheLettersTests
                    + "its rows and takes the keymap's letters with it.");
         await Assert.That(screen).DoesNotContain("new TableView")
             .Because("CollectionViews.Table() likewise.");
+        await Assert.That(screen).DoesNotContain(".Table = ")
+            .Because("CollectionViews.Fill is the door for the rows too - assigning the "
+                   + "source is what brings the widget's own search back.");
     }
 }

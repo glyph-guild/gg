@@ -37,6 +37,16 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>How many polls to answer 202 before completing.</summary>
     public int PendingPolls { get; set; }
 
+    /// <summary>
+    /// What the issued session calls its principal.
+    /// </summary>
+    /// <remarks>
+    /// Settable because it is text a control plane composes and gg puts on a
+    /// terminal, so a test has to be able to send something a terminal would
+    /// act on rather than print.
+    /// </remarks>
+    public string PrincipalDisplay { get; set; } = "stub-principal";
+
     /// <summary>When set, polls answer 410 instead of ever completing.</summary>
     public bool Declined { get; set; }
 
@@ -245,7 +255,7 @@ public sealed class StubControlPlane : IAsyncDisposable
                 {
                     SessionToken = IssuedSessionToken,
                     ExpiresAt = DateTimeOffset.UtcNow.AddHours(12),
-                    PrincipalDisplay = "stub-principal",
+                    PrincipalDisplay = PrincipalDisplay,
                     TenantId = "019fe062-d000-730c-a37d-7247342cd810",
                 });
                 return;

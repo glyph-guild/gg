@@ -21,6 +21,9 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class SigningInInTwoStepsTests
 {
+    /// <summary>Written as an escape, because a raw one in source is invisible.</summary>
+    private const string Esc = "\u001b";
+
     private sealed class RecordingWriter : IConsoleWriter
     {
         public List<string> Lines { get; } = [];
@@ -104,6 +107,31 @@ public class SigningInInTwoStepsTests
         await Assert.That(result.Said).IsNotEmpty();
         await Assert.That(sessions.Stored).IsNull()
             .Because("nothing was issued, so nothing may be written where a session lives.");
+    }
+
+    [Test]
+    public async Task The_principal_is_cleaned_before_it_is_stored_or_said()
+    {
+        // A DISPLAY NAME IS TEXT SOMEBODY ELSE CHOSE, and it goes two places
+        // that act on control sequences: straight to a terminal in "Signed in
+        // as …", and into the session file, from which the console reads it as
+        // AppState.Principal for the whole of a session. Cleaned at INGRESS -
+        // before it is written down - because the store is read by things that
+        // are not a renderer, and the console's rule is that text is stored
+        // clean rather than fixed on the way out.
+        await using var stub = new StubControlPlane
+        {
+            PrincipalDisplay = Esc + "[2Jsomebody",
+        };
+
+        var (commands, _, sessions) = Build(stub);
+
+        var result = await commands.AwaitApprovalAsync(await commands.StartAsync("test-device"));
+
+        await Assert.That(result.Said).DoesNotContain(Esc);
+        await Assert.That(sessions.Stored!.PrincipalDisplay).DoesNotContain(Esc);
+        await Assert.That(sessions.Stored!.PrincipalDisplay).Contains("somebody")
+            .Because("what goes is the sequence, not the name somebody is known by.");
     }
 
     [Test]

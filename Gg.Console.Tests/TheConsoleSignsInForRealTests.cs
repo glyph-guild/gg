@@ -27,6 +27,11 @@ public class TheConsoleSignsInForRealTests
 
     private const string Handle = "the-device-code-nobody-else-may-hold";
 
+    /// <summary>Written as escapes, because a raw one in source is invisible.</summary>
+    private const string Esc = "\u001b";
+
+    private const string Bel = "\u0007";
+
     private static DeviceAuthorizationStarted Authorization() => new()
     {
         DeviceCode = Handle,
@@ -172,6 +177,53 @@ public class TheConsoleSignsInForRealTests
         new SignInSession(Authorization, _ => new SignInResult { Said = "" }, output).Start();
 
         await Assert.That(output.Lines).IsEmpty();
+    }
+
+    /// <summary>A code and an address with a screen-clear and a title-set in them.</summary>
+    /// <remarks>
+    /// Shaped like what would actually arrive: values a control plane composes,
+    /// carrying sequences a terminal ACTS on rather than prints. The first
+    /// wipes the screen; the second retitles the window and never terminates,
+    /// which is how a crafted string takes the rest of a line with it.
+    /// </remarks>
+    private static DeviceAuthorizationStarted Crafted() => Authorization() with
+    {
+        UserCode = Esc + "[2JWDJB-MJHT",
+        VerificationUri = "https://example.test/device" + Esc + "]0;owned" + Bel,
+    };
+
+    [Test]
+    public async Task Text_from_the_control_plane_is_stripped_before_it_is_stored()
+    {
+        // AT INGRESS, WHICH IS HERE. The console's rule is that external text is
+        // cleaned before storage rather than at render, because the model is
+        // written to disk, handed to the diagnostics bundle, and read back by
+        // things that are not PaneText. This is the doorway those two values
+        // come through.
+        var step = new SignInSession(
+            Crafted, _ => new SignInResult { Said = "" }, new RecordingWriter()).Start();
+
+        await Assert.That(step.Pending!.UserCode).DoesNotContain(Esc);
+        await Assert.That(step.Pending!.VerificationUri).DoesNotContain(Esc);
+        await Assert.That(step.Pending!.UserCode).Contains("WDJB-MJHT")
+            .Because("stripping removes the sequence, not the code a person has to type.");
+    }
+
+    [Test]
+    public async Task What_goes_straight_to_the_terminal_is_stripped_too()
+    {
+        // THE ONE PATH WITH NO PANE IN IT. Everything else the control plane
+        // says reaches a screen through PaneText, which cleans as a last line of
+        // defence. These lines are written while the UI is down, so there is no
+        // last line of defence after this one.
+        var output = new RecordingWriter();
+
+        var session = new SignInSession(Crafted, _ => new SignInResult { Said = "" }, output);
+        session.Start();
+        session.Wait();
+
+        await Assert.That(output.All).DoesNotContain(Esc);
+        await Assert.That(output.All).Contains("WDJB-MJHT");
     }
 
     [Test]

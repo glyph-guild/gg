@@ -439,19 +439,37 @@ public static class EnvelopeDirection
     /// Null when this bound did not loosen; otherwise why it did.
     /// </summary>
     /// <remarks>
-    /// <b>Null is unbounded, so null to anything is a NARROWING.</b> That is the
-    /// direction worth getting right: an envelope that bounded nothing and now
-    /// permits two environments has restricted where its flights may run, and
-    /// calling that a widening would demand a gate for the act of writing a
-    /// bound down. The reverse - a bound withdrawn entirely - is a widening,
-    /// because afterwards nothing is refused.
+    /// <para>
+    /// <b>DECLARING WHERE NOTHING WAS DECLARED IS NEW REACH, AND I GOT THIS
+    /// WRONG ONCE.</b> When the bound became a set I read it as a restriction -
+    /// bounding flights to dev where nothing bounded them looks like narrowing -
+    /// and made null-to-anything not a widening. It is a widening, for the
+    /// reason the airspace walk states in those words: selecting a name where
+    /// none was selected is NEW REACH. The tenant's work can now run somewhere
+    /// it could not, its flights compile a label they did not, and that is
+    /// exactly what a reviewer should be shown. An end-to-end test caught the
+    /// change; the reading it defends had been deliberate since slice ten.
+    /// </para>
+    /// <para>
+    /// <b>What IS new here is direction WITHIN a set.</b> A single selection had
+    /// none - any change was a widening - so growing a set widens, shrinking one
+    /// narrows, and withdrawing it entirely widens because afterwards nothing is
+    /// refused. Null to anything stays a widening, which makes the rule: only
+    /// removing a name from an existing set is a narrowing.
+    /// </para>
     /// </remarks>
     private static EnvelopeWidening? Grew(
         string field, IReadOnlyList<string>? applied, IReadOnlyList<string>? proposed)
     {
         if (applied is null)
         {
-            return null;
+            return proposed is null
+                ? null
+                : Widen(field,
+                    $"{field} bounded nothing and now names " + string.Join(", ", proposed)
+                  + ". Selecting a name where none was selected is new reach: this tenant's "
+                  + "flights can run somewhere they could not, and compile a label they did "
+                  + "not.");
         }
 
         if (proposed is null)

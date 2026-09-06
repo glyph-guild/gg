@@ -689,6 +689,14 @@ public sealed record AppState
     /// </remarks>
     public string? LocalRunnerId { get; init; }
 
+    /// <summary>Which row of the runners table the cursor is on.</summary>
+    /// <remarks>
+    /// <b>The model owns it, like the other three tables.</b> The widget will
+    /// happily keep a cursor of its own, and a render that assigns one from a
+    /// constant puts it back at the top under the person using it.
+    /// </remarks>
+    public int RunnerSelected { get; init; }
+
     /// <summary>What the last hand-back ended with, for the pane to say.</summary>
     public string? LastHandBack { get; init; }
 

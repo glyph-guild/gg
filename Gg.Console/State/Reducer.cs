@@ -526,6 +526,7 @@ public static class Reducer
         TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
         TabId.Browse => PickWork(state, state.BrowseSelected + by),
         TabId.Flights => PickFlight(state, state.FlightSelected + by),
+        TabId.Runners => PickRunner(state, state.RunnerSelected + by),
         _ => Select(state, state.SelectedRow + by),
     };
 
@@ -556,6 +557,7 @@ public static class Reducer
             TabId.Repositories => PickRepository(state, row),
             TabId.Browse => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
+            TabId.Runners => PickRunner(state, row),
             _ => Select(state, row),
         };
     }
@@ -570,6 +572,22 @@ public static class Reducer
     {
         FlightSelected = state.Flights is { Flights.Count: > 0 } listed
             ? Math.Clamp(to, 0, listed.Flights.Count - 1)
+            : 0,
+    };
+
+    /// <summary>
+    /// Move the runner cursor, inside the fleet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Over the ROWS rather than the control plane's list.</b> A machine
+    /// registered here that the fleet has never seen is a row this console adds,
+    /// so clamping to the answer's length would put the cursor one short of the
+    /// table a person is looking at.
+    /// </remarks>
+    private static AppState PickRunner(AppState state, int to) => state with
+    {
+        RunnerSelected = Rows.Runners(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
             : 0,
     };
 

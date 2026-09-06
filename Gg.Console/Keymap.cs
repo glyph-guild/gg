@@ -204,7 +204,14 @@ public static class Keymap
         UiMode.SignIn => context.SignInStarted
             ?
             [
-                new(KeyStroke.Char('a'), Command.SignIn, "I have approved it"),
+                // WHEN, because it is not live in the plainest form of this
+                // mode and the help page is a union over every context. Read
+                // there without it, `y sign in` and `a I have approved it` sit
+                // together as a contradiction rather than as two steps.
+                new(KeyStroke.Char('a'), Command.SignIn, "I have approved it")
+                {
+                    When = "once a code is showing",
+                },
                 new(KeyStroke.Esc, Command.CloseModal, "give up"),
             ]
             :
@@ -421,7 +428,15 @@ public static class Keymap
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack);
+        // THE SIGN-IN MODAL'S TWO STEPS, which are two sets of keys behind one
+        // mode. Left out, `a` resolved in the running console and appeared on
+        // no page - a key nobody could discover, which is the thing this
+        // catalogue exists to prevent.
+        from signInStarted in (bool[])[false, true]
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
+        {
+            SignInStarted = signInStarted,
+        };
 
     /// <summary>
     /// A toggle's description: what a second press will do from here.

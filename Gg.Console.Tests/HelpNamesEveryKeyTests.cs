@@ -42,25 +42,22 @@ public class HelpNamesEveryKeyTests
     }
 
     /// <summary>
-    /// Every context there is, as the product of every flag the keymap has.
+    /// Every context there is, as the product of every member the keymap has.
     /// </summary>
     /// <remarks>
-    /// The pane flags are left out on purpose: they change a DESCRIPTION -
-    /// "browse" against "hide browse" - and never which keys resolve, so the
-    /// union over them is the same set. Whether that stays true is what the
-    /// count below is for.
+    /// Complete rather than reachable. This is a pure function over a struct,
+    /// so a shape the console cannot get into still has to answer, and the
+    /// union is only a union if nothing is left out of it.
     /// </remarks>
     private static IEnumerable<KeymapContext> Everywhere() =>
         from mode in Enum.GetValues<UiMode>()
-        from live in (bool[])[false, true]
+        from showing in Enum.GetValues<TabId>()
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
-        from browse in (bool[])[false, true]
         from started in (bool[])[false, true]
-        select new KeymapContext(mode, live, frozen, takeable, handedBack)
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
-            BrowseVisible = browse,
             SignInStarted = started,
         };
 
@@ -99,19 +96,17 @@ public class HelpNamesEveryKeyTests
     public async Task The_product_above_is_over_every_flag_the_keymap_has()
     {
         // The ratchet on the ratchet. Everywhere() is a written-out product, so
-        // a seventh flag on KeymapContext would leave it enumerating six and the
-        // completeness check would quietly stop being complete - which is
-        // exactly how the shapes it audits came to be missing one.
-        var flags = typeof(KeymapContext)
+        // a seventh member on KeymapContext would leave it enumerating six.
+        var members = typeof(KeymapContext)
             .GetProperties()
-            .Where(p => p.PropertyType == typeof(bool))
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(flags.Count).IsEqualTo(9)
-            .Because("Everywhere() enumerates six of these and states why the other three "
-                   + "cannot change the set. Add the new one to it, or say there why it "
-                   + "cannot matter. Found: " + string.Join(", ", flags));
+        await Assert.That(members.Count).IsEqualTo(6)
+            .Because("Everywhere() crosses every one of these, and a member left out of it "
+                   + "would leave the completeness check above quietly incomplete - which is "
+                   + "exactly how the shapes it audits came to be missing one. Found: "
+                   + string.Join(", ", members));
     }
 
     [Test]

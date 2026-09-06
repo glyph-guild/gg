@@ -133,10 +133,17 @@ public sealed class SignInSession(
         {
             // FOUR VALUES ARRIVE AND THREE CROSS. This is the line the whole
             // arrangement exists for: DeviceCode is not among them.
+            //
+            // AND THE THREE ARE CLEANED ON THE WAY THROUGH. Both strings are
+            // composed by a control plane, and this doorway is their ingress -
+            // the console's rule is that external text is stripped before
+            // STORAGE rather than at render, because the model is written to
+            // disk, handed to the diagnostics bundle, and read back by things
+            // that are not PaneText.
             Pending = new PendingSignIn
             {
-                UserCode = _started.UserCode,
-                VerificationUri = _started.VerificationUri,
+                UserCode = ControlText.Strip(_started.UserCode),
+                VerificationUri = ControlText.Strip(_started.VerificationUri),
                 ExpiresAt = _started.ExpiresAt,
             },
             Said = "Waiting for you to approve it.",

@@ -67,11 +67,16 @@ public class ProtocolSurfaceTests
 
         await Assert.That(index).IsGreaterThan(0);
 
-        // The comment block immediately above the row, and nothing further up.
-        var preceding = source[Math.Max(0, index - 1200)..index];
-        var lastRow = preceding.LastIndexOf("new()", StringComparison.Ordinal);
+        // THIS ROW'S OWN BLOCK, and the window matters. Cutting at the nearest
+        // `new()` starts AFTER the comment, which is written above it - so the
+        // first version of this scan looked at the declaration and never at the
+        // remark it was asserting about, and failed against a file that said the
+        // right thing. The block is what follows the previous row's closing
+        // brace.
+        var preceding = source[Math.Max(0, index - 2000)..index];
+        var previousRow = preceding.LastIndexOf("},", StringComparison.Ordinal);
 
-        await Assert.That(preceding[(lastRow < 0 ? 0 : lastRow)..]).Contains("/story")
+        await Assert.That(preceding[(previousRow < 0 ? 0 : previousRow)..]).Contains("/story")
             .Because("the remark on this row is where a person reading the declaration "
                    + "learns there is a composed surface, and it is the only place that "
                    + "says so - there is deliberately no machine-readable flag.");

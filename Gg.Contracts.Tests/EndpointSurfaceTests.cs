@@ -235,8 +235,17 @@ public class EndpointSurfaceTests
         // the binaries that did not need it. Anonymous for a related reason: a
         // machine that cannot sign in may be the one furthest behind, and what
         // the current gg is, is not a fact about any tenant.
+        // AND ONE MORE: GET /v1/flights/{ref}/story, a developer's read of one
+        // flight's whole history in one shape - how far it got, how it stands,
+        // who has it now, what is unanswered, and every entry with a sentence
+        // rather than a per-kind JSON blob. ADDITIVE: /log keeps its type, its
+        // statuses and every kind it spells, because three walk scripts grep its
+        // JSON and the console fetches one per flight at boot. The two answer
+        // overlapping questions and the older one says so in a remark, because a
+        // machine-readable Deprecated flag nothing reads would be the shape the
+        // slice that added this exists to remove.
         await Assert.That(Fingerprint())
-            .IsEqualTo("808b8c04c56e856073260d64ac0cbe88c96172cb4b958b7f06b206922efb3a17")
+            .IsEqualTo("7c990acd97eb176d68771652b69b5793d7c0aeb0820716b5515a191d847360dd")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

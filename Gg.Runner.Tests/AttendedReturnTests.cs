@@ -46,12 +46,22 @@ namespace Gg.Runner.Tests;
 public class AttendedReturnTests
 {
     private static Func<string, string, (TakeoverReturn?, string?)> Left(
-        string? outcome = null, string? diagnosis = null) =>
+        string? outcome = null, string? diagnosis = null, string? note = null) =>
         (_, flightId) => (
             outcome is null
                 ? null
-                : new TakeoverReturn { FlightId = flightId, Outcome = outcome },
+                : new TakeoverReturn { FlightId = flightId, Outcome = outcome, Note = note },
             diagnosis);
+
+    /// <summary>Every account the runner put on the wire.</summary>
+    private static IReadOnlyList<HumanAccount> Accounts(FakeProtocol protocol) =>
+    [
+        .. protocol.ShippedFacts
+            .SelectMany(batch => batch.Items)
+            .Where(fact => string.Equals(
+                fact.Kind, FactKinds.HumanAccount, StringComparison.Ordinal))
+            .Select(fact => fact.Human!),
+    ];
 
     /// <summary>What the runner told the control plane when it let go.</summary>
     private static LeaseReleaseRequest Released(FakeProtocol protocol) =>
@@ -257,6 +267,63 @@ public class AttendedReturnTests
                 Reason = "every requirement satisfied",
             });
 
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Completed);
+    }
+
+    // ---- the person's own account ----
+
+    [Test]
+    public async Task What_the_person_wrote_becomes_their_account()
+    {
+        // THE MOST INFORMATIVE THING IN AN ATTENDED FLIGHT'S RECORD, and until
+        // now it was a release detail. loop.attended declares turns, moves and
+        // the tool bound all unmeasured - so what the machine knows about such a
+        // flight is mostly what it could not see, and the person's own sentence
+        // is the rest of it.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed,
+                note: "I renamed the column and backfilled it in two passes."));
+
+        var accounts = Accounts(protocol);
+
+        await Assert.That(accounts).Count().IsEqualTo(1);
+        await Assert.That(accounts[0].Statement)
+            .IsEqualTo("I renamed the column and backfilled it in two passes.");
+        await Assert.That(accounts[0].Confirmation).IsEqualTo(AccountConfirmations.Unaided)
+            .Because("nothing proposed anything to them - HandSession runs on the takeover "
+                   + "path and not this one - and `replaced` would report a proposal that "
+                   + "was bad rather than one that never happened.");
+        await Assert.That(accounts[0].WasProposed).IsNull();
+    }
+
+    [Test]
+    public async Task Somebody_who_wrote_nothing_leaves_no_account()
+    {
+        // RULE 7. Nothing is recorded as a person's account until they have
+        // answered, and a return file with no note is somebody who did not.
+        // Writing an empty account would attribute silence to them.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed));
+
+        await Assert.That(Accounts(protocol)).IsEmpty();
+    }
+
+    [Test]
+    public async Task An_account_nobody_can_read_is_refused_and_the_flight_still_ends()
+    {
+        // BOUNDED, AND REFUSED RATHER THAN TRUNCATED. HumanAccount stops at 8000
+        // characters and the return FILE is bounded at 64k, so a note can be
+        // eight times what an account may hold. An account cut in half is one
+        // that reads as complete and is not - the rule loop.question states in
+        // its own words.
+        //
+        // AND THE RELEASE STILL HAPPENS. The account is optional; ending the
+        // lease is not. A long note must not strand the flight.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed,
+                note: new string('x', HumanAccount.MaxStatement + 1)));
+
+        await Assert.That(Accounts(protocol)).IsEmpty();
         await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Completed);
     }
 }

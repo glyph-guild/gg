@@ -140,6 +140,19 @@ public abstract record CliAction
     public sealed record Doctor(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>
+    /// What a newer gg would take, and the command that takes it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It moves nothing.</b> gg does not download, verify, replace or roll
+    /// back its own binary - <c>dotnet</c> does that for a tool, a person does
+    /// it for a native install, and an image is repinned. This verb reports the
+    /// install shape and names the command; <c>UpdateBoundaryTests</c> holds
+    /// the runner role away from all of it, because until this shipped the
+    /// filesystem was enforcing that for free.
+    /// </remarks>
+    public sealed record Update(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>
     /// Registers a credential for a repository.
     /// </summary>
     /// <remarks>
@@ -268,6 +281,7 @@ public static class CliArgs
         "gg envelope apply <file>|-     write them back",
         "gg envelope validate <file>|-  check a file without sending it anywhere",
         "gg doctor                      check what gg needs to work",
+        "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",
         // One line each rather than "login | logout | whoami". A person looking
         // for a verb greps for it, and the compact form is the one spelling
@@ -351,6 +365,7 @@ public static class CliArgs
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),
             ["doctor"] => new CliAction.Doctor(json),
+            ["update"] => new CliAction.Update(json),
             ["bundle"] => new CliAction.Bundle(json),
 
             ["decide", var flight, var obligation, var outcome, var reason] =>

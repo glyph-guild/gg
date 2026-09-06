@@ -60,6 +60,7 @@ return CliArgs.Parse(args) switch
     CliAction.Decide decide => await EmitAsync(decide.Json, c => c.DecideAsync(
         decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json), decide.Reason)),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
+    CliAction.Update update => UpdateReport(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 
     CliAction.EnvelopeShow show => await EnvelopeAsync(show.Json, c => c.ShowAsync()),
@@ -1097,3 +1098,80 @@ static int Fail(string message)
     Console.Error.WriteLine(message);
     return ExitCodes.Refused;
 }
+
+/// <summary>
+/// `gg update`. What shape this install is, and the command that would move it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Synchronous, and that is the rule showing through the signature.</b>
+/// There is nothing to await because there is nothing to fetch, write or spawn:
+/// gg replaces no binary of its own. When the control plane can say what is
+/// current - the one channel independent of the feed - that answer travels in
+/// as a value, so this stays a function of facts rather than a thing that
+/// reaches.
+/// </para>
+/// <para>
+/// <b>Exit zero either way.</b> Being behind is reported, never blocking; the
+/// protocol floor already refuses with a 426 and that stays the only thing that
+/// does. A non-zero exit here turns "there is a newer gg" into a failed build
+/// on somebody else's machine.
+/// </para>
+/// </remarks>
+static int UpdateReport(bool json)
+{
+    // NOT KNOWN YET, and said rather than guessed. Until the control plane
+    // answers what is current, UpdateAdvice renders the absence - it does not
+    // render currency, and it prints no --version flag carrying a number
+    // nobody supplied.
+    var advice = Gg.Local.UpdateAdvice.For(Gg.Local.InstallShape.Current, current: null);
+
+    if (json)
+    {
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+            new UpdateReportJson(
+                advice.Shape.Kind.ToString(),
+                advice.Shape.ToolPath,
+                GgVersions.Binary,
+                advice.Current,
+                advice.Summary,
+                [.. advice.Commands]),
+            UpdateJsonContext.Default.UpdateReportJson));
+
+        return ExitCodes.Ok;
+    }
+
+    Console.WriteLine(advice.Summary);
+
+    foreach (var command in advice.Commands)
+    {
+        Console.WriteLine();
+        Console.WriteLine("  " + command);
+    }
+
+    return ExitCodes.Ok;
+}
+
+/// <summary>What `gg update --json` emits.</summary>
+/// <param name="Shape">Which install this is.</param>
+/// <param name="ToolPath">Where the tool lives, when it is one.</param>
+/// <param name="Installed">The version running now.</param>
+/// <param name="Current">What is current, or null where that could not be established.</param>
+/// <param name="Summary">The same sentence the text form prints.</param>
+/// <param name="Commands">What to run, which may legitimately be empty.</param>
+internal sealed record UpdateReportJson(
+    string Shape,
+    string? ToolPath,
+    string Installed,
+    string? Current,
+    string Summary,
+    IReadOnlyList<string> Commands);
+
+/// <summary>
+/// Source-generated, because everything here must stay AOT-publishable.
+/// </summary>
+[System.Text.Json.Serialization.JsonSourceGenerationOptions(
+    PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase,
+    WriteIndented = true)]
+[System.Text.Json.Serialization.JsonSerializable(typeof(UpdateReportJson))]
+internal sealed partial class UpdateJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

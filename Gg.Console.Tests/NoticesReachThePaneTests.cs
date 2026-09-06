@@ -48,6 +48,33 @@ public class NoticesReachThePaneTests
     };
 
     [Test]
+    public async Task A_gg_that_is_behind_reaches_the_pane_like_any_other_notice()
+    {
+        // S32.2-03, and what it really asserts is that NOTHING SPECIAL HAPPENS.
+        // The projection takes whatever the control plane sent; it does not
+        // know the codes and must not learn them. A filter added here - even a
+        // well-meant one that hides advisories - is how the third version
+        // signal would go quiet again after all this.
+        var behind = new TenantNotice
+        {
+            Code = TenantNoticeCodes.Binary,
+            Detail = "this gg is 0.3.0 and 0.4.0 is current",
+            Remedy = "gg update",
+            Blocking = false,
+        };
+
+        var state = ConsoleProjection.Apply(new AppState(), new VerbResult.Identity(Who(behind)));
+
+        await Assert.That(state.Notices.Count).IsEqualTo(1);
+
+        var rows = PaneText.QueueRows(state);
+
+        await Assert.That(rows[0]).Contains("0.4.0")
+            .Because("the console is the surface a person is already looking at, which is why "
+                   + "being behind arrives on this channel rather than as a fourth signal.");
+    }
+
+    [Test]
     public async Task The_projection_puts_a_notice_where_the_pane_reads_it()
     {
         // Rule 2: Apply is the only path from a verb result into the model, so

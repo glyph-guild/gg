@@ -177,6 +177,14 @@ public class EnvelopeModelRoundTripTests
                     // TWO ENTRIES. The renderer sorts sequences, so a
                     // single-entry list would pass whatever the ordering did.
                     Opens = ["implement", "research"],
+                    // TWO IN EACH SET, for the reason the list above has two:
+                    // the renderer sorts, so a single entry passes whatever the
+                    // ordering does.
+                    MaySelect = new DestinationSelection
+                    {
+                        Environments = ["dev", "staging"],
+                        Repositories = ["ledger", "payments"],
+                    },
                 },
             ],
         };
@@ -192,6 +200,16 @@ public class EnvelopeModelRoundTripTests
                    + "member that did not survive the text form is a governance bound that "
                    + "disappears the first time somebody edits the file it is not in - which "
                    + "is what happened to `evidence:` for three contract versions.");
+        await Assert.That(destination.MaySelect).IsNotNull();
+        await Assert.That(destination.MaySelect!.Environments)
+            .IsEquivalentTo((string[])["dev", "staging"])
+            .Because("this set is what stops a classifier naming production, so a member that "
+                   + "did not survive the text form is a governance bound that disappears the "
+                   + "first time somebody edits the file it is not in - the same failure the "
+                   + "list above records for `evidence:`.");
+        await Assert.That(destination.MaySelect!.Repositories)
+            .IsEquivalentTo((string[])["ledger", "payments"]);
+
         await Assert.That(destination.PreserveUnadmitted).IsNull();
 
         // And the second render is the first, so `show` after `apply` is not a
@@ -250,6 +268,8 @@ public class EnvelopeModelRoundTripTests
             nameof(LoopBudget.WallClock), nameof(LoopBudget.Attempts),
             nameof(Destination.Id), nameof(Destination.Kind), nameof(Destination.Requires),
             nameof(Destination.PreserveUnadmitted), nameof(Destination.Opens),
+            nameof(Destination.MaySelect),
+            nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
             nameof(EnvelopeNarrowing.Obligations),
         ];
 

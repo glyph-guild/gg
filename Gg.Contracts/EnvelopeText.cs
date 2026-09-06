@@ -188,6 +188,25 @@ public static class EnvelopeText
             {
                 Sequence(text, "opens", opens, depth: 2);
             }
+
+            // AND THE SAME AGAIN, one member over. Emitted only when declared,
+            // and each set only when IT is declared - writing `environments: []`
+            // for a destination that bounded only repositories would say the
+            // tenant permits no environment, which is a policy nobody wrote.
+            if (destination.MaySelect is { } selection)
+            {
+                text.Append($"{Indent}{Indent}may-select:\n");
+
+                if (selection.Environments is { } environments)
+                {
+                    Sequence(text, "environments", environments, depth: 3);
+                }
+
+                if (selection.Repositories is { } repositories)
+                {
+                    Sequence(text, "repositories", repositories, depth: 3);
+                }
+            }
         }
 
         return text.ToString();

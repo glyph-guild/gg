@@ -397,6 +397,33 @@ public static class EnvelopeDirection
                   + "regime - its loop, its moves, its budget, its destinations and which "
                   + "obligations apply - that a nomination can newly reach.");
             }
+
+            // AND THE TWO MENUS BESIDE IT, written by hand for the same reason:
+            // an operator in the table is not a direction rule, and a set that
+            // grows with no arm here is a bound loosening with no approver in
+            // sight. This is the exact omission `accepts:` shipped with, one
+            // member over, and the reason each arm is spelled out rather than
+            // derived from the operator.
+            var permitted = (now.MaySelect?.Environments ?? [])
+                .Except(was.MaySelect?.Environments ?? [], StringComparer.Ordinal).ToList();
+            if (permitted.Count > 0)
+            {
+                return Widen($"{at}.may-select.environments",
+                    $"environment '{permitted[0]}' could not be selected here before, and this "
+                  + "set intersects: it can only ever narrow. Somewhere a classifier may newly "
+                  + "send work is the whole point of the bound - a tenant that meant it to "
+                  + "choose between two development environments has just been given more.");
+            }
+
+            var reachable = (now.MaySelect?.Repositories ?? [])
+                .Except(was.MaySelect?.Repositories ?? [], StringComparer.Ordinal).ToList();
+            if (reachable.Count > 0)
+            {
+                return Widen($"{at}.may-select.repositories",
+                    $"repository '{reachable[0]}' could not be selected here before, and this "
+                  + "set intersects: it can only ever narrow. A repository gained is work a "
+                  + "nomination can newly direct at somebody else's code.");
+            }
         }
 
         return null;

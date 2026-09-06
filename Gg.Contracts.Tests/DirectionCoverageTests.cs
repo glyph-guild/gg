@@ -227,7 +227,25 @@ public class DirectionCoverageTests
         new("Destination.Opens", "opens",
             Opening(["research"]), Opening(["implement", "research"]),
             ReverseAlsoWidens: false),
+
+        // BOTH MENUS WIDEN BY GROWING, the way opens does above. A destination
+        // that permitted only dev and now permits production lets a classifier
+        // ask for somewhere it could not ask for before - which is the whole
+        // point of the bound, and so exactly the change a person should see.
+        new("DestinationSelection.Environments", "environments",
+            Selecting(new DestinationSelection { Environments = ["dev"] }),
+            Selecting(new DestinationSelection { Environments = ["dev", "production"] }),
+            ReverseAlsoWidens: false),
+
+        new("DestinationSelection.Repositories", "repositories",
+            Selecting(new DestinationSelection { Repositories = ["ledger"] }),
+            Selecting(new DestinationSelection { Repositories = ["ledger", "payments"] }),
+            ReverseAlsoWidens: false),
     ];
+
+    /// <summary>A flight destination bounding what a nomination may select.</summary>
+    private static Envelope Selecting(DestinationSelection selection) =>
+        WithDestination(Opening(["implement"]), d => d with { MaySelect = selection });
 
     /// <summary>
     /// Fields no <c>Envelope</c> pair can move, with the reason.

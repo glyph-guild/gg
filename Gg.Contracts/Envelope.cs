@@ -1025,6 +1025,55 @@ public sealed record Loop
     public required string OnExhaustion { get; init; }
 }
 
+/// <summary>
+/// The sets a destination permits a nomination to select from.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A bound, not a capability.</b> Naming an environment here does not grant
+/// a flight anything; it says which of the tenant's already-charted
+/// environments a classifier may ASK for. Everything that decides whether the
+/// ask is legal already exists - the chart refuses an uncharted environment and
+/// ingress refuses an unregistered repository - and this is the door in front
+/// of both, which is what stops a classifier sending work to production when
+/// the tenant meant it to choose between two development environments.
+/// </para>
+/// <para>
+/// <b>Refused, not clamped.</b> A nomination naming something outside these
+/// sets opens nothing. Clamping to the nearest permitted value would be the
+/// platform choosing where somebody else's work runs and reporting success.
+/// </para>
+/// <para>
+/// <b>Two members, enumerated by a test rather than guarded by a list of bad
+/// names.</b> The pressure here runs the way it does on the nomination itself:
+/// every dimension somebody wants to add makes the selection more useful and
+/// makes it configuration an agent writes. A move, a scope or a budget here
+/// would hand a classifier the regime its own nomination runs under.
+/// </para>
+/// </remarks>
+[PinnedId("3d2b9c17-5f84-4a0e-9d61-8c7e2a4b0f93")]
+public sealed record DestinationSelection
+{
+    /// <summary>
+    /// The environments a nomination may name, or null when it may name none.
+    /// </summary>
+    /// <remarks>
+    /// Null and empty are different statements. Null is the ordinary case - the
+    /// destination bounds no selection and an agent is not asked to choose.
+    /// Empty says the tenant considered it and permits nothing, which renders no
+    /// menu rather than an invitation to guess at names that will be refused.
+    /// </remarks>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<string>? Environments { get; init; }
+
+    /// <summary>
+    /// The repositories a nomination may name, or null when it may name none.
+    /// </summary>
+    /// <remarks>Null and empty differ here for the reason they differ above.</remarks>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<string>? Repositories { get; init; }
+}
+
 /// <summary>Where the work is allowed to land.</summary>
 /// <remarks>
 /// Declared here and acted on nowhere. Write access is a property OF a
@@ -1122,6 +1171,19 @@ public sealed record Destination
     /// </remarks>
     [Composes(MergeOperators.Intersect)]
     public IReadOnlyList<string>? Opens { get; init; }
+
+    /// <summary>
+    /// What a nomination admitted here may select, or null when it selects
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="Opens"/> and bounded the same way.</b> That list says
+    /// which work kinds may be nominated; this says which environments and
+    /// repositories may be named alongside one. Both are menus a person wrote,
+    /// and both are refused rather than clamped when a nomination steps outside.
+    /// On a flight destination or nowhere, for the reason <c>Opens</c> gives.
+    /// </remarks>
+    public DestinationSelection? MaySelect { get; init; }
 }
 
 /// <summary>
@@ -1589,6 +1651,18 @@ public sealed record Envelope
                 return $"Destination '{destination.Id}' declares opens and is a "
                      + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
                      + "anything, so on this kind the list bounds nothing.";
+            }
+
+            // THE SAME RULE, ONE MEMBER OVER. A selection bound is read when a
+            // nomination opens a flight and at no other time, so on any other
+            // kind it is a permission somebody believes they granted - the
+            // PreserveUnadmitted precedent, which refuses a knob that silently
+            // does nothing rather than letting it read as configuration.
+            if (destination.MaySelect is not null && !opensAFlight)
+            {
+                return $"Destination '{destination.Id}' declares may-select and is a "
+                     + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' admits a "
+                     + "nomination, so on this kind the sets bound nothing.";
             }
 
             if (opensAFlight)

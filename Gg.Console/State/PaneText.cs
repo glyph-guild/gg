@@ -1205,6 +1205,20 @@ public static class PaneText
         _ => "",
     };
 
+    /// <summary>
+    /// Whether this modal shows something a person reads down.
+    /// </summary>
+    /// <remarks>
+    /// <b>A property of what the mode shows, and it was a literal in the
+    /// view.</b> A modal added later inherited the small size and nothing asked
+    /// whether that was right - the runner's opened with a log in it and seven
+    /// visible lines. The three below render documents; the rest are a few lines
+    /// and two keys, and a box the size of the screen around one of those reads
+    /// as something having gone wrong.
+    /// </remarks>
+    public static bool ModalIsADocument(UiMode mode) =>
+        mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner;
+
     public static string Modal(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

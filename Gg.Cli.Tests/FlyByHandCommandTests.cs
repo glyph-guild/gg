@@ -140,4 +140,104 @@ public class FlyByHandCommandTests
         // be asserting something this command does not decide.
         await Assert.That(order).IsEquivalentTo(new[] { "plan", "open" });
     }
+
+    // ---- S26.8-01 and S26.8-02 ----
+
+    private static PendingGate AGate() => new()
+    {
+        FlightNumber = "GG-9",
+        ObligationId = "somebody-looks",
+        Approver = "a-lead",
+        Because = "the change touches migrations, and somebody has to look at that",
+        AwaitingSince = new DateTimeOffset(2026, 9, 6, 6, 0, 0, TimeSpan.Zero),
+        ManifestHash = new string('a', 64),
+        Attempt = 1,
+    };
+
+    [Test]
+    public async Task A_gate_the_flight_opened_is_offered_at_the_terminal()
+    {
+        // THE SAME FIELDS `gg gates` SHOWS, BY CONSTRUCTION RATHER THAN BY
+        // COPYING. What is asserted is that the offer renders through the one
+        // renderer - so a field added to the gate list appears here without
+        // anybody remembering, and a field that stopped appearing there stops
+        // appearing here. A second layout would drift on the first change and
+        // the drift would be invisible: both would still look like a gate.
+        //
+        // `because` is the column that makes this worth doing at all. It is the
+        // gate list's most important column, and when the condition is "loop
+        // asked for a decision" the Engine composes the sentence from the fact,
+        // so the agent's own question is the tail of it.
+        var said = new List<string>();
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: said.Add,
+            gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
+            answer: _ => DecisionOutcomes.Approved,
+            decide: (_, _, _) => Task.FromResult(true));
+
+        var offered = string.Join("\n", said);
+        var asGgGatesWouldShowIt = VerbOutput.ToText(
+            new VerbResult.Gates(new GateList { Gates = [AGate()] }));
+
+        await Assert.That(offered).Contains(asGgGatesWouldShowIt)
+            .Because("one renderer, so the fields cannot drift apart. A second layout would "
+                   + "still look like a gate on the day it stopped showing `because`.");
+    }
+
+    [Test]
+    public async Task The_decision_is_posted_for_the_gate_the_person_answered()
+    {
+        var posted = new List<string>();
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: _ => { },
+            gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]),
+            answer: _ => DecisionOutcomes.Rejected,
+            decide: (flight, obligation, outcome) =>
+            {
+                posted.Add($"{flight}:{obligation}:{outcome}");
+                return Task.FromResult(true);
+            });
+
+        await Assert.That(posted).IsEquivalentTo(new[]
+        {
+            "GG-9:somebody-looks:" + DecisionOutcomes.Rejected,
+        });
+    }
+
+    [Test]
+    public async Task A_flight_that_opened_no_gate_asks_nobody_anything()
+    {
+        // THE COMMON CASE GAINS NO PROMPT. A hand-flight whose envelope opened
+        // nothing is the ordinary one, and a prompt that appeared anyway - even
+        // an empty one - would make every flight cost a keystroke.
+        var asked = 0;
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9", FlightNumber = "GG-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: _ => { },
+            gates: _ => Task.FromResult<IReadOnlyList<PendingGate>>([]),
+            answer: _ => { asked++; return DecisionOutcomes.Approved; },
+            decide: (_, _, _) => Task.FromResult(true));
+
+        await Assert.That(asked).IsEqualTo(0);
+    }
 }

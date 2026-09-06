@@ -132,9 +132,11 @@ public class DirectionCoverageTests
             Doc() with { Context = new ContextBinding { Scope = "src/**", Constitution = "1.1.0" } },
             ReverseAlsoWidens: true),
 
-        // GROWING WIDENS AND SHRINKING DOES NOT, now that the bound is a set.
-        // It was ReverseAlsoWidens: true because a single selection had no
-        // order - any change was a widening. A set has a direction.
+        // GROWING WIDENS AND SHRINKING DOES NOT, now that the bound is a set -
+        // but this pair starts from a document that already names one, because
+        // null to anything is still a widening: selecting a name where none was
+        // selected is new reach, which is the reading slice ten set and an
+        // end-to-end test defends.
         new("Envelope.Environments", "environments",
             Doc(), Doc() with { Environments = ["dev", "prod"] }, ReverseAlsoWidens: false),
 

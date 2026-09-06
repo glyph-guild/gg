@@ -436,16 +436,18 @@ public class EnvelopeDirectionTests
     }
 
     [Test]
-    public async Task A_bound_written_down_narrows_and_a_bound_withdrawn_widens()
+    public async Task Declaring_a_bound_and_withdrawing_one_are_both_new_reach()
     {
         // Null is unbounded. So the direction is asymmetric, which is the whole
         // difference between a bound and the single selection this used to be.
         await Assert.That(EnvelopeDirection.Widening(
-                Doc(environment: null), Doc(environment: "aspire-payments")))
-            .IsNull()
-            .Because("bounding flights to one environment where nothing bounded them is a "
-                   + "restriction, and a gate for restricting something would make the "
-                   + "cautious change the expensive one.");
+                Doc(environment: null), Doc(environment: "aspire-payments"))!.Field)
+            .IsEqualTo("environments")
+            .Because("selecting a name where none was selected is NEW REACH - the tenant's "
+                   + "flights can run somewhere they could not and compile a label they did "
+                   + "not. I briefly made this a narrowing on the reasoning that a bound "
+                   + "restricts; the airspace walk says otherwise in those words, and it is "
+                   + "right: what a reviewer needs to see is work reaching a new place.");
 
         await Assert.That(EnvelopeDirection.Widening(
                 Doc(environment: "aspire-payments"), Doc(environment: null))!.Field)

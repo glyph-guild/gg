@@ -31,8 +31,8 @@ public class EnvelopeModelRoundTripTests
     private static Envelope Everything() => new()
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.10" },
-        Environment = "aspire-payments",
-        Repository = "payments",
+        Environments = ["aspire-payments"],
+        Repositories = ["payments"],
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
         Obligations =
@@ -112,8 +112,8 @@ public class EnvelopeModelRoundTripTests
         await Assert.That(back.Context.Scope).IsEqualTo(original.Context.Scope);
         await Assert.That(back.Context.Constitution).IsEqualTo(original.Context.Constitution)
             .Because("1.10 staying 1.10 is the Norway problem this form exists to close.");
-        await Assert.That(back.Environment).IsEqualTo(original.Environment);
-        await Assert.That(back.Repository).IsEqualTo(original.Repository);
+        await Assert.That(back.Environments).IsEquivalentTo(original.Environments!);
+        await Assert.That(back.Repositories).IsEquivalentTo(original.Repositories!);
 
         var human = back.Obligations.Single(o => o.Id == "human-look");
         var expected = original.Obligations.Single(o => o.Id == "human-look");
@@ -256,7 +256,12 @@ public class EnvelopeModelRoundTripTests
         // rendered' shipped twice because nothing forced that decision.
         string[] covered =
         [
-            nameof(Envelope.Context), nameof(Envelope.Environment), nameof(Envelope.Repository),
+            nameof(Envelope.Context), nameof(Envelope.Environments), nameof(Envelope.Repositories),
+            // THE LEGACY SPELLINGS, exempted rather than covered: they are read
+            // so a stored document keeps its bound and are deliberately NEVER
+            // rendered, so no fixture can round-trip them. A test asserting they
+            // do not appear in the text form is in TheBoundIsASetTests.
+            nameof(Envelope.Environment), nameof(Envelope.Repository),
             nameof(Envelope.Accepts), nameof(Envelope.Produces),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
             nameof(Envelope.Instructions),

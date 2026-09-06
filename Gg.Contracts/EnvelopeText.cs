@@ -84,15 +84,12 @@ public static class EnvelopeText
         // selected one would rewrite every tenant's document on the next
         // show, and a diff nobody made is how a review practice gets
         // abandoned - the preserve-unadmitted rule, applied at the root.
-        if (envelope.Environment is { Length: > 0 } environment)
-        {
-            text.Append($"environment: {Scalar(environment)}\n");
-        }
-
-        if (envelope.Repository is { Length: > 0 } repository)
-        {
-            text.Append($"repository: {Scalar(repository)}\n");
-        }
+        // ONE NAME RENDERS AS A SCALAR AND SEVERAL AS A SEQUENCE. Every document
+        // written before the bound became a set declares one, and rendering it
+        // as a one-item list would rewrite every tenant's file on the next show
+        // - the same diff-nobody-made rule the comment above states.
+        Bound(text, "environments", envelope.Environments);
+        Bound(text, "repositories", envelope.Repositories);
 
         // WRITTEN WHEN DECLARED, INCLUDING WHEN EMPTY - and those are not the
         // same condition, which is the whole reason this line is not folded in
@@ -521,6 +518,23 @@ public static class EnvelopeText
     /// would still emit differently, which is the defect this was supposed to
     /// close.
     /// </remarks>
+    /// <summary>A root bound: a scalar when it names one, a sequence when more.</summary>
+    private static void Bound(StringBuilder text, string key, IReadOnlyList<string>? values)
+    {
+        if (values is not { Count: > 0 })
+        {
+            return;
+        }
+
+        if (values.Count == 1)
+        {
+            text.Append($"{key}: {Scalar(values[0])}\n");
+            return;
+        }
+
+        Sequence(text, key, values, depth: 0);
+    }
+
     private static void Sequence(StringBuilder text, string key, IReadOnlyList<string> values, int depth)
     {
         var pad = string.Concat(Enumerable.Repeat(Indent, depth));

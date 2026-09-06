@@ -502,8 +502,9 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "context", "environment", "repository", "accepts", "produces",
-               "instructions", "obligations", "loops", "destinations");
+        Closed(root, BasedOnKey, "context", "environment", "environments", "repository",
+               "repositories", "accepts", "produces", "instructions", "obligations", "loops",
+               "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
@@ -521,12 +522,8 @@ public static class EnvelopeYaml
             // key back as "" would be a different document on disk and the
             // same value to the engine, so show-after-apply would not round
             // trip.
-            Environment = root.Entries.TryGetValue("environment", out var environment)
-                ? RequireScalar(environment, "environment")
-                : null,
-            Repository = root.Entries.TryGetValue("repository", out var repository)
-                ? RequireScalar(repository, "repository")
-                : null,
+            Environments = BoundOf(root, "environments", "environment"),
+            Repositories = BoundOf(root, "repositories", "repository"),
             // AND THE ONE WHOSE EMPTY VALUE MEANS SOMETHING. `accepts: []` is
             // a work kind saying it takes no subject; a missing key is a
             // document that is not a work kind. So absence maps to null and an
@@ -706,6 +703,50 @@ public static class EnvelopeYaml
                 ? MapSelection(selection, $"{entry.Body.Path}.may-select")
                 : null,
         };
+    }
+
+    /// <summary>
+    /// A root bound, under either spelling, as a scalar or a sequence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two keys, one value, and it is not the mistake it looks like.</b> The
+    /// bound was <c>environment:</c> and single-valued; every document already
+    /// written and already stored uses that key, so refusing it would break
+    /// every envelope ever applied. The plural is what a document declaring
+    /// several uses. This is the same arrangement the intent read has for two
+    /// spellings of one projection: both exist in real data.
+    /// </para>
+    /// <para>
+    /// <b>Both at once is refused rather than resolved.</b> A precedence would
+    /// mean the document says one thing and the engine reads another, and
+    /// whichever we picked would be wrong for somebody.
+    /// </para>
+    /// <para>
+    /// A scalar under either key is one permitted name. Absent stays absent:
+    /// null is unbounded, and reading a missing key back as an empty set would
+    /// turn every unbounded document into one Validate refuses.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<string>? BoundOf(MapNode root, string plural, string singular)
+    {
+        var hasPlural = root.Entries.TryGetValue(plural, out var many);
+        var hasSingular = root.Entries.TryGetValue(singular, out var one);
+
+        if (hasPlural && hasSingular)
+        {
+            throw new EnvelopeSyntaxException(
+                $"'{plural}' and '{singular}' are both declared, and they are two spellings of "
+              + $"one bound. Keep '{plural}'; '{singular}' is the older name and reading both "
+              + "would mean the document says one thing and the engine another.");
+        }
+
+        if (hasPlural)
+        {
+            return many is ScalarNode ? [RequireScalar(many!, plural)] : Strings(many!, plural);
+        }
+
+        return hasSingular ? [RequireScalar(one!, singular)] : null;
     }
 
     /// <summary>The sets a destination permits a nomination to select from.</summary>

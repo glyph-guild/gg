@@ -133,12 +133,18 @@ public static class EnvelopeDirection
             return constitution;
         }
 
-        if (Moved("environment", applied.Environment, proposed.Environment) is { } environment)
+        // THE BOUNDS ARE SETS NOW, AND GROWING ONE IS A WIDENING. It was an
+        // unordered scalar and any change was a widening; a set has a direction,
+        // so shrinking it narrows and adding a name lets work run somewhere it
+        // could not before. Written as its own arm rather than folded into the
+        // scalar helper, because an operator in the table is not a direction
+        // rule - the omission `accepts:` shipped with.
+        if (Grew("environments", applied.Environments, proposed.Environments) is { } environment)
         {
             return environment;
         }
 
-        if (Moved("repository", applied.Repository, proposed.Repository) is { } repository)
+        if (Grew("repositories", applied.Repositories, proposed.Repositories) is { } repository)
         {
             return repository;
         }
@@ -427,6 +433,43 @@ public static class EnvelopeDirection
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Null when this bound did not loosen; otherwise why it did.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is unbounded, so null to anything is a NARROWING.</b> That is the
+    /// direction worth getting right: an envelope that bounded nothing and now
+    /// permits two environments has restricted where its flights may run, and
+    /// calling that a widening would demand a gate for the act of writing a
+    /// bound down. The reverse - a bound withdrawn entirely - is a widening,
+    /// because afterwards nothing is refused.
+    /// </remarks>
+    private static EnvelopeWidening? Grew(
+        string field, IReadOnlyList<string>? applied, IReadOnlyList<string>? proposed)
+    {
+        if (applied is null)
+        {
+            return null;
+        }
+
+        if (proposed is null)
+        {
+            return Widen(field,
+                $"{field} bounded flights to " + string.Join(", ", applied) + " and now bounds "
+              + "nothing. A withdrawn bound refuses nothing, which is more than it permitted "
+              + "before.");
+        }
+
+        var gained = proposed.Except(applied, StringComparer.Ordinal).ToList();
+
+        return gained.Count > 0
+            ? Widen(field,
+                $"'{gained[0]}' was not one of the {field} flights could be about, and this "
+              + "bound only ever narrows. Somewhere work may newly run is what the bound "
+              + "exists to decide.")
+            : null;
     }
 
     // ---- the shared shapes ----

@@ -50,8 +50,10 @@ public class EnvelopeSelectionParseTests
         var parsed = EnvelopeYaml.Parse(Valid);
 
         await Assert.That(parsed.Diagnosis).IsNull();
-        await Assert.That(parsed.Envelope!.Environment).IsEqualTo("aspire-payments");
-        await Assert.That(parsed.Envelope!.Repository).IsEqualTo("acme/payments");
+        await Assert.That(parsed.Envelope!.Environments)
+            .IsEquivalentTo((string[])["aspire-payments"]);
+        await Assert.That(parsed.Envelope!.Repositories)
+            .IsEquivalentTo((string[])["acme/payments"]);
     }
 
     [Test]
@@ -65,8 +67,8 @@ public class EnvelopeSelectionParseTests
             .Replace("repository: acme/payments\n", "", StringComparison.Ordinal));
 
         await Assert.That(parsed.Diagnosis).IsNull();
-        await Assert.That(parsed.Envelope!.Environment).IsNull();
-        await Assert.That(parsed.Envelope!.Repository).IsNull();
+        await Assert.That(parsed.Envelope!.Environments).IsNull();
+        await Assert.That(parsed.Envelope!.Repositories).IsNull();
     }
 
     [Test]

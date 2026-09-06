@@ -153,6 +153,50 @@ public class NullIsNotOnTheWireTests
         await Assert.That(swept).DoesNotContain("RunnerJsonContext: LeaseClaimRequest.runnerId");
     }
 
+    [Test]
+    public async Task Dropping_a_null_can_never_remove_a_member_the_reader_demands()
+    {
+        // THE PROPERTY THAT MAKES THE CONDITION SAFE, and it is a fact about the
+        // contract rather than about this change. System.Text.Json accepts an
+        // explicit null for a required member and REFUSES a document that omits
+        // one - so a member that were both required and nullable would go from
+        // accepted to "required member missing" the moment it held null, and the
+        // 400 this change exists to remove would come straight back wearing a
+        // different message.
+        //
+        // Measured when this was written: no member in the contract is both.
+        // That is what the assertion is for - it is one edit away from being
+        // false, and nothing else in either repository would notice.
+        var both = new List<string>();
+
+        foreach (var type in Senders()
+                     .SelectMany(sender => Emits(sender.Context))
+                     .Select(shape => shape.Type)
+                     .Where(Constructible)
+                     .Distinct())
+        {
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (property.GetCustomAttribute<RequiredMemberAttribute>() is null)
+                {
+                    continue;
+                }
+
+                if (Nullable.GetUnderlyingType(property.PropertyType) is not null
+                    || new NullabilityInfoContext().Create(property).WriteState == NullabilityState.Nullable)
+                {
+                    both.Add($"{type.Name}.{property.Name}");
+                }
+            }
+        }
+
+        await Assert.That(both).IsEmpty()
+            .Because("a required member that may hold null is accepted as an explicit "
+                   + "null and refused when absent, so WhenWritingNull would turn a "
+                   + "working body into a 400. Make it optional, or make it "
+                   + "non-nullable. Found: " + string.Join(", ", both));
+    }
+
     /// <summary>
     /// Every member of every shape either sender writes that a caller is allowed
     /// to leave unset.

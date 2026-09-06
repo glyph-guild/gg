@@ -6,7 +6,16 @@ using Gg.Contracts;
 
 namespace Gg.Client;
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+/// <remarks>
+/// <b>A member with no value is left out, not written as null</b> - the same
+/// rule and the same reason as <c>RunnerJsonContext</c>, which carries it in
+/// full. An empty collection is untouched: <c>Accepts</c> is nullable because
+/// absence MEANS something, null being silence and <c>[]</c> a decision to
+/// accept nothing, and only the first of those is what this drops.
+/// </remarks>
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(DeviceAuthorizationRequest))]
 [JsonSerializable(typeof(DeviceAuthorizationStarted))]
 [JsonSerializable(typeof(DeviceTokenRequest))]

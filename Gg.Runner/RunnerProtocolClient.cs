@@ -8,7 +8,21 @@ using Gg.Contracts.Description;
 namespace Gg.Runner;
 
 /// <summary>How the runner serializes what it puts on the wire.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+/// <remarks>
+/// <b>A member with no value is left out, not written as null.</b> The control
+/// plane reads every body with <c>JsonUnmappedMemberHandling.Disallow</c>, so a
+/// member it has not learned yet is a 400 rather than something ignored - and a
+/// runner is updated on its own schedule, which makes it the half of the pair
+/// that is routinely ahead. Measured on that surface: one unknown member VALUED
+/// NULL answers 400, the same body without it answers 202; a runner on 0.102.0
+/// died unhandled on its first claim against a control plane that had not
+/// learned <c>LeaseClaimRequest.FlightId</c>. On the context rather than per
+/// member, because the member whose absence is legal is exactly the member the
+/// compiler cannot ask about.
+/// </remarks>
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(RunnerHeartbeat))]
 [JsonSerializable(typeof(HeartbeatAccepted))]
 [JsonSerializable(typeof(LeaseClaimRequest))]

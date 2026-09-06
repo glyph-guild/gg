@@ -51,6 +51,43 @@ public readonly record struct KeymapContext(
     /// cannot disagree about which step is showing.
     /// </remarks>
     public bool SignInStarted { get; init; }
+
+    /// <summary>
+    /// The context a model puts the console in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One derivation, because the screen kept a literal beside the
+    /// model.</b> That literal carried the mode, the tab and the freeze, and
+    /// not <see cref="Takeable"/>, <see cref="HandedBackable"/> or which step
+    /// the sign-in modal is on - so <c>Catalogue</c> can name a key the screen
+    /// would refuse to resolve. Two of those are invisible only because nothing
+    /// in production sets <c>TakeableTree</c> or <c>TakenOver</c> yet, which
+    /// makes them a trap rather than a defect: the day one is set is the worst
+    /// day to find out.
+    /// </para>
+    /// <para>
+    /// The mode comes from the model too, so a caller wanting the keys of a
+    /// DIFFERENT mode says so with a <c>with</c> rather than by rebuilding
+    /// this.
+    /// </para>
+    /// </remarks>
+    public static KeymapContext For(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return new KeymapContext(
+            state.Mode,
+            state.ActiveTab,
+            state.Frozen,
+            state.TakeableTree is not null,
+            state.TakenOver)
+        {
+            // Which of the sign-in modal's two steps is showing. Both live in
+            // one mode, so this is the only thing that tells them apart.
+            SignInStarted = state.SignIn is not null,
+        };
+    }
 }
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>

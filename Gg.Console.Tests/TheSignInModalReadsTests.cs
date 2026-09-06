@@ -22,6 +22,11 @@ public class TheSignInModalReadsTests
     private static readonly DateTimeOffset Expiry =
         new(2026, 9, 6, 14, 32, 0, TimeSpan.Zero);
 
+    /// <summary>Written as escapes, because a raw one in source is invisible.</summary>
+    private const string Esc = "\u001b";
+
+    private const string Bel = "\u0007";
+
     private static AppState Offered() => new() { Mode = UiMode.SignIn };
 
     private static AppState Started() => Offered() with
@@ -90,6 +95,29 @@ public class TheSignInModalReadsTests
         // not do it: gg had the terminal.
         await Assert.That(PaneText.Modal(Offered())).DoesNotContain("gg login");
         await Assert.That(PaneText.Modal(Started())).DoesNotContain("gg login");
+    }
+
+    [Test]
+    public async Task The_renderer_is_still_the_last_line_of_defence()
+    {
+        // Text is stored clean, so in a healthy system this removes nothing -
+        // and PaneText cleans anyway, because it is the last code between a
+        // control plane and a screen that ACTS on escape sequences. Every other
+        // pane here does it; a new one that did not would be the gap.
+        var text = PaneText.Modal(Offered() with
+        {
+            SignIn = new PendingSignIn
+            {
+                UserCode = Esc + "[2JWDJB-MJHT",
+                VerificationUri = "https://example.test/device" + Esc + "]0;owned" + Bel,
+                ExpiresAt = Expiry,
+            },
+            LastSignIn = "Signed in as " + Esc + "[31msomebody.",
+        });
+
+        await Assert.That(text).DoesNotContain(Esc);
+        await Assert.That(text).Contains("WDJB-MJHT")
+            .Because("what is removed is the sequence, never the code somebody has to type.");
     }
 
     [Test]

@@ -645,8 +645,18 @@ static async Task<int> LaunchConsoleAsync()
     await using var readers = new Gg.Console.ReaderSessions(
         Gg.Local.IntentConfiguration.FromEnvironment(), TimeSpan.FromSeconds(15));
 
+    // THE TAB IN FRONT OF SOMEBODY, EVERY THIRTY SECONDS. On a task, so the
+    // session folds a finished answer rather than waiting for one - the
+    // argument for that is written out in AutoRefresh, and the short of it is
+    // that a keyboard frozen for as long as the control plane takes is the
+    // thing the rule against reading in a session protects.
+    var refresh = new AutoRefresh(
+        tab => Task.Run(() => ConsoleRefresh.ForTabAsync(data, tab)),
+        new SystemClock(),
+        TimeSpan.FromSeconds(30));
+
     var final = new ConsoleLoop(
-        new TerminalGuiSession(tails, runnerLog),
+        new TerminalGuiSession(tails, runnerLog, refresh),
         new EditorSession(),
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and

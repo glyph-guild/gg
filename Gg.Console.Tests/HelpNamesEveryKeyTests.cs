@@ -55,11 +55,16 @@ public class HelpNamesEveryKeyTests
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
-        from startable in (bool[])[false, true]
         from started in (bool[])[false, true]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack, startable)
+        // TWO OF THE COUNTDOWN, because it is presentation rather than
+        // dispatch: nothing branches on it, and a string cannot be crossed
+        // exhaustively. Both shapes are here so the description it lands in is
+        // covered either way.
+        from refresh in (string[])["", "5s"]
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = started,
+            Refresh = refresh,
         };
 
     [Test]

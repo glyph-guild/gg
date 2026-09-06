@@ -101,6 +101,7 @@ public sealed class ConsoleScreen : Window
 
     private readonly LiveTails? _tails;
     private readonly IRunnerLog? _runnerLog;
+    private readonly AutoRefresh? _refresh;
 
     /// <summary>How often the pane looks, when somebody is watching.</summary>
     /// <remarks>
@@ -114,11 +115,16 @@ public sealed class ConsoleScreen : Window
     private static readonly TimeSpan LookEvery = TimeSpan.FromMilliseconds(250);
 
     public ConsoleScreen(
-        IApplication app, AppState state, LiveTails? tails = null, IRunnerLog? runnerLog = null)
+        IApplication app,
+        AppState state,
+        LiveTails? tails = null,
+        IRunnerLog? runnerLog = null,
+        AutoRefresh? refresh = null)
     {
         _app = app;
         _tails = tails;
         _runnerLog = runnerLog;
+        _refresh = refresh;
         State = state;
         Title = "Good Grief";
 
@@ -411,6 +417,31 @@ public sealed class ConsoleScreen : Window
 
                 var advanced = _tails.Advance(State);
                 if (ReferenceEquals(advanced, State))
+                {
+                    return true;
+                }
+
+                State = advanced;
+                Render();
+                return true;
+            });
+        }
+
+        if (_refresh is not null)
+        {
+            // A SECOND EXCEPTION, ARGUED IN AutoRefresh. The session does not
+            // read: it folds a result that has already arrived, and every tick
+            // returns whether or not one has. What it must never do is wait,
+            // because a keyboard frozen for as long as the control plane takes
+            // is the thing the rule is protecting.
+            //
+            // ONCE A SECOND, because the only thing that changes between ticks
+            // is a countdown measured in seconds.
+            _app.AddTimeout(TimeSpan.FromSeconds(1), () =>
+            {
+                var advanced = _refresh.Advance(State);
+
+                if (ReferenceEquals(advanced, State) && advanced.Refresh == State.Refresh)
                 {
                     return true;
                 }

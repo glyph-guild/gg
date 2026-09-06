@@ -9,6 +9,16 @@ public enum Command
     Quit,
     ToggleHelp,
 
+    /// <summary>
+    /// Everything known about the flight under the cursor.
+    /// </summary>
+    /// <remarks>
+    /// Reads nothing: the flight and its log are what the boot already fetched,
+    /// which is the same reason an arrow key is free. A modal because it is a
+    /// question with an answer and a way out.
+    /// </remarks>
+    ShowFlight,
+
     /// <summary>What can be done to the selected flight.</summary>
     ToggleFlightActions,
 

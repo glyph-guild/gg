@@ -44,6 +44,20 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _envelopePane;
     private readonly Label _flights;
     private readonly FrameView _flightsPane;
+
+    /// <summary>
+    /// The three views that are lists of one shape of thing.
+    /// </summary>
+    /// <remarks>
+    /// <b>A table draws what a Label was formatting.</b> Each of these panes
+    /// counted characters into a format string, so a column was as wide as the
+    /// widest value anybody imagined and nothing said what a column held. The
+    /// rows come from <c>Rows</c>, which is pure; measuring the screen is the
+    /// widget's job.
+    /// </remarks>
+    private readonly TableView _flightsTable;
+    private readonly TableView _browseTable;
+    private readonly TableView _repositoriesTable;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
     private readonly Label _hints;
@@ -226,7 +240,16 @@ public sealed class ConsoleScreen : Window
             Visible = false,
         };
         _flights = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _flightsPane.Add(_flights);
+        _flightsTable = Table();
+        _flightsPane.Add(_flights, _flightsTable);
+        _browseTable = Table();
+        _browsePane.Add(_browseTable);
+        _repositoriesTable = Table();
+        _repositoriesPane.Add(_repositoriesTable);
+
+        _flightsTable.ValueChanged += OnRowPointedAt;
+        _browseTable.ValueChanged += OnRowPointedAt;
+        _repositoriesTable.ValueChanged += OnRowPointedAt;
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
@@ -238,11 +261,9 @@ public sealed class ConsoleScreen : Window
         {
             X = Pos.Center(),
             Y = Pos.Center(),
-            Width = 52,
-            Height = 12,
             Visible = false,
         };
-        _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
+        _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _modal.Add(_modalBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
@@ -343,6 +364,111 @@ public sealed class ConsoleScreen : Window
             Render();
             return true;
         });
+    }
+
+    /// <summary>
+    /// A table, styled the way all three are.
+    /// </summary>
+    /// <remarks>
+    /// Whole rows select, because every one of these lists is read a row at a
+    /// time and a single highlighted cell says a person is choosing a value.
+    /// The header keeps its underline and nothing else is ruled: lines between
+    /// every cell spend a column of screen on each border and these tables are
+    /// three, four and five columns wide.
+    /// </remarks>
+    private static TableView Table() => new()
+    {
+        X = 0,
+        Y = 0,
+        Width = Dim.Fill(),
+        Height = Dim.Fill(),
+        CanFocus = true,
+        FullRowSelect = true,
+        MultiSelect = false,
+        Style =
+        {
+            ShowHeaders = true,
+            ShowHorizontalHeaderUnderline = true,
+            ShowHorizontalHeaderOverline = false,
+            ShowVerticalCellLines = false,
+            ExpandLastColumn = true,
+        },
+    };
+
+    /// <summary>
+    /// A person put the cursor on a row - by clicking it, or by any of the
+    /// movements the widget knows and the keymap does not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Through the reducer, with the row.</b> The queue's list can only say
+    /// "up" or "down" - <c>QueueSelection.Wanted</c> collapses every jump into
+    /// one step - so a click five rows down moved the cursor one. A table hands
+    /// over the row it landed on and <c>Reducer.Pointed</c> takes it.
+    /// </remarks>
+    private void OnRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
+    {
+        if (_syncing || args.NewValue is not { } selection)
+        {
+            return;
+        }
+
+        var pointed = Reducer.Pointed(State, selection.SelectedCell.Y);
+
+        if (ReferenceEquals(pointed, State))
+        {
+            return;
+        }
+
+        State = pointed;
+        Render();
+    }
+
+    /// <summary>
+    /// Put rows in a table, or hand the pane back to the words that explain
+    /// why there are none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The cursor is set from the model rather than read from the widget.</b>
+    /// A table repopulated raises its own selection event, which is also how a
+    /// click arrives - so the caller holds the sync flag while this runs, for
+    /// the reason the tab bar does.
+    /// </remarks>
+    private static void Fill<T>(
+        TableView table,
+        Label? empty,
+        IReadOnlyList<T> rows,
+        IReadOnlyList<string> columns,
+        int cursor,
+        Func<T, object[]> cells)
+    {
+        table.Visible = rows.Count > 0;
+
+        if (empty is not null)
+        {
+            empty.Visible = rows.Count == 0;
+        }
+
+        if (rows.Count == 0)
+        {
+            table.Table = null;
+            return;
+        }
+
+        var data = new System.Data.DataTable();
+
+        foreach (var column in columns)
+        {
+            data.Columns.Add(column, typeof(string));
+        }
+
+        foreach (var row in rows)
+        {
+            data.Rows.Add(cells(row));
+        }
+
+        table.Table = new DataTableSource(data);
+        table.SetSelection(0, Math.Clamp(cursor, 0, rows.Count - 1), extendExistingSelection: false, null);
+        table.EnsureValidSelection();
     }
 
     /// <summary>One pane, as the body of a tab.</summary>
@@ -476,6 +602,30 @@ public sealed class ConsoleScreen : Window
         }
 
         _browse.Text = PaneText.Browse(State);
+
+        // THE TABLE WHEN THERE ARE ROWS, THE SENTENCE WHEN THERE ARE NOT. A
+        // header over no rows claims a read succeeded and found nothing, which
+        // is one of three things an empty pane can mean - so each pane keeps
+        // its own words for the other two.
+        _syncing = true;
+        try
+        {
+            Fill(_flightsTable, _flights, Rows.Flights(State), Rows.FlightColumns,
+                State.FlightSelected,
+                r => [r.Number, r.State, r.Loop, r.Age, r.Work]);
+
+            Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
+                State.BrowseSelected,
+                r => [r.Id, r.State, r.Title]);
+
+            Fill(_repositoriesTable, null, Rows.Repositories(State), Rows.RepositoryColumns,
+                State.RepositorySelected,
+                r => [r.Chosen, r.Path, r.Name]);
+        }
+        finally
+        {
+            _syncing = false;
+        }
         _checklist.Text = PaneText.Checklist(State);
         _envelope.Text = PaneText.Envelope(State);
 
@@ -525,6 +675,16 @@ public sealed class ConsoleScreen : Window
         _modal.Title = State.Mode.ToString();
         _modalBody.Text = PaneText.Modal(State);
 
+        // SIZED BY WHAT IS IN IT. A question with two answers wants a box a
+        // person's eye can take in at once; a document wants the screen. The
+        // help page is twenty-one keys and a flight's detail is its whole log,
+        // and both were being drawn into fifty-two columns by twelve rows -
+        // which is a scrollbar where a reader wanted a page.
+        var document = State.Mode is UiMode.Help or UiMode.FlightDetail;
+
+        _modal.Width = document ? Dim.Percent(92) : 52;
+        _modal.Height = document ? Dim.Percent(88) : 12;
+
         _activity.Text = PaneText.Activity(State);
         _hints.Text = Keymap.Hints(Context());
 
@@ -551,7 +711,10 @@ public sealed class ConsoleScreen : Window
         switch (State.ActiveTab)
         {
             case TabId.Flights:
-                _flights.SetFocus();
+                // THE TABLE, WHEN THERE IS ONE. Focus is what makes the arrow
+                // keys move the cursor a person can see, and the label is only
+                // on screen when there is nothing to point at.
+                (_flightsTable.Visible ? (View)_flightsTable : _flights).SetFocus();
                 break;
             case TabId.Evidence:
                 _evidence.SetFocus();
@@ -560,10 +723,10 @@ public sealed class ConsoleScreen : Window
                 _live.SetFocus();
                 break;
             case TabId.Browse:
-                _browse.SetFocus();
+                (_browseTable.Visible ? (View)_browseTable : _browse).SetFocus();
                 break;
             case TabId.Repositories:
-                _repositories.SetFocus();
+                (_repositoriesTable.Visible ? (View)_repositoriesTable : _repositories).SetFocus();
                 break;
             case TabId.Checklist:
                 _checklist.SetFocus();

@@ -82,7 +82,7 @@ public class EnterOpensWhatTheCursorIsOnTests
         var opened = Reducer.Reduce(Listing(), Command.ShowFlight);
 
         await Assert.That(opened.Mode).IsEqualTo(UiMode.FlightDetail);
-        await Assert.That(Keymap.Resolve(KeyStroke.Enter, new KeymapContext(UiMode.Normal)))
+        await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, new KeymapContext(UiMode.Normal)))
             .IsEqualTo(Command.ShowFlight)
             .Because("enter is the key a person presses on a row without being told to.");
     }
@@ -116,7 +116,7 @@ public class EnterOpensWhatTheCursorIsOnTests
             .IsEqualTo(UiMode.Normal)
             .Because("there is no flight under the cursor, so there is nothing to open.");
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Enter, new KeymapContext(UiMode.Normal)))
+        await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, new KeymapContext(UiMode.Normal)))
             .IsNotNull()
             .Because("the key stays bound, because whether there is a row is not the "
                    + "keymap's question - the reducer answers it, once.");

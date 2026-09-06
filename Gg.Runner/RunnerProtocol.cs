@@ -157,6 +157,7 @@ public interface IRunnerProtocol
     /// </remarks>
     Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
+        string? flightId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

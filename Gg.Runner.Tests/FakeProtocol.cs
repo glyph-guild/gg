@@ -84,10 +84,17 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     public Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
+        string? flightId = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add($"claim:{maxWaitSeconds}");
-        Record(new LeaseClaimRequest { RunnerId = runnerId, Labels = labels, MaxWaitSeconds = maxWaitSeconds });
+        Record(new LeaseClaimRequest
+        {
+            RunnerId = runnerId,
+            Labels = labels,
+            MaxWaitSeconds = maxWaitSeconds,
+            FlightId = flightId,
+        });
 
         // A CONTROL PLANE HAVING A BAD MOMENT. Queued rather than a flag, so a
         // test can say "fail twice then serve" - which is the shape that proves

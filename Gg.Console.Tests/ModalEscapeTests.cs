@@ -133,6 +133,14 @@ public class ModalEscapeTests
           + "that never comes back to correct itself. Entered through Reducer.FlightShown "
           + "and left through CloseModal; TheBootReadsWhatItShowsTests drives the real "
           + "loop into it and asserts the log it renders is the one just read.",
+
+        [UiMode.HandFlight] =
+            "opened by ConsoleLoop's FlyByHand arm, and only when nothing was created. "
+          + "Whether it opens depends on a read the loop makes with the terminal released - "
+          + "whether this machine advertises what the flight needs - so no key can decide "
+          + "it. Entered through Reducer.HandFlightAnswered and left through CloseModal; "
+          + "TheHandFlightRefusalIsAModalTests drives the real loop into it, and asserts a "
+          + "flight that flew opens nothing.",
     };
 
     /// <summary>The smallest list a cursor can point into.</summary>

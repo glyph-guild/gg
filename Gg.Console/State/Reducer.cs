@@ -399,6 +399,21 @@ public static class Reducer
             : Modal(state, UiMode.FlightDetail);
     }
 
+    /// <summary>
+    /// Open the modal over a hand-flight that created nothing.
+    /// </summary>
+    /// <remarks>
+    /// Named, like <see cref="FlightShown"/> and for the same reason: the effect
+    /// belongs to a shell command, and a <c>Reduce</c> arm that opened a modal
+    /// would open it whether or not the attempt had been made.
+    /// </remarks>
+    public static AppState HandFlightAnswered(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.HandFlightProblem is null ? state : Modal(state, UiMode.HandFlight);
+    }
+
     public static AppState RepositoriesToggled(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

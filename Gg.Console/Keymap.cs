@@ -229,6 +229,11 @@ public static class Keymap
         // not be able to act on the flight it is about: `d` decides a gate in
         // Normal mode, and a person who opened a log has not asked to decide
         // anything.
+        // NOTHING BUT THE WAY OUT. Pressing `y' again from inside a refusal
+        // would be the second attempt nobody asked for, and every other key
+        // here would act on a console the person cannot see.
+        UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
+
         UiMode.FlightDetail =>
         [
             new(KeyStroke.Esc, Command.CloseModal, "close"),

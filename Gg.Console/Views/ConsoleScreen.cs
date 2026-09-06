@@ -305,6 +305,12 @@ public sealed class ConsoleScreen : Window
 
         _bar.ValueChanged += OnTabChanged;
 
+        // THE PANES THAT ARE DOCUMENTS RATHER THAN LISTS. A person reads these
+        // rather than picking from them, and reading is what grey is for; the
+        // queue and the tables keep the scheme their widgets came with, because
+        // a highlighted row has to stand out from what is around it.
+        Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody);
+
         Add(_bar, _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
@@ -469,6 +475,40 @@ public sealed class ConsoleScreen : Window
         table.Table = new DataTableSource(data);
         table.SetSelection(0, Math.Clamp(cursor, 0, rows.Count - 1), extendExistingSelection: false, null);
         table.EnsureValidSelection();
+    }
+
+    /// <summary>
+    /// Grey on whatever the terminal already has behind it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The panes that are documents were coming out black on white</b> - an
+    /// explicit light background painted over a terminal that may be anything -
+    /// which is the one combination that looks wrong in every theme somebody
+    /// has chosen for themselves.
+    /// </para>
+    /// <para>
+    /// <b>The background stays <c>None</c>, and that is the important half.</b>
+    /// Base's own Normal is None on None, meaning "whatever is already there";
+    /// carrying that through and setting only the foreground gives muted text
+    /// on a light terminal and on a dark one, where a named background would be
+    /// right on exactly one of them.
+    /// </para>
+    /// </remarks>
+    private static void Muted(params View[] views)
+    {
+        var basis = Terminal.Gui.Configuration.SchemeManager.GetScheme("Base");
+        var muted = new Terminal.Gui.Drawing.Scheme(basis)
+        {
+            Normal = new Terminal.Gui.Drawing.Attribute(
+                new Terminal.Gui.Drawing.Color(Terminal.Gui.Drawing.StandardColor.Gray),
+                basis.Normal.Background),
+        };
+
+        foreach (var view in views)
+        {
+            view.SetScheme(muted);
+        }
     }
 
     /// <summary>One pane, as the body of a tab.</summary>

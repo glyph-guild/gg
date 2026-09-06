@@ -24,6 +24,16 @@ public static class KeyTranslator
         {
             return KeyStroke.TabKey;
         }
+        // NAMED, BECAUSE ITS RUNE IS A CONTROL CHARACTER. Enter arrives as
+        // KeyCode 13, which Rune.IsControl rejects below - so without this arm
+        // it became a KeyStroke with nothing set at all, matching no binding.
+        // The keymap knew about `enter`, the thing that produces keystrokes did
+        // not, and the seam between them had no test: that is what
+        // KeyTranslatorTests is for.
+        if (key == Key.Enter)
+        {
+            return KeyStroke.EnterKey;
+        }
 
         var bare = key.NoCtrl.NoAlt.NoShift;
         char? input = null;

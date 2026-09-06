@@ -61,7 +61,13 @@ public class AttendedReturnTests
             System.Text.Json.JsonSerializerOptions.Web)!;
 
     /// <summary>The disposition the lease was released with.</summary>
-    private static string ReleasedWith(FakeProtocol protocol) =>
+    /// <remarks>
+    /// INTERNAL, because the fleet asks the same question of the same recording.
+    /// A second copy would be a second answer to "what did this runner release
+    /// with", and the two would drift on the first change to how a call is
+    /// recorded.
+    /// </remarks>
+    internal static string ReleasedWith(FakeProtocol protocol) =>
         protocol.Calls.Last(call => call.StartsWith("release:", StringComparison.Ordinal))
             .Split(':')[2];
 
@@ -225,10 +231,12 @@ public class AttendedReturnTests
             },
             admission: null);
 
-        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Abandoned)
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Outstanding)
             .Because("the person finished their work and somebody else has not answered the "
-                   + "gate it opened. Abandoned records no ending, so the flight stays open "
-                   + "until they do.");
+                   + "gate it opened. `abandoned` recorded no ending, which was the half this "
+                   + "needed, and it also put the flight back on the queue - so the next "
+                   + "runner would fly it into the same unanswered gate and open a second "
+                   + "one. `outstanding` is the pair: no ending, and not offered again.");
     }
 
     [Test]

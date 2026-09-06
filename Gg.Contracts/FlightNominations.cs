@@ -103,6 +103,46 @@ public sealed record FlightNomination
     /// </remarks>
     public string? Note { get; init; }
 
+    /// <summary>
+    /// The environment this work should run in, or null when the classifier
+    /// selected none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Declared, never parsed.</b> Nothing reads an environment out of the
+    /// reason or the note. A selection lifted from prose would be a governance
+    /// decision made by a regex - and the prose in question came from a work
+    /// item, which in most organisations more people can write than can edit the
+    /// envelope.
+    /// </para>
+    /// <para>
+    /// <b>A value bounded by a menu, not a permission.</b> The destination's
+    /// <c>may-select</c> says which environments may be named here, and anything
+    /// outside it is refused rather than clamped: clamping to the nearest
+    /// permitted value would be the platform choosing where somebody else's work
+    /// runs and reporting success. What makes it safe to ask for is that the
+    /// menu was written by a person and the answer is checked against it.
+    /// </para>
+    /// <para>
+    /// <b>Bounded like <see cref="WorkKind"/> and not like
+    /// <see cref="Reason"/>.</b> It is a name in the tenant's chart, so
+    /// something long enough to be an argument is a classifier explaining itself
+    /// in a field admission matches exactly.
+    /// </para>
+    /// </remarks>
+    public string? Environment { get; init; }
+
+    /// <summary>
+    /// The repository this work should be done in, or null when the classifier
+    /// selected none.
+    /// </summary>
+    /// <remarks>
+    /// A registered slug, bounded and refused the way <see cref="Environment"/>
+    /// is and for the same reasons. Ingress already refuses one the tenant has
+    /// not registered; the destination's menu is the door in front of that.
+    /// </remarks>
+    public string? Repository { get; init; }
+
     /// <summary>The most a nominated name may be.</summary>
     /// <remarks>
     /// A work kind is a name in a topology, and an unbounded one is a string
@@ -152,6 +192,31 @@ public sealed record FlightNomination
         {
             return "A nomination says why. One with no reason is a decision with no record of "
                  + "what it rested on, which is the half that makes it reviewable.";
+        }
+
+        // A NAME, NEVER PROSE, and blank refused rather than carried - the rule
+        // the note beside them holds, for the reason it holds it.
+        foreach (var (what, selected) in ((string, string?)[])
+            [("environment", nomination.Environment), ("repository", nomination.Repository)])
+        {
+            if (selected is null)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(selected))
+            {
+                return $"A nomination's {what} is blank. Leave it out rather than sending an "
+                     + "empty one: null says no selection was made, and an empty string says "
+                     + "one was attempted and produced nothing.";
+            }
+
+            if (selected.Length > MaxWorkKind)
+            {
+                return $"A nominated {what} is at most {MaxWorkKind} characters and this one "
+                     + $"is {selected.Length}. It is a name admission matches exactly, not a "
+                     + "sentence.";
+            }
         }
 
         if (nomination.Note is { } note)

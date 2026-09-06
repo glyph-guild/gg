@@ -78,7 +78,15 @@ public class SliceTwelveGuardTests
     /// than a permission - it carries what the first agent learned to the
     /// second and names no move, no scope, no budget and no destination.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.22.0";
+    /// <para>
+    /// <b>And to 0.23.0 by slice thirty step 4, which added no kind either</b> -
+    /// <c>flight.nomination</c> gains an optional environment and repository.
+    /// Same shape as the entry above: the surface moves, the count does not, and
+    /// the argument for admitting two more members to a type whose remark calls
+    /// its shape a ratchet is that both are selections bounded by a menu a
+    /// person wrote, not pieces of the regime the work kind already selects.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.23.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

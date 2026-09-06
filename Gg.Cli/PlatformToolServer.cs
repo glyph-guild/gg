@@ -71,6 +71,12 @@ public static class PlatformToolServer
     /// </remarks>
     private const string NoteArgument = "note";
 
+    /// <summary>Where the work should run, when the destination permits a choice.</summary>
+    private const string EnvironmentArgument = "environment";
+
+    /// <summary>Which repository, when the destination permits a choice.</summary>
+    private const string RepositoryArgument = "repository";
+
     /// <summary>
     /// Serves until the input ends, and answers nothing else.
     /// </summary>
@@ -217,6 +223,22 @@ public static class PlatformToolServer
             // what to confirm with the reporter - so the description asks for
             // that rather than for a summary of the item, which the next agent
             // can already read for itself.
+            // OFFERED HERE BECAUSE THE MENU IS IN THE PROMPT. Both are bounded
+            // by the destination's may-select, which the prompt now lists - an
+            // argument offered with no menu would be a field to guess at under
+            // a rule that refuses rather than clamps.
+            writer.WriteStartObject(EnvironmentArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Optional. One of the environments you were offered. Leave it out if the "
+              + "work item does not say, or if none of them fits - naming one outside the "
+              + "list opens nothing.");
+            writer.WriteEndObject();
+            writer.WriteStartObject(RepositoryArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Optional. One of the repositories you were offered, on the same terms.");
+            writer.WriteEndObject();
             writer.WriteStartObject(NoteArgument);
             writer.WriteString("type", "string");
             writer.WriteString("description",
@@ -316,6 +338,22 @@ public static class PlatformToolServer
         // a caller that produced a field instead of leaving it out, and a note
         // past the bound is an analysis - both are things the agent can read
         // this and fix, which a silent truncation is not.
+        // A NAME, NEVER PROSE, and the bound is the work kind's rather than the
+        // reason's - admission matches these exactly against a menu.
+        foreach (var (what, selected) in ((string, string?)[])
+            [(EnvironmentArgument, Text(arguments, EnvironmentArgument)),
+             (RepositoryArgument, Text(arguments, RepositoryArgument))])
+        {
+            if (selected is not null
+                && selected.Length > Gg.Contracts.FlightNomination.MaxWorkKind)
+            {
+                return Content(id, isError: true,
+                    $"Refused: a nominated {what} is at most "
+                  + $"{Gg.Contracts.FlightNomination.MaxWorkKind} characters and this one is "
+                  + $"{selected.Length}. It is a name, not a sentence. Nothing was recorded.");
+            }
+        }
+
         var note = Text(arguments, NoteArgument);
         if (note is not null && note.Length > Gg.Contracts.FlightNomination.MaxNote)
         {

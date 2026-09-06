@@ -158,6 +158,25 @@ public static class ProtocolSurface
     [
         new()
         {
+            Method = "GET",
+            Path = "/v1/version",
+            Audience = Audience.Anonymous,
+
+            // NO ProtocolTooOld, AND IT IS THE ONLY DOOR WITHOUT ONE. Every
+            // other endpoint may refuse a gg that is too old, because the
+            // remedy is elsewhere. This IS the remedy: a binary old enough to
+            // be refused everywhere is exactly the one that needs to be told
+            // what to install, and a 426 here would make the answer reachable
+            // only by the machines that did not need it.
+            //
+            // It also takes no session for the same class of reason - a host
+            // that cannot sign in is a host that may be very far behind - and
+            // what the current gg is, is not a fact about any tenant.
+            Response = typeof(CurrentVersion),
+            Statuses = [200],
+        },
+        new()
+        {
             Method = "POST",
             Path = "/v1/auth/device",
             Audience = Audience.Anonymous,
@@ -1031,6 +1050,13 @@ public static class ProtocolSurface
                  "transitions", "inapplicable"],
             [typeof(AttachmentTransition)] = ["to", "at", "because"],
             [typeof(GateList)] = ["gates"],
+
+            // ONE MEMBER, AND IT IS PINNED LIKE EVERY OTHER. A rename here is a
+            // fleet that silently stops learning it is behind: the door still
+            // answers 200, the body still parses, and the version reads as
+            // absent - which the client is careful to render as "not known"
+            // rather than "up to date". Correct, and permanently uninformative.
+            [typeof(CurrentVersion)] = ["version"],
 
             // The member-identity exchange. Pinned like every other wire type:
             // a member redeems across a process boundary, so a renamed property

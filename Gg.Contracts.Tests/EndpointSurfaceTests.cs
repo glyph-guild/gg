@@ -226,8 +226,17 @@ public class EndpointSurfaceTests
         // become the first way it could. Idempotent on DELETE for the reason
         // releasing a reservation is: un-parking one nobody parked is the state
         // the caller asked for.
+        // AND ONE MORE: GET /v1/version, anonymous, answering what gg a person
+        // should be running. It is the ONLY door in this surface that does not
+        // declare ProtocolTooOld, and the omission is the design rather than an
+        // oversight. Every other endpoint may refuse a caller below the floor
+        // because the remedy is somewhere else; this endpoint IS the remedy, so
+        // refusing an old binary here would make the answer reachable only by
+        // the binaries that did not need it. Anonymous for a related reason: a
+        // machine that cannot sign in may be the one furthest behind, and what
+        // the current gg is, is not a fact about any tenant.
         await Assert.That(Fingerprint())
-            .IsEqualTo("2f0c502735c5d6ac55cebced7a5602fb648cb55d7b8fbc819d8f835718d06a93")
+            .IsEqualTo("808b8c04c56e856073260d64ac0cbe88c96172cb4b958b7f06b206922efb3a17")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

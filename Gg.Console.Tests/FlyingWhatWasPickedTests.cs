@@ -31,7 +31,13 @@ public class FlyingWhatWasPickedTests
 {
     private static AppState Browsing(params string[] ids)
     {
-        var state = new AppState { BrowseVisible = true, SelectedRow = 2 };
+        // THROUGH THE TOGGLE, not by setting the flag. BrowseVisible used to
+        // mean the browser had the screen; under tabs it means the view is
+        // open, and what decides where the cursor keys go is which tab is
+        // showing. A fixture that sets the flag by hand describes a state the
+        // console cannot reach - open, and not looked at - and then asserts
+        // the cursor behaves as though somebody were looking at it.
+        var state = Reducer.BrowseToggled(new AppState { SelectedRow = 2 });
 
         return Reducer.Browsed(state, "a-tracker", new BrowseOutcome.Listed(
             new WorkItemPage(

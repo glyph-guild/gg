@@ -501,10 +501,22 @@ public static class EnvelopeComposition
         return null;
     }
 
-    /// <summary>An echo of the governing value is not a move; anything else is.</summary>
+    /// <summary>
+    /// An echo of the governing value is not a move, and neither is silence.
+    /// </summary>
+    /// <remarks>
+    /// <b>SILENCE INHERITS, AND IT USED TO BE READ AS MOVING THE FIELD TO
+    /// NOTHING.</b> That made a root bound unusable: a tenant declaring one
+    /// found every layer beneath it refused unless the layer repeated the
+    /// value, so the only usable bound was a duplicated one - which drifts the
+    /// moment somebody edits a copy. It changes no composed envelope, because
+    /// the composed value is root's either way; it only stops refusing
+    /// documents that were always going to compose to the same thing. Declaring
+    /// a DIFFERENT value is still the move that asks for the floor's authority.
+    /// </remarks>
     private static string? Moved(
         EnvelopeLayer layer, string? governing, string? declared, string field, string @operator) =>
-        string.Equals(governing, declared, StringComparison.Ordinal)
+        declared is null || string.Equals(governing, declared, StringComparison.Ordinal)
             ? null
             : $"'{layer.Name}' moves {field} from '{governing ?? "nothing"}' to "
             + $"'{declared ?? "nothing"}', and {field} is {@operator}: only the root document "
@@ -527,7 +539,7 @@ public static class EnvelopeComposition
         IReadOnlyList<string>? declared,
         string field,
         string @operator) =>
-        Same(governing, declared)
+        declared is null || Same(governing, declared)
             ? null
             : $"'{layer.Name}' moves {field} from '{Named(governing)}' to "
             + $"'{Named(declared)}', and {field} is {@operator}: only the root document "

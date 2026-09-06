@@ -137,6 +137,20 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
+        // THE ONE MODAL A KEY DOES NOT OPEN, and it owns the keyboard exactly
+        // like the ones that do. Without an arm here it fell through to Normal
+        // mode and offered every key in the console - fly, take over, forget a
+        // credential - to a person the control plane will refuse, over a queue
+        // that is empty because nobody is signed in.
+        //
+        // Escaping is a real answer rather than a dismissal: somebody who wants
+        // to look at an empty console, or who opened gg to read the help, is
+        // allowed to.
+        UiMode.SignIn =>
+        [
+            new(KeyStroke.Esc, Command.CloseModal, "carry on signed out"),
+        ],
+
         _ =>
         [
             new(KeyStroke.Char('q'), Command.Quit, "quit"),

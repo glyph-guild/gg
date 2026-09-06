@@ -39,6 +39,22 @@ public enum UiMode
     /// answers have to be offered together - none of which a menu item can do.
     /// </remarks>
     GateDecision,
+
+    /// <summary>
+    /// Nobody is signed in on this machine, and what to do about it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The only modal the LOADER opens rather than a key.</b> Every other one
+    /// answers a question somebody asked; this one states the reason the console
+    /// behind it is empty, which is not a thing a person can press for. It is
+    /// also the reason the console is worth drawing at all - without a session
+    /// every pane is a blank with a sentence under it.
+    /// <para>
+    /// It owns the keyboard like the rest, and escaping is a real answer: a
+    /// person who wants to look at an empty console is allowed to.
+    /// </para>
+    /// </remarks>
+    SignIn,
 }
 
 /// <summary>Which page of help a person is reading.</summary>

@@ -32,7 +32,7 @@ public class HelpNamesEveryKeyTests
     {
         var page = PaneText.Modal(Helping());
 
-        foreach (var binding in Keymap.Catalogue().Where(b => !b.Binding.Hidden))
+        foreach (var binding in Keymap.Catalogue().Where(b => !b.Binding.Untaught))
         {
             await Assert.That(page).Contains(binding.Binding.Key.Name, StringComparison.Ordinal)
                 .Because($"{binding.Binding.Key.Name} ({binding.Binding.Description}) is a key this "
@@ -153,6 +153,60 @@ public class HelpNamesEveryKeyTests
         // above, and the line is the only place most people ever read a key.
         await Assert.That(hints).Contains("q quit", StringComparison.Ordinal);
         await Assert.That(hints).Contains("? help", StringComparison.Ordinal);
+    }
+
+    [Test]
+    public async Task A_key_off_the_line_is_still_in_help_unless_something_else_does_its_job()
+    {
+        // WHAT THE ONE FLAG COST, ASSERTED. `Hidden` meant both "not on the
+        // line" and "not on the page", so moving the six tab keys off the line
+        // took them out of help - the page that exists to name every key - and
+        // the test above was iterating the same flag, so it passed while the
+        // page was wrong. Two claims, two properties, and this is the sentence
+        // that connects them.
+        var page = PaneText.Modal(Helping());
+
+        foreach (var entry in Keymap.Catalogue().Where(e => e.Binding.OffTheHintLine))
+        {
+            if (entry.Binding.Untaught)
+            {
+                continue;
+            }
+
+            await Assert.That(page).Contains(entry.Binding.Key.Name, StringComparison.Ordinal)
+                .Because($"{entry.Binding.Key.Name} ({entry.Binding.Description}) is off the "
+                       + "hint line, so help is where a person finds it. Page:\n" + page);
+        }
+
+        // AND THE ONLY TWO THAT ARE IN NEITHER PLACE ARE THE TWO THE ARROWS DO.
+        var untaught = Keymap.Catalogue()
+            .Where(e => e.Binding.Untaught)
+            .Select(e => e.Binding.Key.Name)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(untaught).IsEquivalentTo((string[])["j", "k"])
+            .Because("a key in neither place is one a person can only find by reading the "
+                   + "source. Found: " + string.Join(", ", untaught));
+    }
+
+    [Test]
+    public async Task The_line_keeps_what_a_person_uses_and_drops_what_they_do_not()
+    {
+        var hints = Keymap.Hints(new KeymapContext(UiMode.Normal));
+
+        foreach (var gone in (string[])["add credential", "forget credential", "evidence", "browse"])
+        {
+            await Assert.That(hints).DoesNotContain(gone, StringComparison.Ordinal)
+                .Because("this is on a tab or in help. The line is one line. Line: " + hints);
+        }
+
+        foreach (var kept in (string[])["q quit", "d decide", "n new flight", "y fly by hand"])
+        {
+            await Assert.That(hints).Contains(kept, StringComparison.Ordinal)
+                .Because("this has nowhere else to be advertised. Line: " + hints);
+        }
     }
 
     [Test]

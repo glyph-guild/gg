@@ -49,6 +49,33 @@ public sealed class ConsoleScreen : Window
     private readonly Label _hints;
     private readonly Label _activity;
 
+    /// <summary>
+    /// The bar, and the one view under it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Terminal.Gui's own component rather than a string in the title.</b>
+    /// The first version composed the bar into the window's <c>Title</c>, which
+    /// cannot be selected, scrolled or clicked - so a person could see the tabs
+    /// and reach them only by key. What goes on it comes from
+    /// <c>Tabs.Title</c>; which one shows comes from the model. This holds
+    /// neither.
+    /// </remarks>
+    private readonly Terminal.Gui.Views.Tabs _bar;
+
+    /// <summary>Each tab's body, in the order the bar shows them.</summary>
+    private readonly (TabId Tab, View Pane)[] _tabbed;
+
+    /// <summary>
+    /// True while the view is syncing the bar to the model.
+    /// </summary>
+    /// <remarks>
+    /// Assigning <c>Tabs.Value</c> raises <c>ValueChanged</c>, which is also
+    /// how a person's click arrives - so without this the render after a click
+    /// answers its own event, and a tab that costs a read would ask for one on
+    /// every frame.
+    /// </remarks>
+    private bool _syncing;
+
     public AppState State { get; private set; }
 
     public Command ExitCommand { get; private set; } = Command.Quit;
@@ -218,8 +245,46 @@ public sealed class ConsoleScreen : Window
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill() };
         _modal.Add(_modalBody);
 
-        Add(_queuePane, _flightPane, _flightsPane, _evidencePane, _livePane, _browsePane, _repositoriesPane,
-            _checklistPane, _envelopePane, _activity, _hints, _modal);
+        // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
+        // drives and the detail of whatever it lands on are one view of one
+        // thing.
+        var queueTab = new View { Title = "Queue", Width = Dim.Fill(), Height = Dim.Fill() };
+        _queuePane.Height = Dim.Fill();
+        _flightPane.Height = Dim.Fill();
+        queueTab.Add(_queuePane, _flightPane);
+
+        // EVERY TAB, FROM THE START. The bar's job is to say what there is, so
+        // all eight panes are built and all eight are inserted; which one draws
+        // is the model's to say and the component's to show.
+        _tabbed =
+        [
+            (TabId.Queue, queueTab),
+            (TabId.Flights, Tabbed(_flightsPane)),
+            (TabId.Evidence, Tabbed(_evidencePane)),
+            (TabId.Live, Tabbed(_livePane)),
+            (TabId.Browse, Tabbed(_browsePane)),
+            (TabId.Repositories, Tabbed(_repositoriesPane)),
+            (TabId.Checklist, Tabbed(_checklistPane)),
+            (TabId.Envelope, Tabbed(_envelopePane)),
+        ];
+
+        _bar = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(2),
+        };
+
+        foreach (var (tab, pane) in _tabbed)
+        {
+            pane.Title = Tabs.Title(State, tab);
+            _bar.Add(pane);
+        }
+
+        _bar.ValueChanged += OnTabChanged;
+
+        Add(_bar, _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
@@ -278,6 +343,67 @@ public sealed class ConsoleScreen : Window
             Render();
             return true;
         });
+    }
+
+    /// <summary>One pane, as the body of a tab.</summary>
+    /// <remarks>
+    /// The frame keeps its title, because two of them say something the tab
+    /// cannot - the live pane's frozen note, and the repository this console is
+    /// flying against.
+    /// </remarks>
+    private static View Tabbed(FrameView pane)
+    {
+        pane.X = 0;
+        pane.Y = 0;
+        pane.Width = Dim.Fill();
+        pane.Height = Dim.Fill();
+        pane.Visible = true;
+
+        var body = new View { Width = Dim.Fill(), Height = Dim.Fill() };
+        body.Add(pane);
+        return body;
+    }
+
+    /// <summary>
+    /// A person chose a tab, which is the same act as pressing its key.
+    /// </summary>
+    /// <remarks>
+    /// <b>Through the shell, not around it.</b> Four of these views are a READ
+    /// and a UI session may not make one, so the click issues the command the
+    /// key issues and the session ends exactly as it does for the keystroke. A
+    /// bar that changed the model itself would be a second way to do one thing,
+    /// and the two would come to disagree.
+    /// </remarks>
+    private void OnTabChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var tab = _tabbed.FirstOrDefault(t => ReferenceEquals(t.Pane, chosen)).Tab;
+
+        if (tab == State.ActiveTab)
+        {
+            return;
+        }
+
+        if (Tabs.CommandFor(tab) is not { } command)
+        {
+            State = State with { ActiveTab = tab };
+            Render();
+            return;
+        }
+
+        if (ShellCommands.Handled.Contains(command))
+        {
+            ExitCommand = command;
+            _app.RequestStop(this);
+            return;
+        }
+
+        State = Reducer.Reduce(State, command);
+        Render();
     }
 
     private void OnScreenKeyDown(object? sender, Key key)
@@ -353,20 +479,9 @@ public sealed class ConsoleScreen : Window
         _checklist.Text = PaneText.Checklist(State);
         _envelope.Text = PaneText.Envelope(State);
 
-        // ONE FUNCTION DECIDES WHAT IS ON SCREEN, and it is pure. Tabs.Showing
-        // answers true for exactly one tab, which is what "a view takes over
-        // all the panes" means concretely - and it is asserted over states
-        // rather than over pixels.
         _flights.Text = PaneText.Flights(State);
-        _flightsPane.Visible = Tabs.Showing(State, TabId.Flights);
-        _evidencePane.Visible = Tabs.Showing(State, TabId.Evidence);
-        _livePane.Visible = Tabs.Showing(State, TabId.Live);
-        _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
-        _browsePane.Visible = Tabs.Showing(State, TabId.Browse);
-        _checklistPane.Visible = Tabs.Showing(State, TabId.Checklist);
-        _envelopePane.Visible = Tabs.Showing(State, TabId.Envelope);
-        _repositoriesPane.Visible = Tabs.Showing(State, TabId.Repositories);
         _repositories.Text = PaneText.Repositories(State);
+        _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
         // console opens will name, so a person glancing at the frame should
@@ -383,16 +498,28 @@ public sealed class ConsoleScreen : Window
             ? $"Browse — {listing.ProviderKey}"
             : "Browse";
 
-        // THE QUEUE TAB IS TWO PANES, and they come and go together: the flight
-        // detail is what the selected row means, and a person moving the cursor
-        // is reading both.
-        _queuePane.Visible = Tabs.Showing(State, TabId.Queue);
-        _flightPane.Visible = Tabs.Showing(State, TabId.Queue);
+        // WHICH TAB IS SHOWING IS STILL THE MODEL'S, and the component is told
+        // rather than asked. Tabs.Showing answers true for exactly one tab -
+        // asserted over generated states rather than over pixels - and the sync
+        // flag is what stops the assignment answering its own event.
+        foreach (var (tab, pane) in _tabbed)
+        {
+            pane.Title = Tabs.Title(State, tab);
+        }
 
-        // THE TABS ARE ON THE TITLE LINE, which is the line a person reads
-        // without being asked to. Empty while only the queue is open, because a
-        // bar with one tab on it is decoration.
-        Title = Tabs.Bar(State) is { Length: > 0 } bar ? $"Good Grief   {bar}" : "Good Grief";
+        _syncing = true;
+        try
+        {
+            var showing = _tabbed.First(t => Tabs.Showing(State, t.Tab)).Pane;
+            if (!ReferenceEquals(_bar.Value, showing))
+            {
+                _bar.Value = showing;
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
 
         _modal.Visible = State.Mode != UiMode.Normal;
         _modal.Title = State.Mode.ToString();

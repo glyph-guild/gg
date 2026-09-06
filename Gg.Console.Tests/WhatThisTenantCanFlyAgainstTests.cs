@@ -139,7 +139,16 @@ public class WhatThisTenantCanFlyAgainstTests
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('r'), normal))
             .IsEqualTo(Command.ToggleRepositories);
-        await Assert.That(Keymap.Hints(normal)).Contains("repositories");
+
+        // ADVERTISED ON ITS TAB rather than on the hint line, which is one line
+        // and now keeps only the keys with nowhere else to be. The claim is
+        // unchanged - a bound key a person cannot find is a key that does not
+        // exist - and EveryTabIsOnTheBarTests checks the tab offers the key the
+        // keymap resolves.
+        await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
+            .Contains("Repositories", StringComparison.Ordinal);
+        await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
+            .Contains("r", StringComparison.Ordinal);
         await Assert.That(ShellCommands.Handled).Contains(Command.ToggleRepositories)
             .Because("showing them is a read, and a session may not make one.");
     }

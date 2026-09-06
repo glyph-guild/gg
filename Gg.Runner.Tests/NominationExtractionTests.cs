@@ -48,12 +48,15 @@ public class NominationExtractionTests
 
     /// <summary>One assistant turn calling the tool, and its paired result.</summary>
     private static string Called(
-        string id, string workKind, string reason, bool? failed = null, bool paired = true)
+        string id, string workKind, string reason, bool? failed = null, bool paired = true,
+        string? note = null)
     {
+        var noted = note is null ? "" : ",\"note\":\"" + note + "\"";
         var call =
             "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\","
           + "\"id\":\"" + id + "\",\"name\":\"" + NominationTool.Qualified + "\","
-          + "\"input\":{\"work_kind\":\"" + workKind + "\",\"reason\":\"" + reason + "\"}}]}}";
+          + "\"input\":{\"work_kind\":\"" + workKind + "\",\"reason\":\"" + reason + "\""
+          + noted + "}}]}}";
 
         if (!paired)
         {
@@ -271,5 +274,62 @@ public class NominationExtractionTests
             .Because("what the pipeline produces has to be a fact ingress accepts, or the "
                    + "classification is lost at the door for a reason that has nothing to do "
                    + "with the work.");
+    }
+
+    [Test]
+    public async Task A_note_the_agent_wrote_is_extracted_beside_the_reason()
+    {
+        // S30.3-06. The note is optional, so the extractor takes it when it is
+        // there - and the two required arguments still decide whether there is a
+        // nomination at all.
+        var note = "Don't start coding. The described defect is not in the tree.";
+        var extracted = TranscriptDigest.Nomination(
+            Called("a", "implement", "the item names the file", note: note));
+
+        await Assert.That(extracted).IsNotNull();
+        await Assert.That(extracted!.Note).IsEqualTo(note);
+    }
+
+    [Test]
+    public async Task A_nomination_with_no_note_carries_none_rather_than_an_empty_one()
+    {
+        var extracted = TranscriptDigest.Nomination(
+            Called("a", "implement", "the item names the file"));
+
+        await Assert.That(extracted).IsNotNull();
+        await Assert.That(extracted!.Note).IsNull()
+            .Because("null is how a nomination says it had nothing to add; an empty string "
+                   + "would render a fenced block attributing silence to an agent.");
+    }
+
+    [Test]
+    public async Task A_note_without_the_two_required_arguments_is_still_not_a_nomination()
+    {
+        // THE OPTIONAL ARGUMENT DOES NOT MAKE HALF A CALL WHOLE. An agent that
+        // wrote a handover and named no kind has produced advice about work
+        // nobody asked for, and the extractor may not invent the rest of it.
+        var noKind =
+            "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\","
+          + "\"id\":\"a\",\"name\":\"" + NominationTool.Qualified + "\","
+          + "\"input\":{\"reason\":\"only a reason\",\"note\":\"and a handover\"}}]}}\n"
+          + "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\","
+          + "\"tool_use_id\":\"a\",\"content\":[]}]}}";
+
+        await Assert.That(TranscriptDigest.Nomination(noKind)).IsNull();
+    }
+
+    [Test]
+    public async Task An_overlong_note_is_bounded_rather_than_dropped()
+    {
+        // Bounded like the reason beside it. A note past the bound is an agent
+        // that wrote an analysis, and the flight still nominated a kind - losing
+        // the whole nomination over the tail of a handover would throw away the
+        // part that decides something.
+        var extracted = TranscriptDigest.Nomination(
+            Called("a", "implement", "a reason", note: new string('n', 4000)));
+
+        await Assert.That(extracted).IsNotNull();
+        await Assert.That(extracted!.Note!.Length)
+            .IsLessThanOrEqualTo(Gg.Contracts.FlightNomination.MaxNote);
     }
 }

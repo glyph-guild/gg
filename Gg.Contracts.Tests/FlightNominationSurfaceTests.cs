@@ -32,7 +32,7 @@ namespace Gg.Contracts.Tests;
 public class FlightNominationSurfaceTests
 {
     [Test]
-    public async Task It_names_a_kind_a_reason_and_a_note_and_nothing_else()
+    public async Task It_names_a_kind_a_reason_a_note_a_where_and_nothing_else()
     {
         var members = typeof(FlightNomination)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -44,6 +44,8 @@ public class FlightNominationSurfaceTests
             nameof(FlightNomination.WorkKind),
             nameof(FlightNomination.Reason),
             nameof(FlightNomination.Note),
+            nameof(FlightNomination.Environment),
+            nameof(FlightNomination.Repository),
         });
     }
 
@@ -166,5 +168,86 @@ public class FlightNominationSurfaceTests
                 .Because("null is how a nomination says it has nothing to add; "
                        + "an empty string is how it says it forgot.");
         }
+    }
+
+    [Test]
+    public async Task A_nomination_may_name_where_the_work_should_run()
+    {
+        // S30.4's ask, in the shape part C argued for: optional, structured, and
+        // DECLARED rather than parsed. Nothing reads an environment out of the
+        // note or out of the reason - a selection lifted from prose would be a
+        // governance decision made by a regex.
+        var nomination = new FlightNomination
+        {
+            WorkKind = "implement",
+            Reason = "the item names the file and the expected behaviour",
+            Environment = "dev",
+            Repository = "payments",
+        };
+
+        await Assert.That(FlightNomination.Validate(nomination)).IsNull();
+        await Assert.That(nomination.Environment).IsEqualTo("dev");
+        await Assert.That(nomination.Repository).IsEqualTo("payments");
+    }
+
+    [Test]
+    public async Task A_nomination_that_selects_nothing_is_unchanged()
+    {
+        var nomination = new FlightNomination
+        {
+            WorkKind = "implement",
+            Reason = "a reason",
+        };
+
+        await Assert.That(nomination.Environment).IsNull();
+        await Assert.That(nomination.Repository).IsNull();
+        await Assert.That(FlightNomination.Validate(nomination)).IsNull();
+    }
+
+    [Test]
+    public async Task A_selection_that_says_nothing_is_refused_rather_than_carried()
+    {
+        // Blank is refused for the reason the note's blank is: null says the
+        // classifier made no selection, an empty string says it tried to and
+        // produced nothing - and a flight opened "in ''" is one admission would
+        // have to guess about.
+        foreach (var blank in (string[])["", "   "])
+        {
+            await Assert.That(FlightNomination.Validate(new FlightNomination
+            {
+                WorkKind = "implement",
+                Reason = "a reason",
+                Environment = blank,
+            })).IsNotNull();
+
+            await Assert.That(FlightNomination.Validate(new FlightNomination
+            {
+                WorkKind = "implement",
+                Reason = "a reason",
+                Repository = blank,
+            })).IsNotNull();
+        }
+    }
+
+    [Test]
+    public async Task Neither_selection_may_be_a_sentence()
+    {
+        // A NAME, NEVER PROSE, the rule WorkKind already holds. An environment
+        // is a row in the tenant's chart and a repository is a registered slug;
+        // something long enough to be an argument is a classifier explaining
+        // itself in a field admission matches exactly.
+        await Assert.That(FlightNomination.Validate(new FlightNomination
+        {
+            WorkKind = "implement",
+            Reason = "a reason",
+            Environment = new string('e', FlightNomination.MaxWorkKind + 1),
+        })).IsNotNull();
+
+        await Assert.That(FlightNomination.Validate(new FlightNomination
+        {
+            WorkKind = "implement",
+            Reason = "a reason",
+            Repository = new string('r', FlightNomination.MaxWorkKind + 1),
+        })).IsNotNull();
     }
 }

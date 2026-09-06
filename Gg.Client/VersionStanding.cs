@@ -1,3 +1,5 @@
+using Gg.Contracts;
+
 namespace Gg.Client;
 
 /// <summary>Where this binary stands against what the control plane published.</summary>
@@ -72,8 +74,12 @@ public sealed record VersionStanding(
     /// <param name="current">What the control plane published, or null.</param>
     public static VersionStanding For(string? installed, string? current)
     {
-        var mine = Release(installed);
-        var theirs = Release(current);
+        // ONE COMPARISON, SHARED WITH THE CONTROL PLANE. It decides the same
+        // thing from the same two strings when it raises a notice, and two
+        // copies of that rule is two answers on a question where disagreement
+        // looks like a bug in whichever side the reader is not looking at.
+        var mine = VersionOrder.Release(installed);
+        var theirs = VersionOrder.Release(current);
 
         if (theirs is null || mine is null)
         {
@@ -93,23 +99,4 @@ public sealed record VersionStanding(
         return new VersionStanding(kind, installed ?? "", current);
     }
 
-    /// <summary>
-    /// The release part of a version, with build metadata dropped.
-    /// </summary>
-    /// <remarks>
-    /// Prerelease labels are dropped with it. gg has never shipped one, and a
-    /// comparison that pretends to order them correctly without a test that
-    /// says how is worse than one that plainly does not try.
-    /// </remarks>
-    private static Version? Release(string? version)
-    {
-        if (version is not { Length: > 0 })
-        {
-            return null;
-        }
-
-        var release = version.Split('+', 2)[0].Split('-', 2)[0];
-
-        return Version.TryParse(release, out var parsed) ? parsed : null;
-    }
 }

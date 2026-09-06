@@ -79,12 +79,22 @@ public class EnterOpensWhatTheCursorIsOnTests
     [Test]
     public async Task Enter_on_a_flight_opens_what_is_known_about_it()
     {
-        var opened = Reducer.Reduce(Listing(), Command.ShowFlight);
+        var opened = Reducer.FlightShown(Listing());
 
         await Assert.That(opened.Mode).IsEqualTo(UiMode.FlightDetail);
         await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, new KeymapContext(UiMode.Normal)))
             .IsEqualTo(Command.ShowFlight)
             .Because("enter is the key a person presses on a row without being told to.");
+
+        // THROUGH THE SHELL, because the modal reads. The reducer's arm for this
+        // command changes nothing on purpose - ShellHandledTests forbids a shell
+        // command with a second, local effect - so the named method above is
+        // what the loop calls once the log has arrived.
+        await Assert.That(ShellCommands.Handled).Contains(Command.ShowFlight);
+        await Assert.That(Reducer.Reduce(Listing(), Command.ShowFlight).Mode)
+            .IsEqualTo(UiMode.Normal)
+            .Because("opening it from the reducer would open it whether or not the log was "
+                   + "read, over a pane that then never corrects itself.");
     }
 
     [Test]
@@ -93,15 +103,16 @@ public class EnterOpensWhatTheCursorIsOnTests
         // NEWEST FIRST is what the pane shows, so the cursor at rest is on the
         // newest flight - and the modal has to be about the row a person is
         // looking at rather than the first one in the list the boot returned.
-        var opened = Reducer.Reduce(Listing(), Command.ShowFlight);
+        var opened = Reducer.FlightShown(Listing());
         var modal = PaneText.Modal(opened);
 
         await Assert.That(modal).Contains("GG-52", StringComparison.Ordinal);
         await Assert.That(modal).DoesNotContain("GG-51", StringComparison.Ordinal)
             .Because("one flight, the one under the cursor. Modal:\n" + modal);
         await Assert.That(modal).Contains("lease-granted", StringComparison.Ordinal)
-            .Because("the log is the answer to the question a person opened this to ask, and "
-                   + "the boot already fetched it. Modal:\n" + modal);
+            .Because("the log is the answer to the question a person opened this to ask. "
+                   + "ConsoleLoop reads it before calling this, which is why the modal can "
+                   + "assume it is there. Modal:\n" + modal);
     }
 
     [Test]
@@ -112,7 +123,7 @@ public class EnterOpensWhatTheCursorIsOnTests
         // the only thing in it.
         var empty = new AppState { ActiveTab = TabId.Flights };
 
-        await Assert.That(Reducer.Reduce(empty, Command.ShowFlight).Mode)
+        await Assert.That(Reducer.FlightShown(empty).Mode)
             .IsEqualTo(UiMode.Normal)
             .Because("there is no flight under the cursor, so there is nothing to open.");
 
@@ -125,7 +136,7 @@ public class EnterOpensWhatTheCursorIsOnTests
     [Test]
     public async Task Esc_is_the_way_out_and_the_only_one()
     {
-        var opened = Reducer.Reduce(Listing(), Command.ShowFlight);
+        var opened = Reducer.FlightShown(Listing());
         var context = new KeymapContext(UiMode.FlightDetail);
 
         await Assert.That(Keymap.EscapeHatch(context)).IsEqualTo(KeyStroke.Esc);

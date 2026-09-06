@@ -20,6 +20,17 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? repositories = null,
 
     /// <summary>
+    /// One flight's log, for the flight somebody just opened.
+    /// </summary>
+    /// <remarks>
+    /// The boot reads a log only for a flight still in the air, because those
+    /// are the only ones whose log can put a row in the queue. The detail modal
+    /// is usually opened on a flight that landed, so it reads its own - one
+    /// request, on the keypress, with the terminal released.
+    /// </remarks>
+    Func<AppState, AppState>? flightLog = null,
+
+    /// <summary>
     /// Asks what a flight would need, and either refuses or hands over the
     /// terminal.
     /// </summary>
@@ -209,6 +220,24 @@ public sealed class ConsoleLoop(
                         state = Browsed(state, browser);
                     }
 
+                    break;
+
+                case Command.ShowFlight:
+                    // READ FIRST, THEN OPEN. The modal renders one flight's log
+                    // and a UI session may not fetch it, so the session ends,
+                    // the loop asks, and the next session opens over an answer.
+                    // Opening it before the read would show "no log fetched" and
+                    // then never come back to correct itself.
+                    //
+                    // THE REDUCER STILL DECIDES WHETHER IT OPENS. It refuses
+                    // when there is no flight under the cursor, and that is not
+                    // this switch's question.
+                    if (flightLog is not null)
+                    {
+                        state = flightLog(state);
+                    }
+
+                    state = Reducer.FlightShown(state);
                     break;
 
                 case Command.ToggleChecklist:

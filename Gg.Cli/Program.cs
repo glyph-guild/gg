@@ -612,6 +612,10 @@ static async Task<int> LaunchConsoleAsync()
             () => auth.StartAsync(Environment.MachineName).GetAwaiter().GetResult(),
             started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult()),
         checklist: current => ConsoleChecklist.Read(data, current),
+        // ONE FLIGHT'S LOG, ON THE KEYPRESS. The boot reads a log only for a
+        // flight still in the air - those are the only ones whose log can put a
+        // row in the queue - so the detail modal reads its own.
+        flightLog: current => ConsoleFlightLog.Read(data, current),
         repositories: current => ConsoleRepositories.Read(data, current),
         envelope: current => ConsoleEnvelope.Read(data, current),
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))

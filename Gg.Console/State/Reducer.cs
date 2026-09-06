@@ -22,9 +22,12 @@ public static class Reducer
             // work is worse than one that is not offered, and a modal whose
             // only content is the way out is exactly that. The key stays bound
             // because whether a row exists is not the keymap's question.
-            Command.ShowFlight => PaneText.Detailed(state) is null
-                ? state
-                : Modal(state, UiMode.FlightDetail),
+            // THE SHELL'S, SINCE THE MODAL READS. Opening a flight fetches that
+            // flight's log - the boot only reads logs for flights still in the
+            // air - so the effect lives in ConsoleLoop and this arm changes
+            // nothing. See Reducer.FlightShown for what it does once the log has
+            // arrived, and ShellCommands for why the split.
+            Command.ShowFlight => state,
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
@@ -369,6 +372,29 @@ public static class Reducer
     /// press means is decided in one place. It used to clear three other flags,
     /// because all four drew into one region.
     /// </remarks>
+    /// <summary>
+    /// Open the detail modal over the flight under the cursor.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named, like every other effect the shell owns.</b> The loop reads the
+    /// flight's log with the terminal released and then calls this; a
+    /// <c>Reduce</c> arm that opened the modal itself would be the second effect
+    /// <c>ShellHandledTests</c> forbids - the modal would open whether or not the
+    /// read happened, over a pane that says nothing was fetched.
+    /// </remarks>
+    /// <remarks>
+    /// It still refuses when there is no flight under the cursor. Whether a row
+    /// exists is not the keymap's question and it is not the loop's either.
+    /// </remarks>
+    public static AppState FlightShown(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return PaneText.Detailed(state) is null
+            ? state
+            : Modal(state, UiMode.FlightDetail);
+    }
+
     public static AppState RepositoriesToggled(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

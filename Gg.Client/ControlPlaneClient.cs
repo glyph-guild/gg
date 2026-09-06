@@ -48,6 +48,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
 [JsonSerializable(typeof(StrategyList))]
+[JsonSerializable(typeof(CurrentVersion))]
 [JsonSerializable(typeof(NamedEnvelopeList))]
 [JsonSerializable(typeof(NamedEnvelopeState))]
 [JsonSerializable(typeof(NamedEnvelopeApply))]
@@ -188,6 +189,60 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.InvitationIssued, cancellationToken)
             ?? throw new InvalidOperationException("Control plane issued no invitation.");
+    }
+
+    /// <summary>
+    /// What version of gg the control plane says is current, or null if it would not say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Returns null rather than throwing, and that is the contract of this
+    /// method.</b> Every reason this can fail - the control plane is down, DNS
+    /// is broken, a proxy ate it, the body was not what was expected - is the
+    /// same fact to a caller: nobody said. Turning that into an exception makes
+    /// every call site invent a policy, and the policy they invent under time
+    /// pressure is to swallow it and carry on as though the answer were "you
+    /// are fine".
+    /// </para>
+    /// <para>
+    /// <b>No session, and no token parameter to pass one by accident.</b> What
+    /// the current gg is, is not tenant knowledge - and a machine that cannot
+    /// sign in is exactly the machine most likely to be far behind.
+    /// </para>
+    /// <para>
+    /// <b>It cannot be refused for being too old.</b> This door declares only
+    /// 200, uniquely, because it is the remedy for being below the floor rather
+    /// than something the floor governs; <c>ProtocolConformanceTests</c> holds
+    /// it to those terms.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> CurrentVersionAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/version");
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var current = await response.Content.ReadFromJsonAsync(
+                ProtocolJsonContext.Default.CurrentVersion, cancellationToken);
+
+            return current?.Version is { Length: > 0 } version ? version : null;
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+        catch (TaskCanceledException)
+        {
+            // A TIMEOUT IS AN ABSENCE, not a failure of the verb. Asking what is
+            // current must never be the reason a person's command hangs or dies.
+            return null;
+        }
     }
 
     public async Task<WhoAmI?> WhoAmIAsync(string sessionToken, CancellationToken cancellationToken = default)

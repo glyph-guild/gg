@@ -111,6 +111,77 @@ public sealed record PendingGate
     /// when there is one.
     /// </remarks>
     public required int Attempt { get; init; }
+
+    /// <summary>
+    /// What an agent proposed, when admission opened this flight from a
+    /// nomination. Null for a flight somebody asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the control the note rides on, and it is the only one.</b> A
+    /// nomination's note reaches the next agent's prompt, and a work item is
+    /// writable by more people than an envelope is - so there is a path from an
+    /// issue tracker into an agent's context. What bounds it is a tenant putting
+    /// a person in front of flight-opening with <c>requires:</c>, and that
+    /// person reading this before they approve. A gate that did not show what
+    /// will be carried would make approving a signature on something unseen.
+    /// </para>
+    /// <para>
+    /// <b>Null rather than an empty proposal.</b> Most gates in an estate are on
+    /// flights a person asked for; a block reading "nominated by: none" over
+    /// four empty fields would be noise on every one of them. Absence is
+    /// silence, the rule <see cref="Commit"/> already states one field over.
+    /// </para>
+    /// </remarks>
+    public GateNomination? Nomination { get; init; }
+}
+
+/// <summary>
+/// What a nominating agent proposed, as the reviewer sees it before the flight
+/// it opened can proceed.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Its own type because it is one fact with one standing.</b> Flattened onto
+/// <see cref="PendingGate"/> these five would sit beside the platform's own
+/// fields and read as the platform's, which is exactly the confusion a person
+/// answering a gate cannot afford. Grouped, the renderer has one thing to
+/// attribute and one null to check.
+/// </para>
+/// <para>
+/// <b>The reason is required and everything else is not, and that is the
+/// discriminator.</b> Admission records why it opened a flight whenever it opens
+/// one - "null for a flight somebody asked for" - so a proposal without a
+/// reason is not a proposal. A work kind, by contrast, is on flights nobody
+/// nominated, and keying on it would attribute a person's choice to an agent.
+/// </para>
+/// </remarks>
+[PinnedId("4f8c31d5-2e07-4a96-b3d8-91c5e0a7462b")]
+public sealed record GateNomination
+{
+    /// <summary>Why admission opened the flight, in the agent's own words.</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>The work kind it nominated, when it named one.</summary>
+    public string? WorkKind { get; init; }
+
+    /// <summary>
+    /// What the nominating agent would tell whoever picks the work up.
+    /// </summary>
+    /// <remarks>
+    /// <b>Prose an agent wrote, so its line breaks are its own.</b> A note laid
+    /// out over three lines was written to be read that way, and the renderer
+    /// indents continuations rather than flattening them - the rule
+    /// <c>GatePresentationTests</c> established for the question in
+    /// <see cref="PendingGate.Because"/>.
+    /// </remarks>
+    public string? Note { get; init; }
+
+    /// <summary>The environment it selected from the destination's menu, if any.</summary>
+    public string? Environment { get; init; }
+
+    /// <summary>The repository it selected from the destination's menu, if any.</summary>
+    public string? Repository { get; init; }
 }
 
 /// <summary>

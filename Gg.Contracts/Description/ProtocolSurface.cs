@@ -1075,7 +1075,9 @@ public static class ProtocolSurface
                 ["flightNumber", "obligationId", "outcome", "decidedBy", "decidedAt", "admission"],
             [typeof(PendingGate)] =
                 ["flightNumber", "obligationId", "approver", "branch", "commit", "manifestHash",
-                 "condition", "because", "awaitingSince", "attempt"],
+                 "condition", "because", "awaitingSince", "attempt", "nomination"],
+            [typeof(GateNomination)] =
+                ["reason", "workKind", "note", "environment", "repository"],
             [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
                 ["flightNumber", "envelopeVersion", "obligations", "halt"],

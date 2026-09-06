@@ -44,22 +44,26 @@ public class TheConsoleIsDarkTests
     {
         ConsoleTheme.Apply();
 
-        await Assert.That(ThemeManager.Theme).IsEqualTo(ConsoleTheme.Dark)
+        await Assert.That(ConsoleTheme.Active).IsEqualTo(ConsoleTheme.Dark)
             .Because("the console picks its theme rather than taking the library's default.");
     }
 
     [Test]
-    public async Task And_the_ground_it_gets_is_actually_dark()
+    public async Task The_console_stands_on_a_ground_it_named_itself()
     {
-        // NAMING A THEME IS NOT HAVING ONE. Themes other than Default live in
-        // Terminal.Gui's own resources and are absent until the configuration
-        // manager is enabled and told to load them - and a name nobody defines
-        // leaves the light theme in force with no error anywhere. So this
-        // asserts the colours, not the string.
+        // COLOUR.NONE IS NOT A COLOUR, and every background in the Dark theme's
+        // Base scheme is None - "leave whatever the terminal is showing". So the
+        // foreground was the only half this console chose, chosen against a
+        // ground nobody here could see, and a mid grey on a light terminal is
+        // dark text on a grey block. This is the assertion that would have
+        // caught it: the ground is a colour, and it is dark.
         ConsoleTheme.Apply();
 
-        var ground = SchemeManager.GetScheme("Base").Normal;
+        var ground = ConsoleTheme.Grounded().GetAttributeForRole(VisualRole.Normal);
 
+        await Assert.That(ground.Background).IsNotEqualTo(Color.None)
+            .Because("a ground of `whatever is already there' cannot be paired with a "
+                   + "foreground, which is the whole defect.");
         await Assert.That(Brightness(ground.Background)).IsLessThan(0.5)
             .Because("dark means the ground is dark, and a theme that failed to load is light.");
         await Assert.That(Brightness(ground.Foreground)).IsGreaterThan(Brightness(ground.Background))
@@ -71,26 +75,30 @@ public class TheConsoleIsDarkTests
     {
         ConsoleTheme.Apply();
 
-        var basis = SchemeManager.GetScheme("Base");
+        var console = ConsoleTheme.Grounded().GetAttributeForRole(VisualRole.Normal);
+        var muted = ConsoleTheme.Muted().GetAttributeForRole(VisualRole.Normal);
 
-        await Assert.That(ConsoleTheme.Muted().Normal.Background)
-            .IsEqualTo(basis.Normal.Background)
-            .Because("a document pane that paints its own background is a grey block in the "
-                   + "middle of the console, which is what a person saw.");
+        await Assert.That(muted.Background).IsEqualTo(console.Background)
+            .Because("a document pane that paints its own background is a block of a different "
+                   + "colour in the middle of the console, which is what a person saw.");
     }
 
     [Test]
-    public async Task A_muted_pane_dims_the_text_rather_than_painting_a_block()
+    public async Task A_muted_pane_lands_between_the_ground_and_the_text_around_it()
     {
+        // WHAT MUTED MEANS, arithmetically. Brighter than the surface under it or
+        // it is unreadable; dimmer than the console around it or it is not muted.
+        // A named grey can promise neither, which is why the previous one was
+        // wrong on the terminal it met.
         ConsoleTheme.Apply();
 
-        var basis = SchemeManager.GetScheme("Base");
-        var muted = ConsoleTheme.Muted().Normal;
+        var console = ConsoleTheme.Grounded().GetAttributeForRole(VisualRole.Normal);
+        var muted = ConsoleTheme.Muted().GetAttributeForRole(VisualRole.Normal);
 
         await Assert.That(Brightness(muted.Foreground)).IsGreaterThan(Brightness(muted.Background))
-            .Because("black on grey is the inversion this file exists to catch: the dimmer of "
-                   + "the two must still be the ground.");
-        await Assert.That(Brightness(muted.Foreground)).IsLessThan(Brightness(basis.Normal.Foreground))
+            .Because("dark-on-grey is the pairing this file exists to catch: the dimmer of the "
+                   + "two has to be the ground.");
+        await Assert.That(Brightness(muted.Foreground)).IsLessThan(Brightness(console.Foreground))
             .Because("muted means dimmer than the console around it, or it is not muted.");
     }
 }

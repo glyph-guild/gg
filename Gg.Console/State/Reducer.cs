@@ -69,6 +69,10 @@ public static class Reducer
             Command.SelectNext => Moved(state, +1),
             Command.SelectPrevious => Moved(state, -1),
 
+            // ONLY THAT ONE IS WANTED. The reducer is pure and a refresh is a
+            // read; the tick starts it and folds what comes back, which is what
+            // stops the console tearing the terminal down to do it.
+            Command.Refresh => state with { Refresh = state.Refresh with { Wanted = true } },
             Command.ToggleEvidence => Toggled(state, TabId.Evidence),
             // WHOLLY HERE, because showing the fleet reads nothing - it is in
             // the model from the boot. Its four neighbours are the shell's

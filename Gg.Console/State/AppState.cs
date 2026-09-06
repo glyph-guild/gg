@@ -164,6 +164,27 @@ public sealed record RunnerHere
     public bool Up => Pid is not null && Exit is null;
 }
 
+/// <summary>
+/// Where the automatic refresh has got to.
+/// </summary>
+/// <remarks>
+/// <b>Three small facts rather than a clock.</b> What the hint line needs is
+/// whether one is happening and how long until the next; what the tick needs is
+/// whether somebody asked for one. A time in here would be a time the model
+/// carries into a dump and compares against a different now.
+/// </remarks>
+public sealed record RefreshState
+{
+    /// <summary>Whether a read is in the air.</summary>
+    public bool Busy { get; init; }
+
+    /// <summary>Seconds until the next one, when none is.</summary>
+    public int NextIn { get; init; }
+
+    /// <summary>Whether somebody pressed the key and it has not been done yet.</summary>
+    public bool Wanted { get; init; }
+}
+
 public enum TabId
 {
     /// <summary>Flights needing me, and the detail of the selected one.</summary>
@@ -744,6 +765,9 @@ public sealed record AppState
     /// The runner process this console started, or null if it started none.
     /// </summary>
     public RunnerHere? Here { get; init; }
+
+    /// <summary>Where the automatic refresh has got to.</summary>
+    public RefreshState Refresh { get; init; } = new();
 
     /// <summary>Which row of the runners table the cursor is on.</summary>
     /// <remarks>

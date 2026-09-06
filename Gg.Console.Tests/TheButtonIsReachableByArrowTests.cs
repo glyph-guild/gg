@@ -94,10 +94,16 @@ public class TheButtonIsReachableByArrowTests
     [Test]
     public async Task Nothing_starts_a_runner_from_the_keymap_any_more()
     {
+        // EVERY SHAPE, and there is no longer a flag for this one - the
+        // context carried a RunnerStartable that only that binding read, and a
+        // flag nothing dispatches on is weight the catalogue and the help page
+        // carry for nothing.
         var anywhere = from mode in Enum.GetValues<UiMode>()
                        from showing in Enum.GetValues<TabId>()
-                       from startable in (bool[])[false, true]
-                       select new KeymapContext(mode, showing, RunnerStartable: startable);
+                       from frozen in (bool[])[false, true]
+                       from takeable in (bool[])[false, true]
+                       from handedBack in (bool[])[false, true]
+                       select new KeymapContext(mode, showing, frozen, takeable, handedBack);
 
         var bound = anywhere
             .SelectMany(Keymap.Bindings)

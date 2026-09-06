@@ -84,6 +84,9 @@ public class TheTablesAreTablesTests
             ["flight", "state", "loop", "age", "work"]);
         await Assert.That(Rows.BrowseColumns).IsEquivalentTo((string[])
             ["item", "state", "title"]);
+        // AND THE BROWSE ROWS WERE ALREADY ROWS. BrowseRow has held these three
+        // fields since the pane was written; the renderer flattened them into a
+        // string, which is the step this change removes.
         await Assert.That(Rows.RepositoryColumns).IsEquivalentTo((string[])
             ["", "path", "name"]);
     }

@@ -20,6 +20,11 @@ public class KeymapTests
         .. Enumerable.Range('a', 26).Select(c => KeyStroke.Control((char)c)),
         KeyStroke.Esc,
         KeyStroke.TabKey,
+        // A NAMED KEY IS NOT A RUNE, so each one has to be listed. Enter
+        // arriving here is what the equality below is for: it was advertised
+        // and this list did not know it existed, so "advertised keys are the
+        // live keys" failed on the side that matters.
+        KeyStroke.EnterKey,
     ];
 
     /// <summary>Every context the console can be in.</summary>

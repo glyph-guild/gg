@@ -21,6 +21,17 @@ public enum UiMode
     FlightActions,
 
     /// <summary>
+    /// Everything known about one flight: what it is, and what happened to it.
+    /// </summary>
+    /// <remarks>
+    /// A modal rather than a tab of its own, because looking into one flight is
+    /// a question with an answer and a way out - where a tab would be a
+    /// permanent thing on the bar that is only ever about whatever was last
+    /// selected.
+    /// </remarks>
+    FlightDetail,
+
+    /// <summary>
     /// A work item that already has a flight, and whether to open a second.
     /// </summary>
     /// <remarks>
@@ -317,6 +328,18 @@ public sealed record AppState
 
     /// <summary>Flights needing me.</summary>
     public IReadOnlyList<QueueRow> Queue { get; init; } = [];
+
+    /// <summary>
+    /// Where the cursor is in the flights list, newest first.
+    /// </summary>
+    /// <remarks>
+    /// Its own cursor, like the browser's and the repositories': one pair of
+    /// keys over several lists, and the list that has the screen is the one
+    /// they move. Indexes the list AS SHOWN - newest first - because what a
+    /// person is pointing at is a row on a screen rather than a position in
+    /// whatever order a request came back in.
+    /// </remarks>
+    public int FlightSelected { get; init; }
 
     /// <summary>
     /// What the control plane says is degraded, exactly as it said it.

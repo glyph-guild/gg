@@ -122,7 +122,16 @@ public class WhatThisTenantCanFlyAgainstTests
     [Test]
     public async Task Moving_through_the_repositories_does_not_move_the_queue_or_the_work_list()
     {
-        var browsing = Listed() with { RepositoriesVisible = true, SelectedRow = 2, BrowseSelected = 3 };
+        // SHOWING rather than merely open, which are two different things
+        // under tabs: the flag says the view has been read, and what decides
+        // where the cursor keys go is the tab a person is looking at.
+        var browsing = Listed() with
+        {
+            RepositoriesVisible = true,
+            ActiveTab = TabId.Repositories,
+            SelectedRow = 2,
+            BrowseSelected = 3,
+        };
 
         var down = Reducer.Reduce(browsing, Command.SelectNext);
 

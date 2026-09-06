@@ -17,6 +17,14 @@ public static class Reducer
         return command switch
         {
             Command.ToggleHelp => Modal(state, UiMode.Help),
+
+            // NOTHING TO OPEN IS NOT A MODAL. Article XI: a key that appears to
+            // work is worse than one that is not offered, and a modal whose
+            // only content is the way out is exactly that. The key stays bound
+            // because whether a row exists is not the keymap's question.
+            Command.ShowFlight => PaneText.Detailed(state) is null
+                ? state
+                : Modal(state, UiMode.FlightDetail),
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
@@ -461,10 +469,64 @@ public static class Reducer
     /// wins; the visibility flags are mutually exclusive by construction, and
     /// this does not rely on that.
     /// </remarks>
-    private static AppState Moved(AppState state, int by) =>
-        state.RepositoriesVisible ? PickRepository(state, state.RepositorySelected + by)
-        : state.BrowseVisible ? PickWork(state, state.BrowseSelected + by)
-        : Select(state, state.SelectedRow + by);
+    /// <remarks>
+    /// <b>ON THE TAB THAT HAS THE SCREEN, and it used to ask the flags.</b> That
+    /// was the same question while six views shared one region; under tabs a
+    /// flag means the view is OPEN, so j and k moved the repository cursor
+    /// while a person was looking at the queue. The tab showing is the only
+    /// thing that can answer "which list is the person pointing at".
+    /// </remarks>
+    private static AppState Moved(AppState state, int by) => state.ActiveTab switch
+    {
+        TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
+        TabId.Browse => PickWork(state, state.BrowseSelected + by),
+        TabId.Flights => PickFlight(state, state.FlightSelected + by),
+        _ => Select(state, state.SelectedRow + by),
+    };
+
+    /// <summary>
+    /// The person is pointing at this row of whichever list has the screen.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WHAT A CLICK NEEDS AND THE KEYS NEVER HAD.</b>
+    /// <c>QueueSelection.Wanted</c> can answer only <c>SelectNext</c> or
+    /// <c>SelectPrevious</c>, so a jump of five rows moved the cursor one -
+    /// invisible while the only way to move was a key that steps, and obvious
+    /// the moment a table hands over a row number.
+    /// </para>
+    /// <para>
+    /// <b>Through the same movers the keys use</b>, so pointing and stepping
+    /// cannot come to mean different things: the queue's own mover marks the
+    /// row read and reloads the detail beside it, and a second path that set
+    /// the index alone would look right and quietly stop doing both.
+    /// </para>
+    /// </remarks>
+    public static AppState Pointed(AppState state, int row)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.ActiveTab switch
+        {
+            TabId.Repositories => PickRepository(state, row),
+            TabId.Browse => PickWork(state, row),
+            TabId.Flights => PickFlight(state, row),
+            _ => Select(state, row),
+        };
+    }
+
+    /// <summary>Move the flights list's own cursor, inside the flights list.</summary>
+    /// <remarks>
+    /// Clamped to what is there, like the work list's: a cursor past the end
+    /// points at no flight, and the key that opens one would then have to
+    /// decide what to do about that.
+    /// </remarks>
+    private static AppState PickFlight(AppState state, int to) => state with
+    {
+        FlightSelected = state.Flights is { Flights.Count: > 0 } listed
+            ? Math.Clamp(to, 0, listed.Flights.Count - 1)
+            : 0,
+    };
 
     /// <summary>Move the repository cursor, inside the repository list.</summary>
     private static AppState PickRepository(AppState state, int to) => state with

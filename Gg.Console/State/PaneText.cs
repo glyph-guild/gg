@@ -28,6 +28,87 @@ namespace Gg.Console;
 public static class PaneText
 {
     /// <summary>
+    /// The flight the cursor is on, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The list AS SHOWN, newest first</b>, which is the order the pane
+    /// renders and therefore the only order a cursor on a screen can mean. And
+    /// null rather than the first flight when the list is empty: the reducer
+    /// reads this to decide whether there is anything to open, so answering
+    /// with something would open a modal about a flight nobody pointed at.
+    /// </remarks>
+    public static FlightSummary? Detailed(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Flights is not { Flights.Count: > 0 } listed)
+        {
+            return null;
+        }
+
+        var shown = listed.Flights.OrderByDescending(f => f.CreatedAt).ToList();
+
+        return shown[Math.Clamp(state.FlightSelected, 0, shown.Count - 1)];
+    }
+
+    /// <summary>
+    /// Everything known about one flight: what it is, and what happened to it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Out of what the boot already fetched</b>, which is why enter costs no
+    /// request - the flight from the list and the log from the logs it fetched
+    /// beside it. A flight whose log did not load says so rather than reading
+    /// as a flight that nothing happened to.
+    /// </remarks>
+    private static string FlightDetail(AppState state)
+    {
+        if (Detailed(state) is not { } flight)
+        {
+            return "";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"  {Clean(flight.FlightNumber)}  {Clean(flight.Name)}");
+        text.AppendLine($"  opened     {flight.CreatedAt:u}");
+        var ending = LoopEnding(flight) is { Length: > 0 } outcome ? $" · {outcome}" : "";
+        text.AppendLine($"  state      {Clean(flight.State)}{ending}");
+        text.AppendLine($"  envelope   {Clean(flight.EnvelopeVersion)}");
+        text.AppendLine($"  attempts   {flight.Attempts}");
+        text.AppendLine($"  facts      {Facts(flight)}");
+        text.AppendLine();
+
+        if (!state.Logs.TryGetValue(flight.FlightId, out var log))
+        {
+            // NOT "nothing happened". A log this console never fetched and a
+            // flight with no entries are different facts, and a person shown
+            // the first when the second is true stops looking.
+            text.AppendLine("  no log was fetched for this flight.");
+            return text.ToString().TrimEnd();
+        }
+
+        if (log.Entries.Count == 0)
+        {
+            text.AppendLine("  its log is empty: nothing has been recorded against it yet.");
+            return text.ToString().TrimEnd();
+        }
+
+        text.AppendLine("  what happened, in order:");
+
+        foreach (var entry in log.Entries)
+        {
+            // Continuations indented under the column the detail opened, for
+            // the reason the gate list keeps: at column zero a second line
+            // reads as a new entry.
+            var detail = Clean(entry.Detail, lines: true)
+                .ReplaceLineEndings("\n" + new string(' ', 44));
+
+            text.AppendLine($"    {entry.At:u}  {Clean(entry.Kind),-18}{detail}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// What one tab's pane says, whichever tab it is.
     /// </summary>
     /// <remarks>
@@ -201,6 +282,11 @@ public static class PaneText
     /// rather than a word when no <c>loop.outcome</c> fact reached the control
     /// plane: a runner that has not spoken has not said "completed".
     /// </remarks>
+    internal static string LoopEndingOf(FlightSummary flight) => LoopEnding(flight);
+
+    /// <summary>How long ago, for a table that has its own idea of columns.</summary>
+    internal static string AgeOf(DateTimeOffset created) => Age(created);
+
     private static string LoopEnding(FlightSummary flight) =>
         flight.Facts
             .Where(f => string.Equals(f.Kind, FactKinds.LoopOutcome, StringComparison.Ordinal))
@@ -920,6 +1006,7 @@ public static class PaneText
         return state.Mode switch
         {
             UiMode.Help => Help(state),
+            UiMode.FlightDetail => FlightDetail(state),
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.SignIn => SignIn(state),

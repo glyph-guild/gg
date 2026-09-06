@@ -9,7 +9,8 @@ namespace Gg.Console;
 /// actually compute - which is what turns the hints check from a sampling into
 /// an equality.
 /// </remarks>
-public readonly record struct KeyStroke(char? Input, bool Ctrl = false, bool Escape = false, bool Tab = false)
+public readonly record struct KeyStroke(
+    char? Input, bool Ctrl = false, bool Escape = false, bool Tab = false, bool Enter = false)
 {
     public static KeyStroke Char(char input) => new(input);
 
@@ -19,10 +20,26 @@ public readonly record struct KeyStroke(char? Input, bool Ctrl = false, bool Esc
 
     public static KeyStroke TabKey { get; } = new(null, Tab: true);
 
+    /// <summary>
+    /// The key a person presses on a row without being told to.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than a character, for <c>esc</c> and <c>tab</c>'s
+    /// reason: what arrives from a terminal is a named key rather than a rune,
+    /// and a keymap that matched it as <c>'\r'</c> would be matching one
+    /// terminal's idea of it.
+    /// </remarks>
+    /// <remarks>
+    /// <c>EnterKey</c> rather than <c>Enter</c> for <see cref="TabKey"/>'s
+    /// reason: the positional parameter already has the name.
+    /// </remarks>
+    public static KeyStroke EnterKey { get; } = new(null, Enter: true);
+
     /// <summary>How this key is written where a person will read it.</summary>
     public string Name =>
         Escape ? "esc"
         : Tab ? "tab"
+        : Enter ? "enter"
         : Ctrl ? $"ctrl+{Input}"
         : Input?.ToString() ?? "?";
 }
@@ -208,6 +225,15 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
+        // WHAT IS KNOWN ABOUT ONE FLIGHT, and one way out. Reading a log must
+        // not be able to act on the flight it is about: `d` decides a gate in
+        // Normal mode, and a person who opened a log has not asked to decide
+        // anything.
+        UiMode.FlightDetail =>
+        [
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         // THE ONE MODAL A KEY DOES NOT OPEN, and it owns the keyboard exactly
         // like the ones that do. Without an arm here it fell through to Normal
         // mode and offered every key in the console - fly, take over, forget a
@@ -252,6 +278,12 @@ public static class Keymap
             new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
             new(KeyStroke.Char('d'), Command.OpenGate, "decide"),
             new(KeyStroke.TabKey, Command.FocusNextPane, "next tab"),
+            // ON THE ROW UNDER THE CURSOR, whichever list has the screen. Not
+            // on the hint line: a person presses enter on a row without being
+            // told to, and the two lists that answer it are a table and a
+            // queue, where it is the obvious thing to try.
+            new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
+                { OffTheHintLine = true },
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.

@@ -126,17 +126,53 @@ public class ModalEscapeTests
           + "already covers it.",
     };
 
+    /// <summary>The smallest list a cursor can point into.</summary>
+    private static Gg.Contracts.FlightList OneFlight() => new()
+    {
+        Flights =
+        [
+            new Gg.Contracts.FlightSummary
+            {
+                FlightId = "01a0776a-cacb-76dc-b444-2b7031e840d8",
+                FlightNumber = "GG-52",
+                Name = "create a PR for a python script",
+                Intent = new Gg.Contracts.FlightIntent
+                {
+                    Kind = Gg.Contracts.FlightIntentKinds.Text,
+                    Text = "create a PR for a python script",
+                },
+                CreatedAt = DateTimeOffset.UnixEpoch,
+                RunnerProtocolVersion = 1,
+                FactVocabularyVersion = "0.25.0",
+                ConstitutionVersion = "1.0.0",
+                EnvelopeVersion = "v6",
+                Attempts = 1,
+                State = Gg.Contracts.FlightStates.Landed,
+                Facts = [],
+            },
+        ],
+    };
+
     [Test]
     public async Task Every_modal_is_reachable_from_a_fresh_console()
     {
         // A modal nobody can open cannot trap anybody, so the property above
         // would hold trivially for a mode that is simply unreachable. This is
         // the other half: each one can genuinely be entered.
+        // WITH ONE FLIGHT IN IT, and that is a widening of "fresh" rather than
+        // an exemption. `enter` opens the flight under the cursor and a console
+        // with no flights has none - Article XI, a key that appears to work is
+        // worse than one that is not offered - so pressing keys against a
+        // console that has loaded nothing could never reach that modal. What
+        // the walk is about is whether a KEY can open each one, and a list with
+        // a row in it is the smallest state where that question is meaningful.
+        var loaded = new AppState { Flights = OneFlight() };
+
         foreach (var mode in Enum.GetValues<UiMode>()
                      .Where(m => m != UiMode.Normal && !OpenedByTheLoop.ContainsKey(m)))
         {
             var opened = KeymapTests.Universe
-                .Select(key => Press(new AppState(), key))
+                .Select(key => Press(loaded, key))
                 .Any(state => state.Mode == mode);
 
             await Assert.That(opened).IsTrue().Because($"{mode} cannot be opened by any key.");

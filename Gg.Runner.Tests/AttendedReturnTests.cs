@@ -194,4 +194,69 @@ public class AttendedReturnTests
 
         await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Completed);
     }
+
+    // ---- S26.8-07, and the hole it found ----
+
+    [Test]
+    public async Task A_decision_still_outstanding_is_not_finished_because_the_person_says_so()
+    {
+        // CLEARED TO PUSH AND NOT ADMITTED IS A GATE SOMEBODY HAS NOT ANSWERED.
+        // The two are read independently: the push is granted when no machine
+        // obligation is violated, the proposal when every requirement is
+        // satisfied. So a flight whose work reached the remote and whose pull
+        // request was not opened is one waiting on a person - which is exactly
+        // the state a hand-flight reaches when its own gate is open.
+        //
+        // AND `settled` DOES NOT COVER IT. Settled means every FACT has been
+        // evaluated; a pending human decision is not a fact, so the flight is
+        // settled and outstanding at the same time. Reading only `settled` here
+        // - which is what this runner did until now - records `landed` on a
+        // flight whose gate nobody answered, and the exit claim is
+        // first-writer-wins so nothing corrects it afterwards.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed),
+            settles: true,
+            push: new BranchPush
+            {
+                Branch = "gg/GG-1042",
+                BaseRef = "refs/heads/main",
+                Slug = "acme/widgets",
+                Reason = "cleared to push",
+            },
+            admission: null);
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Abandoned)
+            .Because("the person finished their work and somebody else has not answered the "
+                   + "gate it opened. Abandoned records no ending, so the flight stays open "
+                   + "until they do.");
+    }
+
+    [Test]
+    public async Task An_admitted_flight_the_person_finished_still_lands()
+    {
+        // THE HALF THAT MUST NOT MOVE, again. Admitted means every requirement
+        // is satisfied - there is no gate outstanding - so a person saying they
+        // finished is the last word, and refusing to land here would mean no
+        // hand-flight with a destination ever completes.
+        var (_, protocol) = await AttendedExecutorTests.FlownAsync(
+            returns: Left(TakeoverOutcomes.Completed),
+            settles: true,
+            push: new BranchPush
+            {
+                Branch = "gg/GG-1042",
+                BaseRef = "refs/heads/main",
+                Slug = "acme/widgets",
+                Reason = "cleared to push",
+            },
+            admission: new DestinationAdmission
+            {
+                DestinationId = "pr",
+                Branch = "gg/GG-1042",
+                BaseRef = "refs/heads/main",
+                Slug = "acme/widgets",
+                Reason = "every requirement satisfied",
+            });
+
+        await Assert.That(ReleasedWith(protocol)).IsEqualTo(RunnerDisposition.Completed);
+    }
 }

@@ -515,7 +515,17 @@ static async Task<int> LaunchConsoleAsync()
         // whatever else a person exports - cloud keys, tokens - on a screen
         // they may be sharing and into the state dump. These are the variables
         // gg itself reads, and every one is named where it is read.
-        with { Settings = ConsoleEnvironment.Read() };
+        with
+        {
+            Settings = ConsoleEnvironment.Read(),
+
+            // WHICH RUNNER IN THE FLEET IS THIS MACHINE'S. The id, and only the
+            // id: StoredRunner beside it holds a runner token, and this model is
+            // serialized under GG_STATE_DUMP and handed to the diagnostics
+            // bundle. Read here for the reason the principal is - it is a file
+            // this machine already wrote, not a verb.
+            LocalRunnerId = new FileRunnerStore().Read()?.RunnerId,
+        };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
     // arguments that only tests ever supplied, so the console's takeover key

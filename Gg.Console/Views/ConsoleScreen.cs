@@ -58,6 +58,9 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _flightsTable;
     private readonly TableView _browseTable;
     private readonly TableView _repositoriesTable;
+    private readonly FrameView _runnersPane;
+    private readonly Label _runners;
+    private readonly TableView _runnersTable;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
     private readonly Label _hints;
@@ -227,6 +230,20 @@ public sealed class ConsoleScreen : Window
         _repositories = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _repositoriesPane.Add(_repositories);
 
+        // THE FLEET, AND THIS MACHINE'S RUNNER FIRST. Already in the model from
+        // the boot, so this tab is never waiting on a read.
+        _runnersPane = new FrameView
+        {
+            Title = "Runners",
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _runners = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _runnersPane.Add(_runners);
+
         // EVERY FLIGHT, NEEDED OR NOT. The queue is what needs a person and is
         // right to be; this is the tab that answers "where did the thing I just
         // started go". Open from the start, like the queue.
@@ -246,6 +263,8 @@ public sealed class ConsoleScreen : Window
         _browsePane.Add(_browseTable);
         _repositoriesTable = CollectionViews.Table();
         _repositoriesPane.Add(_repositoriesTable);
+        _runnersTable = CollectionViews.Table();
+        _runnersPane.Add(_runnersTable);
 
         _flightsTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
@@ -285,6 +304,7 @@ public sealed class ConsoleScreen : Window
             (TabId.Live, Tabbed(_livePane)),
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
+            (TabId.Runners, Tabbed(_runnersPane)),
             (TabId.Checklist, Tabbed(_checklistPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
         ];
@@ -314,7 +334,7 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
-        Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody);
+        Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody, _runners);
 
         Add(_bar, _activity, _hints, _modal);
 
@@ -634,6 +654,13 @@ public sealed class ConsoleScreen : Window
             Fill(_repositoriesTable, null, Rows.Repositories(State), Rows.RepositoryColumns,
                 State.RepositorySelected,
                 r => [r.Chosen, r.Path, r.Name]);
+
+            // NO CURSOR OF ITS OWN. Nothing on this tab is selectable yet -
+            // there is no key that acts on a runner - so the cursor rests on the
+            // row that matters, which is this machine's and is first.
+            Fill(_runnersTable, _runners, Rows.Runners(State), Rows.RunnerColumns,
+                0,
+                r => [r.Here, r.Runner, r.State, r.Work, r.Heard]);
         }
         finally
         {
@@ -644,6 +671,7 @@ public sealed class ConsoleScreen : Window
 
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);
+        _runners.Text = PaneText.Runners(State);
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
@@ -740,6 +768,9 @@ public sealed class ConsoleScreen : Window
                 break;
             case TabId.Repositories:
                 (_repositoriesTable.Visible ? (View)_repositoriesTable : _repositories).SetFocus();
+                break;
+            case TabId.Runners:
+                (_runnersTable.Visible ? (View)_runnersTable : _runners).SetFocus();
                 break;
             case TabId.Checklist:
                 _checklist.SetFocus();

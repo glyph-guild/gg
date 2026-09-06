@@ -47,6 +47,11 @@ public static class Tabs
         {
             TabId.Queue => true,
             TabId.Flights => state.Flights is not null,
+
+            // NEVER UNREAD. The boot fetches the runner list for the queue's
+            // stranded-runner reason, so this tab has an answer from the first
+            // frame - even when the answer is "no runners".
+            TabId.Runners => true,
             TabId.Evidence => state.EvidenceVisible,
             TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
@@ -74,6 +79,11 @@ public static class Tabs
         TabId.Live => KeyStroke.Char('l'),
         TabId.Browse => KeyStroke.Char('b'),
         TabId.Repositories => KeyStroke.Char('r'),
+        // `u' because every letter that reads is taken: r is repositories, n is
+        // new flight, e is envelope and s says nothing about runners. It is in
+        // the word, it is free, and a key chosen for its mnemonic that silently
+        // shadows another is worse than one chosen for being free and said to be.
+        TabId.Runners => KeyStroke.Char('u'),
         TabId.Checklist => KeyStroke.Char('p'),
         TabId.Envelope => KeyStroke.Char('e'),
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
@@ -96,6 +106,9 @@ public static class Tabs
         TabId.Live => Command.ToggleLive,
         TabId.Browse => Command.ToggleBrowse,
         TabId.Repositories => Command.ToggleRepositories,
+        // NOT A SHELL COMMAND, unlike the four below it. Showing this reads
+        // nothing: the fleet is already in the model, fetched at boot.
+        TabId.Runners => Command.ToggleRunners,
         TabId.Checklist => Command.ToggleChecklist,
         TabId.Envelope => Command.ToggleEnvelope,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
@@ -178,6 +191,7 @@ public static class Tabs
         TabId.Live => "Live",
         TabId.Browse => "Browse",
         TabId.Repositories => "Repositories",
+        TabId.Runners => "Runners",
         TabId.Checklist => "Checklist",
         TabId.Envelope => "Envelope",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),

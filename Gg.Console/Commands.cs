@@ -100,6 +100,14 @@ public enum Command
     /// <remarks>The shell's: showing them is a read, and a session may not make one.</remarks>
     ToggleRepositories,
 
+    /// <summary>Show or hide the fleet, with this machine's runner first.</summary>
+    /// <remarks>
+    /// <b>NOT the shell's, unlike its four neighbours.</b> The boot already
+    /// fetches the runner list for the queue's stranded-runner reason, so
+    /// showing this reads nothing and the reducer can do the whole of it.
+    /// </remarks>
+    ToggleRunners,
+
 
     /// <summary>
     /// Take the selected flight over: unmount, hand a person the terminal, come

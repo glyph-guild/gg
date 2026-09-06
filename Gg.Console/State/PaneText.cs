@@ -131,6 +131,7 @@ public static class PaneText
             // joined here: what this answers is "does this tab say anything".
             TabId.Queue => string.Join("\n", QueueRows(state)),
             TabId.Flights => Flights(state),
+            TabId.Runners => Runners(state),
             TabId.Evidence => Evidence(state),
             TabId.Live => Live(state),
             TabId.Browse => Browse(state),
@@ -779,6 +780,81 @@ public static class PaneText
     /// distinction <see cref="Browse"/> and <see cref="Live"/> both draw. An
     /// empty box says neither.
     /// </remarks>
+    /// <summary>
+    /// The fleet, and what this machine's runner is doing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never "nothing has been read yet", unlike its neighbours.</b> The boot
+    /// fetches the runner list for the queue's stranded-runner reason, so this
+    /// pane has an answer from the first frame. An empty fleet is an empty
+    /// fleet.
+    /// </para>
+    /// <para>
+    /// <b>The line about this machine comes first and names the command.</b>
+    /// Nothing registered here is not an error, it is a thing to go and do, and
+    /// a pane that only said "no local runner" would leave a person guessing
+    /// which command makes one.
+    /// </para>
+    /// </remarks>
+    public static string Runners(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var rows = Rows.Runners(state);
+        var text = new StringBuilder();
+
+        if (rows.FirstOrDefault(r => r.Mine) is { } mine)
+        {
+            text.AppendLine(mine.State switch
+            {
+                RunnerStates.Busy =>
+                    $"This machine's runner is working on {mine.Work}.",
+                RunnerStates.Idle =>
+                    "This machine's runner is up and waiting for work.",
+                _ when mine.Heard == "never" =>
+                    "This machine has a runner registered and the control plane has never "
+                  + "heard from it. Start it with `gg runner up`.",
+                _ =>
+                    $"This machine's runner has stopped heartbeating - last heard {mine.Heard}. "
+                  + "Start it again with `gg runner up`.",
+            });
+        }
+        else
+        {
+            text.AppendLine(
+                "No runner is registered on this machine, so nothing here can fly a flight. "
+              + "`gg runner up` registers one and starts it.");
+        }
+
+        text.AppendLine();
+
+        if (rows.Count == 0)
+        {
+            text.AppendLine(
+                "This tenant has no runners at all. The control plane answered, and the "
+              + "answer was an empty fleet - so every flight opened here waits for somebody "
+              + "to bring a runner up.");
+
+            return text.ToString().TrimEnd();
+        }
+
+        text.AppendLine($"{rows.Count} in the fleet");
+        text.AppendLine();
+
+        foreach (var row in rows)
+        {
+            // THE ARROW IS THE POINT OF THE COLUMN, as it is in the
+            // repositories pane: a list where the one that is yours is not
+            // marked is a list somebody has to cross-reference against a
+            // command they would have to run in another terminal.
+            var work = row.Work is { Length: > 0 } flight ? $"  on {flight}" : "";
+            text.AppendLine($"{row.Here} {row.Runner}  {row.State}{work}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     public static string Repositories(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

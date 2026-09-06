@@ -70,6 +70,10 @@ public static class Reducer
             Command.SelectPrevious => Moved(state, -1),
 
             Command.ToggleEvidence => Toggled(state, TabId.Evidence),
+            // WHOLLY HERE, because showing the fleet reads nothing - it is in
+            // the model from the boot. Its four neighbours are the shell's
+            // because opening them fetches something.
+            Command.ToggleRunners => Toggled(state, TabId.Runners),
             Command.ToggleLive => ToggleLive(state),
             Command.ToggleFreeze => ToggleFreeze(state),
 

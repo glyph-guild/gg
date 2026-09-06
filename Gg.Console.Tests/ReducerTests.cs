@@ -62,7 +62,10 @@ public class ReducerTests
         var state = new AppState { EvidenceVisible = true, LiveVisible = true };
         var seen = new List<TabId>();
 
-        for (var i = 0; i < 8; i++)
+        // ONE PRESS PER TAB, DERIVED. It was the literal 8, which is the tab
+        // count restated in a test - a ninth tab then left the ring incomplete
+        // and this failed for a reason that had nothing to do with focus.
+        for (var i = 0; i < Tabs.All.Count; i++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
             seen.Add(state.ActiveTab);

@@ -122,6 +122,18 @@ public enum TabId
     /// </remarks>
     Flights,
 
+    /// <summary>
+    /// The fleet, with this machine's runner first.
+    /// </summary>
+    /// <remarks>
+    /// <b>OPEN BEFORE ANYBODY ASKS, like the queue and the flights.</b> The boot
+    /// already fetches the runner list for the queue's stranded-runner reason,
+    /// so this tab costs nothing and is never waiting on a read. "Is my runner
+    /// up, and is it doing anything" is the question that comes before "why has
+    /// my flight not moved".
+    /// </remarks>
+    Runners,
+
     /// <summary>The digest, rendered. On demand.</summary>
     Evidence,
 
@@ -640,6 +652,30 @@ public sealed record AppState
     /// typed into a box is a name anybody can type.
     /// </remarks>
     public string Principal { get; init; } = "";
+
+    /// <summary>
+    /// Which runner in the fleet is this machine's, or null when none is
+    /// registered here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The id, and only the id.</b> <c>StoredRunner</c> beside it on disk
+    /// holds a runner token; this model is serialized under
+    /// <c>GG_STATE_DUMP</c> and handed to the diagnostics bundle, so a secret
+    /// here is a secret in a bug report. The id is all that is needed to say
+    /// which row in the fleet is the one a person sitting here can do something
+    /// about.
+    /// </para>
+    /// <para>
+    /// <b>Passed rather than loaded, for <see cref="Principal"/>'s reason.</b>
+    /// Every public read on <c>ConsoleData</c> returns a <c>VerbResult</c>, so
+    /// what a pane shows is what <c>--json</c> would print. This is not a read:
+    /// it is a file this machine already wrote, and routing it through the data
+    /// layer would make it the one value the console could show and a verb
+    /// could not.
+    /// </para>
+    /// </remarks>
+    public string? LocalRunnerId { get; init; }
 
     /// <summary>What the last hand-back ended with, for the pane to say.</summary>
     public string? LastHandBack { get; init; }

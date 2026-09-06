@@ -53,6 +53,13 @@ public class AttendedReturnTests
                 : new TakeoverReturn { FlightId = flightId, Outcome = outcome },
             diagnosis);
 
+    /// <summary>What the runner told the control plane when it let go.</summary>
+    private static LeaseReleaseRequest Released(FakeProtocol protocol) =>
+        System.Text.Json.JsonSerializer.Deserialize<LeaseReleaseRequest>(
+            protocol.Serialized.Last(line =>
+                line.Contains("disposition", StringComparison.Ordinal)),
+            System.Text.Json.JsonSerializerOptions.Web)!;
+
     /// <summary>The disposition the lease was released with.</summary>
     private static string ReleasedWith(FakeProtocol protocol) =>
         protocol.Calls.Last(call => call.StartsWith("release:", StringComparison.Ordinal))
@@ -121,8 +128,10 @@ public class AttendedReturnTests
 
         await Assert.That(ReleasedWith(protocol)).IsNotEqualTo(RunnerDisposition.Completed);
 
-        await Assert.That(protocol.Serialized.Last(line =>
-                line.Contains("disposition", StringComparison.Ordinal)))
+        // THE VALUE, NOT THE ENCODING. The recorded body escapes apostrophes as
+        // \u0027, so a substring match against the JSON asserts the serializer
+        // rather than the diagnosis.
+        await Assert.That(Released(protocol).Detail)
             .Contains("decides flight 'other'")
             .Because("a refusal that says only 'wrong flight' sends somebody looking for "
                    + "which, and the reader already composed the sentence that says.");

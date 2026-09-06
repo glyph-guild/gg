@@ -722,7 +722,15 @@ static async Task<int> HoldAsync(
             Gg.Local.IntentConfiguration.FromEnvironment(),
             secretFor: locator => new FileCredentialStore().Read(locator),
             self: Gg.Local.SelfInvocation.Current),
-        flightId: flightId);
+        flightId: flightId,
+        // THE ONE READER, HANDED ACROSS. Gg.Runner cannot see Gg.Client - the
+        // runner is treated as hostile and the reference graph keeps them
+        // apart - so this project, which is the only one that sees both, passes
+        // it. A second implementation of "what did the person decide" would be
+        // a second size bound and a second set of three diagnoses to drift from
+        // these.
+        returns: (tree, flight) => TakeoverReturnReader.Read(
+            TakeoverReturnReader.PathIn(tree), flight));
 }
 
 static async Task<int> RunnerUpAsync()

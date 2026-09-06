@@ -33,7 +33,27 @@ jobs:
           version="$(dotnet msbuild Gg.Contracts/Gg.Contracts.csproj -getProperty:Version -nologo | tr -d '[:space:]')"
           echo "Contract version: $version"
           echo "CONTRACT_VERSION=$version" >> "$GITHUB_ENV"
-      - run: dotnet pack Gg.Contracts/Gg.Contracts.csproj -c Release -o artifacts
+      # ContractRelease is what lets this pack claim the declared version. It
+      # is set HERE and nowhere else: a pack from a working copy gets a
+      # -local.<timestamp> label, so it can never land in a NuGet cache under a
+      # number a release published. See the note in Gg.Contracts.csproj for the
+      # incident that bought this line.
+      - run: dotnet pack Gg.Contracts/Gg.Contracts.csproj -c Release -o artifacts -p:ContractRelease=true
+      # The release path checks its own artifact, because the tag below and the
+      # asset it carries have to agree. Without ContractRelease the pack would
+      # be GlyphGuild.Gg.Contracts.0.114.0-local.<timestamp>.nupkg published
+      # under a tag reading contracts-v0.114.0, which is the confusion this
+      # whole mechanism exists to prevent.
+      - name: The packed version is the declared one
+        run: |
+          expected="artifacts/GlyphGuild.Gg.Contracts.$CONTRACT_VERSION.nupkg"
+          found="$(ls artifacts/*.nupkg)"
+          if [[ "$found" != "$expected" ]]; then
+            echo "packed '$found' but the declared contract version is $CONTRACT_VERSION" >&2
+            echo "expected '$expected' - did the pack step lose -p:ContractRelease=true?" >&2
+            exit 1
+          fi
+          echo "$found"
       - uses: actions/upload-artifact@v4
         with:
           name: nuget

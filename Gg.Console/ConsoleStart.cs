@@ -40,8 +40,7 @@ public static class ConsoleStart
     /// merely degraded.
     /// </para>
     /// </remarks>
-    private static async Task<AppState> OwnFailureAsync(
-        AppState loaded,
+    private static async Task<VerbResult?> OwnFailureAsync(
         string what,
         Func<CancellationToken, Task<VerbResult>> read,
         List<string> partial,
@@ -49,16 +48,41 @@ public static class ConsoleStart
     {
         try
         {
-            return ConsoleProjection.Apply(loaded, await read(cancellationToken));
+            return await read(cancellationToken);
         }
         catch (Exception failure) when (failure is Gg.Client.NotSignedInException
                                             or Gg.Client.ProtocolTooOldException
                                             or HttpRequestException)
         {
             partial.Add($"{what} did not load: {failure.Message}");
-            return loaded;
+            return null;
         }
     }
+
+    /// <summary>
+    /// A read that has already been started, folded in if it arrived.
+    /// </summary>
+    /// <remarks>
+    /// <b>The split is what lets these overlap.</b> This method used to take the
+    /// read and await it in one breath, which is fine for one and is the whole
+    /// delay for nine: the caller now starts every read it can and comes back
+    /// here to fold them in, so a failure is still one read's worth and the
+    /// waiting happens once instead of nine times.
+    /// </remarks>
+    private static AppState Folded(AppState loaded, VerbResult? arrived) =>
+        arrived is null ? loaded : ConsoleProjection.Apply(loaded, arrived);
+
+    /// <summary>
+    /// How many logs to have in the air at once.
+    /// </summary>
+    /// <remarks>
+    /// <b>Bounded, and not by politeness.</b> One task per flight would open a
+    /// connection per flight on a tenant with hundreds of them - the socket count
+    /// is the cost, not the control plane's patience. Eight is enough to hide a
+    /// 200ms round trip behind the next one and few enough that the boot looks
+    /// like a client rather than a burst.
+    /// </remarks>
+    private const int LogsAtOnce = 8;
 
     /// <param name="current">
     /// What the person already has. Empty at boot; the live model on a refresh.
@@ -87,20 +111,37 @@ public static class ConsoleStart
         ArgumentNullException.ThrowIfNull(data);
 
         var start = current ?? new AppState();
+        var partial = new List<string>();
 
         try
         {
-            var flights = (VerbResult.Flights)await data.ListAsync(cancellationToken);
-            var runners = (VerbResult.Runners)await data.RunnersAsync(cancellationToken);
+            // ROUND ONE: FIVE ANSWERS, NONE OF WHICH IS AN INPUT TO ANY OTHER.
+            // These were awaited one at a time, and the console drew nothing for
+            // thirteen and a half seconds because of it. Nothing about the flight
+            // list is needed to ask who is signed in.
+            //
+            // THE TWO WITH THEIR OWN FAILURE ARE STARTED HERE TOO, and they never
+            // fault: OwnFailureAsync catches inside the task, so the WhenAll below
+            // cannot be tripped by a credential read while still observing it.
+            // Rule 5's third sentence survives the reordering - what one read
+            // loses is one read's worth.
+            var listing = data.ListAsync(cancellationToken);
+            var fleet = data.RunnersAsync(cancellationToken);
+            var waiting = data.GatesAsync(cancellationToken);
+            var credentials = OwnFailureAsync(
+                "credentials", ct => data.ListCredentialsAsync(ct), partial, cancellationToken);
+            var identity = OwnFailureAsync(
+                "notices", ct => data.IdentityAsync(ct), partial, cancellationToken);
 
-            var logs = new Dictionary<string, Gg.Contracts.FlightLog>(StringComparer.Ordinal);
-            foreach (var flight in flights.Value.Flights)
-            {
-                if (await data.LogAsync(flight.FlightId, cancellationToken) is VerbResult.Log log)
-                {
-                    logs[flight.FlightId] = log.Value;
-                }
-            }
+            // OBSERVED BEFORE ANY OF THEM IS ALLOWED TO THROW. WhenAll marks all
+            // five as observed and then raises the first failure, so a control
+            // plane nobody can reach still leaves the catch below with nothing
+            // dangling behind it.
+            await Task.WhenAll(
+                (Task)listing, fleet, waiting, credentials, identity);
+
+            var flights = (VerbResult.Flights)await listing;
+            var runners = (VerbResult.Runners)await fleet;
 
             // WHAT IS WAITING ON A PERSON. Without it the gate modal had the
             // evidence and not the question - no obligation id - so pressing
@@ -111,12 +152,39 @@ public static class ConsoleStart
             // lines, and they are why the pane called "flights needing me" could
             // not contain a flight that needs me: the queue was derived without
             // them, so QueueReason.AwaitingDecision was declared, rendered, and
-            // produced by nothing. The console has held this answer at boot the
-            // whole time and showed it only in a modal that opens on a row the
-            // queue could not have.
-            var gates = await data.GatesAsync(cancellationToken) is VerbResult.Gates waiting
-                ? waiting.Value
-                : null;
+            // produced by nothing.
+            var gates = await waiting is VerbResult.Gates open ? open.Value : null;
+
+            // ROUND TWO: A LOG PER FLIGHT, ALL OF THEM AT ONCE UP TO A BOUND.
+            // The count is unchanged and is not the defect - the log is what
+            // fills the queue's two log-derived reasons and what makes the detail
+            // modal free when somebody presses enter. What was wrong is that a
+            // tenant with fifty flights waited for fifty round trips in a row,
+            // and the wait grew by one for every flight they ever flew.
+            using var room = new SemaphoreSlim(LogsAtOnce);
+
+            var reading = flights.Value.Flights.Select(async flight =>
+            {
+                await room.WaitAsync(cancellationToken);
+                try
+                {
+                    return (flight.FlightId, Answer: await data.LogAsync(
+                        flight.FlightId, cancellationToken));
+                }
+                finally
+                {
+                    room.Release();
+                }
+            }).ToList();
+
+            var logs = new Dictionary<string, Gg.Contracts.FlightLog>(StringComparer.Ordinal);
+            foreach (var (flightId, answer) in await Task.WhenAll(reading))
+            {
+                if (answer is VerbResult.Log log)
+                {
+                    logs[flightId] = log.Value;
+                }
+            }
 
             var queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value, gates);
 
@@ -125,79 +193,71 @@ public static class ConsoleStart
             // else - AppState.TakeSeed and AppState.Principal were assigned nowhere
             // outside tests - so ConsoleLoop.Took reached "this console is not
             // configured to take flights over" on every real press, and
-            // HandedBack reached its twin. Eleventh instance of a thing being
-            // registered and never invoked.
+            // HandedBack reached its twin.
             //
-            // The seed for the FIRST row only, and that is deliberate: fetching one
-            // per flight would be a request per row on every load, for panes nobody
-            // has scrolled to. The selection moving is what fetches the next one.
-            //
-            // FOR THE SELECTED ROW, not the first. It was `queue[0]` and this
-            // method is the refresh as well as the boot, so a re-read with the
-            // cursor moved fetched the top row's seed.
+            // The seed for the SELECTED row only, and that is deliberate: fetching
+            // one per flight would be a request per row on every load, for panes
+            // nobody has scrolled to. The selection moving is what fetches the
+            // next one. It was `queue[0]`, and this method is the refresh as well
+            // as the boot, so a re-read with the cursor moved fetched the top
+            // row's seed.
             var selected = queue.Count > 0
                 ? queue[Math.Clamp(start.SelectedRow, 0, queue.Count - 1)]
                 : null;
 
-            var seed = selected is not null
-                    && await data.SeedAsync(selected.FlightNumber, cancellationToken)
-                        is VerbResult.Taken taken
-                ? taken.Value
-                : null;
+            // ROUND THREE: THE TWO READS THE SELECTED ROW DECIDES. The row is not
+            // known until the queue is built, so these cannot join round one - but
+            // they have nothing to say to each other, so they go together.
+            //
+            // AND WHY THE SELECTED FLIGHT IS STOPPED, which is the question the
+            // queue's rows pose. One read for one row: a read per row would be a
+            // request per row on every load, and reading on the arrow key would be
+            // I/O inside a UI session.
+            var seeding = selected is null
+                ? Task.FromResult<VerbResult?>(null)
+                : OwnFailureAsync(
+                    "the takeover seed",
+                    ct => data.SeedAsync(selected.FlightNumber, ct),
+                    partial,
+                    cancellationToken);
+
+            var reason = selected is null
+                ? Task.FromResult<VerbResult?>(null)
+                : OwnFailureAsync(
+                    "why", ct => data.WhyAsync(selected.FlightNumber, null, ct),
+                    partial, cancellationToken);
+
+            await Task.WhenAll(seeding, reason);
+
+            var seed = await seeding is VerbResult.Taken taken ? taken.Value : null;
 
             // THROUGH APPLY, WHICH IS RULE 2. Apply is the one path from a verb
             // result into the model, it already had arms for three of these
             // four, and what it lacked was a caller. Assigning them here by hand
             // would be the second projection this slice exists to prevent - one
             // layer down and harder to see.
+            //
+            // IN THE ORDER THEY WERE APPLIED BEFORE, which is the order the
+            // diagnosis is worded in and the order a person reads the panes.
             var loaded = ConsoleProjection.Apply(start, flights);
             loaded = ConsoleProjection.Apply(loaded, runners);
 
-            // THE CREDENTIAL REFERENCES, and the only new request this step
-            // makes. The field and the renderer both existed and nothing
-            // fetched them, so the console could never show what it holds a
-            // reference to. It holds no secret - kind, locator, identity,
+            // THE CREDENTIAL REFERENCES. The field and the renderer both existed
+            // and nothing fetched them, so the console could never show what it
+            // holds a reference to. It holds no secret - kind, locator, identity,
             // scopes - which is why it may sit in a model that is dumped.
             //
-            // AND ITS FAILURE IS ITS OWN. Rule 5's third sentence: `failed to
-            // load` is not `empty`. One try around the whole boot returned a
-            // bare diagnosis and NO queue, so a tenant whose credential read
-            // was refused lost the pane the console exists for - and could not
-            // tell that from having no work. What one read loses is now one
-            // read's worth.
-            //
-            // AND WHAT THIS TENANT SHOULD KNOW, which is the other read whose
-            // failure is its own. AppState.Notices is drawn above every queue,
-            // present even when the queue is empty, and was assigned by nothing
-            // at all - so a control plane reporting a degradation on every call
-            // was reporting it to nobody. It is exactly the failure the queue
-            // hides by construction: when check runs stop being written every
-            // flight still runs and still leaves the queue, so "nothing needs
-            // you" stays true and the pane is at its most reassuring when this
-            // is worst.
-            //
-            // WRITTEN AS CALLS RATHER THAN METHOD GROUPS, and the reach ratchet
-            // is why: `data.ListCredentialsAsync` with no parentheses is
-            // invisible to anything reading for a call site, which is what a
-            // person skimming this file is also doing. It fired on both of these
-            // the moment they were passed as groups.
-            var partial = new List<string>();
-
-            loaded = await OwnFailureAsync(
-                loaded, "credentials", ct => data.ListCredentialsAsync(ct), partial, cancellationToken);
-            loaded = await OwnFailureAsync(
-                loaded, "notices", ct => data.IdentityAsync(ct), partial, cancellationToken);
-
-            // AND WHY THE SELECTED FLIGHT IS STOPPED, which is the question the
-            // queue's rows pose. One read for one row: a read per row would be a
-            // request per row on every load, and reading on the arrow key would
-            // be I/O inside a UI session.
-            if (selected is { } row)
-            {
-                loaded = await OwnFailureAsync(
-                    loaded, "why", ct => data.WhyAsync(row.FlightNumber, null, ct),
-                    partial, cancellationToken);
-            }
+            // AND WHAT THIS TENANT SHOULD KNOW. AppState.Notices is drawn above
+            // every queue, present even when the queue is empty, and was assigned
+            // by nothing at all - so a control plane reporting a degradation on
+            // every call was reporting it to nobody. It is exactly the failure the
+            // queue hides by construction: when check runs stop being written
+            // every flight still runs and still leaves the queue, so "nothing
+            // needs you" stays true and the pane is at its most reassuring when
+            // this is worst.
+            loaded = Folded(loaded, await credentials);
+            loaded = Folded(loaded, await identity);
+            loaded = Folded(loaded, await reason);
 
             // AND THE SELECTED ROW'S DETAIL, THROUGH THE REDUCER'S OWN RULE, so
             // the console opens onto content rather than onto a pane waiting for
@@ -215,7 +275,7 @@ public static class ConsoleStart
                 Gates = gates,
                 Diagnosis = partial.Count == 0 ? null : string.Join("; ", partial),
 
-                // The logs the loop above already fetched, kept rather than
+                // The logs the round above already fetched, kept rather than
                 // discarded. The selection carries them into the pane.
                 Logs = logs,
 

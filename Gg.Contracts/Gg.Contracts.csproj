@@ -16,6 +16,31 @@
          the protocol itself becomes incompatible. -->
     <Version>0.115.0</Version>
 
+    <!-- A PACK IS LOCAL UNLESS IT SAYS OTHERWISE, and the default is the safe
+         one on purpose.
+
+         An unmerged branch was once packed on a machine at 0.114.0 and landed
+         in ~/.nuget/packages/glyphguild.gg.contracts/0.114.0. NuGet prefers the
+         global cache over a downloaded release asset, so the control plane
+         compiled against a contract nobody had published, then demanded an
+         endpoint the deployed API did not have. Every number in sight said
+         0.114.0 and the two assemblies differed by 512 bytes.
+
+         So the published number is opt-in: publish-contracts.yml is the only
+         place that sets ContractRelease, and anything else gets a prerelease
+         label of the version it was built from. SemVer sorts a prerelease BELOW
+         its release, so a local pack cannot win a version range either, and the
+         timestamp makes each one distinct - a stale cache entry cannot shadow
+         the pack you just built.
+
+         The label is on the PACKAGE and not on the assembly: the ledger guard
+         reads AssemblyInformationalVersion, and a suffix there would fail every
+         local build with a version contract-versions.json has no entry for.
+         What a consumer must not be able to do is RESTORE a working copy under
+         a released number, and the package version is where that is decided.
+         ALocalPackIsNotAReleaseTests holds all of that to account. -->
+    <PackageVersion Condition="'$(ContractRelease)' != 'true'">$(Version)-local.$([System.DateTime]::UtcNow.ToString(`yyyyMMdd\tHHmmss`))</PackageVersion>
+
     <!-- AssemblyVersion is NOT pinned any more, and that is the point.
 
          It used to be, at 0.10.0.0, because both fingerprints recorded

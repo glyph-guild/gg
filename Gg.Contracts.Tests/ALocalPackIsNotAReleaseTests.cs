@@ -63,20 +63,28 @@ public class ALocalPackIsNotAReleaseTests
     }
 
     [Test]
-    public async Task The_workflow_that_publishes_the_contract_is_the_one_that_asks_for_a_release()
+    public async Task The_pipeline_that_publishes_the_contract_is_the_one_that_asks_for_a_release()
     {
-        var workflow = Path.Combine(RepoRoot().FullName, ".github", "workflows", "publish-contracts.yml");
-        var packs = File.ReadAllLines(workflow)
-            .Where(line => line.Contains("dotnet pack", StringComparison.Ordinal))
+        // Found by CONTENT rather than by path, and that is not squeamishness:
+        // ProviderNeutralityTests forbids naming a forge anywhere in this
+        // repository's C#, and where a pipeline is defined is that forge's
+        // convention. What matters is that exactly one place packs this project
+        // and that place asks for the release version.
+        var packs = Directory.EnumerateFiles(RepoRoot().FullName, "*.yml", SearchOption.AllDirectories)
+            .SelectMany(file => File.ReadAllLines(file).Select(line => (file, line)))
+            .Where(entry => entry.line.Contains("dotnet pack Gg.Contracts", StringComparison.Ordinal))
             .ToList();
 
         await Assert.That(packs.Count).IsEqualTo(1)
-            .Because($"the release channel is one pack step; found {packs.Count} in {workflow}");
+            .Because("the release channel is one pack step; found "
+                   + (packs.Count == 0
+                       ? "none, so this test has stopped watching anything"
+                       : string.Join("; ", packs.Select(p => Path.GetRelativePath(RepoRoot().FullName, p.file)))));
 
-        await Assert.That(packs[0]).Contains("-p:ContractRelease=true", StringComparison.Ordinal)
+        await Assert.That(packs[0].line).Contains("-p:ContractRelease=true", StringComparison.Ordinal)
             .Because("this is the only pack that may claim the declared version, and it has to "
-                   + "say so. Without it the release would publish a -local label. Found: "
-                   + packs[0].Trim());
+                   + "say so. Without it the release would publish a -local label under a tag "
+                   + "that says otherwise. Found: " + packs[0].line.Trim());
     }
 
     [Test]

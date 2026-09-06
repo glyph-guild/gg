@@ -1068,7 +1068,7 @@ public static class ProtocolSurface
                  "attempts", "stopReason", "verdict"],
             [typeof(HumanAccount)] =
                 ["by", "statement", "confirmation", "confirmedAt", "wasProposed"],
-            [typeof(FlightNomination)] = ["workKind", "reason"],
+            [typeof(FlightNomination)] = ["workKind", "reason", "note"],
         [typeof(LoopQuestion)] = ["question"],
             [typeof(LoopAttended)] =
                 ["loopId", "rung", "binary", "binaryVersion", "budgetSeconds", "heldSeconds",

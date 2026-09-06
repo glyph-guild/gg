@@ -16,10 +16,12 @@ namespace Gg.Console.Tests;
 /// receipt and not a state.
 /// </para>
 /// <para>
-/// <b>Between sessions, which is where the writes already are.</b> Rule 3: no
-/// I/O inside a UI session. A refresh is a shell command with an arm, exactly
-/// like every write the console already does - the session ends, the loop
-/// reloads, the next session renders the new model.
+/// <b>It was a shell command and it is not any more.</b> Ending the session is
+/// how the writes hand the terminal over, and it is the console vanishing every
+/// thirty seconds once a refresh happens on a timer. So the key says one is
+/// wanted, and the tick reads on a task and folds what lands - the argument for
+/// that exception is written out in <c>AutoRefresh</c>. The four properties
+/// below are the same four; what changed is where they hold.
 /// </para>
 /// <para>
 /// <b>And rule 4: every write refreshes what it invalidated.</b> A decision
@@ -111,43 +113,70 @@ public class ConsoleRefreshTests
         }
     }
 
-    [Test]
-    public async Task A_refresh_key_reloads_the_snapshot()
+    /// <summary>A refresh that answers with what the test says.</summary>
+    private sealed class Answers(Func<AppState, AppState> patch)
     {
-        var fresh = Booted() with { Queue = [Row("a", 1), Row("b", 2)] };
-        var reload = new Reloads(fresh);
-        var ui = new Presses(Command.Refresh);
+        internal int Calls { get; private set; }
 
-        var final = new ConsoleLoop(ui, new NoEditor(), reload: reload.Load).Run(Booted());
+        internal Task<Func<AppState, AppState>> Of(TabId tab)
+        {
+            Calls++;
 
-        await Assert.That(reload.Calls).IsEqualTo(1);
-        await Assert.That(ui.Rendered[^1].Queue.Count).IsEqualTo(2)
-            .Because("the NEXT session renders the reloaded model - that is what a refresh "
-                   + "is, in a console whose sessions hand the terminal back.");
-        await Assert.That(final.Queue.Count).IsEqualTo(2);
+            return Task.FromResult(patch);
+        }
+    }
+
+    /// <summary>A session that comes back having been asked to refresh.</summary>
+    private sealed class Wanting : IUiSession
+    {
+        public UiOutcome Run(AppState state) => new(
+            Command.Quit,
+            state with { Refresh = state.Refresh with { Wanted = true } });
+    }
+
+    private sealed class Now : Gg.Client.IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = T0;
+    }
+
+    /// <summary>Start one and fold it, which is two ticks.</summary>
+    private static AppState Refreshed(AppState from, Answers answers)
+    {
+        var refresh = new AutoRefresh(answers.Of, new Now(), TimeSpan.FromSeconds(30));
+
+        return refresh.Advance(refresh.Advance(from));
+    }
+
+    [Test]
+    public async Task A_refresh_key_reads_and_folds_without_the_session_going_away()
+    {
+        var answers = new Answers(state => state with { Queue = [Row("a", 1), Row("b", 2)] });
+
+        var asked = Reducer.Reduce(Booted(), Command.Refresh);
+        var final = Refreshed(asked, answers);
+
+        await Assert.That(answers.Calls).IsEqualTo(1);
+        await Assert.That(final.Queue.Count).IsEqualTo(2)
+            .Because("the tick folds it into the model the session is already rendering - "
+                   + "which is what stops the console tearing the terminal down to do it.");
     }
 
     [Test]
     public async Task A_refresh_keeps_what_the_person_was_looking_at()
     {
-        // THE VIEW IS NOT DATA. A reload answers with fresh flights, gates and
-        // logs; which row somebody had highlighted and whether they had the
-        // evidence pane open are theirs, and losing them on every refresh would
-        // make the key not worth pressing.
-        var fresh = Booted() with
-        {
-            Queue = [Row("a", 1), Row("b", 2)],
-            EvidenceVisible = false,
-            SelectedRow = 0,
-        };
-        var reload = new Reloads(fresh);
-        var ui = new Presses(Command.Refresh);
+        // THE VIEW IS NOT DATA, and a patch is what makes that structural. What
+        // comes back is a function applied to whatever is on screen when it
+        // lands, so there is no snapshot to overwrite the person with.
+        var answers = new Answers(state => state with { Queue = [Row("a", 1), Row("b", 2)] });
 
-        var final = new ConsoleLoop(ui, new NoEditor(), reload: reload.Load)
-            .Run(Booted() with { SelectedRow = 0, EvidenceVisible = true });
+        var asked = Reducer.Reduce(
+            Booted() with { SelectedRow = 0, EvidenceVisible = true }, Command.Refresh);
+
+        var final = Refreshed(asked, answers);
 
         await Assert.That(final.EvidenceVisible).IsTrue()
-            .Because("a pane the person opened stays open across a reload.");
+            .Because("a pane the person opened stays open across a refresh.");
+        await Assert.That(final.Queue.Count).IsEqualTo(2);
     }
 
     [Test]
@@ -155,17 +184,42 @@ public class ConsoleRefreshTests
     {
         // S28.3-04. Emptying the screen because a read failed is the worst
         // answer: the person loses what they had AND cannot tell whether the
-        // work went away.
-        var reload = new Throws();
-        var ui = new Presses(Command.Refresh);
+        // work went away. ConsoleRefresh words the refusal into the patch, so
+        // what lands changes one field and leaves the rest.
+        var answers = new Answers(state => state with
+        {
+            Diagnosis = "The last refresh did not finish: nobody answered.",
+        });
 
-        var final = new ConsoleLoop(ui, new NoEditor(), reload: reload.Load).Run(Booted());
+        var final = Refreshed(Reducer.Reduce(Booted(), Command.Refresh), answers);
 
         await Assert.That(final.Queue.Count).IsEqualTo(1)
             .Because("what was on the screen is still true until something better is known.");
         await Assert.That(final.Diagnosis).IsNotNull()
             .Because("and the person is told the screen is older than they think - a stale "
                    + "model nobody flagged is worse than an empty one.");
+    }
+
+    [Test]
+    public async Task A_console_with_no_refresher_says_so_rather_than_doing_nothing()
+    {
+        // THE DEAD-KEY SHAPE THIS ESTATE KEEPS FINDING. The tick clears the
+        // flag the moment it starts a read, so one that survived a whole
+        // session means nothing served it.
+        //
+        // THE SESSION CARRIES IT OUT RATHER THAN EXITING WITH IT, because the
+        // key is no longer one the shell handles: the screen reduces `g' into
+        // the model and the session ends later, on whatever a person presses
+        // next.
+        var ui = new Wanting();
+
+        var final = new ConsoleLoop(ui, new NoEditor()).Run(Booted());
+
+        await Assert.That(final.Diagnosis).IsNotNull()
+            .Because("configured without a refresher is a real state, and silence about it "
+                   + "is the failure mode this console has hit four times.");
+        await Assert.That(final.Refresh.Wanted).IsFalse()
+            .Because("and it is answered rather than left asking for ever.");
     }
 
     [Test]
@@ -198,22 +252,6 @@ public class ConsoleRefreshTests
 
         await Assert.That(reload.Calls).IsEqualTo(1)
             .Because("a flight opened is a flight the queue does not have yet.");
-    }
-
-    [Test]
-    public async Task A_console_with_no_reload_says_so_rather_than_doing_nothing()
-    {
-        // THE DEAD-KEY SHAPE THIS ESTATE KEEPS FINDING. A bound key that
-        // resolves, reaches the arm and returns the state unchanged is what
-        // ShellHandledTests exists to prevent; a console built without a reload
-        // says which it is.
-        var ui = new Presses(Command.Refresh);
-
-        var final = new ConsoleLoop(ui, new NoEditor()).Run(Booted());
-
-        await Assert.That(final.Diagnosis).IsNotNull()
-            .Because("configured without a reload is a real state, and silence about it is "
-                   + "the failure mode this console has hit four times.");
     }
 
     // ---- S29.5-04, wired here at slice twenty-nine's author's request ----

@@ -266,11 +266,6 @@ public static class ShellCommands
         // somebody asked for, and carries the property that one demonstrated.
         Command.Quit,
 
-        // A READ, and the first one here. Everything else in this set is a
-        // write; a refresh is in it for the same reason - the effect lives in
-        // ConsoleLoop, because a UI session may not make a request.
-        Command.Refresh,
-
         // Bound and inert until this declaration existed.
         Command.TakeFlight,
         Command.HandBack,

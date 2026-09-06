@@ -188,16 +188,26 @@ public sealed class ConsoleLoop(
             var outcome = ui.Run(state);
             state = outcome.State;
 
+            // A REFRESH NOBODY SERVED. The tick clears Wanted the moment it
+            // starts one, so a flag that survived a whole session means this
+            // console was built without a refresher - and a bound key that
+            // resolves, reaches its arm and changes nothing is the dead-key
+            // shape this estate keeps finding.
+            if (state.Refresh.Wanted)
+            {
+                state = state with
+                {
+                    Refresh = state.Refresh with { Wanted = false },
+                    Diagnosis = "This console is not configured to refresh.",
+                };
+            }
+
             var before = state;
 
             switch (outcome.Exit)
             {
                 case Command.Quit:
                     return state;
-
-                case Command.Refresh:
-                    state = Reloaded(state, reload);
-                    break;
 
                 case Command.HandBack:
                     // The same shape again: the session ends, an agent reads the

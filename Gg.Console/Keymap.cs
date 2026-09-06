@@ -55,8 +55,7 @@ public readonly record struct KeymapContext(
     TabId Showing = TabId.Queue,
     bool Frozen = false,
     bool Takeable = false,
-    bool HandedBackable = false,
-    bool RunnerStartable = false)
+    bool HandedBackable = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -69,6 +68,19 @@ public readonly record struct KeymapContext(
     /// cannot disagree about which step is showing.
     /// </remarks>
     public bool SignInStarted { get; init; }
+
+    /// <summary>
+    /// What the refresh key has to say for itself: a countdown, or the mark
+    /// that says one is happening.
+    /// </summary>
+    /// <remarks>
+    /// <b>In the context, like everything else the hints are made of.</b> The
+    /// line comes from one place and a second renderer appending to it is the
+    /// drift this whole file is arranged to prevent. Empty in the plainest
+    /// shape, so the help page - a union over contexts - does not carry a
+    /// stopped clock.
+    /// </remarks>
+    public string Refresh { get; init; } = "";
 
     /// <summary>
     /// The context a model puts the console in.
@@ -99,12 +111,15 @@ public readonly record struct KeymapContext(
             state.ActiveTab,
             state.Frozen,
             state.TakeableTree is not null,
-            state.TakenOver,
-            Rows.NoRunnerHere(state))
+            state.TakenOver)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
             SignInStarted = state.SignIn is not null,
+
+            // WHAT THE REFRESH KEY HAS TO SAY, derived here with everything
+            // else the hints are made of, so the line has one author.
+            Refresh = AutoRefresh.Says(state.Refresh),
         };
     }
 }
@@ -290,7 +305,8 @@ public static class Keymap
             // `g` for "get again". `r` is reject inside the gate modal and `R`
             // would be the only capital in the map, which is a shape somebody
             // has to learn rather than read.
-            new(KeyStroke.Char('g'), Command.Refresh, "refresh"),
+            new(KeyStroke.Char('g'), Command.Refresh,
+                context.Refresh is { Length: > 0 } says ? $"refresh {says}" : "refresh"),
             new(KeyStroke.Char('?'), Command.ToggleHelp, "help"),
             new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
             new(KeyStroke.Char('d'), Command.OpenGate, "decide"),
@@ -526,16 +542,12 @@ public static class Keymap
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
-        // A MACHINE WITH NO RUNNER, which is where `s` lives. Left out it would
-        // be the same defect as the one below: a key that resolves in the
-        // running console and appears on no page.
-        from startable in (bool[])[false, true]
         // THE SIGN-IN MODAL'S TWO STEPS, which are two sets of keys behind one
         // mode. Left out, `a` resolved in the running console and appeared on
         // no page - a key nobody could discover, which is the thing this
         // catalogue exists to prevent.
         from signInStarted in (bool[])[false, true]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack, startable)
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = signInStarted,
         };

@@ -10,7 +10,9 @@ namespace Gg.Console;
 /// returned state.
 /// </summary>
 public sealed class TerminalGuiSession(
-    LiveTails? tails = null, IRunnerLog? runnerLog = null) : IUiSession
+    LiveTails? tails = null,
+    IRunnerLog? runnerLog = null,
+    AutoRefresh? refresh = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -21,7 +23,7 @@ public sealed class TerminalGuiSession(
 
         using var app = Application.Create();
         app.Init();
-        using var screen = new ConsoleScreen(app, state, tails, runnerLog);
+        using var screen = new ConsoleScreen(app, state, tails, runnerLog, refresh);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

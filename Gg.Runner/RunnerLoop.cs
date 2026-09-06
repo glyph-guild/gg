@@ -1657,13 +1657,32 @@ public sealed class RunnerLoop(
         // know and all it needs: an open gate, a halted evaluation and a control
         // plane having a bad moment are one answer here, and reading the gate
         // itself would need a credential this process is not given.
-        return landing is { Settled: true }
-            ? (RunnerDisposition.Completed, decision.Note)
-            : (RunnerDisposition.Abandoned,
-                "You recorded this flight as finished, and the control plane has not settled "
-              + "it - most likely a gate somebody else has to answer. Nothing was closed and "
-              + "your work is still there: the flight stays open until it settles."
-              + (decision.Note is { Length: > 0 } note ? " You said: " + note : ""));
+        // TWO QUESTIONS, AND `settled` ONLY ANSWERS ONE. Settled means every FACT
+        // has been evaluated; a pending human decision is not a fact, so a flight
+        // whose gate is open is settled and outstanding at once.
+        //
+        // What says outstanding is the pair the landing already carries. The push
+        // and the proposal are read independently - the push granted when no
+        // machine obligation is violated, the proposal when every requirement is
+        // satisfied - so cleared-to-push-and-not-admitted is a decision somebody
+        // has not made. Neither present is a different thing entirely (no
+        // destination, or a violated obligation) and is not this.
+        var outstanding = landing is { Push: not null, Admission: null };
+
+        if (landing is { Settled: true } && !outstanding)
+        {
+            return (RunnerDisposition.Completed, decision.Note);
+        }
+
+        return (RunnerDisposition.Abandoned,
+            (outstanding
+                ? "You recorded this flight as finished, and the gate your work opened has "
+                + "not been answered yet. Nothing was closed and your work is pushed where "
+                + "whoever answers it can read it: the flight stays open until they do."
+                : "You recorded this flight as finished, and the control plane has not "
+                + "settled it. Nothing was closed and your work is still there: the flight "
+                + "stays open until it settles.")
+          + (decision.Note is { Length: > 0 } note ? " You said: " + note : ""));
     }
 
     private async Task HoldAsync(

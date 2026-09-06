@@ -7,7 +7,7 @@ using Gg.Contracts;
 
 return CliArgs.Parse(args) switch
 {
-    CliAction.LaunchConsole => LaunchConsole(),
+    CliAction.LaunchConsole => await LaunchConsoleAsync(),
     // Taking a flight over runs in the DEVELOPER role like every other verb here,
     // and deliberately not in the console: a headless machine has no terminal, and
     // that is the whole point of it being a verb.
@@ -468,7 +468,7 @@ static async Task<int> BundleAsync(bool json)
     return 0;
 }
 
-static int LaunchConsole()
+static async Task<int> LaunchConsoleAsync()
 {
     // The queue is loaded through the VERBS, so what the console shows is what
     // `gg flights --json` would print. There is no other route to the data.
@@ -542,6 +542,30 @@ static int LaunchConsole()
     // lifetime, which is what keeps "a session retains nothing" true.
     var tails = new LiveTails(flightId => new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)));
 
+    // THE TRACKERS THIS MACHINE CAN BROWSE, and this line is the whole of what
+    // was missing. `ConsoleLoop` has taken a browser since the pane was built;
+    // nothing ever passed one, so `ConfiguredWorkBrowser` was constructed
+    // nowhere and `ReaderSessions` only in a test - and the pane answered "No
+    // tracker is configured to browse" on machines whose tracker was configured
+    // correctly, whose credential resolved, and whose reader answered a
+    // handshake when started by hand.
+    //
+    // OWNED HERE, because it holds child processes. `ReaderSessions` is
+    // `LiveTails`' shape for that reason: a session must retain nothing across
+    // a UI rebuild, so whoever composed the console owns the handles and stops
+    // them at the end.
+    //
+    // NO CREDENTIAL PASSES THROUGH THIS. The declaration carries a locator at
+    // most, and the child resolves it for itself - which is what keeps a
+    // console that browses out of the business of holding secrets.
+    //
+    // HOW LONG IT WAITS, and a person is watching this one - which is what sets
+    // it. A tracker that has not answered in fifteen seconds is one the pane
+    // should say so about rather than keep a keystroke waiting on; SpawnedReader
+    // turns this into a deadline and reports the number it waited.
+    await using var readers = new Gg.Console.ReaderSessions(
+        Gg.Local.IntentConfiguration.FromEnvironment(), TimeSpan.FromSeconds(15));
+
     var final = new ConsoleLoop(
         new TerminalGuiSession(tails),
         new EditorSession(),
@@ -589,7 +613,8 @@ static int LaunchConsole()
             started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult()),
         checklist: current => ConsoleChecklist.Read(data, current),
         repositories: current => ConsoleRepositories.Read(data, current),
-        envelope: current => ConsoleEnvelope.Read(data, current))
+        envelope: current => ConsoleEnvelope.Read(data, current),
+        browser: new Gg.Console.ConfiguredWorkBrowser(readers))
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

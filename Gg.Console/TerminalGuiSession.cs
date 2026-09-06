@@ -13,6 +13,11 @@ public sealed class TerminalGuiSession(LiveTails? tails = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
+        // BEFORE THE APPLICATION EXISTS. Views read their schemes from the
+        // static facades as they are constructed, so a theme switched after
+        // Init would leave whatever was built first on the old one.
+        ConsoleTheme.Apply();
+
         using var app = Application.Create();
         app.Init();
         using var screen = new ConsoleScreen(app, state, tails);

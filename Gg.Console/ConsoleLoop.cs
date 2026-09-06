@@ -49,6 +49,15 @@ public sealed class ConsoleLoop(
     Func<AppState, Func<string>, AppState>? flyByHand = null,
 
     /// <summary>
+    /// Starts a runner on this machine, and says what became of it.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, like its neighbours: it spawns this binary again
+    /// as a separate process, and the console may not name a runner type.
+    /// </remarks>
+    Func<AppState, AppState>? startRunner = null,
+
+    /// <summary>
     /// Signs this machine in, one step at a time, with the terminal free.
     /// </summary>
     /// <remarks>
@@ -238,6 +247,19 @@ public sealed class ConsoleLoop(
                     }
 
                     state = Reducer.FlightShown(state);
+                    break;
+
+                case Command.StartRunner:
+                    // A CHILD, so the session ends first. The runner is treated
+                    // as hostile and the OS is what keeps it apart from the
+                    // console; this arm only knows that something was asked for
+                    // and what came back.
+                    state = startRunner is null
+                        ? state with
+                        {
+                            LastRunner = "This console is not configured to start a runner.",
+                        }
+                        : startRunner(state);
                     break;
 
                 case Command.ToggleChecklist:
@@ -465,6 +487,7 @@ public sealed class ConsoleLoop(
         : after.LastTakeover != before.LastTakeover ? after.LastTakeover
         : after.LastHandBack != before.LastHandBack ? after.LastHandBack
         : after.LastHandFlight != before.LastHandFlight ? after.LastHandFlight
+        : after.LastRunner != before.LastRunner ? after.LastRunner
         : after.LastSignIn != before.LastSignIn ? after.LastSignIn
         : before.LastAction;
 

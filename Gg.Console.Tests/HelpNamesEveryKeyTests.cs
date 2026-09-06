@@ -55,8 +55,9 @@ public class HelpNamesEveryKeyTests
         from frozen in (bool[])[false, true]
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
+        from startable in (bool[])[false, true]
         from started in (bool[])[false, true]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
+        select new KeymapContext(mode, showing, frozen, takeable, handedBack, startable)
         {
             SignInStarted = started,
         };
@@ -102,7 +103,7 @@ public class HelpNamesEveryKeyTests
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(members.Count).IsEqualTo(6)
+        await Assert.That(members.Count).IsEqualTo(7)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

@@ -60,6 +60,8 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _repositoriesTable;
     private readonly FrameView _runnersPane;
     private readonly Label _runners;
+    private readonly Label _runnerNotice;
+    private readonly Button _runnerStart;
     private readonly TableView _runnersTable;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
@@ -242,7 +244,26 @@ public sealed class ConsoleScreen : Window
             Visible = false,
         };
         _runners = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _runnersPane.Add(_runners);
+
+        // THE NOTICE AND THE BUTTON, above the table. `gg runner up' is a
+        // command a person cannot type while this console owns the terminal it
+        // would be typed into, so the remedy has to be something on this screen.
+        _runnerNotice = new Label { X = 0, Y = 0, Width = Dim.Fill(), Visible = false };
+        _runnerStart = new Button
+        {
+            X = 0,
+            Y = 1,
+            Text = "Start a runner here",
+            Visible = false,
+
+            // NO HOTKEY OF ITS OWN. A Button takes a letter out of its own
+            // caption, and Keymap is the only place a printable key means
+            // anything in this console - the same rule CollectionViews holds for
+            // the tables' type-to-search.
+            HotKeySpecifier = new System.Text.Rune('\uffff'),
+        };
+        _runnerStart.Accepting += OnStartRunner;
+        _runnersPane.Add(_runners, _runnerNotice, _runnerStart);
 
         // EVERY FLIGHT, NEEDED OR NOT. The queue is what needs a person and is
         // right to be; this is the tab that answers "where did the thing I just
@@ -417,6 +438,20 @@ public sealed class ConsoleScreen : Window
     /// one step - so a click five rows down moved the cursor one. A table hands
     /// over the row it landed on and <c>Reducer.Pointed</c> takes it.
     /// </remarks>
+    /// <summary>
+    /// The button under the notice, which is the key by another door.
+    /// </summary>
+    /// <remarks>
+    /// One path, whether a person clicked or typed: it ends the session with
+    /// the same command the keymap resolves, and the loop does the work with
+    /// the terminal provably free.
+    /// </remarks>
+    private void OnStartRunner(object? sender, EventArgs args)
+    {
+        ExitCommand = Command.StartRunner;
+        _app.RequestStop(this);
+    }
+
     private void OnRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
     {
         if (_syncing || args.NewValue is not { } selection)
@@ -655,6 +690,15 @@ public sealed class ConsoleScreen : Window
             Fill(_runnersTable, _runners, Rows.Runners(State), Rows.RunnerColumns,
                 0,
                 r => [r.Here, r.Runner, r.State, r.Work, r.Heard]);
+
+            // THE NOTICE LABEL ONLY WHEN THE TABLE IS SHOWING. With no rows the
+            // empty-state label already leads with it, and the same sentence
+            // twice reads as two problems.
+            var notice = PaneText.RunnerNotice(State);
+            _runnerNotice.Text = notice;
+            _runnerNotice.Visible = notice.Length > 0 && _runnersTable.Visible;
+            _runnerStart.Visible = notice.Length > 0;
+            _runnersTable.Y = _runnerNotice.Visible ? 2 : 0;
         }
         finally
         {
@@ -783,6 +827,7 @@ public sealed class ConsoleScreen : Window
         if (disposing)
         {
             KeyDown -= OnScreenKeyDown;
+            _runnerStart.Accepting -= OnStartRunner;
             _queue.ValueChanged -= OnQueueSelectionChanged;
         }
         base.Dispose(disposing);

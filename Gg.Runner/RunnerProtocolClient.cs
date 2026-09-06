@@ -104,11 +104,26 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
 
     public async Task<ClaimAcceptance> RequestClaimAsync(
         string runnerId, IReadOnlyList<string> labels, int maxWaitSeconds,
+        string? flightId = null,
         CancellationToken cancellationToken = default)
     {
         using var request = Request(HttpMethod.Post, "/v1/leases:claim");
         request.Content = JsonContent.Create(
-            new LeaseClaimRequest { RunnerId = runnerId, Labels = labels, MaxWaitSeconds = maxWaitSeconds },
+            new LeaseClaimRequest
+            {
+                RunnerId = runnerId,
+                Labels = labels,
+                MaxWaitSeconds = maxWaitSeconds,
+                // ASKS; IT DOES NOT DECIDE. Whether this runner may have this
+                // flight is settled on the other side, where all six checks are
+                // re-asserted at the grant - the ready table's trigger fires for
+                // neither, because a directed grant writes no ready row.
+                //
+                // Null is every claim the fleet makes, and it is OMITTED rather
+                // than written, so a control plane that has not learned the
+                // member sees the request it has always seen.
+                FlightId = flightId,
+            },
             RunnerJsonContext.Default.LeaseClaimRequest);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);

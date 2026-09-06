@@ -324,8 +324,19 @@ public sealed class RunnerLoop(
     private readonly HashSet<string> _landed = new(StringComparer.Ordinal);
 
     /// <summary>Runs until cancelled.</summary>
+    /// <param name="flightId">
+    /// One flight this runner came for, or null for whatever the fleet has ready.
+    /// </param>
+    /// <remarks>
+    /// <b>A parameter rather than a field, because it is the CALLER's intent.</b>
+    /// A fleet runner is a service and asks the queue what is available; a
+    /// person's runner came for the flight they just opened and asking the queue
+    /// instead is a race whose failure is not an error - they wait at a prompt
+    /// while their flight is cloned on somebody else's laptop.
+    /// </remarks>
     public async Task<int> RunAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken,
+        string? flightId = null)
     {
         try
         {
@@ -340,7 +351,7 @@ public sealed class RunnerLoop(
                 ClaimResult claim;
                 try
                 {
-                    claim = await AskForWorkAsync(runnerId, labels, cancellationToken);
+                    claim = await AskForWorkAsync(runnerId, labels, cancellationToken, flightId);
                 }
                 catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
                 {
@@ -534,10 +545,11 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     private async Task<ClaimResult> AskForWorkAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken,
+        string? flightId = null)
     {
         var acceptance = await _protocol.RequestClaimAsync(
-            runnerId, labels, ClaimWaitSeconds, cancellationToken);
+            runnerId, labels, ClaimWaitSeconds, flightId, cancellationToken);
 
         if (acceptance is ClaimAcceptance.Inline(var answered))
         {

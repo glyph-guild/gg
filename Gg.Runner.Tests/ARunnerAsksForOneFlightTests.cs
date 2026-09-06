@@ -70,10 +70,23 @@ public class ARunnerAsksForOneFlightTests
                 new RecordingObserver(), new NoCredentialResolver(), new NoWorkspace())
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
-        await Assert.That(protocol.Serialized.Any(s => s.Contains("flightId",
-                StringComparison.Ordinal))).IsFalse()
-            .Because("null is every claim the fleet makes, and gg omits a null member "
-                   + "entirely rather than writing it - so an older control plane sees the "
-                   + "request it has always seen.");
+        // THE VALUE ASKED FOR, not the bytes. This fake records with plain web
+        // options, so what it writes is not what RunnerJsonContext puts on the
+        // wire - asserting the encoding here would be asserting the harness.
+        // That an unset member is OMITTED rather than written as null is a
+        // property of the real context and is held where it happens, in
+        // Gg.Cli.Tests.NullIsNotOnTheWireTests.
+        var asked = protocol.Serialized
+            .Where(line => line.Contains("maxWaitSeconds", StringComparison.Ordinal))
+            .Select(line => System.Text.Json.JsonSerializer.Deserialize<LeaseClaimRequest>(
+                line, System.Text.Json.JsonSerializerOptions.Web)!)
+            .ToList();
+
+        await Assert.That(asked).IsNotEmpty()
+            .Because("a claim has to have been made for its shape to mean anything.");
+        await Assert.That(asked[0].FlightId).IsNull()
+            .Because("null is every claim the fleet makes. Every runner in the estate goes "
+                   + "through this one call, so a default here would make all of them ask "
+                   + "for a particular flight and none of them take queued work.");
     }
 }

@@ -59,7 +59,39 @@ public readonly record struct KeymapContext(
 }
 
 /// <summary>One binding: a key, what it does, and how to describe it.</summary>
-public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description);
+public readonly record struct KeyBinding(KeyStroke Key, Command Command, string Description)
+{
+    /// <summary>
+    /// When this key applies, for one that does not always.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because the help page is a union over every context.</b> Listed
+    /// without this, <c>f</c> appears twice with two meanings and nothing
+    /// saying which is which - a contradiction rather than a condition. Null
+    /// for a key that is always live in its own mode, and
+    /// <c>HelpNamesEveryKeyTests</c> asserts the two cannot be confused: a
+    /// binding that does not resolve in the plainest form of its own mode has
+    /// to say when it does.
+    /// </remarks>
+    public string? When { get; init; }
+
+    /// <summary>
+    /// Bound, and deliberately not advertised.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONLY j AND k, and only because there is a second way to do it.</b>
+    /// The arrows move the queue through the list widget, so a person who never
+    /// learned vim already has the key - and the hint line is one line, where
+    /// every slot spent is one a key nobody knows could have had. Hidden is
+    /// about the page, never about the keyboard: <see cref="Keymap.Resolve"/>
+    /// does not look at this, and <c>KeymapTests</c> still proves advertised
+    /// keys and live keys are the same set.
+    /// </remarks>
+    public bool Hidden { get; init; }
+}
+
+/// <summary>One catalogue entry: a binding and the mode it belongs to.</summary>
+public readonly record struct KeyCatalogueEntry(UiMode Mode, KeyBinding Binding);
 
 /// <summary>
 /// The keymap. Pure, total, and the only place bindings live.
@@ -134,8 +166,11 @@ public static class Keymap
             new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
             new(KeyStroke.Char('d'), Command.OpenGate, "decide"),
             new(KeyStroke.TabKey, Command.FocusNextPane, "switch pane"),
-            new(KeyStroke.Char('j'), Command.SelectNext, "down"),
-            new(KeyStroke.Char('k'), Command.SelectPrevious, "up"),
+            // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
+            // through the list widget, so the hint line's slots go to keys a
+            // person has no other way to find.
+            new(KeyStroke.Char('j'), Command.SelectNext, "down") { Hidden = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up") { Hidden = true },
             new(KeyStroke.Char('v'), Command.ToggleEvidence, "evidence"),
             new(KeyStroke.Char('l'), Command.ToggleLive, context.LiveVisible ? "hide live" : "live"),
             new(KeyStroke.Char('b'), Command.ToggleBrowse,
@@ -156,7 +191,8 @@ public static class Keymap
             // every combination says it stays that way.
             .. context.LiveVisible && !context.BrowseVisible
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.ToggleFreeze,
-                    context.Frozen ? "unfreeze" : "freeze to copy")]
+                    context.Frozen ? "unfreeze" : "freeze to copy")
+                    { When = "while the live pane is showing" }]
                 : [],
             // THE SAME KEY, AND THEY CANNOT BOTH BE OFFERED. Browse and live
             // share one region and BrowseToggled turns the other off, so f is
@@ -164,20 +200,23 @@ public static class Keymap
             // Asserted rather than reasoned about: a third pane over that
             // region would break this silently otherwise.
             .. context.BrowseVisible
-                ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")]
+                ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
+                    { When = "while browsing" }]
                 : [],
             // Only offered when there is something to take. A key advertised
             // against a flight with no held tree is a key that does nothing, and
             // the hints come from the same context dispatch does so the two
             // cannot drift.
             .. context.Takeable
-                ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.TakeFlight, "take over")]
+                ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.TakeFlight, "take over")
+                    { When = "when the flight has a tree somebody is holding" }]
                 : [],
             // Only after somebody has taken it. Handing back a flight nobody
             // took is a key that does nothing, and the hints come from the same
             // context dispatch does.
             .. context.HandedBackable
-                ? (KeyBinding[])[new(KeyStroke.Char('h'), Command.HandBack, "hand back")]
+                ? (KeyBinding[])[new(KeyStroke.Char('h'), Command.HandBack, "hand back")
+                    { When = "after you have taken it" }]
                 : [],
 
             // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
@@ -244,5 +283,93 @@ public static class Keymap
     /// A hand-written hint string is a second list, and a second list drifts.
     /// </remarks>
     public static string Hints(KeymapContext context) =>
-        string.Join(" · ", Bindings(context).Select(b => $"{b.Key.Name} {b.Description}"));
+        string.Join(" · ", Bindings(context)
+            .Where(b => !b.Hidden)
+            .Select(b => $"{b.Key.Name} {b.Description}"));
+
+    /// <summary>
+    /// Every key this console answers, in any context, once each.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE HELP PAGE ASKS A DIFFERENT QUESTION FROM THE HINT LINE.</b> The
+    /// line shows what is live, which is right: an advertised key that does
+    /// nothing teaches a person the console is broken. The page is where
+    /// somebody looks for a key they do not know, and it was showing one
+    /// context's bindings - so <c>f</c> was absent whenever neither the live
+    /// pane nor browse was showing, and the gate modal's <c>a</c> and <c>r</c>
+    /// were never on it at all.
+    /// </para>
+    /// <para>
+    /// <b>A union over the contexts rather than a second list.</b> Written out
+    /// by hand this would be the third list of keys in the program, after
+    /// <see cref="Bindings"/> and the hint line - and the one people read when
+    /// they are already confused, so the one that must not drift. The contexts
+    /// enumerated here are every mode crossed with every flag that changes what
+    /// is bound; a flag that changed the set and was left out would show up as
+    /// a key missing from the page, which is what
+    /// <c>HelpNamesEveryKeyTests</c> asserts.
+    /// </para>
+    /// <para>
+    /// Ordered by mode, then by the order <see cref="Bindings"/> writes them,
+    /// so the page reads in the order somebody wrote it rather than in
+    /// dictionary order.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<KeyCatalogueEntry> Catalogue()
+    {
+        var entries = new List<KeyCatalogueEntry>();
+
+        // BY WHAT IT DOES, NOT BY WHAT IT SAYS. A toggle's description reads
+        // the state it will change - "browse" and "hide browse" are one
+        // binding - so keying this on the description put every toggle on the
+        // page twice with the two halves of a sentence. Keyed on the command,
+        // the first context wins, and the first context is the plainest one.
+        //
+        // `f` still appears twice, and should: it is two commands over one key,
+        // and each says when it applies.
+        var seen = new HashSet<(UiMode Mode, KeyStroke Key, Command Command)>();
+
+        foreach (var mode in Enum.GetValues<UiMode>())
+        {
+            foreach (var context in Shapes(mode))
+            {
+                foreach (var binding in Bindings(context))
+                {
+                    if (seen.Add((mode, binding.Key, binding.Command)))
+                    {
+                        entries.Add(new KeyCatalogueEntry(mode, binding));
+                    }
+                }
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Every shape of context that can change what is bound in one mode.
+    /// </summary>
+    /// <remarks>
+    /// The five flags are not independent - browse and live share a region, so
+    /// both on is a state the console cannot reach - but this is a pure
+    /// function over a struct and the union has to be complete rather than
+    /// reachable. Enumerating the product costs thirty-two calls to a
+    /// list-builder, once, when somebody opens help.
+    /// </remarks>
+    private static IEnumerable<KeymapContext> Shapes(UiMode mode) =>
+        // ORDER IS THE PAGE'S ORDER. The all-false shape comes first, so the
+        // keys that always work are listed first and in the order they are
+        // written; the flags after it are ordered so the conditional keys read
+        // in the order somebody meets them - browse and live before the two
+        // that depend on what a flight is doing.
+        from browse in (bool[])[false, true]
+        from live in (bool[])[false, true]
+        from frozen in (bool[])[false, true]
+        from takeable in (bool[])[false, true]
+        from handedBack in (bool[])[false, true]
+        select new KeymapContext(mode, live, frozen, takeable, handedBack)
+        {
+            BrowseVisible = browse,
+        };
 }

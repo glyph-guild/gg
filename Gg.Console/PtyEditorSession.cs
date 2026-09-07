@@ -27,6 +27,7 @@ public sealed class PtyEditorSession : IEditorSession
     private readonly string _bar;
     private readonly string _notesIn;
     private readonly HostRun _host;
+    private readonly Action<string> _say;
 
     /// <param name="editorCommand">
     /// The editor, as a command line. Defaults to <c>$EDITOR</c>, then to
@@ -50,6 +51,11 @@ public sealed class PtyEditorSession : IEditorSession
     /// passes one that cannot start, because a machine missing the native
     /// library is a case that has to be handled and cannot be arranged.
     /// </param>
+    /// <param name="say">
+    /// Where a word to the person goes when this machine cannot host. Defaults
+    /// to the console, which is free at the moment it is used — the editor has
+    /// not taken the screen yet, and once it has, nothing gg writes will be read.
+    /// </param>
     /// <param name="notesIn">
     /// Where the file handed to the editor is put. Defaults to the temp
     /// directory, which is where gg has always put it.
@@ -66,7 +72,8 @@ public sealed class PtyEditorSession : IEditorSession
         IEditorSession? unhosted = null,
         string bar = "gg · editing — save and quit to come back",
         string? notesIn = null,
-        HostRun? host = null)
+        HostRun? host = null,
+        Action<string>? say = null)
     {
         _editorCommand = editorCommand
             ?? Environment.GetEnvironmentVariable("EDITOR")
@@ -76,6 +83,7 @@ public sealed class PtyEditorSession : IEditorSession
         _bar = bar;
         _notesIn = notesIn ?? Path.GetTempPath();
         _host = host ?? PtyHost.RunAsync;
+        _say = say ?? System.Console.WriteLine;
     }
 
     public string Edit(string initialText)
@@ -115,6 +123,15 @@ public sealed class PtyEditorSession : IEditorSession
                 // not installed" into a silent second attempt at the same thing,
                 // and leave a person with an editor that never opens and no
                 // reason given. Only this is a reason to stop hosting.
+                //
+                // AND SAID OUT LOUD, because the release tarball carries the
+                // binary and nothing else: on a machine installed the documented
+                // way this is not the rare case, it is every session. Silence
+                // there is indistinguishable from a feature nobody built, and a
+                // missing file is something a person can actually go and get.
+                _say("gg could not open its own terminal view: libporta_pty is not "
+                   + "installed beside gg. Your editor opens as normal, without the gg bar.");
+
                 return _unhosted.Edit(initialText);
             }
 

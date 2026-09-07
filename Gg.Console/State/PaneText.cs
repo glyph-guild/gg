@@ -210,37 +210,129 @@ public static class PaneText
             return Clean(diagnosis, lines: true);
         }
 
-        if (state.Flight is not { } flight)
+        var story = state.Story;
+        var flight = state.Flight;
+
+        if (story is null && flight is null)
         {
-            return state.Selected is null ? "" : "loading…";
+            // NOT AN EMPTY PANE. A read that has not answered and a flight
+            // nothing has happened to are different facts, and a person shown
+            // the second when the first is true stops looking.
+            return state.Selected is null ? "  (no flight selected)" : "loading…";
         }
 
         var text = new StringBuilder();
-        text.AppendLine($"  {Clean(flight.FlightNumber)}  {Clean(flight.Name)}");
-        text.AppendLine($"  id            {Clean(flight.FlightId)}");
-        text.AppendLine($"  opened        {flight.CreatedAt:u}");
-        text.AppendLine($"  intent        {Intent(flight.Intent)}");
-        text.AppendLine($"  constitution  {Clean(flight.ConstitutionVersion)}");
-        text.AppendLine($"  envelope      {Clean(flight.EnvelopeVersion)}");
-        text.AppendLine($"  vocabulary    {Clean(flight.FactVocabularyVersion)}");
+
+        // WHICHEVER ARRIVED, and both when both did. The two reads answer
+        // separately and a pane that waited for the pair would go blank whenever
+        // either failed - which is the case a person is most likely to be looking
+        // at it in.
+        text.AppendLine(
+            $"  {Clean(flight?.FlightNumber ?? story!.FlightNumber)}  "
+          + $"{Clean(flight?.Name ?? story?.WorkKind)}".TrimEnd());
+        text.AppendLine($"  id            {Clean(flight?.FlightId ?? story!.FlightId)}");
+
+        // STAGE AND STATE, which this pane has never shown. Two axes - how far it
+        // got and what became of it - so a person can tell a flight that is still
+        // going from one that finished without leaving the console.
+        if (story is not null)
+        {
+            text.AppendLine($"  stage         {Staged(story.Stage)}");
+            text.AppendLine($"  state         {Stated(story.State)}");
+
+            if (story.HeldBy is { } holder)
+            {
+                var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";
+                text.AppendLine($"  held by       {Clean(holder.Name)}{until}");
+            }
+        }
+
+        if (flight is not null)
+        {
+            text.AppendLine($"  opened        {flight.CreatedAt:u}");
+            text.AppendLine($"  intent        {Intent(flight.Intent)}");
+            text.AppendLine($"  constitution  {Clean(flight.ConstitutionVersion)}");
+            text.AppendLine($"  envelope      {Clean(flight.EnvelopeVersion)}");
+            text.AppendLine($"  vocabulary    {Clean(flight.FactVocabularyVersion)}");
+        }
+
         text.AppendLine();
         text.AppendLine("  pinned refs   (none until the flight is materialized)");
         text.AppendLine($"  credential    {Credentials(state)}");
-        text.AppendLine($"  facts         {Facts(flight)}");
+
+        if (flight is not null)
+        {
+            text.AppendLine($"  facts         {Facts(flight)}");
+        }
+
+        // WHAT IT WAITS ON, in the contract's own words. `gg show` renders the same
+        // sentence from the same function, so this pane and that verb cannot word
+        // one reason two ways.
+        if (story?.Waiting is { } waiting)
+        {
+            text.AppendLine($"  {Clean(Gg.Contracts.Reason.Sentence(waiting.Kind, waiting.Params))}");
+        }
+
         text.AppendLine();
         text.AppendLine(Why(state));
 
-        if (state.FlightLog is { Entries.Count: > 0 } log)
+        if (story is { Outstanding.Count: > 0 })
         {
             text.AppendLine();
-            foreach (var entry in log.Entries)
+            text.AppendLine("  waiting on somebody");
+            foreach (var owed in story.Outstanding)
             {
-                text.AppendLine($"  {entry.At:u}  {Clean(entry.Kind)}");
+                text.AppendLine($"    {Clean(Gg.Contracts.FlightStory.Sentence(owed.Kind, owed.Params))}");
+            }
+        }
+
+        if (story is { Entries.Count: > 0 })
+        {
+            text.AppendLine();
+            foreach (var entry in story.Entries)
+            {
+                var attempt = entry.Attempt is { } which ? $"#{which} " : "";
+
+                // A SENTENCE, NOT A KIND. This printed `entry.Kind` and dropped the
+                // detail, so a halt read as `obligation-halted` and the diagnosis -
+                // the only thing that says what to do about it - went nowhere.
+                text.AppendLine($"  {entry.At:u}  {attempt}"
+                              + Clean(Gg.Contracts.FlightStory.Sentence(entry.Kind, entry.Params)));
+
+                if (entry.Said is { Length: > 0 } said)
+                {
+                    text.AppendLine($"      {Clean(said, lines: true)}");
+                }
             }
         }
 
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>A stage this build can name, or a refusal.</summary>
+    /// <remarks>
+    /// <b>The CLI's own argument, in the second surface.</b> A stage outside the
+    /// six is a flight standing somewhere this build has no word for, and printing
+    /// it raw puts a value nobody chose in front of a person deciding what to do.
+    /// </remarks>
+    private static string Staged(string stage) =>
+        FlightStages.All.Contains(stage, StringComparer.Ordinal)
+            ? stage
+            : throw new InvalidOperationException(
+                $"Flight stage '{stage}' has no published name, so this pane cannot show it "
+              + "as one that does.");
+
+    /// <summary>A state this build can name, or a refusal.</summary>
+    /// <remarks>
+    /// The plausible guess is <c>open</c>, and it would show a finished flight as
+    /// one somebody is still working on.
+    /// </remarks>
+    private static string Stated(string state) =>
+        FlightStates.All.Contains(state, StringComparer.Ordinal)
+            ? state
+            : throw new InvalidOperationException(
+                $"Flight state '{state}' has no published name, so this pane cannot show it "
+              + "as one that does.");
 
     /// <summary>
     /// What must hold before the selected flight can start.

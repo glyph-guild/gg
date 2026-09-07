@@ -291,6 +291,16 @@ public sealed class ConsoleData(
     public Task<VerbResult> LogAsync(string reference, CancellationToken cancellationToken = default) =>
         _commands.LogAsync(reference, cancellationToken);
 
+    /// <summary>One flight's story, which is what the flight pane draws.</summary>
+    /// <remarks>
+    /// <b>The pane's content had no producer.</b> <c>AppState.Flight</c> was set
+    /// by an arm nothing reached from the console — no verb here called
+    /// <c>ShowAsync</c> — so every line of the flight pane below the log came from
+    /// a field production never filled.
+    /// </remarks>
+    public Task<VerbResult> StoryAsync(string reference, CancellationToken cancellationToken = default) =>
+        _commands.ShowAsync(reference, cancellationToken);
+
     /// <summary>
     /// `gg whoami`, as a value.
     /// </summary>
@@ -382,6 +392,11 @@ public static class ConsoleProjection
         {
             VerbResult.Flight flight => state with { Flight = flight.Value, Diagnosis = null },
             VerbResult.Log log => state with { FlightLog = log.Value, Diagnosis = null },
+
+            // THE FLIGHT'S STORY, which is what `gg show` now answers. The pane
+            // renders sentences from it; the log beside it stays the raw record
+            // the queue's rows are derived from.
+            VerbResult.Story story => state with { Story = story.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
             // WHAT THIS TENANT CAN FLY AGAINST. The cursor resets because a
             // list read again may be shorter, and a cursor left past its end

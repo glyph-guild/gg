@@ -48,6 +48,17 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Log;
     }
 
+    /// <summary>A flight's whole story: what happened, and where it now stands.</summary>
+    /// <remarks>
+    /// <b>Beside <see cref="Log"/>, never instead of it.</b> The story is composed
+    /// FROM the log, and the log stays the machine-readable record three walks grep
+    /// and a support bundle carries.
+    /// </remarks>
+    public sealed record Story(FlightStory Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Story;
+    }
+
     public sealed record Runners(RunnerList Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Runners;
@@ -236,6 +247,7 @@ public static class VerbResultKinds
     public const string Flight = "flight";
     public const string Launched = "launched";
     public const string Log = "log";
+    public const string Story = "story";
     public const string Runners = "runners";
     public const string Invited = "invited";
     public const string Diagnosis = "diagnosis";
@@ -277,6 +289,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightLog))]
+[JsonSerializable(typeof(FlightStory))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(DoctorReport))]
 [JsonSerializable(typeof(CredentialList))]
@@ -341,6 +354,7 @@ public static class VerbOutput
         VerbResult.Flight r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightSummary),
         VerbResult.Launched r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLaunched),
         VerbResult.Log r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLog),
+        VerbResult.Story r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightStory),
         VerbResult.Runners r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         VerbResult.Invited r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.InvitationIssued),
         VerbResult.Diagnosis r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DoctorReport),
@@ -387,6 +401,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightLaunched))),
         VerbResultKinds.Log => new VerbResult.Log(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightLog))),
+        VerbResultKinds.Story => new VerbResult.Story(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightStory))),
         VerbResultKinds.Runners => new VerbResult.Runners(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Invited => new VerbResult.Invited(Require(
@@ -448,6 +464,7 @@ public static class VerbOutput
         VerbResult.Flight r => Flight(r.Value),
         VerbResult.Launched r => Launched(r.Value),
         VerbResult.Log r => Log(r.Value),
+        VerbResult.Story r => StoryText(r.Value),
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
@@ -721,6 +738,115 @@ public static class VerbOutput
           + "which would page somebody about a loop that is merely waiting. Expected one of: "
           + string.Join(", ", LoopOutcomes.All) + "."),
     };
+
+    /// <summary>
+    /// A flight's whole story: where it stands, and everything that happened.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Four things the summary could not answer.</b> Which stage it reached,
+    /// what became of it — the summary route never passed a state, so it always
+    /// said <c>unknown</c> — what it is waiting on, and who is holding it right
+    /// now. Those are what somebody asks when a flight stops, and every one of
+    /// them is read off the document rather than worked out here.
+    /// </para>
+    /// <para>
+    /// <b>Sentences, from the contract.</b> Both repositories compose the wording
+    /// through <c>FlightStory.Sentence</c>, so an entry cannot read one way here
+    /// and another in the control plane's own surfaces — the reason
+    /// <c>Reason.Sentence</c> and <c>Inapplicability.Because</c> live there too.
+    /// </para>
+    /// <para>
+    /// <b>What is outstanding is printed twice on purpose.</b> It appears in the
+    /// history where it happened and again under a heading, because a person
+    /// reading a long story should not have to find the two lines somebody still
+    /// owes an answer to. They are the same objects, never a second derivation.
+    /// </para>
+    /// </remarks>
+    private static string StoryText(FlightStory story)
+    {
+        var text = new StringBuilder();
+
+        text.AppendLine($"  {Clean(story.FlightNumber)}  {Clean(story.WorkKind) ?? ""}".TrimEnd());
+        text.AppendLine($"  id          {Clean(story.FlightId)}");
+
+        // STAGE AND STATE ON TWO LINES, because they are two axes. "The boxes are
+        // stages, not the flight's state": how far it got and what became of it
+        // are different questions, and one line carrying both invites a reader to
+        // treat the stage as an ending.
+        text.AppendLine($"  stage       {Staged(story.Stage)}");
+        text.AppendLine($"  state       {Rendered(story.State)}");
+
+        if (story.Waiting is { } waiting)
+        {
+            text.AppendLine($"  {Clean(Reason.Sentence(waiting.Kind, waiting.Params))}");
+        }
+
+        // WHO HAS IT THIS SECOND, and until when. Without the second half a reader
+        // learns somebody took the flight over and cannot tell whether they still
+        // have it, which is the ambiguity the three takeover routes exist to remove.
+        if (story.HeldBy is { } holder)
+        {
+            var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";
+            text.AppendLine($"  held by     {Clean(holder.Name)}{until}");
+        }
+
+        if (story.Outstanding.Count > 0)
+        {
+            text.AppendLine();
+            text.AppendLine("  waiting on somebody");
+            foreach (var owed in story.Outstanding)
+            {
+                text.AppendLine($"    {Clean(FlightStory.Sentence(owed.Kind, owed.Params))}");
+            }
+        }
+
+        text.AppendLine();
+
+        if (story.Entries.Count == 0)
+        {
+            // SAID OUT LOUD. A flight with no history and a flight whose history
+            // failed to render look identical otherwise, and only one of them is a
+            // flight nothing has happened to yet.
+            text.AppendLine("  (nothing has happened to this flight yet)");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var entry in story.Entries)
+        {
+            var attempt = entry.Attempt is { } which ? $"#{which} " : "";
+            text.AppendLine(
+                $"  {entry.At:u}  {attempt}{Clean(FlightStory.Sentence(entry.Kind, entry.Params))}");
+
+            // THE PROSE UNDER THE SENTENCE, indented. A diagnosis, a reviewer's
+            // words or an agent's question is something somebody wrote, and
+            // interpolating it into the grammar above would paraphrase them.
+            if (entry.Said is { Length: > 0 } said)
+            {
+                text.AppendLine($"                          {Clean(said, lines: true)}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// A stage this build can name, or a refusal.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="Rendered"/>'s argument, one field over.</b> A stage outside
+    /// the six is a flight standing somewhere this build has no word for, and the
+    /// plausible guess — printing it raw, or falling back to <c>created</c> — puts
+    /// a made-up position in front of a person who is deciding what to do next.
+    /// </remarks>
+    private static string Staged(string stage) =>
+        FlightStages.All.Contains(stage, StringComparer.Ordinal)
+            ? stage
+            : throw new InvalidOperationException(
+                $"Flight stage '{stage}' has no published name. A stage nothing can render "
+              + "must not be shown as one that can - and the plausible guess here is the "
+              + "first box, which would show a flight that got to the end as one that "
+              + "never started.");
 
     private static string Flight(FlightSummary flight)
     {

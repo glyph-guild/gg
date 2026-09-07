@@ -520,6 +520,11 @@ public sealed class StubControlPlane : IAsyncDisposable
                 await WriteJsonAsync(context, 200, ASeed());
                 return;
 
+            case var _ when path.EndsWith("/story", StringComparison.Ordinal)
+                         && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
+                await WriteJsonAsync(context, 200, AStory());
+                return;
+
             case var _ when path.EndsWith("/log", StringComparison.Ordinal)
                          && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
                 await WriteJsonAsync(context, 200, new FlightLog
@@ -546,6 +551,40 @@ public sealed class StubControlPlane : IAsyncDisposable
                 await WriteAsync(context, 404, "");
                 return;
         }
+    }
+
+    /// <summary>
+    /// A flight that was leased and let go, which is the shape `gg show` meets.
+    /// </summary>
+    /// <remarks>
+    /// The stage is DERIVED here rather than typed, because the contract's own
+    /// <c>Validate</c> refuses a story whose carried stage disagrees with its
+    /// entries - so a stub that typed one would be a fixture the real surface
+    /// would reject.
+    /// </remarks>
+    private static FlightStory AStory()
+    {
+        StoryEntry[] entries =
+        [
+            new StoryEntry
+            {
+                At = DateTimeOffset.UtcNow,
+                Kind = StoryKinds.LeaseGranted,
+                Stage = FlightStages.Of(StoryKinds.LeaseGranted),
+                Params = ["a-runner"],
+                Attempt = 1,
+            },
+        ];
+
+        return new FlightStory
+        {
+            FlightId = StubFlightId,
+            FlightNumber = FlightRef.Format(42),
+            WorkKind = "audit",
+            Stage = FlightStoryStages.Reached(entries),
+            State = FlightStates.Open,
+            Entries = entries,
+        };
     }
 
     /// <summary>

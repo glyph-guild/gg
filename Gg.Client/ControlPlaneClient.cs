@@ -30,6 +30,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightLog))]
+[JsonSerializable(typeof(FlightStory))]
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(TelemetryDisclosure))]
@@ -719,6 +720,31 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>A flight's log, or null if the reference names no flight.</summary>
+    /// <summary>
+    /// A flight's whole story, or null if the reference names none.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second route beside the log, not a replacement for it.</b> The control
+    /// plane composes this FROM the log and four other reads; the log stays the
+    /// exact record, because three walks grep it and a support bundle carries it.
+    /// </remarks>
+    public async Task<FlightStory?> GetFlightStoryAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/flights/{reference}/story", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.FlightStory, cancellationToken);
+    }
+
     public async Task<FlightLog?> GetFlightLogAsync(
         string sessionToken, string reference, CancellationToken cancellationToken = default)
     {

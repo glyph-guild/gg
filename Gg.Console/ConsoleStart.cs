@@ -197,6 +197,15 @@ public static class ConsoleStart
                 loaded = await OwnFailureAsync(
                     loaded, "why", ct => data.WhyAsync(row.FlightNumber, null, ct),
                     partial, cancellationToken);
+
+                // AND THE STORY THE PANE DRAWS. One read for one row, for the same
+                // reason as the line above it - and it is the first producer this
+                // pane's content has ever had: nothing in the console called
+                // `ShowAsync`, so every line below the log came from a field
+                // production never filled.
+                loaded = await OwnFailureAsync(
+                    loaded, "story", ct => data.StoryAsync(row.FlightNumber, ct),
+                    partial, cancellationToken);
             }
 
             // AND THE SELECTED ROW'S DETAIL, THROUGH THE REDUCER'S OWN RULE, so

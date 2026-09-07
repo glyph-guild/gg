@@ -4,6 +4,7 @@ using Gg.Cli;
 using Gg.Client;
 using Gg.Console;
 using Gg.Contracts;
+using Gg.Local;
 
 return CliArgs.Parse(args) switch
 {
@@ -21,8 +22,16 @@ return CliArgs.Parse(args) switch
     // BEFORE ANYTHING THAT PRINTS, and that placement is the whole contract.
     // Stdout IS the protocol here: one line of narration and the agent sees a
     // server that never initialized rather than a tool that failed.
+    // THE ENVIRONMENT IS READ HERE AND NOWHERE DEEPER. The server is a function
+    // of what it is handed - that is what makes it safe to run as a child of a
+    // process the threat model treats as compromised - so where a composing
+    // session's intent goes is an argument to it rather than something it goes
+    // and finds. Null on every fleet launch, which is almost all of them, and
+    // the tool says so out loud rather than failing quietly.
     CliAction.RunnerTools => await PlatformToolServer.RunAsync(
-        System.Console.In, System.Console.Out),
+        System.Console.In,
+        System.Console.Out,
+        Environment.GetEnvironmentVariable(IntentTool.PathVariable)),
     // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.

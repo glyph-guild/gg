@@ -27,57 +27,73 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class AParkedRunnerIsNotIdleTests
 {
-    [Test]
-    public async Task Parked_is_a_state_a_runner_can_be_in()
+    private static RunnerSummary Runner(string state, DateTimeOffset? parked = null) => new()
     {
-        await Assert.That(RunnerStates.Parked).IsEqualTo("parked");
+        RunnerId = "01a06572-a784-72ae-b951-f147553cd48e",
+        Label = "vmlinux001",
+        State = state,
+        ParkedAt = parked,
+        ParkedBecause = parked is null ? "" : "draining before the kernel upgrade",
+    };
+
+    [Test]
+    public async Task Parking_is_carried_beside_the_state_rather_than_inside_it()
+    {
+        // THE ASYMMETRY, AND IT IS LOAD-BEARING RATHER THAN TIDY. State says
+        // what a runner IS DOING; parking says what policy allows. They are
+        // different axes, and the case that proves it is below.
+        await Assert.That(RunnerStates.All).DoesNotContain("parked");
+
+        var parked = Runner(RunnerStates.Idle, DateTimeOffset.UnixEpoch);
+
+        await Assert.That(parked.ParkedAt).IsNotNull();
+        await Assert.That(parked.ParkedBecause).IsEqualTo("draining before the kernel upgrade");
     }
 
     [Test]
-    public async Task It_is_the_same_word_the_claim_path_already_uses()
+    public async Task A_runner_can_be_parked_and_still_working()
     {
-        // ONE VOCABULARY FOR ONE CONDITION. A fleet that said "withheld" while
-        // a claim said "parked" would make a person searching for either find
-        // half the story.
-        await Assert.That(RunnerStates.Parked).IsEqualTo(LeaseClaimStates.Parked);
+        // THE CASE A FOURTH STATE COULD NOT CARRY, and the reason to park
+        // anything: let it finish what it has and take nothing more. Parking
+        // withholds CLAIMING - RunnerParking never touches a lease - so a
+        // draining runner is busy and parked at once. As a state, one of those
+        // two facts has to be thrown away.
+        var draining = Runner(RunnerStates.Busy, DateTimeOffset.UnixEpoch);
+
+        await Assert.That(draining.State).IsEqualTo(RunnerStates.Busy);
+        await Assert.That(draining.ParkedAt).IsNotNull();
     }
 
     [Test]
-    public async Task It_is_one_of_the_states_a_fleet_row_may_carry()
+    public async Task A_parked_runner_that_stopped_beating_is_still_offline()
     {
-        await Assert.That(RunnerStates.All).Contains(RunnerStates.Parked);
+        // Parking is not a way to take a machine away, so it does not outrank
+        // the one state that is decided before anything else.
+        var gone = Runner(RunnerStates.Offline, DateTimeOffset.UnixEpoch);
+
+        await Assert.That(gone.State).IsEqualTo(RunnerStates.Offline);
+        await Assert.That(gone.ParkedAt).IsNotNull();
     }
 
     [Test]
-    public async Task Why_it_was_parked_travels_with_it()
+    public async Task A_runner_nobody_parked_carries_neither()
     {
-        // A REASON IS THE POINT OF PARKING. "Withheld" without "why" leaves a
-        // person to ask somebody, and the control plane already stores the
-        // answer beside parked_at and parked_by.
-        var runner = new RunnerSummary
-        {
-            RunnerId = "01a06572-a784-72ae-b951-f147553cd48e",
-            Label = "vmlinux001",
-            State = RunnerStates.Parked,
-            ParkedBecause = "draining before the kernel upgrade",
-        };
+        // Optional for the reason every member added after 1.0 is: an older
+        // control plane sends neither, and a runner nobody withheld has no when
+        // and no why.
+        var free = Runner(RunnerStates.Idle);
 
-        await Assert.That(runner.ParkedBecause).IsEqualTo("draining before the kernel upgrade");
+        await Assert.That(free.ParkedAt).IsNull();
+        await Assert.That(free.ParkedBecause).IsEmpty();
     }
 
     [Test]
-    public async Task A_runner_that_is_not_parked_says_nothing_about_why()
+    public async Task The_word_is_the_one_the_claim_path_already_uses()
     {
-        // Optional for the reason every other member here is: an older control
-        // plane sends neither the state nor the reason, and a runner nobody
-        // parked has no reason to carry.
-        var runner = new RunnerSummary
-        {
-            RunnerId = "01a06572-a784-72ae-b951-f147553cd48e",
-            Label = "vmlinux001",
-            State = RunnerStates.Idle,
-        };
-
-        await Assert.That(runner.ParkedBecause).IsEmpty();
+        // ONE VOCABULARY FOR ONE CONDITION. The claim path made `parked` a
+        // first-class outcome because there the values ARE mutually exclusive -
+        // a claim was pending, or waiting, or refused because parked, and never
+        // two of those. That is why it is a state there and a fact here.
+        await Assert.That(LeaseClaimStates.Parked).IsEqualTo("parked");
     }
 }

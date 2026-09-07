@@ -44,16 +44,38 @@ public class TheSignInUriIsTwoKeysAwayTests
         new(UiMode.SignIn) { SignInStarted = true };
 
     [Test]
-    public async Task A_code_showing_offers_both()
+    public async Task A_code_showing_offers_all_three()
     {
+        // THE KEYS FOLLOW THE LABELS ON THE SCREEN. The modal writes two lines,
+        // `Open:' and `Code:', so `o' and `c' are the letters a person reading
+        // it would reach for - and `l' is the link, which is the one thing on
+        // that screen with two useful things to do to it.
+        //
+        // `c' and `l' are add-credential and toggle-live in Normal mode, and
+        // free here: a modal owns the keyboard, which is what lets one letter
+        // mean the obvious thing in the place it is obvious.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('o'), Started()))
             .IsEqualTo(Command.OpenSignInUri);
 
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('l'), Started()))
+            .IsEqualTo(Command.CopySignInUri);
+
         await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), Started()))
-            .IsEqualTo(Command.CopySignInUri)
-            .Because("`c' is add-credential in Normal mode, and free here: a modal owns the "
-                   + "keyboard, which is what lets one letter mean the obvious thing in the "
-                   + "place it is obvious.");
+            .IsEqualTo(Command.CopySignInCode)
+            .Because("the code is what a person types once the browser is open, so it is the "
+                   + "copy they reach for most.");
+    }
+
+    [Test]
+    public async Task The_line_says_where_each_one_goes()
+    {
+        var hints = Keymap.Hints(Started());
+
+        await Assert.That(hints).Contains("o open in browser")
+            .Because("`open it' left a person to work out what `it' was, on a screen holding "
+                   + $"a link and a code. Line: {hints}");
+        await Assert.That(hints).Contains("c copy the code");
+        await Assert.That(hints).Contains("l copy the link");
     }
 
     [Test]
@@ -65,6 +87,7 @@ public class TheSignInUriIsTwoKeysAwayTests
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('o'), beforeTheCode)).IsNull();
         await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), beforeTheCode)).IsNull();
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('l'), beforeTheCode)).IsNull();
     }
 
     [Test]
@@ -72,18 +95,22 @@ public class TheSignInUriIsTwoKeysAwayTests
     {
         await Assert.That(ShellCommands.Handled).Contains(Command.OpenSignInUri);
         await Assert.That(ShellCommands.Handled).Contains(Command.CopySignInUri);
+        await Assert.That(ShellCommands.Handled).Contains(Command.CopySignInCode);
 
         // AND THE MODAL STAYS OPEN. Opening a browser is a step on the way
-        // through this modal, not a way out of it - a person still has to come
-        // back and press `a'.
+        // through this modal, not a way out of it: the code is still what a
+        // person needs on the screen while they approve, and the console closes
+        // this itself once they have.
         await Assert.That(Reducer.Reduce(Showing(), Command.OpenSignInUri).Mode)
             .IsEqualTo(UiMode.SignIn);
         await Assert.That(Reducer.Reduce(Showing(), Command.CopySignInUri).Mode)
             .IsEqualTo(UiMode.SignIn);
+        await Assert.That(Reducer.Reduce(Showing(), Command.CopySignInCode).Mode)
+            .IsEqualTo(UiMode.SignIn);
     }
 
     [Test]
-    public async Task The_loop_hands_over_the_uri_that_is_on_the_screen()
+    public async Task The_loop_hands_over_what_is_on_the_screen()
     {
         var opened = new List<string>();
         var copied = new List<string>();
@@ -91,6 +118,7 @@ public class TheSignInUriIsTwoKeysAwayTests
         var ui = new ScriptedUi(
             state => new UiOutcome(Command.OpenSignInUri, state),
             state => new UiOutcome(Command.CopySignInUri, state),
+            state => new UiOutcome(Command.CopySignInCode, state),
             state => new UiOutcome(Command.Quit, state));
 
         var final = new ConsoleLoop(
@@ -109,8 +137,12 @@ public class TheSignInUriIsTwoKeysAwayTests
             .Run(Showing());
 
         await Assert.That(opened).IsEquivalentTo(new[] { "https://example.test/device" });
-        await Assert.That(copied).IsEquivalentTo(new[] { "https://example.test/device" })
-            .Because("the link the modal is showing, not one composed twice.");
+
+        // THE LINK AND THEN THE CODE, each from the modal rather than composed
+        // a second time - and each through the same port, because putting text
+        // on a clipboard is one act whatever the text is.
+        await Assert.That(copied)
+            .IsEquivalentTo(new[] { "https://example.test/device", "WDJB-MJHT" });
 
         await Assert.That(final.LastSignIn).IsNotNull()
             .Because("and what happened is said, because a browser that opened behind this "

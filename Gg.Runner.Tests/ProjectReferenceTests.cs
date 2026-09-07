@@ -67,12 +67,31 @@ public class ProjectReferenceTests
     }
 
     [Test]
-    public async Task The_console_still_carries_one_package_and_the_runner_none()
+    public async Task The_console_carries_three_named_packages_and_the_runner_none()
     {
         // The stated shape of these two, which the shared project must not
-        // change. If a dependency arrives it arrives visibly, here.
+        // change. If a dependency arrives it arrives visibly, here - and this
+        // list moving is the whole mechanism working, not a nuisance to be
+        // widened. It went from one to three when the console learned to host a
+        // child in a pseudo-terminal instead of handing the terminal away, and
+        // each of the two is here for a reason worth writing down:
+        //
+        //   Porta.Pty   spawns the child on a pty gg owns, so every byte in and
+        //               out passes through this process and the bar survives.
+        //   XTerm.NET   interprets what the child writes, because gg has to know
+        //               what is on the child's screen to repaint it under a bar.
+        //
+        // Both are net10.0 and currently published. The better-known Pty.Net and
+        // XtermSharp are unlisted on nuget.org and netstandard2.0, and XtermSharp
+        // additionally depends on NStack.Core - Terminal.Gui v1's string library,
+        // beside the v2 this console runs on.
         await Assert.That(Refs(Project("Gg.Console"), "PackageReference"))
-            .IsEquivalentTo((string[])["Terminal.Gui"]);
+            .IsEquivalentTo((string[])["Porta.Pty", "Terminal.Gui", "XTerm.NET"]);
+
+        // AND THE RUNNER STILL CARRIES NOTHING, which is the half of this that
+        // is load-bearing. The runner is treated as hostile and kept in its own
+        // process; what it does not depend on is what it cannot be reached
+        // through. Hosting a child is a console concern and must not leak here.
         await Assert.That(Refs(Project("Gg.Runner"), "PackageReference")).IsEmpty();
     }
 

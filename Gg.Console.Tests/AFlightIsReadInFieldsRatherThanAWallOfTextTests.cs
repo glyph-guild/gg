@@ -419,6 +419,49 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
                    + "of, which a Label is not.");
     }
 
+    [Test]
+    public async Task The_fields_are_rebuilt_only_when_they_change()
+    {
+        // WHY IT MATTERS THAT THEY ARE NOT REBUILT EVERY TIME. Terminal.Gui's
+        // RemoveAll hands the caller the lifetime of what it removed - "the
+        // caller must call Dispose on any Views that were added" - and Render
+        // runs on the live tail's timer four times a second, so a modal left
+        // open over a running flight would drop two undisposed views per field
+        // per tick.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen).Contains("RemoveAll")
+            .Because("a flight waiting on three people has three rows more than one waiting "
+                   + "on nobody, so the column is built rather than assigned into.");
+        await Assert.That(screen).Contains("Dispose()")
+            .Because("RemoveAll transfers the lifetime to the caller; a view removed and not "
+                   + "disposed is a view that stays.");
+        await Assert.That(screen).Contains("_fieldsShowing")
+            .Because("and the cheapest disposal is the rebuild that does not happen: the "
+                   + "fields are a value, so whether they changed is a comparison.");
+    }
+
+    [Test]
+    public async Task Fields_are_values_so_two_renders_of_one_flight_are_equal()
+    {
+        // WHAT MAKES THAT COMPARISON WORK. FlightField is a record, so the
+        // guard is structural equality over the list rather than a hash
+        // somebody has to remember to update when a field is added.
+        var once = FlightDetails.Fields(Opened());
+        var again = FlightDetails.Fields(Opened());
+
+        await Assert.That(once.SequenceEqual(again)).IsTrue();
+
+        var moved = FlightDetails.Fields(Opened() with
+        {
+            Story = Story() with { Outstanding = [] },
+        });
+
+        await Assert.That(once.SequenceEqual(moved)).IsFalse()
+            .Because("a flight that stopped waiting on somebody has one field fewer, and the "
+                   + "column has to lose the row.");
+    }
+
     /// <summary>
     /// The linear rendering shows everything the widgets do.
     /// </summary>

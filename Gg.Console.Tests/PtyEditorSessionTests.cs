@@ -253,6 +253,32 @@ public class PtyEditorSessionTests
     }
 
     [Test]
+    public async Task The_terminal_is_closed_even_if_the_draft_cannot_be_written()
+    {
+        // A REAL TERMINAL IS A HELD RESOURCE, not a value: an open /dev/tty and
+        // a signal registration. The draft is written before the block that
+        // closes it, so a disk that is full, a directory that has gone, or a
+        // path that was never there leaks both - and the console goes on running
+        // afterwards, so the leak accumulates one per attempt.
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
+        await Assert.That(terminal.Opened).IsTrue();
+
+        var nowhere = Path.Combine(
+            Path.GetTempPath(), "gg-not-a-directory-" + Guid.NewGuid().ToString("N")[..8]);
+
+        var session = new PtyEditorSession(
+            "vi", () => terminal, unhosted: new Stub("unreached"), notesIn: nowhere);
+
+        await Assert.That(() => session.Edit("a draft nobody will read")).Throws<DirectoryNotFoundException>()
+            .Because("a draft that cannot be written is a real failure and the person has to "
+                   + "hear about it - this is about what is left behind on the way out.");
+
+        await Assert.That(terminal.Disposed).IsTrue()
+            .Because("the descriptor and the SIGWINCH registration are gg's to close, and "
+                   + "nothing else will.");
+    }
+
+    [Test]
     public async Task The_console_is_built_with_the_hosted_editor()
     {
         // THE DEFECT THIS EXISTS BECAUSE OF. In the spike the agent host was

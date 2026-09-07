@@ -263,20 +263,40 @@ public sealed class ConsoleLoop(
                     state = HandedBack(state, hand);
                     break;
 
+                // THREE COMMANDS, ONE ARM, and the command IS the answer. `n`
+                // opens a modal whose two keys arrive here as ComposeInEditor
+                // and ComposeWithAgent; OpenFlight is what anything else that
+                // opens a flight without asking still sends.
+                //
+                // WHICH CHILD IS DECIDED HERE because here is where the terminal
+                // is free. Composing is one port either way - text in, a real
+                // child, text out - so this picks an implementation rather than
+                // branching the rest of the arm.
+                //
+                // AND THE MODAL CLOSES HERE TOO, after the work rather than
+                // before it: the reducer answering would have closed the
+                // question before the thing it asked about had happened.
                 case Command.OpenFlight:
+                case Command.ComposeInEditor:
+                case Command.ComposeWithAgent:
                     // AND THEN RE-READ. Rule 4: a flight opened is a flight the
                     // queue does not have yet, and a Last* sentence is a receipt
                     // rather than a substitute for the state changing.
-                    //
-                    // WHICH CHILD IS THE PERSON'S ANSWER, and it is read here
-                    // because here is where the terminal is free. Composing is
-                    // the same port either way - text in, a real child, text out
-                    // - so this picks an implementation rather than branching
-                    // the rest of the arm.
                     state = Reloaded(
-                        Reducer.Reduce(
-                            Opened(state, actions, Composer(state, editor, compose)),
-                            Command.FlightOpened),
+                        Opened(
+                            // ONLY THE ANSWERS CLOSE A MODAL, because only they
+                            // were asked from inside one. Resetting the mode for
+                            // every command through this arm broke the property
+                            // that a session is rebuilt from the surviving model
+                            // and nothing else - the loop was quietly editing
+                            // state that belonged to whoever sent OpenFlight.
+                            outcome.Exit == Command.OpenFlight
+                                ? state
+                                : state with { Mode = UiMode.Normal },
+                            actions,
+                            outcome.Exit == Command.ComposeWithAgent && compose is not null
+                                ? compose
+                                : editor),
                         reload,
                         asked: false);
                     break;
@@ -671,17 +691,6 @@ public sealed class ConsoleLoop(
     /// rather than through a whole session — the same reason
     /// <see cref="FlewPicked"/> is.
     /// </remarks>
-    /// <summary>Whichever way the person said to compose this one.</summary>
-    /// <remarks>
-    /// <b>The editor is the answer when nobody said otherwise</b>, including on
-    /// a console with no agent composer configured at all - which is every
-    /// console until the composition root passes one. A key that opened a modal
-    /// and then did nothing would be worse than one that was never offered.
-    /// </remarks>
-    private static IEditorSession Composer(
-        AppState state, IEditorSession editor, IEditorSession? compose) =>
-        state.ComposeWith == ComposeWith.Agent && compose is not null ? compose : editor;
-
     public static AppState Opened(
         AppState state, IConsoleActions? actions, IEditorSession editor)
     {

@@ -241,27 +241,25 @@ public enum Command
     /// </remarks>
     AskHowToCompose,
 
-    /// <summary>Compose this flight in <c>$EDITOR</c>.</summary>
+    /// <summary>Open a flight, composing its intent in <c>$EDITOR</c>.</summary>
     /// <remarks>
-    /// An answer to the modal <see cref="OpenFlight"/> now opens, and nothing
-    /// else: it records which way and leaves. What it records is acted on by the
-    /// loop, with the terminal released.
+    /// <b>The shell's, and the answer IS the command.</b> A first version had
+    /// these set a field the session handled, which meant they never ended the
+    /// session - and opening a flight spawns a child, which may only happen
+    /// between sessions with the terminal free. So the modal recorded a choice
+    /// and nothing ever acted on it: `n` was a key that opened a modal and did
+    /// nothing.
+    /// <para>
+    /// Carrying the choice in the command rather than in the model is also what
+    /// makes "the choice is not remembered" structural instead of a rule
+    /// somebody has to maintain: there is nothing to remember.
+    /// </para>
     /// </remarks>
     ComposeInEditor,
 
-    /// <summary>Compose this flight with an agent.</summary>
+    /// <summary>Open a flight, composing its intent with an agent.</summary>
+    /// <remarks><see cref="ComposeInEditor"/>'s, one composer over.</remarks>
     ComposeWithAgent,
-
-    /// <summary>
-    /// The flight was opened, so the choice that opened it is spent.
-    /// </summary>
-    /// <remarks>
-    /// <b>A command rather than a field the loop clears.</b> Clearing it in the
-    /// loop would put the rule in the one place that is hardest to test, and the
-    /// rule is the whole reason the choice is not remembered: it belongs to the
-    /// flight it was given for.
-    /// </remarks>
-    FlightOpened,
 
     /// <summary>
     /// Register a credential for a repository. The value is prompted for and never
@@ -350,11 +348,13 @@ public static class ShellCommands
         // The three the parity guard used to exempt. Writes, so the shell does them.
         Command.OpenFlight,
 
-        // NOT ComposeInEditor, ComposeWithAgent or FlightOpened, and that is
-        // the whole reason the modal is cheap. They change a field and nothing
-        // else - no child, no read, no request - so they are pure reductions the
-        // session handles, and what they record is acted on by OpenFlight above
-        // with the terminal already released.
+        // THE MODAL'S TWO ANSWERS, and they are here because each of them
+        // OPENS A FLIGHT - the same spawn-and-request OpenFlight above is here
+        // for, differing only in which child composes the intent. An earlier
+        // version had them as pure reductions, which meant they never ended the
+        // session and nothing was ever opened.
+        Command.ComposeInEditor,
+        Command.ComposeWithAgent,
         Command.AddCredential,
         Command.Invite,
 

@@ -88,6 +88,19 @@ public sealed class ConsoleLoop(
     Func<AppState, Func<string>, AppState>? groundFlight = null,
 
     /// <summary>
+    /// Opens the verification link in a browser.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, like its neighbours: it spawns a child, and the
+    /// command for doing that differs by platform in a way this assembly may
+    /// not know.
+    /// </remarks>
+    Func<AppState, string, AppState>? openUri = null,
+
+    /// <summary>Puts the verification link on the clipboard.</summary>
+    Func<AppState, string, AppState>? copyUri = null,
+
+    /// <summary>
     /// Signs this machine in, one step at a time, with the terminal free.
     /// </summary>
     /// <remarks>
@@ -315,6 +328,23 @@ public sealed class ConsoleLoop(
                             LastGrounded = "This console is not configured to ground flights.",
                         }
                         : groundFlight(state, () => editor.Edit(""));
+                    break;
+
+                case Command.OpenSignInUri:
+                case Command.CopySignInUri:
+                    // THE LINK ON THE SCREEN, and nothing when there is none:
+                    // the keys are only offered once a code is showing, and
+                    // this is the same fact asserted where it is acted on.
+                    state = state.SignIn is not { VerificationUri.Length: > 0 } showing
+                        ? state with
+                        {
+                            LastSignIn = "There is no link to open yet.",
+                        }
+                        : Linked(
+                            state,
+                            showing.VerificationUri,
+                            outcome.Exit == Command.OpenSignInUri ? openUri : copyUri,
+                            outcome.Exit == Command.OpenSignInUri ? "open a browser" : "copy");
                     break;
 
                 case Command.StopRunner:
@@ -545,6 +575,12 @@ public sealed class ConsoleLoop(
     /// worth a test rather than a comment, because arms have forgotten before.
     /// </para>
     /// </remarks>
+    private static AppState Linked(
+        AppState state, string uri, Func<AppState, string, AppState>? act, string what) =>
+        act is null
+            ? state with { LastSignIn = $"This console is not configured to {what}." }
+            : act(state, uri);
+
     private static AppState Started(AppState state, Func<AppState, AppState>? start) =>
         start is null
             ? state with { LastRunner = "This console is not configured to start a runner." }

@@ -126,6 +126,27 @@ public enum Command
     /// </remarks>
     GroundFlight,
 
+    /// <summary>
+    /// Open the verification link in a browser.
+    /// </summary>
+    /// <remarks>
+    /// The shell's: it spawns a browser. The modal stays open behind it,
+    /// because opening the page is a step on the way through this modal rather
+    /// than a way out of it.
+    /// </remarks>
+    OpenSignInUri,
+
+    /// <summary>
+    /// Put the verification link on the clipboard.
+    /// </summary>
+    /// <remarks>
+    /// The shell's too: the OS clipboard is reached through a child process on
+    /// every platform this runs on. For the machine where a browser cannot be
+    /// opened - over ssh, or a pool host - which is exactly where reading a URL
+    /// across by hand is worst.
+    /// </remarks>
+    CopySignInUri,
+
     /// <summary>Show what the runner on this machine is doing.</summary>
     /// <remarks>
     /// Pure: what it is doing is already in the model, folded in between
@@ -316,6 +337,10 @@ public static class ShellCommands
 
         // Ends a flight, and asks for a sentence before it does.
         Command.GroundFlight,
+
+        // A browser and the clipboard: a child process each.
+        Command.OpenSignInUri,
+        Command.CopySignInUri,
 
         // Signals one, and spawns one again after.
         Command.StopRunner,

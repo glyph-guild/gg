@@ -300,6 +300,20 @@ public static class Keymap
                 {
                     When = "once a code is showing",
                 },
+
+                // THE LINK, WHICH A PERSON OTHERWISE READS ACROSS BY HAND. gg
+                // owns this terminal, so the URL on the screen cannot be
+                // clicked and cannot be selected without fighting the alternate
+                // screen. Both are here rather than in the step before, because
+                // there is no URL until a code is showing.
+                new(KeyStroke.Char('o'), Command.OpenSignInUri, "open it")
+                {
+                    When = "once a code is showing",
+                },
+                new(KeyStroke.Char('c'), Command.CopySignInUri, "copy the link")
+                {
+                    When = "once a code is showing",
+                },
                 new(KeyStroke.Esc, Command.CloseModal, "give up"),
             ]
             :

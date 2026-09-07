@@ -157,20 +157,27 @@ public class PtyEditorSessionTests
             using var terminal = new Owned();
             await Assert.That(terminal.Opened).IsTrue();
 
-            var before = Directory.GetFiles(Path.GetTempPath(), "gg-notes-*.md").Length;
+            // A DIRECTORY THIS TEST OWNS. A first version counted gg-notes files
+            // in the shared temp directory, which is also where every other test
+            // that edits something is putting one - so the count moved under it
+            // while it ran and the assertion failed against work that was not
+            // its own.
+            var notes = Directory.CreateDirectory(Path.Combine(
+                Path.GetTempPath(), "gg-notes-test-" + Guid.NewGuid().ToString("N")[..8]));
 
             try
             {
-                new PtyEditorSession($"/bin/sh {editor}", () => terminal).Edit("secret draft\n");
+                new PtyEditorSession($"/bin/sh {editor}", () => terminal, notesIn: notes.FullName)
+                    .Edit("secret draft\n");
 
-                await Assert.That(Directory.GetFiles(Path.GetTempPath(), "gg-notes-*.md").Length)
-                    .IsEqualTo(before)
+                await Assert.That(notes.GetFiles()).IsEmpty()
                     .Because($"an editor that was {ending} still leaves gg holding the file, "
-                           + "and it is in a directory everybody on this machine can read.");
+                           + "and it holds whatever a person was writing.");
             }
             finally
             {
                 File.Delete(editor);
+                notes.Delete(recursive: true);
             }
         }
     }

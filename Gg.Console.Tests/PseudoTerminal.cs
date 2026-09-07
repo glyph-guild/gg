@@ -101,8 +101,25 @@ internal sealed class PseudoTerminal : IDisposable
     internal FileStream WriteMaster() =>
         new(new SafeFileHandle((IntPtr)Master, ownsHandle: false), FileAccess.Write);
 
+    private bool _closed;
+
+    /// <summary>Closes both ends, once.</summary>
+    /// <remarks>
+    /// <b>Idempotent, and not as a formality.</b> A host disposes the terminal
+    /// it was handed and a test disposes the one it made, so this is genuinely
+    /// called twice - and closing a descriptor twice is not harmless: between
+    /// the two closes the number can be handed out again, and the second close
+    /// then shuts something else's file.
+    /// </remarks>
     public void Dispose()
     {
+        if (_closed)
+        {
+            return;
+        }
+
+        _closed = true;
+
         if (Slave > 0)
         {
             close(Slave);

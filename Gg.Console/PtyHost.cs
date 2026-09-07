@@ -103,6 +103,14 @@ public static class PtyHost
 
             var typing = Forward(terminal, pty, stopping.Token);
 
+            // THE BAR GOES UP BEFORE THE CHILD SAYS ANYTHING. Painting only on
+            // arrival ties gg's own row to the child having written something,
+            // and an editor that opens on an empty file writes nothing at all -
+            // so the one row gg kept stayed blank for as long as the person sat
+            // there. Found by an editor test, fixed here, because the bar is the
+            // host's promise and not the caller's.
+            terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+
             // READ TO THE END BEFORE ASKING FOR THE EXIT CODE. The child can
             // write and exit faster than this loop runs, and a host that
             // cancelled the pump on exit would drop the last thing on the

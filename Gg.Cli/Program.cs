@@ -720,7 +720,18 @@ static async Task<int> LaunchConsoleAsync()
 
     var final = new ConsoleLoop(
         new TerminalGuiSession(tails, runnerLog, refresh, () => signIn.Arrived() is not null),
-        new EditorSession(),
+        // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
+        // handoff is the same one it always was - text out, a real process, text
+        // back - and the difference is that gg mediates the terminal instead of
+        // giving it away, which is what lets a person still see which flight
+        // they are writing for.
+        //
+        // It decides for itself whether there is a terminal to host on and takes
+        // the old unhosted path when there is not: CI, a pipe, and Windows,
+        // where there is no /dev/tty to open. That decision lives inside the one
+        // type on purpose - a second construction site here would be a second
+        // place to answer it, and the two would eventually disagree.
+        new PtyEditorSession(),
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and
         // EveryPortIsPassedTests can only see the ones that say their name.

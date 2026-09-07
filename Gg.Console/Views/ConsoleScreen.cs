@@ -103,6 +103,17 @@ public sealed class ConsoleScreen : Window
     private readonly IRunnerLog? _runnerLog;
     private readonly AutoRefresh? _refresh;
 
+    /// <summary>
+    /// The tab focus was last placed on, or null when it has not been placed.
+    /// </summary>
+    /// <remarks>
+    /// Null is also how a modal holding the focus is recorded, so that closing
+    /// one counts as a change again - the tab did not move while it was open,
+    /// and a decision keyed only on that would leave focus on a modal no longer
+    /// on the screen.
+    /// </remarks>
+    private TabId? _landed;
+
     /// <summary>How often the pane looks, when somebody is watching.</summary>
     /// <remarks>
     /// <b>Four times a second is a person's idea of "as it happens" and a
@@ -919,26 +930,26 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Focus()
     {
-        if (State.Mode != UiMode.Normal)
+        switch (FocusChange.Wanted(State.Mode, State.ActiveTab, _landed, _modal.HasFocus))
         {
-            if (!_modal.HasFocus)
-            {
+            case FocusTarget.LeaveAlone:
+                return;
+
+            case FocusTarget.Modal:
                 _modal.SetFocus();
-            }
 
-            return;
-        }
-
-        if (_tabbed.FirstOrDefault(t => t.Tab == State.ActiveTab).Pane is not { } pane
-            || pane.HasFocus)
-        {
-            return;
+                // FORGOTTEN WHILE THE MODAL HAS IT, which is what makes closing
+                // one a change. The tab does not move while a modal is open, so
+                // remembering it here would leave focus on a modal that is no
+                // longer on the screen.
+                _landed = null;
+                return;
         }
 
         // WHERE FOCUS LANDS WHEN THE TAB IS NEW. The tables take it when they
         // have rows, because focus is what makes the arrow keys move a cursor a
-        // person can see, and the label beside each is only on screen when
-        // there is nothing to point at.
+        // person can see, and the label beside each is only on screen when there
+        // is nothing to point at.
         View landing = State.ActiveTab switch
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
@@ -946,6 +957,11 @@ public sealed class ConsoleScreen : Window
             TabId.Live => _live,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
             TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
+
+            // THE TABLE, NOT THE BUTTON ABOVE IT. Terminal.Gui would pick the
+            // button, because it is the first focusable child - and a tab whose
+            // arrow keys do nothing until you press one to get off a button is
+            // a tab that reads as broken.
             TabId.Runners => _runnersTable.Visible ? _runnersTable : _runners,
             TabId.Checklist => _checklist,
             TabId.Envelope => _envelope,
@@ -956,6 +972,7 @@ public sealed class ConsoleScreen : Window
         };
 
         landing.SetFocus();
+        _landed = State.ActiveTab;
     }
 
     protected override void Dispose(bool disposing)

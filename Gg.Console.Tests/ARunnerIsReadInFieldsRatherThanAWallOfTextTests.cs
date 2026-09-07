@@ -333,6 +333,38 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
     }
 
     [Test]
+    public async Task The_fields_and_the_log_are_replaced_only_when_they_change()
+    {
+        // #315's third defect, which no test caught and a person found by
+        // running it. Render runs four times a second on the live tail's timer,
+        // RemoveAll transfers the lifetime of what it removed to the caller,
+        // and a modal watching a runner come up is open for exactly the period
+        // when that timer is busiest.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen).Contains("_runnerFieldsShowing")
+            .Because("the cheapest disposal is the rebuild that does not happen.");
+
+        await Assert.That(screen).Contains("_runnerSaidShowing")
+            .Because("setting a list's source resets where somebody had scrolled to, so a "
+                   + "person reading back through a stack trace would be dragged to the top "
+                   + "of it four times a second.");
+    }
+
+    [Test]
+    public async Task Two_renders_of_one_runner_produce_equal_fields()
+    {
+        // The guard above is a SequenceEqual, so it only works if a field is a
+        // value. A record gives that; a class would make every render a rebuild
+        // and the guard a comment.
+        var ours = Busy() with { RunnerId = Mine, Label = "Kevins-MBP" };
+        var state = State(ours, new RunnerHere { Pid = 4242, LogPath = "/tmp/gg/runner.log" });
+
+        await Assert.That(RunnerDetails.Fields(state).SequenceEqual(RunnerDetails.Fields(state)))
+            .IsTrue();
+    }
+
+    [Test]
     public async Task Every_label_fits_the_gutter_the_view_leaves_for_it()
     {
         var ours = Busy() with { RunnerId = Mine, Label = "Kevins-MBP" };

@@ -95,6 +95,13 @@ public class VerbParityTests
                       + "until step 3.",
             ["Invite"] = "reachable: a key.",
             ["Take"] = "reachable: takeover and hand-back keys.",
+            ["Ground"] = "reachable, and from ONE place: `x' in the flight modal, where the "
+              + "flight being ended is named on the screen. Every other key in this console "
+              + "acts on the row under the cursor, which is right for opening a flight and "
+              + "wrong for stopping one - a person who scrolled while reading would end a "
+              + "flight they were not looking at. The reason goes through $EDITOR, because "
+              + "the wire requires one and this console asks for a sentence the way it asks "
+              + "for an intent.",
             ["Log"] = "fetched at boot for the queue and discarded; the pane is step 2.",
             ["Runners"] = "fetched at boot into a local and never assigned to state; step 2.",
 

@@ -107,6 +107,18 @@ public sealed class ConsoleData(
 
 
     /// <summary>
+    /// `gg ground` - stop a flight that could still have been done.
+    /// </summary>
+    /// <remarks>
+    /// The reason is required on the wire, so it is required here: a write with
+    /// nothing to say for itself is not something this surface should be able to
+    /// express.
+    /// </remarks>
+    public Task<VerbResult> GroundAsync(
+        string reference, string because, CancellationToken cancellationToken = default) =>
+        _commands.GroundAsync(reference, because, cancellationToken);
+
+    /// <summary>
     /// `gg why` — why each obligation applied to a flight, or did not.
     /// </summary>
     /// <remarks>

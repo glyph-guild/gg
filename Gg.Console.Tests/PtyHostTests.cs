@@ -40,9 +40,28 @@ public class PtyHostTests
 
         internal bool Opened => _pty.Opened;
 
-        public int Columns { get; init; } = 40;
+        public int Columns { get; set; } = 40;
 
-        public int Rows { get; init; } = 10;
+        public int Rows { get; set; } = 10;
+
+        public event Action? Resized;
+
+        /// <summary>What a person dragging the corner of a window does.</summary>
+        internal void Resize(int columns, int rows)
+        {
+            Columns = columns;
+            Rows = rows;
+            Resized?.Invoke();
+        }
+
+        /// <summary>Typing, from the other end of the pseudo-terminal.</summary>
+        internal void Type(string text)
+        {
+            using var master = _pty.WriteMaster();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+            master.Write(bytes, 0, bytes.Length);
+            master.Flush();
+        }
 
         public int Descriptor => _pty.Slave;
 
@@ -73,6 +92,31 @@ public class PtyHostTests
             _keystrokes?.Dispose();
             _pty.Dispose();
         }
+    }
+
+    /// <summary>Waits for something to become true, and says so when it does not.</summary>
+    /// <remarks>
+    /// <b>Not a sleep, and the difference matters.</b> A fixed wait passes on a
+    /// quiet machine and fails on a loaded one, which is how a suite acquires a
+    /// test nobody trusts. This returns the moment the condition holds and fails
+    /// loudly if it never does, so the only thing the cap decides is how long a
+    /// genuine failure takes to report.
+    /// </remarks>
+    private static bool Until(Func<bool> held)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (held())
+            {
+                return true;
+            }
+
+            Thread.Sleep(5);
+        }
+
+        return false;
     }
 
     private static Task<int> Host(Owned terminal, string script, string bar = "gg") =>
@@ -216,6 +260,45 @@ public class PtyHostTests
         await Assert.That(kept).IsEmpty()
             .Because("a field on the host outlives the session it was filled in, and the "
                    + "next caller inherits the last child's screen.");
+    }
+
+    [Test]
+    public async Task A_resize_reaches_the_child_and_the_screen()
+    {
+        // A PERSON DRAGGING THE CORNER OF THEIR WINDOW, which is not an exotic
+        // case - it is what anybody does when the thing they are editing is
+        // wider than the pane they gave it. Without this the child keeps the
+        // size it was told at spawn: an editor draws to a right margin that is
+        // no longer there, and gg keeps painting rows the terminal no longer
+        // has.
+        using var terminal = new Owned { Columns = 80, Rows = 24 };
+        await Assert.That(terminal.Opened).IsTrue();
+
+        // A child that waits, so there is a session to resize. It reports its
+        // size AFTER the wait, which is what proves the pty was resized rather
+        // than only the emulator gg paints from.
+        var host = Host(terminal, "read x; stty size");
+
+        await Assert.That(Until(() => terminal.Painted.Length > 0)).IsTrue()
+            .Because("the bar goes up before the child says anything, so a painted frame is "
+                   + "the earliest point at which there is a session to resize.");
+
+        terminal.Resize(columns: 100, rows: 40);
+
+        await Assert.That(Until(() => terminal.Painted.Contains("\u001b[40;1H", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("thirty-nine child rows under the bar makes the last one terminal row "
+                   + "forty, and a frame that never addresses it is one still painting the "
+                   + "old screen.");
+
+        terminal.Type("\n");
+
+        await host;
+
+        await Assert.That(terminal.Painted).Contains("39 100", StringComparison.Ordinal)
+            .Because("the CHILD was asked, and it answers with what the pty says it has - "
+                   + "resizing the emulator gg paints from without resizing the pty would "
+                   + "look right on screen and be wrong to every program in it.");
     }
 
     [Test]

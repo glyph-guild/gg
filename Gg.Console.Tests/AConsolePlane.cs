@@ -45,6 +45,10 @@ internal sealed class AConsolePlane : HttpMessageHandler
     internal IReadOnlyList<string> LogsRead =>
         [.. Paths.Where(p => p.EndsWith("/log", StringComparison.Ordinal))];
 
+    /// <summary>The stories asked for, which is what opening a flight now reads.</summary>
+    internal IReadOnlyList<string> StoriesRead =>
+        [.. Paths.Where(p => p.EndsWith("/story", StringComparison.Ordinal))];
+
     /// <summary>
     /// A flight id the client will accept. <c>FlightCommands.Readable</c> refuses
     /// anything that is neither a GG number nor an id, so "f-1" never reaches a
@@ -159,6 +163,35 @@ internal sealed class AConsolePlane : HttpMessageHandler
                     ],
                 },
                 ProtocolJsonContext.Default.FlightLog);
+        }
+
+        if (path.EndsWith("/story", StringComparison.Ordinal))
+        {
+            // THE ID IT WAS ASKED FOR, like the log beside it: a constant here
+            // would key every story to one flight, and a test could not tell a
+            // story that arrived for the right flight from one that arrived for
+            // any flight.
+            var about = path.Split('/')[^2];
+
+            return JsonSerializer.Serialize(
+                new FlightStory
+                {
+                    FlightId = Id(int.TryParse(about[3..], out var n) ? n : 1),
+                    FlightNumber = about,
+                    Stage = FlightStages.Ended,
+                    State = FlightStates.Landed,
+                    Entries =
+                    [
+                        new StoryEntry
+                        {
+                            Kind = StoryKinds.Created,
+                            At = T0,
+                            Params = ["read-on-demand"],
+                            Actor = new Actor { Kind = ActorKinds.Person, Name = "somebody" },
+                        },
+                    ],
+                },
+                ProtocolJsonContext.Default.FlightStory);
         }
 
         if (path.EndsWith("/why", StringComparison.Ordinal))

@@ -3,7 +3,7 @@ using Gg.Client;
 namespace Gg.Console;
 
 /// <summary>
-/// One flight's log, read when somebody opens it.
+/// One flight's story, read when somebody opens it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,6 +12,18 @@ namespace Gg.Console;
 /// the enter key would cost nothing - and on a tenant with fifty flights that
 /// was fifty round trips for the two or three the queue could use. The boot now
 /// reads only what is still in the air; this is where the rest arrive.
+/// <para>
+/// <b>The STORY rather than the log, since slice thirty-two.</b> One request
+/// either way, so the price the enter key pays does not move - S32.0-02 flags
+/// an unmeasured cost for a read fetched per selected row, and swapping which
+/// endpoint an existing round trip calls is not that. What changes is that the
+/// modal can render sentences instead of kinds beside raw JSON.
+/// </para>
+/// <para>
+/// The boot still fetches LOGS for flights in the air, because the queue's two
+/// log-derived reasons are counted from log entries and nothing here changes
+/// that.
+/// </para>
 /// </para>
 /// <para>
 /// <b>A composition-root function, not a method on the loop.</b>
@@ -40,11 +52,12 @@ public static class ConsoleFlightLog
             return state;
         }
 
-        // ALREADY HELD, ALREADY PAID FOR. A flight still in the air arrives with
-        // its log from the boot, and one opened twice should not cost twice.
-        // A refresh is what makes a stale one fresh, which is the same answer
-        // every other pane in this console gives.
-        if (state.Logs.ContainsKey(flight.FlightId))
+        // ALREADY HELD, ALREADY PAID FOR. One story is held at a time, so this
+        // is a re-read only when the cursor has moved to another flight - and a
+        // flight opened twice in a row costs once. A refresh is what makes a
+        // stale one fresh, which is the same answer every other pane gives.
+        if (state.Story is { } held
+            && string.Equals(held.FlightId, flight.FlightId, StringComparison.Ordinal))
         {
             return state;
         }
@@ -52,7 +65,7 @@ public static class ConsoleFlightLog
         try
         {
             return ConsoleProjection.Apply(
-                state, data.LogAsync(flight.FlightId).GetAwaiter().GetResult());
+                state, data.StoryAsync(flight.FlightNumber).GetAwaiter().GetResult());
         }
         catch (Exception failure) when (failure is NotSignedInException
                                             or ProtocolTooOldException
@@ -60,12 +73,12 @@ public static class ConsoleFlightLog
                                             or HttpRequestException)
         {
             // ITS OWN FAILURE, said in the pane. The modal opens either way and
-            // says the log could not be read - which is a different sentence
+            // says the story could not be read - which is a different sentence
             // from "nothing happened to this flight", and PaneText already
             // tells those two apart.
             return state with
             {
-                Diagnosis = "The flight's log could not be read: " + failure.Message,
+                Diagnosis = "The flight's story could not be read: " + failure.Message,
             };
         }
     }

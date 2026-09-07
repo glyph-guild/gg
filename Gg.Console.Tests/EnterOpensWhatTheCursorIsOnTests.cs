@@ -57,22 +57,25 @@ public class EnterOpensWhatTheCursorIsOnTests
                 AFlight("GG-52", new DateTimeOffset(2026, 9, 6, 15, 51, 0, TimeSpan.Zero)),
             ],
         },
-        Logs = new Dictionary<string, FlightLog>(StringComparer.Ordinal)
+        // THE STORY, NOT THE LOG, since slice thirty-two. The modal renders
+        // sentences from this; the log stays the raw record the queue counts
+        // lease expiries in.
+        Story = new FlightStory
         {
-            ["01a0776a-cacb-76dc-b444-2b7031GG-52"] = new FlightLog
-            {
-                FlightId = "01a0776a-cacb-76dc-b444-2b7031GG-52",
-                FlightNumber = "GG-52",
-                Entries =
-                [
-                    new FlightLogEntry
-                    {
-                        Kind = "lease-granted",
-                        At = new DateTimeOffset(2026, 9, 6, 15, 51, 29, TimeSpan.Zero),
-                        Detail = "granted to gg-runner 01a06572",
-                    },
-                ],
-            },
+            FlightId = "01a0776a-cacb-76dc-b444-2b7031GG-52",
+            FlightNumber = "GG-52",
+            Stage = FlightStages.Leased,
+            State = FlightStates.Open,
+            Entries =
+            [
+                new StoryEntry
+                {
+                    Kind = StoryKinds.LeaseGranted,
+                    At = new DateTimeOffset(2026, 9, 6, 15, 51, 29, TimeSpan.Zero),
+                    Params = ["01a06572"],
+                    Actor = new Actor { Kind = ActorKinds.Runner, Name = "gg-runner 01a06572" },
+                },
+            ],
         },
     };
 
@@ -109,10 +112,14 @@ public class EnterOpensWhatTheCursorIsOnTests
         await Assert.That(modal).Contains("GG-52", StringComparison.Ordinal);
         await Assert.That(modal).DoesNotContain("GG-51", StringComparison.Ordinal)
             .Because("one flight, the one under the cursor. Modal:\n" + modal);
-        await Assert.That(modal).Contains("lease-granted", StringComparison.Ordinal)
-            .Because("the log is the answer to the question a person opened this to ask. "
-                   + "ConsoleLoop reads it before calling this, which is why the modal can "
-                   + "assume it is there. Modal:\n" + modal);
+        // A SENTENCE, NOT A KIND. This asserted the modal contained
+        // `lease-granted` and it did - beside a raw JSON detail, which is what
+        // S32.4-02 fixed in the pane and left here.
+        await Assert.That(modal).Contains(
+            FlightStory.Sentence(StoryKinds.LeaseGranted, ["01a06572"]), StringComparison.Ordinal)
+            .Because("the story is the answer to the question a person opened this to ask, "
+                   + "and it is rendered through the contract's own grammar so this modal and "
+                   + $"`gg show` cannot word one event two ways. Modal:\n{modal}");
     }
 
     [Test]

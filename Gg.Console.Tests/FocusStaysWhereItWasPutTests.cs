@@ -79,14 +79,34 @@ public class FocusStaysWhereItWasPutTests
                    + "countdown's render took it back.");
     }
 
+    /// <summary>The body of <c>ConsoleScreen.Focus</c>, and nothing else.</summary>
+    /// <remarks>
+    /// Sliced rather than searched, because <c>HasFocus</c> is a common enough
+    /// word that finding it somewhere in a nine-hundred-line file would prove
+    /// nothing about the method this is a claim about.
+    /// </remarks>
+    private static string TheFocusMethod()
+    {
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+        var opened = screen.IndexOf("private void Focus()", StringComparison.Ordinal);
+        var closed = screen.IndexOf("\n    }", opened, StringComparison.Ordinal);
+
+        return opened >= 0 && closed > opened ? screen[opened..closed] : "";
+    }
+
     [Test]
     public async Task The_screen_leaves_a_tab_that_already_has_the_focus_alone()
     {
-        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+        var focusing = TheFocusMethod();
 
-        await Assert.That(screen).Contains("Pane.HasFocus")
+        await Assert.That(focusing).IsNotEmpty()
+            .Because("the method this is about has to be found before anything is claimed "
+                   + "of it - a slice that found nothing would pass every row below.");
+
+        await Assert.That(focusing).Contains("HasFocus")
             .Because("focus follows the tab, which means WHEN THE TAB CHANGES - if it is "
-                   + "already inside the tab on screen, a person put it there.");
+                   + "already inside the tab on screen, a person put it there, and a render "
+                   + $"that happens once a second may not overrule them. Found:\n{focusing}");
     }
 
     [Test]

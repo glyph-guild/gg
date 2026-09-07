@@ -309,11 +309,11 @@ public static class FlightDetails
         foreach (var row in Rows.Log(state))
         {
             var attempt = row.Attempt is { Length: > 0 } which ? $"#{which} " : "";
-            text.AppendLine($"    {row.When}  {attempt}{row.Happened}");
+            text.AppendLine($"    {row.Time}  {attempt}{row.Event}");
 
-            if (row.Said is { Length: > 0 } said)
+            if (row.Detail is { Length: > 0 } detail)
             {
-                text.AppendLine($"        {said}");
+                text.AppendLine($"        {detail}");
             }
         }
 

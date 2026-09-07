@@ -17,25 +17,36 @@ public sealed record FlightRow(
 public sealed record RepositoryRow(string Chosen, string Path, string Name);
 
 /// <summary>
-/// One thing that happened to a flight, as a row of the log.
+/// One line of the log: an entry, or the continuation of one.
 /// </summary>
-/// <param name="When">By the clock of whatever recorded it.</param>
+/// <param name="Entry">
+/// Which of the story's entries this line belongs to. <b>The cursor is kept as
+/// one of these and never as a row number</b>, because an entry that unwraps
+/// becomes several rows - a row number would point at a different thing the
+/// moment anything expanded, and the view maps both ways through this.
+/// </param>
+/// <param name="Time">
+/// By the clock of whatever recorded it. Empty on a continuation: a timestamp
+/// repeated down the left of one entry reads as several things happening at
+/// once.
+/// </param>
 /// <param name="Attempt">
 /// Which pass this belongs to, or empty. Empty and never <c>0</c>: an entry
 /// from a record that never carried an attempt is absent rather than first,
 /// and a cell reading zero would be this console inventing one.
 /// </param>
-/// <param name="Happened">
+/// <param name="Event">
 /// The contract's own sentence for the kind and its params - never the kind. A
 /// loop that ended blocked read as <c>loop-ended</c> for as long as this was a
 /// column of enum members.
 /// </param>
-/// <param name="Said">
-/// Prose somebody actually wrote, flattened to one line because a cell is one
-/// line. Nothing is dropped: the table scrolls sideways, so a diagnosis wider
-/// than the column is a diagnosis a person can still read to the end.
+/// <param name="Detail">
+/// Prose somebody actually wrote - <c>StoryEntry.Said</c> - flattened to one
+/// line because a cell is one line. On the entry under the cursor it arrives a
+/// line at a time; see <see cref="Rows.Unwrapped"/>.
 /// </param>
-public sealed record LogRow(string When, string Attempt, string Happened, string Said);
+public sealed record LogRow(
+    int Entry, string Time, string Attempt, string Event, string Detail);
 
 /// <summary>
 /// One runner in the fleet, and whether it is this machine's.
@@ -101,7 +112,7 @@ public static class Rows
     /// business, and what is in a cell is this one's.
     /// </remarks>
     public static IReadOnlyList<string> LogColumns { get; } =
-        ["when", "#", "what happened", "said"];
+        ["time", "attempt", "event", "detail"];
 
     /// <summary>
     /// The runners' columns, the first of which has no name.
@@ -400,7 +411,8 @@ public static class Rows
 
         return
         [
-            .. story.Entries.Select(entry => new LogRow(
+            .. story.Entries.Select((entry, at) => new LogRow(
+                at,
                 $"{entry.At:u}",
                 entry.Attempt is { } which
                     ? which.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -409,6 +421,143 @@ public static class Rows
                     Gg.Contracts.FlightStory.Sentence(entry.Kind, entry.Params)),
                 OneLine(entry.Said))),
         ];
+    }
+
+    /// <summary>
+    /// The same rows, with the entry under the cursor unwrapped.
+    /// </summary>
+    /// <param name="rows">What <see cref="Log"/> answered.</param>
+    /// <param name="selected">Which ENTRY the cursor is on, not which row.</param>
+    /// <param name="width">
+    /// How wide the detail column is, from <see cref="DetailWidth"/>. Zero
+    /// before anything has been laid out, and zero means wrap nothing - a wrap
+    /// to no width is one row per character.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>Terminal.Gui has no variable row heights, so an entry that unwraps
+    /// becomes several rows.</b> The first carries the entry; the rest carry
+    /// the remainder of its detail with the other three columns empty, so every
+    /// row is still one line and the table still reads as a table.
+    /// </para>
+    /// <para>
+    /// <b>Only the columns that size themselves are left empty, and that is the
+    /// point.</b> A continuation contributes nothing to the width of time,
+    /// attempt or event - so expanding one cannot move where the detail column
+    /// starts, and the table does not shift sideways as the cursor travels.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<LogRow> Unwrapped(
+        IReadOnlyList<LogRow> rows, int selected, int width)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        if (width <= 0)
+        {
+            return rows;
+        }
+
+        var shown = new List<LogRow>(rows.Count);
+
+        foreach (var row in rows)
+        {
+            if (row.Entry != selected || row.Detail.Length <= width)
+            {
+                shown.Add(row);
+                continue;
+            }
+
+            var lines = Wrapped(row.Detail, width);
+
+            shown.Add(row with { Detail = lines[0] });
+            shown.AddRange(lines.Skip(1).Select(line => new LogRow(row.Entry, "", "", "", line)));
+        }
+
+        return shown;
+    }
+
+    /// <summary>
+    /// What the detail column has left after the other three have taken theirs.
+    /// </summary>
+    /// <param name="rows">The rows the table is holding.</param>
+    /// <param name="available">The table's own width, which only it knows.</param>
+    /// <remarks>
+    /// <b>The widget's rule, restated where a test can read it.</b> A column is
+    /// as wide as the widest of its heading and its cells, with one column of
+    /// separator after it; the last expands into whatever is left. Restating it
+    /// is a cost, and the alternative was asking a <c>TableView</c> that cannot
+    /// be constructed without a terminal - so the arithmetic would have been
+    /// beyond the reach of any test, which is the same argument
+    /// <see cref="ConsoleTheme"/> and <c>CollectionViews</c> already make.
+    /// </remarks>
+    public static int DetailWidth(IReadOnlyList<LogRow> rows, int available)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var taken =
+            Column(LogColumns[0], rows.Select(r => r.Time))
+          + Column(LogColumns[1], rows.Select(r => r.Attempt))
+          + Column(LogColumns[2], rows.Select(r => r.Event));
+
+        return Math.Max(0, available - taken);
+    }
+
+    /// <summary>One column's width, plus the separator that follows it.</summary>
+    private static int Column(string heading, IEnumerable<string> cells) =>
+        Math.Max(heading.Length, cells.Select(cell => cell.Length).DefaultIfEmpty(0).Max()) + 1;
+
+    /// <summary>
+    /// One line broken into several, none wider than the column.
+    /// </summary>
+    /// <remarks>
+    /// <b>On words, and on characters when a word will not fit.</b> A path, a
+    /// commit hash or a url has no spaces in it and is exactly the thing
+    /// somebody opened the log to read - so a wrapper that could only break on
+    /// spaces would drop the one line that mattered.
+    /// </remarks>
+    private static List<string> Wrapped(string text, int width)
+    {
+        var lines = new List<string>();
+        var line = new System.Text.StringBuilder(width);
+
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var word_ = word;
+
+            // A WORD WIDER THAN THE COLUMN, cut where the column ends. Nothing
+            // is lost; it simply continues on the next line.
+            while (word_.Length > width)
+            {
+                if (line.Length > 0)
+                {
+                    lines.Add(line.ToString());
+                    line.Clear();
+                }
+
+                lines.Add(word_[..width]);
+                word_ = word_[width..];
+            }
+
+            if (line.Length > 0 && line.Length + 1 + word_.Length > width)
+            {
+                lines.Add(line.ToString());
+                line.Clear();
+            }
+
+            if (line.Length > 0)
+            {
+                line.Append(' ');
+            }
+
+            line.Append(word_);
+        }
+
+        if (line.Length > 0)
+        {
+            lines.Add(line.ToString());
+        }
+
+        return lines.Count == 0 ? [""] : lines;
     }
 
     /// <summary>

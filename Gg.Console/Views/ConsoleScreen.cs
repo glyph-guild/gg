@@ -98,7 +98,7 @@ public sealed class ConsoleScreen : Window
     /// modal is open - a UI session makes no network call - so the flight it is
     /// about and the number of entries settle whether a refill is needed.
     /// </remarks>
-    private (string Flight, int Rows)? _logShowing;
+    private (string Flight, int Rows, int Entry, int Width)? _logShowing;
 
     /// <summary>
     /// The fields the column is currently built out of, or null before it is.
@@ -448,10 +448,20 @@ public sealed class ConsoleScreen : Window
         };
         _flightLog = CollectionViews.Table();
 
-        // NOT SUBSCRIBED TO OnRowPointedAt, and that is deliberate. Reducer.Pointed
-        // dispatches on the tab that has the screen, so a log row landed on
-        // would move the FLIGHTS cursor behind the modal - the modal would be
-        // about one flight and the list behind it pointing at another.
+        // ITS OWN SUBSCRIPTION, NOT OnRowPointedAt. That one hands a row to
+        // Reducer.Pointed, which dispatches on the tab that has the screen -
+        // and the tab under this modal is the flights list, so a log row landed
+        // on would have moved the cursor behind the modal. It is also not an
+        // entry: OnLogRowPointedAt maps it through LogRow.Entry first.
+        _flightLog.ValueChanged += OnLogRowPointedAt;
+
+        // BECAUSE A RENDER HAPPENS BEFORE THE LAYOUT DOES. The wrap needs the
+        // column's width and the widget has none until it has been laid out, so
+        // the first fill wrapped nothing and there was no second one - the
+        // unwrap simply never happened. This is also the resize path: a
+        // narrower terminal is a narrower column, and the text has to be broken
+        // again.
+        _flightLog.ViewportChanged += OnLogResized;
         _flightLogAbsent = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         _flightLogPane.Add(_flightLog, _flightLogAbsent);
 
@@ -1201,20 +1211,120 @@ public sealed class ConsoleScreen : Window
         _flightLogAbsent.Visible = absence.Length > 0;
         _flightLog.Visible = log.Count > 0;
 
-        var showing = (State.Story?.FlightId ?? "", log.Count);
+        // MEASURED HERE, DECIDED THERE. How wide the detail column is depends
+        // on the terminal, and what goes in it depends on the model; the view
+        // owns exactly the first half. Viewport is zero before the first
+        // layout, and a width of zero means wrap nothing.
+        var width = _flightLog.Viewport.Width;
+        var shown = Rows.Unwrapped(log, State.LogSelected, Rows.DetailWidth(log, width));
+
+        var showing = (State.Story?.FlightId ?? "", shown.Count, State.LogSelected, width);
 
         if (_logShowing != showing)
         {
-            CollectionViews.Fill(
-                _flightLog,
-                log.Count == 0
-                    ? null
-                    : new DataTableSource(CollectionViews.Rows(
-                        Rows.LogColumns,
-                        [.. log.Select(r => new[] { r.When, r.Attempt, r.Happened, r.Said })])));
+            _syncing = true;
+
+            try
+            {
+                CollectionViews.Fill(
+                    _flightLog,
+                    shown.Count == 0
+                        ? null
+                        : new DataTableSource(CollectionViews.Rows(
+                            Rows.LogColumns,
+                            [.. shown.Select(r => new[] { r.Time, r.Attempt, r.Event, r.Detail })])));
+
+                // ON THE ENTRY'S FIRST ROW. Filling replaces the source, which
+                // resets the selection - and the model's cursor is an entry, so
+                // where that entry STARTS is the row the highlight belongs on.
+                if (shown.Count > 0)
+                {
+                    var at = Math.Max(0, IndexOfEntry(shown, State.LogSelected));
+
+                    _flightLog.SetSelection(0, at, extendExistingSelection: false, null);
+                    _flightLog.EnsureValidSelection();
+                }
+            }
+            finally
+            {
+                _syncing = false;
+            }
 
             _logShowing = showing;
         }
+    }
+
+    /// <summary>
+    /// The log's column got wider or narrower, so the text is broken again.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only the log, and only its rows.</b> A full <c>Render</c> here would
+    /// re-assert focus during a layout, which is the thing the countdown taught
+    /// this file not to do. <c>RenderLog</c> keys on the width, so this is a
+    /// no-op whenever nothing actually moved.
+    /// </remarks>
+    private void OnLogResized(object? sender, EventArgs args)
+    {
+        if (_syncing || State.Mode is not UiMode.FlightDetail)
+        {
+            return;
+        }
+
+        RenderLog();
+    }
+
+    /// <summary>Where an entry starts, among the rows it and its neighbours make.</summary>
+    private static int IndexOfEntry(IReadOnlyList<LogRow> rows, int entry)
+    {
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].Entry == entry)
+            {
+                return i;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// A person put the cursor on a row of the log.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own handler, and not <c>OnRowPointedAt</c>.</b> That one hands the
+    /// row straight to <c>Reducer.Pointed</c>, which is right for the four
+    /// tables a tab drives and wrong here twice over: the tab under this modal
+    /// is the flights list, and a row of this table is not an entry. What is
+    /// handed over is <c>LogRow.Entry</c>, so a continuation row means the entry
+    /// it continues.
+    /// </remarks>
+    private void OnLogRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
+    {
+        if (_syncing || args.NewValue is not { } selection)
+        {
+            return;
+        }
+
+        var log = Rows.Log(State);
+        var shown = Rows.Unwrapped(
+            log, State.LogSelected, Rows.DetailWidth(log, _flightLog.Viewport.Width));
+
+        var row = selection.SelectedCell.Y;
+
+        if (row < 0 || row >= shown.Count)
+        {
+            return;
+        }
+
+        var pointed = Reducer.Pointed(State, shown[row].Entry);
+
+        if (ReferenceEquals(pointed, State))
+        {
+            return;
+        }
+
+        State = pointed;
+        Render();
     }
 
     /// <summary>
@@ -1326,6 +1436,8 @@ public sealed class ConsoleScreen : Window
             _browseTable.ValueChanged -= OnRowPointedAt;
             _repositoriesTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;
+            _flightLog.ValueChanged -= OnLogRowPointedAt;
+            _flightLog.ViewportChanged -= OnLogResized;
             _queue.ValueChanged -= OnQueueSelectionChanged;
         }
         base.Dispose(disposing);

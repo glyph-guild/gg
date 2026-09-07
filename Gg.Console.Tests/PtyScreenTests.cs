@@ -217,6 +217,65 @@ public class PtyScreenTests
     }
 
     [Test]
+    public async Task Replayed_into_a_terminal_the_frame_IS_the_child_s_screen()
+    {
+        // THE STRONGEST ASSERTION AVAILABLE HERE, and it costs one more emulator.
+        // Every other test in this file checks that the frame CONTAINS something
+        // - a row address, a colour, a cursor - which is a check on a symptom of
+        // being right. This one interprets gg's output the way a terminal will
+        // and asks whether the screen that comes out is the screen that went in.
+        //
+        // It is what makes the renderer safe to change. A diffing version, when
+        // there is a reason to write one, is correct exactly when this still
+        // passes, and nothing else in this file would notice a stale cell left
+        // behind by one.
+        var child = Screen(rows: 8, columns: 30);
+
+        // Shaped like something worth getting wrong: colour, attributes, a
+        // cursor moved about, and content on the first and last rows, which are
+        // the two the bar and the wrap defects each ate.
+        child.Write($"{Esc}[1;1Hfirst row, plain");
+        child.Write($"{Esc}[3;5H{Esc}[31mred{Esc}[0m and {Esc}[1mbold{Esc}[0m");
+        child.Write($"{Esc}[5;1H{Esc}[48;5;54mon a background{Esc}[0m");
+        child.Write($"{Esc}[8;1Hlast row, which is the one that scrolled away");
+
+        // AND IT HAS SCROLLED, which is the case that matters. That last line is
+        // forty-five characters on a thirty-column screen, so it wraps and takes
+        // the top row into scrollback - and an agent does that continuously.
+        await Assert.That(child.Buffer.YDisp).IsGreaterThan(0)
+            .Because("a round-trip that never scrolled would be checking the easy half.");
+
+        var frame = PtyScreen.Paint(child, rows: 8, columns: 30, bar: "gg | flight 41");
+
+        // A terminal the size of the REAL one - the child's rows plus gg's row -
+        // told exactly what gg would have written to it.
+        var screen = new XTermTerminal(new TerminalOptions { Cols = 30, Rows = 9 });
+        screen.Write(frame);
+
+        await Assert.That(screen.GetLine(0)).StartsWith("gg | flight 41", StringComparison.Ordinal)
+            .Because("row one of the real terminal is gg's, and this is what a terminal makes "
+                   + "of what gg wrote there.");
+
+        // THE VIEWPORT, NOT THE BUFFER, and the distinction is the whole reason
+        // this test earned its keep. GetLine is indexed from the scrollback
+        // origin, so once anything has scrolled it answers about a row that is
+        // no longer on screen; GetVisibleLines is what a terminal is showing.
+        // A first version of this compared against GetLine and failed against a
+        // renderer that was right - which is the good direction for a test to be
+        // wrong in, but only if somebody goes and looks.
+        var shown = screen.GetVisibleLines();
+        var drew = child.GetVisibleLines();
+
+        for (var row = 0; row < drew.Length; row++)
+        {
+            await Assert.That(shown[row + 1]).IsEqualTo(drew[row])
+                .Because($"child row {row} is terminal row {row + 1}, and a repaint that does "
+                       + "not reproduce it is one a person is reading instead of the screen "
+                       + "the child drew.");
+        }
+    }
+
+    [Test]
     public async Task No_escape_is_written_as_a_byte_you_cannot_see()
     {
         // THE RATCHET FOR THE BUG THAT CAUSED ALL FOUR REPORTED SYMPTOMS AT

@@ -244,8 +244,15 @@ public class EndpointSurfaceTests
         // overlapping questions and the older one says so in a remark, because a
         // machine-readable Deprecated flag nothing reads would be the shape the
         // slice that added this exists to remove.
+        // AND POST /v1/flights/{ref}/grounding, which is the other half of an
+        // ending a person reaches: withdrawal says the work no longer has a
+        // question to answer, grounding says the question is still real and
+        // somebody stopped the attempt. ADDITIVE - nothing existing moved, and
+        // the two doors carry identical statuses on purpose, because what
+        // differs between them is which sentence is true rather than how they
+        // behave.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7c990acd97eb176d68771652b69b5793d7c0aeb0820716b5515a191d847360dd")
+            .IsEqualTo("d8ce5ba72c5d8553e3fbaa9821685da90b3436468b8a34550affa6b5abfc1a73")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -49,6 +49,7 @@ public static class Vocabulary
         typeof(StoryEntry),
         typeof(FlightStory),
         typeof(FlightWithdrawalRequest),
+        typeof(FlightGroundingRequest),
         typeof(RunnerSummary),
         typeof(RunnerList),
         typeof(TelemetryDisclosure),

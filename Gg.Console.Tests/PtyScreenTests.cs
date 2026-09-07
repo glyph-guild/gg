@@ -131,6 +131,38 @@ public class PtyScreenTests
     }
 
     [Test]
+    [Arguments("16-colour foreground", "[31m", "38;5;1")]
+    [Arguments("16-colour background", "[41m", "48;5;1")]
+    [Arguments("bright 16-colour foreground", "[91m", "38;5;9")]
+    [Arguments("256-colour foreground", "[38;5;208m", "38;5;208")]
+    [Arguments("256-colour background", "[48;5;54m", "48;5;54")]
+    [Arguments("truecolour foreground", "[38;2;17;34;51m", "38;2;17;34;51")]
+    [Arguments("truecolour background", "[48;2;68;85;102m", "48;2;68;85;102")]
+    [Arguments("bold", "[1m", "0;1")]
+    [Arguments("dim", "[2m", "0;2")]
+    [Arguments("italic", "[3m", "0;3")]
+    [Arguments("underline", "[4m", "0;4")]
+    [Arguments("inverse", "[7m", "0;7")]
+    [Arguments("strikethrough", "[9m", "0;9")]
+    public async Task Every_way_the_child_can_dress_a_cell_survives(
+        string kind, string wrote, string expected)
+    {
+        // NOT ONE COLOUR AND A SHRUG. The renderer that dropped everything was
+        // not obviously wrong for any single case - it wrote characters, and
+        // characters are most of a screen. Each row here is a way an agent
+        // actually dresses its output, and the truecolour ones matter most
+        // because they take a different branch: the value is a packed RGB
+        // triple rather than an index, and a renderer that read it as an index
+        // asks for palette entry 1122867.
+        var frame = PtyScreen.Paint(
+            Screen(rows: 3, columns: 20, wrote: $"{Esc}{wrote}dressed"),
+            rows: 3, columns: 20, bar: "gg");
+
+        await Assert.That(frame).Contains(expected, StringComparison.Ordinal)
+            .Because($"{kind} is something the child said and gg is repainting it.");
+    }
+
+    [Test]
     public async Task A_screen_the_child_left_plain_says_nothing_about_colour()
     {
         // The emulator's defaults are 256 for foreground and 257 for background,

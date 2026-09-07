@@ -82,8 +82,17 @@ internal sealed class HostedTerminal : IHostTerminal, IDisposable
         master.Flush();
     }
 
+    /// <summary>Whether whoever was handed this closed it.</summary>
+    /// <remarks>
+    /// A real one holds an open <c>/dev/tty</c> and a signal registration, so
+    /// "was it disposed" is a question with a consequence rather than a
+    /// formality — and it is not observable any other way.
+    /// </remarks>
+    internal bool Disposed { get; private set; }
+
     public void Dispose()
     {
+        Disposed = true;
         _keystrokes?.Dispose();
         _pty.Dispose();
     }

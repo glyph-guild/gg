@@ -23,7 +23,7 @@ public delegate Task<int> HostRun(
     string command,
     IReadOnlyList<string> arguments,
     string workingDirectory,
-    string bar,
+    Func<string> bar,
     CancellationToken cancellationToken);
 
 /// <summary>
@@ -68,19 +68,30 @@ public static class PtyHost
     /// code.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The bar costs the child a row.</b> The child is told the screen is
     /// <see cref="IHostTerminal.Rows"/> minus one, which is what keeps the top
     /// row gg's: a full-screen program cannot paint a row it does not believe
     /// exists.
+    /// </para>
+    /// <para>
+    /// <b>And it is asked for on every frame rather than given once.</b> What
+    /// the bar has to say changes while the session runs — most of all once a
+    /// composing agent has submitted, because a person who cannot tell whether
+    /// gg received anything will submit again. A string handed over at the start
+    /// can only say what was true then.
+    /// </para>
     /// </remarks>
     public static async Task<int> RunAsync(
         IHostTerminal terminal,
         string command,
         IReadOnlyList<string> arguments,
         string workingDirectory,
-        string bar,
+        Func<string> bar,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(bar);
+
         var (columns, rows) = Fit(terminal);
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
@@ -168,7 +179,7 @@ public static class PtyHost
                     columns = width;
                     rows = height;
 
-                    terminal.Paint(PtyScreen.Paint(emulator, height, width, bar));
+                    terminal.Paint(PtyScreen.Paint(emulator, height, width, bar()));
                 }
             }
 
@@ -182,7 +193,7 @@ public static class PtyHost
             // host's promise and not the caller's.
             lock (screen)
             {
-                terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+                terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar()));
             }
 
             // READ TO THE END BEFORE ASKING FOR THE EXIT CODE. The child can
@@ -216,7 +227,7 @@ public static class PtyHost
                     // Read inside the lock as well: the pair is written together
                     // by a resize, and reading them apart paints one frame with
                     // the new height and the old width.
-                    terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+                    terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar()));
                 }
             }
 

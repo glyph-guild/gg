@@ -56,6 +56,7 @@ public sealed class PtyAgentSession : IEditorSession
     private readonly HostRun _host;
     private readonly string? _composeIn;
     private readonly string _bar;
+    private readonly string _submitted;
     private readonly Action<string> _say;
 
     /// <param name="agentCommand">
@@ -79,8 +80,19 @@ public sealed class PtyAgentSession : IEditorSession
     /// removed after; named so a test can look inside it.
     /// </param>
     /// <param name="bar">
-    /// The top row. It says what ends the session, because a person handed an
-    /// agent cannot ask it what gg is waiting for — it does not know either.
+    /// The top row before anything has been submitted. It says what ends the
+    /// session, because a person handed an agent cannot ask it what gg is
+    /// waiting for — it does not know either.
+    /// </param>
+    /// <param name="submitted">
+    /// The top row once an intent has landed.
+    /// <para>
+    /// <b>A second sentence rather than a suffix on the first.</b> What a person
+    /// needs to be told changes completely at that moment: before, it is what
+    /// ends the session; after, it is that they are done and that submitting
+    /// again replaces rather than adds. Somebody who cannot tell which state
+    /// they are in submits twice.
+    /// </para>
     /// </param>
     /// <param name="say">Where a word to the person goes when this cannot run.</param>
     public PtyAgentSession(
@@ -91,6 +103,8 @@ public sealed class PtyAgentSession : IEditorSession
         string? composeIn = null,
         string bar = "gg · composing — ask the agent to submit when you are happy · "
                    + "closing without submitting composes nothing",
+        string submitted = "gg · composing — intent submitted · close when you are done, "
+                         + "or submit again to replace it",
         Action<string>? say = null)
     {
         _agentCommand = agentCommand
@@ -101,6 +115,7 @@ public sealed class PtyAgentSession : IEditorSession
         _host = host ?? PtyHost.RunAsync;
         _composeIn = composeIn;
         _bar = bar;
+        _submitted = submitted;
         _say = say ?? System.Console.WriteLine;
     }
 
@@ -162,7 +177,11 @@ public sealed class PtyAgentSession : IEditorSession
                      // different if this were typed here.
                      "--allowedTools", IntentTool.Qualified],
                     Directory.GetCurrentDirectory(),
-                    _bar,
+                    // ASKED ON EVERY FRAME, and answered from the one thing that
+                    // knows: whether the file is there. The tool server writes it
+                    // by rename, so it is either absent or whole - which is what
+                    // makes a stat an honest answer rather than a race.
+                    () => File.Exists(intent) ? _submitted : _bar,
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (

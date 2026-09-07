@@ -241,6 +241,19 @@ public sealed class RunnerLoop(
     /// <summary>How long to wait before asking again. Zero while things are well.</summary>
     private TimeSpan _backoff = TimeSpan.Zero;
 
+    /// <summary>
+    /// The heartbeat's own wait, separate from the claim's.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own field, because the two are not the same trouble.</b> A
+    /// heartbeat that cannot land while claims are served says nothing about
+    /// whether this machine can do work, and the reverse says nothing about
+    /// whether it is alive. Sharing <see cref="_backoff"/> would have one
+    /// path's recovery reset the other's wait, and a person reading the
+    /// diagnosis could not tell which call it was about.
+    /// </remarks>
+    private TimeSpan _beatBackoff = TimeSpan.Zero;
+
     /// <summary>Says this process is alive, no more often than asked.</summary>
     /// <remarks>
     /// The interval is the control plane's, read from its own answer, never a
@@ -258,8 +271,76 @@ public sealed class RunnerLoop(
             return;
         }
 
-        var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
-        _nextBeatDue = _clock.UtcNow + TimeSpan.FromSeconds(beat.NextHeartbeatSeconds);
+        // ADVANCED WHATEVER HAPPENED, which is the half a naive catch gets
+        // wrong. This used to move only on success, so swallowing a failure
+        // here would leave the beat due again immediately and try it on the
+        // very next turn of the loop - a spin at whatever rate the claim
+        // happens to run at.
+        _nextBeatDue = _clock.UtcNow + await BeatAsync(runnerId, labels, cancellationToken);
+    }
+
+    /// <summary>
+    /// Beats, and answers with how long until the next one is owed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE ONE PLACE A HEARTBEAT IS SENT, and the one place a failed one is
+    /// decided.</b> There were two senders - this and <c>HoldAsync</c>'s own
+    /// direct call - so the process could be killed by a 500 while idle OR
+    /// while holding somebody's flight, and fixing either left the other.
+    /// </para>
+    /// <para>
+    /// <b>A refusal is survived rather than fatal, and the rule is the claim's
+    /// rule.</b> <see cref="TransientFailure"/> already answered this: a 5xx, a
+    /// timeout and a refused connection are the control plane's problem and
+    /// will pass; a 401 is this machine's credential and no waiting fixes it,
+    /// so that one still leaves here loudly.
+    /// </para>
+    /// <para>
+    /// <b>It does not wait, it says how long to.</b> Both callers already have
+    /// their own pacing - the idle loop has the claim's long poll, the hold has
+    /// its renew window - and a delay taken here would stall whichever one
+    /// called it on top of the wait it was already going to take.
+    /// </para>
+    /// <para>
+    /// <b>Missing beats does not stand this runner down, deliberately.</b> The
+    /// control plane derives <c>offline</c> from heartbeat age and is the
+    /// authority on liveness, so the fleet's view of a runner that cannot beat
+    /// is already correct - and a capability-gated flight is only offered to a
+    /// live one. Ownership is the lease's generation FENCE, which a heartbeat
+    /// has no part in, so a swallowed beat cannot put two runners on one
+    /// flight. Standing down would remove a machine from the fleet over a
+    /// database blip, which is the defect this guard exists to close.
+    /// </para>
+    /// </remarks>
+    private async Task<TimeSpan> BeatAsync(
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
+
+            // A SERVED BEAT CLEARS IT, so an hour of health does not inherit a
+            // bad minute's wait.
+            _beatBackoff = TimeSpan.Zero;
+
+            // The interval is the control plane's, read from its own answer,
+            // never a constant here - it is derived from the staleness
+            // threshold and only that side knows it.
+            return TimeSpan.FromSeconds(beat.NextHeartbeatSeconds);
+        }
+        catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
+        {
+            _beatBackoff = TransientFailure.Next(_beatBackoff);
+
+            // SAID EVERY TIME. A person who started a runner and closed the
+            // window has nothing else to read, and the crash this replaces at
+            // least left them a stack trace.
+            _observer.ControlPlaneRefused(
+                TransientFailure.Diagnose(refusal, _beatBackoff), _beatBackoff);
+
+            return _beatBackoff;
+        }
     }
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
@@ -1735,7 +1816,15 @@ public sealed class RunnerLoop(
 
         while (_clock.UtcNow < until && !cancellationToken.IsCancellationRequested)
         {
-            var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
+            // THROUGH THE GUARDED SENDER, which this used to bypass. A direct
+            // call here meant a 500 on a beat killed the process while it was
+            // holding somebody's flight - the loudest form of gg#303, and the
+            // one the idle-runner fix on its own would have left in place.
+            //
+            // The wait it answers with is the control plane's interval when the
+            // beat landed and the heartbeat's own backoff when it did not, so
+            // this loop paces itself either way without inventing a number.
+            var beatIn = await BeatAsync(runnerId, labels, cancellationToken);
 
             // Renewal is decided against the control plane's expiry, never
             // against our own elapsed time. A process that was paused or
@@ -1758,7 +1847,7 @@ public sealed class RunnerLoop(
                 }
             }
 
-            await _delay(TimeSpan.FromSeconds(beat.NextHeartbeatSeconds), cancellationToken);
+            await _delay(beatIn, cancellationToken);
         }
 
         if (cancellationToken.IsCancellationRequested)

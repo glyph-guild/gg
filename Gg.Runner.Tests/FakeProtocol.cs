@@ -65,6 +65,24 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     internal int HeartbeatSeconds { get; set; } = 1;
 
+    /// <summary>What the heartbeat throws, one per call, before it answers normally.</summary>
+    /// <remarks>
+    /// Queued like <see cref="ClaimThrows"/>, so a test can say "fail twice
+    /// then answer" - the shape that proves a runner came back rather than
+    /// merely survived one.
+    /// </remarks>
+    internal Queue<Exception> HeartbeatThrows { get; } = new();
+
+    /// <summary>
+    /// When set, every heartbeat throws it: an outage that does not pass.
+    /// </summary>
+    /// <remarks>
+    /// The queue cannot express this, and it is the case that matters most -
+    /// what a runner does for the whole of a database being unwell, rather
+    /// than for one request of it.
+    /// </remarks>
+    internal Exception? HeartbeatAlwaysThrows { get; set; }
+
     /// <summary>The labels each heartbeat carried, in order.</summary>
     internal List<string[]> HeartbeatLabels { get; } = [];
 
@@ -74,6 +92,21 @@ internal sealed class FakeProtocol : IRunnerProtocol
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
     {
         Calls.Add("heartbeat");
+
+        // RECORDED BEFORE IT THROWS, so a test can count the ATTEMPTS. Whether
+        // a failing heartbeat paces itself is a claim about how often it is
+        // tried, and a fake that only counted the ones it answered could not
+        // tell a bounded retry from a spin.
+        if (HeartbeatAlwaysThrows is { } always)
+        {
+            throw always;
+        }
+
+        if (HeartbeatThrows.Count > 0)
+        {
+            throw HeartbeatThrows.Dequeue();
+        }
+
         // RECORDED SEPARATELY from Serialized, because the claim body carries
         // labels too - an assertion over everything sent passes on the claim
         // and says nothing about the heartbeat.

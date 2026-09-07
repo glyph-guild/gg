@@ -276,6 +276,26 @@ public sealed class ConsoleLoop(
                 // AND THE MODAL CLOSES HERE TOO, after the work rather than
                 // before it: the reducer answering would have closed the
                 // question before the thing it asked about had happened.
+                // FLYING BY HAND, ANSWERED. The same two keys as a new flight,
+                // so the loop tells them apart by the QUESTION the model was
+                // carrying rather than by the command - which is why the
+                // question is state and the answer is not.
+                case Command.ComposeInEditor when state.ComposingFor == ComposingFor.HandFlight:
+                case Command.ComposeWithAgent when state.ComposingFor == ComposingFor.HandFlight:
+                    state = Reducer.HandFlightAnswered(
+                        flyByHand is null
+                            ? Closed(state) with
+                            {
+                                LastHandFlight =
+                                    "This console is not configured to fly flights by hand.",
+                                HandFlightProblem =
+                                    "This console is not configured to fly flights by hand.",
+                            }
+                            : flyByHand(
+                                Closed(state),
+                                () => Chosen(outcome.Exit, editor, compose).Edit("")));
+                    break;
+
                 case Command.OpenFlight:
                 case Command.ComposeInEditor:
                 case Command.ComposeWithAgent:
@@ -290,13 +310,9 @@ public sealed class ConsoleLoop(
                             // that a session is rebuilt from the surviving model
                             // and nothing else - the loop was quietly editing
                             // state that belonged to whoever sent OpenFlight.
-                            outcome.Exit == Command.OpenFlight
-                                ? state
-                                : state with { Mode = UiMode.Normal },
+                            outcome.Exit == Command.OpenFlight ? state : Closed(state),
                             actions,
-                            outcome.Exit == Command.ComposeWithAgent && compose is not null
-                                ? compose
-                                : editor),
+                            Chosen(outcome.Exit, editor, compose)),
                         reload,
                         asked: false);
                     break;
@@ -691,6 +707,20 @@ public sealed class ConsoleLoop(
     /// rather than through a whole session — the same reason
     /// <see cref="FlewPicked"/> is.
     /// </remarks>
+    /// <summary>The composer the answer names.</summary>
+    /// <remarks>
+    /// <b>The editor whenever nobody said otherwise</b>, including on a console
+    /// with no agent composer configured at all. A key that offered a choice and
+    /// then did nothing would be worse than one that was never offered.
+    /// </remarks>
+    private static IEditorSession Chosen(
+        Command answer, IEditorSession editor, IEditorSession? compose) =>
+        answer == Command.ComposeWithAgent && compose is not null ? compose : editor;
+
+    /// <summary>The question closed, however it was answered.</summary>
+    private static AppState Closed(AppState state) =>
+        state with { Mode = UiMode.Normal, ComposingFor = ComposingFor.Nothing };
+
     public static AppState Opened(
         AppState state, IConsoleActions? actions, IEditorSession editor)
     {
@@ -1042,10 +1072,14 @@ public sealed class ConsoleLoop(
         // is set here rather than inferred from what the sentence says.
         opened = true;
 
+        // AND IT SAYS IT DID NOT ASK. Two of the three ways into a flight offer
+        // a choice of composer and this one cannot, so the receipt gives the
+        // reason where the person is already looking - S33.4-04.
         return state with
         {
             LastFlightOpened = actions.FlyTicket(
-                listing.ProviderKey, id, state.ChosenRepository),
+                    listing.ProviderKey, id, state.ChosenRepository)
+                + " " + PaneText.ComposedBy(ComposingFor.WorkItem),
         };
     }
 

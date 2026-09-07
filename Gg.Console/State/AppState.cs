@@ -116,6 +116,46 @@ public enum UiMode
 /// machine configured to do" are different questions, and a person asking the
 /// second is usually debugging something the first cannot explain.
 /// </remarks>
+/// <summary>What the open compose question is about.</summary>
+/// <remarks>
+/// <para>
+/// <b>The QUESTION is state; the ANSWER is not.</b> Which way somebody chose
+/// travels as a command and is gone the moment it is handled, which is what
+/// stops a choice made for one flight deciding the next. Which question is being
+/// asked has to survive until it is answered, because it is on the screen — and
+/// the two answers are the same two keys on both paths, so this is the only
+/// thing that tells the loop what to do with them.
+/// </para>
+/// <para>
+/// <see cref="Nothing"/> is the state with no question open, and it is what the
+/// escape hatch restores: a question left open behind a closed modal is one the
+/// next keypress could answer by accident.
+/// </para>
+/// </remarks>
+public enum ComposingFor
+{
+    /// <summary>No question is open.</summary>
+    Nothing,
+
+    /// <summary>A flight opened from nothing — the <c>n</c> key.</summary>
+    NewFlight,
+
+    /// <summary>A flight somebody is about to fly themselves — the <c>y</c> key.</summary>
+    HandFlight,
+
+    /// <summary>
+    /// A work item picked in the browser — the <c>f</c> key, which never asks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here so the reason can be said out loud, not because a question is
+    /// asked.</b> Flying a work item sends a provider and an id: the item IS the
+    /// intent, and there is no text for either composer to write. Offering the
+    /// choice would mean replacing the ticket with prose, which throws away the
+    /// link back to the item that flying from the browser exists for.
+    /// </remarks>
+    WorkItem,
+}
+
 public enum HelpPage
 {
     /// <summary>The keys. What help has always been for, so it opens here.</summary>
@@ -918,6 +958,14 @@ public sealed record AppState
 
     /// <summary>What came of the last flight this console opened.</summary>
     public string? LastFlightOpened { get; init; }
+
+    /// <summary>What the open compose question is about, if one is open.</summary>
+    /// <remarks>
+    /// Meaningful only while <see cref="Mode"/> is
+    /// <see cref="UiMode.ComposeChoice"/>. It is set when the question opens and
+    /// cleared when it closes, however it closes.
+    /// </remarks>
+    public ComposingFor ComposingFor { get; init; }
 
 
     /// <summary>

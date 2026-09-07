@@ -509,7 +509,10 @@ public static class Keymap
             // is hand back, a and n and d are taken. A key chosen for its
             // mnemonic and then silently shadowing another is worse than one
             // chosen for being free and said to be.
-            new(KeyStroke.Char('y'), Command.FlyByHand, "fly by hand"),
+            // ASKS, LIKE `n` DOES. Flying by hand still needs an intent written,
+            // and it is written the same two ways - so the same question, and a
+            // person does not have to remember which doors ask.
+            new(KeyStroke.Char('y'), Command.AskHowToFlyByHand, "fly by hand"),
         ],
     };
 

@@ -28,10 +28,27 @@ public class FlyByHandKeyTests
 
     // ---- S26.5-04 ----
 
+    /// <summary>
+    /// What the key produces now: the question, not the flight.
+    /// </summary>
+    /// <remarks>
+    /// <b>`y` asks which way to compose before it flies anything.</b> Flying by
+    /// hand still needs an intent written and it is written the same two ways as
+    /// any other flight's, so it asks the same question `n` does. The WRITE is
+    /// still <see cref="Command.FlyByHand"/> and still the shell's; what the key
+    /// produces is the question, which sets a field and does nothing else.
+    /// <para>
+    /// A command that did both would have two effects, and the local one would
+    /// happen whether or not the remote one did — which is the rule
+    /// <c>ShellHandledTests</c> holds.
+    /// </para>
+    /// </remarks>
+    private const Command Asked = Command.AskHowToFlyByHand;
+
     [Test]
     public async Task The_key_is_offered_in_normal_mode()
     {
-        var bound = Bindings(Normal()).Where(b => b.Command == Command.FlyByHand).ToList();
+        var bound = Bindings(Normal()).Where(b => b.Command == Asked).ToList();
 
         await Assert.That(bound.Count).IsEqualTo(1)
             .Because("a command with two bindings resolves to whichever was written first.");
@@ -45,9 +62,21 @@ public class FlyByHandKeyTests
         // THE TWO HALVES ARE THE SAME TABLE, which is what stops a key that is
         // advertised and inert - four of those existed here until ShellCommands
         // was one declaration.
-        var binding = Bindings(Normal()).Single(b => b.Command == Command.FlyByHand);
+        var binding = Bindings(Normal()).Single(b => b.Command == Asked);
 
-        await Assert.That(Keymap.Resolve(binding.Key, Normal())).IsEqualTo(Command.FlyByHand);
+        await Assert.That(Keymap.Resolve(binding.Key, Normal())).IsEqualTo(Asked);
+    }
+
+    [Test]
+    public async Task The_flight_itself_is_still_the_shells()
+    {
+        // THE HALF THE KEY NO LONGER SENDS, and it must stay the shell's: it
+        // spawns a child and makes a request, so it may only happen between
+        // sessions with the terminal free. The question does neither.
+        await Assert.That(ShellCommands.Handled.Contains(Command.FlyByHand)).IsTrue();
+        await Assert.That(ShellCommands.Handled.Contains(Asked)).IsFalse()
+            .Because("asking sets a field. A command that ended the session for that would "
+                   + "tear the UI down to answer a question that is still on the screen.");
     }
 
     [Test]
@@ -58,11 +87,14 @@ public class FlyByHandKeyTests
         // doing something unrelated to the question on screen.
         foreach (var mode in Enum.GetValues<UiMode>().Where(m => m != UiMode.Normal))
         {
-            await Assert.That(Bindings(new KeymapContext(mode)).Any(
-                    b => b.Command == Command.FlyByHand))
-                .IsFalse()
-                .Because($"{mode} offers it, and a modal that answers a question about one "
-                       + "flight must not also open another.");
+            foreach (var command in (Command[])[Command.FlyByHand, Asked])
+            {
+                await Assert.That(Bindings(new KeymapContext(mode)).Any(
+                        b => b.Command == command))
+                    .IsFalse()
+                    .Because($"{mode} offers {command}, and a modal that answers a question "
+                           + "about one flight must not also open another.");
+            }
         }
     }
 

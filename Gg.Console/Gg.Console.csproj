@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <PackageReference Include="Terminal.Gui" />
+    <PackageReference Include="Porta.Pty" />
+    <PackageReference Include="XTerm.NET" />
   </ItemGroup>
 
   <ItemGroup>

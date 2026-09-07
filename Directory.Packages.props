@@ -23,6 +23,12 @@
          nuget.config's sipsorcery-fork source and scripts/fetch-sipsorcery.sh.
          TheForkIsTemporaryTests fails until the first of those is true. -->
     <PackageVersion Include="SIPSorcery" Version="10.0.16-gg.1" />
+    <!-- Hosting a child in a pseudo-terminal so gg can keep a bar on screen.
+         Both are net10.0 and actively published; the better-known Pty.Net and
+         XtermSharp are unlisted on nuget.org, netstandard2.0, and XtermSharp
+         depends on NStack.Core - Terminal.Gui v1's string library. -->
+    <PackageVersion Include="Porta.Pty" Version="2.2.2" />
+    <PackageVersion Include="XTerm.NET" Version="2.0.2" />
     <PackageVersion Include="TUnit" Version="1.63.25" />
     <!-- The only YAML parser in the product, and it lives in gg alone.
          Verified under Native AOT by inspecting the package rather than

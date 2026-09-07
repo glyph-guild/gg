@@ -85,6 +85,17 @@ public sealed record RunnerRow(
     bool Yours,
     bool Machine,
     string RegisteredBy,
+
+    /// <summary>The whole id, where <c>Runner</c> carries the short one.</summary>
+    /// <remarks>
+    /// <b>The grid shows eight characters and `gg runner` takes all of it.</b>
+    /// Fifteen rows of full uuid is a column of noise, so the table shortens it
+    /// - and the modal has to be able to show the whole thing, which means the
+    /// row has to still have it. Recovering it by matching a short id back
+    /// against the fleet would be a prefix comparison standing in for an
+    /// identity.
+    /// </remarks>
+    string Id,
     string Here,
     string Runner,
     string State,
@@ -285,6 +296,7 @@ public static class Rows
             // derives.
             rows.Insert(0, new RunnerRow(
                 Mine: true,
+                Id: Short(mine),
                 // NOBODY, because nothing about this row came from the control
                 // plane - it is invented from a file this machine wrote.
                 RegisteredBy: "",
@@ -403,6 +415,7 @@ public static class Rows
         Mine: mine,
         Yours: yours,
         Machine: machine || mine,
+        Id: ControlText.Strip(runner.RunnerId),
 
         // TEXT SOMEBODY ELSE CHOSE, and this is its doorway. Cleaned before
         // STORAGE rather than at render, which is the console's rule: this

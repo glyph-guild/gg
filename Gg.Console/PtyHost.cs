@@ -119,6 +119,18 @@ public static class PtyHost
 
             var typing = Forward(terminal, pty, stopping.Token);
 
+            // ONE THREAD IN THE EMULATOR AT A TIME. Two get here: this loop,
+            // writing what the child produced, and the SIGWINCH handler, resizing
+            // it. XTerm.NET makes no thread-safety promise and neither does a
+            // screen buffer being reallocated under a write - and the second
+            // hazard is gg's own, because two frames painted at once arrive
+            // spliced together on the terminal.
+            //
+            // Found by reading rather than by a failure. A test for it would be
+            // a stress loop that passes on most runs while the defect is present,
+            // which is worse than no test: it would be cited as evidence.
+            var screen = new Lock();
+
             // WHAT A PERSON DRAGGING THE CORNER OF THEIR WINDOW CAUSES. Both
             // sides have to move: the pty, so every program inside it is told,
             // and the emulator, so gg paints the shape the screen now is.
@@ -145,15 +157,19 @@ public static class PtyHost
                     return;
                 }
 
-                // Resize rather than assigning Cols and Rows: those setters are
-                // init-only, and this is the call that moves the buffer with
-                // them rather than leaving a screen that disagrees with itself.
-                emulator.Resize(width, height);
+                lock (screen)
+                {
+                    // Resize rather than assigning Cols and Rows: those setters
+                    // are init-only, and this is the call that moves the buffer
+                    // with them rather than leaving a screen that disagrees with
+                    // itself.
+                    emulator.Resize(width, height);
 
-                columns = width;
-                rows = height;
+                    columns = width;
+                    rows = height;
 
-                terminal.Paint(PtyScreen.Paint(emulator, height, width, bar));
+                    terminal.Paint(PtyScreen.Paint(emulator, height, width, bar));
+                }
             }
 
             terminal.Resized += OnResized;
@@ -164,7 +180,10 @@ public static class PtyHost
             // so the one row gg kept stayed blank for as long as the person sat
             // there. Found by an editor test, fixed here, because the bar is the
             // host's promise and not the caller's.
-            terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+            lock (screen)
+            {
+                terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+            }
 
             // READ TO THE END BEFORE ASKING FOR THE EXIT CODE. The child can
             // write and exit faster than this loop runs, and a host that
@@ -190,8 +209,15 @@ public static class PtyHost
                     break;
                 }
 
-                emulator.Write(Encoding.UTF8.GetString(buffer, 0, read));
-                terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+                lock (screen)
+                {
+                    emulator.Write(Encoding.UTF8.GetString(buffer, 0, read));
+
+                    // Read inside the lock as well: the pair is written together
+                    // by a resize, and reading them apart paints one frame with
+                    // the new height and the old width.
+                    terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar));
+                }
             }
 
             pty.WaitForExit(Timeout.Infinite);

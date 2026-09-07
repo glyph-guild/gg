@@ -52,119 +52,25 @@ public static class PaneText
     }
 
     /// <summary>
-    /// Everything known about one flight: what it is, and what happened to it.
+    /// Everything known about one flight, read top to bottom.
     /// </summary>
     /// <remarks>
-    /// <b>Out of the model, and the model is filled two ways.</b> The flight
-    /// comes from the list the boot read. The log comes from the boot for a
-    /// flight still in the air, and from <c>ConsoleFlightLog</c> on the keypress
-    /// for one that landed - which is most of them, and is why the boot stopped
-    /// fetching fifty logs to make this free. A flight whose log did not load
-    /// says so rather than reading as a flight that nothing happened to.
+    /// <para>
+    /// <b>Composed, and no longer what the screen draws.</b> This was a
+    /// StringBuilder of two-space indents standing in for columns, and it was
+    /// the whole modal: identity, scalars, the reason it cannot start and the
+    /// entire history in one <c>Label</c>. The screen now binds
+    /// <see cref="FlightDetails"/> to a frame title, a markdown view, read-only
+    /// fields and a table.
+    /// </para>
+    /// <para>
+    /// <b>It stays, because <c>StoryFieldParityTests</c> reads it</b> - and it
+    /// is composed FROM those same producers, so what it holds is what the
+    /// widgets hold. A rendering assembled independently would be a parity
+    /// guard over text nobody sees.
+    /// </para>
     /// </remarks>
-    private static string FlightDetail(AppState state)
-    {
-        if (Detailed(state) is not { } flight)
-        {
-            return "";
-        }
-
-        var text = new StringBuilder();
-
-        text.AppendLine($"  {Clean(flight.FlightNumber)}  {Clean(flight.Name)}");
-        text.AppendLine($"  id         {Clean(flight.FlightId)}");
-
-        // THE STORY'S SCALARS FIRST, because they answer the question somebody
-        // opened this to ask. `state` alone says what became of a flight and
-        // never how far it got, so a flight that never started and one that ran
-        // and was stopped both read as `open` - which is the pair a person is
-        // most often trying to tell apart.
-        var story = Story(state, flight.FlightId);
-
-        if (story is not null)
-        {
-            text.AppendLine($"  stage      {Staged(story.Stage)}");
-            text.AppendLine($"  state      {Stated(story.State)}");
-
-            if (story.HeldBy is { } holder)
-            {
-                var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";
-                text.AppendLine($"  held by    {Clean(holder.Name)}{until}");
-            }
-        }
-        else
-        {
-            var ending = LoopEnding(flight) is { Length: > 0 } outcome ? $" · {outcome}" : "";
-            text.AppendLine($"  state      {Clean(flight.State)}{ending}");
-        }
-
-        text.AppendLine($"  opened     {flight.CreatedAt:u}");
-        text.AppendLine($"  envelope   {Clean(flight.EnvelopeVersion)}");
-        text.AppendLine($"  attempts   {flight.Attempts}");
-        text.AppendLine($"  facts      {Facts(flight)}");
-
-        // WHY IT CANNOT START, in the contract's own words. The same sentence
-        // from the same function the pane and `gg show` render, so one reason is
-        // never worded three ways.
-        if (story?.Waiting is { } waiting)
-        {
-            text.AppendLine();
-            text.AppendLine($"  {Clean(Gg.Contracts.Reason.Sentence(waiting.Kind, waiting.Params))}");
-        }
-
-        if (story is { Outstanding.Count: > 0 })
-        {
-            text.AppendLine();
-            text.AppendLine("  waiting on somebody");
-
-            foreach (var owed in story.Outstanding)
-            {
-                text.AppendLine(
-                    $"    {Clean(Gg.Contracts.FlightStory.Sentence(owed.Kind, owed.Params))}");
-            }
-        }
-
-        text.AppendLine();
-
-        if (story is null)
-        {
-            // NOT "nothing happened". A story this console never fetched and a
-            // flight nothing has been recorded against are different facts, and
-            // a person shown the second when the first is true stops looking.
-            text.AppendLine("  no story was fetched for this flight.");
-            return text.ToString().TrimEnd();
-        }
-
-        if (story.Entries.Count == 0)
-        {
-            text.AppendLine("  nothing has been recorded against it yet.");
-            return text.ToString().TrimEnd();
-        }
-
-        text.AppendLine("  what happened, in order:");
-
-        foreach (var entry in story.Entries)
-        {
-            var attempt = entry.Attempt is { } which ? $"#{which} " : "";
-
-            // A SENTENCE, NOT A KIND. This printed entry.Kind beside a raw JSON
-            // detail, so a loop that ended blocked read as `loop-ended` and the
-            // agent's account of WHY - the only thing that says what to do about
-            // it - was a blob nobody reads. S32.4-02, applied to the surface a
-            // person opens when the pane is not enough.
-            text.AppendLine($"    {entry.At:u}  {attempt}"
-                          + Clean(Gg.Contracts.FlightStory.Sentence(entry.Kind, entry.Params)));
-
-            if (entry.Said is { Length: > 0 } said)
-            {
-                // Indented under the sentence, because at column zero a second
-                // line reads as another entry.
-                text.AppendLine($"        {Clean(said, lines: true).ReplaceLineEndings("\n        ")}");
-            }
-        }
-
-        return text.ToString().TrimEnd();
-    }
+    private static string FlightDetail(AppState state) => FlightDetails.Linear(state);
 
     /// <summary>
     /// The story this console holds for one flight, or null.
@@ -176,7 +82,7 @@ public static class PaneText
     /// flight's name - which is the defect the flight pane was fixed for one
     /// slice earlier, arriving through a different door.
     /// </remarks>
-    private static Gg.Contracts.FlightStory? Story(AppState state, string flightId) =>
+    internal static Gg.Contracts.FlightStory? StoryOf(AppState state, string flightId) =>
         state.Story is { } story
         && string.Equals(story.FlightId, flightId, StringComparison.Ordinal)
             ? story
@@ -454,7 +360,7 @@ public static class PaneText
 
         if (flight is not null)
         {
-            text.AppendLine($"  facts         {Facts(flight)}");
+            text.AppendLine($"  facts         {FactsOf(flight)}");
         }
 
         // WHAT IT WAITS ON, in the contract's own words. `gg show` renders the same
@@ -507,7 +413,7 @@ public static class PaneText
     /// six is a flight standing somewhere this build has no word for, and printing
     /// it raw puts a value nobody chose in front of a person deciding what to do.
     /// </remarks>
-    private static string Staged(string stage) =>
+    internal static string Staged(string stage) =>
         FlightStages.All.Contains(stage, StringComparer.Ordinal)
             ? stage
             : throw new InvalidOperationException(
@@ -519,7 +425,7 @@ public static class PaneText
     /// The plausible guess is <c>open</c>, and it would show a finished flight as
     /// one somebody is still working on.
     /// </remarks>
-    private static string Stated(string state) =>
+    internal static string Stated(string state) =>
         FlightStates.All.Contains(state, StringComparer.Ordinal)
             ? state
             : throw new InvalidOperationException(
@@ -778,7 +684,7 @@ public static class PaneText
     /// could reach one would be a pane whose output <c>--json</c> cannot
     /// reproduce.
     /// </remarks>
-    private static string Facts(FlightSummary flight)
+    internal static string FactsOf(FlightSummary flight)
     {
         if (flight.Facts.Count == 0)
         {
@@ -1378,6 +1284,26 @@ public static class PaneText
     /// Splitting the camel case would have been the same name with a space in
     /// it; these say what the thing is.
     /// </remarks>
+    /// <summary>
+    /// The same, for a modal that can name the thing it is about.
+    /// </summary>
+    /// <remarks>
+    /// <b>"This flight" is true of every flight, which is what made it worth
+    /// nothing across the top of one.</b> The mode's own title is right for a
+    /// question - a refusal is a refusal - and wrong for a document about one
+    /// subject, so the subject gets the heading when there is one. The overload
+    /// above stays: it is what a mode with nothing to name still says, and it
+    /// is what this falls back to.
+    /// </remarks>
+    public static string ModalTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.Mode is UiMode.FlightDetail
+            ? FlightDetails.Title(state)
+            : ModalTitle(state.Mode);
+    }
+
     public static string ModalTitle(UiMode mode) => mode switch
     {
         UiMode.Help => "Keys",

@@ -105,32 +105,63 @@ public class TheRunnersCursorStaysTests
         await Assert.That(state.BrowseSelected).IsEqualTo(0);
     }
 
+    /// <summary>
+    /// The four tables a tab is driven by, each told where its cursor is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Four rather than every table, since the flight modal's log arrived.</b>
+    /// The count used to be the whole ratchet - "a fifth needs a cursor of its
+    /// own too" - and the fifth came past it with the opposite answer, which is
+    /// what the count was for. A log's cursor is a person's place in a history
+    /// inside a modal; it is not kept, because a modal is a question with an
+    /// answer and a way out, and <c>AppState</c> holds what is worth keeping.
+    /// So the four are named here and the fifth is named below.
+    /// </remarks>
     [Test]
     public async Task The_view_is_told_where_the_cursor_is_rather_than_where_it_started()
     {
         // THE RATCHET, because the defect was a literal 0 passed to the fill.
-        // Every other table passes its own field, and a fourth one that passed
-        // a constant would snap back exactly as this one did.
+        // Every table a tab is driven by passes its own field, and one that
+        // passed a constant would snap back exactly as the runners' did.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
-        var fills = screen.Split("Fill(")
-            .Skip(1)
-            .Where(after => after.Contains("Rows.", StringComparison.Ordinal))
-            .ToList();
-
-        await Assert.That(fills).Count().IsEqualTo(4)
-            .Because("four tables, four fills - a fifth needs a cursor of its own too.");
-
-        foreach (var fill in fills)
+        foreach (var table in (string[])
+                 ["_flightsTable", "_browseTable", "_repositoriesTable", "_runnersTable"])
         {
-            await Assert.That(fill.Contains("Selected", StringComparison.Ordinal)).IsTrue()
+            var call = Call(screen, $"Fill({table},");
+
+            await Assert.That(call).IsNotNull()
+                .Because($"{table} is a tab's table and is filled from the model.");
+            await Assert.That(call!.Contains("Selected", StringComparison.Ordinal)).IsTrue()
                 .Because("the cursor comes from the model. A constant here is a table that "
-                       + $"resets under the person using it. Found:\n{fill[..120]}");
+                       + $"resets under the person using it. Found:\n{call}");
         }
     }
 
+    /// <summary>
+    /// The whole call, from the opening name to the semicolon that ends it.
+    /// </summary>
+    /// <remarks>
+    /// Naming the table rather than splitting on <c>Fill(</c>: the loose split
+    /// counted <c>Dim.Fill()</c> among the fills and was only ever right by the
+    /// accident of where the next one fell.
+    /// </remarks>
+    private static string? Call(string source, string opening)
+    {
+        var at = source.IndexOf(opening, StringComparison.Ordinal);
+
+        if (at < 0)
+        {
+            return null;
+        }
+
+        var end = source.IndexOf(");", at, StringComparison.Ordinal);
+
+        return end < 0 ? source[at..] : source[at..(end + 2)];
+    }
+
     [Test]
-    public async Task Every_table_is_wired_to_the_thing_that_moves_the_model()
+    public async Task Every_table_a_tab_drives_is_wired_to_the_thing_that_moves_the_model()
     {
         // THE HALF THE FILL RATCHET CANNOT SEE, and the half that was actually
         // broken. The runners table was built, added to its pane, filled from
@@ -139,7 +170,7 @@ public class TheRunnersCursorStaysTests
         // put it back. Reducer.Pointed had the arm; nothing called it.
         //
         // Arrows never reach Keymap at all: the table binds them itself and
-        // marks them handled, so this subscription IS the keyboard for these
+        // marks them handled, so this subscription IS the keyboard for those
         // four panes.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
@@ -147,13 +178,29 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(4)
-            .Because("four tables, and the count is here so a fifth has to come past this.");
-        await Assert.That(wired).IsEqualTo(built)
-            .Because($"a table nobody subscribed is a table whose cursor the model never "
-                   + $"learns about. Built {built}, wired {wired}.");
-        await Assert.That(released).IsEqualTo(built)
+        await Assert.That(built).IsEqualTo(5)
+            .Because("five tables, and the count is here so a sixth has to come past this.");
+        await Assert.That(wired).IsEqualTo(4)
+            .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
+                   + $"never learns about. Built {built}, wired {wired}.");
+        await Assert.That(released).IsEqualTo(wired)
             .Because("and each one is let go when the session is torn down, because the "
                    + "screen is rebuilt from the model on every pass.");
+    }
+
+    [Test]
+    public async Task And_the_log_is_the_one_that_must_not_be()
+    {
+        // THE FIFTH, WIRED TO NOTHING ON PURPOSE. Reducer.Pointed dispatches on
+        // the tab that has the screen, and the tab behind this modal is the
+        // flights list - so a log row landed on would move the FLIGHTS cursor,
+        // and the modal would be about one flight while the list under it
+        // pointed at another. That is the defect the flight pane was fixed for
+        // once already, arriving through a different door.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen).DoesNotContain("_flightLog.ValueChanged")
+            .Because("the log's cursor is the person's place in a history, and the model has "
+                   + "no field for it because a modal keeps nothing.");
     }
 }

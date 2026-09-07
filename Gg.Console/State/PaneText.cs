@@ -1266,6 +1266,22 @@ public static class PaneText
         };
     }
 
+    /// <summary>How a launch path composed its intent, said out loud.</summary>
+    /// <remarks>
+    /// <b>S33.4-04: a path that cannot offer both says which it is using.</b>
+    /// Two of the three doors ask; the third cannot, because a work item IS the
+    /// intent and there is no text for either composer to write. A path that
+    /// quietly used one while its neighbours asked would teach somebody that the
+    /// question is optional — so the one that does not ask gives the reason.
+    /// </remarks>
+    public static string ComposedBy(ComposingFor what) => what switch
+    {
+        ComposingFor.WorkItem =>
+            "The work item is the intent, so nothing was composed: the flight carries the "
+          + "item's provider and id, which is what keeps it linked back to the item.",
+        _ => "",
+    };
+
     public static string ModalTitle(UiMode mode) => mode switch
     {
         UiMode.Help => "Keys",

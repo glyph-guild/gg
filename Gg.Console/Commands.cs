@@ -230,6 +230,15 @@ public enum Command
     /// </remarks>
     OpenFlight,
 
+    /// <summary>Ask which way to compose a flight somebody will fly by hand.</summary>
+    /// <remarks>
+    /// <b><see cref="FlyByHand"/>'s question, and it is a different one from
+    /// <see cref="AskHowToCompose"/> only in what it is about.</b> The two
+    /// answers are the same two keys; what the loop does with them comes from
+    /// the question, which the model carries while the modal is up.
+    /// </remarks>
+    AskHowToFlyByHand,
+
     /// <summary>Ask which way to compose a new flight.</summary>
     /// <remarks>
     /// <b>A command of its own rather than <see cref="OpenFlight"/> gaining a

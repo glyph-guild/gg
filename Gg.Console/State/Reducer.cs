@@ -35,7 +35,18 @@ public static class Reducer
             // is the obvious one. This sets a field and nothing else - the loop
             // reads what it recorded, with the terminal released, and starts
             // whichever child was chosen.
-            Command.AskHowToCompose => Modal(state, UiMode.ComposeChoice),
+            Command.AskHowToCompose => Modal(state, UiMode.ComposeChoice) with
+            {
+                ComposingFor = ComposingFor.NewFlight,
+            },
+
+            // THE SAME QUESTION ABOUT A DIFFERENT FLIGHT. Both hand a child an
+            // empty buffer and take back what comes out, so the keys are the
+            // same and only the subject differs.
+            Command.AskHowToFlyByHand => Modal(state, UiMode.ComposeChoice) with
+            {
+                ComposingFor = ComposingFor.HandFlight,
+            },
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
             // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
@@ -50,7 +61,10 @@ public static class Reducer
             // else entirely - open the flight this person just declined.
             Command.CloseModal => state.Mode == UiMode.ConfirmFlight
                 ? FlightDeclined(state)
-                : state with { Mode = UiMode.Normal },
+                // AND THE QUESTION CLOSES WITH THE MODAL. One left open behind a
+                // closed one is a question the next keypress could answer by
+                // accident.
+                : state with { Mode = UiMode.Normal, ComposingFor = ComposingFor.Nothing },
 
             // ANSWERING OPENS; IT DOES NOT DECIDE, which is the shape the two
             // gate answers above already have. Both end the session and the loop

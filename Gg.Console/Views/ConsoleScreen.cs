@@ -887,52 +887,75 @@ public sealed class ConsoleScreen : Window
     /// Focus follows the tab, because the tab is the only thing on screen.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It used to follow a <c>FocusedPane</c> that tab cycled independently of
     /// what was visible. With one view on the screen there is nothing to choose
-    /// between: the queue tab focuses its list, because that is the pane a
-    /// person drives, and every other tab focuses the one pane it has.
+    /// between: whichever pane the tab bar is showing is the one a person is
+    /// driving.
+    /// </para>
+    /// <para>
+    /// <b>FOLLOWS means WHEN THE TAB CHANGES, and that used to be the same
+    /// thing.</b> <c>Render</c> ends here, and until the countdown existed a
+    /// render only ever followed a keypress - the keypress having just decided
+    /// where focus belonged, so re-asserting it changed nothing. The countdown
+    /// renders once a second whether anybody pressed anything, and re-asserting
+    /// focus then overrules the person: the runners tab's button could be
+    /// reached with an arrow and taken away again before it could be pressed.
+    /// </para>
+    /// <para>
+    /// <b>So a tab that already holds the focus is left alone.</b> A pane
+    /// reports <c>HasFocus</c> for anything inside it, so "is the focus already
+    /// in this tab" is one question with one answer - and where inside is the
+    /// person's business, not this method's.
+    /// </para>
+    /// <para>
+    /// <b>Through <c>_tabbed</c>, which the bar already uses.</b> This was a
+    /// switch with an arm per tab naming a view; an arm cannot ask whether its
+    /// tab has focus without naming a pane too, and a second list beside
+    /// <c>_tabbed</c> is the drift this console keeps finding one field at a
+    /// time. The queue keeps a line of its own because its tab has two panes
+    /// and only one of them is driven.
+    /// </para>
     /// </remarks>
     private void Focus()
     {
         if (State.Mode != UiMode.Normal)
         {
-            _modal.SetFocus();
+            if (!_modal.HasFocus)
+            {
+                _modal.SetFocus();
+            }
+
             return;
         }
 
-        switch (State.ActiveTab)
+        if (_tabbed.FirstOrDefault(t => t.Tab == State.ActiveTab).Pane is not { } pane
+            || pane.HasFocus)
         {
-            case TabId.Flights:
-                // THE TABLE, WHEN THERE IS ONE. Focus is what makes the arrow
-                // keys move the cursor a person can see, and the label is only
-                // on screen when there is nothing to point at.
-                (_flightsTable.Visible ? (View)_flightsTable : _flights).SetFocus();
-                break;
-            case TabId.Evidence:
-                _evidence.SetFocus();
-                break;
-            case TabId.Live:
-                _live.SetFocus();
-                break;
-            case TabId.Browse:
-                (_browseTable.Visible ? (View)_browseTable : _browse).SetFocus();
-                break;
-            case TabId.Repositories:
-                (_repositoriesTable.Visible ? (View)_repositoriesTable : _repositories).SetFocus();
-                break;
-            case TabId.Runners:
-                (_runnersTable.Visible ? (View)_runnersTable : _runners).SetFocus();
-                break;
-            case TabId.Checklist:
-                _checklist.SetFocus();
-                break;
-            case TabId.Envelope:
-                _envelope.SetFocus();
-                break;
-            default:
-                _queue.SetFocus();
-                break;
+            return;
         }
+
+        // WHERE FOCUS LANDS WHEN THE TAB IS NEW. The tables take it when they
+        // have rows, because focus is what makes the arrow keys move a cursor a
+        // person can see, and the label beside each is only on screen when
+        // there is nothing to point at.
+        View landing = State.ActiveTab switch
+        {
+            TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
+            TabId.Evidence => _evidence,
+            TabId.Live => _live,
+            TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
+            TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
+            TabId.Runners => _runnersTable.Visible ? _runnersTable : _runners,
+            TabId.Checklist => _checklist,
+            TabId.Envelope => _envelope,
+
+            // The queue tab is the one with two panes, and the list is the half
+            // a person drives - the flight beside it is what the cursor means.
+            _ => _queue,
+        };
+
+        landing.SetFocus();
     }
 
     protected override void Dispose(bool disposing)

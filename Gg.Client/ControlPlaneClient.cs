@@ -251,7 +251,12 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     {
         using var request = Request(HttpMethod.Get, "/v1/auth/whoami", sessionToken);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
-        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        // THE ONE DOOR WHERE A REFUSAL IS THE ANSWER. This is the probe
+        // `gg doctor` uses to ask whether a session is still good, and it says
+        // so with null - throwing here would take the question away from the
+        // one command whose job is to ask it.
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken, refusalIsAnAnswer: true);
 
         return response.StatusCode == HttpStatusCode.Unauthorized
             ? null
@@ -1186,17 +1191,58 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>
-    /// Surfaces a protocol-floor refusal as something actionable rather than a
-    /// bare status code.
+    /// Surfaces a refusal as something actionable rather than a bare status
+    /// code.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here because every call comes through it.</b> Thirty-six doors, and a
+    /// per-door check would be thirty-six chances to forget - the one forgotten
+    /// being whichever verb somebody happened to press.
+    /// </para>
+    /// </remarks>
+    /// <param name="refusalIsAnAnswer">
+    /// Set where a 401 is what the caller ASKED - <c>WhoAmIAsync</c> is the
+    /// probe `gg doctor` uses to find out whether a session is still good, and
+    /// it answers null. Throwing there would take the question away from the
+    /// one command whose job is to ask it.
+    /// </param>
     private static async Task ThrowIfProtocolRefusedAsync(
-        HttpResponseMessage response, CancellationToken cancellationToken)
+        HttpResponseMessage response,
+        CancellationToken cancellationToken,
+        bool refusalIsAnAnswer = false)
     {
         if (response.StatusCode == HttpStatusCode.UpgradeRequired)
         {
             var detail = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new ProtocolTooOldException(
                 $"This gg is too old for the control plane. {detail}".Trim());
+        }
+
+        // A SESSION THE CONTROL PLANE WILL NOT TAKE, which is the same fact as
+        // having none and was reaching a person as a status code. Every verb
+        // checks that a session FILE exists and none can know whether it is
+        // still good; this is the far side saying so, and it is the only
+        // authority on it - an expiry read off the stored ExpiresAt would miss
+        // a session revoked, a tenant removed, and a laptop whose clock is
+        // wrong.
+        //
+        // ONLY WHERE ONE WAS SENT, and the sentence is why: "this session is no
+        // longer valid" is false about a call that carried none. The ping, the
+        // version read and the device-authorization pair are all
+        // unauthenticated, and a 401 on one of those is a different thing that
+        // signing in would not fix.
+        //
+        // NOT 403 either. Signed in and not allowed is a different fact, and
+        // offering to sign in again would send somebody round a loop that
+        // cannot help them - a runner token on a developer door is refused for
+        // a reason signing in does not change.
+        if (!refusalIsAnAnswer
+            && response.StatusCode == HttpStatusCode.Unauthorized
+            && response.RequestMessage?.Headers.Contains(GgVersions.SessionHeader) == true)
+        {
+            throw new NotSignedInException(
+                "This session is no longer valid. Run gg login.");
         }
     }
 }

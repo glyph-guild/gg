@@ -48,12 +48,54 @@ public class RawModeTests
     [DllImport("libc", SetLastError = true)]
     private static extern int close(int fd);
 
-    private const int ORdWr = 2;
+    [DllImport("libc", SetLastError = true)]
+    private static extern int grantpt(int fd);
 
-    private static int OpenTerminal()
+    [DllImport("libc", SetLastError = true)]
+    private static extern int unlockpt(int fd);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern IntPtr ptsname(int fd);
+
+    [DllImport("libc", SetLastError = true, EntryPoint = "open")]
+    private static extern int open_(string path, int flags);
+
+    private const int ORdWr = 2;
+    private const int ONoctty = 0x20000;
+
+    /// <summary>
+    /// The SLAVE side of a fresh pseudo-terminal.
+    /// </summary>
+    /// <remarks>
+    /// <b>The slave, not the master, and the distinction is the whole point.</b>
+    /// <c>posix_openpt</c> hands back the master - the end a terminal EMULATOR
+    /// holds - and termios settings belong to the slave, the end a program
+    /// believes is its terminal. Asking the master about its line discipline
+    /// answers about nothing, which is what a first version of this test did.
+    /// </remarks>
+    private static (int Master, int Slave) OpenTerminal()
     {
-        var fd = posix_openpt(ORdWr);
-        return fd;
+        var master = posix_openpt(ORdWr | ONoctty);
+        if (master < 0 || grantpt(master) != 0 || unlockpt(master) != 0)
+        {
+            return (-1, -1);
+        }
+
+        var name = Marshal.PtrToStringAnsi(ptsname(master));
+        if (name is null)
+        {
+            close(master);
+            return (-1, -1);
+        }
+
+        var slave = open_(name, ORdWr | ONoctty);
+        if (slave < 0)
+        {
+            close(master);
+            return (-1, -1);
+        }
+
+        return (master, slave);
     }
 
     [Test]
@@ -62,7 +104,7 @@ public class RawModeTests
         // The two properties the host actually needs. Canonical mode holds
         // input until Enter, which makes a keystroke-driven child unusable;
         // echo draws what is typed on top of what gg paints.
-        var fd = OpenTerminal();
+        var (master, fd) = OpenTerminal();
         await Assert.That(fd).IsGreaterThan(0)
             .Because("this test needs a real terminal to configure, and without one it "
                    + "would be asserting about nothing.");
@@ -86,6 +128,7 @@ public class RawModeTests
         finally
         {
             close(fd);
+            close(master);
         }
     }
 
@@ -96,7 +139,7 @@ public class RawModeTests
         // success on the strength of having been asked, and was believed while
         // reads blocked forever. Describe must answer from the terminal, so
         // changing the terminal behind its back changes what it says.
-        var fd = OpenTerminal();
+        var (master, fd) = OpenTerminal();
         await Assert.That(fd).IsGreaterThan(0);
 
         try
@@ -113,6 +156,7 @@ public class RawModeTests
         finally
         {
             close(fd);
+            close(master);
         }
     }
 
@@ -122,7 +166,7 @@ public class RawModeTests
         // Not "puts back something reasonable". The terminal belongs to whoever
         // ran gg, and a session that ends with different settings from the ones
         // it found is one that changed a person's shell.
-        var fd = OpenTerminal();
+        var (master, fd) = OpenTerminal();
         await Assert.That(fd).IsGreaterThan(0);
 
         try
@@ -136,6 +180,7 @@ public class RawModeTests
         finally
         {
             close(fd);
+            close(master);
         }
     }
 
@@ -161,8 +206,11 @@ public class RawModeTests
         RawMode.Restore(-1, null);
         RawMode.Restore(0, null);
 
-        await Assert.That(true).IsTrue()
-            .Because("reaching here without throwing is the assertion.");
+        // Reaching here is the assertion; this states it against something the
+        // analyzer will accept, and something a reader can see is a
+        // consequence of the two calls above rather than of nothing.
+        await Assert.That(RawMode.Describe(-1).IsTerminal).IsFalse()
+            .Because("restoring nothing changed nothing, including whether -1 is a tty.");
     }
 
     [Test]
@@ -174,11 +222,26 @@ public class RawModeTests
         // there, and has no answer at all on Windows.
         var source = ConsoleSource.Text("Gg.Console", "RawMode.cs");
 
-        foreach (var shelled in (string[])["stty", "Process.Start", "ProcessStartInfo"])
+        // THE MECHANISM, NOT THE WORD. A first version of this forbade the
+        // string "stty" anywhere in the file and fired on the comment
+        // explaining why that program is no longer used - which is prose being
+        // punished for describing the decision the guard exists to enforce.
+        // What must not come back is starting a process.
+        foreach (var spawning in (string[])
+            ["Process.Start", "ProcessStartInfo", "System.Diagnostics"])
         {
-            await Assert.That(source).DoesNotContain(shelled, StringComparison.Ordinal)
-                .Because($"'{shelled}' is how this was done in the spike, and the reasons it "
-                       + "changed are in this file's own remarks.");
+            await Assert.That(source).DoesNotContain(spawning, StringComparison.Ordinal)
+                .Because($"'{spawning}' is how the spike did this: a process spawn per call, "
+                       + "a dependency on a binary being present, and its output parsed to "
+                       + "discover what had happened.");
+        }
+
+        // And the reason it is worth a test at all: the calls that replaced it.
+        foreach (var call in (string[])["tcgetattr", "tcsetattr"])
+        {
+            await Assert.That(source).Contains(call, StringComparison.Ordinal)
+                .Because("a guard that only forbids leaves the field open to a third way of "
+                       + "doing it; this says which way is meant.");
         }
     }
 }

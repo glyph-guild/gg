@@ -35,6 +35,187 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class PlatformToolServerTests
 {
+    /// <summary>A conversation with the server, with somewhere to record an intent.</summary>
+    /// <remarks>
+    /// <b>The path is an ARGUMENT, not an environment read, and that is what
+    /// keeps this type a function of what it is handed.</b> Reading
+    /// <c>GG_INTENT_PATH</c> in here would make the server depend on process
+    /// state, and would make every test that exercised it mutate something
+    /// global while the rest of the suite ran beside it in parallel. The verb
+    /// that starts the server reads the environment; the server is told.
+    /// </remarks>
+    private static async Task<IReadOnlyList<JsonDocument>> RecordingAsync(
+        string? intentPath, params string[] lines)
+    {
+        var output = new StringWriter();
+        await PlatformToolServer.RunAsync(
+            new StringReader(string.Join('\n', lines)), output, intentPath);
+
+        return output.ToString()
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line => JsonDocument.Parse(line))
+            .ToList();
+    }
+
+    /// <summary>A directory this test owns, for an intent to land in.</summary>
+    private static DirectoryInfo Somewhere() => Directory.CreateDirectory(Path.Combine(
+        Path.GetTempPath(), "gg-intent-test-" + Guid.NewGuid().ToString("N")[..8]));
+
+    /// <summary>A tools/call for the intent tool, named from the declaration.</summary>
+    /// <remarks>
+    /// The NAME comes from <see cref="IntentTool"/> rather than being typed here,
+    /// so a test cannot go on passing against a tool the server has renamed.
+    /// </remarks>
+    private static string CallIntent(string intent) =>
+        """
+        {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"TOOL","arguments":{"intent":"SAID"}}}
+        """
+        .Replace("TOOL", IntentTool.Name, StringComparison.Ordinal)
+        .Replace("SAID", intent, StringComparison.Ordinal);
+
+    private static bool IsError(JsonDocument answer) =>
+        answer.RootElement.TryGetProperty("result", out var result)
+        && result.TryGetProperty("isError", out var flag)
+        && flag.GetBoolean();
+
+    private static string Said(JsonDocument answer) =>
+        answer.RootElement.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
+
+    [Test]
+    public async Task One_declaration_owns_the_intent_tools_three_spellings()
+    {
+        // THE THIRD INSTANCE OF THIS HAZARD IN THIS FEATURE AREA, and every
+        // one so far has been silent rather than loud. The launch's allow-list
+        // uses the qualified name, tools/list declares the bare one, and
+        // whatever reads the result looks for the qualified one - so a
+        // disagreement means either an agent granted a tool that does not
+        // exist, or gg waiting for a call the agent was never offered.
+        await Assert.That(IntentTool.Qualified)
+            .IsEqualTo($"mcp__{IntentTool.Server}__{IntentTool.Name}")
+            .Because("the qualified name is composed from the other two rather than typed "
+                   + "beside them, which is the only arrangement that cannot drift.");
+
+        await Assert.That(IntentTool.Server).IsEqualTo(NominationTool.Server)
+            .Because("three tools on ONE server. A second server key would shadow the first "
+                   + "if an operator ever configured a reader under it.");
+    }
+
+    [Test]
+    public async Task The_intent_tool_is_declared_beside_the_other_two()
+    {
+        // Declared always, granted never by default: the server's own note says
+        // the grant is decided in the launch's allow-list rather than by varying
+        // tools/list, because a list that varied by envelope would be a second
+        // place the same rule lives.
+        var answers = await RecordingAsync(intentPath: null,
+            """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
+
+        var declared = answers[0].RootElement
+            .GetProperty("result").GetProperty("tools").EnumerateArray()
+            .Select(tool => tool.GetProperty("name").GetString())
+            .ToList();
+
+        await Assert.That(declared).Contains(IntentTool.Name)
+            .Because("an agent cannot call a tool it was never offered, however the launch "
+                   + "granted it. Found: " + string.Join(", ", declared));
+    }
+
+    [Test]
+    public async Task An_intent_arrives_as_a_file_written_whole()
+    {
+        // THE HAND-BACK. The tool call is the structured channel - the moment an
+        // agent SAYS it is done - and the file is transport between two gg
+        // processes rather than something gg has to guess the meaning of.
+        var notes = Somewhere();
+        var path = Path.Combine(notes.FullName, "intent.txt");
+
+        try
+        {
+            var answers = await RecordingAsync(path, CallIntent("Make the pool decider stop scanning"));
+
+            await Assert.That(IsError(answers[0])).IsFalse()
+                .Because("a receipt, not a refusal: " + Said(answers[0]));
+
+            await Assert.That(File.Exists(path)).IsTrue();
+            await Assert.That(await File.ReadAllTextAsync(path))
+                .IsEqualTo("Make the pool decider stop scanning")
+                .Because("what the agent composed is what gg reads - no wrapper, no format to "
+                       + "version, the same bytes the editor path would have produced.");
+
+            // WRITTEN BY RENAME, which is why gg may watch it. A write in place
+            // is visible half-finished, and gg watching would read a truncated
+            // intent and open a flight with it. The observable consequence is
+            // that nothing is left lying beside it.
+            await Assert.That(notes.GetFiles().Select(f => f.Name)).IsEquivalentTo((string[])["intent.txt"])
+                .Because("a temp file left behind is the tell that the write was not a rename.");
+        }
+        finally
+        {
+            notes.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task A_session_with_nowhere_to_record_says_so()
+    {
+        // S33.3-09. An agent that cannot submit must not look like one that
+        // chose not to - and this is the ordinary case on the fleet path, where
+        // the server runs with no composing session at all.
+        var answers = await RecordingAsync(intentPath: null, CallIntent("something worth doing"));
+
+        await Assert.That(IsError(answers[0])).IsTrue()
+            .Because("silence here is indistinguishable from an agent that declined.");
+        await Assert.That(Said(answers[0])).Contains("Nothing was recorded")
+            .Because("the same words the other two tools use for the same fact.");
+    }
+
+    [Test]
+    public async Task An_empty_intent_is_refused_rather_than_written()
+    {
+        // Borrowed from FlightIntent.Validate rather than invented here: an
+        // intent of kind text whose text is empty is already refused on the
+        // wire, so accepting one would only move the refusal somewhere less
+        // helpful.
+        var notes = Somewhere();
+        var path = Path.Combine(notes.FullName, "intent.txt");
+
+        try
+        {
+            var answers = await RecordingAsync(path, CallIntent("   "));
+
+            await Assert.That(IsError(answers[0])).IsTrue();
+            await Assert.That(File.Exists(path)).IsFalse()
+                .Because("a flight opened with nothing in it is worse than no flight.");
+        }
+        finally
+        {
+            notes.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task The_last_intent_before_the_session_ends_is_the_one_that_counts()
+    {
+        // A person correcting themselves is the ordinary case, not an error, so
+        // the second call replaces the first rather than being refused.
+        var notes = Somewhere();
+        var path = Path.Combine(notes.FullName, "intent.txt");
+
+        try
+        {
+            var answers = await RecordingAsync(path,
+                CallIntent("first thought"), CallIntent("what I actually meant"));
+
+            await Assert.That(answers.Count).IsEqualTo(2);
+            await Assert.That(IsError(answers[1])).IsFalse();
+            await Assert.That(await File.ReadAllTextAsync(path)).IsEqualTo("what I actually meant");
+        }
+        finally
+        {
+            notes.Delete(recursive: true);
+        }
+    }
+
     private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines)
     {
         var output = new StringWriter();

@@ -454,6 +454,11 @@ public static class ConsoleProjection
             VerbResult.Identity identity => state with
             {
                 Notices = identity.Value.Notices,
+
+                // ALREADY IN THE ANSWER. This verb is asked for the notices
+                // row; the id came with it every time and was dropped, so the
+                // console knew who it was and could not say.
+                PrincipalId = identity.Value.PrincipalId,
                 Diagnosis = null,
             },
             // References, never secrets. There is nothing in a CredentialList

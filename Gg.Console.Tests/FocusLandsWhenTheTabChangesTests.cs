@@ -56,11 +56,17 @@ public class FocusLandsWhenTheTabChangesTests
     [Test]
     public async Task A_modal_takes_the_focus_once_and_then_keeps_it()
     {
-        await Assert.That(FocusChange.Wanted(UiMode.FlightDetail, TabId.Runners, TabId.Runners, false))
+        // HELP RATHER THAN THE FLIGHT, since the flight modal became several
+        // widgets and names which one it wants. The rule here is the one every
+        // modal shares - it takes the focus once - and Help is a modal with
+        // nothing inside it to choose between, so it states that rule and
+        // nothing else. Where the flight's lands is
+        // FocusReachesIntoTheFlightModalTests.
+        await Assert.That(FocusChange.Wanted(UiMode.Help, TabId.Runners, TabId.Runners, false))
             .IsEqualTo(FocusTarget.Modal)
             .Because("a modal owns the keyboard, so it has to hold the focus too.");
 
-        await Assert.That(FocusChange.Wanted(UiMode.FlightDetail, TabId.Runners, TabId.Runners, true))
+        await Assert.That(FocusChange.Wanted(UiMode.Help, TabId.Runners, TabId.Runners, true))
             .IsEqualTo(FocusTarget.LeaveAlone)
             .Because("and once it has it, re-asserting it every second would move a cursor "
                    + "inside the modal exactly as it moved one behind it.");

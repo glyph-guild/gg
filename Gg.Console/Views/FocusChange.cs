@@ -9,6 +9,17 @@ public enum FocusTarget
     /// <summary>The modal, which owns the keyboard while it is open.</summary>
     Modal,
 
+    /// <summary>
+    /// The log inside the flight modal, which is the part of it with a cursor.
+    /// </summary>
+    /// <remarks>
+    /// A modal made of widgets has to say WHICH widget, and the frame is not an
+    /// answer - Terminal.Gui would pick the first focusable child, which is the
+    /// intent, and an arrow key there scrolls a document instead of walking the
+    /// history a person opened the modal to walk.
+    /// </remarks>
+    FlightLog,
+
     /// <summary>The tab on screen, wherever that tab says focus lands.</summary>
     Tab,
 }
@@ -46,7 +57,12 @@ public static class FocusChange
     public static FocusTarget Wanted(
         UiMode mode, TabId showing, TabId? landed, bool modalHasFocus) => (mode, landed) switch
     {
-        (not UiMode.Normal, _) => modalHasFocus ? FocusTarget.LeaveAlone : FocusTarget.Modal,
+        (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
+
+        // WHICH WIDGET, for the one modal that is made of several. The rest are
+        // a few lines and two keys, and the frame is the whole of them.
+        (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
+        (not UiMode.Normal, _) => FocusTarget.Modal,
         (_, { } already) when already == showing => FocusTarget.LeaveAlone,
         _ => FocusTarget.Tab,
     };

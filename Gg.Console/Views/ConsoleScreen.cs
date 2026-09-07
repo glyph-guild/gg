@@ -405,6 +405,17 @@ public sealed class ConsoleScreen : Window
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
+
+            // A STOP, NOT A GROUP, AND EVERY CONTAINER ON THE WAY DOWN NEEDS
+            // TO BE ONE. Focus advances by asking a view for its DIRECT
+            // subviews whose TabStop matches the behaviour being advanced, so a
+            // container that does not match is not descended into - its
+            // children are simply not candidates. FrameView is created as a
+            // TabGroup, so with tab the intent, the fields and the log were all
+            // invisible to navigation and focus could not leave the one control
+            // it started on. Measured against the library's own AdvanceFocus,
+            // which would not move either.
+            TabStop = TabBehavior.TabStop,
         };
 
         // A MARKDOWN VIEW, because what is in it is markdown. `gg fly' takes
@@ -436,6 +447,15 @@ public sealed class ConsoleScreen : Window
             // waiting on three people has three rows more than one waiting on
             // nobody, and the log below has to start under whichever it is.
             Height = 0,
+
+            // FOCUSABLE BECAUSE ITS CHILDREN ARE. Terminal.Gui will not focus a
+            // view whose SuperView cannot be, and a plain View is created with
+            // CanFocus false - so ten read-only fields nobody could put a cursor
+            // in, which is the only reason they are fields. A stop as well as
+            // focusable, because navigation descends only through containers
+            // that match the behaviour it is advancing.
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
         };
 
         _flightLogPane = new FrameView
@@ -445,6 +465,9 @@ public sealed class ConsoleScreen : Window
             Y = Pos.Bottom(_flightFields),
             Width = Dim.Fill(),
             Height = Dim.Fill(),
+
+            // The same, and see the intent's frame for why.
+            TabStop = TabBehavior.TabStop,
         };
         _flightLog = CollectionViews.Table();
 
@@ -465,7 +488,17 @@ public sealed class ConsoleScreen : Window
         _flightLogAbsent = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         _flightLogPane.Add(_flightLog, _flightLogAbsent);
 
-        _flightBody = new View { Width = Dim.Fill(), Height = Dim.Fill(), Visible = false };
+        // FOCUSABLE, FOR THE SAME REASON AND WITH MORE AT STAKE: this one is
+        // between the modal and ALL THREE regions, so with it left as a plain
+        // View the whole modal was a picture.
+        _flightBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
         _flightBody.Add(_flightIntentPane, _flightFields, _flightLogPane);
 
         // THE INTENT IS AS TALL AS WHAT IS IN IT, capped against the room there
@@ -1377,6 +1410,15 @@ public sealed class ConsoleScreen : Window
         switch (FocusChange.Wanted(State.Mode, State.ActiveTab, _landed, _modal.HasFocus))
         {
             case FocusTarget.LeaveAlone:
+                return;
+
+            case FocusTarget.FlightLog:
+                // THE TABLE WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE - the
+                // same fallback the tabs make, and for the same reason: focus
+                // is what makes the arrows move a cursor a person can see, and
+                // an empty log has none to move.
+                (_flightLog.Visible ? _flightLog : (View)_modal).SetFocus();
+                _landed = null;
                 return;
 
             case FocusTarget.Modal:

@@ -112,7 +112,10 @@ public sealed class PtyEditorSession : IEditorSession
                     parts[0],
                     [.. parts.Skip(1), file],
                     Directory.GetCurrentDirectory(),
-                    _bar,
+                    // NOTHING CHANGES WHILE AN EDITOR IS UP. Saving and quitting
+                    // is what ends this, and the editor says so itself - so the
+                    // one sentence is the whole of what gg has to add.
+                    () => _bar,
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (

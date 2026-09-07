@@ -60,7 +60,10 @@ public class PtyHostTests
             command: "/bin/sh",
             arguments: ["-c", script],
             workingDirectory: Path.GetTempPath(),
-            bar: bar,
+            // A CONSTANT WRAPPED, because the host asks for the bar each frame -
+            // what it says changes while a composing session runs, and these
+            // tests are about the frame rather than about what is written on it.
+            bar: () => bar,
             CancellationToken.None);
 
     [Test]

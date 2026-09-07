@@ -332,9 +332,15 @@ public sealed class ConsoleLoop(
 
                 case Command.OpenSignInUri:
                 case Command.CopySignInUri:
-                    // THE LINK ON THE SCREEN, and nothing when there is none:
+                case Command.CopySignInCode:
+                    // WHAT IS ON THE SCREEN, and nothing when there is none:
                     // the keys are only offered once a code is showing, and
                     // this is the same fact asserted where it is acted on.
+                    //
+                    // ONE PORT FOR BOTH COPIES, because putting text on a
+                    // clipboard is one act whatever the text is - the code and
+                    // the link differ in which line of the modal they came off,
+                    // and nowhere else.
                     state = state.SignIn is not { VerificationUri.Length: > 0 } showing
                         ? state with
                         {
@@ -342,7 +348,9 @@ public sealed class ConsoleLoop(
                         }
                         : Linked(
                             state,
-                            showing.VerificationUri,
+                            outcome.Exit == Command.CopySignInCode
+                                ? showing.UserCode
+                                : showing.VerificationUri,
                             outcome.Exit == Command.OpenSignInUri ? openUri : copyUri,
                             outcome.Exit == Command.OpenSignInUri ? "open a browser" : "copy");
                     break;

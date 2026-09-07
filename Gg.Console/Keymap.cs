@@ -296,16 +296,30 @@ public static class Keymap
         UiMode.SignIn => context.SignInStarted
             ?
             [
-                // THE LINK, WHICH A PERSON OTHERWISE READS ACROSS BY HAND. gg
-                // owns this terminal, so the URL on the screen cannot be
-                // clicked and cannot be selected without fighting the alternate
-                // screen. Both are here rather than in the step before, because
-                // there is no URL until a code is showing.
-                new(KeyStroke.Char('o'), Command.OpenSignInUri, "open it")
+                // WHAT A PERSON OTHERWISE READS ACROSS BY HAND. gg owns this
+                // terminal, so nothing on the screen can be clicked and nothing
+                // can be selected without fighting the alternate screen. All
+                // three are here rather than in the step before, because there
+                // is no URL and no code until one is showing.
+                // KEYED ON THE LABELS THE MODAL DRAWS. It writes `Open:` and
+                // `Code:`, so `o` and `c` are read off the screen rather than
+                // learned, and the link takes `l` - which is what is left and
+                // what it is.
+                new(KeyStroke.Char('o'), Command.OpenSignInUri, "open in browser")
                 {
                     When = "once a code is showing",
                 },
-                new(KeyStroke.Char('c'), Command.CopySignInUri, "copy the link")
+                new(KeyStroke.Char('l'), Command.CopySignInUri, "copy the link")
+                {
+                    When = "once a code is showing",
+                },
+
+                // AND THE CODE, which is the half that has to be TYPED. The
+                // link can be opened; the code has to arrive in a box in a
+                // browser, and reading eight characters across by hand from a
+                // terminal that will not let them be selected is the one part
+                // of this a person could get wrong.
+                new(KeyStroke.Char('c'), Command.CopySignInCode, "copy the code")
                 {
                     When = "once a code is showing",
                 },

@@ -146,6 +146,7 @@ public enum Command
     /// across by hand is worst.
     /// </remarks>
     CopySignInUri,
+    CopySignInCode,
 
     /// <summary>Show what the runner on this machine is doing.</summary>
     /// <remarks>
@@ -341,6 +342,7 @@ public static class ShellCommands
         // A browser and the clipboard: a child process each.
         Command.OpenSignInUri,
         Command.CopySignInUri,
+        Command.CopySignInCode,
 
         // Signals one, and spawns one again after.
         Command.StopRunner,

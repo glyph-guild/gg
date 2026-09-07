@@ -115,7 +115,78 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
     public async Task The_columns_are_named_the_way_a_log_names_them()
     {
         await Assert.That(Rows.LogColumns).IsEquivalentTo(
-            (IReadOnlyList<string>)["time", "attempt", "event", "detail"]);
+            (IReadOnlyList<string>)["", "time", "attempt", "event"]);
+    }
+
+    /// <summary>
+    /// The detail has no column, because a column is the wrong shape for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It had one and it was 29 characters wide.</b> time takes 20, attempt
+    /// takes its own heading at 7, and an event sentence runs to 54 - so on a
+    /// full-width modal the prose a person opened the log to read got what was
+    /// left, and what was left was a quarter of a line. Unwrapping into it
+    /// helped and did not fix it: six short lines instead of one truncated one.
+    /// </para>
+    /// <para>
+    /// <b>A table cannot span cells, so the column had to go rather than
+    /// grow.</b> Dropping it gives every one of those characters to event -
+    /// which is the last column and expands - so the detail unwraps under its
+    /// entry at about 82 instead of 29, and the event sentences stop being
+    /// truncated too.
+    /// </para>
+    /// <para>
+    /// <b>What replaces the preview is a mark.</b> A truncated quarter-line was
+    /// never readable; what it did do was say WHICH entries have something
+    /// written against them, and one character in a nameless column says that
+    /// without pretending to be the text.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task The_detail_has_no_column_of_its_own()
+    {
+        await Assert.That(Rows.LogColumns).DoesNotContain("detail");
+
+        await Assert.That(Rows.LogColumns[0]).IsEmpty()
+            .Because("a heading over a column of marks is a word explaining a symbol that "
+                   + "already explains itself - the same argument the runners' and the "
+                   + "repositories' first columns make.");
+    }
+
+    [Test]
+    public async Task An_entry_with_something_written_against_it_is_marked()
+    {
+        var collapsed = Rows.Unwrapped(Rows.Log(Opened(cursor: 0)), selected: 0, width: 40);
+
+        await Assert.That(collapsed[0].Mark).IsEmpty()
+            .Because("the first entry has nothing written against it, selected or not.");
+        await Assert.That(collapsed[1].Mark).IsNotEmpty()
+            .Because("the second does, and a person who cannot see that will never move the "
+                   + "cursor onto it.");
+    }
+
+    [Test]
+    public async Task And_the_mark_says_whether_it_is_open()
+    {
+        var closed = Rows.Unwrapped(Rows.Log(Opened(cursor: 0)), selected: 0, width: 40);
+        var open = Rows.Unwrapped(Rows.Log(Opened(cursor: 1)), selected: 1, width: 40);
+
+        await Assert.That(open[1].Mark).IsNotEqualTo(closed[1].Mark)
+            .Because("one entry is showing its detail and the other is not, and the mark is "
+                   + "the only thing on the row that could say so.");
+    }
+
+    [Test]
+    public async Task A_continuation_carries_no_mark()
+    {
+        var shown = Rows.Unwrapped(Rows.Log(Opened(cursor: 1)), selected: 1, width: 40);
+
+        foreach (var row in shown.Where(r => r.Entry == 1).Skip(1))
+        {
+            await Assert.That(row.Mark).IsEmpty()
+                .Because("a mark repeated down one entry reads as several entries.");
+        }
     }
 
     [Test]
@@ -166,11 +237,12 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
     public async Task Nothing_of_what_was_written_is_dropped()
     {
         var shown = Rows.Unwrapped(Rows.Log(Opened(cursor: 1)), selected: 1, width: 20);
-        var rebuilt = string.Join(" ", shown.Where(r => r.Entry == 1).Select(r => r.Detail));
+        var rebuilt = string.Join(
+            " ", shown.Where(r => r.Entry == 1).Skip(1).Select(r => r.Event));
 
         await Assert.That(rebuilt).IsEqualTo(LongSaid)
             .Because("unwrapping is a line break, not an edit: every word comes back in "
-                   + "order.");
+                   + "order, under the entry it belongs to.");
     }
 
     [Test]
@@ -178,9 +250,9 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
     {
         var shown = Rows.Unwrapped(Rows.Log(Opened(cursor: 1)), selected: 1, width: 20);
 
-        foreach (var row in shown.Where(r => r.Entry == 1))
+        foreach (var row in shown.Where(r => r.Entry == 1).Skip(1))
         {
-            await Assert.That(row.Detail.Length).IsLessThanOrEqualTo(20)
+            await Assert.That(row.Event.Length).IsLessThanOrEqualTo(20)
                 .Because($"'{row.Detail}' would be truncated by the widget, which is the "
                        + "thing being fixed.");
         }
@@ -197,11 +269,12 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
         foreach (var row in carried)
         {
             await Assert.That(row.Time).IsEmpty();
-            await Assert.That(row.Attempt).IsEmpty();
-            await Assert.That(row.Event).IsEmpty()
+            await Assert.That(row.Attempt).IsEmpty()
                 .Because("a timestamp repeated down the left of one entry reads as several "
                        + "things happening at once.");
-            await Assert.That(row.Detail).IsNotEmpty();
+            await Assert.That(row.Event).IsNotEmpty()
+                .Because("the wide column is where a continuation's text goes, because it is "
+                       + "the only one with room for prose.");
         }
     }
 
@@ -216,12 +289,16 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
     }
 
     [Test]
-    public async Task A_detail_that_already_fits_stays_one_row()
+    public async Task A_detail_that_already_fits_still_goes_under_its_entry()
     {
         var shown = Rows.Unwrapped(Rows.Log(Opened(cursor: 1)), selected: 1, width: 200);
 
-        await Assert.That(shown.Count).IsEqualTo(3);
-        await Assert.That(shown[1].Detail).IsEqualTo(LongSaid);
+        await Assert.That(shown.Count).IsEqualTo(4)
+            .Because("one line under the entry rather than beside it: the sentence and the "
+                   + "prose are two different things to read and sharing a row made the "
+                   + "longer one look like part of the shorter one.");
+        await Assert.That(shown[2].Event).IsEqualTo(LongSaid);
+        await Assert.That(shown[2].Entry).IsEqualTo(1);
     }
 
     [Test]
@@ -241,7 +318,7 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
         var long_ = rows[1] with { Detail = new string('x', 45) };
 
         var shown = Rows.Unwrapped([rows[0], long_, rows[2]], selected: 1, width: 20);
-        var rebuilt = string.Concat(shown.Where(r => r.Entry == 1).Select(r => r.Detail));
+        var rebuilt = string.Concat(shown.Where(r => r.Entry == 1).Skip(1).Select(r => r.Event));
 
         await Assert.That(rebuilt).IsEqualTo(new string('x', 45))
             .Because("a path or a hash with no spaces in it is exactly the thing somebody "
@@ -255,12 +332,16 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
     {
         var rows = Rows.Log(Opened());
 
-        // time is 20 wide, attempt is its heading at 7, and event is the
-        // longest sentence - each with one column of separator after it.
+        // The mark is one wide, time is 20, attempt is its own heading at 7 -
+        // each with a column of separator after it. Event is what is left,
+        // because it is the last column and expands into it, and that is what
+        // a continuation gets to wrap into.
         var width = Rows.DetailWidth(rows, available: 100);
-        var events = rows.Max(r => r.Event.Length);
 
-        await Assert.That(width).IsEqualTo(100 - (20 + 1) - (7 + 1) - (events + 1));
+        await Assert.That(width).IsEqualTo(100 - (1 + 1) - (20 + 1) - (7 + 1));
+        await Assert.That(width).IsGreaterThan(60)
+            .Because("the whole point of dropping the detail column is that prose gets a "
+                   + "line to live on rather than a quarter of one.");
     }
 
     [Test]
@@ -276,7 +357,7 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
     {
         // THE COLUMNS MUST NOT JITTER. A continuation row is empty in the three
         // columns that size themselves, so expanding one cannot change where
-        // the detail column starts - otherwise the whole table would shift
+        // the wide column starts - otherwise the whole table would shift
         // sideways as the cursor moved.
         var rows = Rows.Log(Opened(cursor: 1));
         var shown = Rows.Unwrapped(rows, selected: 1, width: 30);

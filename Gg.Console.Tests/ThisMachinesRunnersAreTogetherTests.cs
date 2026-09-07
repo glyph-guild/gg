@@ -32,8 +32,13 @@ namespace Gg.Console.Tests;
 public class ThisMachinesRunnersAreTogetherTests
 {
     private const string Machine = "Kevins-MBP";
-    private static RunnerSummary Runner(string id, string label, string state = RunnerStates.Offline) =>
-        new() { RunnerId = id, Label = label, State = state };
+    private static RunnerSummary Runner(
+        string id, string label, string state = RunnerStates.Offline, string by = "") =>
+        new() { RunnerId = id, Label = label, State = state, RegisteredByPrincipalId = by };
+
+    private const string Me = "01a062f3-42a5-73a4-8bf5-29a4bbb36533";
+
+    private const string Somebody = "01a06aa2-0000-7000-8000-000000000000";
     /// <summary>A fleet shaped like the real one: one host, many registrations.</summary>
     private static AppState Fleet(string? local) => new()
     {
@@ -139,5 +144,131 @@ public class ThisMachinesRunnersAreTogetherTests
             .Because("Rows cannot read the environment - it is pure, and the console's rule "
                    + "is that one place reads what this machine is and hands it on. Unpassed, "
                    + "this groups nothing and the defect is invisible.");
+    }
+}
+
+/// <summary>
+/// A person's own runners lead the fleet, wherever they are.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The machine was the strongest claim available and it is the narrower
+/// one.</b> Grouping by label answers "registered from the machine I am sitting
+/// at"; it says nothing about the same person's runners on a build host, which
+/// on the live fleet is fourteen of the fifteen rows. Now that the control
+/// plane sends who registered each one, that is the group a person means by
+/// "mine".
+/// </para>
+/// <para>
+/// <b>The machine grouping stays underneath rather than being replaced.</b>
+/// Every runner registered before the id shipped has an empty one permanently -
+/// no replay can invent it - so a person's older runners on this very machine
+/// would drop into the fleet the day person-grouping replaced machine-grouping.
+/// Two claims, ranked, and neither is a guess.
+/// </para>
+/// </remarks>
+public class MyOwnRunnersLeadTheFleetTests
+{
+    private const string Me = "01a062f3-42a5-73a4-8bf5-29a4bbb36533";
+
+    private const string Somebody = "01a06aa2-0000-7000-8000-000000000000";
+
+    private static RunnerSummary Runner(string id, string label, string by) =>
+        new()
+        {
+            RunnerId = id,
+            Label = label,
+            State = RunnerStates.Offline,
+            RegisteredByPrincipalId = by,
+        };
+
+    private static AppState Fleet(params RunnerSummary[] runners) => new()
+    {
+        Machine = "Kevins-MBP",
+        PrincipalId = Me,
+        Runners = new RunnerList { Runners = runners },
+    };
+
+    [Test]
+    public async Task My_runner_on_another_host_still_leads_somebody_elses_on_mine()
+    {
+        // THE CASE THE LABEL COULD NOT SEE. One of these is on the machine the
+        // person is sitting at and is not theirs; the other is on a build host
+        // and is. Grouping by machine puts them in exactly the wrong order.
+        var rows = Rows.Runners(Fleet(
+            Runner("01a0632b", "Kevins-MBP", Somebody),
+            Runner("01a06572", "vmlinux001", Me)));
+
+        await Assert.That(rows[0].Runner).Contains("01a06572");
+        await Assert.That(rows[0].Yours).IsTrue();
+        await Assert.That(rows[1].Yours).IsFalse();
+    }
+
+    [Test]
+    public async Task An_unattributed_runner_on_this_machine_outranks_the_fleet()
+    {
+        // Registered before the id shipped, so nothing says whose it is. It is
+        // still on the machine a person is sitting at, and dropping it into the
+        // fleet would be person-grouping quietly losing rows that machine
+        // grouping was already showing.
+        var rows = Rows.Runners(Fleet(
+            Runner("01a06385", "vmlinux001", Somebody),
+            Runner("01a078bb", "Kevins-MBP", "")));
+
+        await Assert.That(rows[0].Runner).Contains("01a078bb");
+        await Assert.That(rows[0].Yours).IsFalse()
+            .Because("nothing recorded whose it is, and claiming it is yours because it is "
+                   + "here would be inventing the attribution the control plane declined "
+                   + "to make.");
+        await Assert.That(rows[0].Machine).IsTrue();
+    }
+
+    [Test]
+    public async Task Yours_beats_this_machines_when_they_disagree()
+    {
+        var rows = Rows.Runners(Fleet(
+            Runner("01a078bb", "Kevins-MBP", ""),
+            Runner("01a06572", "vmlinux001", Me)));
+
+        await Assert.That(rows[0].Runner).Contains("01a06572")
+            .Because("the person asked for their runners at the top, and an unattributed "
+                   + "row on this machine is a guess where the other is a fact.");
+    }
+
+    [Test]
+    public async Task A_console_that_does_not_know_who_it_is_claims_nothing()
+    {
+        // A console booted with no session has no principal id, and an empty
+        // one must not match the empty ids on every unattributed runner in the
+        // fleet - which would put the whole fleet in the person's own group.
+        var rows = Rows.Runners(new AppState
+        {
+            Machine = "Kevins-MBP",
+            Runners = new RunnerList
+            {
+                Runners = [Runner("01a06385", "vmlinux001", ""), Runner("01a06572", "vmlinux001", Me)],
+            },
+        });
+
+        await Assert.That(rows.Any(r => r.Yours)).IsFalse();
+    }
+
+    [Test]
+    public async Task The_console_keeps_the_principal_id_the_boot_already_fetched()
+    {
+        // NOT A NEW REQUEST. The boot already calls whoami - IdentityCommands
+        // returns a WhoAmI and the projection folds its notices - and the
+        // principal id has been arriving in that same answer and being dropped.
+        var projected = ConsoleProjection.Apply(
+            new AppState(),
+            new Gg.Client.VerbResult.Identity(new WhoAmI
+            {
+                PrincipalId = Me,
+                PrincipalDisplay = "Kevin Deenanauth",
+                TenantId = "01a062f3-0000-7000-8000-000000000000",
+                ExpiresAt = DateTimeOffset.UnixEpoch,
+            }));
+
+        await Assert.That(projected.PrincipalId).IsEqualTo(Me);
     }
 }

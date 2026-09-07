@@ -50,29 +50,16 @@ public static class Reducer
             // else entirely - open the flight this person just declined.
             Command.CloseModal => state.Mode == UiMode.ConfirmFlight
                 ? FlightDeclined(state)
-                // ESCAPING THE COMPOSE CHOICE IS AN ANSWER TOO, and the same
-                // hazard as the line above: a choice left standing would compose
-                // the NEXT flight with something nobody picked this time.
-                : state with { Mode = UiMode.Normal, ComposeWith = ComposeWith.Nothing },
+                : state with { Mode = UiMode.Normal },
 
-            // RECORDED AND OUT OF THE WAY. Neither of these does anything but
-            // set a field: both children are started by the loop with the
-            // terminal released, which is the only place either could be.
-            Command.ComposeInEditor => state with
-            {
-                Mode = UiMode.Normal,
-                ComposeWith = ComposeWith.Editor,
-            },
-            Command.ComposeWithAgent => state with
-            {
-                Mode = UiMode.Normal,
-                ComposeWith = ComposeWith.Agent,
-            },
-
-            // SPENT. The choice belongs to the flight it was given for, so the
-            // next `n` asks again rather than acting on an answer somebody gave
-            // to a different question.
-            Command.FlightOpened => state with { ComposeWith = ComposeWith.Nothing },
+            // ANSWERING OPENS; IT DOES NOT DECIDE, which is the shape the two
+            // gate answers above already have. Both end the session and the loop
+            // does the work, because opening a flight spawns a child and makes a
+            // request - and the loop is where the terminal is free. A reducer
+            // that closed the modal here would be closing it before the thing it
+            // asked about had happened.
+            Command.ComposeInEditor => state,
+            Command.ComposeWithAgent => state,
 
             // TAB TURNS THE HELP PAGE WHILE HELP OWNS THE KEYBOARD, and moves
             // the focused pane everywhere else. A modal holds the keys for one

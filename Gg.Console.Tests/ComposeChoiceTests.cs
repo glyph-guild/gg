@@ -56,53 +56,60 @@ public class ComposeChoiceTests
     }
 
     [Test]
-    public async Task Choosing_leaves_the_modal_and_says_which_was_chosen()
+    public async Task Answering_decides_nothing_locally()
     {
-        // THE ANSWER IS STATE, not a branch taken inside the modal. The loop
-        // reads it with the terminal released, which is the only place either
-        // child can be started - so the modal's whole job is to record a
-        // decision and get out of the way.
+        // THE SHAPE THE TWO GATE ANSWERS ALREADY HAVE, and for the same reason.
+        // Both keys leave the state exactly as it is: the loop opens the flight,
+        // with the terminal released, because that is the only place a child can
+        // be started. A reducer that closed the modal here would be closing the
+        // question before the thing it asked about had happened.
         var asked = Press(new AppState(), KeyStroke.Char('n'));
 
-        var withEditor = Press(asked, KeyStroke.Char('w'));
-        await Assert.That(withEditor.Mode).IsEqualTo(UiMode.Normal);
-        await Assert.That(withEditor.ComposeWith).IsEqualTo(ComposeWith.Editor);
-
-        var withAgent = Press(asked, KeyStroke.Char('m'));
-        await Assert.That(withAgent.Mode).IsEqualTo(UiMode.Normal);
-        await Assert.That(withAgent.ComposeWith).IsEqualTo(ComposeWith.Agent);
+        foreach (var key in (KeyStroke[])[KeyStroke.Char('w'), KeyStroke.Char('m')])
+        {
+            await Assert.That(Press(asked, key)).IsEqualTo(asked)
+                .Because($"'{key}' answers a question; it does not act on the answer.");
+        }
     }
 
     [Test]
-    public async Task Escaping_composes_nothing()
+    public async Task Escaping_opens_nothing()
     {
         // S33.2-02. A launch nobody confirmed is a flight number that was never
-        // taken, so the way out has to leave no decision behind - not a default
-        // one, and not the last one.
+        // taken - so the way out closes the question and sends no command at
+        // all, which is what "opens nothing" has to mean.
         var asked = Press(new AppState(), KeyStroke.Char('n'));
-        var chosen = Press(asked, KeyStroke.Char('m'));
-
-        var escaped = Press(Press(chosen, KeyStroke.Char('n')), KeyStroke.Esc);
+        var escaped = Press(asked, KeyStroke.Esc);
 
         await Assert.That(escaped.Mode).IsEqualTo(UiMode.Normal);
-        await Assert.That(escaped.ComposeWith).IsEqualTo(ComposeWith.Nothing)
-            .Because("escaping is not choosing, and a previous choice left standing would "
-                   + "compose the next flight with something nobody picked this time.");
+
+        await Assert.That(ShellCommands.Handled.Contains(
+                Keymap.Resolve(KeyStroke.Esc, KeymapContext.For(asked))!.Value))
+            .IsFalse()
+            .Because("escaping must not reach the loop at all. A command that ended the "
+                   + "session here would arrive in the same arm the answers do.");
     }
 
     [Test]
-    public async Task The_choice_is_not_remembered_between_flights()
+    public async Task The_choice_cannot_be_remembered_because_there_is_nothing_to_remember()
     {
-        // Open question 3, answered "not at all in this slice": it is one
-        // keystroke, and a remembered default that changes what a key does is
-        // the invisible state this console has removed twice already.
-        var composed = Press(Press(new AppState(), KeyStroke.Char('n')), KeyStroke.Char('m'));
+        // Open question 3, answered "not at all in this slice" - and the answer
+        // is now structural rather than a rule somebody maintains. The choice
+        // lives in the COMMAND, which exists for the length of one dispatch, so
+        // there is no field for a later flight to inherit and no clearing step
+        // to forget.
+        var asked = Press(new AppState(), KeyStroke.Char('n'));
 
-        await Assert.That(Reducer.Reduce(composed, Command.FlightOpened).ComposeWith)
-            .IsEqualTo(ComposeWith.Nothing)
-            .Because("the answer is consumed by the flight it was given for. A person who "
-                   + "wants an agent twice presses one more key, and one who does not is "
-                   + "never surprised.");
+        await Assert.That(Press(asked, KeyStroke.Char('m'))).IsEqualTo(asked);
+
+        var fields = typeof(AppState).GetProperties()
+            .Where(p => p.Name.Contains("Compose", StringComparison.Ordinal))
+            .Select(p => p.Name)
+            .ToList();
+
+        await Assert.That(fields).IsEmpty()
+            .Because("a field holding which way to compose is one a later flight can inherit. "
+                   + "Found: " + string.Join(", ", fields));
     }
 
     [Test]

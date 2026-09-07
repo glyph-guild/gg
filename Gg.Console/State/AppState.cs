@@ -125,24 +125,6 @@ public enum HelpPage
     Environment,
 }
 
-/// <summary>How the intent for a flight is to be written.</summary>
-/// <remarks>
-/// <b><see cref="Nothing"/> is the answer, not the absence of one.</b> A person
-/// who escaped the modal chose not to open a flight, and a loop that treated
-/// that as "use the default" would open one nobody confirmed - a flight number
-/// taken for a keypress somebody backed out of.
-/// </remarks>
-public enum ComposeWith
-{
-    /// <summary>Nobody chose, so nothing is composed.</summary>
-    Nothing,
-
-    /// <summary><c>$EDITOR</c>, which is what gg has always done.</summary>
-    Editor,
-
-    /// <summary>An agent, hosted, which hands its intent back by tool call.</summary>
-    Agent,
-}
 
 /// <summary>
 /// One view that can have the screen.
@@ -937,17 +919,6 @@ public sealed record AppState
     /// <summary>What came of the last flight this console opened.</summary>
     public string? LastFlightOpened { get; init; }
 
-    /// <summary>
-    /// How the flight somebody just asked for is to be composed, until it is.
-    /// </summary>
-    /// <remarks>
-    /// <b>Consumed by the flight it was given for.</b> It is set when a person
-    /// answers the modal and cleared when the loop has acted on it, so it can
-    /// never decide a LATER flight - which is the invisible state this console
-    /// has removed twice already. A person who wants an agent twice presses one
-    /// more key; a person who does not is never surprised.
-    /// </remarks>
-    public ComposeWith ComposeWith { get; init; }
 
     /// <summary>
     /// What came of the last credential this console registered.

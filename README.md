@@ -21,6 +21,42 @@ no more (it is the artifact a customer audits), and every wire type carries a
 `[PinnedId]` and appears in the `Vocabulary` manifest. All three rules are
 enforced by tests.
 
+## When gg hands over the terminal
+
+Pressing `e` opens `$EDITOR`. gg runs it inside a pseudo-terminal it owns rather
+than handing the terminal away, which is what lets it keep the top row:
+
+```
+ gg · editing — save and quit to come back
+```
+
+**This changes what gg can see, and that is worth stating plainly.** When a child
+inherits the terminal, the operating system keeps gg out of it: gg sees nothing
+of what is typed or drawn. Hosting puts gg in the middle, so every byte in and
+out passes through the gg process.
+
+Where that boundary sits:
+
+- **Nothing is stored.** The host holds no state between calls — it has no
+  fields, and a test asserts it has none, because a field would hand the next
+  session the last one's screen.
+- **Nothing is written to disk.** A test rejects file writes in the host and the
+  renderer by name. An earlier debugging build traced every byte to a temp file;
+  it is not in this one and cannot come back quietly.
+- **Nothing reaches a diagnostics bundle or a state dump.** Asserted by planting
+  a distinctive string through the real path — a real child prints it, a real
+  pseudo-terminal carries it — and looking for it in the artifacts.
+- **Nothing leaves the machine.** The host makes no network call and resolves no
+  credential; it is spawn, read, paint, restore.
+
+What gg does with the terminal itself is put it back exactly as it found it —
+line discipline, echo, auto-wrap and alternate screen — whether the child exits
+cleanly, exits non-zero, or is killed.
+
+**On a machine that cannot host**, gg opens `$EDITOR` the way it always did and
+says so. That covers CI, anything behind a pipe, and Windows, where
+`SetConsoleMode` and ConPTY are not written yet.
+
 ## Install
 
 **No .NET required** — a pool host, a CI runner, a laptop:

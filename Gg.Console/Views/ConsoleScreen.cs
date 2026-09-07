@@ -344,11 +344,16 @@ public sealed class ConsoleScreen : Window
         [
             (TabId.Queue, queueTab),
             (TabId.Flights, Tabbed(_flightsPane)),
+
+            // BESIDE THE FLIGHTS, WHERE IT IS DECLARED. This was appended after
+            // Repositories, so the bar drew it seventh while Tabs.Next - which
+            // walks the enum - reached it third, and `tab' skipped six tabs.
+            // TabGoesLeftToRightTests holds the two orders together now.
+            (TabId.Runners, Tabbed(_runnersPane)),
             (TabId.Evidence, Tabbed(_evidencePane)),
             (TabId.Live, Tabbed(_livePane)),
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
-            (TabId.Runners, Tabbed(_runnersPane)),
             (TabId.Checklist, Tabbed(_checklistPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
         ];

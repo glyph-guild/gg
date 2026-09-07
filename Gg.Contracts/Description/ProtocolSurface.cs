@@ -1252,7 +1252,7 @@ public static class ProtocolSurface
             [typeof(FlightGroundingRequest)] = ["because"],
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
-                 "labels"],
+                 "labels", "registeredByPrincipalId"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],

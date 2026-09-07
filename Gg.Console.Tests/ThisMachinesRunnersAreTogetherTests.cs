@@ -268,3 +268,128 @@ public class MyOwnRunnersLeadTheFleetTests
         await Assert.That(projected.PrincipalId).IsEqualTo(Me);
     }
 }
+
+/// <summary>
+/// The first column says which runners are yours.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Ordering alone was not enough, and the earlier argument against a third
+/// mark was wrong.</b> It ran: a person can do exactly as much about a runner
+/// of theirs on another host as about one of this machine's other
+/// registrations, which is nothing, so one glyph should cover both. That
+/// weighed what a row can be ACTED on and ignored what it TELLS you - and it
+/// was written when ownership was inferred from a machine label. It is now a
+/// fact the control plane recorded, and "this is yours" is worth saying out
+/// loud rather than leaving to be deduced from position in a list somebody may
+/// have scrolled.
+/// </para>
+/// <para>
+/// <b>Three marks, and each is a different thing a person can do about it.</b>
+/// The arrow is the runner this console holds a pidfile for - stop, restart and
+/// the log all act on that one and only that one. A star is yours: you brought
+/// it up, somewhere, and can go to that host. A dot is this machine's with no
+/// registrant recorded, which is every runner registered before the control
+/// plane began recording one.
+/// </para>
+/// </remarks>
+public class TheFirstColumnSaysWhoseItIsTests
+{
+    private const string Me = "01a062f3-42a5-73a4-8c01-ec248bfe5237";
+
+    private const string Somebody = "01a06aa2-0000-7000-8000-000000000000";
+
+    private static RunnerSummary Runner(string id, string label, string by) =>
+        new()
+        {
+            RunnerId = id,
+            Label = label,
+            State = RunnerStates.Offline,
+            RegisteredByPrincipalId = by,
+        };
+
+    /// <summary>One of each kind, in the order the grid should put them.</summary>
+    private static AppState Fleet() => new()
+    {
+        Machine = "Kevins-MBP",
+        PrincipalId = Me,
+        LocalRunnerId = "01a078bb",
+        Runners = new RunnerList
+        {
+            Runners =
+            [
+                Runner("01a06385", "vmlinux001", Somebody),
+                Runner("01a0632b", "Kevins-MBP", ""),
+                Runner("01a06572", "vmlinux001", Me),
+                Runner("01a078bb", "Kevins-MBP", Me),
+            ],
+        },
+    };
+
+    [Test]
+    public async Task A_runner_of_yours_on_another_host_wears_a_star()
+    {
+        var rows = Rows.Runners(Fleet());
+
+        await Assert.That(rows[1].Runner).Contains("01a06572");
+        await Assert.That(rows[1].Here).IsEqualTo("*")
+            .Because("you brought it up and can go to that host, which is more than can be "
+                   + "said for a row that is merely on the machine you are sitting at.");
+    }
+
+    [Test]
+    public async Task The_arrow_stays_the_one_this_console_can_act_on()
+    {
+        var rows = Rows.Runners(Fleet());
+
+        await Assert.That(rows[0].Runner).Contains("01a078bb");
+        await Assert.That(rows[0].Here).IsEqualTo("→")
+            .Because("stop, restart and the log act on this one and no other, so it cannot "
+                   + "wear the same mark as a runner none of those keys can reach - even "
+                   + "though it is also yours.");
+    }
+
+    [Test]
+    public async Task This_machines_unattributed_runner_keeps_the_dot()
+    {
+        var rows = Rows.Runners(Fleet());
+
+        await Assert.That(rows[2].Runner).Contains("01a0632b");
+        await Assert.That(rows[2].Here).IsEqualTo("·")
+            .Because("nobody recorded whose it is, so a star would be claiming what the "
+                   + "control plane declined to say. It is on this machine, which is why it "
+                   + "is marked at all.");
+    }
+
+    [Test]
+    public async Task Somebody_elses_runner_is_unmarked()
+    {
+        var rows = Rows.Runners(Fleet());
+
+        await Assert.That(rows[3].Runner).Contains("01a06385");
+        await Assert.That(rows[3].Here.Trim()).IsEmpty();
+    }
+
+    [Test]
+    public async Task The_order_is_still_mine_then_yours_then_here_then_the_fleet()
+    {
+        // The marks are a second way of saying what the order already says, and
+        // both are needed: a person who has scrolled cannot see where the groups
+        // began, and a person reading the top cannot tell a star from an arrow
+        // by position alone.
+        var marks = Rows.Runners(Fleet()).Select(r => r.Here).ToList();
+
+        await Assert.That(marks).IsEquivalentTo((string[])["→", "*", "·", " "]);
+    }
+
+    [Test]
+    public async Task Every_mark_is_one_column_wide()
+    {
+        // The column has no heading and is sized by its content, so a two-cell
+        // glyph shifts every runner id right by one and reads as a broken table.
+        foreach (var mark in Rows.Runners(Fleet()).Select(r => r.Here))
+        {
+            await Assert.That(mark.Length).IsEqualTo(1);
+        }
+    }
+}

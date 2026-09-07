@@ -174,6 +174,27 @@ public class TheSignInModalReadsTests
             TakeableTree = "/somewhere",
             TakenOver = true,
             SignIn = Started().SignIn,
+
+            // A FLEET WITH THIS MACHINE'S RUNNER UNDER THE CURSOR, because
+            // RunnerIsOurs is derived from the selected ROW rather than from a
+            // flag on the model - there is nothing to set true directly, and a
+            // model without a fleet leaves it false however the derivation is
+            // written.
+            Machine = "a-laptop",
+            LocalRunnerId = "01a078bb-4b97-779b-81ff-554c4ea662c0",
+            RunnerSelected = 0,
+            Runners = new Gg.Contracts.RunnerList
+            {
+                Runners =
+                [
+                    new()
+                    {
+                        RunnerId = "01a078bb-4b97-779b-81ff-554c4ea662c0",
+                        Label = "a-laptop",
+                        State = Gg.Contracts.RunnerStates.Idle,
+                    },
+                ],
+            },
         };
 
         var context = KeymapContext.For(state);

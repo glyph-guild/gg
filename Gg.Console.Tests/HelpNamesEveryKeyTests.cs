@@ -102,13 +102,13 @@ public class HelpNamesEveryKeyTests
     public async Task The_product_above_is_over_every_flag_the_keymap_has()
     {
         // The ratchet on the ratchet. Everywhere() is a written-out product, so
-        // a seventh member on KeymapContext would leave it enumerating six.
+        // an eighth member on KeymapContext would leave it enumerating seven.
         var members = typeof(KeymapContext)
             .GetProperties()
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(members.Count).IsEqualTo(7)
+        await Assert.That(members.Count).IsEqualTo(8)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

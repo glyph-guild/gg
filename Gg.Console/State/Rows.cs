@@ -335,6 +335,32 @@ public static class Rows
             || mine.State == RunnerStates.Offline;
     }
 
+    /// <summary>
+    /// The runner the cursor is on, or null when it is on none.
+    /// </summary>
+    /// <remarks>
+    /// <b>One answer, because two disagreed.</b> The table drew its cursor from
+    /// <c>RunnerSelected</c> and the modal drew its subject from "whichever row
+    /// is this machine's", so enter on any row but the first opened the wrong
+    /// runner - with the right shape, which is why nobody noticed.
+    /// <para>
+    /// <b>Null rather than a fallback.</b> The cursor is an index and the fleet
+    /// shrinks under a refresh when a runner is revoked, so an index past the
+    /// end is reachable. Answering "the local one" there is the same defect
+    /// one race later.
+    /// </para>
+    /// </remarks>
+    public static RunnerRow? Selected(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var rows = Runners(state);
+
+        return state.RunnerSelected >= 0 && state.RunnerSelected < rows.Count
+            ? rows[state.RunnerSelected]
+            : null;
+    }
+
     /// <summary>The mark against the runner this console can act on.</summary>
     private const string Ours = "→";
 

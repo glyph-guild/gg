@@ -127,7 +127,10 @@ public class TheRunnerModalTests
     [Test]
     public async Task The_modal_offers_a_restart_and_a_shutdown_and_one_way_out()
     {
-        var context = new KeymapContext(UiMode.Runner);
+        // OVER OUR OWN RUNNER, which is now a condition rather than a given:
+        // the modal opens over any row in the fleet, and these two act through
+        // a pidfile this machine wrote.
+        var context = new KeymapContext(UiMode.Runner) { RunnerIsOurs = true };
 
         await Assert.That(Keymap.EscapeHatch(context)).IsEqualTo(KeyStroke.Esc);
         await Assert.That(Keymap.Resolve(KeyStroke.Char('r'), context))
@@ -137,6 +140,14 @@ public class TheRunnerModalTests
 
         await Assert.That(ShellCommands.Handled).Contains(Command.RestartRunner);
         await Assert.That(ShellCommands.Handled).Contains(Command.StopRunner);
+
+        // AND THE WAY OUT SURVIVES WHEN THEY DO NOT. Over another host's
+        // runner there is nothing to do and escape still has to work, or enter
+        // on the wrong row is a console somebody has to kill.
+        var elsewhere = new KeymapContext(UiMode.Runner);
+
+        await Assert.That(Keymap.EscapeHatch(elsewhere)).IsEqualTo(KeyStroke.Esc);
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('x'), elsewhere)).IsNull();
     }
 
     [Test]

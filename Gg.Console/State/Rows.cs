@@ -25,6 +25,11 @@ public sealed record RepositoryRow(string Chosen, string Path, string Name);
 /// becomes several rows - a row number would point at a different thing the
 /// moment anything expanded, and the view maps both ways through this.
 /// </param>
+/// <param name="Mark">
+/// Whether there is prose under this entry, and whether it is showing. Empty
+/// on an entry with nothing written against it, and empty on a continuation -
+/// a mark repeated down one entry reads as several entries.
+/// </param>
 /// <param name="Time">
 /// By the clock of whatever recorded it. Empty on a continuation: a timestamp
 /// repeated down the left of one entry reads as several things happening at
@@ -36,17 +41,27 @@ public sealed record RepositoryRow(string Chosen, string Path, string Name);
 /// and a cell reading zero would be this console inventing one.
 /// </param>
 /// <param name="Event">
-/// The contract's own sentence for the kind and its params - never the kind. A
-/// loop that ended blocked read as <c>loop-ended</c> for as long as this was a
-/// column of enum members.
+/// <b>What this LINE says, which is why it is the only column with room.</b>
+/// On the row that carries an entry it is the contract's own sentence for the
+/// kind and its params - never the kind; a loop that ended blocked read as
+/// <c>loop-ended</c> for as long as this was a column of enum members. On the
+/// rows that continue it, one line of what somebody wrote. Both are an account
+/// of the same event, and it is the last column, so it is the one that expands.
 /// </param>
 /// <param name="Detail">
-/// Prose somebody actually wrote - <c>StoryEntry.Said</c> - flattened to one
-/// line because a cell is one line. On the entry under the cursor it arrives a
-/// line at a time; see <see cref="Rows.Unwrapped"/>.
+/// The whole of what somebody wrote - <c>StoryEntry.Said</c> - flattened to one
+/// line. <b>Carried rather than drawn:</b> no column renders it, because 29
+/// characters is not a place to read prose. It is what
+/// <see cref="Unwrapped"/> breaks into continuations, and what the linear
+/// rendering behind <c>PaneText.Modal</c> reads.
 /// </param>
 public sealed record LogRow(
-    int Entry, string Time, string Attempt, string Event, string Detail);
+    int Entry,
+    string Mark,
+    string Time,
+    string Attempt,
+    string Event,
+    string Detail);
 
 /// <summary>
 /// One runner in the fleet, and whether it is this machine's.
@@ -112,7 +127,23 @@ public static class Rows
     /// business, and what is in a cell is this one's.
     /// </remarks>
     public static IReadOnlyList<string> LogColumns { get; } =
-        ["time", "attempt", "event", "detail"];
+        ["", "time", "attempt", "event"];
+
+    /// <summary>
+    /// How wide the mark column is: one character, always.
+    /// </summary>
+    /// <remarks>
+    /// Both marks are one character and the heading is blank, so this is a
+    /// fact about the column rather than a measurement of what happens to be
+    /// in it today.
+    /// </remarks>
+    private const int MarkWidth = 1;
+
+    /// <summary>An entry with prose under it, showing.</summary>
+    public const string Open = "▾";
+
+    /// <summary>An entry with prose under it, not showing.</summary>
+    public const string Closed = "▸";
 
     /// <summary>
     /// The runners' columns, the first of which has no name.
@@ -413,6 +444,10 @@ public static class Rows
         [
             .. story.Entries.Select((entry, at) => new LogRow(
                 at,
+
+                // WHICH MARK IS A QUESTION ABOUT THE CURSOR, and the cursor is
+                // not this method's business. Unwrapped puts it on.
+                "",
                 $"{entry.At:u}",
                 entry.Attempt is { } which
                     ? which.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -452,36 +487,38 @@ public static class Rows
     {
         ArgumentNullException.ThrowIfNull(rows);
 
-        if (width <= 0)
-        {
-            return rows;
-        }
-
         var shown = new List<LogRow>(rows.Count);
 
         foreach (var row in rows)
         {
-            if (row.Entry != selected || row.Detail.Length <= width)
+            var has = row.Detail.Length > 0;
+            var open = has && row.Entry == selected && width > 0;
+
+            shown.Add(row with { Mark = !has ? "" : open ? Open : Closed });
+
+            if (!open)
             {
-                shown.Add(row);
                 continue;
             }
 
-            var lines = Wrapped(row.Detail, width);
-
-            shown.Add(row with { Detail = lines[0] });
-            shown.AddRange(lines.Skip(1).Select(line => new LogRow(row.Entry, "", "", "", line)));
+            // UNDER THE ENTRY, IN THE COLUMN THAT EXPANDS, and blank in the
+            // three that size themselves - which is what keeps the table from
+            // shifting sideways as the cursor travels, since a continuation
+            // contributes nothing to any width.
+            shown.AddRange(Wrapped(row.Detail, width)
+                .Select(line => new LogRow(row.Entry, "", "", "", line, "")));
         }
 
         return shown;
     }
 
     /// <summary>
-    /// What the detail column has left after the other three have taken theirs.
+    /// How wide a continuation may be: what the wide column expands into.
     /// </summary>
     /// <param name="rows">The rows the table is holding.</param>
     /// <param name="available">The table's own width, which only it knows.</param>
     /// <remarks>
+    /// <para>
     /// <b>The widget's rule, restated where a test can read it.</b> A column is
     /// as wide as the widest of its heading and its cells, with one column of
     /// separator after it; the last expands into whatever is left. Restating it
@@ -489,15 +526,29 @@ public static class Rows
     /// be constructed without a terminal - so the arithmetic would have been
     /// beyond the reach of any test, which is the same argument
     /// <see cref="ConsoleTheme"/> and <c>CollectionViews</c> already make.
+    /// </para>
+    /// <para>
+    /// <b>The event column's own content is not subtracted, and that is the
+    /// whole change.</b> It is the last column, so it takes what is left
+    /// whatever is in it - and what is left, once the mark and the two fixed
+    /// columns have had theirs, is a line rather than a quarter of one. The
+    /// sentences are what a continuation shares the column with, not what it
+    /// competes with.
+    /// </para>
     /// </remarks>
     public static int DetailWidth(IReadOnlyList<LogRow> rows, int available)
     {
         ArgumentNullException.ThrowIfNull(rows);
 
+        // THE MARK IS ONE WIDE BY CONSTRUCTION, so it is a constant and not a
+        // measurement. Measuring it made the answer depend on whether anything
+        // was marked yet - rows straight out of Log carry no marks and rows out
+        // of Unwrapped do - so the width moved by one the moment a cursor
+        // landed, which is the jitter this whole arithmetic exists to prevent.
         var taken =
-            Column(LogColumns[0], rows.Select(r => r.Time))
-          + Column(LogColumns[1], rows.Select(r => r.Attempt))
-          + Column(LogColumns[2], rows.Select(r => r.Event));
+            MarkWidth + 1
+          + Column(LogColumns[1], rows.Select(r => r.Time))
+          + Column(LogColumns[2], rows.Select(r => r.Attempt));
 
         return Math.Max(0, available - taken);
     }

@@ -44,7 +44,18 @@ internal sealed class PseudoTerminal : IDisposable
     private static extern int close(int fd);
 
     private const int ORdWr = 2;
-    private const int ONoctty = 0x20000;
+
+    /// <summary>
+    /// <c>O_NOCTTY</c>, WHICH IS A DIFFERENT NUMBER ON EACH PLATFORM.
+    /// </summary>
+    /// <remarks>
+    /// 0x20000 on macOS and 0x100 on Linux — and 0x20000 on Linux is
+    /// <c>O_NOFOLLOW</c>, so the wrong constant does not fail, it asks for
+    /// something else and is granted it. The same hazard as the termios offsets
+    /// in <c>RawMode</c>, found the same way: by asking what the other platform
+    /// calls it rather than assuming a header is a header.
+    /// </remarks>
+    private static int ONoctty => OperatingSystem.IsMacOS() ? 0x20000 : 0x100;
 
     private PseudoTerminal(int master, int slave)
     {

@@ -45,9 +45,13 @@ public class FocusReachesIntoTheFlightModalTests
     [Test]
     public async Task Every_other_modal_is_still_just_the_modal()
     {
+        // THE TWO MADE OF WIDGETS ARE EXEMPT BY NAME, and naming them is the
+        // point: a modal that grows parts has to say so here, or it keeps
+        // taking focus at its frame and the arrows do nothing inside it. The
+        // runner modal joined the flight modal in slice thirty-three.
         foreach (var mode in Enum.GetValues<UiMode>())
         {
-            if (mode is UiMode.Normal or UiMode.FlightDetail)
+            if (mode is UiMode.Normal or UiMode.FlightDetail or UiMode.Runner)
             {
                 continue;
             }

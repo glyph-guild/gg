@@ -1585,6 +1585,15 @@ public sealed class ConsoleScreen : Window
                 _landed = null;
                 return;
 
+            case FocusTarget.RunnerLog:
+                // THE LIST WHEN IT HAS LINES, THE FRAME WHEN IT HAS NONE - the
+                // flight log's fallback, for its reason: focus is what makes
+                // the arrows move a cursor a person can see, and a runner that
+                // has said nothing has none to move.
+                (_runnerSaid.Visible ? _runnerSaid : (View)_modal).SetFocus();
+                _landed = null;
+                return;
+
             case FocusTarget.Modal:
                 _modal.SetFocus();
 

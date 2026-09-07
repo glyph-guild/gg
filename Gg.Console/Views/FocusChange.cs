@@ -10,6 +10,17 @@ public enum FocusTarget
     Modal,
 
     /// <summary>
+    /// The log inside the runner modal, which is the part of it somebody
+    /// scrolls.
+    /// </summary>
+    /// <remarks>
+    /// The flight log's reason, one modal over: a modal made of widgets has to
+    /// say WHICH widget, and what a person opened this to watch is a runner
+    /// coming up - which is the log, live, while it does.
+    /// </remarks>
+    RunnerLog,
+
+    /// <summary>
     /// The log inside the flight modal, which is the part of it with a cursor.
     /// </summary>
     /// <remarks>
@@ -59,9 +70,10 @@ public static class FocusChange
     {
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 
-        // WHICH WIDGET, for the one modal that is made of several. The rest are
-        // a few lines and two keys, and the frame is the whole of them.
+        // WHICH WIDGET, for the two modals that are made of several. The rest
+        // are a few lines and two keys, and the frame is the whole of them.
         (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
+        (UiMode.Runner, _) => FocusTarget.RunnerLog,
         (not UiMode.Normal, _) => FocusTarget.Modal,
         (_, { } already) when already == showing => FocusTarget.LeaveAlone,
         _ => FocusTarget.Tab,

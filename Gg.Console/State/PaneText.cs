@@ -1357,9 +1357,14 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.Mode is UiMode.FlightDetail
-            ? FlightDetails.Title(state)
-            : ModalTitle(state.Mode);
+        // A MODAL ABOUT ONE SUBJECT GETS THE SUBJECT. The rest keep the title
+        // written for them, because a refusal is a refusal whichever one it is.
+        return state.Mode switch
+        {
+            UiMode.FlightDetail => FlightDetails.Title(state),
+            UiMode.Runner => RunnerDetails.Title(state),
+            _ => ModalTitle(state.Mode),
+        };
     }
 
     public static string ModalTitle(UiMode mode) => mode switch
@@ -1368,7 +1373,7 @@ public static class PaneText
         UiMode.FlightActions => "What can be done",
         UiMode.FlightDetail => "This flight",
         UiMode.HandFlight => "Nothing was created",
-        UiMode.Runner => "The runner here",
+        UiMode.Runner => "No runner",
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",

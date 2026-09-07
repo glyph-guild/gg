@@ -1,3 +1,4 @@
+using Gg.Console.Views;
 using Gg.Contracts;
 
 namespace Gg.Console.Tests;
@@ -227,9 +228,14 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
     {
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
+        // Title reaches the frame through PaneText.ModalTitle, which every
+        // modal's title already goes through - a second assignment beside it
+        // would be two authors for one string.
+        await Assert.That(Sources.Read("Gg.Console", "State", "PaneText.cs"))
+            .Contains("RunnerDetails.Title");
+
         foreach (var producer in (string[])
-                 ["RunnerDetails.Title", "RunnerDetails.Fields", "RunnerDetails.Log",
-                  "RunnerDetails.LogAbsence"])
+                 ["RunnerDetails.Fields", "RunnerDetails.Lines", "RunnerDetails.LogAbsence"])
         {
             await Assert.That(screen).Contains(producer)
                 .Because($"{producer} is where the model becomes what a person reads; a view "
@@ -238,17 +244,92 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
     }
 
     [Test]
-    public async Task And_the_log_is_a_text_view_because_it_is_text()
+    public async Task And_the_log_is_a_list_of_lines_rather_than_a_table_or_a_TextView()
     {
-        // NOT A TABLE, which is the one place this parts from the flight modal.
-        // A flight's log has a time, an attempt and an event; a runner's log is
-        // whatever a child process wrote. Columns would be a structure invented
-        // for content that does not have one.
+        // NOT A TABLE, which is where this parts from the flight modal: a
+        // flight's log has a time, an attempt and an event, and a runner's is
+        // whatever a child wrote. Columns would be a structure invented for
+        // content that does not have one.
+        //
+        // AND NOT A TextView, WHICH WAS THE FIRST ANSWER HERE. It is the widget
+        // that fits - it scrolls text and selects across lines - and 2.4.17
+        // marks it obsolete in favour of an editor that is not in this library.
+        // Taking a deprecated widget for a modal that shows six lines of output
+        // buys a selection nobody asked for and a migration somebody will have
+        // to do, so the log is a list of lines this code wrapped itself.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
-        await Assert.That(screen).Contains("new TextView")
-            .Because("a person needs to scroll a stack trace and select an error out of it, "
-                   + "and a Label offers neither.");
+        await Assert.That(screen).DoesNotContain("new TextView")
+            .Because("it is obsolete in this version, and obsolete warnings are errors here.");
+
+        await Assert.That(screen).Contains("RunnerDetails.Lines")
+            .Because("a list truncates what it cannot fit, and a runner's longest lines are "
+                   + "its paths and stack frames - the ones somebody opened the log to read.");
+    }
+
+    [Test]
+    public async Task A_line_longer_than_the_frame_is_wrapped_rather_than_cut()
+    {
+        var ours = Busy() with { RunnerId = Mine, Label = "Kevins-MBP" };
+        var here = new RunnerHere
+        {
+            Pid = 4242,
+            Log = ["/Users/somebody/git/a-very-long-path/that/keeps/going/runner.log is missing"],
+        };
+
+        var lines = RunnerDetails.Lines(State(ours, here), width: 20);
+
+        await Assert.That(lines.Count).IsGreaterThan(1);
+
+        foreach (var line in lines)
+        {
+            await Assert.That(line.Length).IsLessThanOrEqualTo(20);
+        }
+
+        // NOTHING IS LOST, which is the difference between wrapping and cutting.
+        await Assert.That(string.Concat(lines).Replace(" ", "", StringComparison.Ordinal))
+            .Contains("that/keeps/going/runner.log");
+    }
+
+    [Test]
+    public async Task Before_anything_is_laid_out_it_gives_back_whole_lines()
+    {
+        // A RENDER RUNS BEFORE A LAYOUT DOES, so the first pass asks with a
+        // viewport of zero. #315 lost its whole unwrap to this: wrapping to
+        // nothing returns a line per character, and there is no second pass
+        // unless something asks for one.
+        var ours = Busy() with { RunnerId = Mine, Label = "Kevins-MBP" };
+        var here = new RunnerHere { Pid = 4242, Log = ["listening on the pool"] };
+
+        await Assert.That(RunnerDetails.Lines(State(ours, here), width: 0))
+            .IsEquivalentTo((string[])["listening on the pool"]);
+    }
+
+    [Test]
+    public async Task Focus_lands_on_the_log_because_that_is_the_part_with_a_cursor()
+    {
+        // #315's lesson, and it says the decision belongs in a value rather
+        // than a line in the view - because where focus lands in this file has
+        // been wrong three times. The log is where it goes for the flight
+        // modal's reason: it is the part somebody scrolls, and the fields are a
+        // tab away.
+        await Assert.That(FocusChange.Wanted(
+                UiMode.Runner, TabId.Runners, landed: null, modalHasFocus: false))
+            .IsEqualTo(FocusTarget.RunnerLog);
+
+        await Assert.That(FocusChange.Wanted(
+                UiMode.Runner, TabId.Runners, landed: null, modalHasFocus: true))
+            .IsEqualTo(FocusTarget.LeaveAlone)
+            .Because("a person who moved focus inside the modal keeps it, which is the same "
+                   + "rule every other mode here follows.");
+    }
+
+    [Test]
+    public async Task The_modal_is_a_document_so_it_gets_the_room_one_needs()
+    {
+        // It was drawn into 52 columns by 12 rows, the size of a question with
+        // two answers. A runner's log is the thing it is open to show.
+        await Assert.That(PaneText.ModalIsADocument(UiMode.Runner)).IsTrue();
     }
 
     [Test]

@@ -84,6 +84,13 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _flightLogPane;
     private readonly TableView _flightLog;
     private readonly Label _flightLogAbsent;
+    private readonly View _runnerBody;
+    private readonly View _runnerFields;
+    private readonly FrameView _runnerLogPane;
+    private readonly ListView _runnerSaid;
+    private readonly Label _runnerLogAbsent;
+    private IReadOnlyList<FlightField>? _runnerFieldsShowing;
+    private IReadOnlyList<string>? _runnerSaidShowing;
 
     /// <summary>
     /// Which flight's log the table is currently holding, and how many rows.
@@ -501,6 +508,71 @@ public sealed class ConsoleScreen : Window
         };
         _flightBody.Add(_flightIntentPane, _flightFields, _flightLogPane);
 
+        // THE RUNNER'S OWN BODY, two regions down one column: what the fleet
+        // and the child know, and what the child has said. No intent, because
+        // a runner is not asked for anything - it is a machine that took work.
+        _runnerFields = new View
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+
+            // Set per render, from the number of fields there are: a busy
+            // runner has rows an idle one does not.
+            Height = 0,
+
+            // FOCUSABLE AND A STOP, for the reason written out over the
+            // flight's fields - a plain View is created with CanFocus false and
+            // navigation descends only through containers whose TabStop matches
+            // what is being advanced, so either one missing makes every field
+            // beneath it unreachable and the modal a picture.
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _runnerLogPane = new FrameView
+        {
+            Title = RunnerDetails.LogTitle,
+            X = 0,
+            Y = Pos.Bottom(_runnerFields),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            TabStop = TabBehavior.TabStop,
+        };
+
+        // A LIST OF LINES, WHERE THE FLIGHT'S LOG IS A TABLE, and the
+        // difference is the content rather than the modal. A flight's log has a
+        // time, an attempt and an event, so it has columns. A runner's log is
+        // whatever a child wrote to its own stdout - a stack trace, a wrapped
+        // sentence, a line of JSON - and giving that columns would invent a
+        // structure it does not have.
+        //
+        // NOT A TextView, WHICH IS THE WIDGET THAT FITS. It scrolls text and
+        // selects across lines, and 2.4.17 marks it obsolete in favour of an
+        // editor that is not in this library. Taking a deprecated widget for a
+        // modal that shows a few lines of output buys a selection nobody asked
+        // for and a migration somebody will have to do.
+        _runnerSaid = CollectionViews.List();
+
+        // BECAUSE A RENDER HAPPENS BEFORE THE LAYOUT DOES, and the wrap needs a
+        // width the widget does not have until it has been laid out. #315 lost
+        // its whole unwrap to exactly this, with every unit test passing. It is
+        // the resize path too: a narrower terminal is a narrower frame.
+        _runnerSaid.ViewportChanged += OnRunnerLogResized;
+
+        _runnerLogAbsent = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+        _runnerLogPane.Add(_runnerSaid, _runnerLogAbsent);
+
+        _runnerBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _runnerBody.Add(_runnerFields, _runnerLogPane);
+
         // THE INTENT IS AS TALL AS WHAT IS IN IT, capped against the room there
         // is. A third of the modal was a box sized for a page around `fix the
         // login bug', and the log underneath is what paid for it. Dim.Func
@@ -513,7 +585,7 @@ public sealed class ConsoleScreen : Window
                 FlightDetails.IntentLines(State), _flightBody.Viewport.Height),
             _flightIntentPane);
 
-        _modal.Add(_modalBody, _flightBody);
+        _modal.Add(_modalBody, _flightBody, _runnerBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -1109,13 +1181,19 @@ public sealed class ConsoleScreen : Window
         // holding the flight's linear rendering only when nothing is open, so
         // there is never a frame with both.
         var flight = State.Mode is UiMode.FlightDetail;
+        var runner = State.Mode is UiMode.Runner;
 
         _flightBody.Visible = flight;
-        _modalBody.Visible = !flight;
+        _runnerBody.Visible = runner;
+        _modalBody.Visible = !flight && !runner;
 
         if (flight)
         {
             RenderFlight();
+        }
+        else if (runner)
+        {
+            RenderRunner();
         }
         else
         {
@@ -1171,16 +1249,36 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        // WHAT WAS REMOVED IS DISPOSED HERE. RemoveAll's own words: "Removing a
-        // SubView causes ownership of the SubView's lifecycle to be transferred
-        // to the caller; the caller must call Dispose". The guard above is what
-        // makes this rare; this is what makes it correct when it happens.
-        foreach (var gone in _flightFields.RemoveAll())
+        _fieldsShowing = fields;
+        Lay(_flightFields, fields);
+
+        RenderLog();
+    }
+
+    /// <summary>
+    /// Lays a column of read-only fields into a container, replacing whatever
+    /// was there.
+    /// </summary>
+    /// <remarks>
+    /// <b>One implementation, because two modals want the same column.</b> The
+    /// flight's scalars and the runner's are the same shape - a dim caption in
+    /// a fixed gutter, a value a cursor can enter - and a second copy would be
+    /// a second place for the read-only rule to lapse.
+    /// <para>
+    /// <b>What was removed is disposed here.</b> RemoveAll's own words:
+    /// "Removing a SubView causes ownership of the SubView's lifecycle to be
+    /// transferred to the caller; the caller must call Dispose". Each caller's
+    /// own guard is what makes this rare - Render runs four times a second on
+    /// the live tail's timer - and this is what makes it correct when it does
+    /// happen.
+    /// </para>
+    /// </remarks>
+    private void Lay(View container, IReadOnlyList<FlightField> fields)
+    {
+        foreach (var gone in container.RemoveAll())
         {
             gone.Dispose();
         }
-
-        _fieldsShowing = fields;
 
         for (var i = 0; i < fields.Count; i++)
         {
@@ -1196,9 +1294,9 @@ public sealed class ConsoleScreen : Window
             };
 
             caption.SetScheme(_muted);
-            _flightFields.Add(caption);
+            container.Add(caption);
 
-            _flightFields.Add(new TextField
+            container.Add(new TextField
             {
                 X = FieldLabelWidth + 1,
                 Y = i,
@@ -1215,9 +1313,75 @@ public sealed class ConsoleScreen : Window
             });
         }
 
-        _flightFields.Height = fields.Count;
+        container.Height = fields.Count;
+    }
 
-        RenderLog();
+    /// <summary>
+    /// The runner modal, bound to what the model produces for it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The fields are replaced only when they change</b>, for
+    /// <see cref="RenderFlight"/>'s reason: this runs on the live tail's timer
+    /// four times a second, and rebuilding widgets at that rate leaks whatever
+    /// the last pass made. The log is a string, so it is simply assigned - it
+    /// is also the thing most likely to have changed, because a runner coming
+    /// up is why this modal is open.
+    /// </remarks>
+    private void RenderRunner()
+    {
+        var fields = RunnerDetails.Fields(State);
+
+        if (_runnerFieldsShowing is null || !_runnerFieldsShowing.SequenceEqual(fields))
+        {
+            _runnerFieldsShowing = fields;
+            Lay(_runnerFields, fields);
+        }
+
+        // THE LOG WHEN THERE IS ONE, THE SENTENCE WHEN THERE IS NOT - and the
+        // sentence says WHICH absence it is, because a child that has not
+        // spoken yet and a runner whose output was never coming here are
+        // different facts that would otherwise read the same.
+        var absence = RunnerDetails.LogAbsence(State);
+
+        _runnerLogAbsent.Text = absence;
+        _runnerLogAbsent.Visible = absence.Length > 0;
+        _runnerSaid.Visible = absence.Length == 0;
+
+        if (absence.Length == 0)
+        {
+            FillRunnerLog();
+        }
+    }
+
+    /// <summary>The log's lines, wrapped to whatever room the frame has.</summary>
+    /// <remarks>
+    /// <b>Only when they changed.</b> Setting a list's source resets where a
+    /// person had scrolled to, and this runs on the live tail's timer four
+    /// times a second - so a person reading back through a stack trace would be
+    /// dragged to the top of it while they read.
+    /// </remarks>
+    private void FillRunnerLog()
+    {
+        var lines = RunnerDetails.Lines(State, _runnerSaid.Viewport.Width);
+
+        if (_runnerSaidShowing is not null && _runnerSaidShowing.SequenceEqual(lines))
+        {
+            return;
+        }
+
+        _runnerSaidShowing = lines;
+        _runnerSaid.SetSource(new ObservableCollection<string>(lines));
+    }
+
+    /// <summary>The frame changed width, so the lines have to be broken again.</summary>
+    private void OnRunnerLogResized(object? sender, EventArgs args)
+    {
+        if (State.Mode is not UiMode.Runner)
+        {
+            return;
+        }
+
+        FillRunnerLog();
     }
 
     /// <summary>

@@ -101,6 +101,20 @@ public sealed class ConsoleScreen : Window
     private (string Flight, int Rows)? _logShowing;
 
     /// <summary>
+    /// The fields the column is currently built out of, or null before it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same argument as <see cref="_logShowing"/>, and a sharper reason.</b>
+    /// A column of labels and read-only fields is built rather than assigned
+    /// into, because a flight waiting on three people has three rows more than
+    /// one waiting on nobody - and <c>RemoveAll</c> hands the caller the
+    /// lifetime of what it removed. Rebuilding on every render would drop two
+    /// undisposed views per field per tick of the live tail's timer. The fields
+    /// are records, so whether they changed is a comparison.
+    /// </remarks>
+    private IReadOnlyList<FlightField>? _fieldsShowing;
+
+    /// <summary>
     /// The dimmer scheme, computed once. The field captions are rebuilt on
     /// every render, and asking the theme for it each time would be a palette
     /// mixed per label per frame.
@@ -1108,7 +1122,22 @@ public sealed class ConsoleScreen : Window
 
         var fields = FlightDetails.Fields(State);
 
-        _flightFields.RemoveAll();
+        if (_fieldsShowing is not null && _fieldsShowing.SequenceEqual(fields))
+        {
+            RenderLog();
+            return;
+        }
+
+        // WHAT WAS REMOVED IS DISPOSED HERE. RemoveAll's own words: "Removing a
+        // SubView causes ownership of the SubView's lifecycle to be transferred
+        // to the caller; the caller must call Dispose". The guard above is what
+        // makes this rare; this is what makes it correct when it happens.
+        foreach (var gone in _flightFields.RemoveAll())
+        {
+            gone.Dispose();
+        }
+
+        _fieldsShowing = fields;
 
         for (var i = 0; i < fields.Count; i++)
         {
@@ -1145,6 +1174,23 @@ public sealed class ConsoleScreen : Window
 
         _flightFields.Height = fields.Count;
 
+        RenderLog();
+    }
+
+    /// <summary>
+    /// The log, refilled only when it is holding the wrong thing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Filling a table replaces its source, which resets the selection.</b>
+    /// Harmless for the tabs, whose cursors are in the model, and not harmless
+    /// here: the log's cursor is a person's place in a history and is
+    /// deliberately kept nowhere, because a modal is a question with an answer
+    /// and a way out. The story cannot change while the modal is open - a UI
+    /// session makes no network call - so the flight it is about and the number
+    /// of entries settle whether a refill is needed.
+    /// </remarks>
+    private void RenderLog()
+    {
         // THE TABLE WHEN THERE ARE ROWS, THE SENTENCE WHEN THERE ARE NOT - and
         // the sentence says WHICH absence it is, because a story nobody fetched
         // and a flight nothing happened to are different facts.

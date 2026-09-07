@@ -35,6 +35,7 @@ public sealed record RepositoryRow(string Chosen, string Path, string Name);
 /// </param>
 public sealed record RunnerRow(
     bool Mine,
+    bool Machine,
     string Here,
     string Runner,
     string State,
@@ -156,20 +157,33 @@ public static class Rows
 
         var fleet = state.Runners?.Runners ?? [];
         var mine = state.LocalRunnerId;
+        var machine = state.Machine;
 
+        // THIS MACHINE'S RUNNERS TOGETHER, AND THE ONE WITH KEYS BEHIND IT
+        // FIRST. Registering twice is what running `gg runner up` twice does,
+        // and only the registration in this console's own file was being
+        // lifted - so the others sat in a fleet ordered by nothing, which on
+        // the live one is fifteen rows deep.
+        //
+        // ORDERED BY, NOT SORTED. OrderBy is stable in .NET, so everything
+        // below keeps the order the control plane sent it in: re-ranking the
+        // fleet here would be the console inventing an order that the same
+        // list read through `gg runner list` does not have.
         var rows = fleet
-            .Select(r => Row(r, string.Equals(r.RunnerId, mine, StringComparison.Ordinal)))
+            .Select(r => Row(
+                r,
+                string.Equals(r.RunnerId, mine, StringComparison.Ordinal),
+
+                // EQUAL, NOT A PREFIX. `vmlinux001:maintain` is a real label
+                // and it is a DIFFERENT runner from `vmlinux001` - a prefix
+                // match would put another host's housekeeping process in the
+                // group a person reads as theirs.
+                machine is { Length: > 0 }
+                    && string.Equals(r.Label, machine, StringComparison.Ordinal)))
+            .OrderBy(r => r.Mine ? 0 : r.Machine ? 1 : 2)
             .ToList();
 
-        var ours = rows.FindIndex(r => r.Mine);
-
-        if (ours > 0)
-        {
-            var row = rows[ours];
-            rows.RemoveAt(ours);
-            rows.Insert(0, row);
-        }
-        else if (ours < 0 && mine is { Length: > 0 })
+        if (rows.Any(r => r.Mine) is false && mine is { Length: > 0 })
         {
             // REGISTERED AND NEVER HEARD FROM, which is what offline means.
             // Inventing a fourth word for it here would be a second vocabulary
@@ -177,6 +191,7 @@ public static class Rows
             // derives.
             rows.Insert(0, new RunnerRow(
                 Mine: true,
+                Machine: true,
                 Here: Ours,
                 Runner: Short(mine),
                 State: RunnerStates.Offline,
@@ -222,12 +237,25 @@ public static class Rows
             || mine.State == RunnerStates.Offline;
     }
 
-    /// <summary>The mark against this machine's own runner.</summary>
+    /// <summary>The mark against the runner this console can act on.</summary>
     private const string Ours = "→";
 
-    private static RunnerRow Row(RunnerSummary runner, bool mine) => new(
+    /// <summary>
+    /// The mark against this machine's other registrations.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the arrow, deliberately.</b> Stop, restart and the log all act on
+    /// the runner this console holds a pidfile for; these are other processes,
+    /// mostly gone. They are grouped with it because they are what a person at
+    /// this keyboard is looking for, and marked differently because none of the
+    /// keys pointed at the arrow will do anything to them.
+    /// </remarks>
+    private const string Alongside = "·";
+
+    private static RunnerRow Row(RunnerSummary runner, bool mine, bool machine) => new(
         Mine: mine,
-        Here: mine ? Ours : " ",
+        Machine: machine || mine,
+        Here: mine ? Ours : machine ? Alongside : " ",
         Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
             ? "  " + label
             : ""),

@@ -789,7 +789,14 @@ public sealed class ConsoleLoop(
             // NORMAL ONLY WHEN THERE IS A SESSION. The modal is over the console
             // it exists because of; closing it on anything less would hand a
             // person back an empty queue with no way to ask again.
-            Mode = step.SignedIn ? UiMode.Normal : UiMode.SignIn,
+            //
+            // AND WHERE THEY ARE OTHERWISE, rather than the modal unconditionally.
+            // The poll outlives the modal now - esc gives the console back
+            // without abandoning an authorization somebody may still approve -
+            // so this arm can be reached with the modal already dismissed. Naming
+            // the mode there reopened it fifteen minutes later to report an
+            // expiry on something they had given up on.
+            Mode = step.SignedIn ? UiMode.Normal : state.Mode,
             SignIn = step.Pending,
             LastSignIn = step.Said,
         };

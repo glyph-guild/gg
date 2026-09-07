@@ -55,11 +55,11 @@ public class PtyScreenTests
         await Assert.That(frame).Contains($"{Esc}[1;1H", StringComparison.Ordinal)
             .Because("the bar is written at the top left of the real terminal.");
 
-        await Assert.That(frame)
-            .Contains($"{Esc}[{PtyScreen.FirstChildRow};1H", StringComparison.Ordinal)
-            .Because("and the child's first row is the second row of the terminal.");
-
-        await Assert.That(PtyScreen.FirstChildRow).IsEqualTo(2);
+        await Assert.That(frame).Contains($"{Esc}[2;1H", StringComparison.Ordinal)
+            .Because("and the child's first row is the SECOND row of the terminal. Written "
+                   + "out rather than through PtyScreen.FirstChildRow, because an assertion "
+                   + "phrased in the constant moves when the constant does and goes on "
+                   + "passing while the bar is painted over.");
     }
 
     [Test]

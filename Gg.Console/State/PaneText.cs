@@ -1262,6 +1262,20 @@ public static class PaneText
               + "none.",
         });
 
+        // WHOSE IT IS, when anybody recorded it. The mark in the first column
+        // says whether a runner is YOURS; this is the only place that answers
+        // "then whose", and it answers it about a row somebody deliberately
+        // opened rather than in a column of one repeated name.
+        //
+        // Silence for a runner nobody is recorded as having registered, which
+        // is permanent for everything registered before the control plane began
+        // recording one: "Registered by ." is worse than no line, and "unknown"
+        // says less than nothing.
+        if (fleet is { RegisteredBy.Length: > 0 } named)
+        {
+            text.AppendLine($"Registered by {Clean(named.RegisteredBy)}.");
+        }
+
         if (here is { LogPath.Length: > 0 } logged)
         {
             text.AppendLine($"Log: {logged.LogPath}");

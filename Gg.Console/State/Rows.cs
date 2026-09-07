@@ -84,6 +84,7 @@ public sealed record RunnerRow(
     bool Mine,
     bool Yours,
     bool Machine,
+    string RegisteredBy,
     string Here,
     string Runner,
     string State,
@@ -284,6 +285,9 @@ public static class Rows
             // derives.
             rows.Insert(0, new RunnerRow(
                 Mine: true,
+                // NOBODY, because nothing about this row came from the control
+                // plane - it is invented from a file this machine wrote.
+                RegisteredBy: "",
 
                 // NOT CLAIMED AS YOURS. This row is invented from a file this
                 // machine wrote, so nothing about it came from the control
@@ -399,6 +403,12 @@ public static class Rows
         Mine: mine,
         Yours: yours,
         Machine: machine || mine,
+
+        // TEXT SOMEBODY ELSE CHOSE, and this is its doorway. Cleaned before
+        // STORAGE rather than at render, which is the console's rule: this
+        // record is written to disk under GG_STATE_DUMP and read back by things
+        // that are not PaneText.
+        RegisteredBy: ControlText.Strip(runner.RegisteredBy),
         Here: mine ? Ours : yours ? Owned : machine ? Alongside : " ",
         Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
             ? "  " + label

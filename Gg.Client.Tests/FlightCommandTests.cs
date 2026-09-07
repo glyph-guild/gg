@@ -62,7 +62,7 @@ public class FlightCommandTests
 
         await Build(stub).ShowAsync("GG-42");
 
-        await Assert.That(stub.ObservedPaths).Contains("/v1/flights/GG-42");
+        await Assert.That(stub.ObservedPaths).Contains("/v1/flights/GG-42/story");
     }
 
     [Test]
@@ -72,7 +72,8 @@ public class FlightCommandTests
 
         await Build(stub).ShowAsync("019fe815-6136-7518-bb57-b06d6d3f411a");
 
-        await Assert.That(stub.ObservedPaths).Contains("/v1/flights/019fe815-6136-7518-bb57-b06d6d3f411a");
+        await Assert.That(stub.ObservedPaths)
+            .Contains("/v1/flights/019fe815-6136-7518-bb57-b06d6d3f411a/story");
     }
 
     [Test]

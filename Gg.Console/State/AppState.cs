@@ -388,6 +388,17 @@ public sealed record AppState
     public FlightLog? FlightLog { get; init; }
 
     /// <summary>
+    /// Its story, exactly as `gg show` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the log rather than instead of it.</b> The queue still derives
+    /// its rows from the logs the boot fetches, and the story answers the four
+    /// questions the summary could not: which stage the flight reached, what
+    /// became of it, what it waits on, and who has it right now.
+    /// </remarks>
+    public FlightStory? Story { get; init; }
+
+    /// <summary>
     /// Why the selected flight is stopped, exactly as `gg why` returned it.
     /// </summary>
     /// <remarks>

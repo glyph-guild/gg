@@ -52,14 +52,31 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
         new VerbResult.Flights(
             await _client.ListFlightsAsync(Session(), all, cancellationToken, intent));
 
-    /// <summary>One flight, by uuid or by the number a person typed.</summary>
+    /// <summary>
+    /// One flight's story, by uuid or by the number a person typed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The story, not the summary.</b> The summary carries the envelope
+    /// versions and the facts and answers four questions with silence: which stage
+    /// the flight reached, what became of it (that route passes no state, so it
+    /// always said <c>unknown</c>), what it waits on, and who has it right now.
+    /// Somebody runs this verb BECAUSE a flight stopped, and those are what they
+    /// are asking.
+    /// </para>
+    /// <para>
+    /// <b><c>gg log</c> is untouched.</b> The story is composed from the log and
+    /// four other reads; the log stays the exact record, and the decision behind
+    /// that split is the owner's: <i>"gg show tells the story; log stays raw."</i>
+    /// </para>
+    /// </remarks>
     public async Task<VerbResult> ShowAsync(string reference, CancellationToken cancellationToken = default)
     {
         var token = Session();
         var resolved = Readable(reference);
 
-        return new VerbResult.Flight(
-            await _client.GetFlightAsync(token, resolved, cancellationToken)
+        return new VerbResult.Story(
+            await _client.GetFlightStoryAsync(token, resolved, cancellationToken)
             ?? throw NoSuchFlight(reference));
     }
 

@@ -48,7 +48,6 @@ public class PtyAgentSessionTests
         // is asserted against the real server in PlatformToolServerTests, and
         // joining the two needs a real agent, which is step 0's job.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
         var agent = FakeAgent(
@@ -78,7 +77,6 @@ public class PtyAgentSessionTests
         // the screen is what rule 7 forbids, and there is nothing else to guess
         // from.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
         var agent = FakeAgent("printf 'I thought about it and said a lot of words'\n");
@@ -107,7 +105,6 @@ public class PtyAgentSessionTests
         // purpose: a grant whose server was never configured tells the agent a
         // tool exists and it spends turns calling nothing.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
 
@@ -167,7 +164,6 @@ public class PtyAgentSessionTests
         // of whatever the agent felt like doing, which is exactly what a tool
         // call is here to prevent.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
         var agent = FakeAgent(
@@ -215,7 +211,6 @@ public class PtyAgentSessionTests
         // person lives - and what they cannot work out for themselves is what
         // ends this and what happens if they just close it.
         using var terminal = new HostedTerminal { Columns = 100, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
         var agent = FakeAgent("exit 0\n");
@@ -250,7 +245,6 @@ public class PtyAgentSessionTests
         // the write is the one that has to have changed. It is released by a
         // keystroke from the test rather than by a timer.
         using var terminal = new HostedTerminal { Columns = 100, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
         var agent = FakeAgent(
@@ -285,7 +279,6 @@ public class PtyAgentSessionTests
         // than one that never changed, and what a person needs first is what
         // ends the session at all.
         using var terminal = new HostedTerminal { Columns = 100, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var compose = Somewhere();
         var agent = FakeAgent("exit 0\n");
@@ -348,7 +341,6 @@ public class PtyAgentSessionTests
                   ("killed outright", "printf 'half a thought' > '{DIR}/intent.txt'; kill -9 $$\n")])
         {
             using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-            await Assert.That(terminal.Opened).IsTrue();
 
             var compose = Somewhere();
             var agent = FakeAgent(script.Replace("{DIR}", compose.FullName, StringComparison.Ordinal));

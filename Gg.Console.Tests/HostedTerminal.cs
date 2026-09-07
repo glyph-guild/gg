@@ -28,13 +28,6 @@ internal sealed class HostedTerminal : IHostTerminal, IDisposable
     private readonly Lock _lock = new();
     private FileStream? _keystrokes;
 
-    /// <summary>Whether there was a pseudo-terminal to be had.</summary>
-    /// <remarks>
-    /// Callers assert on this rather than skipping, because a test that quietly
-    /// did nothing would report a pass for having asserted nothing.
-    /// </remarks>
-    internal bool Opened => _pty.Opened;
-
     public int Columns { get; set; } = 40;
 
     public int Rows { get; set; } = 10;

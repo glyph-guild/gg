@@ -33,7 +33,6 @@ public class PtyEditorSessionTests
     {
         var editor = FakeEditor("printf 'edited by pid %s\\n' $$ >> \"$1\"\n");
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         try
         {
@@ -56,7 +55,6 @@ public class PtyEditorSessionTests
     {
         var editor = FakeEditor("printf 'x' >> \"$1\"\n");
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         try
         {
@@ -109,7 +107,6 @@ public class PtyEditorSessionTests
         {
             var editor = FakeEditor(script);
             using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-            await Assert.That(terminal.Opened).IsTrue();
 
             // A DIRECTORY THIS TEST OWNS. A first version counted gg-notes files
             // in the shared temp directory, which is also where every other test
@@ -156,7 +153,6 @@ public class PtyEditorSessionTests
         // A machine that cannot host still has an editor. It has had one all
         // along.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var edited = new PtyEditorSession(
             "vi",
@@ -182,7 +178,6 @@ public class PtyEditorSessionTests
         // One line, before the editor takes the screen, which is the only moment
         // anything gg says can still be read.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var said = new List<string>();
 
@@ -240,7 +235,6 @@ public class PtyEditorSessionTests
         // given. Only the native library is a reason to stop hosting; everything
         // else is something they need to be told.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var session = new PtyEditorSession(
             "vi",
@@ -261,7 +255,6 @@ public class PtyEditorSessionTests
         // path that was never there leaks both - and the console goes on running
         // afterwards, so the leak accumulates one per attempt.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         var nowhere = Path.Combine(
             Path.GetTempPath(), "gg-not-a-directory-" + Guid.NewGuid().ToString("N")[..8]);

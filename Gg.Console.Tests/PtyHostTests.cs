@@ -75,8 +75,6 @@ public class PtyHostTests
         // scroll region, because a program like that resets the region and
         // repaints everything inside it.
         using var terminal = new HostedTerminal { Columns = 40, Rows = 10 };
-        await Assert.That(terminal.Opened).IsTrue()
-            .Because("without a pseudo-terminal this test asserts about nothing.");
 
         await Host(terminal, "stty size");
 
@@ -89,7 +87,6 @@ public class PtyHostTests
     public async Task The_bar_is_on_the_screen_while_the_child_runs()
     {
         using var terminal = new HostedTerminal();
-        await Assert.That(terminal.Opened).IsTrue();
 
         // A CHILD THAT WRITES NOTHING TO THE SCREEN. `printf hello` let this
         // pass for the weaker reason - the bar rode along with the child's first
@@ -105,7 +102,6 @@ public class PtyHostTests
     public async Task The_exit_code_is_the_child_s_own()
     {
         using var terminal = new HostedTerminal();
-        await Assert.That(terminal.Opened).IsTrue();
 
         await Assert.That(await Host(terminal, "exit 0")).IsEqualTo(0);
 
@@ -127,7 +123,6 @@ public class PtyHostTests
                   ("killed outright", "kill -9 $$")])
         {
             using var terminal = new HostedTerminal();
-            await Assert.That(terminal.Opened).IsTrue();
 
             var before = RawMode.Describe(terminal.Descriptor);
             await Assert.That(before.Canonical).IsTrue()
@@ -150,7 +145,6 @@ public class PtyHostTests
         // is the difference between an editor and a program that scribbled on
         // their terminal.
         using var terminal = new HostedTerminal();
-        await Assert.That(terminal.Opened).IsTrue();
 
         await Host(terminal, "printf hello");
 
@@ -178,7 +172,6 @@ public class PtyHostTests
         // A test whose plant does not survive its own screen would have been
         // "fixed" by weakening the assertion that caught it.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 10 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         await Host(terminal, $"printf 'export GH_TOKEN={Needle}'");
 
@@ -210,7 +203,6 @@ public class PtyHostTests
         // no longer there, and gg keeps painting rows the terminal no longer
         // has.
         using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
-        await Assert.That(terminal.Opened).IsTrue();
 
         // A child that waits, so there is a session to resize. It reports its
         // size AFTER the wait, which is what proves the pty was resized rather

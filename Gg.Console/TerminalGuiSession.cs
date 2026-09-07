@@ -12,7 +12,8 @@ namespace Gg.Console;
 public sealed class TerminalGuiSession(
     LiveTails? tails = null,
     IRunnerLog? runnerLog = null,
-    AutoRefresh? refresh = null) : IUiSession
+    AutoRefresh? refresh = null,
+    Func<bool>? signInLanded = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -23,7 +24,7 @@ public sealed class TerminalGuiSession(
 
         using var app = Application.Create();
         app.Init();
-        using var screen = new ConsoleScreen(app, state, tails, runnerLog, refresh);
+        using var screen = new ConsoleScreen(app, state, tails, runnerLog, refresh, signInLanded);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

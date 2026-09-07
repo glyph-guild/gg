@@ -685,8 +685,23 @@ static async Task<int> LaunchConsoleAsync()
         new SystemClock(),
         TimeSpan.FromSeconds(30));
 
+    // BOTH ENDS OF SIGNING IN, HELD IN ONE PLACE. The session owns the device
+    // code and does the polling; the screen has to end its lifetime when that
+    // poll lands, because the fold and the reload belong to the loop with the
+    // terminal free. Neither can reach the other, and this is the only place
+    // that has both - so it is hoisted out of the argument list below.
+    //
+    // The two halves of `gg login` rather than the verb, because the verb
+    // fetches the code and blocks on it in one breath - the code would only
+    // ever appear in what was printed before Terminal.Gui painted over it.
+    // The device code stays inside SignInSession; what comes back to the
+    // model is what a person reads off the screen.
+    var signIn = new SignInSession(
+        () => auth.StartAsync(Environment.MachineName).GetAwaiter().GetResult(),
+        started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult());
+
     var final = new ConsoleLoop(
-        new TerminalGuiSession(tails, runnerLog, refresh),
+        new TerminalGuiSession(tails, runnerLog, refresh, () => signIn.Arrived() is not null),
         new EditorSession(),
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and
@@ -724,15 +739,7 @@ static async Task<int> LaunchConsoleAsync()
         // this console is worth drawing on a machine that has none. The bridge
         // at the edge again: async verbs, a synchronous shell, and the terminal
         // is provably free while these run.
-        //
-        // The two halves of `gg login` rather than the verb, because the verb
-        // fetches the code and blocks on it in one breath - the code would only
-        // ever appear in what was printed before Terminal.Gui painted over it.
-        // The device code stays inside SignInSession; what comes back to the
-        // model is what a person reads off the screen.
-        signIn: new SignInSession(
-            () => auth.StartAsync(Environment.MachineName).GetAwaiter().GetResult(),
-            started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult()),
+        signIn: signIn,
         checklist: current => ConsoleChecklist.Read(data, current),
         // ONE FLIGHT'S LOG, ON THE KEYPRESS. The boot reads a log only for a
         // flight still in the air - those are the only ones whose log can put a

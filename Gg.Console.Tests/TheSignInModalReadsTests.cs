@@ -131,9 +131,12 @@ public class TheSignInModalReadsTests
 
         var live = Keymap.Bindings(KeymapContext.For(Started())).Select(b => b.Key).ToList();
 
+        // Keyed on opening the link rather than on signing in: approving is no
+        // longer a key at all, so the command that used to prove this context
+        // was live has nothing bound to it once a code is showing.
         await Assert.That(live).Contains(
             Keymap.Bindings(new KeymapContext(UiMode.SignIn) { SignInStarted = true })
-                .Single(b => b.Command == Command.SignIn).Key);
+                .Single(b => b.Command == Command.OpenSignInUri).Key);
     }
 
     [Test]

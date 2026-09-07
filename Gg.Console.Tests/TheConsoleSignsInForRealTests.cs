@@ -41,6 +41,15 @@ public class TheConsoleSignsInForRealTests
         ExpiresAt = Expiry,
     };
 
+    /// <summary>Runs the wait on the spot, so no test ever waits for a task.</summary>
+    /// <remarks>
+    /// The wait is handed to a runner rather than to <c>Task.Run</c> precisely
+    /// so these can drive it; what is under test here is which value crosses
+    /// which boundary, not that .NET can schedule work.
+    /// </remarks>
+    private static Task<SignInStep> AtOnce(Func<SignInStep> work) =>
+        Task.FromResult(work());
+
     [Test]
     public async Task Starting_hands_the_model_what_a_person_reads_and_keeps_the_handle()
     {
@@ -60,7 +69,7 @@ public class TheConsoleSignsInForRealTests
     [Test]
     public async Task Waiting_polls_the_authorization_this_session_started()
     {
-        // THE POINT OF THE WHOLE ARRANGEMENT. The loop calls Wait() with no
+        // THE POINT OF THE WHOLE ARRANGEMENT. The loop asks Arrived() with no
         // arguments, so the handle can only have come from here - which is what
         // lets it stay out of a record that is written to disk and mailed to us
         // in a bundle.
@@ -72,10 +81,11 @@ public class TheConsoleSignsInForRealTests
             {
                 polled.Add(started.DeviceCode);
                 return new SignInResult { SignedIn = true, Said = "Signed in as somebody." };
-            });
+            },
+            AtOnce);
 
         session.Start();
-        var step = session.Wait();
+        var step = session.Arrived()!;
 
         await Assert.That(polled).IsEquivalentTo((string[])[Handle]);
         await Assert.That(step.SignedIn).IsTrue();
@@ -85,21 +95,21 @@ public class TheConsoleSignsInForRealTests
     }
 
     [Test]
-    public async Task Waiting_on_nothing_says_so_rather_than_throwing()
+    public async Task Asking_before_anything_started_says_nothing_rather_than_throwing()
     {
         // The console and this object each track whether something is pending -
         // one to choose a key, one to hold a handle - and an exception here
         // would make any disagreement between them a crash in the shell rather
-        // than a sentence in the modal.
+        // than a sentence in the modal. This is asked once a second, so it is
+        // also the call most likely to find them disagreeing.
         var session = new SignInSession(
             Authorization,
-            _ => throw new InvalidOperationException("nothing was started, so nothing may poll."));
+            _ => throw new InvalidOperationException("nothing was started, so nothing may poll."),
+            AtOnce);
 
-        var step = session.Wait();
-
-        await Assert.That(step.Said).IsNotEmpty();
-        await Assert.That(step.SignedIn).IsFalse();
-        await Assert.That(step.Pending).IsNull();
+        await Assert.That(session.Arrived()).IsNull()
+            .Because("nothing was started, so nothing has landed - and the screen reads that "
+                   + "as 'keep the modal up', which is exactly right.");
     }
 
     [Test]
@@ -126,57 +136,37 @@ public class TheConsoleSignsInForRealTests
         // keep a credential alive in a long-running process for no reason.
         var session = new SignInSession(
             Authorization,
-            _ => new SignInResult { SignedIn = true, Said = "Signed in as somebody." });
+            _ => new SignInResult { SignedIn = true, Said = "Signed in as somebody." },
+            AtOnce);
 
         session.Start();
-        session.Wait();
 
-        await Assert.That(session.Wait().SignedIn).IsFalse()
-            .Because("there is nothing left to poll, and saying so beats polling a spent code.");
-    }
+        await Assert.That(session.Arrived()!.SignedIn).IsTrue();
 
-    private sealed class RecordingWriter : IConsoleWriter
-    {
-        public List<string> Lines { get; } = [];
-        public void WriteLine(string line = "") => Lines.Add(line);
-        public string All => string.Join("\n", Lines);
+        await Assert.That(session.Arrived()).IsNull()
+            .Because("the answer was handed to the model, which is where it lives now. "
+                   + "Holding it would have the screen end a second session over the top "
+                   + "of the console the first one just signed in.");
     }
 
     [Test]
-    public async Task Waiting_says_what_it_is_waiting_for_because_the_modal_has_gone()
+    public async Task Nothing_is_printed_at_all_because_the_modal_never_leaves()
     {
-        // THE MOMENT THE CODE LEAVES THE SCREEN. The UI session ends before the
-        // shell runs, so the modal that was drawing the code is torn down - and
-        // this call then blocks until somebody approves or the code expires.
-        // Anybody who pressed approve a moment early is left looking at a blank
-        // terminal with nothing on it to approve, and their only move is to
-        // interrupt the process.
-        var output = new RecordingWriter();
+        // WHAT THIS REPLACED, AND WHY IT HAD TO GO. Waiting used to print the
+        // code and "waiting for you to approve it", which was right while it
+        // ran between UI lifetimes: the UI session had ended to get there and
+        // the screen was provably nobody's. The wait now runs WHILE the modal
+        // is drawing the code, so the same WriteLine would go through the
+        // middle of what Terminal.Gui is painting - and the person can still
+        // read the code, because the modal never went away.
+        var source = ConsoleSource.Text("Gg.Console", "SignInSession.cs");
 
-        var session = new SignInSession(
-            Authorization,
-            _ => new SignInResult { Said = "That code expired before it was approved." },
-            output);
+        await Assert.That(source).DoesNotContain("WriteLine")
+            .Because("there is no longer any moment in this flow when the terminal is ours.");
 
-        session.Start();
-        session.Wait();
-
-        await Assert.That(output.All).Contains("WDJB-MJHT");
-        await Assert.That(output.All).Contains("https://example.test/device");
-        await Assert.That(output.All).Contains("Waiting");
-    }
-
-    [Test]
-    public async Task Starting_prints_nothing_because_the_console_is_about_to_redraw()
-    {
-        // The other half of the same rule. Start returns to the loop, which
-        // opens a new UI session immediately - so anything written here is
-        // painted over within milliseconds by the modal that draws it properly.
-        var output = new RecordingWriter();
-
-        new SignInSession(Authorization, _ => new SignInResult { Said = "" }, output).Start();
-
-        await Assert.That(output.Lines).IsEmpty();
+        await Assert.That(source).DoesNotContain("ShowCode")
+            .Because("the modal shows the code; printing it underneath is a second copy on a "
+                   + "screen somebody else is painting.");
     }
 
     /// <summary>A code and an address with a screen-clear and a title-set in them.</summary>
@@ -200,30 +190,12 @@ public class TheConsoleSignsInForRealTests
         // written to disk, handed to the diagnostics bundle, and read back by
         // things that are not PaneText. This is the doorway those two values
         // come through.
-        var step = new SignInSession(
-            Crafted, _ => new SignInResult { Said = "" }, new RecordingWriter()).Start();
+        var step = new SignInSession(Crafted, _ => new SignInResult { Said = "" }, AtOnce).Start();
 
         await Assert.That(step.Pending!.UserCode).DoesNotContain(Esc);
         await Assert.That(step.Pending!.VerificationUri).DoesNotContain(Esc);
         await Assert.That(step.Pending!.UserCode).Contains("WDJB-MJHT")
             .Because("stripping removes the sequence, not the code a person has to type.");
-    }
-
-    [Test]
-    public async Task What_goes_straight_to_the_terminal_is_stripped_too()
-    {
-        // THE ONE PATH WITH NO PANE IN IT. Everything else the control plane
-        // says reaches a screen through PaneText, which cleans as a last line of
-        // defence. These lines are written while the UI is down, so there is no
-        // last line of defence after this one.
-        var output = new RecordingWriter();
-
-        var session = new SignInSession(Crafted, _ => new SignInResult { Said = "" }, output);
-        session.Start();
-        session.Wait();
-
-        await Assert.That(output.All).DoesNotContain(Esc);
-        await Assert.That(output.All).Contains("WDJB-MJHT");
     }
 
     [Test]

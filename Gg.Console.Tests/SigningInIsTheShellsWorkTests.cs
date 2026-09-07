@@ -45,7 +45,7 @@ public class SigningInIsTheShellsWorkTests
     /// was asked.
     /// </summary>
     /// <remarks>
-    /// <b>Waiting before anything is started throws</b> rather than answering.
+    /// <b>Asking before anything is started throws</b> rather than answering.
     /// Which half the loop calls is the whole subject here, and a double that
     /// answered both the same way would pass whichever one it called.
     /// </remarks>
@@ -61,11 +61,11 @@ public class SigningInIsTheShellsWorkTests
             return started;
         }
 
-        public SignInStep Wait()
+        public SignInStep? Arrived()
         {
             Waits++;
             return waited ?? throw new InvalidOperationException(
-                "waited on an authorization this test never started.");
+                "asked about an authorization this test never started.");
         }
     }
 
@@ -94,25 +94,22 @@ public class SigningInIsTheShellsWorkTests
     }
 
     [Test]
-    public async Task Approving_is_not_the_key_that_asked()
+    public async Task Approving_reaches_this_arm_without_a_key()
     {
-        // ConfirmFlight's rule. The second press means "I have approved it in a
-        // browser", and somebody who reached it by pressing the first key twice
-        // has approved nothing - they would be waiting on a code they were
-        // never shown.
-        var asks = Keymap.Bindings(new KeymapContext(UiMode.SignIn))
-            .Single(b => b.Command == Command.SignIn);
+        // THE OTHER DOOR, and the only one once a code is showing. Approving is
+        // still the shell's work - it folds a credential write and reloads every
+        // pane - but nothing on the keyboard raises it any more, because a
+        // person who has approved in a browser has already done the whole of
+        // it. What raises it is the screen noticing the poll land, and if that
+        // door is ever closed the approval is polled, answered, and folded by
+        // nobody. TheConsoleNoticesTheApprovalTests owns the claim that no key
+        // does this; this owns the claim that something still must.
+        var screen = ConsoleSource.Text("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
 
-        var approves = Keymap.Bindings(new KeymapContext(UiMode.SignIn) { SignInStarted = true })
-            .Single(b => b.Command == Command.SignIn);
-
-        await Assert.That(approves.Key).IsNotEqualTo(asks.Key)
-            .Because("one key for both is a double-press away from waiting on a code "
-                   + "nobody read.");
-
-        await Assert.That(approves.Description).IsNotEqualTo(asks.Description)
-            .Because("the hint line is the only thing telling a person what the key means "
-                   + "now, and the two steps ask for opposite things.");
+        await Assert.That(screen).Contains("ExitCommand = Command.SignIn")
+            .Because("the fold and the reload belong to the loop with the terminal free, so "
+                   + "the session has to END for them to happen - which is what every other "
+                   + "shell-handled command does on a keypress and this one does on a tick.");
     }
 
     [Test]

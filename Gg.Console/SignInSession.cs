@@ -24,51 +24,60 @@ public sealed record SignInStep
     /// The sentence a person reads.
     /// </summary>
     /// <remarks>
-    /// What HAPPENED, never what it becomes. Expired, declined and pressed-too-
-    /// early are three sentences and one fact to the person: it did not work,
-    /// and they are somewhere they can try again.
+    /// What HAPPENED, never what it becomes. Expired, declined and unreachable
+    /// are three sentences and one fact to the person: it did not work, and
+    /// they are somewhere they can try again.
     /// </remarks>
     public required string Said { get; init; }
 }
 
 /// <summary>
-/// Signing in, with the terminal free.
+/// Signing in, with the terminal free and the modal still up.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Only ever called while no UI session is running. <c>ConsoleLoop</c> runs
-/// between UI lifetimes, which is what makes the two network calls and the
-/// credential write allowed at all — a session may read a local file and
-/// nothing else.
+/// <b>Asking for the code happens between UI lifetimes; waiting for the
+/// approval does not.</b> <c>ConsoleLoop</c> runs <see cref="Start"/> with the
+/// screen provably nobody's, which is what makes a network call and, later, a
+/// credential write allowed at all. The wait then runs on a task owned outside
+/// every UI lifetime and <see cref="Arrived"/> asks only whether it has
+/// finished — <see cref="AutoRefresh"/>'s exception, argued there, and for the
+/// same reason: what the rule forbids is a session that BLOCKS, and every call
+/// here returns.
 /// </para>
 /// <para>
-/// <b>Two calls rather than one, and the split is the feature.</b> A single
-/// <c>SignIn()</c> would fetch the code and block on approval in the same
-/// breath, so the code would only ever appear in whatever the shell printed
-/// before the console redrew over it. Starting hands the code back for the
-/// model to hold and the modal to draw; waiting is the second press.
+/// <b>Why it is not a second keypress.</b> It was one, and the press meant "I
+/// have approved it in a browser". Approving is the whole of signing in, so the
+/// press could only ever tell the console something it was about to find out;
+/// what it actually did was make a person who had already approved sit in front
+/// of a console that showed no sign of it. There is nothing for a person to
+/// confirm here that the control plane has not already been asked.
 /// </para>
 /// <para>
 /// <b>The device code lives on the implementation and nowhere else.</b> It is
 /// the one value in this flow that is a credential — see
-/// <see cref="PendingSignIn"/> — which is why <see cref="Wait"/> takes no
+/// <see cref="PendingSignIn"/> — which is why <see cref="Arrived"/> takes no
 /// argument: there is nothing for the model to hand back.
 /// </para>
 /// </remarks>
 public interface ISignInSession
 {
-    /// <summary>Begins a device authorization and says what a person must do.</summary>
+    /// <summary>
+    /// Begins a device authorization, says what a person must do, and starts
+    /// watching for them to do it.
+    /// </summary>
     SignInStep Start();
 
     /// <summary>
-    /// Waits for the person to approve what was started, and stores the session.
+    /// What the wait produced, or null while it is still outstanding.
     /// </summary>
     /// <remarks>
-    /// Bounded by the authorization's own expiry rather than by a timeout
-    /// invented here, so a person who walks away gets the console back with a
-    /// sentence rather than a terminal that never returns.
+    /// <b>Never waits.</b> This is asked once a second from inside a UI session,
+    /// so an answer that blocked would freeze the keyboard for as long as a
+    /// person takes to find their browser. Null is the ordinary answer and it
+    /// means "not yet", not "nothing was started".
     /// </remarks>
-    SignInStep Wait();
+    SignInStep? Arrived();
 }
 
 /// <summary>
@@ -89,35 +98,39 @@ public interface ISignInSession
 /// and a test can drive both halves without a control plane.
 /// </para>
 /// <para>
-/// <b>Nothing here throws.</b> The console is drawn over the terminal, so an
-/// exception out of this ends the process and takes the screen with it: a
-/// person would be left looking at a stack trace where their queue was. Every
-/// failure comes back as the sentence the modal draws.
+/// <b>Nothing here throws, and nothing here prints.</b> The console is drawn
+/// over the terminal for the whole of the wait now, so an exception out of this
+/// ends the process and takes the screen with it, and a line written to stdout
+/// goes through the middle of what Terminal.Gui is painting. Every failure comes
+/// back as the sentence the modal draws.
 /// </para>
 /// </remarks>
 public sealed class SignInSession(
     Func<DeviceAuthorizationStarted> start,
     Func<DeviceAuthorizationStarted, SignInResult> wait,
-    IConsoleWriter? output = null) : ISignInSession
+    Func<Func<SignInStep>, Task<SignInStep>>? run = null) : ISignInSession
 {
-    /// <summary>The handle, held here and never handed out.</summary>
-    private DeviceAuthorizationStarted? _started;
+    /// <summary>The wait, in flight or finished. Null before anything started.</summary>
+    private Task<SignInStep>? _waiting;
 
     /// <summary>
-    /// Where the code goes when the modal cannot draw it.
+    /// How the wait is got off this thread.
     /// </summary>
     /// <remarks>
-    /// Writing to the terminal from the console's own assembly is allowed here
-    /// for the reason <c>TakeSession</c> already writes to it: this runs
-    /// BETWEEN UI sessions, with the screen provably nobody's.
+    /// Injected for the reason time is: a test that let a real task run would be
+    /// asserting "asking does not block" BY waiting, and waiting in a test is
+    /// the one thing this repo does not do.
     /// </remarks>
-    private readonly IConsoleWriter _output = output ?? new StandardConsoleWriter();
+    private readonly Func<Func<SignInStep>, Task<SignInStep>> _run =
+        run ?? (work => Task.Run(work));
 
     public SignInStep Start()
     {
+        DeviceAuthorizationStarted started;
+
         try
         {
-            _started = start();
+            started = start();
         }
         catch (Exception failure) when (failure is HttpRequestException
                                             or ProtocolTooOldException
@@ -128,6 +141,12 @@ public sealed class SignInSession(
                 Said = $"Could not ask the control plane for a code: {failure.Message}",
             };
         }
+
+        // OFF THIS THREAD BEFORE THE MODAL IS DRAWN. The loop returns from here
+        // straight into a new UI session, so by the time a person is reading the
+        // code the control plane is already being asked about it - which is what
+        // makes approving in a browser the only thing left to do.
+        _waiting = _run(() => Waited(started));
 
         return new SignInStep
         {
@@ -142,39 +161,39 @@ public sealed class SignInSession(
             // that are not PaneText.
             Pending = new PendingSignIn
             {
-                UserCode = ControlText.Strip(_started.UserCode),
-                VerificationUri = ControlText.Strip(_started.VerificationUri),
-                ExpiresAt = _started.ExpiresAt,
+                UserCode = ControlText.Strip(started.UserCode),
+                VerificationUri = ControlText.Strip(started.VerificationUri),
+                ExpiresAt = started.ExpiresAt,
             },
             Said = "Waiting for you to approve it.",
         };
     }
 
-    public SignInStep Wait()
+    public SignInStep? Arrived()
     {
-        // The loop tracks whether something is pending to choose a key; this
-        // tracks it to hold a handle. They should agree, and a disagreement is
-        // a sentence in the modal rather than a crash in the shell.
-        if (_started is not { } started)
+        if (_waiting is not { IsCompleted: true } finished)
         {
-            return new SignInStep { Said = "Nothing has been started here yet." };
+            return null;
         }
 
-        // LET GO OF BEFORE THE WAIT, not after it. A device code is spent once
-        // the authorization resolves either way, and every path out of here -
-        // approved, declined, expired, unreachable - returns to the offer, so
-        // the next press has to start a fresh one.
-        _started = null;
+        // LET GO OF ONCE IT HAS RESOLVED. A device code is spent whichever way
+        // the authorization went, and every path out of here returns to the
+        // offer, so the next press has to start a fresh one. The result is
+        // handed back rather than held: the model is where it lives after this.
+        _waiting = null;
 
-        // SAID BEFORE THE WAIT, because the modal that was drawing this is
-        // already gone: the UI session ended to get here, and what follows can
-        // block until the code expires. Somebody who pressed approve a moment
-        // early would otherwise be looking at a blank terminal with nothing on
-        // it to approve. TakeSession's rule - once the screen stops being ours,
-        // nothing of ours is read again until it comes back.
-        AuthCommands.ShowCode(_output, started);
-        _output.WriteLine("Waiting for you to approve it. The console comes back after that.");
+        // A TASK THAT FAULTED IS STILL A SENTENCE. Waited catches what the
+        // client is documented to throw; anything else would otherwise surface
+        // as an exception out of a UI timer, which ends the process and takes
+        // the screen with it.
+        return finished.IsCompletedSuccessfully
+            ? finished.Result
+            : new SignInStep { Said = "Lost the control plane while waiting." };
+    }
 
+    /// <summary>The wait itself, with every way out turned into a sentence.</summary>
+    private SignInStep Waited(DeviceAuthorizationStarted started)
+    {
         try
         {
             var result = wait(started);

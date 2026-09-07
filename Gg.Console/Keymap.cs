@@ -285,22 +285,17 @@ public static class Keymap
         // to look at an empty console, or who opened gg to read the help, is
         // allowed to.
         //
-        // TWO STEPS, TWO KEYS, AND NOT THE SAME ONE TWICE. ConfirmFlight's
-        // rule: the key that asks for a code is not the key that says the code
-        // was approved, because one key for both is a double-press away from
-        // waiting on something nobody was shown.
+        // ONE STEP, AND APPROVING IS NOT A KEY. There was a second press here
+        // - `a`, "I have approved it" - because the poll blocked and could not
+        // be started while this modal was up. It could only ever tell the
+        // console something it was about to find out, and what it actually did
+        // was leave somebody who had already approved in front of a console
+        // showing no sign of it. The poll now runs from the moment the code is
+        // drawn, so the only keys once a code is showing are the ones that help
+        // a person reach the browser.
         UiMode.SignIn => context.SignInStarted
             ?
             [
-                // WHEN, because it is not live in the plainest form of this
-                // mode and the help page is a union over every context. Read
-                // there without it, `y sign in` and `a I have approved it` sit
-                // together as a contradiction rather than as two steps.
-                new(KeyStroke.Char('a'), Command.SignIn, "I have approved it")
-                {
-                    When = "once a code is showing",
-                },
-
                 // THE LINK, WHICH A PERSON OTHERWISE READS ACROSS BY HAND. gg
                 // owns this terminal, so the URL on the screen cannot be
                 // clicked and cannot be selected without fighting the alternate

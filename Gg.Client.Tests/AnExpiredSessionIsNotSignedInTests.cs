@@ -43,6 +43,11 @@ public class AnExpiredSessionIsNotSignedInTests
             Task.FromResult(new HttpResponseMessage(status)
             {
                 Content = new StringContent("", System.Text.Encoding.UTF8, "application/json"),
+
+                // CARRIED BACK, as a real response does. The rule turns on
+                // whether the REQUEST held a session, so a double that dropped
+                // it would be testing a case that cannot happen.
+                RequestMessage = request,
             });
     }
 
@@ -93,6 +98,32 @@ public class AnExpiredSessionIsNotSignedInTests
             .Throws<NotSignedInException>();
         await Assert.That(async () => await refusing.GatesAsync("stale"))
             .Throws<NotSignedInException>();
+    }
+
+    [Test]
+    public async Task The_probe_that_asks_whether_a_session_is_good_still_answers()
+    {
+        // WhoAmI is how `gg doctor` finds out, and it says so with null. A
+        // throw here would take the question away from the one command whose
+        // job is to ask it - the doctor would report an exception where it
+        // means to report a check.
+        var refusing = Answering(HttpStatusCode.Unauthorized);
+
+        await Assert.That(await refusing.WhoAmIAsync("stale-token")).IsNull()
+            .Because("a refusal is the answer at this door, and nowhere else.");
+    }
+
+    [Test]
+    public async Task An_unauthenticated_call_is_not_about_a_session_at_all()
+    {
+        // The ping, the version read and the device-authorization pair carry no
+        // session. "This session is no longer valid" is false about those, and
+        // offering to sign in would not fix whatever a 401 there means.
+        var refusing = Answering(HttpStatusCode.Unauthorized);
+
+        await Assert.That(async () => await refusing.PingAsync())
+            .ThrowsNothing()
+            .Because("a reachability check answers whether the control plane is there.");
     }
 
     [Test]

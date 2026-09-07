@@ -96,6 +96,41 @@ public class ARunnerNamesWhoBroughtItUpTests
     }
 
     [Test]
+    public async Task A_runner_also_names_the_person_a_reader_would_recognise()
+    {
+        // BOTH HALVES CROSS, and they are for different readers. The id is for
+        // the comparison above - it decides which rows are yours. This is for
+        // the person looking at the screen, who cannot recognise a uuid and
+        // should not be asked to.
+        //
+        // Which is why the ordering and the marks key on the ID and the modal
+        // shows the NAME: a display name two people can share would put
+        // somebody else's runner in your group, and an id nobody can read
+        // would tell a person nothing about who to go and ask.
+        var runner = ARunner(Principal) with { RegisteredBy = "Kevin Deenanauth" };
+
+        await Assert.That(runner.RegisteredBy).IsEqualTo("Kevin Deenanauth");
+    }
+
+    [Test]
+    public async Task The_name_is_optional_for_a_different_reason_than_the_id()
+    {
+        // THE ID NEEDED A BACKFILL AND THIS DOES NOT. RegisteredBy has been
+        // recorded on the registration event since registration existed and the
+        // lens has always projected it, so every runner in the store already has
+        // one; the id was added later and no replay can invent it. Both are
+        // init-only all the same, because an older control plane sends neither.
+        var payload = """
+            {"runnerId":"01a078bb-4b97-779b-81ff-554c4ea662c0",
+             "label":"Kevins-MBP","state":"idle"}
+            """;
+
+        var runner = JsonSerializer.Deserialize<RunnerSummary>(payload, JsonSerializerOptions.Web);
+
+        await Assert.That(runner!.RegisteredBy).IsEmpty();
+    }
+
+    [Test]
     public async Task A_runner_nobody_can_be_attributed_to_is_not_an_error()
     {
         // Every runner registered before this shipped is in this state

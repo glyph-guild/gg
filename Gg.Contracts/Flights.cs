@@ -651,6 +651,45 @@ public sealed record RunnerSummary
     /// </remarks>
     public string RegisteredBy { get; init; } = "";
 
+    /// <summary>When this runner was withheld from claiming, or null.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside the state rather than a fourth value of it</b>, which is the
+    /// asymmetry <c>ARunnerCanBeParkedTests</c> holds: <see cref="State"/> says
+    /// what a runner IS DOING, and the members around it say why it reads that
+    /// way. <see cref="LastHeartbeatAt"/> sets the precedent - it is what lets a
+    /// person see why a runner reads <c>offline</c> instead of demanding a
+    /// state per cause.
+    /// </para>
+    /// <para>
+    /// <b>Without this a parked runner is an idle one.</b> The claim path
+    /// refuses to collapse those two silences - see
+    /// <see cref="LeaseClaimStates.Parked"/>, which calls it the defect
+    /// <see cref="LeaseClaimStates.Waiting"/> was added to fix - and until this
+    /// crossed, the fleet read collapsed them: a machine somebody deliberately
+    /// withheld was indistinguishable from one with nothing to do.
+    /// </para>
+    /// <para>
+    /// A parked runner still reports <c>idle</c>, or <c>busy</c> if it is
+    /// finishing work it already claimed, or <c>offline</c> if it stopped
+    /// beating. Parking withholds new claims; it does not stop work and does
+    /// not take a machine away.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? ParkedAt { get; init; }
+
+    /// <summary>
+    /// Why it was withheld, in the words of whoever withheld it, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>A reason is most of the point of parking.</b> "Withheld" without
+    /// "why" leaves somebody to go and ask, and the control plane already
+    /// stores the answer beside who parked it and when. A person's own words
+    /// about their own fleet, not content from a customer's repository - and
+    /// text somebody chose all the same, so a renderer strips it.
+    /// </remarks>
+    public string ParkedBecause { get; init; } = "";
+
     /// <summary>
     /// What this runner advertises, each label with its disposition beside it.
     /// </summary>

@@ -579,5 +579,10 @@
     "version": "0.121.0",
     "surface": "8d32bb70e9b62d51dc4602f0a095c6caf37422a6603bcd8919e2a51bafeffb4a",
     "note": "RunnerSummary.RegisteredBy: the display name of the principal that registered a runner, beside the id 0.120.0 added. ADDITIVE and OPTIONAL. TWO MEMBERS FOR TWO READERS, and neither does the other's job: the id decides which rows are a person's own, because a display name two people can share would put somebody else's runner in your group and a rename would drop your own; the name is what reaches a screen, because nobody recognises a uuid. A consumer keying attribution on this member would be wrong the first time a name collided. TEXT SOMEBODY ELSE CHOSE - composed by whoever registered, travelling to a terminal - so a consumer strips control sequences before storing it, like every other display name on this protocol. Unlike the id this needs no repair for runners already in a store: it has been on RunnerRegistered since registration existed and the lens has always projected it."
+  },
+  {
+    "version": "0.122.0",
+    "surface": "135a730296efe2634d04eea9568a55cfe2b83ced803f2418e47c0941f8a75acc",
+    "note": "RunnerSummary.ParkedAt and ParkedBecause: when a runner was withheld from claiming and why. ADDITIVE and OPTIONAL. BESIDE THE STATE RATHER THAN INSIDE IT, and that asymmetry is load-bearing rather than tidy: parking withholds CLAIMING and never touches a lease, so a runner can be parked and busy at once - which is the reason to park anything, letting a machine finish what it has and take nothing more. As a fourth value of State one of those two facts would have to be thrown away. The claim path made `parked` a first-class outcome because THERE the values are mutually exclusive - a claim was pending, or waiting, or refused because parked, never two - and that is why it is a state there and a fact here. WHAT THIS FIXES: the fleet read reported `idle` for a machine somebody deliberately withheld, collapsing exactly the two silences LeaseClaimStates.Parked calls the defect Waiting was added to fix. The control plane already stored parked_at, parked_by and reason and never sent them."
   }
 ]

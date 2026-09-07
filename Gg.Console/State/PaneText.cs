@@ -1276,6 +1276,7 @@ public static class PaneText
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
+        UiMode.ComposeChoice => "How should this flight be written?",
         _ => "",
     };
 

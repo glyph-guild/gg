@@ -230,6 +230,39 @@ public enum Command
     /// </remarks>
     OpenFlight,
 
+    /// <summary>Ask which way to compose a new flight.</summary>
+    /// <remarks>
+    /// <b>A command of its own rather than <see cref="OpenFlight"/> gaining a
+    /// mode.</b> Opening a flight spawns a child and makes a request, so it is
+    /// the shell's; asking which way sets a field and does nothing else, so it
+    /// is the session's. A command that did both would have two effects, and
+    /// the local one would happen whether or not the remote one did - which is
+    /// the rule <c>ShellHandledTests</c> holds, and it is right.
+    /// </remarks>
+    AskHowToCompose,
+
+    /// <summary>Compose this flight in <c>$EDITOR</c>.</summary>
+    /// <remarks>
+    /// An answer to the modal <see cref="OpenFlight"/> now opens, and nothing
+    /// else: it records which way and leaves. What it records is acted on by the
+    /// loop, with the terminal released.
+    /// </remarks>
+    ComposeInEditor,
+
+    /// <summary>Compose this flight with an agent.</summary>
+    ComposeWithAgent,
+
+    /// <summary>
+    /// The flight was opened, so the choice that opened it is spent.
+    /// </summary>
+    /// <remarks>
+    /// <b>A command rather than a field the loop clears.</b> Clearing it in the
+    /// loop would put the rule in the one place that is hardest to test, and the
+    /// rule is the whole reason the choice is not remembered: it belongs to the
+    /// flight it was given for.
+    /// </remarks>
+    FlightOpened,
+
     /// <summary>
     /// Register a credential for a repository. The value is prompted for and never
     /// held here.
@@ -316,6 +349,12 @@ public static class ShellCommands
 
         // The three the parity guard used to exempt. Writes, so the shell does them.
         Command.OpenFlight,
+
+        // NOT ComposeInEditor, ComposeWithAgent or FlightOpened, and that is
+        // the whole reason the modal is cheap. They change a field and nothing
+        // else - no child, no read, no request - so they are pure reductions the
+        // session handles, and what they record is acted on by OpenFlight above
+        // with the terminal already released.
         Command.AddCredential,
         Command.Invite,
 

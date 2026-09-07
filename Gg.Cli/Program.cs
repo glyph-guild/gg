@@ -741,6 +741,14 @@ static async Task<int> LaunchConsoleAsync()
         // type on purpose - a second construction site here would be a second
         // place to answer it, and the two would eventually disagree.
         new PtyEditorSession(),
+        // THE OTHER WAY TO COMPOSE, and it is passed here for the same reason
+        // the editor is: this is the only place that may name a self-invocation.
+        // gg serves its own intent tool by starting itself again, and a console
+        // that could name that would be a console that can act as a runner.
+        //
+        // A KEY THAT OFFERED THIS AND FELL BACK WOULD READ AS A FLICKER, which
+        // is what EveryPortIsPassedTests exists to catch - it caught this one.
+        compose: new PtyAgentSession(),
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and
         // EveryPortIsPassedTests can only see the ones that say their name.

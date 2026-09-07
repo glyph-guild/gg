@@ -336,6 +336,26 @@ public static class Keymap
         // showing no sign of it. The poll now runs from the moment the code is
         // drawn, so the only keys once a code is showing are the ones that help
         // a person reach the browser.
+        // THE ONE QUESTION, AND ITS TWO ANSWERS - ON THE LETTERS NORMAL MODE
+        // ACTUALLY LEAVES FREE, which is not the ones the words start with.
+        // `e` is the envelope, `a` is actions and `g` is refresh, all in the
+        // mode this modal is opened FROM; a person who pressed `n` and then
+        // reached for `e` would be reaching for a key that means something else
+        // one keypress earlier. Of what is left - m, o, s, w, z - `w` is "write
+        // it myself" and `m` is the model, and both say what they do rather
+        // than being the first letter of a word that was taken.
+        UiMode.ComposeChoice =>
+        [
+            new(KeyStroke.Char('w'), Command.ComposeInEditor, "write it in your editor"),
+            new(KeyStroke.Char('m'), Command.ComposeWithAgent, "compose it with an agent"),
+
+            // THE ONE WAY OUT, the same key it is in every other modal - which
+            // is what makes it findable without being learned. Escaping opens
+            // nothing: a flight nobody confirmed is a number that was never
+            // taken.
+            new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
+        ],
+
         UiMode.SignIn => context.SignInStarted
             ?
             [
@@ -469,7 +489,10 @@ public static class Keymap
             // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
             // while it is open, and one of these reachable from a gate decision
             // would be a key doing something unrelated to the question on screen.
-            new(KeyStroke.Char('n'), Command.OpenFlight, "new flight"),
+            // ASKS, RATHER THAN OPENING. There are two ways to compose a flight
+            // now and neither is the obvious one, so the key opens the question
+            // and the answer decides which child the loop starts.
+            new(KeyStroke.Char('n'), Command.AskHowToCompose, "new flight"),
             // THE TWO CREDENTIAL KEYS ARE IN HELP AND NOT ON THE LINE. Adding
             // and forgetting a credential is a thing a person does when they
             // set the tenant up and then about twice a year, and it was

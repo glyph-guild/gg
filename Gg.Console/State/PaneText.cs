@@ -1193,17 +1193,46 @@ public static class PaneText
     /// working" without being read past - and the path is here because a log
     /// this modal shows the tail of is a log somebody will want the whole of.
     /// </remarks>
+    /// <summary>
+    /// Where a runner is, said only when it is somewhere this console knows.
+    /// </summary>
+    /// <remarks>
+    /// <b>"On this machine" was hard-coded and is now a claim.</b> It is true
+    /// of the row the arrow is on and of no other; said of a runner on a build
+    /// host it sends somebody looking on their laptop for a process that was
+    /// never there. The label is the only thing the fleet says about where, so
+    /// it is what a person is given.
+    /// </remarks>
+    private static string Where(RunnerRow row) =>
+        row.Mine ? "on this machine" : "on " + Clean(row.Runner.Split("  ").Last());
+
     private static string Runner(AppState state)
     {
         var text = new StringBuilder();
         var here = state.Here;
 
-        // THE CHILD THIS CONSOLE HOLDS FIRST, because it knows things the fleet
-        // cannot - a pid, and an exit code the moment it happens. Then the
-        // fleet's own answer, because a runner started in another terminal is
-        // how most of them start and "this console did not start one" is not
-        // what somebody opened this to ask.
-        var fleet = Rows.Runners(state).FirstOrDefault(r => r.Mine);
+        // THE ROW THE CURSOR IS ON, which is the whole subject. This read
+        // `FirstOrDefault(r => r.Mine)` - "whichever row is this machine's" -
+        // so enter on any row but the first drew the wrong runner, with the
+        // right shape and no way for a reader to tell.
+        var fleet = Rows.Selected(state);
+
+        // AND NOT THE CHILD WHEN THE CURSOR IS ON SOMEBODY ELSE'S ROW. Pid,
+        // exit code and log belong to a process THIS console started; state,
+        // labels and last-heard come from the control plane about anybody's.
+        // Over another host's runner the child's facts are not merely absent,
+        // they are about a different machine.
+        //
+        // NO ROW IS NOT SOMEBODY ELSE'S ROW, and the difference is the whole
+        // reason this is `is { Mine: false }` rather than `is not { Mine: true
+        // }`. A runner coming up here has been started and has not registered
+        // yet, so the fleet has no row for it for a few seconds - and watching
+        // it start is the entire reason that modal opens. Dropping the child
+        // there would blank the log a person opened it to read.
+        if (fleet is { Mine: false })
+        {
+            here = null;
+        }
 
         text.AppendLine((here, fleet) switch
         {
@@ -1217,18 +1246,20 @@ public static class PaneText
             ({ Exit: not null } gone, _) =>
                 $"The runner this console started exited {gone.Exit}. What it said is below.",
 
-            // NOT OURS, AND STILL THIS MACHINE'S. The fleet derives the state
-            // and this row is the one carrying the arrow on the tab behind.
+            // NOT A CHILD OF OURS. The fleet derives the state, and "on this
+            // machine" is now a claim rather than a given - it is true only of
+            // the row the arrow is on, and saying it of a runner on a build
+            // host is how somebody goes looking for a process that was never
+            // here.
             (_, { State: RunnerStates.Busy } busy) =>
-                $"{busy.Runner} is {RunnerStates.Busy} on this machine, working on {busy.Work}.",
+                $"{busy.Runner} is {RunnerStates.Busy} {Where(busy)}, working on {busy.Work}.",
             (_, { State: RunnerStates.Idle } idle) =>
-                $"{idle.Runner} is {RunnerStates.Idle} on this machine, waiting for work.",
+                $"{idle.Runner} is {RunnerStates.Idle} {Where(idle)}, waiting for work.",
             (_, { } stale) =>
-                $"{stale.Runner} is registered to this machine and is {stale.State} - last "
-              + $"heard {stale.Heard}.",
+                $"{stale.Runner} is {stale.State} {Where(stale)} - last heard {stale.Heard}.",
             _ =>
-                "There is no runner on this machine: none registered here, and none started "
-              + "from this console.",
+                "There is no runner here: the cursor is on no row, and this console started "
+              + "none.",
         });
 
         if (here is { LogPath.Length: > 0 } logged)
@@ -1237,6 +1268,19 @@ public static class PaneText
         }
 
         text.AppendLine();
+
+        // A LOG IS A LOCAL FILE, so there is one only for a child this console
+        // started. "It has said nothing yet" over somebody else's runner
+        // promises output that can never arrive and reads as a runner that has
+        // gone quiet, which is the opposite of what it means.
+        if (fleet is { Mine: false })
+        {
+            text.AppendLine(
+                "This console did not start it, so there is no log here to read. What it "
+              + "says is on the machine it is running on.");
+
+            return text.ToString().TrimEnd();
+        }
 
         var lines = here?.Log ?? [];
 

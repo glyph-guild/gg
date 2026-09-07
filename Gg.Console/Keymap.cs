@@ -70,6 +70,17 @@ public readonly record struct KeymapContext(
     public bool SignInStarted { get; init; }
 
     /// <summary>
+    /// Whether the runner the cursor is on is the one this console started.
+    /// </summary>
+    /// <remarks>
+    /// The runner modal opens over any row now, and only one row in a fleet is
+    /// reachable through a pidfile this machine wrote. In the CONTEXT rather
+    /// than read off the model, like everything else here, so the hint line and
+    /// the dispatch cannot disagree about whether a key is live.
+    /// </remarks>
+    public bool RunnerIsOurs { get; init; }
+
+    /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
     /// </summary>
@@ -116,6 +127,14 @@ public readonly record struct KeymapContext(
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
             SignInStarted = state.SignIn is not null,
+
+            // Whose runner the modal is over, which decides whether the two
+            // keys that need a pidfile are offered at all.
+            // NO ROW IS NOT SOMEBODY ELSE'S ROW. A runner this console started
+            // and is watching come up has no fleet row for a few seconds, and
+            // `x` has to work on it for exactly those seconds - it is the only
+            // way to stop something that is starting badly.
+            RunnerIsOurs = Rows.Selected(state) is not { Mine: false },
 
             // WHAT THE REFRESH KEY HAS TO SAY, derived here with everything
             // else the hints are made of, so the line has one author.
@@ -254,12 +273,28 @@ public static class Keymap
         // THE TWO THINGS THAT CAN BE DONE TO A RUNNER, and the way out. `r' and
         // `x' are repositories and forget-a-credential in Normal mode and mean
         // these here, which is what a modal owning the keyboard is for.
-        UiMode.Runner =>
-        [
-            new(KeyStroke.Char('r'), Command.RestartRunner, "restart it"),
-            new(KeyStroke.Char('x'), Command.StopRunner, "shut it down"),
-            new(KeyStroke.Esc, Command.CloseModal, "close"),
-        ],
+        // ONLY OVER A RUNNER THIS CONSOLE CAN REACH. Both act through a pidfile
+        // this machine wrote, so over somebody else's runner the best case is a
+        // key that does nothing and the worst is one that shuts down the local
+        // runner while a person is looking at another row. Close is always
+        // there: a modal with no way out is worse than one with nothing to do.
+        UiMode.Runner => context.RunnerIsOurs
+            ?
+            [
+                new(KeyStroke.Char('r'), Command.RestartRunner, "restart it")
+                {
+                    When = "over the runner on this machine",
+                },
+                new(KeyStroke.Char('x'), Command.StopRunner, "shut it down")
+                {
+                    When = "over the runner on this machine",
+                },
+                new(KeyStroke.Esc, Command.CloseModal, "close"),
+            ]
+            :
+            [
+                new(KeyStroke.Esc, Command.CloseModal, "close"),
+            ],
 
         // THE ONE PLACE A FLIGHT CAN BE ENDED, because it is the one place the
         // flight being ended is named on the screen. Every other key in this
@@ -587,9 +622,14 @@ public static class Keymap
         // no page - a key nobody could discover, which is the thing this
         // catalogue exists to prevent.
         from signInStarted in (bool[])[false, true]
+        // THE RUNNER MODAL'S TWO SHAPES, for the sign-in modal's reason: two
+        // sets of keys behind one mode. Left out, `x shut it down` would appear
+        // on the help page unconditionally while resolving in only one of them.
+        from runnerIsOurs in (bool[])[false, true]
         select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = signInStarted,
+            RunnerIsOurs = runnerIsOurs,
         };
 
     /// <summary>

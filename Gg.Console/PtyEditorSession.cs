@@ -94,11 +94,15 @@ public sealed class PtyEditorSession : IEditorSession
             return _unhosted.Edit(initialText);
         }
 
-        var file = Path.Combine(_notesIn, $"gg-notes-{Guid.NewGuid():N}.md");
-        File.WriteAllText(file, initialText);
-
+        // THE TERMINAL IS CLAIMED, so from here every path closes it. It is a
+        // held resource rather than a value - an open /dev/tty and a signal
+        // registration - and writing the draft one line above this block left
+        // both behind whenever the disk was full or the directory had gone.
         try
         {
+            var file = Path.Combine(_notesIn, $"gg-notes-{Guid.NewGuid():N}.md");
+            File.WriteAllText(file, initialText);
+
             var parts = _editorCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
             try
@@ -135,18 +139,24 @@ public sealed class PtyEditorSession : IEditorSession
                 return _unhosted.Edit(initialText);
             }
 
-            // THE FILE, NOT THE EXIT CODE. An editor that was abandoned, or
-            // killed, still leaves whatever was written before that - and every
-            // editor a person might set here disagrees about what its exit code
-            // means. What is on disk is the one answer all of them give.
-            return File.ReadAllText(file);
+            try
+            {
+                // THE FILE, NOT THE EXIT CODE. An editor that was abandoned, or
+                // killed, still leaves whatever was written before that - and
+                // every editor a person might set here disagrees about what its
+                // exit code means. What is on disk is the one answer all of them
+                // give.
+                return File.ReadAllText(file);
+            }
+            finally
+            {
+                // HOWEVER IT ENDED. This file holds whatever a person was
+                // writing, in a directory everybody on this machine can read.
+                File.Delete(file);
+            }
         }
         finally
         {
-            // HOWEVER IT ENDED. This file holds whatever a person was writing,
-            // in a directory everybody on this machine can read.
-            File.Delete(file);
-
             (terminal as IDisposable)?.Dispose();
         }
     }

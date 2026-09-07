@@ -236,6 +236,74 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
                    + "modal that showed nothing would read as a flight that is nothing.");
     }
 
+    [Test]
+    public async Task The_reason_and_the_thing_owed_are_not_labelled_twice()
+    {
+        var labels = FlightDetails.Fields(Opened()).Select(f => f.Label).ToList();
+
+        await Assert.That(labels).DoesNotContain("waiting")
+            .Because("the contract's sentence opens with the word - 'waiting: no runner "
+                   + "advertises linux-x64' - so a label reading 'waiting' says it twice.");
+        await Assert.That(labels).Contains("why");
+        await Assert.That(labels).Contains("awaiting")
+            .Because("the value is the thing that waits, not the person it waits on: "
+                   + "'waiting on stopped on a rule' is a sentence that lost its subject.");
+    }
+
+    [Test]
+    public async Task Every_label_fits_the_gutter_the_view_leaves_for_it()
+    {
+        // The view puts the values at a fixed column so they do not move
+        // between two flights. A label wider than the gutter is a label drawn
+        // over the value beside it.
+        foreach (var label in FlightDetails.Fields(Opened()).Select(f => f.Label))
+        {
+            await Assert.That(label.Length).IsLessThanOrEqualTo(10)
+                .Because($"'{label}' has to fit beside the value, and the gutter is fixed.");
+        }
+    }
+
+    // ---- how tall the intent's box is ----
+
+    [Test]
+    public async Task A_one_line_intent_does_not_get_a_box_sized_for_a_page()
+    {
+        // THE COMMON CASE. `gg fly "fix the login bug"' is one line, and a
+        // third of the modal around it is nine empty rows taken off the log.
+        var typed = Opened(new FlightIntent
+        {
+            Kind = FlightIntentKinds.Text,
+            Text = "fix the login bug",
+        });
+
+        await Assert.That(FlightDetails.IntentLines(typed)).IsEqualTo(1);
+        await Assert.That(FlightDetails.IntentRows(1, room: 30)).IsEqualTo(3)
+            .Because("two borders and a line is the floor, and a one-line intent is at it.");
+    }
+
+    [Test]
+    public async Task And_a_long_one_does_not_take_the_log_with_it()
+    {
+        await Assert.That(FlightDetails.IntentLines(Opened())).IsGreaterThan(5)
+            .Because("the fixture's intent is a paragraph with steps in it.");
+
+        await Assert.That(FlightDetails.IntentRows(200, room: 30)).IsEqualTo(13)
+            .Because("the cap is a share of the body rather than a number of rows, because "
+                   + "what is being protected is the log underneath.");
+        await Assert.That(FlightDetails.IntentRows(8, room: 30)).IsEqualTo(10)
+            .Because("and an intent that fits under the cap takes only what it needs.");
+    }
+
+    [Test]
+    public async Task Before_anything_is_laid_out_it_asks_for_what_it_wants()
+    {
+        // A render happens before the layout does, so the first pass is asked
+        // with no room to cap against. Capping to nothing would draw a box
+        // three rows tall and then never revisit it.
+        await Assert.That(FlightDetails.IntentRows(9, room: 0)).IsEqualTo(11);
+        await Assert.That(FlightDetails.IntentRows(1, room: 0)).IsEqualTo(3);
+    }
+
     // ---- the log ----
 
     [Test]

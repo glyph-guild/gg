@@ -17,6 +17,27 @@ public sealed record FlightRow(
 public sealed record RepositoryRow(string Chosen, string Path, string Name);
 
 /// <summary>
+/// One thing that happened to a flight, as a row of the log.
+/// </summary>
+/// <param name="When">By the clock of whatever recorded it.</param>
+/// <param name="Attempt">
+/// Which pass this belongs to, or empty. Empty and never <c>0</c>: an entry
+/// from a record that never carried an attempt is absent rather than first,
+/// and a cell reading zero would be this console inventing one.
+/// </param>
+/// <param name="Happened">
+/// The contract's own sentence for the kind and its params - never the kind. A
+/// loop that ended blocked read as <c>loop-ended</c> for as long as this was a
+/// column of enum members.
+/// </param>
+/// <param name="Said">
+/// Prose somebody actually wrote, flattened to one line because a cell is one
+/// line. Nothing is dropped: the table scrolls sideways, so a diagnosis wider
+/// than the column is a diagnosis a person can still read to the end.
+/// </param>
+public sealed record LogRow(string When, string Attempt, string Happened, string Said);
+
+/// <summary>
 /// One runner in the fleet, and whether it is this machine's.
 /// </summary>
 /// <param name="Mine">
@@ -69,6 +90,18 @@ public static class Rows
         ["flight", "state", "loop", "age", "work"];
 
     public static IReadOnlyList<string> BrowseColumns { get; } = ["item", "state", "title"];
+
+    /// <summary>
+    /// The log's columns, inside the flight modal rather than on a tab.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here with the tabs' columns, because a reader looking for a table's
+    /// cells should find one file.</b> The log is the fifth table this console
+    /// draws and the first that is not a tab; where it is drawn is the view's
+    /// business, and what is in a cell is this one's.
+    /// </remarks>
+    public static IReadOnlyList<string> LogColumns { get; } =
+        ["when", "#", "what happened", "said"];
 
     /// <summary>
     /// The runners' columns, the first of which has no name.
@@ -337,4 +370,64 @@ public static class Rows
                 r.Name)),
         ];
     }
+
+    /// <summary>
+    /// Everything recorded against the flight the modal is open on, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The story's own order, which is the order it happened in.</b> The
+    /// other four tables sort - newest flight first, this machine's runner first
+    /// - because those answer "what should I look at". A history answers "how
+    /// did this get here", and reversing it would be this console rearranging a
+    /// sequence of events.
+    /// </para>
+    /// <para>
+    /// <b>Empty when no story was fetched AND when one was fetched with nothing
+    /// in it</b>, which are different facts a table cannot tell apart.
+    /// <see cref="FlightDetails.LogAbsence"/> keeps the sentence for both.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<LogRow> Log(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (PaneText.Detailed(state) is not { } flight
+            || PaneText.StoryOf(state, flight.FlightId) is not { } story)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. story.Entries.Select(entry => new LogRow(
+                $"{entry.At:u}",
+                entry.Attempt is { } which
+                    ? which.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : "",
+                ControlText.Strip(
+                    Gg.Contracts.FlightStory.Sentence(entry.Kind, entry.Params)),
+                OneLine(entry.Said))),
+        ];
+    }
+
+    /// <summary>
+    /// Prose as a cell: every line of it, on one line.
+    /// </summary>
+    /// <remarks>
+    /// <b>Joined rather than truncated.</b> A halt's diagnosis runs to
+    /// paragraphs and it is the only thing in the log that says what to do
+    /// about the halt, so the second line is not less worth having than the
+    /// first. Blank lines go, because a paragraph break rendered as two spaces
+    /// is a gap a reader reads as the end.
+    /// </remarks>
+    private static string OneLine(string? said) =>
+        said is not { Length: > 0 }
+            ? ""
+            : string.Join(
+                " ",
+                ControlText.Strip(said, allowLineBreaks: true)
+                    .ReplaceLineEndings("\n")
+                    .Split('\n', StringSplitOptions.RemoveEmptyEntries
+                                | StringSplitOptions.TrimEntries));
 }

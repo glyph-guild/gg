@@ -65,6 +65,47 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _runnersTable;
     private readonly FrameView _modal;
     private readonly Label _modalBody;
+
+    /// <summary>
+    /// The flight modal's own body: a document, a form and a table.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="_modalBody"/> rather than instead of it.</b> Every
+    /// other modal is a few lines and two keys, which is what a label is for.
+    /// This one is a flight - an intent somebody wrote, eleven scalars and a
+    /// history - and each of those three wants a different widget. Exactly one
+    /// of the two bodies is visible at a time; <c>PaneText.ModalIsADocument</c>
+    /// already sizes the frame and this decides what is in it.
+    /// </remarks>
+    private readonly View _flightBody;
+    private readonly FrameView _flightIntentPane;
+    private readonly Markdown _flightIntent;
+    private readonly View _flightFields;
+    private readonly FrameView _flightLogPane;
+    private readonly TableView _flightLog;
+    private readonly Label _flightLogAbsent;
+
+    /// <summary>
+    /// Which flight's log the table is currently holding, and how many rows.
+    /// </summary>
+    /// <remarks>
+    /// <b>So a render does not snap the cursor back to the top under somebody
+    /// reading.</b> Filling a <c>TableView</c> replaces its source, which
+    /// resets the selection - harmless for the tabs, whose cursors are in the
+    /// model, and not harmless here: the log's cursor is the person's place in
+    /// a history and is deliberately not kept anywhere, because a modal is a
+    /// question with an answer and a way out. The story cannot change while the
+    /// modal is open - a UI session makes no network call - so the flight it is
+    /// about and the number of entries settle whether a refill is needed.
+    /// </remarks>
+    private (string Flight, int Rows)? _logShowing;
+
+    /// <summary>
+    /// The dimmer scheme, computed once. The field captions are rebuilt on
+    /// every render, and asking the theme for it each time would be a palette
+    /// mixed per label per frame.
+    /// </summary>
+    private readonly Terminal.Gui.Drawing.Scheme _muted = ConsoleTheme.Muted();
     private readonly Label _hints;
     private readonly Label _activity;
 
@@ -339,7 +380,83 @@ public sealed class ConsoleScreen : Window
             Visible = false,
         };
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _modal.Add(_modalBody);
+
+        // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
+        // as tall as the top third because it is the only part whose length
+        // nobody controls; the fields take what they need; the log gets the
+        // rest, which is right because it is the part that grows.
+        _flightIntentPane = new FrameView
+        {
+            Title = FlightDetails.IntentTitle,
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+        };
+
+        // A MARKDOWN VIEW, because what is in it is markdown. `gg fly' takes
+        // whatever somebody typed and people type paragraphs, steps and code
+        // fences; a Label would draw the asterisks and wrap the numbering into
+        // the prose. It scrolls itself, which is the other half - an intent
+        // taller than the pane is an intent a person can still read.
+        _flightIntent = new Markdown
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            ShowHeadingPrefix = false,
+        };
+        _flightIntentPane.Add(_flightIntent);
+
+        // THE SCALARS, EACH IN A FIELD A CURSOR CAN ENTER. Read-only, so
+        // nothing here pretends to be editable - the console writes through
+        // verbs with the terminal released, never through a widget - and
+        // focusable, which is the whole point: the flight id is the value most
+        // often wanted out of this modal and a Label cannot be copied out of.
+        _flightFields = new View
+        {
+            X = 0,
+            Y = Pos.Bottom(_flightIntentPane),
+            Width = Dim.Fill(),
+
+            // SET PER RENDER, from the number of fields there are. A flight
+            // waiting on three people has three rows more than one waiting on
+            // nobody, and the log below has to start under whichever it is.
+            Height = 0,
+        };
+
+        _flightLogPane = new FrameView
+        {
+            Title = FlightDetails.LogTitle,
+            X = 0,
+            Y = Pos.Bottom(_flightFields),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+        _flightLog = CollectionViews.Table();
+
+        // NOT SUBSCRIBED TO OnRowPointedAt, and that is deliberate. Reducer.Pointed
+        // dispatches on the tab that has the screen, so a log row landed on
+        // would move the FLIGHTS cursor behind the modal - the modal would be
+        // about one flight and the list behind it pointing at another.
+        _flightLogAbsent = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+        _flightLogPane.Add(_flightLog, _flightLogAbsent);
+
+        _flightBody = new View { Width = Dim.Fill(), Height = Dim.Fill(), Visible = false };
+        _flightBody.Add(_flightIntentPane, _flightFields, _flightLogPane);
+
+        // THE INTENT IS AS TALL AS WHAT IS IN IT, capped against the room there
+        // is. A third of the modal was a box sized for a page around `fix the
+        // login bug', and the log underneath is what paid for it. Dim.Func
+        // rather than a height set per render, because the cap wants the
+        // laid-out size and a render happens before the layout does - and here
+        // rather than in the initializer, because the body it measures against
+        // has to exist first.
+        _flightIntentPane.Height = Dim.Func(
+            _ => FlightDetails.IntentRows(
+                FlightDetails.IntentLines(State), _flightBody.Viewport.Height),
+            _flightIntentPane);
+
+        _modal.Add(_modalBody, _flightBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -395,7 +512,8 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
-        Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody, _runners);
+        Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody, _runners,
+            _flightIntent, _flightLogAbsent);
 
         Add(_bar, _activity, _hints, _modal);
 
@@ -923,8 +1041,29 @@ public sealed class ConsoleScreen : Window
         }
 
         _modal.Visible = State.Mode != UiMode.Normal;
-        _modal.Title = PaneText.ModalTitle(State.Mode);
-        _modalBody.Text = PaneText.Modal(State);
+
+        // THE FLIGHT NAMES ITSELF UP THERE. Every other mode keeps the title
+        // written for it, because a refusal is a refusal whichever one it is;
+        // a document about one subject gets the subject.
+        _modal.Title = PaneText.ModalTitle(State);
+
+        // ONE BODY OR THE OTHER. A label for the modals that are a question,
+        // the widgets for the one that is a flight - and the label is left
+        // holding the flight's linear rendering only when nothing is open, so
+        // there is never a frame with both.
+        var flight = State.Mode is UiMode.FlightDetail;
+
+        _flightBody.Visible = flight;
+        _modalBody.Visible = !flight;
+
+        if (flight)
+        {
+            RenderFlight();
+        }
+        else
+        {
+            _modalBody.Text = PaneText.Modal(State);
+        }
 
         // SIZED BY WHAT IS IN IT. A question with two answers wants a box a
         // person's eye can take in at once; a document wants the screen. The
@@ -941,6 +1080,107 @@ public sealed class ConsoleScreen : Window
 
         Focus();
     }
+
+    /// <summary>
+    /// The flight modal, bound to the four things the model produces for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Bound, never formatted.</b> Every string here comes from
+    /// <see cref="FlightDetails"/> or <see cref="Rows"/>, which are pure and
+    /// tested without a terminal. What is left is which widget - a decision
+    /// about the content that a person has to look at anyway - and the two
+    /// guards in <c>AFlightIsReadInFieldsRatherThanAWallOfTextTests</c> hold
+    /// this file to it.
+    /// </para>
+    /// <para>
+    /// <b>The fields are rebuilt on every render and the log is not.</b>
+    /// Rebuilding a column of labels and read-only text is free and keeps their
+    /// number honest - a flight waiting on three people has three more rows
+    /// than one waiting on nobody. Refilling the table is not free: it replaces
+    /// the source, which resets the cursor a person is scrolling with. Hence
+    /// <see cref="_logShowing"/>.
+    /// </para>
+    /// </remarks>
+    private void RenderFlight()
+    {
+        _flightIntent.Text = FlightDetails.Intent(State);
+
+        var fields = FlightDetails.Fields(State);
+
+        _flightFields.RemoveAll();
+
+        for (var i = 0; i < fields.Count; i++)
+        {
+            // THE CAPTION DIMMER THAN THE VALUE, which is the one thing the
+            // two-space indents it replaces could not do: a column of labels
+            // drawn as brightly as the facts beside them competes with them.
+            var caption = new Label
+            {
+                X = 1,
+                Y = i,
+                Width = FieldLabelWidth,
+                Text = fields[i].Label,
+            };
+
+            caption.SetScheme(_muted);
+            _flightFields.Add(caption);
+
+            _flightFields.Add(new TextField
+            {
+                X = FieldLabelWidth + 1,
+                Y = i,
+                Width = Dim.Fill(1),
+
+                // READ-ONLY, AND STILL FOCUSABLE. Nothing in this console is
+                // written by typing into a widget - a write happens between
+                // sessions with the terminal provably free - so a field that
+                // accepted a keystroke would be a promise it cannot keep. What
+                // focus is for here is the cursor: a value a person can select
+                // is a value a person can copy.
+                ReadOnly = true,
+                Text = fields[i].Value,
+            });
+        }
+
+        _flightFields.Height = fields.Count;
+
+        // THE TABLE WHEN THERE ARE ROWS, THE SENTENCE WHEN THERE ARE NOT - and
+        // the sentence says WHICH absence it is, because a story nobody fetched
+        // and a flight nothing happened to are different facts.
+        var absence = FlightDetails.LogAbsence(State);
+        var log = Rows.Log(State);
+
+        _flightLogAbsent.Text = absence;
+        _flightLogAbsent.Visible = absence.Length > 0;
+        _flightLog.Visible = log.Count > 0;
+
+        var showing = (State.Story?.FlightId ?? "", log.Count);
+
+        if (_logShowing != showing)
+        {
+            CollectionViews.Fill(
+                _flightLog,
+                log.Count == 0
+                    ? null
+                    : new DataTableSource(CollectionViews.Rows(
+                        Rows.LogColumns,
+                        [.. log.Select(r => new[] { r.When, r.Attempt, r.Happened, r.Said })])));
+
+            _logShowing = showing;
+        }
+    }
+
+    /// <summary>
+    /// How much of the line the field names take.
+    /// </summary>
+    /// <remarks>
+    /// Fixed rather than measured, so the values start at the same column
+    /// whichever flight is open - a form whose gutter moves between two flights
+    /// reads as two different forms. Eleven fits the longest label this
+    /// produces, <c>waiting on</c>, with a space after it.
+    /// </remarks>
+    private const int FieldLabelWidth = 11;
 
     /// <summary>
     /// Focus follows the tab, because the tab is the only thing on screen.

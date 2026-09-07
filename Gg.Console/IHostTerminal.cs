@@ -12,11 +12,11 @@ namespace Gg.Console;
 /// A test opens a pseudo-terminal of its own and hands it here.
 /// </para>
 /// <para>
-/// <b>It is not an abstraction over terminals in general.</b> Four members, all
+/// <b>It is not an abstraction over terminals in general.</b> Five members, all
 /// of them things the host cannot get any other way: how big the screen is, a
-/// descriptor to put in raw mode, somewhere to read what a person typed, and
-/// somewhere to write what gg painted. Anything more would be a place for the
-/// terminal handling to spread to.
+/// descriptor to put in raw mode, somewhere to read what a person typed,
+/// somewhere to write what gg painted, and word that the size just changed.
+/// Anything more would be a place for the terminal handling to spread to.
 /// </para>
 /// </remarks>
 public interface IHostTerminal
@@ -55,4 +55,21 @@ public interface IHostTerminal
 
     /// <summary>Put a frame on the screen.</summary>
     void Paint(string frame);
+
+    /// <summary>The screen changed size.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An event, because only the terminal can know.</b> On Unix this is
+    /// <c>SIGWINCH</c>, which arrives at the process rather than at anything the
+    /// host could poll — and polling the size on a timer would be a background
+    /// tick in a type whose whole discipline is having no state between calls.
+    /// </para>
+    /// <para>
+    /// <b>And because a test cannot raise a signal safely.</b> Signals are
+    /// process-wide, so a test that sent one would be sending it to every other
+    /// test running beside it. Behind this event a test can resize a terminal it
+    /// made and assert what the child was told.
+    /// </para>
+    /// </remarks>
+    event Action? Resized;
 }

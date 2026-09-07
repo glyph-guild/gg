@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text;
 
 namespace Gg.Console.Tests;
 
@@ -30,70 +29,6 @@ public class PtyHostTests
     /// </summary>
     private const string Needle = "ghp_hostedChildNeedle7fQ2xVn";
 
-    /// <summary>The terminal gg is painting into, made by the test.</summary>
-    private sealed class Owned : IHostTerminal, IDisposable
-    {
-        private readonly PseudoTerminal _pty = PseudoTerminal.Open();
-        private readonly StringBuilder _painted = new();
-        private readonly Lock _lock = new();
-        private FileStream? _keystrokes;
-
-        internal bool Opened => _pty.Opened;
-
-        public int Columns { get; set; } = 40;
-
-        public int Rows { get; set; } = 10;
-
-        public event Action? Resized;
-
-        /// <summary>What a person dragging the corner of a window does.</summary>
-        internal void Resize(int columns, int rows)
-        {
-            Columns = columns;
-            Rows = rows;
-            Resized?.Invoke();
-        }
-
-        /// <summary>Typing, from the other end of the pseudo-terminal.</summary>
-        internal void Type(string text)
-        {
-            using var master = _pty.WriteMaster();
-            var bytes = System.Text.Encoding.UTF8.GetBytes(text);
-            master.Write(bytes, 0, bytes.Length);
-            master.Flush();
-        }
-
-        public int Descriptor => _pty.Slave;
-
-        public Stream Keystrokes => _keystrokes ??= _pty.ReadSlave();
-
-        public void Paint(string frame)
-        {
-            lock (_lock)
-            {
-                _painted.Append(frame);
-            }
-        }
-
-        /// <summary>Everything gg wrote to the screen, in order.</summary>
-        internal string Painted
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _painted.ToString();
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            _keystrokes?.Dispose();
-            _pty.Dispose();
-        }
-    }
-
     /// <summary>Waits for something to become true, and says so when it does not.</summary>
     /// <remarks>
     /// <b>Not a sleep, and the difference matters.</b> A fixed wait passes on a
@@ -119,7 +54,7 @@ public class PtyHostTests
         return false;
     }
 
-    private static Task<int> Host(Owned terminal, string script, string bar = "gg") =>
+    private static Task<int> Host(HostedTerminal terminal, string script, string bar = "gg") =>
         PtyHost.RunAsync(
             terminal,
             command: "/bin/sh",
@@ -136,7 +71,7 @@ public class PtyHostTests
         // believe exists - which is why this is a lie about the size and not a
         // scroll region, because a program like that resets the region and
         // repaints everything inside it.
-        using var terminal = new Owned { Columns = 40, Rows = 10 };
+        using var terminal = new HostedTerminal { Columns = 40, Rows = 10 };
         await Assert.That(terminal.Opened).IsTrue()
             .Because("without a pseudo-terminal this test asserts about nothing.");
 
@@ -150,7 +85,7 @@ public class PtyHostTests
     [Test]
     public async Task The_bar_is_on_the_screen_while_the_child_runs()
     {
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal();
         await Assert.That(terminal.Opened).IsTrue();
 
         // A CHILD THAT WRITES NOTHING TO THE SCREEN. `printf hello` let this
@@ -166,12 +101,12 @@ public class PtyHostTests
     [Test]
     public async Task The_exit_code_is_the_child_s_own()
     {
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal();
         await Assert.That(terminal.Opened).IsTrue();
 
         await Assert.That(await Host(terminal, "exit 0")).IsEqualTo(0);
 
-        using var second = new Owned();
+        using var second = new HostedTerminal();
         await Assert.That(await Host(second, "exit 3")).IsEqualTo(3)
             .Because("a caller deciding whether an edit was abandoned reads this, and a host "
                    + "that always answered zero would report every abandonment as a save.");
@@ -188,7 +123,7 @@ public class PtyHostTests
                   ("badly", "exit 3"),
                   ("killed outright", "kill -9 $$")])
         {
-            using var terminal = new Owned();
+            using var terminal = new HostedTerminal();
             await Assert.That(terminal.Opened).IsTrue();
 
             var before = RawMode.Describe(terminal.Descriptor);
@@ -211,7 +146,7 @@ public class PtyHostTests
         // screen puts back the scrollback a person had before gg started, which
         // is the difference between an editor and a program that scribbled on
         // their terminal.
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal();
         await Assert.That(terminal.Opened).IsTrue();
 
         await Host(terminal, "printf hello");
@@ -239,7 +174,7 @@ public class PtyHostTests
         // liveness assertion failed while the emulator was behaving perfectly.
         // A test whose plant does not survive its own screen would have been
         // "fixed" by weakening the assertion that caught it.
-        using var terminal = new Owned { Columns = 80, Rows = 10 };
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 10 };
         await Assert.That(terminal.Opened).IsTrue();
 
         await Host(terminal, $"printf 'export GH_TOKEN={Needle}'");
@@ -271,7 +206,7 @@ public class PtyHostTests
         // size it was told at spawn: an editor draws to a right margin that is
         // no longer there, and gg keeps painting rows the terminal no longer
         // has.
-        using var terminal = new Owned { Columns = 80, Rows = 24 };
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
         await Assert.That(terminal.Opened).IsTrue();
 
         // A child that waits, so there is a session to resize. It reports its

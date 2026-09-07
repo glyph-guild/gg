@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Gg.Console;
 
 /// <summary>
@@ -23,8 +25,31 @@ namespace Gg.Console;
 public sealed class OwnedTerminal : IHostTerminal, IDisposable
 {
     private readonly FileStream _tty;
+    private readonly PosixSignalRegistration? _winch;
 
-    private OwnedTerminal(FileStream tty) => _tty = tty;
+    private OwnedTerminal(FileStream tty)
+    {
+        _tty = tty;
+
+        // SIGWINCH IS HOW A TERMINAL SAYS IT CHANGED SIZE, and there is no other
+        // way to hear it - the size is not polled anywhere, and a host that
+        // polled it would need a tick in a type whose whole discipline is
+        // holding no state between calls.
+        //
+        // The handler does nothing but raise the event. It runs on a thread the
+        // runtime chose, at a moment nothing here controls, and anything
+        // substantial done in one is done in the wrong place.
+        //
+        // GUARDED FOR WINDOWS, which has no such signal. Open() already answers
+        // null there so this constructor cannot run - but the analyzer is right
+        // to want it said here rather than inferred from a check three methods
+        // away, because that check is exactly the kind that gets relaxed later.
+        _winch = OperatingSystem.IsWindows()
+            ? null
+            : PosixSignalRegistration.Create(PosixSignal.SIGWINCH, _ => Resized?.Invoke());
+    }
+
+    public event Action? Resized;
 
     /// <summary>The terminal, or null if this process has none.</summary>
     public static OwnedTerminal? Open()
@@ -106,6 +131,11 @@ public sealed class OwnedTerminal : IHostTerminal, IDisposable
 
     public void Dispose()
     {
+        // THE REGISTRATION FIRST. A handler that outlived the terminal it
+        // reports on would fire into a disposed stream at the next resize, and
+        // the next resize can be at any time at all.
+        _winch?.Dispose();
+
         // The handle is not owned by anything else - this type opened it - so
         // disposing the stream closes the descriptor, which is what is wanted.
         _tty.Dispose();

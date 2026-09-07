@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Gg.Console.Tests;
 
 /// <summary>
@@ -30,55 +28,11 @@ public class PtyEditorSessionTests
         return path;
     }
 
-    /// <summary>A terminal made by the test, and everything gg painted on it.</summary>
-    private sealed class Owned : IHostTerminal, IDisposable
-    {
-        private readonly PseudoTerminal _pty = PseudoTerminal.Open();
-        private readonly StringBuilder _painted = new();
-        private readonly Lock _lock = new();
-        private FileStream? _keystrokes;
-
-        internal bool Opened => _pty.Opened;
-
-        public int Columns => 80;
-
-        public int Rows => 24;
-
-        public int Descriptor => _pty.Slave;
-
-        public Stream Keystrokes => _keystrokes ??= _pty.ReadSlave();
-
-        public void Paint(string frame)
-        {
-            lock (_lock)
-            {
-                _painted.Append(frame);
-            }
-        }
-
-        internal string Painted
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _painted.ToString();
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            _keystrokes?.Dispose();
-            _pty.Dispose();
-        }
-    }
-
     [Test]
     public async Task What_the_editor_wrote_comes_back()
     {
         var editor = FakeEditor("printf 'edited by pid %s\\n' $$ >> \"$1\"\n");
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
         await Assert.That(terminal.Opened).IsTrue();
 
         try
@@ -101,7 +55,7 @@ public class PtyEditorSessionTests
     public async Task The_bar_stays_on_screen_while_the_editor_has_it()
     {
         var editor = FakeEditor("printf 'x' >> \"$1\"\n");
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
         await Assert.That(terminal.Opened).IsTrue();
 
         try
@@ -154,7 +108,7 @@ public class PtyEditorSessionTests
                   ("killed outright", "kill -9 $$\n")])
         {
             var editor = FakeEditor(script);
-            using var terminal = new Owned();
+            using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
             await Assert.That(terminal.Opened).IsTrue();
 
             // A DIRECTORY THIS TEST OWNS. A first version counted gg-notes files
@@ -201,7 +155,7 @@ public class PtyEditorSessionTests
         //
         // A machine that cannot host still has an editor. It has had one all
         // along.
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
         await Assert.That(terminal.Opened).IsTrue();
 
         var edited = new PtyEditorSession(
@@ -225,7 +179,7 @@ public class PtyEditorSessionTests
         // person would be left with an editor that never opens and no reason
         // given. Only the native library is a reason to stop hosting; everything
         // else is something they need to be told.
-        using var terminal = new Owned();
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
         await Assert.That(terminal.Opened).IsTrue();
 
         var session = new PtyEditorSession(

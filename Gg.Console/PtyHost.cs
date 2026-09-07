@@ -81,8 +81,7 @@ public static class PtyHost
         string bar,
         CancellationToken cancellationToken)
     {
-        var columns = Math.Max(terminal.Columns, 20);
-        var rows = Math.Max(terminal.Rows - 1, 5);
+        var (columns, rows) = Fit(terminal);
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
@@ -119,6 +118,45 @@ public static class PtyHost
             using var stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             var typing = Forward(terminal, pty, stopping.Token);
+
+            // WHAT A PERSON DRAGGING THE CORNER OF THEIR WINDOW CAUSES. Both
+            // sides have to move: the pty, so every program inside it is told,
+            // and the emulator, so gg paints the shape the screen now is.
+            // Resizing only the emulator looks right and is wrong to the child;
+            // resizing only the pty is the reverse.
+            //
+            // A LOCAL, NOT A FIELD. This host holds no state between calls and a
+            // test asserts it does not, so the subscription lives exactly as
+            // long as the session and is taken off again below.
+            void OnResized()
+            {
+                var (width, height) = Fit(terminal);
+
+                try
+                {
+                    pty.Resize(width, height);
+                }
+                catch (IOException)
+                {
+                    // The child is already gone. A resize arriving in the gap
+                    // between its exit and this loop noticing is ordinary, not
+                    // an error, and it must not take the session down on its way
+                    // out.
+                    return;
+                }
+
+                // Resize rather than assigning Cols and Rows: those setters are
+                // init-only, and this is the call that moves the buffer with
+                // them rather than leaving a screen that disagrees with itself.
+                emulator.Resize(width, height);
+
+                columns = width;
+                rows = height;
+
+                terminal.Paint(PtyScreen.Paint(emulator, height, width, bar));
+            }
+
+            terminal.Resized += OnResized;
 
             // THE BAR GOES UP BEFORE THE CHILD SAYS ANYTHING. Painting only on
             // arrival ties gg's own row to the child having written something,
@@ -161,6 +199,8 @@ public static class PtyHost
             await stopping.CancelAsync();
             await typing;
 
+            terminal.Resized -= OnResized;
+
             return pty.ExitCode;
         }
         finally
@@ -173,6 +213,19 @@ public static class PtyHost
             RawMode.Restore(terminal.Descriptor, cooked);
         }
     }
+
+    /// <summary>
+    /// How big the child's screen is: the terminal's, less gg's row.
+    /// </summary>
+    /// <remarks>
+    /// <b>One place, called twice.</b> The bar's row is subtracted at spawn and
+    /// again at every resize, and two subtractions that drift apart is a screen
+    /// that is one row wrong until somebody resizes it back. The floors are for
+    /// a terminal reporting nonsense - a resize can be observed mid-drag, and a
+    /// pty of zero columns is not a thing a child can be told about.
+    /// </remarks>
+    private static (int Columns, int Rows) Fit(IHostTerminal terminal) =>
+        (Math.Max(terminal.Columns, 20), Math.Max(terminal.Rows - 1, 5));
 
     /// <summary>
     /// Everything the person types, into the child, until the child is gone.

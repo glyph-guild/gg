@@ -98,39 +98,85 @@ public class StoryFieldParityTests
             ["what somebody wrote"] = story.Entries[1].Said!,
         };
 
+    /// <summary>
+    /// The flight the modal is opened on, which is chosen from the list.
+    /// </summary>
+    /// <remarks>
+    /// <c>PaneText.Detailed</c> picks the row under the cursor out of the flight
+    /// list, so the modal needs one there to be about. Only the two fields that
+    /// decide which flight it is are meaningful; the rest exist because the
+    /// contract requires them.
+    /// </remarks>
+    private static Gg.Contracts.FlightSummary Listed(FlightStory story) => new()
+    {
+        FlightId = story.FlightId,
+        FlightNumber = story.FlightNumber,
+        Name = story.WorkKind ?? "work",
+        Intent = new Gg.Contracts.FlightIntent
+        {
+            Kind = Gg.Contracts.FlightIntentKinds.Text,
+            Text = "work",
+        },
+        CreatedAt = new DateTimeOffset(2026, 9, 7, 9, 0, 0, TimeSpan.Zero),
+        RunnerProtocolVersion = 1,
+        FactVocabularyVersion = "0.25.0",
+        ConstitutionVersion = "1.0.0",
+        EnvelopeVersion = "v6",
+        Attempts = 1,
+        State = story.State,
+        Facts = [],
+    };
+
     private static string Cli(FlightStory story) =>
         VerbOutput.ToText(new VerbResult.Story(story));
 
     private static string Pane(FlightStory story) =>
         PaneText.Flight(new AppState { Story = story });
 
+    /// <summary>
+    /// The third rendering, and the one a person opens to read a history.
+    /// </summary>
+    /// <remarks>
+    /// <b>It was not in slice thirty-two's scope because it did not exist when
+    /// the scope was written.</b> S32.4-02 fixed the pane - "it prints
+    /// entry.Kind today and drops the detail entirely, so a person reads WHAT
+    /// happened and never WHAT IT SAYS" - and the modal was doing exactly that,
+    /// full screen, which is where somebody goes when the pane is not enough.
+    /// </remarks>
+    private static string Modal(FlightStory story) =>
+        PaneText.Modal(new AppState
+        {
+            Mode = UiMode.FlightDetail,
+            Story = story,
+            Flights = new Gg.Contracts.FlightList
+            {
+                Flights = [Listed(story)],
+            },
+        });
+
     // ---- S32.4-03 ----
 
     [Test]
-    public async Task Both_surfaces_show_every_fact()
+    public async Task Every_surface_shows_every_fact()
     {
         var story = Full();
-        var cli = Cli(story);
-        var pane = Pane(story);
 
-        var missing = new List<string>();
-
-        foreach (var (fact, value) in Facts(story))
+        var surfaces = new (string Named, string Rendered)[]
         {
-            if (!cli.Contains(value, StringComparison.Ordinal))
-            {
-                missing.Add($"the CLI does not show {fact}");
-            }
+            ("the CLI", Cli(story)),
+            ("the pane", Pane(story)),
+            ("the modal", Modal(story)),
+        };
 
-            if (!pane.Contains(value, StringComparison.Ordinal))
-            {
-                missing.Add($"the pane does not show {fact}");
-            }
-        }
+        var missing = (from surface in surfaces
+                       from fact in Facts(story)
+                       where !surface.Rendered.Contains(fact.Value, StringComparison.Ordinal)
+                       select $"{surface.Named} does not show {fact.Key}")
+            .ToList();
 
         await Assert.That(missing).IsEmpty()
-            .Because("the two keep their own layouts by decision, so this is the only thing "
-                   + "holding them together. Found: " + string.Join("; ", missing));
+            .Because("three surfaces keep their own layouts by decision, so this is the only "
+                   + "thing holding them together. Found: " + string.Join("; ", missing));
     }
 
     [Test]

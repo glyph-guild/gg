@@ -9,6 +9,7 @@ namespace Gg.Console;
 public sealed class ConsoleLoop(
     IUiSession ui,
     IEditorSession editor,
+
     ITakeSession? take = null,
     IHandSession? hand = null,
     IConsoleActions? actions = null,
@@ -108,7 +109,30 @@ public sealed class ConsoleLoop(
     /// halves that share something the model may not hold — the device code is
     /// a credential, so it lives here and never crosses back.
     /// </remarks>
-    ISignInSession? signIn = null)
+    ISignInSession? signIn = null,
+
+    /// <summary>
+    /// The other way to compose an intent: an agent, hosted, which hands what
+    /// it composed back by tool call.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same port as <c>editor</c>, which is what makes the choice
+    /// cheap</b> - text in, a real child, text out - so offering it picks an
+    /// implementation rather than branching every launch path twice.
+    /// <para>
+    /// <b>LAST IN THE LIST, and that is not cosmetic.</b> Inserting an optional
+    /// parameter beside the ports rebinds every positional call site to a
+    /// different one - the compiler caught it here, and the same class of
+    /// mistake is why the composition root passes these by name.
+    /// </para>
+    /// <para>
+    /// Null means the modal's second answer falls back to the editor. It is the
+    /// composition root's for the usual reason: it starts this binary again to
+    /// serve its own tools, and a console that could name that invocation would
+    /// be a console that can act as a runner.
+    /// </para>
+    /// </remarks>
+    IEditorSession? compose = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -243,7 +267,18 @@ public sealed class ConsoleLoop(
                     // AND THEN RE-READ. Rule 4: a flight opened is a flight the
                     // queue does not have yet, and a Last* sentence is a receipt
                     // rather than a substitute for the state changing.
-                    state = Reloaded(Opened(state, actions, editor), reload, asked: false);
+                    //
+                    // WHICH CHILD IS THE PERSON'S ANSWER, and it is read here
+                    // because here is where the terminal is free. Composing is
+                    // the same port either way - text in, a real child, text out
+                    // - so this picks an implementation rather than branching
+                    // the rest of the arm.
+                    state = Reloaded(
+                        Reducer.Reduce(
+                            Opened(state, actions, Composer(state, editor, compose)),
+                            Command.FlightOpened),
+                        reload,
+                        asked: false);
                     break;
 
                 case Command.AddCredential:
@@ -636,6 +671,17 @@ public sealed class ConsoleLoop(
     /// rather than through a whole session — the same reason
     /// <see cref="FlewPicked"/> is.
     /// </remarks>
+    /// <summary>Whichever way the person said to compose this one.</summary>
+    /// <remarks>
+    /// <b>The editor is the answer when nobody said otherwise</b>, including on
+    /// a console with no agent composer configured at all - which is every
+    /// console until the composition root passes one. A key that opened a modal
+    /// and then did nothing would be worse than one that was never offered.
+    /// </remarks>
+    private static IEditorSession Composer(
+        AppState state, IEditorSession editor, IEditorSession? compose) =>
+        state.ComposeWith == ComposeWith.Agent && compose is not null ? compose : editor;
+
     public static AppState Opened(
         AppState state, IConsoleActions? actions, IEditorSession editor)
     {

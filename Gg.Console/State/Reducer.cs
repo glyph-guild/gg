@@ -29,6 +29,13 @@ public static class Reducer
             // arrived, and ShellCommands for why the split.
             Command.ShowFlight => state,
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
+
+            // ASKS RATHER THAN OPENING. The key used to hand the terminal
+            // straight to $EDITOR; there are two ways to compose now and neither
+            // is the obvious one. This sets a field and nothing else - the loop
+            // reads what it recorded, with the terminal released, and starts
+            // whichever child was chosen.
+            Command.AskHowToCompose => Modal(state, UiMode.ComposeChoice),
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
             // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
@@ -43,7 +50,29 @@ public static class Reducer
             // else entirely - open the flight this person just declined.
             Command.CloseModal => state.Mode == UiMode.ConfirmFlight
                 ? FlightDeclined(state)
-                : state with { Mode = UiMode.Normal },
+                // ESCAPING THE COMPOSE CHOICE IS AN ANSWER TOO, and the same
+                // hazard as the line above: a choice left standing would compose
+                // the NEXT flight with something nobody picked this time.
+                : state with { Mode = UiMode.Normal, ComposeWith = ComposeWith.Nothing },
+
+            // RECORDED AND OUT OF THE WAY. Neither of these does anything but
+            // set a field: both children are started by the loop with the
+            // terminal released, which is the only place either could be.
+            Command.ComposeInEditor => state with
+            {
+                Mode = UiMode.Normal,
+                ComposeWith = ComposeWith.Editor,
+            },
+            Command.ComposeWithAgent => state with
+            {
+                Mode = UiMode.Normal,
+                ComposeWith = ComposeWith.Agent,
+            },
+
+            // SPENT. The choice belongs to the flight it was given for, so the
+            // next `n` asks again rather than acting on an answer somebody gave
+            // to a different question.
+            Command.FlightOpened => state with { ComposeWith = ComposeWith.Nothing },
 
             // TAB TURNS THE HELP PAGE WHILE HELP OWNS THE KEYBOARD, and moves
             // the focused pane everywhere else. A modal holds the keys for one

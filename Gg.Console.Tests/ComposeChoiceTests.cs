@@ -44,6 +44,9 @@ public class ComposeChoiceTests
 
         var offered = Keymap.Hints(KeymapContext.For(asked));
 
+        // THE WORDS, NOT THE KEYS. What a person needs off the hint line is
+        // which of the two things each key does; the letters themselves are
+        // whatever Normal mode left free.
         foreach (var word in (string[])["editor", "agent"])
         {
             await Assert.That(offered).Contains(word, StringComparison.OrdinalIgnoreCase)
@@ -61,11 +64,11 @@ public class ComposeChoiceTests
         // decision and get out of the way.
         var asked = Press(new AppState(), KeyStroke.Char('n'));
 
-        var withEditor = Press(asked, KeyStroke.Char('e'));
+        var withEditor = Press(asked, KeyStroke.Char('w'));
         await Assert.That(withEditor.Mode).IsEqualTo(UiMode.Normal);
         await Assert.That(withEditor.ComposeWith).IsEqualTo(ComposeWith.Editor);
 
-        var withAgent = Press(asked, KeyStroke.Char('a'));
+        var withAgent = Press(asked, KeyStroke.Char('m'));
         await Assert.That(withAgent.Mode).IsEqualTo(UiMode.Normal);
         await Assert.That(withAgent.ComposeWith).IsEqualTo(ComposeWith.Agent);
     }
@@ -77,7 +80,7 @@ public class ComposeChoiceTests
         // taken, so the way out has to leave no decision behind - not a default
         // one, and not the last one.
         var asked = Press(new AppState(), KeyStroke.Char('n'));
-        var chosen = Press(asked, KeyStroke.Char('a'));
+        var chosen = Press(asked, KeyStroke.Char('m'));
 
         var escaped = Press(Press(chosen, KeyStroke.Char('n')), KeyStroke.Esc);
 
@@ -93,7 +96,7 @@ public class ComposeChoiceTests
         // Open question 3, answered "not at all in this slice": it is one
         // keystroke, and a remembered default that changes what a key does is
         // the invisible state this console has removed twice already.
-        var composed = Press(Press(new AppState(), KeyStroke.Char('n')), KeyStroke.Char('a'));
+        var composed = Press(Press(new AppState(), KeyStroke.Char('n')), KeyStroke.Char('m'));
 
         await Assert.That(Reducer.Reduce(composed, Command.FlightOpened).ComposeWith)
             .IsEqualTo(ComposeWith.Nothing)
@@ -141,7 +144,7 @@ public class ComposeChoiceTests
             .Select(entry => entry.Binding.Key)
             .ToList();
 
-        await Assert.That(catalogued).Contains(KeyStroke.Char('e'));
-        await Assert.That(catalogued).Contains(KeyStroke.Char('a'));
+        await Assert.That(catalogued).Contains(KeyStroke.Char('w'));
+        await Assert.That(catalogued).Contains(KeyStroke.Char('m'));
     }
 }

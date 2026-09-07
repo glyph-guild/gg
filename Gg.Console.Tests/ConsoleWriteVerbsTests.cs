@@ -60,7 +60,14 @@ public class ConsoleWriteVerbsTests
     {
         var normal = new KeymapContext(UiMode.Normal);
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('n'), normal)).IsEqualTo(Command.OpenFlight);
+        // `n` ASKS RATHER THAN OPENING, since there are two ways to compose a
+        // flight and neither is the obvious one. The write itself is still
+        // OpenFlight and still the shell's; what the key produces is the
+        // question, which sets a field and does nothing else - a command that
+        // did both would have two effects, and the local one would happen
+        // whether or not the remote one did.
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('n'), normal))
+            .IsEqualTo(Command.AskHowToCompose);
         await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), normal))
             .IsEqualTo(Command.AddCredential);
         await Assert.That(Keymap.Resolve(KeyStroke.Char('i'), normal)).IsEqualTo(Command.Invite);

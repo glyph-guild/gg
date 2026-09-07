@@ -26,6 +26,7 @@ public sealed class PtyEditorSession : IEditorSession
     private readonly IEditorSession _unhosted;
     private readonly string _bar;
     private readonly string _notesIn;
+    private readonly HostRun _host;
 
     /// <param name="editorCommand">
     /// The editor, as a command line. Defaults to <c>$EDITOR</c>, then to
@@ -44,6 +45,11 @@ public sealed class PtyEditorSession : IEditorSession
     /// The top row. It says what ends the session, because a person looking at
     /// somebody else's editor cannot ask gg what it is waiting for.
     /// </param>
+    /// <param name="host">
+    /// How to run the child. Defaults to <see cref="PtyHost.RunAsync"/>; a test
+    /// passes one that cannot start, because a machine missing the native
+    /// library is a case that has to be handled and cannot be arranged.
+    /// </param>
     /// <param name="notesIn">
     /// Where the file handed to the editor is put. Defaults to the temp
     /// directory, which is where gg has always put it.
@@ -59,7 +65,8 @@ public sealed class PtyEditorSession : IEditorSession
         Func<IHostTerminal?>? terminal = null,
         IEditorSession? unhosted = null,
         string bar = "gg · editing — save and quit to come back",
-        string? notesIn = null)
+        string? notesIn = null,
+        HostRun? host = null)
     {
         _editorCommand = editorCommand
             ?? Environment.GetEnvironmentVariable("EDITOR")
@@ -68,6 +75,7 @@ public sealed class PtyEditorSession : IEditorSession
         _unhosted = unhosted ?? new EditorSession(_editorCommand);
         _bar = bar;
         _notesIn = notesIn ?? Path.GetTempPath();
+        _host = host ?? PtyHost.RunAsync;
     }
 
     public string Edit(string initialText)
@@ -85,13 +93,30 @@ public sealed class PtyEditorSession : IEditorSession
         {
             var parts = _editorCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            PtyHost.RunAsync(
-                terminal,
-                command: parts[0],
-                arguments: [.. parts.Skip(1), file],
-                workingDirectory: Directory.GetCurrentDirectory(),
-                bar: _bar,
-                CancellationToken.None).GetAwaiter().GetResult();
+            try
+            {
+                _host(
+                    terminal,
+                    parts[0],
+                    [.. parts.Skip(1), file],
+                    Directory.GetCurrentDirectory(),
+                    _bar,
+                    CancellationToken.None).GetAwaiter().GetResult();
+            }
+            catch (Exception missing) when (
+                missing is DllNotFoundException or EntryPointNotFoundException)
+            {
+                // THE NATIVE LIBRARY IS NOT HERE, so this machine cannot host.
+                // It still has an editor - it has had one all along - and the
+                // bar is a nicety while the editor is not.
+                //
+                // NAMED RATHER THAN BARE, and that is the whole care in this
+                // block. Falling back on any failure would turn "your $EDITOR is
+                // not installed" into a silent second attempt at the same thing,
+                // and leave a person with an editor that never opens and no
+                // reason given. Only this is a reason to stop hosting.
+                return _unhosted.Edit(initialText);
+            }
 
             // THE FILE, NOT THE EXIT CODE. An editor that was abandoned, or
             // killed, still leaves whatever was written before that - and every

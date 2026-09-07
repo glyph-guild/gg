@@ -9,6 +9,23 @@ using XTermTerminal = XTerm.Terminal;
 
 namespace Gg.Console;
 
+/// <summary>Running a child in a hosted terminal, as something injectable.</summary>
+/// <remarks>
+/// <b>A seam, and a narrow one.</b> It exists so a caller can be tested against a
+/// host that cannot start — which is not hypothetical: Porta.Pty P/Invokes a
+/// native library that ships beside gg rather than inside it, and .NET resolves a
+/// P/Invoke on first call, so a gg installed without that file builds, starts and
+/// reports its version before failing on the key a person pressed. Nothing but a
+/// test is expected to pass anything other than <see cref="PtyHost.RunAsync"/>.
+/// </remarks>
+public delegate Task<int> HostRun(
+    IHostTerminal terminal,
+    string command,
+    IReadOnlyList<string> arguments,
+    string workingDirectory,
+    string bar,
+    CancellationToken cancellationToken);
+
 /// <summary>
 /// Runs a child in a pseudo-terminal gg owns, with a gg bar on the top row, and
 /// gives the terminal back when it ends.

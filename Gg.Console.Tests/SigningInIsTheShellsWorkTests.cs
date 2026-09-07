@@ -164,6 +164,48 @@ public class SigningInIsTheShellsWorkTests
     }
 
     [Test]
+    public async Task Giving_up_on_the_modal_is_not_undone_fifteen_minutes_later()
+    {
+        // ESCAPING DOES NOT STOP THE POLL, and it should not: somebody who
+        // pressed esc and then approved in the browser anyway meant to sign in,
+        // and they do. What must not happen is the other ending - the code
+        // expires unapproved and the modal they dismissed reopens over the
+        // console they went back to, to report on something they gave up on.
+        var signIn = new Signs(
+            new SignInStep { Pending = Pending(), Said = "started" },
+            new SignInStep { Said = "That code expired before it was approved." });
+
+        var after = Ran(new AppState { Mode = UiMode.Normal, SignIn = Pending() }, signIn);
+
+        await Assert.That(after.Mode).IsEqualTo(UiMode.Normal)
+            .Because("the modal is opened by being signed out, not by a code that ran out "
+                   + "while nobody was looking at it.");
+
+        await Assert.That(after.LastSignIn).Contains("expired")
+            .Because("the sentence still lands: it is the only thing that says why the "
+                   + "console is still empty.");
+    }
+
+    [Test]
+    public async Task An_approval_after_giving_up_still_signs_in()
+    {
+        // The other half, and the reason the poll is left running at all.
+        var signIn = new Signs(
+            new SignInStep { Pending = Pending(), Said = "started" },
+            new SignInStep { SignedIn = true, Said = "Signed in as somebody." });
+
+        var after = Ran(
+            new AppState { Mode = UiMode.Normal, SignIn = Pending() },
+            signIn,
+            new ConsoleDoubles.Reloads(new AppState()));
+
+        await Assert.That(after.Mode).IsEqualTo(UiMode.Normal);
+        await Assert.That(after.SignIn).IsNull()
+            .Because("the code is spent, and a model still holding one is a console that "
+                   + "would poll a dead authorization on the next tick.");
+    }
+
+    [Test]
     public async Task Signing_in_closes_the_modal_and_reads_what_it_could_not()
     {
         // Rule 4: a write refreshes what it invalidated, and this one

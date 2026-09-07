@@ -712,6 +712,9 @@ static async Task<int> LaunchConsoleAsync()
         // flight still in the air - those are the only ones whose log can put a
         // row in the queue - so the detail modal reads its own.
         flightLog: current => ConsoleFlightLog.Read(data, current),
+        // STOPPING THE FLIGHT ON THE SCREEN, with the terminal free: the reason
+        // is typed into $EDITOR and the write happens between sessions.
+        groundFlight: (current, ask) => ConsoleGround.Ground(data, current, ask),
         // THE RUNNER ON THIS MACHINE: start it, stop it, and keep the model's
         // picture of it current. Three verbs on one object, each named, so
         // EveryPortIsPassedTests can see all three.

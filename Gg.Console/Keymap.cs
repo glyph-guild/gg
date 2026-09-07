@@ -261,8 +261,17 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
+        // THE ONE PLACE A FLIGHT CAN BE ENDED, because it is the one place the
+        // flight being ended is named on the screen. Every other key in this
+        // console acts on the row under the cursor, which is right for opening
+        // one and wrong for stopping one.
+        //
+        // `x' STOPS THE THING THIS MODAL IS ABOUT, which is what it already
+        // means in the runner's modal. One letter, one idea, in the two places
+        // a modal is about something that can be stopped.
         UiMode.FlightDetail =>
         [
+            new(KeyStroke.Char('x'), Command.GroundFlight, "ground it"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

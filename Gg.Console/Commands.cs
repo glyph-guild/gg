@@ -111,6 +111,21 @@ public enum Command
     /// </remarks>
     StartRunner,
 
+    /// <summary>
+    /// Stop the flight this modal is about.
+    /// </summary>
+    /// <remarks>
+    /// <b>Grounding, not withdrawing.</b> Withdrawing says the work no longer
+    /// has a question to answer; this says the question is still real and a
+    /// person is stopping the attempt. A flight nobody can serve is the second
+    /// one, and offering only the first is how a console teaches somebody to
+    /// say something untrue about why a flight ended.
+    /// <para>
+    /// The shell's twice over: it writes, and it asks for a reason first.
+    /// </para>
+    /// </remarks>
+    GroundFlight,
+
     /// <summary>Show what the runner on this machine is doing.</summary>
     /// <remarks>
     /// Pure: what it is doing is already in the model, folded in between
@@ -298,6 +313,9 @@ public static class ShellCommands
 
         // SPAWNS A CHILD, so both halves of what this set means apply.
         Command.StartRunner,
+
+        // Ends a flight, and asks for a sentence before it does.
+        Command.GroundFlight,
 
         // Signals one, and spawns one again after.
         Command.StopRunner,

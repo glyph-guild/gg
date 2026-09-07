@@ -78,6 +78,16 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? runnerHere = null,
 
     /// <summary>
+    /// Stops the flight the modal is about, once somebody has said why.
+    /// </summary>
+    /// <remarks>
+    /// The prompt is passed in, like flying by hand's: the editor is the loop's
+    /// and whether anybody is asked at all is not. Nothing typed grounds
+    /// nothing, and that decision belongs beside the write rather than here.
+    /// </remarks>
+    Func<AppState, Func<string>, AppState>? groundFlight = null,
+
+    /// <summary>
     /// Signs this machine in, one step at a time, with the terminal free.
     /// </summary>
     /// <remarks>
@@ -292,6 +302,19 @@ public sealed class ConsoleLoop(
                     // path off the right edge. It is also where somebody watches
                     // it come up, which is the next thing they want.
                     state = Reducer.RunnerShown(state);
+                    break;
+
+                case Command.GroundFlight:
+                    // A WRITE, AND A SENTENCE ASKED FOR FIRST. Both are things
+                    // a UI session may not do, so the session ends, the loop
+                    // asks, and what came back is in the model the next session
+                    // renders.
+                    state = groundFlight is null
+                        ? state with
+                        {
+                            LastGrounded = "This console is not configured to ground flights.",
+                        }
+                        : groundFlight(state, () => editor.Edit(""));
                     break;
 
                 case Command.StopRunner:
@@ -541,6 +564,7 @@ public sealed class ConsoleLoop(
         : after.LastHandBack != before.LastHandBack ? after.LastHandBack
         : after.LastHandFlight != before.LastHandFlight ? after.LastHandFlight
         : after.LastRunner != before.LastRunner ? after.LastRunner
+        : after.LastGrounded != before.LastGrounded ? after.LastGrounded
         : after.LastSignIn != before.LastSignIn ? after.LastSignIn
         : before.LastAction;
 

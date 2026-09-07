@@ -556,6 +556,32 @@ public static class ProtocolSurface
         },
         new()
         {
+            // A PERSON STOPS A FLIGHT THAT COULD STILL HAVE BEEN DONE
+            // (ADR-0017, and WorkKindExits.PersonOperated, which declared this
+            // exit and left the verb for the day somebody needed it).
+            //
+            // TWO DOORS RATHER THAN ONE WITH A FIELD. The ADR carried open
+            // whether withdrawing and grounding collapse into intent; they do
+            // not, and the answer is written as two paths because an `ending`
+            // parameter would put the choice between two sentences in a
+            // caller's string where nothing type-checks it.
+            //
+            // ONE CALLER, unlike withdrawal's two. Pool recovery withdraws the
+            // maintenance flight whose pull point came back up; nothing can
+            // ever ground one, because "a person stopped it" is a sentence no
+            // sweep can truthfully write.
+            //
+            // The same statuses as withdrawal, deliberately: what differs is
+            // which sentence is true, not how the door behaves.
+            Method = "POST",
+            Path = "/v1/flights/{ref}/grounding",
+            Audience = Audience.Developer,
+            Request = typeof(FlightGroundingRequest),
+            Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/flights/{ref}",
             Audience = Audience.Developer,
@@ -1223,6 +1249,7 @@ public static class ProtocolSurface
             ],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
             [typeof(FlightWithdrawalRequest)] = ["because"],
+            [typeof(FlightGroundingRequest)] = ["because"],
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels"],

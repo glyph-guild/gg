@@ -519,6 +519,31 @@ public sealed record FlightWithdrawalRequest
     public required string Because { get; init; }
 }
 
+/// <summary>
+/// Why a person stopped a flight that could still have been done.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Grounding is not withdrawing.</b> Withdrawing says the work no longer
+/// has a question to answer; grounding says the question is still real and
+/// somebody stopped the attempt. They are told apart by what became untrue,
+/// and here nothing did - which is why the reason matters more, not less: it
+/// is the only thing that survives to tell a later reader why work that could
+/// have been done was not.
+/// </para>
+/// <para>
+/// <b>Nothing about who.</b> Article XII derives the actor from the
+/// authenticated principal, control-plane-side. A caller naming somebody else
+/// would be a caller choosing its own attribution.
+/// </para>
+/// </remarks>
+[PinnedId("e852b26e-5129-46e7-8181-1f2e54d12532")]
+public sealed record FlightGroundingRequest
+{
+    /// <summary>Why it was stopped. Not optional, deliberately.</summary>
+    public required string Because { get; init; }
+}
+
 /// <summary>A flight's log, oldest first.</summary>
 [PinnedId("bf4fdf2b-d551-4f8f-b18b-e81a01e51b6e")]
 public sealed record FlightLog

@@ -123,6 +123,64 @@ public class TheRunnerModalShowsTheSelectedOneTests
     }
 
     [Test]
+    public async Task The_modal_says_who_registered_the_runner_it_is_about()
+    {
+        // WHERE THE NAME EARNS ITS PLACE, and it only earns it here. In the
+        // table it would be a column of one repeated value on a tenant with one
+        // person, taking width from `advertises` and `last heard`, which are the
+        // columns somebody reads. Over a row a person deliberately opened it is
+        // one line answering the question the marks raise but cannot settle:
+        // the first column says whether a runner is yours, and this says whose
+        // it is when it is not.
+        var fleet = Fleet(selected: 1);
+        var named = fleet with
+        {
+            Runners = new RunnerList
+            {
+                Runners = [.. fleet.Runners!.Runners.Select((r, i) =>
+                    i == 1 ? r with { RegisteredBy = "Dana Okonkwo" } : r)],
+            },
+        };
+
+        await Assert.That(PaneText.Modal(named)).Contains("Dana Okonkwo");
+    }
+
+    [Test]
+    public async Task A_runner_nobody_is_recorded_as_having_registered_claims_nobody()
+    {
+        // Every runner registered before the control plane began recording one
+        // is in this state permanently. A line reading "Registered by ." is
+        // worse than no line, and inventing "unknown" says less than silence.
+        await Assert.That(PaneText.Modal(Fleet(selected: 1)))
+            .DoesNotContain("Registered by");
+    }
+
+    [Test]
+    public async Task A_crafted_display_name_is_stripped_before_it_is_stored()
+    {
+        // TEXT SOMEBODY ELSE CHOSE, arriving from a control plane and drawn
+        // over a terminal gg owns. The console's rule is that external text is
+        // cleaned before STORAGE rather than at render, because the model is
+        // written to disk under GG_STATE_DUMP and read back by things that are
+        // not PaneText.
+        var fleet = Fleet(selected: 1);
+        var crafted = fleet with
+        {
+            Runners = new RunnerList
+            {
+                Runners = [.. fleet.Runners!.Runners.Select((r, i) =>
+                    i == 1 ? r with { RegisteredBy = "\u001b[2JDana" } : r)],
+            },
+        };
+
+        var row = Rows.Runners(crafted)[1];
+
+        await Assert.That(row.RegisteredBy).DoesNotContain("\u001b");
+        await Assert.That(row.RegisteredBy).Contains("Dana")
+            .Because("stripping removes the sequence, not the name.");
+    }
+
+    [Test]
     public async Task A_cursor_past_the_end_names_nothing_rather_than_falling_back()
     {
         // The fleet shrinks under a refresh - a revoked runner leaves - and the

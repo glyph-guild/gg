@@ -238,6 +238,105 @@ public class PtyAgentSessionTests
     }
 
     [Test]
+    public async Task The_bar_changes_once_the_intent_has_landed()
+    {
+        // S33.5-06, AND IT IS ABOUT DOUBLE SUBMISSION. A person handed an agent
+        // cannot ask it whether gg received anything - it does not know either -
+        // so the top row is the only place that can say. One that read the same
+        // before and after would leave somebody who had already submitted with
+        // no way to tell, and the obvious thing to do then is submit again.
+        //
+        // The child writes the intent and then waits, so the frame painted after
+        // the write is the one that has to have changed. It is released by a
+        // keystroke from the test rather than by a timer.
+        using var terminal = new HostedTerminal { Columns = 100, Rows = 24 };
+        await Assert.That(terminal.Opened).IsTrue();
+
+        var compose = Somewhere();
+        var agent = FakeAgent(
+            $"printf 'the composed intent' > '{compose.FullName}/intent.txt'; read x\n");
+
+        try
+        {
+            var session = Task.Run(() => new PtyAgentSession(
+                $"/bin/sh {agent}", () => terminal, self: Ourselves(),
+                composeIn: compose.FullName).Edit(""));
+
+            await Assert.That(Until(() =>
+                    terminal.Painted.Contains("submitted", StringComparison.OrdinalIgnoreCase)))
+                .IsTrue()
+                .Because("the bar has to say so once the intent is there, and it is repainted "
+                       + "on every chunk the child writes. Painted: " + terminal.Painted);
+
+            terminal.Type("\n");
+            await session;
+        }
+        finally
+        {
+            File.Delete(agent);
+            compose.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Before_anything_is_submitted_the_bar_says_what_to_do()
+    {
+        // The pair to it. A bar that only ever said "submitted" would be worse
+        // than one that never changed, and what a person needs first is what
+        // ends the session at all.
+        using var terminal = new HostedTerminal { Columns = 100, Rows = 24 };
+        await Assert.That(terminal.Opened).IsTrue();
+
+        var compose = Somewhere();
+        var agent = FakeAgent("exit 0\n");
+
+        try
+        {
+            new PtyAgentSession(
+                $"/bin/sh {agent}", () => terminal, self: Ourselves(),
+                composeIn: compose.FullName).Edit("");
+
+            var painted = terminal.Painted;
+
+            await Assert.That(painted).Contains("submit", StringComparison.OrdinalIgnoreCase)
+                .Because("what ends this session is the agent submitting, and nothing else "
+                       + "on screen will say so.");
+            await Assert.That(painted)
+                .DoesNotContain("submitted", StringComparison.OrdinalIgnoreCase)
+                .Because("nothing was submitted, and a bar that said otherwise would be "
+                       + "the one lie that matters here.");
+        }
+        finally
+        {
+            File.Delete(agent);
+            compose.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>Waits for something to become true, and says so when it does not.</summary>
+    /// <remarks>
+    /// Not a sleep: it returns the moment the condition holds and fails loudly
+    /// if it never does, so the cap only decides how long a genuine failure
+    /// takes to report rather than how long a passing test waits.
+    /// </remarks>
+    private static bool Until(Func<bool> held)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (held())
+            {
+                return true;
+            }
+
+            Thread.Sleep(5);
+        }
+
+        return false;
+    }
+
+    [Test]
     public async Task The_intent_file_is_deleted_however_the_session_ended()
     {
         // It holds what somebody was proposing, in a directory everybody on this

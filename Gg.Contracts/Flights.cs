@@ -598,6 +598,32 @@ public sealed record RunnerSummary
     public DateTimeOffset? LastHeartbeatAt { get; init; }
 
     /// <summary>
+    /// The principal that registered this runner, or empty when nobody
+    /// recorded one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The id, not the display name.</b> The control plane has recorded a
+    /// registrant since registration existed and it is a display name - text a
+    /// person chose, which two people can share and either can change. A
+    /// consumer grouping a fleet by owner on that would put somebody else's
+    /// runners in your group on a collision and drop your own on a rename.
+    /// </para>
+    /// <para>
+    /// <b>The same value <see cref="WhoAmI.PrincipalId"/> answers with</b>, and
+    /// named for it: comparing the two is the only thing this is for.
+    /// </para>
+    /// <para>
+    /// <b>Not required, and it never becomes required.</b> A gg newer than the
+    /// control plane it is pointed at receives a payload without this, and
+    /// every runner registered before it shipped has no principal id in its
+    /// stored event - no replay can invent one. Empty is a permanent, ordinary
+    /// answer meaning "nobody recorded", not a transitional one.
+    /// </para>
+    /// </remarks>
+    public string RegisteredByPrincipalId { get; init; } = "";
+
+    /// <summary>
     /// What this runner advertises, each label with its disposition beside it.
     /// </summary>
     /// <remarks>

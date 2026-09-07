@@ -71,27 +71,60 @@ public class FocusReachesIntoTheFlightModalTests
             .IsEqualTo(FocusTarget.LeaveAlone);
     }
 
+    /// <summary>
+    /// Every container between the modal and a control is focusable, and a stop.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two rules, and the second one cost a second attempt.</b> A view is
+    /// focusable only if its SuperView is, so the two plain <c>View</c>s needed
+    /// <c>CanFocus</c> - that much was in the property's own documentation. It
+    /// was not enough: focus advances by asking a view for its DIRECT subviews
+    /// whose <c>TabStop</c> MATCHES the behaviour being advanced, so a
+    /// container that does not match is never descended into and its children
+    /// are not candidates at all.
+    /// </para>
+    /// <para>
+    /// <b>Which made <c>NoStop</c> exactly the wrong answer, and it was the
+    /// first one tried</b> - a container is not a control, so not being a tab
+    /// stop reads as obviously right. Measured against the library's own
+    /// <c>AdvanceFocus</c>: with the containers set to <c>NoStop</c> it would
+    /// not leave the control it started on, six calls in a row. <c>FrameView</c>
+    /// is created as a <c>TabGroup</c>, which is the same mismatch by default,
+    /// so the two region frames are named here too.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task The_containers_between_the_modal_and_its_widgets_can_be_focused()
+    public async Task The_containers_between_the_modal_and_its_widgets_are_stops()
     {
-        // THE RATCHET FOR THE HALF NO TEST CAN REACH. Two plain Views hold the
-        // three regions, and a plain View is created with CanFocus false -
-        // which silently makes everything beneath it unreachable.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
-        var body = screen[screen.IndexOf("_flightBody = new View", StringComparison.Ordinal)..];
-        var fields = screen[screen.IndexOf("_flightFields = new View", StringComparison.Ordinal)..];
-
-        foreach (var (named, declared) in ((string, string)[])
-                 [("_flightBody", body[..body.IndexOf("};", StringComparison.Ordinal)]),
-                  ("_flightFields", fields[..fields.IndexOf("};", StringComparison.Ordinal)])])
+        foreach (var named in (string[])
+                 ["_flightBody = new View", "_flightFields = new View",
+                  "_flightIntentPane = new FrameView", "_flightLogPane = new FrameView"])
         {
+            var from = screen.IndexOf(named, StringComparison.Ordinal);
+
+            await Assert.That(from).IsGreaterThan(-1).Because($"{named} should exist.");
+
+            var declared = screen[from..];
+            declared = declared[..declared.IndexOf("};", StringComparison.Ordinal)];
+
+            await Assert.That(declared).Contains("TabBehavior.TabStop")
+                .Because($"{named} is on the path from the modal to a control, and navigation "
+                       + "descends only through containers whose TabStop matches. NoStop and "
+                       + "TabGroup both leave everything under it unreachable.");
+        }
+
+        foreach (var named in (string[]) ["_flightBody = new View", "_flightFields = new View"])
+        {
+            var from = screen.IndexOf(named, StringComparison.Ordinal);
+            var declared = screen[from..];
+            declared = declared[..declared.IndexOf("};", StringComparison.Ordinal)];
+
             await Assert.That(declared).Contains("CanFocus = true")
-                .Because($"{named} is between the modal and something a person has to reach, "
-                       + "and Terminal.Gui will not focus through a container that cannot be.");
-            await Assert.That(declared).Contains("TabBehavior.NoStop")
-                .Because($"{named} is a container and not a control - tab landing on it would "
-                       + "be a stop on nothing.");
+                .Because($"{named} is a plain View, which is created unfocusable - and "
+                       + "Terminal.Gui will not focus through a container that cannot be.");
         }
     }
 

@@ -35,6 +35,7 @@ public sealed record RepositoryRow(string Chosen, string Path, string Name);
 /// </param>
 public sealed record RunnerRow(
     bool Mine,
+    bool Yours,
     bool Machine,
     string Here,
     string Runner,
@@ -158,6 +159,7 @@ public static class Rows
         var fleet = state.Runners?.Runners ?? [];
         var mine = state.LocalRunnerId;
         var machine = state.Machine;
+        var you = state.PrincipalId;
 
         // THIS MACHINE'S RUNNERS TOGETHER, AND THE ONE WITH KEYS BEHIND IT
         // FIRST. Registering twice is what running `gg runner up` twice does,
@@ -174,13 +176,29 @@ public static class Rows
                 r,
                 string.Equals(r.RunnerId, mine, StringComparison.Ordinal),
 
+                // WHOSE IT IS, WHEN ANYBODY SAID. Both sides must be non-empty:
+                // a console with no session has no principal id, and every
+                // runner registered before the control plane recorded one has
+                // no principal id either - so an empty-matches-empty test would
+                // hand a signed-out console the entire fleet as its own.
+                you is { Length: > 0 }
+                    && string.Equals(r.RegisteredByPrincipalId, you, StringComparison.Ordinal),
+
                 // EQUAL, NOT A PREFIX. `vmlinux001:maintain` is a real label
                 // and it is a DIFFERENT runner from `vmlinux001` - a prefix
                 // match would put another host's housekeeping process in the
                 // group a person reads as theirs.
                 machine is { Length: > 0 }
                     && string.Equals(r.Label, machine, StringComparison.Ordinal)))
-            .OrderBy(r => r.Mine ? 0 : r.Machine ? 1 : 2)
+
+            // YOURS ABOVE THIS MACHINE'S, because one is a fact the control
+            // plane recorded and the other is an inference from a label. The
+            // machine rank stays underneath rather than being replaced: a
+            // runner registered before the id shipped has none permanently, and
+            // dropping those into the fleet would lose rows the machine
+            // grouping was already showing - including a person's own, on the
+            // machine they are sitting at.
+            .OrderBy(r => r.Mine ? 0 : r.Yours ? 1 : r.Machine ? 2 : 3)
             .ToList();
 
         if (rows.Any(r => r.Mine) is false && mine is { Length: > 0 })
@@ -191,6 +209,11 @@ public static class Rows
             // derives.
             rows.Insert(0, new RunnerRow(
                 Mine: true,
+
+                // NOT CLAIMED AS YOURS. This row is invented from a file this
+                // machine wrote, so nothing about it came from the control
+                // plane - including who registered it.
+                Yours: false,
                 Machine: true,
                 Here: Ours,
                 Runner: Short(mine),
@@ -241,21 +264,28 @@ public static class Rows
     private const string Ours = "→";
 
     /// <summary>
-    /// The mark against this machine's other registrations.
+    /// The mark against the rest of a person's own group - their runners
+    /// elsewhere, and this machine's other registrations.
     /// </summary>
     /// <remarks>
     /// <b>Not the arrow, deliberately.</b> Stop, restart and the log all act on
     /// the runner this console holds a pidfile for; these are other processes,
-    /// mostly gone. They are grouped with it because they are what a person at
-    /// this keyboard is looking for, and marked differently because none of the
+    /// on other hosts or long gone. They are grouped with it because they are
+    /// what a person is looking for, and marked differently because none of the
     /// keys pointed at the arrow will do anything to them.
+    /// <para>
+    /// <b>One mark for both claims rather than two.</b> A third symbol would
+    /// ask a person to learn which of "yours" and "this machine's" a glyph
+    /// meant, to distinguish two rows they can do exactly as much about.
+    /// </para>
     /// </remarks>
     private const string Alongside = "·";
 
-    private static RunnerRow Row(RunnerSummary runner, bool mine, bool machine) => new(
+    private static RunnerRow Row(RunnerSummary runner, bool mine, bool yours, bool machine) => new(
         Mine: mine,
+        Yours: yours,
         Machine: machine || mine,
-        Here: mine ? Ours : machine ? Alongside : " ",
+        Here: mine ? Ours : yours || machine ? Alongside : " ",
         Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
             ? "  " + label
             : ""),

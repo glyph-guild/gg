@@ -749,6 +749,24 @@ public sealed record AppState
     public string Principal { get; init; } = "";
 
     /// <summary>
+    /// The id of the principal this console is signed in as, or empty when
+    /// nobody is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched already.</b> The boot asks the control plane who it is for
+    /// the notices row; the id has been arriving in that same answer since the
+    /// verb existed and being dropped on the floor. Nothing here costs a
+    /// request.
+    /// <para>
+    /// <b>The id, not <see cref="Principal"/>.</b> That is a display name -
+    /// text a person chose, which two can share and either can change - and it
+    /// is for reading. This is for comparing, and the only thing it is compared
+    /// against is what a runner says about who registered it.
+    /// </para>
+    /// </remarks>
+    public string PrincipalId { get; init; } = "";
+
+    /// <summary>
     /// Which runner in the fleet is this machine's, or null when none is
     /// registered here.
     /// </summary>

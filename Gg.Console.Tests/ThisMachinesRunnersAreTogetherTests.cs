@@ -35,10 +35,6 @@ public class ThisMachinesRunnersAreTogetherTests
     private static RunnerSummary Runner(
         string id, string label, string state = RunnerStates.Offline, string by = "") =>
         new() { RunnerId = id, Label = label, State = state, RegisteredByPrincipalId = by };
-
-    private const string Me = "01a062f3-42a5-73a4-8bf5-29a4bbb36533";
-
-    private const string Somebody = "01a06aa2-0000-7000-8000-000000000000";
     /// <summary>A fleet shaped like the real one: one host, many registrations.</summary>
     private static AppState Fleet(string? local) => new()
     {

@@ -67,33 +67,69 @@ internal sealed class PseudoTerminal : IDisposable
 
     internal int Slave { get; }
 
-    /// <summary>Whether there is one at all.</summary>
+    /// <summary>
+    /// Says which call failed and why, rather than answering "no".
+    /// </summary>
     /// <remarks>
-    /// A test that silently skipped here would assert nothing and report a pass,
-    /// so callers assert on this rather than branching on it.
+    /// <para>
+    /// <b>THROWN, BECAUSE NOTHING HANDLES THE ALTERNATIVE.</b> This used to
+    /// answer with an <c>Opened</c> flag, and all twenty-five callers did the
+    /// same thing with it: assert it was true and carry on. Not one had a
+    /// fallback, so the flag was twenty-five ways of writing "fail here" - and
+    /// it failed saying only "this test needs a real terminal", which is the
+    /// exact shape of diagnostic this subsystem has already been bitten by: one
+    /// reporting the intent rather than the state.
+    /// </para>
+    /// <para>
+    /// <b>And it can fail transiently.</b> A Linux container run flaked one
+    /// RawMode test out of six and never repeated it across twenty-four further
+    /// runs, with pty slots nowhere near exhausted, so what happened is unknown
+    /// - unknowable, from what the failure said. The next occurrence names the
+    /// call and its errno.
+    /// </para>
     /// </remarks>
-    internal bool Opened => Slave > 0;
+    private static PseudoTerminal Failed(string call, int master = -1)
+    {
+        var errno = Marshal.GetLastWin32Error();
+
+        if (master > 0)
+        {
+            close(master);
+        }
+
+        throw new InvalidOperationException(
+            $"no pseudo-terminal: {call} failed with errno {errno}. This test drives real "
+          + "terminal handling against a real pty, so without one it would assert nothing.");
+    }
 
     internal static PseudoTerminal Open()
     {
         var master = posix_openpt(ORdWr | ONoctty);
-        if (master < 0 || grantpt(master) != 0 || unlockpt(master) != 0)
+        if (master < 0)
         {
-            return new PseudoTerminal(-1, -1);
+            return Failed("posix_openpt");
+        }
+
+        if (grantpt(master) != 0)
+        {
+            return Failed("grantpt", master);
+        }
+
+        if (unlockpt(master) != 0)
+        {
+            return Failed("unlockpt", master);
         }
 
         var name = Marshal.PtrToStringAnsi(ptsname(master));
         if (name is null)
         {
-            close(master);
-            return new PseudoTerminal(-1, -1);
+            return Failed("ptsname", master);
         }
 
         var slave = open_(name, ORdWr | ONoctty);
         if (slave < 0)
         {
-            close(master);
-            return new PseudoTerminal(-1, -1);
+            return Failed($"open({name})", master);
         }
 
         return new PseudoTerminal(master, slave);

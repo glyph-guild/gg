@@ -551,7 +551,16 @@ static async Task<int> LaunchConsoleAsync()
         // names this document's version and nothing could show the document.
         new EnvelopeCommands(client, sessions));
 
-    var initial = ConsoleStart.LoadAsync(data, takes.Principal()).GetAwaiter().GetResult()
+    // WHO IS SIGNED IN, OR NOBODY, AND NOBODY IS NOT AN ERROR HERE. The verbs
+    // refuse with `Not signed in. Run gg login.` when the file is absent, which
+    // is right where a shell can print it - and this is the one caller that has
+    // taken the shell away. Asked through them, the refusal was thrown while
+    // evaluating an ARGUMENT to the loader, so it landed outside the catch that
+    // turns being signed out into the modal: gg on a machine that had never
+    // signed in ended with a stack trace instead of the screen built for it.
+    var principal = sessions.Read()?.PrincipalDisplay ?? "";
+
+    var initial = ConsoleStart.LoadAsync(data, principal).GetAwaiter().GetResult()
         // WHAT THIS MACHINE IS CONFIGURED TO DO, read once and handed over.
         // ExecutorConfiguration states the rule this follows: one place reads
         // the environment, and nothing downstream reads it again and reaches a
@@ -728,8 +737,11 @@ static async Task<int> LaunchConsoleAsync()
         // GIVEN THE MODEL, not ignoring it. `_ =>` here meant every refresh was
         // a boot, so everything the loader does not read - the browse pane, the
         // receipts, and on a failure the entire queue - reset to a default.
+        // READ AGAIN RATHER THAN CAPTURED, because signing in is a reload and the
+        // whole point of that one is that the name changed. Tolerating absence
+        // for the boot's reason: this runs with no shell to refuse into either.
         reload: current => ConsoleStart
-            .LoadAsync(data, takes.Principal(), current)
+            .LoadAsync(data, sessions.Read()?.PrincipalDisplay ?? "", current)
             .GetAwaiter()
             .GetResult(),
         // THE CHECKLIST IS READ WHEN THE PANE IS OPENED, not at boot: it is off

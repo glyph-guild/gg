@@ -477,6 +477,32 @@ static async Task<int> BundleAsync(bool json)
 /// Beside the live views rather than in the repository somebody happens to be
 /// standing in: a log that lands in a working tree is a log that gets committed.
 /// </remarks>
+/// <summary>
+/// Runs a child that should return at once, and answers its exit code.
+/// </summary>
+/// <remarks>
+/// <b>Nothing is shell-interpreted.</b> The arguments were built one at a time
+/// and the text goes in on standard input, so a link cannot become a second
+/// command.
+/// </remarks>
+static int Ran(ProcessStartInfo info, string? input)
+{
+    using var child = Process.Start(info);
+
+    if (child is null)
+    {
+        return -1;
+    }
+
+    if (input is not null)
+    {
+        child.StandardInput.Write(input);
+        child.StandardInput.Close();
+    }
+
+    return child.WaitForExit(ConsoleLink.Grace) ? child.ExitCode : -1;
+}
+
 static string RunnerLogPath() =>
     Path.Combine(Gg.Local.LocalPaths.StateRoot(), "runner.log");
 
@@ -715,6 +741,12 @@ static async Task<int> LaunchConsoleAsync()
         // STOPPING THE FLIGHT ON THE SCREEN, with the terminal free: the reason
         // is typed into $EDITOR and the write happens between sessions.
         groundFlight: (current, ask) => ConsoleGround.Ground(data, current, ask),
+        // THE VERIFICATION LINK, opened or copied. gg owns the terminal it is
+        // drawn in, so it can be neither clicked nor selected - and reading a
+        // long URL across to a browser by hand is the dead end the sign-in
+        // modal exists to remove, one step further in.
+        openUri: (current, uri) => ConsoleLink.Open(current, uri, Ran),
+        copyUri: (current, uri) => ConsoleLink.Copy(current, uri, Ran),
         // THE RUNNER ON THIS MACHINE: start it, stop it, and keep the model's
         // picture of it current. Three verbs on one object, each named, so
         // EveryPortIsPassedTests can see all three.

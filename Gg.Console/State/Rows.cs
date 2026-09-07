@@ -29,8 +29,18 @@ public sealed record RepositoryRow(string Chosen, string Path, string Name);
 /// The flight it holds, or empty. Empty rather than a dash: idle and holding a
 /// flight are different answers and one placeholder for both says neither.
 /// </param>
+/// <param name="Labels">
+/// What it advertises, which is the column that answers why a flight will not
+/// fly here.
+/// </param>
 public sealed record RunnerRow(
-    bool Mine, string Here, string Runner, string State, string Work, string Heard);
+    bool Mine,
+    string Here,
+    string Runner,
+    string State,
+    string Work,
+    string Labels,
+    string Heard);
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -67,7 +77,7 @@ public static class Rows
     /// a word explaining a symbol that already explains itself.
     /// </remarks>
     public static IReadOnlyList<string> RunnerColumns { get; } =
-        ["", "runner", "state", "working on", "last heard"];
+        ["", "runner", "state", "working on", "advertises", "last heard"];
 
     /// <summary>
     /// The repositories' columns, the first of which has no name.
@@ -171,6 +181,12 @@ public static class Rows
                 Runner: Short(mine),
                 State: RunnerStates.Offline,
                 Work: "",
+
+                // NOTHING EITHER WAY. Labels come from what a runner
+                // heartbeats, and this one never has - which is a different
+                // silence from advertising nothing, and the pane's own sentence
+                // is where that difference is stated.
+                Labels: "",
                 Heard: "never"));
         }
 
@@ -217,7 +233,22 @@ public static class Rows
             : ""),
         State: runner.State,
         Work: runner.CurrentFlightNumber ?? "",
+        Labels: string.Join(", ", runner.Labels.Select(Advertised)),
         Heard: runner.LastHeartbeatAt is { } at ? at.ToString("u") : "never");
+
+    /// <summary>
+    /// One advertised label, and a word only when it is worth one.
+    /// </summary>
+    /// <remarks>
+    /// <c>measured</c> means the name has a registered meaning - a predicate
+    /// evaluated from produced facts - and is the ordinary case, so it costs no
+    /// words. <c>stated</c> means somebody claimed it and nothing checks, which
+    /// is the half a person reading a fleet wants to notice.
+    /// </remarks>
+    private static string Advertised(AdvertisedLabel label) =>
+        label.Disposition == LabelDispositions.Measured
+            ? label.Name
+            : $"{label.Name} ({label.Disposition})";
 
     /// <summary>
     /// Enough of an id to tell two runners apart, and no more.

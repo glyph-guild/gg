@@ -1,0 +1,161 @@
+using Gg.Contracts;
+
+namespace Gg.Console;
+
+/// <summary>
+/// What the runner modal shows, in the shapes it shows them in.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b><see cref="FlightDetails"/>'s argument, one modal over.</b> Everything
+/// here was a preformatted string in a <c>Label</c>, so nothing could be
+/// selected and nothing copied — and the runner id is the value most often
+/// wanted out of this modal, because it is what <c>gg runner</c> takes and the
+/// grid deliberately shows eight characters of it.
+/// </para>
+/// <para>
+/// <b>Two sources, and only one of them is the fleet's.</b> State, labels,
+/// last-heard and who registered it come from the control plane about
+/// anybody's runner. A pid and a log path are facts about a process THIS
+/// console started, and belong only to the row that process is. Keeping that
+/// distinction here is what stops the modal saying a build host's runner is
+/// running on this laptop.
+/// </para>
+/// <para>
+/// <b>The log is text and not a table</b>, which is where this parts from the
+/// flight modal: a flight's log has a time, an attempt and an event, and a
+/// runner's log is whatever a child wrote to its own stdout.
+/// </para>
+/// </remarks>
+public static class RunnerDetails
+{
+    /// <summary>What the frame over the log says.</summary>
+    public const string LogTitle = "Log";
+
+    /// <summary>
+    /// The runner this modal is about, named the way the grid names it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same short id and label the row carries</b>, so the modal and the
+    /// row a person opened it from agree about what they are looking at. It was
+    /// a fixed title, true of whichever runner was open — and once enter began
+    /// opening any row in the fleet, true of none of them in particular.
+    /// </remarks>
+    public static string Title(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Rows.Selected(state) is { } row
+            ? row.Runner
+            : PaneText.ModalTitle(UiMode.Runner);
+    }
+
+    /// <summary>
+    /// The scalars, each with the name it goes by.
+    /// </summary>
+    /// <remarks>
+    /// <b>A field is omitted rather than emptied.</b> An empty value beside a
+    /// label is a fact that is missing; no label at all is a fact that does not
+    /// apply. An idle runner is not working on nothing — it is not working.
+    /// </remarks>
+    public static IReadOnlyList<FlightField> Fields(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Rows.Selected(state) is not { } row)
+        {
+            return [];
+        }
+
+        var fields = new List<FlightField>
+        {
+            // THE WHOLE ID, WHICH THE GRID CANNOT GIVE. Fifteen rows of full
+            // uuid would be a column of noise, so the table shows eight
+            // characters - and `gg runner` takes all of it. This is where it
+            // has to be complete, which is why the row carries both.
+            new("id", row.Id),
+            new("state", row.State),
+        };
+
+        if (row.Work is { Length: > 0 } work)
+        {
+            fields.Add(new FlightField("working on", work));
+        }
+
+        if (row.Labels is { Length: > 0 } labels)
+        {
+            fields.Add(new FlightField("advertises", labels));
+        }
+
+        fields.Add(new FlightField("last heard", row.Heard));
+
+        if (row.RegisteredBy is { Length: > 0 } who)
+        {
+            fields.Add(new FlightField("registered by", who));
+        }
+
+        // WHAT ONLY THIS CONSOLE KNOWS, and only about its own child. A pid
+        // under another host's runner would say a process is running here that
+        // is not, which is the same defect the modal's subject had.
+        if (row.Mine && state.Here is { } here)
+        {
+            if (here.Pid is { } pid)
+            {
+                fields.Add(new FlightField("process", $"{pid}"));
+            }
+
+            if (here.Exit is { } exit)
+            {
+                fields.Add(new FlightField("exited", $"{exit}"));
+            }
+
+            if (here.LogPath is { Length: > 0 } path)
+            {
+                fields.Add(new FlightField("log", path));
+            }
+        }
+
+        return fields;
+    }
+
+    /// <summary>
+    /// What the child this console started has said, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only ever this console's own child.</b> A log is a local file, so
+    /// there is one for exactly one row in any fleet — showing it under another
+    /// host's runner would attribute one machine's output to another.
+    /// </remarks>
+    public static string Log(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Rows.Selected(state) is { Mine: true } && state.Here is { Log.Count: > 0 } here
+            ? string.Join("\n", here.Log)
+            : "";
+    }
+
+    /// <summary>
+    /// What stands where the log would be, when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two silences that mean opposite things.</b> A child of ours that has
+    /// not spoken yet will; a runner on another host was never going to send
+    /// its output here. "It has said nothing yet" over the second reads as a
+    /// runner that has gone quiet, which is the opposite of what is true.
+    /// </remarks>
+    public static string LogAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Log(state).Length > 0)
+        {
+            return "";
+        }
+
+        return Rows.Selected(state) is { Mine: true } or null
+            ? "It has said nothing yet."
+            : "This console did not start it, so there is no log here to read. What it says "
+            + "is on the machine it is running on.";
+    }
+}

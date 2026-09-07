@@ -40,6 +40,17 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
 
     private static readonly DateTimeOffset Beat = new(2026, 9, 7, 18, 2, 22, TimeSpan.Zero);
 
+    /// <summary>
+    /// A fleet of exactly the runner named, with the cursor on it.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>LocalRunnerId</c> only when the runner IS this machine's.</b>
+    /// <c>Rows.Runners</c> invents a row for a local runner the fleet has no
+    /// record of - registered here and never heard from, which is a real state
+    /// and one an operator has to see - and inserts it first. A fixture that
+    /// named a local runner absent from its own fleet would put that invented
+    /// row under the cursor and test the wrong subject.
+    /// </remarks>
     private static AppState State(
         RunnerSummary runner, RunnerHere? here = null, int selected = 0) => new()
     {
@@ -47,7 +58,9 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
         ActiveTab = TabId.Runners,
         Machine = "Kevins-MBP",
         PrincipalId = Me,
-        LocalRunnerId = Mine,
+        LocalRunnerId = string.Equals(runner.RunnerId, Mine, StringComparison.Ordinal)
+            ? Mine
+            : null,
         RunnerSelected = selected,
         Here = here,
         Runners = new RunnerList { Runners = [runner] },
@@ -62,7 +75,7 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
         LastHeartbeatAt = Beat,
         RegisteredByPrincipalId = Me,
         RegisteredBy = "Kevin Deenanauth",
-        Labels = [new AdvertisedLabel { Name = "environment=dev" }],
+        Labels = [new AdvertisedLabel { Name = "environment=dev", Disposition = LabelDispositions.Measured }],
     };
 
     [Test]

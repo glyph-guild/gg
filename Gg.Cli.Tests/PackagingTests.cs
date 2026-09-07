@@ -113,8 +113,27 @@ public class PackagingTests
     }
 
     /// <summary>The release workflow, as text, because it is what ships.</summary>
-    private static string ReleaseWorkflow() =>
-        File.ReadAllText(RepoFile(".github", "workflows", "publish-cli.yml"));
+    /// <remarks>
+    /// <b>Found by name rather than by path, and not for tidiness.</b> Spelling
+    /// out the directory this lives in puts a provider name in a source file,
+    /// which <c>ProviderNeutralityTests</c> forbids — and that guard is right:
+    /// gg talks only to the control plane, so a provider name in source is how
+    /// that boundary leaks into a public binary. It has no exception to make for
+    /// a path, and it should not have one. This test does not care where CI
+    /// configuration lives; it cares about the workflow that builds the release.
+    /// </remarks>
+    private static string ReleaseWorkflow()
+    {
+        var found = Directory
+            .EnumerateFiles(RepoRoot(), "publish-cli.yml", SearchOption.AllDirectories)
+            .ToList();
+
+        return found.Count == 1
+            ? File.ReadAllText(found[0])
+            : throw new InvalidOperationException(
+                $"expected exactly one publish-cli.yml under {RepoRoot()}, found {found.Count}. "
+              + "A scan that finds nothing asserts nothing, which is worse than a red test.");
+    }
 
     [Test]
     public async Task The_release_carries_the_whole_publish_directory_not_a_named_file()

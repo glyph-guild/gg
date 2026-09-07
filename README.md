@@ -64,10 +64,20 @@ says so. That covers CI, anything behind a pipe, and Windows, where
 ```sh
 curl -fsSL https://github.com/glyph-guild/gg/releases/latest/download/gg-linux-x64.tar.gz | tar xz
 sudo install -m 0755 gg /usr/local/bin/gg
+sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
 gg --version
 ```
 
-Swap `linux-x64` for `osx-arm64` on an Apple-silicon Mac.
+Swap `linux-x64` for `osx-arm64` on an Apple-silicon Mac, and `.so` for
+`.dylib`.
+
+**Both `install` lines, and the second is not optional.** `gg` loads those two
+libraries from its own directory — which is why they go in `bin` beside it
+rather than somewhere tidier — and it loads them on first use rather than at
+startup. A `gg` installed without them starts, runs, and prints its version
+exactly as normal, then opens your editor without the gg bar. It will say which
+file is missing when that happens, but it cannot say it before you have already
+pressed the key.
 
 **As a .NET tool**, if you already have the SDK. `--add-source` takes a
 directory rather than a URL, so the package is downloaded first:

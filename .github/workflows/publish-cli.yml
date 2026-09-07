@@ -97,10 +97,43 @@ jobs:
         run: ./out/gg --version
       # Named by platform, because a release carrying two files called `gg`
       # helps nobody.
+      #
+      # THE DIRECTORY, NOT THE BINARY. An AOT publish emits `gg` and native
+      # libraries beside it - libonigwrap through Terminal.Gui, libporta_pty
+      # through Porta.Pty - and .NET resolves a P/Invoke on FIRST CALL rather
+      # than at startup. A release carrying only `gg` therefore builds clean,
+      # starts clean, prints its version clean, and dies on the keypress that
+      # first reaches that code. libonigwrap was left out this whole time and
+      # nobody noticed, because nothing gg does calls into it.
+      #
+      # Packaging the directory rather than a list of names is the part that
+      # keeps being true: a list is correct until the next dependency brings an
+      # asset, and then it is silently wrong again.
       - name: Name it after the platform it runs on
         run: |
           mkdir -p artifacts
-          tar -czf "artifacts/gg-${{ matrix.rid }}.tar.gz" -C out gg
+          # Debug symbols are larger than the binary and nobody downloading a
+          # release wants them - the cost of packaging a whole directory.
+          rm -rf out/*.pdb out/*.dSYM
+          tar -czf "artifacts/gg-${{ matrix.rid }}.tar.gz" -C out .
+          tar -tzf "artifacts/gg-${{ matrix.rid }}.tar.gz"
+      # THE ASSERTION THAT MATTERS IS AT PUBLISH TIME. A test can read this
+      # file and check it packages a directory; only the real publish knows
+      # what the real publish produced.
+      - name: Every native library the publish produced is in the tarball
+        run: |
+          missing=0
+          for lib in out/*.so out/*.dylib; do
+            [ -e "$lib" ] || continue
+            name=$(basename "$lib")
+            if tar -tzf "artifacts/gg-${{ matrix.rid }}.tar.gz" | grep -qx "./$name"; then
+              echo "carried: $name"
+            else
+              echo "MISSING FROM THE RELEASE: $name"
+              missing=1
+            fi
+          done
+          exit $missing
       - uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.rid }}
@@ -155,9 +188,12 @@ jobs:
           \`\`\`sh
           curl -fsSL https://github.com/glyph-guild/gg/releases/download/$tag/gg-linux-x64.tar.gz | tar xz
           sudo install -m 0755 gg /usr/local/bin/gg
+          sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
           \`\`\`
 
-          Swap \`linux-x64\` for \`osx-arm64\` on an Apple-silicon Mac.
+          Swap \`linux-x64\` for \`osx-arm64\` on an Apple-silicon Mac, and \`.so\` for \`.dylib\`.
+
+          **Both lines, and the second one is not optional.** \`gg\` loads those libraries from its own directory when it hosts your editor, and it loads them on first use rather than at startup - so a \`gg\` installed without them starts, runs and prints its version exactly as normal, and then quietly opens your editor without the gg bar. It will tell you which file is missing if that happens.
 
           **As a .NET tool**, if you already have the SDK — from nuget.org, so there is nothing to download first:
 

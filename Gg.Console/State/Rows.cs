@@ -338,21 +338,34 @@ public static class Rows
     /// <summary>The mark against the runner this console can act on.</summary>
     private const string Ours = "→";
 
-    /// <summary>
-    /// The mark against the rest of a person's own group - their runners
-    /// elsewhere, and this machine's other registrations.
-    /// </summary>
+    /// <summary>The mark against a runner this person registered.</summary>
     /// <remarks>
     /// <b>Not the arrow, deliberately.</b> Stop, restart and the log all act on
-    /// the runner this console holds a pidfile for; these are other processes,
-    /// on other hosts or long gone. They are grouped with it because they are
-    /// what a person is looking for, and marked differently because none of the
-    /// keys pointed at the arrow will do anything to them.
+    /// the runner this console holds a pidfile for; this one is a process on
+    /// another host, or a registration long gone. What it tells you is that you
+    /// brought it up and know where to go, which is why it says something
+    /// rather than nothing.
     /// <para>
-    /// <b>One mark for both claims rather than two.</b> A third symbol would
-    /// ask a person to learn which of "yours" and "this machine's" a glyph
-    /// meant, to distinguish two rows they can do exactly as much about.
+    /// <b>And not the dot either, which is the correction.</b> One glyph
+    /// covered both for a while, on the argument that a person can do exactly
+    /// as much about either - nothing. That weighed what a row can be ACTED on
+    /// and ignored what it TELLS you, and it was written while ownership was an
+    /// inference from a machine label rather than something the control plane
+    /// recorded.
     /// </para>
+    /// </remarks>
+    private const string Owned = "*";
+
+    /// <summary>
+    /// The mark against this machine's runners that nobody is recorded as
+    /// having registered.
+    /// </summary>
+    /// <remarks>
+    /// Every runner registered before the control plane began recording a
+    /// principal is permanently in this state, so this is not a transitional
+    /// glyph. A star would claim what the control plane declined to say; the
+    /// row is marked at all because it is on the machine somebody is sitting
+    /// at, which is the weaker claim the label can still support.
     /// </remarks>
     private const string Alongside = "·";
 
@@ -360,7 +373,7 @@ public static class Rows
         Mine: mine,
         Yours: yours,
         Machine: machine || mine,
-        Here: mine ? Ours : yours || machine ? Alongside : " ",
+        Here: mine ? Ours : yours ? Owned : machine ? Alongside : " ",
         Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
             ? "  " + label
             : ""),

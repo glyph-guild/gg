@@ -136,6 +136,46 @@ public static class RunnerDetails
     }
 
     /// <summary>
+    /// The log as lines that fit the room given, ready for a list to show.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Wrapped here rather than truncated by the widget.</b> A runner's
+    /// output is mostly paths, urls and stack frames - the longest lines in it
+    /// are the ones somebody opened it to read - and a list that cut them at
+    /// the frame would drop exactly those. <see cref="Rows.Wrapped"/> breaks on
+    /// characters when a word will not fit, which is what makes a path survive.
+    /// </para>
+    /// <para>
+    /// <b>Width is a parameter because the view knows it and this does not.</b>
+    /// The same reason the flight log's unwrap takes one: a viewport is a fact
+    /// about a terminal somebody may resize, and a producer that guessed it
+    /// would be wrong on the first drag.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Lines(AppState state, int width)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Log(state) is not { Length: > 0 } said)
+        {
+            return [];
+        }
+
+        // BEFORE THE LAYOUT HAS HAPPENED the viewport is zero wide, and a
+        // render runs before a layout does. Wrapping to nothing would return a
+        // line per character; the whole lines are right for that one pass and
+        // are replaced the moment the viewport is known.
+        var lines = said.Split('\n');
+
+        return width <= 0
+            ? lines
+            : [.. lines.SelectMany(line => line.Length <= width
+                ? (IEnumerable<string>)[line]
+                : Rows.Wrapped(line, width))];
+    }
+
+    /// <summary>
     /// What stands where the log would be, when there is none.
     /// </summary>
     /// <remarks>

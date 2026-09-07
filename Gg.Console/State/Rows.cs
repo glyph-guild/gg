@@ -620,15 +620,20 @@ public static class Rows
         Math.Max(heading.Length, cells.Select(cell => cell.Length).DefaultIfEmpty(0).Max()) + 1;
 
     /// <summary>
-    /// One line broken into several, none wider than the column.
+    /// One line broken into several, none wider than the room given.
     /// </summary>
     /// <remarks>
     /// <b>On words, and on characters when a word will not fit.</b> A path, a
     /// commit hash or a url has no spaces in it and is exactly the thing
     /// somebody opened the log to read - so a wrapper that could only break on
     /// spaces would drop the one line that mattered.
+    /// <para>
+    /// <b>Shared with the runner's log</b>, which wants the identical thing for
+    /// the identical reason: a stack trace is mostly paths and a runner's own
+    /// output is where they appear.
+    /// </para>
     /// </remarks>
-    private static List<string> Wrapped(string text, int width)
+    internal static List<string> Wrapped(string text, int width)
     {
         var lines = new List<string>();
         var line = new System.Text.StringBuilder(width);

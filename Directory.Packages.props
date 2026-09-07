@@ -6,6 +6,23 @@
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <PackageVersion Include="Rocks" Version="10.2.0" />
     <PackageVersion Include="Terminal.Gui" Version="2.4.17" />
+
+    <!-- A FORK, AND IT EXISTS TO BE DELETED. Upstream SIPSorcery does not work
+         under Native AOT: the SCTP state cookie is reflection-serialised, the
+         trimmer removes its members, and the association stalls in CookieEchoed
+         so data channels never open. gg publishes Native AOT.
+
+           fix:   https://github.com/sipsorcery-org/sipsorcery/pull/1817
+           issue: https://github.com/sipsorcery-org/sipsorcery/issues/1816
+
+         The -gg suffix is load-bearing twice over: it says out loud that this is
+         not upstream, and SemVer sorts a prerelease BELOW its release, so this
+         build can never win a version range against a real 10.0.16.
+
+         To leave: pin the upstream version that contains the fix, delete
+         nuget.config's sipsorcery-fork source and scripts/fetch-sipsorcery.sh.
+         TheForkIsTemporaryTests fails until the first of those is true. -->
+    <PackageVersion Include="SIPSorcery" Version="10.0.16-gg.1" />
     <PackageVersion Include="TUnit" Version="1.63.25" />
     <!-- The only YAML parser in the product, and it lives in gg alone.
          Verified under Native AOT by inspecting the package rather than

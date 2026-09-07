@@ -5,3 +5,6 @@ artifacts/
 .vs/
 .idea/
 .DS_Store
+
+# Fetched by scripts/fetch-sipsorcery.sh, never committed.
+packages/

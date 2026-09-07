@@ -182,6 +182,62 @@ public class PtyEditorSessionTests
         }
     }
 
+    /// <summary>An editor that does not spawn anything, and says so.</summary>
+    private sealed class Stub(string wrote) : IEditorSession
+    {
+        public string Edit(string initialText) => wrote;
+    }
+
+    [Test]
+    public async Task A_machine_missing_the_native_library_still_edits()
+    {
+        // WHAT THE PACKAGE ACTUALLY COSTS. Porta.Pty P/Invokes libporta_pty for
+        // pty_spawn, pty_waitpid and eight more, and that file ships BESIDE gg
+        // rather than inside it - a second one after the onigwrap that already
+        // arrives with Terminal.Gui. If whatever installs gg moves the binary and
+        // not the directory, nothing says so at build time and nothing says so at
+        // startup, because .NET resolves a P/Invoke on first call: the first
+        // anybody hears of it is the console dying on the key they just pressed.
+        //
+        // A machine that cannot host still has an editor. It has had one all
+        // along.
+        using var terminal = new Owned();
+        await Assert.That(terminal.Opened).IsTrue();
+
+        var edited = new PtyEditorSession(
+            "vi",
+            () => terminal,
+            unhosted: new Stub("what the unhosted editor wrote"),
+            host: (_, _, _, _, _, _) => throw new DllNotFoundException("libporta_pty"))
+            .Edit("original text\n");
+
+        await Assert.That(edited).IsEqualTo("what the unhosted editor wrote")
+            .Because("the bar is a nicety and the editor is not, so losing the first must "
+                   + "never cost the second.");
+    }
+
+    [Test]
+    public async Task An_editor_that_is_simply_broken_is_not_swallowed()
+    {
+        // THE OTHER HALF, AND THE REASON THE CATCH IS NAMED RATHER THAN BARE. A
+        // fallback that ran on any failure would turn "your $EDITOR is not
+        // installed" into a silent second attempt at the same thing, and a
+        // person would be left with an editor that never opens and no reason
+        // given. Only the native library is a reason to stop hosting; everything
+        // else is something they need to be told.
+        using var terminal = new Owned();
+        await Assert.That(terminal.Opened).IsTrue();
+
+        var session = new PtyEditorSession(
+            "vi",
+            () => terminal,
+            unhosted: new Stub("the fallback must not have run"),
+            host: (_, _, _, _, _, _) => throw new InvalidOperationException("no such editor"));
+
+        await Assert.That(() => session.Edit("original text\n"))
+            .Throws<InvalidOperationException>();
+    }
+
     [Test]
     public async Task The_console_is_built_with_the_hosted_editor()
     {

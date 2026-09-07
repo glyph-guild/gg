@@ -25,6 +25,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(InvitationIssued))]
 [JsonSerializable(typeof(RunnerRegistrationRequest))]
 [JsonSerializable(typeof(RunnerRegistered))]
+[JsonSerializable(typeof(FlightGroundingRequest))]
 [JsonSerializable(typeof(FlightLaunchRequest))]
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightSummary))]
@@ -977,6 +978,52 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.GateList, cancellationToken)
             ?? new GateList { Gates = [] };
+    }
+
+    /// <summary>
+    /// Stops a flight that could still have been done.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing comes back but the fact that it worked.</b> The door answers
+    /// 202 with no body - the answer is that the flight is over, and what a
+    /// caller does next is read it. A 409 is a flight that has already ended,
+    /// refused rather than allowed to appear to rewrite an ending that
+    /// happened.
+    /// </remarks>
+    public async Task GroundAsync(
+        string sessionToken,
+        string reference,
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/flights/{reference}/grounding", sessionToken);
+
+        request.Content = JsonContent.Create(
+            new FlightGroundingRequest { Because = because },
+            ProtocolJsonContext.Default.FlightGroundingRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new FlightNotFoundException(
+                $"No flight {reference}. Run gg flights to see what is there.");
+        }
+
+        // A FLIGHT THAT HAS ALREADY ENDED, said as what it is. The door refuses
+        // this rather than accepting it, because accepting would let a
+        // grounding appear to rewrite an ending that already happened - and a
+        // caller told only "409" would have to guess which of the two endings
+        // it now has.
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new DecisionRefusedException(
+                $"Flight {reference} has already ended. Run gg show {reference} to see how.");
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<FlightAttribution?> WhyAsync(

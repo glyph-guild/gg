@@ -59,6 +59,10 @@ return CliArgs.Parse(args) switch
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
     CliAction.Decide decide => await EmitAsync(decide.Json, c => c.DecideAsync(
         decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json), decide.Reason)),
+    // STOPPING A FLIGHT THAT COULD STILL HAVE BEEN DONE. Not withdrawing: the
+    // question is still real and a person is stopping the attempt.
+    CliAction.Ground ground => await EmitAsync(
+        ground.Json, c => c.GroundAsync(ground.Reference, ground.Because)),
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),

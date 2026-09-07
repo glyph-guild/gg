@@ -221,6 +221,20 @@ public abstract record CliAction
         string Flight, string Obligation, string Outcome, string? Reason, bool Json)
         : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Stops a flight that could still have been done.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reason is positional and required, which is the shape of the
+    /// verb.</b> The wire refuses a blank one, so an optional flag would only
+    /// move the refusal to a round trip later - and the sentence it would
+    /// refuse with is about a field, where this one can say what the reason is
+    /// for. Grounding is an ending and has no resumable half, so there are no
+    /// modes and one arm.
+    /// </remarks>
+    public sealed record Ground(string Reference, string Because, bool Json)
+        : CliAction, IEmitsResult;
+
     /// <summary>Writes an envelope back, from a file or from stdin.</summary>
     /// <remarks>
     /// A path or "-". Reading from stdin is what makes this composable with an
@@ -269,6 +283,10 @@ public static class CliArgs
         // that does not exist. `gg decide` with the wrong arguments prints the
         // full form, which is where somebody typing it will be anyway.
         "gg decide <flight> <obligation> <outcome> [reason]  open a gate, or refuse it",
+        // WHAT IT IS NOT is half the line's job. `withdraw` is the sentence a
+        // person reaches for when a flight will not move, and it says the work
+        // stopped mattering - which is usually not what happened.
+        "gg ground <flight> <why>          stop a flight that could still have been done",
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg invite                      a link that makes somebody a second principal here",
@@ -379,6 +397,13 @@ public static class CliArgs
             // when the thing being picked is what they are approving.
             ["decide", ..] => new CliAction.Unknown(
                 "gg decide <flight> <obligation> <approved|rejected> [reason]"),
+            // BEFORE THE BARE ARM BELOW IT, because a longer match has to be
+            // tried first or `gg ground GG-42 because` parses as a refusal.
+            ["ground", var reference, var because] => new CliAction.Ground(reference, because, json),
+            ["ground", ..] => Unknown(
+                "gg ground <flight> <why>, and the why is not optional: it is the only thing "
+              + "that survives to tell a later reader why work that could have been done was "
+              + "not. Quote it - gg ground GG-42 \"the fleet cannot serve this yet\"."),
             ["gates"] => new CliAction.Gates(json),
             ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
             ["why", var flight] => new CliAction.Why(flight, null, json),

@@ -364,6 +364,32 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
               + "gg envelope apply is where the rules come from."));
     }
 
+    /// <summary>
+    /// Stops a flight that could still have been done, and answers with what it
+    /// became.
+    /// </summary>
+    /// <remarks>
+    /// <b>The read is not a courtesy.</b> The door answers 202 with no body,
+    /// because "the answer is that the flight is over and what a caller does
+    /// next is read it" - so this does the reading rather than leaving every
+    /// caller to. What comes back is the flight in its ending, which is the one
+    /// thing a person who just grounded something wants to see.
+    /// </remarks>
+    public async Task<VerbResult> GroundAsync(
+        string reference,
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        var token = Session();
+        var readable = Readable(reference);
+
+        await _client.GroundAsync(token, readable, because, cancellationToken);
+
+        return new VerbResult.Flight(
+            await _client.GetFlightAsync(token, readable, cancellationToken)
+            ?? throw NoSuchFlight(reference));
+    }
+
     /// <summary>The topology: every envelope name that exists, root included.</summary>
     public async Task<VerbResult> AirspaceAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.AirspaceTopology(await _client.GetTopologyAsync(Session(), cancellationToken));

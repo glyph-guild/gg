@@ -86,8 +86,8 @@ public class ARunnerNamesWhoBroughtItUpTests
              "label":"Kevins-MBP","state":"idle"}
             """;
 
-        var runner = JsonSerializer.Deserialize(
-            payload, ProtocolJsonContext.Default.RunnerSummary);
+        var runner = JsonSerializer.Deserialize<RunnerSummary>(
+            payload, JsonSerializerOptions.Web);
 
         await Assert.That(runner).IsNotNull();
         await Assert.That(runner!.RegisteredByPrincipalId).IsEmpty()

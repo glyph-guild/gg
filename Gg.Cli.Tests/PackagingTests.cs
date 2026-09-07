@@ -112,6 +112,80 @@ public class PackagingTests
                    + string.Join(", ", packable));
     }
 
+    /// <summary>The release workflow, as text, because it is what ships.</summary>
+    private static string ReleaseWorkflow() =>
+        File.ReadAllText(RepoFile(".github", "workflows", "publish-cli.yml"));
+
+    [Test]
+    public async Task The_release_carries_the_whole_publish_directory_not_a_named_file()
+    {
+        // MEASURED, NOT ASSUMED, on 2026-09-07. An AOT publish of Gg.Cli emits
+        // `gg` AND native libraries beside it - libonigwrap through Terminal.Gui,
+        // libporta_pty through Porta.Pty - and .NET resolves a P/Invoke on FIRST
+        // CALL rather than at startup. A release that carries only `gg` therefore
+        // builds clean, starts clean, prints its version clean, and dies on the
+        // keypress that first reaches that code.
+        //
+        // Verified both directions with an AOT build: with the library beside it
+        // the child spawns; with the binary alone it is a DllNotFoundException,
+        // and the loader's own probe list shows it looking in the executable's
+        // directory first. So "beside the binary" is the whole requirement.
+        //
+        // THE DIRECTORY RATHER THAN A LIST OF NAMES, and that is the durable
+        // half. A list is right until the next package brings an asset, and then
+        // it is silently wrong - libonigwrap has been missing this whole time
+        // without anybody noticing, presumably because nothing gg does calls
+        // into it.
+        var workflow = ReleaseWorkflow();
+
+        await Assert.That(workflow).DoesNotContain("-C out gg", StringComparison.Ordinal)
+            .Because("naming the binary is what left its native libraries behind.");
+
+        await Assert.That(workflow).Contains("-C out .", StringComparison.Ordinal)
+            .Because("packaging the directory picks up whatever the publish produced, "
+                   + "including the asset the next dependency brings.");
+    }
+
+    [Test]
+    public async Task The_release_does_not_ship_debug_symbols()
+    {
+        // The consequence of packaging the directory rather than a name: the
+        // publish output also holds .pdb files and, on macOS, a .dSYM bundle.
+        // They are larger than the binary and nobody downloading a release
+        // asset wants them.
+        var workflow = ReleaseWorkflow();
+
+        foreach (var symbols in (string[])[".pdb", ".dSYM"])
+        {
+            await Assert.That(workflow).Contains(symbols, StringComparison.Ordinal)
+                .Because($"packaging a directory means {symbols} has to be removed by name, "
+                       + "or the release grows by more than the binary it contains.");
+        }
+    }
+
+    [Test]
+    public async Task Both_places_that_document_installing_put_the_library_beside_the_binary()
+    {
+        // TWO COPIES OF ONE INSTRUCTION. The README and the release notes each
+        // tell somebody how to install gg, and they are written out separately -
+        // so a fix applied to one leaves the other telling people to do the thing
+        // that does not work.
+        //
+        // The destination is what matters rather than the wording: the loader
+        // probes the executable's own directory, so both files have to land in
+        // the same place. A shared library in a bin directory is unconventional
+        // and it is exactly where dlopen looks.
+        foreach (var (what, text) in ((string, string)[])
+                 [("the release notes", ReleaseWorkflow()),
+                  ("the README", File.ReadAllText(RepoFile("README.md")))])
+        {
+            await Assert.That(text).Contains("libporta_pty", StringComparison.Ordinal)
+                .Because($"{what} tells somebody how to install gg, and an install that "
+                       + "copies one file gives them a console whose editor never has a bar "
+                       + "and no way to find out why.");
+        }
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

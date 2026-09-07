@@ -314,14 +314,14 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
 
         await Assert.That(rows.Count).IsEqualTo(story.Entries.Count);
 
-        await Assert.That(rows[0].Happened)
+        await Assert.That(rows[0].Event)
             .IsEqualTo(FlightStory.Sentence(story.Entries[0].Kind, story.Entries[0].Params))
             .Because("a sentence, not a kind - the cell holds what happened, in the contract's "
                    + "own words.");
         await Assert.That(rows[0].Attempt).IsEqualTo("2")
             .Because("the attempt is a column, so a reader can see which pass an entry is from "
                    + "without counting lease grants.");
-        await Assert.That(rows[0].When).Contains("2026-09-06");
+        await Assert.That(rows[0].Time).Contains("2026-09-06");
     }
 
     [Test]
@@ -329,12 +329,12 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
     {
         var rows = Rows.Log(Opened());
 
-        await Assert.That(rows[1].Said).Contains("the move bound could not be measured")
+        await Assert.That(rows[1].Detail).Contains("the move bound could not be measured")
             .Because("the agent's account of why it stopped is the only thing that says what "
                    + "to do about it.");
-        await Assert.That(rows[1].Said).Contains("and nothing said what it should be")
+        await Assert.That(rows[1].Detail).Contains("and nothing said what it should be")
             .Because("and the second line of it is not less true than the first.");
-        await Assert.That(rows[1].Said).DoesNotContain("\n")
+        await Assert.That(rows[1].Detail).DoesNotContain("\n")
             .Because("a table cell is one line; the newlines are flattened here rather than "
                    + "handed to a widget that would draw them as a broken row.");
     }
@@ -346,13 +346,6 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
         // attempt is absent rather than first, and a cell reading `0' would be
         // this console inventing one.
         await Assert.That(Rows.Log(Opened())[1].Attempt).IsEmpty();
-    }
-
-    [Test]
-    public async Task The_columns_say_what_they_hold()
-    {
-        await Assert.That(Rows.LogColumns).IsEquivalentTo(
-            (IReadOnlyList<string>)["when", "#", "what happened", "said"]);
     }
 
     [Test]
@@ -490,8 +483,8 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
 
         foreach (var row in Rows.Log(Opened()))
         {
-            await Assert.That(text).Contains(row.Happened);
-            await Assert.That(text).Contains(row.Said);
+            await Assert.That(text).Contains(row.Event);
+            await Assert.That(text).Contains(row.Detail);
         }
     }
 }

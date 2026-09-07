@@ -438,6 +438,28 @@ public sealed record AppState
     public int FlightSelected { get; init; }
 
     /// <summary>
+    /// Which entry of the open flight's log the cursor is on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An ENTRY, never a row.</b> The entry under the cursor unwraps into as
+    /// many rows as its detail needs, so a cursor kept as a row number would
+    /// point at a different thing the moment anything expanded. <c>LogRow.Entry</c>
+    /// is what the view maps through, in both directions.
+    /// </para>
+    /// <para>
+    /// <b>Kept, though it belongs to a modal.</b> Everything else a modal knows
+    /// is discarded when it closes, because a modal is a question with an answer
+    /// and a way out. This one is not the modal's: it is where a person is in a
+    /// history, it decides which entry is readable in full, and a state that
+    /// could not answer "which one" is a state the view would have to answer
+    /// for. <see cref="Reducer.FlightShown"/> puts it back to the top when the
+    /// modal opens, so it never carries one flight's place into another's log.
+    /// </para>
+    /// </remarks>
+    public int LogSelected { get; init; }
+
+    /// <summary>
     /// What the control plane says is degraded, exactly as it said it.
     /// </summary>
     /// <remarks>

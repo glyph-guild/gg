@@ -188,19 +188,30 @@ public class TheRunnersCursorStaysTests
                    + "screen is rebuilt from the model on every pass.");
     }
 
+    /// <summary>
+    /// The fifth table is subscribed, and to something else.
+    /// </summary>
+    /// <remarks>
+    /// <b>It went from wired to nothing to wired to its own handler, and the
+    /// reason it may not use this one never changed.</b> <c>Reducer.Pointed</c>
+    /// dispatches on the tab that has the screen, and the tab behind the flight
+    /// modal is the flights list - so a log row handed to <c>OnRowPointedAt</c>
+    /// would move the cursor BEHIND the modal, leaving it about one flight
+    /// while the list under it pointed at another. That is the defect the
+    /// flight pane was fixed for once already, arriving through a different
+    /// door. A row of the log is not an entry either, which is the second
+    /// reason: <c>OnLogRowPointedAt</c> maps it through <c>LogRow.Entry</c>
+    /// first.
+    /// </remarks>
     [Test]
-    public async Task And_the_log_is_the_one_that_must_not_be()
+    public async Task And_the_log_is_wired_to_its_own_handler_rather_than_that_one()
     {
-        // THE FIFTH, WIRED TO NOTHING ON PURPOSE. Reducer.Pointed dispatches on
-        // the tab that has the screen, and the tab behind this modal is the
-        // flights list - so a log row landed on would move the FLIGHTS cursor,
-        // and the modal would be about one flight while the list under it
-        // pointed at another. That is the defect the flight pane was fixed for
-        // once already, arriving through a different door.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
-        await Assert.That(screen).DoesNotContain("_flightLog.ValueChanged")
-            .Because("the log's cursor is the person's place in a history, and the model has "
-                   + "no field for it because a modal keeps nothing.");
+        await Assert.That(screen).DoesNotContain("_flightLog.ValueChanged += OnRowPointedAt")
+            .Because("the tab dispatcher would move the cursor behind the modal.");
+        await Assert.That(screen).Contains("_flightLog.ValueChanged += OnLogRowPointedAt");
+        await Assert.That(screen).Contains("_flightLog.ValueChanged -= OnLogRowPointedAt")
+            .Because("and it is let go with the other four when the session is torn down.");
     }
 }

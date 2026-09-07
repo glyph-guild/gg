@@ -399,9 +399,12 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // AT THE TOP OF THE LOG, EVERY TIME. One story is held at a time and
+        // the cursor into it is not; a place left where the last flight's
+        // history ended is a place pointing into a history it was never about.
         return PaneText.Detailed(state) is null
             ? state
-            : Modal(state, UiMode.FlightDetail);
+            : Modal(state, UiMode.FlightDetail) with { LogSelected = 0 };
     }
 
     /// <summary>
@@ -542,14 +545,21 @@ public static class Reducer
     /// while a person was looking at the queue. The tab showing is the only
     /// thing that can answer "which list is the person pointing at".
     /// </remarks>
-    private static AppState Moved(AppState state, int by) => state.ActiveTab switch
-    {
-        TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
-        TabId.Browse => PickWork(state, state.BrowseSelected + by),
-        TabId.Flights => PickFlight(state, state.FlightSelected + by),
-        TabId.Runners => PickRunner(state, state.RunnerSelected + by),
-        _ => Select(state, state.SelectedRow + by),
-    };
+    private static AppState Moved(AppState state, int by) =>
+        // A MODAL WITH A LIST IN IT OWNS THE CURSOR, because it owns the
+        // keyboard. The tab is what answers this the rest of the time, and it
+        // is still there UNDER the modal - so without this arm the flights list
+        // would move behind a modal that is about one particular flight.
+        state.Mode is UiMode.FlightDetail
+            ? PickLogEntry(state, state.LogSelected + by)
+            : state.ActiveTab switch
+            {
+                TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
+                TabId.Browse => PickWork(state, state.BrowseSelected + by),
+                TabId.Flights => PickFlight(state, state.FlightSelected + by),
+                TabId.Runners => PickRunner(state, state.RunnerSelected + by),
+                _ => Select(state, state.SelectedRow + by),
+            };
 
     /// <summary>
     /// The person is pointing at this row of whichever list has the screen.
@@ -573,6 +583,15 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // THE SAME ARM AS Moved, for the same reason: a person clicking inside
+        // a modal is pointing at the modal's list, and the row they hand over
+        // is an ENTRY - the view has already mapped it back through
+        // LogRow.Entry, because a continuation row is not one.
+        if (state.Mode is UiMode.FlightDetail)
+        {
+            return PickLogEntry(state, row);
+        }
+
         return state.ActiveTab switch
         {
             TabId.Repositories => PickRepository(state, row),
@@ -582,6 +601,19 @@ public static class Reducer
             _ => Select(state, row),
         };
     }
+
+    /// <summary>Move the cursor inside the open flight's log.</summary>
+    /// <remarks>
+    /// Clamped to the entries there are, like every other list's - and to
+    /// ENTRIES rather than rows, because the one under the cursor is several
+    /// rows tall.
+    /// </remarks>
+    private static AppState PickLogEntry(AppState state, int to) => state with
+    {
+        LogSelected = Rows.Log(state) is { Count: > 0 } entries
+            ? Math.Clamp(to, 0, entries.Count - 1)
+            : 0,
+    };
 
     /// <summary>Move the flights list's own cursor, inside the flights list.</summary>
     /// <remarks>

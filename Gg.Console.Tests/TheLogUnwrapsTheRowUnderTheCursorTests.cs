@@ -374,4 +374,26 @@ public class TheLogUnwrapsTheRowUnderTheCursorTests
             .Because("the log has a cursor now, and it is its own subscription: "
                    + "OnRowPointedAt goes through Reducer.Pointed on the active TAB.");
     }
+
+    /// <summary>
+    /// The wrap happens again when the width it was made for changes.
+    /// </summary>
+    /// <remarks>
+    /// <b>Found by running it, not by this.</b> A render happens BEFORE the
+    /// layout does, so the widget's viewport is zero wide on the first pass -
+    /// the first fill wrapped nothing, no second one followed, and the unwrap
+    /// silently never happened while every unit test passed. The same event is
+    /// the resize path: a narrower terminal is a narrower column, and text
+    /// broken for the old one is text broken in the wrong places.
+    /// </remarks>
+    [Test]
+    public async Task And_wraps_again_when_the_column_changes_width()
+    {
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen).Contains("_flightLog.ViewportChanged += OnLogResized")
+            .Because("a wrap made against a width of zero is no wrap at all, and the first "
+                   + "render is always made against one.");
+        await Assert.That(screen).Contains("_flightLog.ViewportChanged -= OnLogResized");
+    }
 }

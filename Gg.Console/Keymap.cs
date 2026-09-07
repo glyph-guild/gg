@@ -273,6 +273,14 @@ public static class Keymap
         [
             new(KeyStroke.Char('x'), Command.GroundFlight, "ground it"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
+            // THE LOG'S CURSOR, and the entry it lands on is the one that
+            // unwraps. Untaught and off the hint line for the reason the queue's
+            // are: the arrows do this through the table widget, so the one line
+            // of hints goes to keys a person has no other way to find.
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { OffTheHintLine = true, Untaught = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { OffTheHintLine = true, Untaught = true },
         ],
 
         // THE ONE MODAL A KEY DOES NOT OPEN, and it owns the keyboard exactly

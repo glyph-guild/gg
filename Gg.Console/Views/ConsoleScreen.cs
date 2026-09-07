@@ -1265,7 +1265,7 @@ public sealed class ConsoleScreen : Window
                         ? null
                         : new DataTableSource(CollectionViews.Rows(
                             Rows.LogColumns,
-                            [.. shown.Select(r => new[] { r.Time, r.Attempt, r.Event, r.Detail })])));
+                            [.. shown.Select(r => new[] { r.Mark, r.Time, r.Attempt, r.Event })])));
 
                 // ON THE ENTRY'S FIRST ROW. Filling replaces the source, which
                 // resets the selection - and the model's cursor is an entry, so

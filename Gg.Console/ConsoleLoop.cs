@@ -761,7 +761,26 @@ public sealed class ConsoleLoop(
             };
         }
 
-        var step = state.SignIn is null ? signIn.Start() : signIn.Wait();
+        // ASK FOR A CODE, OR FOLD WHAT WATCHING FOR IT FOUND. There is no
+        // second press: the screen ends the session the moment the poll lands,
+        // and this arm is where the answer arrives. Nothing landed is the
+        // ordinary answer to a press that raced the tick, and it leaves the
+        // modal exactly as it was rather than starting a second authorization
+        // over the top of the code somebody is reading.
+        SignInStep step;
+
+        if (state.SignIn is null)
+        {
+            step = signIn.Start();
+        }
+        else if (signIn.Arrived() is { } landed)
+        {
+            step = landed;
+        }
+        else
+        {
+            return state;
+        }
 
         arrived = step.SignedIn;
 

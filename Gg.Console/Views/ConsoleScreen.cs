@@ -104,6 +104,16 @@ public sealed class ConsoleScreen : Window
     private readonly AutoRefresh? _refresh;
 
     /// <summary>
+    /// Whether the sign-in this console started has been approved.
+    /// </summary>
+    /// <remarks>
+    /// <b>A question, not a session.</b> The screen has no business holding the
+    /// thing that owns a device code; all it needs is whether the answer is in,
+    /// and the composition root is the one place that holds both ends.
+    /// </remarks>
+    private readonly Func<bool>? _signInLanded;
+
+    /// <summary>
     /// The tab focus was last placed on, or null when it has not been placed.
     /// </summary>
     /// <remarks>
@@ -130,12 +140,14 @@ public sealed class ConsoleScreen : Window
         AppState state,
         LiveTails? tails = null,
         IRunnerLog? runnerLog = null,
-        AutoRefresh? refresh = null)
+        AutoRefresh? refresh = null,
+        Func<bool>? signInLanded = null)
     {
         _app = app;
         _tails = tails;
         _runnerLog = runnerLog;
         _refresh = refresh;
+        _signInLanded = signInLanded;
         State = state;
         Title = "Good Grief";
 
@@ -465,6 +477,37 @@ public sealed class ConsoleScreen : Window
                 State = advanced;
                 Render();
                 return true;
+            });
+        }
+
+        if (_signInLanded is not null)
+        {
+            // THE APPROVAL HAPPENS IN A BROWSER, so nothing about this terminal
+            // says when. The poll is already running on a task the root owns;
+            // this asks once a second whether it has finished and ends the
+            // session when it has, which is the same door `y` went out of - the
+            // loop folds the answer and reloads with the terminal free, because
+            // a sign-in invalidates every read the console makes rather than
+            // one pane.
+            //
+            // ONLY WHILE A CODE IS SHOWING. The result is not consumed by
+            // asking, so an unguarded timer would end the session again on the
+            // tick after the loop folded it.
+            _app.AddTimeout(TimeSpan.FromSeconds(1), () =>
+            {
+                if (State.SignIn is null)
+                {
+                    return false;
+                }
+
+                if (!_signInLanded())
+                {
+                    return true;
+                }
+
+                ExitCommand = Command.SignIn;
+                _app.RequestStop(this);
+                return false;
             });
         }
 

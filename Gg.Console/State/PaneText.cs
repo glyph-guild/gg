@@ -1461,8 +1461,15 @@ public static class PaneText
             // up in a state dump and a diagnostics bundle. ToUniversalTime
             // rather than trusting the offset that arrived, so the three
             // letters cannot become a lie if the control plane ever sends one.
+            //
+            // AND IT SAYS WHO IS WAITING. "Then come back" was an instruction
+            // when coming back meant pressing a key; now that the console is
+            // watching, the same words would have somebody sitting in front of
+            // a modal waiting to be told to do something that is already
+            // happening.
             text.AppendLine(
-                $"Approve it there, then come back. Expires {pending.ExpiresAt.ToUniversalTime():HH:mm} UTC.");
+                $"Approve it there and this console will carry on by itself. "
+                + $"Expires {pending.ExpiresAt.ToUniversalTime():HH:mm} UTC.");
 
             return text.ToString().TrimEnd();
         }

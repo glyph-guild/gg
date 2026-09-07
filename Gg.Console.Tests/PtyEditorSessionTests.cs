@@ -171,6 +171,66 @@ public class PtyEditorSessionTests
     }
 
     [Test]
+    public async Task Falling_back_is_said_out_loud_rather_than_guessed_at()
+    {
+        // A SILENT FALLBACK MAKES THE FEATURE LOOK UNBUILT. The release tarball
+        // carries `gg` and nothing else - `tar -czf ... -C out gg` - so a person
+        // who installs the documented way has no libporta_pty at all. Their
+        // editor opens, works, and never has a bar, and there is no way for them
+        // to tell "this machine cannot host" from "this was never finished".
+        //
+        // One line, before the editor takes the screen, which is the only moment
+        // anything gg says can still be read.
+        using var terminal = new HostedTerminal { Columns = 80, Rows = 24 };
+        await Assert.That(terminal.Opened).IsTrue();
+
+        var said = new List<string>();
+
+        new PtyEditorSession(
+            "vi",
+            () => terminal,
+            unhosted: new Stub("edited"),
+            host: (_, _, _, _, _, _) => throw new DllNotFoundException("libporta_pty"),
+            say: said.Add)
+            .Edit("original text\n");
+
+        await Assert.That(said).IsNotEmpty()
+            .Because("a person whose editor silently lost its bar has no way to tell a "
+                   + "machine that cannot host from a feature nobody built.");
+
+        var told = string.Join(" ", said);
+
+        await Assert.That(told).Contains("libporta_pty", StringComparison.Ordinal)
+            .Because("naming the file is what makes this actionable rather than a shrug - it "
+                   + "is a missing file, and somebody can go and get it.");
+        await Assert.That(told).Contains("editor", StringComparison.OrdinalIgnoreCase)
+            .Because("and saying what still works matters more than saying what did not.");
+    }
+
+    [Test]
+    public async Task Nothing_is_said_when_there_was_never_a_terminal_to_host_on()
+    {
+        // THE CASE THAT MUST STAY QUIET. Running under CI, behind a pipe, or on
+        // Windows is not a fault and there is nobody at a keyboard to tell. A
+        // warning on every piped invocation is noise that teaches people to
+        // ignore the one above.
+        var editor = FakeEditor("printf 'x' >> \"$1\"\n");
+        var said = new List<string>();
+
+        try
+        {
+            new PtyEditorSession($"/bin/sh {editor}", () => null, say: said.Add).Edit("");
+
+            await Assert.That(said).IsEmpty()
+                .Because("no terminal is an ordinary condition, not a degraded one.");
+        }
+        finally
+        {
+            File.Delete(editor);
+        }
+    }
+
+    [Test]
     public async Task An_editor_that_is_simply_broken_is_not_swallowed()
     {
         // THE OTHER HALF, AND THE REASON THE CATCH IS NAMED RATHER THAN BARE. A

@@ -110,16 +110,28 @@ public class FocusStaysWhereItWasPutTests
     }
 
     [Test]
-    public async Task Every_tab_is_reachable_through_the_same_map_the_bar_uses()
+    public async Task Whether_to_move_the_focus_is_one_decision_and_not_an_arm_per_tab()
     {
-        // THE HALF THAT MAKES THE GUARD ABOVE MEAN ANYTHING. A per-tab switch
-        // that focused a view could not ask "does this tab have focus" without
-        // naming a pane per arm - a second list beside _tabbed, which is the
-        // drift this console keeps finding one field at a time.
-        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+        // THIS ASSERTED THE PER-TAB SWITCH WAS GONE, and then passed on a
+        // technicality when it came back as a switch EXPRESSION - `case
+        // TabId.Runners:` absent, `TabId.Runners =>` present. The claim was
+        // false and the test was green, which is the shape this suite exists to
+        // catch, arriving in one of its own rows.
+        //
+        // WHAT IS ACTUALLY TRUE is a smaller and better claim. WHETHER to move
+        // focus is one decision for every tab, and it is pure - FocusChange has
+        // been wrong twice and both times only a person pressing a key found
+        // out. WHERE focus lands inside a pane is per-tab and legitimately so:
+        // a table takes it when it has rows and the label beside it when it
+        // does not, which is a real difference between tabs rather than drift.
+        var focusing = TheFocusMethod();
 
-        await Assert.That(screen).DoesNotContain("case TabId.Runners:")
-            .Because("the focus switch is gone: _tabbed already maps every tab to its pane, "
-                   + "and a tenth tab should not need an arm added here to be focusable.");
+        await Assert.That(focusing).Contains("FocusChange.Wanted")
+            .Because("one decision, asked once, where a test can reach it.");
+
+        await Assert.That(focusing.Split("=>").Length - 1).IsGreaterThan(1)
+            .Because("and the landing stays per-tab, because which view inside a pane should "
+                   + "take the focus differs by tab. Naming that drift would be the wrong "
+                   + "lesson from the right bug.");
     }
 }

@@ -185,7 +185,14 @@ public class PtyHostTests
         // real pty carries it, the real emulator interprets it and the real
         // renderer paints it. Planted into an artifact directly it would prove
         // only that a string I put in one place is absent from another.
-        using var terminal = new Owned();
+        //
+        // WIDE ENOUGH FOR THE PLANT TO FIT ON ONE ROW. At the 40 columns the
+        // other tests use, the 44-character line wraps and the needle arrives
+        // on screen with a cursor address through the middle of it - so the
+        // liveness assertion failed while the emulator was behaving perfectly.
+        // A test whose plant does not survive its own screen would have been
+        // "fixed" by weakening the assertion that caught it.
+        using var terminal = new Owned { Columns = 80, Rows = 10 };
         await Assert.That(terminal.Opened).IsTrue();
 
         await Host(terminal, $"printf 'export GH_TOKEN={Needle}'");

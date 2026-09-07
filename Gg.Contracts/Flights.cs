@@ -624,6 +624,34 @@ public sealed record RunnerSummary
     public string RegisteredByPrincipalId { get; init; } = "";
 
     /// <summary>
+    /// The display name of the principal that registered this runner, or empty
+    /// when nobody recorded one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>For the reader, where <see cref="RegisteredByPrincipalId"/> is for
+    /// the comparison.</b> Nobody recognises a uuid on a screen, and no
+    /// grouping should key on a name two people can share. Both cross because
+    /// the two jobs are genuinely different, and a consumer that used this one
+    /// to decide whose runner a row is would be wrong the first time a display
+    /// name collided or changed.
+    /// </para>
+    /// <para>
+    /// <b>TEXT SOMEBODY ELSE CHOSE.</b> It is composed by whoever registered
+    /// and travels to a terminal, so a consumer drawing it must strip control
+    /// sequences before storing it, the way every other display name arriving
+    /// over this protocol is.
+    /// </para>
+    /// <para>
+    /// <b>Init-only, like the id, and for one of the same two reasons.</b> An
+    /// older control plane sends neither. Unlike the id, though, this has been
+    /// recorded since registration existed, so it needs no repair for runners
+    /// already in a store.
+    /// </para>
+    /// </remarks>
+    public string RegisteredBy { get; init; } = "";
+
+    /// <summary>
     /// What this runner advertises, each label with its disposition beside it.
     /// </summary>
     /// <remarks>

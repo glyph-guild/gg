@@ -70,45 +70,117 @@ public static class PaneText
         }
 
         var text = new StringBuilder();
+
         text.AppendLine($"  {Clean(flight.FlightNumber)}  {Clean(flight.Name)}");
+        text.AppendLine($"  id         {Clean(flight.FlightId)}");
+
+        // THE STORY'S SCALARS FIRST, because they answer the question somebody
+        // opened this to ask. `state` alone says what became of a flight and
+        // never how far it got, so a flight that never started and one that ran
+        // and was stopped both read as `open` - which is the pair a person is
+        // most often trying to tell apart.
+        var story = Story(state, flight.FlightId);
+
+        if (story is not null)
+        {
+            text.AppendLine($"  stage      {Staged(story.Stage)}");
+            text.AppendLine($"  state      {Stated(story.State)}");
+
+            if (story.HeldBy is { } holder)
+            {
+                var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";
+                text.AppendLine($"  held by    {Clean(holder.Name)}{until}");
+            }
+        }
+        else
+        {
+            var ending = LoopEnding(flight) is { Length: > 0 } outcome ? $" · {outcome}" : "";
+            text.AppendLine($"  state      {Clean(flight.State)}{ending}");
+        }
+
         text.AppendLine($"  opened     {flight.CreatedAt:u}");
-        var ending = LoopEnding(flight) is { Length: > 0 } outcome ? $" · {outcome}" : "";
-        text.AppendLine($"  state      {Clean(flight.State)}{ending}");
         text.AppendLine($"  envelope   {Clean(flight.EnvelopeVersion)}");
         text.AppendLine($"  attempts   {flight.Attempts}");
         text.AppendLine($"  facts      {Facts(flight)}");
+
+        // WHY IT CANNOT START, in the contract's own words. The same sentence
+        // from the same function the pane and `gg show` render, so one reason is
+        // never worded three ways.
+        if (story?.Waiting is { } waiting)
+        {
+            text.AppendLine();
+            text.AppendLine($"  {Clean(Gg.Contracts.Reason.Sentence(waiting.Kind, waiting.Params))}");
+        }
+
+        if (story is { Outstanding.Count: > 0 })
+        {
+            text.AppendLine();
+            text.AppendLine("  waiting on somebody");
+
+            foreach (var owed in story.Outstanding)
+            {
+                text.AppendLine(
+                    $"    {Clean(Gg.Contracts.FlightStory.Sentence(owed.Kind, owed.Params))}");
+            }
+        }
+
         text.AppendLine();
 
-        if (!state.Logs.TryGetValue(flight.FlightId, out var log))
+        if (story is null)
         {
-            // NOT "nothing happened". A log this console never fetched and a
-            // flight with no entries are different facts, and a person shown
-            // the first when the second is true stops looking.
-            text.AppendLine("  no log was fetched for this flight.");
+            // NOT "nothing happened". A story this console never fetched and a
+            // flight nothing has been recorded against are different facts, and
+            // a person shown the second when the first is true stops looking.
+            text.AppendLine("  no story was fetched for this flight.");
             return text.ToString().TrimEnd();
         }
 
-        if (log.Entries.Count == 0)
+        if (story.Entries.Count == 0)
         {
-            text.AppendLine("  its log is empty: nothing has been recorded against it yet.");
+            text.AppendLine("  nothing has been recorded against it yet.");
             return text.ToString().TrimEnd();
         }
 
         text.AppendLine("  what happened, in order:");
 
-        foreach (var entry in log.Entries)
+        foreach (var entry in story.Entries)
         {
-            // Continuations indented under the column the detail opened, for
-            // the reason the gate list keeps: at column zero a second line
-            // reads as a new entry.
-            var detail = Clean(entry.Detail, lines: true)
-                .ReplaceLineEndings("\n" + new string(' ', 44));
+            var attempt = entry.Attempt is { } which ? $"#{which} " : "";
 
-            text.AppendLine($"    {entry.At:u}  {Clean(entry.Kind),-18}{detail}");
+            // A SENTENCE, NOT A KIND. This printed entry.Kind beside a raw JSON
+            // detail, so a loop that ended blocked read as `loop-ended` and the
+            // agent's account of WHY - the only thing that says what to do about
+            // it - was a blob nobody reads. S32.4-02, applied to the surface a
+            // person opens when the pane is not enough.
+            text.AppendLine($"    {entry.At:u}  {attempt}"
+                          + Clean(Gg.Contracts.FlightStory.Sentence(entry.Kind, entry.Params)));
+
+            if (entry.Said is { Length: > 0 } said)
+            {
+                // Indented under the sentence, because at column zero a second
+                // line reads as another entry.
+                text.AppendLine($"        {Clean(said, lines: true).ReplaceLineEndings("\n        ")}");
+            }
         }
 
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// The story this console holds for one flight, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Checked against the flight it is about.</b> One story is held at a
+    /// time and the cursor moves without fetching, so a modal that trusted
+    /// whatever was last read would caption one flight's history with another
+    /// flight's name - which is the defect the flight pane was fixed for one
+    /// slice earlier, arriving through a different door.
+    /// </remarks>
+    private static Gg.Contracts.FlightStory? Story(AppState state, string flightId) =>
+        state.Story is { } story
+        && string.Equals(story.FlightId, flightId, StringComparison.Ordinal)
+            ? story
+            : null;
 
     /// <summary>
     /// What one tab's pane says, whichever tab it is.

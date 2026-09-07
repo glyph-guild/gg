@@ -62,12 +62,16 @@ public class TheBootReadsWhatItShowsTests
     }
 
     [Test]
-    public async Task Opening_a_flight_reads_the_log_the_boot_did_not()
+    public async Task Opening_a_flight_reads_the_story_the_boot_did_not()
     {
-        // ENTER IS A READ NOW, so it is the loop's like every other read in this
+        // ENTER IS A READ, so it is the loop's like every other read in this
         // console. A UI session may not make a request; the session ends, the
-        // loop asks for one flight's log, and the next session opens the modal
+        // loop asks for one flight's STORY, and the next session opens the modal
         // over an answer.
+        //
+        // THE STORY RATHER THAN THE LOG, since slice thirty-two. One request
+        // either way, so what the enter key costs does not move - what changes
+        // is that the modal renders sentences instead of kinds beside raw JSON.
         var (data, plane) = AConsolePlane.Console(Flights, InTheAir);
 
         var booted = await ConsoleStart.LoadAsync(data, "somebody");
@@ -79,7 +83,7 @@ public class TheBootReadsWhatItShowsTests
         await Assert.That(booted.Logs.ContainsKey(newest.FlightId)).IsFalse()
             .Because("the boot does not read a landed flight's log.");
 
-        var before = plane.LogsRead.Count;
+        var before = plane.StoriesRead.Count;
 
         var ui = new ScriptedUi(
             state => new UiOutcome(Command.ShowFlight, state),
@@ -91,14 +95,15 @@ public class TheBootReadsWhatItShowsTests
             flightLog: current => ConsoleFlightLog.Read(data, current))
             .Run(booted);
 
-        await Assert.That(plane.LogsRead.Count).IsEqualTo(before + 1)
+        await Assert.That(plane.StoriesRead.Count).IsEqualTo(before + 1)
             .Because("one flight, one request, and only when somebody asked.");
 
-        await Assert.That(final.Logs.ContainsKey(newest.FlightId)).IsTrue()
-            .Because("and the answer is in the model the next session renders.");
+        await Assert.That(final.Story?.FlightNumber).IsEqualTo(newest.FlightNumber)
+            .Because("and the answer is in the model the next session renders, for the "
+                   + "flight the cursor was on.");
 
         await Assert.That(ui.StatesSeen[1].Mode).IsEqualTo(UiMode.FlightDetail)
-            .Because("the modal opens over the log rather than before it.");
+            .Because("the modal opens over the story rather than before it.");
 
         await Assert.That(PaneText.Modal(ui.StatesSeen[1])).Contains("read-on-demand")
             .Because("and what it shows is what was just read.");

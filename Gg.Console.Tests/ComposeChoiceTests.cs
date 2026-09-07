@@ -106,6 +106,50 @@ public class ComposeChoiceTests
     }
 
     [Test]
+    public async Task Answering_the_question_actually_opens_a_flight()
+    {
+        // THE PROPERTY THE REST OF THIS FILE DOES NOT COVER, and it is the one
+        // that matters: a person presses `n`, answers, and a flight exists.
+        //
+        // Every other test here asserts what the REDUCER does, and the reducer
+        // ran perfectly while the key did nothing at all - because a command the
+        // session handles never ends the session, and opening a flight can only
+        // happen between sessions with the terminal free. So the modal recorded
+        // a choice, returned to Normal, and nothing ever acted on it. That is
+        // the "bound and inert key" this slice was warned about, arrived at from
+        // the other direction: not a key with no arm, but an arm no key reaches.
+        var answered = Keymap.Resolve(KeyStroke.Char('w'), KeymapContext.For(
+            Press(new AppState(), KeyStroke.Char('n'))));
+
+        await Assert.That(answered).IsNotNull();
+
+        await Assert.That(ShellCommands.Handled.Contains(answered!.Value)).IsTrue()
+            .Because($"{answered} has to END the session. A flight is opened by spawning a "
+                   + "child, which may only happen between sessions with the terminal free - "
+                   + "so an answer the session handles is an answer nothing acts on.");
+    }
+
+    [Test]
+    public async Task Choosing_the_agent_hands_over_to_the_agent_and_not_the_editor()
+    {
+        // AND THE OTHER HALF: that the answer picks the composer it names. The
+        // two are separate failures - a key that opens nothing, and a key that
+        // opens the wrong thing - and the second is the one the spike shipped.
+        // "It opened vim again."
+        var chosen = Keymap.Resolve(KeyStroke.Char('m'), KeymapContext.For(
+            Press(new AppState(), KeyStroke.Char('n'))));
+
+        await Assert.That(chosen).IsNotNull();
+        await Assert.That(ShellCommands.Handled.Contains(chosen!.Value)).IsTrue();
+
+        await Assert.That(chosen).IsNotEqualTo(
+            Keymap.Resolve(KeyStroke.Char('w'), KeymapContext.For(
+                Press(new AppState(), KeyStroke.Char('n')))))
+            .Because("the two answers have to be distinguishable by the time they reach the "
+                   + "loop, or it cannot tell which composer somebody picked.");
+    }
+
+    [Test]
     public async Task Nothing_it_binds_collides_with_a_live_key_in_the_mode_it_opens_from()
     {
         // S33.2-03, ASSERTED AGAINST THE KEYMAP RATHER THAN BY READING IT.

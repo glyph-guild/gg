@@ -30,6 +30,16 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   the terminal to `$EDITOR` (a separate process), and rebuilds views FROM the
   surviving `AppState`. Views are never the source of truth; `AppState` stays
   plain JSON-serializable data (source-generated, `AppStateJsonContext`).
+  - **Release has a second shape: gg may MEDIATE the child instead of handing
+    the terminal over.** `PtyHost` runs it in a pseudo-terminal gg owns, keeps
+    the top row for a gg bar, and puts the terminal back exactly as it found it.
+    This occupies the same slot — between sessions, with Terminal.Gui torn down
+    — and it is **not** permission to render a child inside a `View`. The host
+    holds no state between calls and writes nothing to disk; tests assert both,
+    because gg is now in the middle of what a person types.
+  - On a machine with no terminal to host on — CI, a pipe, Windows — the
+    unhosted spawn is still the path, and `PtyEditorSession` is the one place
+    that decides which.
 - **A UI session may read a local file, and nothing else.** The live pane
   advances on an `Application.AddTimeout` tick during a session, which is the
   only mid-session effect in this console — everything else happens between

@@ -109,7 +109,10 @@ public class PtyHostTests
         using var terminal = new Owned();
         await Assert.That(terminal.Opened).IsTrue();
 
-        await Host(terminal, "printf hello", bar: "gg | flight 41");
+        // A CHILD THAT WRITES NOTHING TO THE SCREEN. `printf hello` let this
+        // pass for the weaker reason - the bar rode along with the child's first
+        // output - and an editor opening an empty file says nothing at all.
+        await Host(terminal, "exit 0", bar: "gg | flight 41");
 
         await Assert.That(terminal.Painted).Contains("gg | flight 41", StringComparison.Ordinal)
             .Because("the top row is the only surface gg still owns while a child has the "

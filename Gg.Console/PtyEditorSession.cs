@@ -1,0 +1,111 @@
+namespace Gg.Console;
+
+/// <summary>
+/// Runs <c>$EDITOR</c> inside a pseudo-terminal gg owns, keeping a gg bar on the
+/// top row, and answers with what was written.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The same port as <see cref="EditorSession"/>.</b> Text in, text out, a real
+/// process in between — what changes is that gg mediates the terminal rather
+/// than handing it over, so a person can still see where they are while an
+/// editor has the screen.
+/// </para>
+/// <para>
+/// <b>It falls back rather than throwing.</b> gg runs in CI, behind a pipe, and
+/// on Windows, where there is no <c>/dev/tty</c> to open. Refusing to edit in
+/// those places would take away an editor that works today in exchange for a bar
+/// that cannot be drawn on a terminal that is not there. The decision is made
+/// once, here, because two places that decide it will eventually disagree.
+/// </para>
+/// </remarks>
+public sealed class PtyEditorSession : IEditorSession
+{
+    private readonly string _editorCommand;
+    private readonly Func<IHostTerminal?> _terminal;
+    private readonly IEditorSession _unhosted;
+    private readonly string _bar;
+    private readonly string _notesIn;
+
+    /// <param name="editorCommand">
+    /// The editor, as a command line. Defaults to <c>$EDITOR</c>, then to
+    /// <c>vi</c>.
+    /// </param>
+    /// <param name="terminal">
+    /// Where to get a terminal to host on, answering null when there is none.
+    /// A function rather than a terminal, because the console asks between UI
+    /// sessions and what is true then is not what was true at construction.
+    /// </param>
+    /// <param name="unhosted">
+    /// What to do when there is no terminal. Defaults to the plain spawn, which
+    /// is what gg did before this existed.
+    /// </param>
+    /// <param name="bar">
+    /// The top row. It says what ends the session, because a person looking at
+    /// somebody else's editor cannot ask gg what it is waiting for.
+    /// </param>
+    /// <param name="notesIn">
+    /// Where the file handed to the editor is put. Defaults to the temp
+    /// directory, which is where gg has always put it.
+    /// <para>
+    /// <b>Named because a test has to be able to watch it.</b> Asserting that
+    /// the draft was deleted means looking at a directory, and the shared temp
+    /// directory is one every other test writing a draft is also using - a count
+    /// taken there is a count of somebody else's work as much as this one's.
+    /// </para>
+    /// </param>
+    public PtyEditorSession(
+        string? editorCommand = null,
+        Func<IHostTerminal?>? terminal = null,
+        IEditorSession? unhosted = null,
+        string bar = "gg · editing — save and quit to come back",
+        string? notesIn = null)
+    {
+        _editorCommand = editorCommand
+            ?? Environment.GetEnvironmentVariable("EDITOR")
+            ?? "vi";
+        _terminal = terminal ?? OwnedTerminal.Open;
+        _unhosted = unhosted ?? new EditorSession(_editorCommand);
+        _bar = bar;
+        _notesIn = notesIn ?? Path.GetTempPath();
+    }
+
+    public string Edit(string initialText)
+    {
+        var terminal = _terminal();
+        if (terminal is null)
+        {
+            return _unhosted.Edit(initialText);
+        }
+
+        var file = Path.Combine(_notesIn, $"gg-notes-{Guid.NewGuid():N}.md");
+        File.WriteAllText(file, initialText);
+
+        try
+        {
+            var parts = _editorCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            PtyHost.RunAsync(
+                terminal,
+                command: parts[0],
+                arguments: [.. parts.Skip(1), file],
+                workingDirectory: Directory.GetCurrentDirectory(),
+                bar: _bar,
+                CancellationToken.None).GetAwaiter().GetResult();
+
+            // THE FILE, NOT THE EXIT CODE. An editor that was abandoned, or
+            // killed, still leaves whatever was written before that - and every
+            // editor a person might set here disagrees about what its exit code
+            // means. What is on disk is the one answer all of them give.
+            return File.ReadAllText(file);
+        }
+        finally
+        {
+            // HOWEVER IT ENDED. This file holds whatever a person was writing,
+            // in a directory everybody on this machine can read.
+            File.Delete(file);
+
+            (terminal as IDisposable)?.Dispose();
+        }
+    }
+}

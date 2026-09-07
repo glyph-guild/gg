@@ -38,10 +38,22 @@ namespace Gg.Cli;
 /// </para>
 /// <para>
 /// <b>It holds nothing open and needs nothing.</b> No credential, no session,
-/// no round trip: it validates two strings and returns a receipt. That is what
-/// makes it safe to run as a child of a process the threat model treats as
-/// compromised - an injected agent that reaches it can at most record a request
-/// admission will refuse against a menu a person wrote.
+/// no round trip. That is what makes it safe to run as a child of a process the
+/// threat model treats as compromised - an injected agent that reaches it can at
+/// most record a request admission will refuse against a menu a person wrote.
+/// </para>
+/// <para>
+/// <b>ONE TOOL WRITES A FILE, AND THAT SENTENCE USED TO SAY IT NEVER DID.</b>
+/// <c>submit_intent</c> exists because a hosted agent has no transcript for gg
+/// to read the call out of - the fleet path reads <c>tool_use</c> records from
+/// <c>--output-format stream-json</c>, and an interactive session in a
+/// pseudo-terminal produces none. So the value travels as a file between two gg
+/// processes.
+/// <br />What keeps that inside the threat model is that the PATH is not the
+/// agent's to choose: it is handed to this server as an argument by the verb
+/// that starts it, so the most an injected agent can do is put text where gg was
+/// already going to look for text a person then reads. Nothing here reads the
+/// environment, and nothing here writes anywhere it was not told to.
 /// </para>
 /// <para>
 /// <b>Hand-written rather than an SDK.</b> <c>Gg.Runner</c> carries no package
@@ -84,8 +96,15 @@ public static class PlatformToolServer
     /// Zero. A tool server's exit code is not a verdict on the work - the agent
     /// that launched it is long gone by the time anybody reads one.
     /// </returns>
+    /// <param name="intentPath">
+    /// Where a composing session's intent is to be written, or null when this
+    /// server is not serving one - which is every fleet launch.
+    /// </param>
     public static async Task<int> RunAsync(
-        TextReader input, TextWriter output, CancellationToken cancellationToken = default)
+        TextReader input,
+        TextWriter output,
+        string? intentPath = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
@@ -112,7 +131,7 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement) is { } answer)
+                if (Answer(message.RootElement, intentPath) is { } answer)
                 {
                     await output.WriteLineAsync(answer);
                     await output.FlushAsync(cancellationToken);
@@ -126,7 +145,7 @@ public static class PlatformToolServer
     /// <summary>
     /// The line to write back, or null where the protocol says to write none.
     /// </summary>
-    private static string? Answer(JsonElement message)
+    private static string? Answer(JsonElement message, string? intentPath)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -141,7 +160,7 @@ public static class PlatformToolServer
         {
             "initialize" => Initialized(id, message),
             "tools/list" => Listed(id),
-            "tools/call" => Called(id, message),
+            "tools/call" => Called(id, message, intentPath),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -291,11 +310,52 @@ public static class PlatformToolServer
 
             writer.WriteEndObject();
 
+            // THE THIRD TOOL. Declared on every launch and granted on almost
+            // none, which is the arrangement the note at the top of this file
+            // argues for: the grant is decided in the launch's allow-list, so a
+            // tools/list that varied by envelope would be a second place the
+            // same rule lives.
+            //
+            // The description has to say the two things a composing agent
+            // cannot work out for itself - that submitting is the END of its
+            // job, and that submitting opens nothing. An agent that thinks it
+            // has opened a flight stops waiting for one; an agent that does not
+            // know it has finished keeps going and rewrites what it already
+            // handed over.
+            writer.WriteStartObject();
+            writer.WriteString("name", IntentTool.Name);
+            writer.WriteString("description",
+                "Hand back the intent you have composed: the words that say what work should "
+              + "happen, as somebody would have written them. Call it once when you and the "
+              + "person you are working with are happy with it, then stop and say that you "
+              + "submitted it. This opens nothing and grants nothing - a person reads what "
+              + "you wrote and decides whether a flight is opened from it. Calling it again "
+              + "replaces what you sent, so correcting yourself is fine; leaving without "
+              + "calling it submits nothing at all.");
+
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteStartObject(IntentTool.IntentArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "The intent itself, in the words it should be recorded in. Not a summary of "
+              + "your conversation and not a report on what you did - the thing a person "
+              + "would have typed if they had written it themselves.");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteStringValue(IntentTool.IntentArgument);
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
             writer.WriteEndArray();
             writer.WriteEndObject();
         });
 
-    private static string Called(JsonElement id, JsonElement message)
+    private static string Called(JsonElement id, JsonElement message, string? intentPath)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -313,6 +373,11 @@ public static class PlatformToolServer
         if (string.Equals(called, HelpTool.Name, StringComparison.Ordinal))
         {
             return Asked(id, arguments);
+        }
+
+        if (string.Equals(called, IntentTool.Name, StringComparison.Ordinal))
+        {
+            return Submitted(id, arguments, intentPath);
         }
 
         // NOT AN UNKNOWN-TOOL ARM, deliberately. The nomination tool is what
@@ -369,6 +434,84 @@ public static class PlatformToolServer
             $"Recorded: work kind '{workKind}'. This grants nothing and opens nothing - a "
           + "person decides whether a flight of that kind is opened. Your part is done: stop "
           + "now and say what you nominated and why.");
+    }
+
+    /// <summary>
+    /// Takes the composed intent, writes it where gg is looking, and answers.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WRITTEN BY RENAME, and that is not tidiness.</b> gg watches this path
+    /// so it can tell the person their intent has landed - which means it can
+    /// read the file at any moment, including halfway through a write. A write
+    /// in place would hand somebody a flight opened with a truncated sentence.
+    /// A rename is atomic on the same filesystem, so gg sees either nothing or
+    /// the whole thing. The same lesson as installing gg's own binary.
+    /// </para>
+    /// <para>
+    /// <b>Refused rather than silent when there is nowhere to write.</b> That is
+    /// the ordinary case rather than an error: every fleet launch runs this
+    /// server with no composing session. An agent that cannot submit must not
+    /// look like one that chose not to.
+    /// </para>
+    /// </remarks>
+    private static string Submitted(JsonElement id, JsonElement arguments, string? intentPath)
+    {
+        if (string.IsNullOrEmpty(intentPath))
+        {
+            return Content(id, isError: true,
+                "Refused: this session has nowhere to record an intent, so there is nothing "
+              + "for this tool to do here. Nothing was recorded. Say what you would have "
+              + "submitted and stop.");
+        }
+
+        var intent = Text(arguments, IntentTool.IntentArgument);
+
+        // BORROWED FROM FlightIntent.Validate RATHER THAN INVENTED. An intent of
+        // kind text whose text is blank is already refused on the wire, so
+        // taking one here would only move the refusal somewhere less useful -
+        // and a flight opened with nothing in it is worse than no flight.
+        if (intent is null)
+        {
+            return Content(id, isError: true,
+                $"Refused: an intent needs words in it. Give '{IntentTool.IntentArgument}' the "
+              + "text that says what work should happen. Nothing was recorded.");
+        }
+
+        // NO LENGTH BOUND, deliberately, and it is worth saying why: the editor
+        // path has none either. Whatever a person could have typed into $EDITOR
+        // is what an agent may compose here, and inventing a ceiling on one of
+        // the two would make the same intent acceptable or not depending on how
+        // it was written.
+        try
+        {
+            var beside = Path.GetDirectoryName(intentPath);
+            if (!string.IsNullOrEmpty(beside))
+            {
+                Directory.CreateDirectory(beside);
+            }
+
+            // The temp name sits in the SAME directory, because a rename across
+            // filesystems is a copy and a copy is not atomic.
+            var partial = intentPath + ".partial";
+            File.WriteAllText(partial, intent);
+            File.Move(partial, intentPath, overwrite: true);
+        }
+        catch (Exception failure) when (
+            failure is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // SAID, NOT THROWN. A throw here kills the server and takes the
+            // agent's other two tools with it for the rest of the session, over
+            // a failure that belongs to one call.
+            return Content(id, isError: true,
+                $"Refused: the intent could not be written ({failure.Message}). Nothing was "
+              + "recorded - say what you would have submitted and stop.");
+        }
+
+        return Content(id, isError: false,
+            "Recorded. This opens nothing and grants nothing - a person reads what you wrote "
+          + "and decides whether a flight is opened from it. Your part is done: stop now and "
+          + "say that you submitted it.");
     }
 
     /// <summary>

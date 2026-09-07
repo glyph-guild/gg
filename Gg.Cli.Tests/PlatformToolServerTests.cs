@@ -301,18 +301,39 @@ public class PlatformToolServerTests
         // Which is why the count is asserted rather than the absence: a THIRD
         // tool has to make its own argument, and neither of the two above is
         // it.
+        //
+        // THREE NOW, AND HERE IS THE ARGUMENT THE COUNT ASKED FOR. `submit_intent`
+        // exists because a HOSTED agent has no transcript. The other two tools
+        // record nothing: the runner reads their calls out of Claude Code's
+        // `--output-format stream-json`, which an interactive session in a
+        // pseudo-terminal does not produce - so a composing agent has no way at
+        // all to hand back what it composed, and reading its prose instead is
+        // forbidden by `instructions-in-the-envelope` rule 7 because opening a
+        // flight is a governance decision.
+        //
+        // It is granted on terms unlike either of the others again, which is the
+        // pattern this count keeps surfacing: nomination is granted by a
+        // declared move, help may never be withheld, and this one is granted
+        // only by the launch that asked for an intent - almost never, and never
+        // on a fleet launch. Where it is not granted it is still declared, and
+        // it refuses out loud rather than silently, because an agent that cannot
+        // submit must not look like one that chose not to.
+        //
+        // A FOURTH still has to make its own argument. None of these three is it.
         var answers = await ExchangeAsync(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
 
         var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(2)
-            .Because("one channel, two tools, granted on opposite terms. A third is a "
+        await Assert.That(tools.GetArrayLength()).IsEqualTo(3)
+            .Because("one channel, three tools, each granted on its own terms. A fourth is a "
                    + "decision somebody has to argue for.");
 
         var listed = tools.EnumerateArray()
             .Select(t => t.GetProperty("name").GetString()!).ToList();
         await Assert.That(listed).IsEquivalentTo(
-            new[] { NominationTool.Name, HelpTool.Name });
+            new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name })
+            .Because("named rather than counted, so a fourth tool cannot arrive by swapping "
+                   + "which three are declared. Found: " + string.Join(", ", listed));
 
         var tool = tools[0];
         await Assert.That(tool.GetProperty("name").GetString()).IsEqualTo(NominationTool.Name);

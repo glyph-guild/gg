@@ -586,6 +586,13 @@ static async Task<int> LaunchConsoleAsync()
             // on a laptop said there was no runner at all while one was up.
             LocalRunnerId = new FileRunnerStore(
                 FileRunnerStore.PathFor(Environment.MachineName)).Read()?.RunnerId,
+
+            // THE SAME NAME A RUNNER REGISTERS AS ITS LABEL, which is what
+            // makes it the join between the fleet and the person reading it.
+            // One place reads what this machine is called; Rows is pure and
+            // must not, or the fleet's order would depend on the host a test
+            // runs on.
+            Machine = Environment.MachineName,
         };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor

@@ -773,6 +773,19 @@ public sealed record AppState
     public string? LocalRunnerId { get; init; }
 
     /// <summary>
+    /// What this machine is called, or null when nobody said.
+    /// </summary>
+    /// <remarks>
+    /// <b>Passed rather than read, for <see cref="LocalRunnerId"/>'s reason and
+    /// one more.</b> <c>Rows</c> is pure, and a call to
+    /// <c>Environment.MachineName</c> inside it would make the fleet's order
+    /// depend on the machine a test happens to run on. It is also the value a
+    /// runner registers as its label, so this is the join between the fleet the
+    /// control plane returns and the person sitting in front of it.
+    /// </remarks>
+    public string? Machine { get; init; }
+
+    /// <summary>
     /// The runner process this console started, or null if it started none.
     /// </summary>
     public RunnerHere? Here { get; init; }

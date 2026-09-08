@@ -65,6 +65,27 @@ jobs:
         run: dotnet publish Gg.Cli -c Release -r linux-x64 -o artifacts/aot
       - name: The published binary actually runs
         run: ./artifacts/aot/gg --version
+      # THE ONE ASSERTION THAT CANNOT BE A TEST. Upstream SIPSorcery stalls in
+      # CookieEchoed under Native AOT - the SCTP state cookie is
+      # reflection-serialised and the trimmer removes its members - so an
+      # association never completes and a data channel never opens. A test
+      # assembly runs on the JIT, where the cookie survives and everything
+      # passes. The failure lives in the PUBLISHED binary and nowhere else, so
+      # this runs the artifact the step above just made.
+      #
+      # A stalled association does not fail, it waits: the doctor check is
+      # bounded and reports, and this greps for the answer rather than trusting
+      # an exit code that is about thirteen other things.
+      - name: A data channel opens on the published binary
+        run: |
+          set -o pipefail
+          said="$(./artifacts/aot/gg doctor 2>&1 | grep ' channel ' || true)"
+          echo "$said"
+          case "$said" in
+            *"a data channel opens on this binary"*) ;;
+            *) echo "the SCTP association did not complete in the published binary" >&2
+               exit 1 ;;
+          esac
 
   # THE ARTEFACT MOST PEOPLE INSTALL, and until now nothing ran it. The `aot`
   # job above proves the NATIVE binary works; the tool package is IL, packed

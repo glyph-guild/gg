@@ -34,6 +34,26 @@
          a pack with no licence raises NU5125, so without this the package does
          not build at all. -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+    <!-- INDIVIDUAL TRIM WARNINGS RATHER THAN THE PER-ASSEMBLY AGGREGATE, so the
+         suppression below can name what it is suppressing. IL2104 says only
+         "assembly X produced warnings", which is not something anybody can judge. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+
+    <!-- TWO WARNINGS, BOTH THIRD-PARTY, ON A PATH THIS BINARY NEVER TAKES.
+         Common.Logging.LogManager builds a logger factory adapter by reflection
+         from configuration; it arrives transitively through
+         SIPSorcery.WebSocketSharp, which is WebSocket SIGNALLING - and gg
+         signals over the runner's heartbeat, never a WebSocket. The adapter is
+         only reached when Common.Logging is configured, and nothing here
+         configures it.
+         SCOPED TO THIS PROJECT AND CHECKED RATHER THAN HOPED. Gg.Cli is a thin
+         entry point, and NoReflectionInTheEntryPointTests asserts it stays that
+         way - so this cannot quietly hide a warning about our own code.
+         THE REAL FIX IS IN THE FORK, which already exists for an AOT reason:
+         dropping the WebSocketSharp dependency removes this entirely and would
+         be worth carrying upstream with sipsorcery#1817. -->
+    <NoWarn>$(NoWarn);IL2072</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

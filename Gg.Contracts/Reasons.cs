@@ -131,6 +131,12 @@ public sealed record Reason
 
             ReasonKinds.RunnerParked => Parked(parameters),
 
+            ReasonKinds.DirectedRunnerBusy =>
+                $"refused: this flight is to be flown by hand on '{First(parameters)}', and "
+              + "that runner is already flying something. Nothing is misconfigured and nothing "
+              + "is queued - waiting behind it would be waiting an unknown time at a terminal. "
+              + "Wait for it to land and ask again, or fly a machine that is free.",
+
             ReasonKinds.DirectedRunnerAbsent =>
                 $"waiting: this flight is for '{First(parameters)}', and that runner is not "
               + "currently asking for work. Nothing is misconfigured - a directed flight is "
@@ -393,12 +399,36 @@ public static class ReasonKinds
     /// </remarks>
     public const string DirectedRunnerAbsent = "directed-runner-absent";
 
+    /// <summary>
+    /// An attended flight names a runner that is already flying. Params: [runner].
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>REFUSED RATHER THAN QUEUED, and that is why it is not beside
+    /// <see cref="DirectedRunnerAbsent"/> in a family.</b> An absent runner is a
+    /// WAIT: the machine is not asking, and it will be. A busy one is a refusal,
+    /// because queueing behind it is unbounded — nothing in the pick checks for a
+    /// busy runner, since a busy runner simply is not asking, so an attended
+    /// flight would sit until the machine came back and then compete with
+    /// everything else. A person at a terminal is the one caller who cannot wait
+    /// an unknown time for an answer.
+    /// </para>
+    /// <para>
+    /// <b>And parking is not the answer, which is worth keeping.</b> The claim
+    /// pump short-circuits on parking BEFORE the pick, deliberately, so a
+    /// withheld runner is not told <c>pending</c> like an idle one — which means
+    /// parking withholds every claim including the person's own attended flight.
+    /// Park the machine you want to debug on and you wait forever.
+    /// </para>
+    /// </remarks>
+    public const string DirectedRunnerBusy = "directed-runner-busy";
+
     /// <summary>Every kind, for the closed-vocabulary fingerprint.</summary>
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
          Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
          StaleWorkingCopy, FlightsInTheAir, DeclaredAndAbsent, ForgeUnreachable,
-         RunnerReserved, RunnerParked, DirectedRunnerAbsent];
+         RunnerReserved, RunnerParked, DirectedRunnerAbsent, DirectedRunnerBusy];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
@@ -415,8 +445,13 @@ public static class ReasonKinds
             or RunnerReserved or RunnerParked or DirectedRunnerAbsent =>
             ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
+        // DIRECTED-RUNNER-BUSY IS A REFUSAL AND ITS SIBLING IS A WAIT, which is
+        // the whole reason they are two kinds. An absent runner will come back;
+        // a busy one is a machine somebody else is using, and nothing here
+        // queues behind it.
         CannotBeShownToTighten or WideningRequiresAGate or Uncharted
-            or RegistrationIsAWidening or StaleWorkingCopy or FlightsInTheAir =>
+            or RegistrationIsAWidening or StaleWorkingCopy or FlightsInTheAir
+            or DirectedRunnerBusy =>
             ReasonFamilies.Refused,
         _ => throw new InvalidOperationException(
             $"'{kind}' is not a reason kind this build knows - its family cannot be "

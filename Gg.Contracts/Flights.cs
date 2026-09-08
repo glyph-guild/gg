@@ -311,6 +311,40 @@ public sealed record FlightLaunchRequest
     /// </para>
     /// </remarks>
     public string? Runner { get; init; }
+
+    /// <summary>
+    /// Whether a person will fly this one by hand. Absent means headless, which
+    /// is nearly every flight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The smallest thing ADR-0013's decision needed, and the only new one.</b>
+    /// Driving a runner is a flight: a flight directed at that runner already
+    /// exists, the channel is decision 3, and this is the marker that tells the
+    /// runner to open one instead of running headless. What it buys is the whole
+    /// security argument for free — the lease authorises, the envelope scopes,
+    /// the story records, and none of it was invented for this.
+    /// </para>
+    /// <para>
+    /// <b>The lifetime is the point.</b> There is no standing capability to reach
+    /// a runner; there is a flight, and while it is flying a person is talking to
+    /// it. A side-channel could not have said that.
+    /// </para>
+    /// <para>
+    /// <b>It is not the same as naming a runner, and both are needed.</b>
+    /// <see cref="Runner"/> says which machine; this says a person is at the
+    /// other end. Attended without a runner is a flight nobody can reach, and a
+    /// runner without attended is the ordinary directed flight that has worked
+    /// since it shipped — so the pair is checked where the flight is created
+    /// rather than encoded as one member that means two things.
+    /// </para>
+    /// <para>
+    /// <b>Nullable so it is ABSENT rather than <c>false</c> on the wire</b>, which
+    /// is this slice's rule 8 and the reason an idle fleet's bodies do not change
+    /// shape the day a member is added.
+    /// </para>
+    /// </remarks>
+    public bool? Attended { get; init; }
 }
 
 /// <summary>The flight that was opened.</summary>

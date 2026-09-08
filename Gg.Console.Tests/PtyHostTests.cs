@@ -233,6 +233,113 @@ public class PtyHostTests
     }
 
     [Test]
+    public async Task A_key_gg_took_never_reaches_the_child()
+    {
+        // THE POINT OF INTERCEPTING AT ALL, and the thing that has to be exact:
+        // a byte gg claimed must not ALSO arrive at the child. `cat` echoes what
+        // it is given, so what comes back on the screen is what the child was
+        // handed - which is the only way to ask this question of a real child
+        // rather than of a mock.
+        using var terminal = new HostedTerminal { Columns = 40, Rows = 10 };
+
+        var taken = new List<byte>();
+
+        var host = PtyHost.RunAsync(
+            terminal, "/bin/cat", [], Path.GetTempPath(),
+            panel: _ => ["gg"],
+            // gg claims 'Q' and nothing else, which is a stand-in for a prefix:
+            // this test is about what interception DOES, not about which key.
+            took: typed =>
+            {
+                if (typed != (byte)'Q')
+                {
+                    return false;
+                }
+
+                taken.Add(typed);
+                return true;
+            },
+            CancellationToken.None);
+
+        await Assert.That(Until(() => terminal.Painted.Length > 0)).IsTrue();
+
+        terminal.Type("aQb");
+
+        await Assert.That(Until(() => taken.Count > 0)).IsTrue()
+            .Because("gg was offered the byte and said it wanted it.");
+
+        await Assert.That(Until(() => terminal.Painted.Contains("ab", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the child echoed what it was given, and what it was given is what "
+                   + "gg did not take. Painted: " + terminal.Painted);
+
+        // Ctrl-D ends `cat`, which is how this session is meant to close.
+        terminal.Type("\u0004");
+        await host;
+
+        await Assert.That(terminal.Painted).DoesNotContain("aQb", StringComparison.Ordinal)
+            .Because("a byte gg claimed and the child also received is one that did two "
+                   + "things, and the second is invisible.");
+    }
+
+    [Test]
+    public async Task A_key_gg_did_not_take_is_the_child_s_untouched()
+    {
+        // The default has to be that gg is not there. Every byte it does not
+        // claim reaches the child exactly as the terminal sent it - including
+        // the escape sequences an arrow key is made of, which is why the host
+        // forwards bytes rather than keys.
+        using var terminal = new HostedTerminal { Columns = 40, Rows = 10 };
+
+        var host = PtyHost.RunAsync(
+            terminal, "/bin/cat", [], Path.GetTempPath(),
+            panel: _ => ["gg"],
+            took: _ => false,
+            CancellationToken.None);
+
+        await Assert.That(Until(() => terminal.Painted.Length > 0)).IsTrue();
+
+        terminal.Type("hello");
+
+        await Assert.That(Until(() => terminal.Painted.Contains("hello", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("nothing was claimed, so everything arrived. Painted: " + terminal.Painted);
+
+        terminal.Type("\u0004");
+        await host;
+    }
+
+    [Test]
+    public async Task The_panel_is_told_how_many_rows_it_may_take()
+    {
+        // THE BUDGET IS THE HOST'S TO SET, because only it knows how tall the
+        // terminal is - and a panel that decided for itself could ask for more
+        // rows than exist, which is not a screen a child can be given.
+        using var terminal = new HostedTerminal { Columns = 40, Rows = 20 };
+
+        var offered = new List<int>();
+
+        var host = PtyHost.RunAsync(
+            terminal, "/bin/sh", ["-c", "exit 0"], Path.GetTempPath(),
+            panel: most =>
+            {
+                offered.Add(most);
+                return ["gg"];
+            },
+            took: _ => false,
+            CancellationToken.None);
+
+        await host;
+
+        await Assert.That(offered).IsNotEmpty();
+        await Assert.That(offered[0]).IsGreaterThan(1)
+            .Because("a panel offered one row could never open at all.");
+        await Assert.That(offered[0]).IsLessThan(20)
+            .Because("gg may not take the whole screen: the child is what a person came for, "
+                   + $"and it was offered {offered[0]} of 20.");
+    }
+
+    [Test]
     public async Task Nothing_here_writes_the_child_to_a_file()
     {
         // THE RATCHET AGAINST THE SPIKE'S OWN TRACE, which is the real leak this

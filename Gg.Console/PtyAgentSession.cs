@@ -172,6 +172,13 @@ public sealed class PtyAgentSession : IEditorSession
         // on whatever the last person left up.
         var showing = HostedView.Closed;
 
+        // READ ONCE, HERE, BEFORE THE CHILD HAS THE SCREEN. The envelope comes
+        // off the control plane, and doing that on the keypress would freeze the
+        // panel for a network round trip - a key that appears to do nothing for
+        // a second is a key somebody presses again. It cannot change during a
+        // session either, so once is also all that is correct.
+        var envelope = _envelope();
+
         var ours = _composeIn is null;
         var directory = _composeIn ?? Path.Combine(
             Path.GetTempPath(), "gg-compose-" + Guid.NewGuid().ToString("N")[..8]);
@@ -204,7 +211,7 @@ public sealed class PtyAgentSession : IEditorSession
                     most => HostedBar.Rows(
                         showing,
                         File.Exists(intent) ? _submitted : _bar,
-                        Body(showing, intent),
+                        Body(showing, envelope, intent),
                         most),
 
                     // AND GG'S ONE KEY. The panel's state lives here rather than
@@ -252,9 +259,10 @@ public sealed class PtyAgentSession : IEditorSession
     /// at — which is the argument `instructions-in-the-envelope` makes about
     /// prompts, one surface over.
     /// </remarks>
-    private string Body(HostedView showing, string intent) => showing switch
+    private static string Body(
+        HostedView showing, EnvelopeState? envelope, string intent) => showing switch
     {
-        HostedView.Envelope => _envelope() is { } state
+        HostedView.Envelope => envelope is { } state
             ? PaneText.Envelope(new AppState { Envelope = state })
             : "",
 

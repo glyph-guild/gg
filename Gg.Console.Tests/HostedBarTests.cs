@@ -116,7 +116,7 @@ public class HostedBarTests
     {
         var rows = HostedBar.Rows(HostedView.Closed, "gg · composing", body: "", most: 12);
 
-        await Assert.That(rows).HasCount(1);
+        await Assert.That(rows).Count().IsEqualTo(1);
         await Assert.That(rows[0]).StartsWith("gg · composing", StringComparison.Ordinal);
     }
 

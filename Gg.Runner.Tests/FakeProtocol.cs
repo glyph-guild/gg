@@ -73,6 +73,18 @@ internal sealed class FakeProtocol : IRunnerProtocol
     /// </remarks>
     internal Queue<Exception> HeartbeatThrows { get; } = new();
 
+    /// <summary>Introductions the next beats will carry, one per beat.</summary>
+    /// <remarks>
+    /// One per beat rather than all at once, because the control plane TAKES
+    /// rather than reads: a beat that saw the same offer twice would have the
+    /// runner answer twice, and the second answer arrives for a handshake
+    /// already finished.
+    /// </remarks>
+    internal Queue<PendingIntroduction> Introductions { get; } = new();
+
+    /// <summary>How many this fake has actually handed to a beat.</summary>
+    internal int IntroductionsTaken { get; private set; }
+
     /// <summary>
     /// When set, every heartbeat throws it: an outage that does not pass.
     /// </summary>
@@ -135,7 +147,18 @@ internal sealed class FakeProtocol : IRunnerProtocol
         // and says nothing about the heartbeat.
         HeartbeatLabels.Add([.. labels]);
         Record(new RunnerHeartbeat { Labels = labels });
-        return Task.FromResult(new HeartbeatAccepted { NextHeartbeatSeconds = HeartbeatSeconds });
+
+        var waiting = Introductions.Count > 0 ? new[] { Introductions.Dequeue() } : null;
+        if (waiting is not null)
+        {
+            IntroductionsTaken++;
+        }
+
+        return Task.FromResult(new HeartbeatAccepted
+        {
+            NextHeartbeatSeconds = HeartbeatSeconds,
+            Introductions = waiting,
+        });
     }
 
     /// <summary>Whether the control plane has finished evaluating this flight.</summary>

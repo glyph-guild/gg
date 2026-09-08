@@ -251,7 +251,16 @@ public static class Keymap
             // an arm and this list did not, and every test called the reducer
             // directly. A key advertised and bound to nothing is the shape
             // ShellHandledTests exists for, one modal down.
-            new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment"),
+            new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment")
+            {
+                // NOT "Keys" OR "Environment", EITHER OF WHICH IS WRONG HALF
+                // THE TIME. The page draws its own strip - `[ Keys ]
+                // Environment` - so which one is showing is already answered
+                // above the button; what a person cannot see is that there is a
+                // way to the other. The description names both because a hint
+                // line is read once; the button says what pressing it does.
+                Label = "Turn page",
+            },
             new(KeyStroke.Esc, Command.CloseModal, "close help"),
         ],
 
@@ -304,10 +313,20 @@ public static class Keymap
                 new(KeyStroke.Char('r'), Command.RestartRunner, "restart it")
                 {
                     When = "over the runner on this machine",
+                    Label = "Restart",
                 },
                 new(KeyStroke.Char('x'), Command.StopRunner, "shut it down")
                 {
                     When = "over the runner on this machine",
+
+                    // THE ONE BUTTON HERE THAT ENDS SOMETHING, and it is on the
+                    // side of the line where clicking it is recoverable: the
+                    // runner beside it starts the same thing again, this modal
+                    // is over the runner it names, and nothing a runner is
+                    // carrying is lost by stopping it. `Shut down' rather than
+                    // `Stop', because that is what the key already says and a
+                    // button that renames the action makes them read as two.
+                    Label = "Shut down",
                 },
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ]
@@ -393,10 +412,17 @@ public static class Keymap
                 new(KeyStroke.Char('o'), Command.OpenSignInUri, "open in browser")
                 {
                     When = "once a code is showing",
+
+                    // THE THREE READ AS A SET, so they are worded as one: a
+                    // verb and its object, same shape, same length. `Browser',
+                    // `Link' and `Code' would be three nouns a person has to
+                    // work out the verb for.
+                    Label = "Open browser",
                 },
                 new(KeyStroke.Char('l'), Command.CopySignInUri, "copy the link")
                 {
                     When = "once a code is showing",
+                    Label = "Copy link",
                 },
 
                 // AND THE CODE, which is the half that has to be TYPED. The
@@ -407,12 +433,17 @@ public static class Keymap
                 new(KeyStroke.Char('c'), Command.CopySignInCode, "copy the code")
                 {
                     When = "once a code is showing",
+                    Label = "Copy code",
                 },
                 new(KeyStroke.Esc, Command.CloseModal, "give up"),
             ]
             :
             [
-                new(KeyStroke.Char('y'), Command.SignIn, "sign in"),
+                // THE STEP BEFORE, WHICH IS THE ONE A PERSON ARRIVES AT
+                // WITHOUT ASKING: gg opens this modal on a console nobody is
+                // signed in to. One answer, and it is the reason they are
+                // looking at it.
+                new(KeyStroke.Char('y'), Command.SignIn, "sign in") { Label = "Sign in" },
                 new(KeyStroke.Esc, Command.CloseModal, "carry on signed out"),
             ],
 

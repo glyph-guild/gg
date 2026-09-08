@@ -67,12 +67,34 @@ public static class RunnerSeal
             offer);
     }
 
-    /// <summary>Opens an offer sealed to this runner's key.</summary>
-    public static byte[] OpenOffer(ECDiffieHellman runnerKey, byte[] sealedOffer)
+    /// <summary>
+    /// Opens an offer sealed to this runner's key, and says who sealed it.
+    /// </summary>
+    /// <returns>
+    /// What was said, and the console's ephemeral public key — which the runner
+    /// needs, because the answer is sealed to it.
+    /// </returns>
+    /// <remarks>
+    /// <b>Both, from one call, because the runner cannot get the key anywhere
+    /// else.</b> It is framed ahead of the ciphertext and nothing but this reads
+    /// the frame; a version that returned only the plaintext would leave the
+    /// runner holding something it could not reply to. Answering and knowing who
+    /// to answer are one act here.
+    /// </remarks>
+    public static (byte[] Offer, string EphemeralPublicKey) OpenOffer(
+        ECDiffieHellman runnerKey, byte[] sealedOffer)
     {
         ArgumentNullException.ThrowIfNull(runnerKey);
 
-        return Open(sealedOffer, ephemeral => Agree(runnerKey, ephemeral, OfferLabel));
+        byte[]? theirs = null;
+
+        var offer = Open(sealedOffer, ephemeral =>
+        {
+            theirs = ephemeral;
+            return Agree(runnerKey, ephemeral, OfferLabel);
+        });
+
+        return (offer, Convert.ToBase64String(theirs!));
     }
 
     /// <summary>

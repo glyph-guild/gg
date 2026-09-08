@@ -171,12 +171,27 @@ public sealed record RunnerCapabilityClaims
 /// is more identifying than that.
 /// </para>
 /// </remarks>
+/// <remarks>
+/// <para>
+/// <b>The capability was here and is gone, and the removal is the interesting
+/// part.</b> It read as something the runner checked before decrypting - and the
+/// runner cannot check it: a bearer capability is verified by ASKING the control
+/// plane, and there is no route for that. An unverifiable field that looks like
+/// a check is worse than no field, because it invites a later reader to believe
+/// something is checked.
+/// </para>
+/// <para>
+/// <b>What the runner actually relies on, now that it is written down.</b> The
+/// offer arrives on the runner's own authenticated heartbeat, delivered by a
+/// control plane that already checked the console registered this runner and
+/// holds this introduction; and only this runner's private key opens the seal.
+/// The capability is the CONSOLE's proof that it may leave an offer, and it is
+/// checked where it is presented.
+/// </para>
+/// </remarks>
 [PinnedId("9f24e8a1-70bd-4c53-a916-3e08d7f2b5c6")]
 public sealed record RunnerSealedOffer
 {
-    /// <summary>The capability, which the runner verifies before decrypting.</summary>
-    public required string Capability { get; init; }
-
     /// <summary>The sealed offer. Opaque to everything that carries it.</summary>
     public required byte[] Sealed { get; init; }
 }

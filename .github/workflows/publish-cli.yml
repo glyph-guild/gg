@@ -43,6 +43,12 @@ jobs:
       # project stays AOT for every other command, including ci.yml's aot job
       # and the binaries job below. PackagingTests holds that property in the
       # project so this stays an exception rather than becoming the default.
+      # THE FORK, BEFORE ANYTHING RESTORES. nuget.config declares a local
+      # source at packages/ and NuGet fails a restore when a declared source is
+      # missing rather than skipping it - so the directory has to exist before
+      # the first build, not before the first use.
+      - name: The pinned SIPSorcery fork
+        run: ./scripts/fetch-sipsorcery.sh
       - run: dotnet pack Gg.Cli -c Release -p:PublishAot=false -o artifacts
       - uses: actions/upload-artifact@v4
         with:
@@ -91,6 +97,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      # THE FORK, BEFORE ANYTHING RESTORES. nuget.config declares a local
+      # source at packages/ and NuGet fails a restore when a declared source is
+      # missing rather than skipping it - so the directory has to exist before
+      # the first build, not before the first use.
+      - name: The pinned SIPSorcery fork
+        run: ./scripts/fetch-sipsorcery.sh
       - name: AOT-publish gg
         run: dotnet publish Gg.Cli -c Release -r ${{ matrix.rid }} -o out
       - name: The published binary actually runs

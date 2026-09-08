@@ -1087,6 +1087,20 @@ public sealed class ConsoleScreen : Window
         {
             _modalButtons[0].SetFocus();
         }
+
+        // AND THE MARKS GO WITH IT. A dialog draws arrows around one button to
+        // say "this is what enter does"; AddButton puts them on the last button
+        // added and enter presses the focused one, so the two disagreed the
+        // moment a modal had two answers. On the runner's the marked one was
+        // `Shut down' while enter restarted.
+        //
+        // SET ON EVERY BUTTON, not just the one. Marking a button is not a radio
+        // button - the marks left by AddButton stay until something says false -
+        // so a loop rather than an assignment.
+        for (var i = 0; i < _modalButtons.Count; i++)
+        {
+            _modalButtons[i].IsDefault = i == 0;
+        }
     }
 
     private void OnScreenKeyDown(object? sender, Key key)

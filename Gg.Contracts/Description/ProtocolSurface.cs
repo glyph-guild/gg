@@ -1224,6 +1224,19 @@ public static class ProtocolSurface
             [typeof(RunnerReserved)] = ["runnerId", "reservedTo", "reservedAt"],
             // Empty for the reservation request's reason: the path names the
             // runner, and the only member this could grow is a principal.
+            // THE ASK PROTOCOL, DECLARED BEFORE ANYTHING CARRIES IT. ADR-0013
+            // requires the protocol to exist first, so a second transport is a
+            // registration rather than a rewrite - which means these members are
+            // declared here while ProtocolSurface.Endpoints names no route for
+            // them at all. That asymmetry is the design, not an omission.
+            [typeof(RunnerAsk)] = ["kind", "tailLog", "status"],
+            [typeof(TailLogAsk)] = ["lines"],
+            // Empty on purpose: the ask is "how are you", and a member here
+            // would be a filter - which is the first step toward a query.
+            [typeof(StatusAsk)] = [],
+            [typeof(RunnerSaid)] = ["kind", "tail", "status"],
+            [typeof(LogTail)] = ["lines", "truncated"],
+            [typeof(RunnerStatusReport)] = ["doing", "diagnosis", "at"],
             [typeof(RunnerRetirementRequest)] = [],
             [typeof(RunnerRetired)] = ["runnerId", "retiredAt"],
             [typeof(RunnerParkRequest)] = ["reason"],

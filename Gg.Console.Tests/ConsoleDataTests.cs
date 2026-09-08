@@ -171,6 +171,16 @@ public class ConsoleDataTests
             // way to make a request the console has already made.
             "RunnerLabelsAsync",
 
+            // ONE-WAY, AND THE CONSOLE IS A PLACE PEOPLE ARRIVE AT BY ARROW KEY.
+            // Retiring revokes a credential and cannot be undone; every other
+            // runner key in this console acts on whatever row the cursor happens
+            // to be on, with no confirmation, because everything they do is
+            // reversible. A key with those manners and this effect is the wrong
+            // pairing. It is a DECISION rather than a gap: if it lands in the
+            // modal it arrives with a confirmation the other keys do not have,
+            // and that confirmation is the work, not the wiring.
+            "RetireRunnerAsync",
+
             // A READ NOBODY ASKED FOR. The topology is envelope names and their
             // roles; no pane wants it and none is planned. The question a person
             // browsing actually has is "what can I fly against", which is

@@ -33,6 +33,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(FlightStory))]
 [JsonSerializable(typeof(TakeSeed))]
+[JsonSerializable(typeof(RunnerRetirementRequest))]
+[JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(TelemetryDisclosure))]
 [JsonSerializable(typeof(CredentialRegistrationRequest))]
@@ -853,6 +855,36 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>Deregisters a credential, or null if the id names none.</summary>
+    /// <summary>
+    /// Takes a runner out of the fleet. Null when this tenant has no such runner.
+    /// </summary>
+    /// <remarks>
+    /// <b>Idempotent, and it answers with WHEN.</b> Retiring one already retired
+    /// is the state the caller asked for rather than a conflict, and the instant
+    /// that comes back is the existing one - which is how a person finds out
+    /// somebody else got there first.
+    /// </remarks>
+    public async Task<RunnerRetired?> RetireRunnerAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/runners/{runnerId}/retirement", sessionToken);
+        request.Content = JsonContent.Create(
+            new RunnerRetirementRequest(), ProtocolJsonContext.Default.RunnerRetirementRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RunnerRetired, cancellationToken);
+    }
+
     public async Task<CredentialRemoved?> RemoveCredentialAsync(
         string sessionToken, string credentialId, CancellationToken cancellationToken = default)
     {

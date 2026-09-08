@@ -135,6 +135,11 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.CredentialRemoved;
     }
 
+    public sealed record RunnerRetired(Gg.Contracts.RunnerRetired Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RunnerRetired;
+    }
+
     public sealed record Bundle(DiagnosticsBundle Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Bundle;
@@ -254,6 +259,7 @@ public static class VerbResultKinds
     public const string Credentials = "credentials";
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
+    public const string RunnerRetired = "runner-retired";
     public const string Bundle = "bundle";
     public const string Envelope = "envelope";
     public const string EnvelopeApplied = "envelope-applied";
@@ -295,6 +301,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(CredentialList))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
+[JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
 [JsonSerializable(typeof(DiagnosticsBundle))]
 [JsonSerializable(typeof(EnvelopeState))]
 [JsonSerializable(typeof(FlightAttribution))]
@@ -363,6 +370,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
         VerbResult.CredentialRemoved r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRemoved),
+        VerbResult.RunnerRetired r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerRetired),
         VerbResult.Bundle r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DiagnosticsBundle),
         VerbResult.EnvelopeShown r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeState),
         VerbResult.Why r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightAttribution),
@@ -415,6 +424,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRemoved))),
+        VerbResultKinds.RunnerRetired => new VerbResult.RunnerRetired(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerRetired))),
         VerbResultKinds.Bundle => new VerbResult.Bundle(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.DiagnosticsBundle))),
         VerbResultKinds.Envelope => new VerbResult.EnvelopeShown(Require(
@@ -471,6 +482,7 @@ public static class VerbOutput
         VerbResult.Credentials r => Credentials(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
+        VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
         VerbResult.Bundle r => Bundle(r.Value),
         VerbResult.EnvelopeShown r => Envelope(r.Value),
         VerbResult.Why r => WhyText(r.Value),
@@ -619,6 +631,11 @@ public static class VerbOutput
     private static string CredentialRemoved(Gg.Contracts.CredentialRemoved removed) =>
         $"Removed {Clean(removed.CredentialId)}. "
       + $"The reference is gone and so is {Clean(removed.Reference.Locator)} on this machine.";
+
+    private static string RunnerRetiredText(Gg.Contracts.RunnerRetired retired) =>
+        $"Retired {Clean(retired.RunnerId)} at {retired.RetiredAt:u}. "
+      + "Its credential is revoked and it is out of the fleet; what it did is still recorded. "
+      + "Bringing that machine back is gg runner up.";
 
     private static string Flights(FlightList list)
     {

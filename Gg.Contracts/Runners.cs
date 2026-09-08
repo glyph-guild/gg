@@ -111,3 +111,47 @@ public sealed record RunnerReserved
     /// <summary>When it was reserved, or null.</summary>
     public DateTimeOffset? ReservedAt { get; init; }
 }
+
+/// <summary>
+/// Ask for a runner to be taken out of the fleet.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Empty for <see cref="RunnerReservationRequest"/>'s reason.</b> The act is
+/// "retire this one", the path names it, and the only member this could grow is
+/// a principal — which would make retiring somebody else's runner reachable
+/// through a request the caller composes.
+/// </para>
+/// <para>
+/// <b>Not deletion.</b> The registration stays and history keeps pointing at
+/// it: leases name the runner that held them and the attestation ledger names
+/// the runner that attested. What ends is the credential and the fleet row.
+/// </para>
+/// <para>
+/// <b>And it does not come back.</b> There is no verb that un-retires a runner,
+/// deliberately: bringing that machine back is registering one, which is a
+/// different act with a different credential.
+/// </para>
+/// </remarks>
+[PinnedId("a2f0c8e4-6b31-4d7a-9c58-0e3b1f7a4d92")]
+public sealed record RunnerRetirementRequest;
+
+/// <summary>
+/// A runner's retirement, as it stands after the call.
+/// </summary>
+/// <remarks>
+/// <b>WHEN rather than WHETHER.</b> A boolean would lose the only interesting
+/// part: "already retired" and "retired just now" are the same outcome and
+/// different facts, and the instant is what tells a person whether somebody else
+/// got there first. Retiring one already retired is the state the caller asked
+/// for, not a conflict — releasing a reservation nobody holds settled that.
+/// </remarks>
+[PinnedId("7d4e91b3-05af-4c26-8e10-b9f2c63a5e88")]
+public sealed record RunnerRetired
+{
+    /// <summary>The runner this is about.</summary>
+    public required string RunnerId { get; init; }
+
+    /// <summary>When it left the fleet.</summary>
+    public required DateTimeOffset RetiredAt { get; init; }
+}

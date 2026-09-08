@@ -37,6 +37,18 @@ public class MaintainSurvivesRefusalTests
         new($"Response status code does not indicate success: {(int)status} ({status}).",
             inner: null, statusCode: status);
 
+    /// <summary>
+    /// What <c>RunnerProtocolClient.AttestAsync</c> throws on a 400, with the
+    /// body the pool host really received.
+    /// </summary>
+    private static InvalidOperationException Refused() =>
+        new("The attestation was refused: {\"type\":\"https://tools.ietf.org/html/rfc9110"
+          + "#section-15.5.1\",\"title\":\"Bad Request\",\"status\":400,\"detail\":"
+          + "\"measured-at is 2026-09-07T15:10:51.2806766+00:00 and this side's clock says "
+          + "2026-09-07T15:10:51.2804965+00:00. An attestation from the future orders ahead "
+          + "of everything that arrives before it - measured-at is the ledger's order key, "
+          + "not a label. Nothing was recorded.\"}");
+
     /// <summary>A pool adapter that holds the bound and reports one clean member.</summary>
     private sealed class SteadyAdapter : IPoolAdapter
     {
@@ -63,9 +75,12 @@ public class MaintainSurvivesRefusalTests
     }
 
     /// <summary>A control plane that refuses the pull a fixed number of times.</summary>
-    private sealed class RefusingProtocol(Queue<Exception> pullThrows) : IPoolProtocol
+    private sealed class RefusingProtocol(
+        Queue<Exception> pullThrows, Queue<Exception>? attestThrows = null) : IPoolProtocol
     {
         public int Pulls { get; private set; }
+
+        public int Attests { get; private set; }
 
         public Task<PoolActionList> PullActionsAsync(
             string pool, CancellationToken cancellationToken = default)
@@ -87,15 +102,21 @@ public class MaintainSurvivesRefusalTests
             });
 
         public Task AttestAsync(
-            string pool, PoolAttestation attestation, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+            string pool, PoolAttestation attestation, CancellationToken cancellationToken = default)
+        {
+            Attests++;
+
+            return attestThrows is { Count: > 0 }
+                ? Task.FromException(attestThrows.Dequeue())
+                : Task.CompletedTask;
+        }
     }
 
     /// <summary>Runs the loop until it has cycled enough, and collects what it said.</summary>
-    private static async Task<(int Exit, int Pulls, List<string> Said)> RunAsync(
-        Queue<Exception> pullThrows, int cycles = 3)
+    private static async Task<(int Exit, int Pulls, int Attests, List<string> Said)> RunAsync(
+        Queue<Exception> pullThrows, int cycles = 3, Queue<Exception>? attestThrows = null)
     {
-        var protocol = new RefusingProtocol(pullThrows);
+        var protocol = new RefusingProtocol(pullThrows, attestThrows);
         var stop = new CancellationTokenSource();
         var said = new List<string>();
         var turns = 0;
@@ -114,7 +135,7 @@ public class MaintainSurvivesRefusalTests
             narrate: said.Add);
 
         var exit = await loop.RunAsync("gg-pool-dev", stop.Token);
-        return (exit, protocol.Pulls, said);
+        return (exit, protocol.Pulls, protocol.Attests, said);
     }
 
     [Test]
@@ -122,7 +143,7 @@ public class MaintainSurvivesRefusalTests
     {
         // THE DEFECT. One 500 and the process was gone - and systemd restarted it
         // into the same wall six times.
-        var (exit, pulls, _) = await RunAsync(new Queue<Exception>(
+        var (exit, pulls, _, _) = await RunAsync(new Queue<Exception>(
             [Answering(HttpStatusCode.InternalServerError)]));
 
         await Assert.That(pulls).IsGreaterThan(1)
@@ -135,7 +156,7 @@ public class MaintainSurvivesRefusalTests
     public async Task A_service_unavailable_is_survived_too()
     {
         // The other one seen on the host, during a container-app revision roll.
-        var (_, pulls, _) = await RunAsync(new Queue<Exception>(
+        var (_, pulls, _, _) = await RunAsync(new Queue<Exception>(
             [Answering(HttpStatusCode.ServiceUnavailable)]));
 
         await Assert.That(pulls).IsGreaterThan(1);
@@ -147,13 +168,61 @@ public class MaintainSurvivesRefusalTests
         // This loop narrates NOTHING today, which is why a pull point
         // crash-looping for hours looked like one quietly working. Surviving in
         // silence would preserve exactly that.
-        var (_, _, said) = await RunAsync(new Queue<Exception>(
+        var (_, _, _, said) = await RunAsync(new Queue<Exception>(
             [Answering(HttpStatusCode.InternalServerError)]));
 
         await Assert.That(said.Any(s => s.Contains("500", StringComparison.Ordinal)))
             .IsTrue()
             .Because("a pull point that turns a loud crash into a quiet outage has made the "
                    + "problem harder to find, not smaller.");
+    }
+
+    [Test]
+    public async Task A_refused_attestation_does_not_end_the_pull_point()
+    {
+        // THE SAME DEFECT, THROUGH A DIFFERENT EXCEPTION, FOUND LIVE AGAIN.
+        // gg#144 fixed HttpRequestException and this loop's own remark says the
+        // twin was missed once already. A 400 arrives as InvalidOperationException
+        // from RunnerProtocolClient.AttestAsync, which nothing here catches - so
+        // on 2026-09-07 gg-runner-maintain aborted four times on vmlinux001,
+        // core-dumping, because the control plane refused an attestation whose
+        // measured-at was 180 MICROSECONDS ahead of its clock.
+        //
+        // The control plane's zero-tolerance comparison is fixed separately.
+        // This is the half that matters more: whatever the control plane refuses
+        // and for whatever reason, a resident pull point that dies leaves a pool
+        // nobody maintains, and a crash loop under systemd looks like a flapping
+        // service rather than like a diagnosis.
+        var (exit, pulls, attests, _) = await RunAsync(
+            new Queue<Exception>(),
+            attestThrows: new Queue<Exception>([Refused()]));
+
+        await Assert.That(attests).IsGreaterThan(1)
+            .Because("attesting again is the whole job. A refusal that is transient - a clock "
+                   + "a fraction out - fixes itself on the next cycle, and one that is not "
+                   + "gets said out loud every cycle instead of once before the process dies.");
+        await Assert.That(pulls).IsGreaterThan(0)
+            .Because("the cycle after the refusal has to reach the pull, or the loop survived "
+                   + "into a state that does nothing.");
+        await Assert.That(exit).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task A_refused_attestation_is_said_out_loud_with_its_diagnosis()
+    {
+        // The control plane's refusal carries the whole reason - which two
+        // instants, and by how much. Surviving without printing it would turn a
+        // loud crash with a precise diagnosis into a quiet outage, which is the
+        // trade this file already refuses to make once.
+        var (_, _, _, said) = await RunAsync(
+            new Queue<Exception>(),
+            attestThrows: new Queue<Exception>([Refused()]));
+
+        await Assert.That(said.Any(s => s.Contains("measured-at", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the refusal names the field and both clocks; dropping that leaves "
+                   + "somebody reading 'attestation refused' with nothing to act on. "
+                   + "Said: " + string.Join(" | ", said));
     }
 
     [Test]

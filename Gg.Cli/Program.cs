@@ -748,7 +748,13 @@ static async Task<int> LaunchConsoleAsync()
         //
         // A KEY THAT OFFERED THIS AND FELL BACK WOULD READ AS A FLICKER, which
         // is what EveryPortIsPassedTests exists to catch - it caught this one.
-        compose: new PtyAgentSession(),
+        compose: new PtyAgentSession(
+            // THE RULES IN FORCE, FOR THE PANEL TO SHOW. Read here because this
+            // is the only place that may name the control plane, and read once
+            // per compose session rather than on the keypress - the panel opens
+            // over a child that already has the screen, and a key that waits on
+            // a network round trip is one somebody presses again.
+            envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope),
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and
         // EveryPortIsPassedTests can only see the ones that say their name.

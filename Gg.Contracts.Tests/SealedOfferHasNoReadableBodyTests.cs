@@ -34,7 +34,7 @@ public class SealedOfferHasNoReadableBodyTests
         // being text or a structure, and the sealed member is bytes.
         var readable = Relayed
             .SelectMany(t => t.GetProperties().Select(p => (Type: t, Property: p)))
-            .Where(x => x.Property.Name is not ("Sealed" or "Capability" or "RunnerId"))
+            .Where(x => x.Property.Name is not ("Sealed" or "RunnerId"))
             .Select(x => $"{x.Type.Name}.{x.Property.Name}")
             .ToList();
 
@@ -67,9 +67,29 @@ public class SealedOfferHasNoReadableBodyTests
         // the declaration does not is one outside the fingerprint - which is
         // where an added `Candidates` would live most comfortably.
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RunnerSealedOffer)])
-            .IsEquivalentTo(new[] { "capability", "sealed" });
+            .IsEquivalentTo(new[] { "sealed" });
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RunnerSealedAnswer)])
             .IsEquivalentTo(new[] { "runnerId", "sealed" });
+    }
+
+    [Test]
+    public async Task Neither_direction_carries_a_capability()
+    {
+        // THE OFFER'S CAPABILITY WAS REMOVED, and the removal is the point: it
+        // read as something the runner checked before decrypting, and the runner
+        // cannot check it - a bearer capability is verified by ASKING the control
+        // plane, and there is no route for that. An unverifiable field that looks
+        // like a check is worse than no field.
+        //
+        // What the runner relies on instead is written on the type: the offer
+        // arrives on its own authenticated heartbeat from a control plane that
+        // checked ownership, and only its private key opens the seal.
+        foreach (var type in Relayed)
+        {
+            await Assert.That(type.GetProperties().Select(p => p.Name))
+                .DoesNotContain("Capability")
+                .Because($"{type.Name} carries a capability neither end can act on.");
+        }
     }
 
     [Test]
@@ -90,7 +110,7 @@ public class SealedOfferHasNoReadableBodyTests
         await Assert.That(Relayed.SelectMany(t => t.GetProperties())).IsNotEmpty();
 
         var planted = typeof(Leaky).GetProperties()
-            .Where(p => p.Name is not ("Sealed" or "Capability" or "RunnerId"))
+            .Where(p => p.Name is not ("Sealed" or "RunnerId"))
             .Select(p => p.Name)
             .ToList();
 

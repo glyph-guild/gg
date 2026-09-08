@@ -1304,7 +1304,7 @@ public static class ProtocolSurface
                 ["principalId", "runnerId", "purpose", "expiresAt", "ephemeralKeyHash"],
             // NO MEMBER AN SDP COULD BE READ OUT OF, deliberately, which is
             // EvidenceReference's sentence about a different body.
-            [typeof(RunnerSealedOffer)] = ["capability", "sealed"],
+            [typeof(RunnerSealedOffer)] = ["sealed"],
             [typeof(RunnerSealedAnswer)] = ["runnerId", "sealed"],
             [typeof(RunnerAsk)] = ["kind", "tailLog", "status"],
             [typeof(TailLogAsk)] = ["lines"],

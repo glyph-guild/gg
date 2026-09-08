@@ -39,7 +39,16 @@ public class RunnerSealTests
 
         var sealedOffer = RunnerSeal.SealOffer(Public(runner), ephemeral, AnOffer);
 
-        await Assert.That(RunnerSeal.OpenOffer(runner, sealedOffer)).IsEquivalentTo(AnOffer);
+        var (offer, theirs) = RunnerSeal.OpenOffer(runner, sealedOffer);
+
+        await Assert.That(offer).IsEquivalentTo(AnOffer);
+
+        // AND WHO TO ANSWER, from the same call. The runner cannot get the
+        // console's ephemeral key anywhere else - it is framed ahead of the
+        // ciphertext and nothing but this reads the frame - so returning only
+        // the plaintext would leave a runner holding something it could not
+        // reply to.
+        await Assert.That(theirs).IsEqualTo(Public(ephemeral));
     }
 
     [Test]

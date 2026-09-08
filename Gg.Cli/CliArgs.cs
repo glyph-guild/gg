@@ -135,6 +135,9 @@ public abstract record CliAction
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
+    public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
     public sealed record Invite(bool Json) : CliAction, IEmitsResult;
 
     public sealed record Doctor(bool Json) : CliAction, IEmitsResult;
@@ -289,6 +292,7 @@ public static class CliArgs
         "gg ground <flight> <why>          stop a flight that could still have been done",
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
+        "gg runner retire <id>          take a runner out of the fleet, for good",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
@@ -364,6 +368,9 @@ public static class CliArgs
             ["runner", "read", .. var read] => ReadArguments(read),
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
+            ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
+            ["runner", "retire", ..] => Unknown(
+                "gg runner retire needs one runner id. Run gg runners to see the fleet."),
 
             // `--intent <provider>#<id>` is positional rather than pulled out
             // by the pre-scan above, and the difference is that it takes a

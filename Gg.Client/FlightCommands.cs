@@ -9,6 +9,14 @@ public sealed class FlightReferenceException(string message) : Exception(message
 /// <summary>A reference that named no flight this tenant has.</summary>
 public sealed class FlightNotFoundException(string message) : Exception(message);
 
+/// <summary>No such runner in this tenant.</summary>
+/// <remarks>
+/// <b>The same answer for another tenant's runner as for one that never
+/// existed</b>, because the control plane answers 404 to both: the shape of a
+/// refusal must not tell a caller which ids exist.
+/// </remarks>
+public sealed class RunnerNotFoundException(string message) : Exception(message);
+
 /// <summary>An intent the contract's own rule refused.</summary>
 public sealed class FlightIntentException(string message) : Exception(message);
 
@@ -592,6 +600,25 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
 
     private static NamedEnvelopeApply Body(TreeDocument document) =>
         new() { Envelope = document.Envelope, Narrowing = document.Narrowing };
+
+    /// <summary>
+    /// Takes a runner out of the fleet, permanently.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not deletion, and there is no undo.</b> The registration stays so
+    /// leases and the attestation ledger keep naming the runner that held and
+    /// attested; what ends is the credential and the fleet row. Bringing the
+    /// machine back is <c>gg runner up</c>, which is a different act.
+    /// </remarks>
+    public async Task<VerbResult> RetireRunnerAsync(
+        string runnerId, CancellationToken cancellationToken = default)
+    {
+        var retired = await _client.RetireRunnerAsync(Session(), runnerId, cancellationToken)
+            ?? throw new RunnerNotFoundException(
+                $"No runner {runnerId} here. Run gg runners to see this tenant's fleet.");
+
+        return new VerbResult.RunnerRetired(retired);
+    }
 
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public async Task<VerbResult> RunnerLabelsAsync(CancellationToken cancellationToken = default) =>

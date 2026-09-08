@@ -115,6 +115,12 @@ public class VerbParityTests
                     + "why a flight is stopped, missing from the surface whose whole job is "
                     + "showing what needs somebody. Step 4.",
             ["RunnerLabels"] = "absent, and a gap: step 4, with dispositions beside the names.",
+            ["RunnerRetire"] = "absent, and DELIBERATELY so for now. Retiring is one-way "
+                             + "and revokes a credential, and the console's runner modal "
+                             + "is a place a person arrives at by arrow key. A key that "
+                             + "permanently removes whatever row is selected is the wrong "
+                             + "affordance for it; if it lands there it needs a "
+                             + "confirmation the other runner keys do not have.",
             ["EnvelopeShow"] = "absent, and a gap: step 4 adds the read. ConsoleData has no "
                              + "envelope method at all today.",
             ["AirspaceShow"] = "absent, and a gap: a dead wrapper today, resolved in step 6 "

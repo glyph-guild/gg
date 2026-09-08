@@ -54,6 +54,8 @@ return CliArgs.Parse(args) switch
     CliAction.AirspaceApply apply => await EmitAsync(
         apply.Json, c => c.AirspaceApplyAsync(Directory.GetCurrentDirectory())),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
+    CliAction.RunnerRetire retire =>
+        await EmitAsync(retire.Json, c => c.RetireRunnerAsync(retire.RunnerId)),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),

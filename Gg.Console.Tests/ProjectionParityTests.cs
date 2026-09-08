@@ -94,6 +94,11 @@ public class ProjectionParityTests
             ["CredentialAdded"] = "step 5: the console can register one and cannot see the "
                                 + "result reach the model.",
             ["CredentialRemoved"] = "step 5, the mirror of it.",
+            ["RunnerRetired"] = "no arm because no console verb: retiring is one-way "
+                              + "and the modal has no confirmation to hang it on. The "
+                              + "reason is written out at ConsoleDataTests' exemption "
+                              + "for RetireRunnerAsync, and both go together or "
+                              + "neither does.",
             ["Decided"] = "step 3: a decision's own result, so the queue and the gates "
                         + "reflect it without a second boot.",
             ["Taken"] = "step 2: the seed is fetched at boot and assigned directly; an arm "

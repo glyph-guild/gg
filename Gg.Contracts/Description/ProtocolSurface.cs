@@ -287,6 +287,30 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // OUT OF THE FLEET, ONE WAY. RunnerRegistry.RevokeAsync did all of this
+        // and nothing called it, so the protocol could register a runner and
+        // never retire one - which is how a development fleet reached fourteen
+        // registrations of two machines, twelve of them abandoned and each still
+        // holding a thirty-day credential.
+        //
+        // NO DELETE TWIN, unlike parking and reservation. A person changes their
+        // mind about withholding a machine; nothing un-retires one. Bringing it
+        // back is registering a runner.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/retirement",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerRetirementRequest),
+            Response = typeof(RunnerRetired),
+            // NO 409, exactly as DELETE reservation has none: retiring one
+            // already retired is the state the caller asked for, and refusing it
+            // would make "make sure this is out of the fleet" a two-step dance
+            // with a race in the middle. 404 for a runner that is not this
+            // tenant's, per the heartbeat route.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "GET",
@@ -1198,6 +1222,10 @@ public static class ProtocolSurface
             // is named by the path, so there is nothing for a body to say.
             [typeof(RunnerReservationRequest)] = [],
             [typeof(RunnerReserved)] = ["runnerId", "reservedTo", "reservedAt"],
+            // Empty for the reservation request's reason: the path names the
+            // runner, and the only member this could grow is a principal.
+            [typeof(RunnerRetirementRequest)] = [],
+            [typeof(RunnerRetired)] = ["runnerId", "retiredAt"],
             [typeof(RunnerParkRequest)] = ["reason"],
             [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],

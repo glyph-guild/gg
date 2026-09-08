@@ -334,6 +334,25 @@ public static class ProtocolSurface
             Statuses = [200, 204, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // THE WAY A RUNNER THAT PREDATES KEYS GAINS ONE. Registration is
+        // read-or-register, so a runner with a stored credential never registers
+        // again and never presents the key it made - which left every runner
+        // registered before 0.125.0 permanently unreachable, with the key sitting
+        // on its own disk. Found by walking the live fleet, not by review.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/key",
+            Audience = Audience.Runner,
+            Request = typeof(RunnerKeyOffer),
+            // 204: there is nothing to say back. 409 for a DIFFERENT key already
+            // registered - consoles pinned the first one, so replacing it
+            // silently is the substitution the pin exists to catch, and a runner
+            // that lost its private half is re-registered by a person rather
+            // than healed here.
+            Statuses = [204, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
         new()
         {
             Method = "POST",
@@ -1297,6 +1316,7 @@ public static class ProtocolSurface
             // them at all. That asymmetry is the design, not an omission.
             [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey"],
             [typeof(PendingIntroduction)] = ["introductionId", "offer"],
+            [typeof(RunnerKeyOffer)] = ["publicKey"],
             [typeof(RunnerSignalAnswer)] = ["introductionId", "answer"],
             [typeof(RunnerIntroduction)] =
                 ["introductionId", "runnerId", "runnerPublicKey", "capability", "expiresAt"],

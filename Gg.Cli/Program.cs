@@ -1222,6 +1222,39 @@ static async Task<int> RunnerUpAsync()
     // runner outlives the console that started it - reparented to init a moment
     // after that window closes - so a handle answers "did I start this" and
     // this answers the question a person is actually asking.
+    // THE KEY THIS MACHINE CAN BE REACHED ON, loaded once and used twice: to
+    // open what a console seals, and to make sure the control plane KNOWS it.
+    var identity = RunnerIdentityKey
+        .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName));
+
+    // AND OFFERED, because registration is read-or-register. A runner with a
+    // stored credential never registers again, so a key made locally after that
+    // first registration is never presented to anybody - which left every runner
+    // registered before keys existed permanently unreachable, holding one on its
+    // own disk. Idempotent: the control plane answers 204 whether it set the key
+    // or already had this one.
+    switch (await new Gg.Runner.RunnerProtocolClient(
+                new HttpClient { BaseAddress = new Uri(baseAddress) }, registered.RunnerToken)
+            .OfferKeyAsync(registered.RunnerId, identity.PublicKey))
+    {
+        case Gg.Runner.KeyOfferResult.Refused:
+            // A DIFFERENT KEY IS REGISTERED, and this runner cannot fix that.
+            // Consoles pinned the other one; bringing this machine back under a
+            // key it holds is a person registering it again, which mints an
+            // identity a console will notice rather than one that changed under
+            // it. Said and carried on: the runner still takes work.
+            Console.Error.WriteLine(
+                $"this runner is registered under a different key than the one at "
+              + $"{RunnerIdentityKey.PathFor(Environment.MachineName)}, so nobody can reach it "
+              + "by hand. Its own private half is gone or this is a second machine using the "
+              + "name. `gg runner retire` then `gg runner up` registers it again, which a "
+              + "console will see as a new key rather than a changed one.");
+            break;
+
+        default:
+            break;
+    }
+
     var pidFile = new RunnerPidFile(RunnerPidPath());
     pidFile.Write(Environment.ProcessId);
 
@@ -1236,9 +1269,7 @@ static async Task<int> RunnerUpAsync()
             // project is the only one that sees both. The SAME key this machine
             // registered with a moment ago - a second one would be a runner
             // whose console pinned a key it can no longer open anything with.
-            identityKey: RunnerIdentityKey
-                .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName))
-                .ForOpeningWhatWasSealedToThisRunner(),
+            identityKey: identity.ForOpeningWhatWasSealedToThisRunner(),
             // WHERE THIS MACHINE ASKS WHAT IT LOOKS LIKE FROM OUTSIDE, from the
             // environment for the reason the trackers and the hosts are: naming
             // one in source would point every runner in every deployment at a

@@ -77,6 +77,40 @@ public sealed record RunnerRegistrationRequest
 }
 
 /// <summary>
+/// A runner offering the key it can be reached on, after the fact.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Because every runner registered before keys existed can never be reached,
+/// and re-running <c>gg runner up</c> does not fix it.</b> Registration is
+/// read-or-register: a stored credential is reused, so the registration call
+/// never happens again and the key a runner made locally is never presented to
+/// anybody. Found by walking the live fleet — the key file was on disk, written
+/// minutes earlier, and the control plane had none.
+/// </para>
+/// <para>
+/// <b>The runner presents it, not a person.</b> It is the runner's key; it holds
+/// the private half and authenticates as itself. A route where a PERSON supplied
+/// a runner's public key would be a route for supplying somebody else's, which
+/// is the substitution the pin exists to catch.
+/// </para>
+/// <para>
+/// <b>Set once. A DIFFERENT key is refused, loudly.</b> Consoles pin the first
+/// key they see, so replacing one silently is exactly what a person watching for
+/// a changed key would never be told about. A runner that lost its private half
+/// cannot fix itself here and should not be able to: bringing it back is
+/// registering it again, which is a person's act and mints a new identity a
+/// console will notice.
+/// </para>
+/// </remarks>
+[PinnedId("b5a0fc33-340b-409d-9fd4-e97d3988ce48")]
+public sealed record RunnerKeyOffer
+{
+    /// <summary>SubjectPublicKeyInfo, base64 — the same shape registration takes.</summary>
+    public required string PublicKey { get; init; }
+}
+
+/// <summary>
 /// The registered runner and the credential it will authenticate with.
 /// </summary>
 /// <remarks>

@@ -203,6 +203,13 @@ public sealed record FlightStory
 
             StoryKinds.TakenOver => $"{At(parameters, 0, "somebody")} took it over",
             StoryKinds.HoldExpired => $"{At(parameters, 0, "somebody")}'s hold lapsed",
+
+            // NAMES THE MACHINE, because that is the only thing a person can do
+            // something about - wait for it, or fly a different one. Nothing ran,
+            // which is the other half: this is not a flight that failed.
+            StoryKinds.AttendedNobodyCame =>
+                $"nobody came to fly it: {At(parameters, 0, "the runner")} never claimed it, "
+              + "and nothing ran",
             StoryKinds.PoolIncident =>
                 $"the pool it came from had trouble: {At(parameters, 0, "unnamed")}",
 

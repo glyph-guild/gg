@@ -35,6 +35,62 @@ public class ModalButtonTests
     }
 
     [Test]
+    public async Task The_navigational_modals_offer_buttons_and_the_deciding_ones_do_not()
+    {
+        // WHICH MODALS HAVE THEM IS A DECISION, so it is written here rather
+        // than left as whatever somebody happened to label. The rule it follows:
+        // a button is easier to hit than a key, so the modals that join in are
+        // the ones where a stray click turns a page or opens a browser, and the
+        // ones that stay keys-only are the ones where it ends something or is
+        // recorded against the person who did it.
+        //
+        // Rolling one of those in later is a row in this table and a label on
+        // each answer, and this is the sentence that has to be argued with
+        // first.
+        var offers = new (KeymapContext Context, bool Offers, string Why)[]
+        {
+            // GETTING SOMEWHERE. Turning the help page over, starting a
+            // sign-in, opening a browser, putting a code on the clipboard,
+            // restarting a runner that is meant to be up anyway. Every one of
+            // these is undone by doing it again or by doing nothing.
+            (new(UiMode.Help), true, "turns the help page over"),
+            (new(UiMode.SignIn), true, "starts a sign-in"),
+            (new(UiMode.SignIn) { SignInStarted = true }, true, "reaches the browser"),
+            (new(UiMode.Runner) { RunnerIsOurs = true }, true, "restarts or stops our runner"),
+
+            // DECIDING. Approving a gate is attributed to whoever approved it,
+            // grounding a flight ends work that is running, and confirming a
+            // second flight opens one. These keep the keystroke, which is a
+            // thing you have to aim at.
+            (new(UiMode.GateDecision), false, "approves or rejects, attributed"),
+            (new(UiMode.ConfirmFlight), false, "opens a second flight"),
+            (new(UiMode.FlightDetail), false, "grounds a flight"),
+
+            // NOTHING TO OFFER, and this falls out of the rule rather than being
+            // decided here: both have only a way out, and escape is never a
+            // button. If either grows an answer, this row is what says whether
+            // it gets one.
+            (new(UiMode.FlightActions), false, "has only a way out"),
+            (new(UiMode.HandFlight), false, "has only a way out"),
+
+            // NOT OURS TO STOP. Over somebody else's runner the two keys are not
+            // bound at all, so there is nothing to put on a button - the same
+            // guard, reached through a different door.
+            (new(UiMode.Runner) { RunnerIsOurs = false }, false, "is somebody else's runner"),
+        };
+
+        foreach (var (context, wanted, why) in offers)
+        {
+            var got = Keymap.Buttons(context).Count > 0;
+
+            await Assert.That(got).IsEqualTo(wanted)
+                .Because(wanted
+                    ? $"{context.Mode} {why}, which is safe to click, and offers no buttons."
+                    : $"{context.Mode} {why}, so it should stay keys-only, and offers buttons.");
+        }
+    }
+
+    [Test]
     public async Task The_escape_hatch_never_becomes_a_button()
     {
         // It is on every modal, and the frame around the box already means

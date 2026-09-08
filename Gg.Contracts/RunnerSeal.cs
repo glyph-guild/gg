@@ -185,10 +185,38 @@ public static class RunnerSeal
         return sealedBytes;
     }
 
-    private static byte[] Open(byte[] sealedBytes, Func<byte[], byte[]> keyFor)
+    /// <summary>
+    /// The public key framed ahead of the ciphertext, without opening anything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The frame is cleartext BY CONSTRUCTION, and this is the only thing
+    /// that may read it without a key.</b> The sealer puts its public half in
+    /// front of the ciphertext precisely so the receiver can derive the shared
+    /// secret — it is the address on the envelope, not the letter. Nothing here
+    /// touches the nonce, the tag or the ciphertext, and no key of any kind is
+    /// passed in, which is what makes it safe for a party that is not either
+    /// end of the conversation.
+    /// </para>
+    /// <para>
+    /// <b>It exists so the control plane can check a binding it already
+    /// stores.</b> An introduction is minted with the console's ephemeral public
+    /// key and the row keeps its hash; without this the hash was written and
+    /// never read, and a comment claimed a check that nothing performed. The
+    /// relay still cannot read what it relays: it learns which key sealed the
+    /// offer, which it was told at minting, and nothing else.
+    /// </para>
+    /// </remarks>
+    public static string EphemeralKeyOf(byte[] sealedMessage) =>
+        Convert.ToBase64String(Framed(sealedMessage));
+
+    /// <summary>
+    /// The framed public key, with the frame checked. Shared so the reader and
+    /// the opener cannot come to disagree about the format.
+    /// </summary>
+    private static byte[] Framed(byte[] sealedBytes)
     {
         ArgumentNullException.ThrowIfNull(sealedBytes);
-        ArgumentNullException.ThrowIfNull(keyFor);
 
         if (sealedBytes.Length < 4)
         {
@@ -209,9 +237,16 @@ public static class RunnerSeal
               + "or truncated in transit.");
         }
 
-        var at = sealedBytes.AsSpan(4);
-        var framedPublicKey = at[..keyLength].ToArray();
-        at = at[keyLength..];
+        return sealedBytes.AsSpan(4, keyLength).ToArray();
+    }
+
+    private static byte[] Open(byte[] sealedBytes, Func<byte[], byte[]> keyFor)
+    {
+        ArgumentNullException.ThrowIfNull(keyFor);
+
+        var framedPublicKey = Framed(sealedBytes);
+
+        var at = sealedBytes.AsSpan(4 + framedPublicKey.Length);
         var nonce = at[..NonceBytes];
         at = at[NonceBytes..];
         var tag = at[..TagBytes];

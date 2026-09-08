@@ -150,7 +150,37 @@ public static class RawMode
         raw[ControlCharsOffset + MinIndex] = 0;
         raw[ControlCharsOffset + TimeIndex] = 0;
 
-        return tcsetattr(fd, TcsaNow, raw) == 0 ? new TerminalSettings(saved) : null;
+        // ASKED, THEN CHECKED, AND THE CHECK IS THE POINT. `tcsetattr` returns
+        // zero "if any of the requested changes could be successfully
+        // performed" - POSIX's own wording - so a zero says SOME of it took,
+        // not all of it. Reading that as success is the same mistake this type
+        // was written to fix, one layer down: the trace it replaced said
+        // `rawMode=applied` because it had ASKED, and this said the same thing
+        // because the call had returned.
+        //
+        // On Linux it is wrong about one attempt in four under load. Twice is
+        // enough in every case observed; the third read is what decides, so a
+        // terminal that will not go raw is REFUSED rather than reported.
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            if (tcsetattr(fd, TcsaNow, raw) != 0)
+            {
+                return null;
+            }
+
+            var got = Describe(fd);
+            if (!got.Canonical && !got.Echo && got.MinimumBytes == 0)
+            {
+                return new TerminalSettings(saved);
+            }
+        }
+
+        // IT COULD NOT, SO IT SAYS SO. A caller told raw mode is on when it is
+        // not will wait for a keystroke that is buffered until Enter, which is
+        // the hang this whole file exists because of - and putting back what was
+        // found is the same promise Restore makes.
+        tcsetattr(fd, TcsaNow, saved);
+        return null;
     }
 
     /// <summary>

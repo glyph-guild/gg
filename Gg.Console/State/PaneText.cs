@@ -1284,17 +1284,26 @@ public static class PaneText
 
     /// <summary>What the two ways of composing mean.</summary>
     /// <remarks>
+    /// <para>
     /// <b>It had none, and the box was empty.</b> The modal drew a title and
     /// nothing under it, so the answers lived only on the hint line at the foot
     /// of the screen - the furthest point from where somebody who has just
     /// pressed <c>n</c> is looking. Nothing caught it because the test asserts
     /// the HINTS name both ways, which they do.
+    /// </para>
+    /// <para>
+    /// <b>It does not name the keys, because the buttons under it do.</b> An
+    /// earlier version listed <c>w</c> and <c>m</c> down the left, which was
+    /// right when the hint line was the only place they appeared and is a third
+    /// copy now. What is left is what a button cannot say: what each choice
+    /// actually does.
+    /// </para>
     /// </remarks>
     private static string ComposeChoice() =>
         "Something has to say what this flight is for.\n"
       + "\n"
-      + "  w   write it yourself, in $EDITOR\n"
-      + "  m   compose it with an agent\n"
+      + "Write it yourself and $EDITOR opens on an empty\n"
+      + "buffer; what you save becomes the intent.\n"
       + "\n"
       + "An agent reads what it needs and hands back an\n"
       + "intent when you are both happy with it. gg keeps\n"

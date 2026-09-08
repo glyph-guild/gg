@@ -1038,6 +1038,21 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void RenderModalButtons()
     {
+        var wanted = Keymap.Buttons(Context());
+
+        // ONLY WHEN THEY ACTUALLY CHANGE, and this is the half that was broken.
+        // Render runs on a one-second timer for the refresh countdown, and
+        // rebuilding the buttons every time destroys the view a person had
+        // moved focus to - so focus jumped back once a second and tab looked
+        // like it did nothing. The same rule the pty host learned about
+        // resizing: do the work when the thing is different, not when something
+        // asked.
+        if (_modalButtons.Count == wanted.Count
+            && _modalButtons.Zip(wanted).All(p => p.First.Text == p.Second.Label))
+        {
+            return;
+        }
+
         foreach (var old in _modalButtons)
         {
             _modal.Remove(old);
@@ -1046,7 +1061,7 @@ public sealed class ConsoleScreen : Window
 
         _modalButtons.Clear();
 
-        foreach (var binding in Keymap.Buttons(Context()))
+        foreach (var binding in wanted)
         {
             var button = new Button { Text = binding.Label! };
 
@@ -1061,6 +1076,16 @@ public sealed class ConsoleScreen : Window
 
             _modalButtons.Add(button);
             _modal.AddButton(button);
+        }
+
+        // AND FOCUS STARTS SOMEWHERE A PERSON CHOSE. Left to itself the frame
+        // focused whichever child it liked - which was the SECOND button, so
+        // enter pressed by reflex composed with an agent rather than opening an
+        // editor. The first answer is the one to land on, and the first answer
+        // is the least consequential by the order they are declared in.
+        if (_modalButtons.Count > 0)
+        {
+            _modalButtons[0].SetFocus();
         }
     }
 

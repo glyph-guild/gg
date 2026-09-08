@@ -87,6 +87,19 @@ public class UnreadMemberTests
                 RemovedBy = "a corpus that carries every production project AND a history read "
                           + "that carries the same, which is one change and not two",
             },
+            ["Served.Opened"] = new Exemption
+            {
+                Because = "NOTHING IN PRODUCTION ANSWERS AN INTRODUCTION YET. RunnerChannel is "
+                        + "reached only from tests and from the doctor's loopback check, so the "
+                        + "handle it hands back has no production reader. The member is not "
+                        + "spare: it is the only thing that can report NoRouteBetweenUs and "
+                        + "ChannelNeverOpened, two HandshakeFailure values that were "
+                        + "unreachable for four commits because the peer was disposed at "
+                        + "return - which is the defect this whole type was added to fix",
+                RemovedBy = "the heartbeat's pending-introduction handler, which answers and "
+                          + "then reads this to narrate why nobody arrived - slice thirty-four "
+                          + "step 5",
+            },
         };
 
     // ---- the claim ----

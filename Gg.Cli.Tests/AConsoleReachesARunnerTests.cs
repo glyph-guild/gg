@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using Gg.Client;
 using Gg.Contracts;
@@ -44,10 +45,17 @@ public class AConsoleReachesARunnerTests
     /// Runs the whole handshake with the control plane's part played by a
     /// variable, and hands back what the console got.
     /// </summary>
-    private static async Task<(Reached Reached, HandshakeResult Answered)> HandshakeAsync(
-        IReadOnlyLog log, PinnedRunnerKeys? pins = null, string? pretendKeyIs = null)
+    private static async Task<(Reached Reached, HandshakeResult Answered, RunnerSealedOffer? Left)>
+        HandshakeAsync(
+            IReadOnlyLog log,
+            PinnedRunnerKeys? pins = null,
+            string? pretendKeyIs = null,
+            ECDiffieHellman? consoleKey = null)
     {
         using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        using var ownKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+
+        var ephemeral = consoleKey ?? ownKey;
 
         var runnerPublic = pretendKeyIs
             ?? Convert.ToBase64String(runnerKey.ExportSubjectPublicKeyInfo());
@@ -69,6 +77,7 @@ public class AConsoleReachesARunnerTests
 
         var reached = await console.ReachAsync(
             introduction,
+            ephemeral,
             pins ?? FreshPins(),
             T0,
             async (offer, ct) =>
@@ -87,13 +96,13 @@ public class AConsoleReachesARunnerTests
             _ => Task.FromResult(answered.Answer),
             CancellationToken.None);
 
-        return (reached, answered);
+        return (reached, answered, left);
     }
 
     [Test]
     public async Task A_console_asks_for_a_tail_and_the_runner_answers_it()
     {
-        var (reached, _) = await HandshakeAsync(new ALog("first", "second", "third"));
+        var (reached, _, _) = await HandshakeAsync(new ALog("first", "second", "third"));
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None)
             .Because(reached.Said);
@@ -117,7 +126,7 @@ public class AConsoleReachesARunnerTests
     [Test]
     public async Task It_answers_a_status_over_the_same_channel()
     {
-        var (reached, _) = await HandshakeAsync(new ALog());
+        var (reached, _, _) = await HandshakeAsync(new ALog());
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None).Because(reached.Said);
 
@@ -137,7 +146,7 @@ public class AConsoleReachesARunnerTests
         // THE CLOSED CHANNEL, END TO END. The dispatch is unit tested; this is
         // the same refusal with a DTLS association and an SCTP stream under it,
         // which is where somebody would expect a general channel to leak.
-        var (reached, _) = await HandshakeAsync(new ALog("a line"));
+        var (reached, _, _) = await HandshakeAsync(new ALog("a line"));
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None).Because(reached.Said);
 
@@ -162,7 +171,7 @@ public class AConsoleReachesARunnerTests
 
         using var impostor = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
-        var (reached, answered) = await HandshakeAsync(
+        var (reached, answered, _) = await HandshakeAsync(
             new ALog("a line"),
             pins,
             Convert.ToBase64String(impostor.ExportSubjectPublicKeyInfo()));
@@ -177,9 +186,40 @@ public class AConsoleReachesARunnerTests
     }
 
     [Test]
+    public async Task It_seals_with_the_key_the_introduction_was_minted_with()
+    {
+        // WHAT THE CONTROL PLANE ALREADY WRITES DOWN. Minting an introduction
+        // sends the console's ephemeral public key and the control plane stores
+        // its hash against the row. A console that seals with a key it made
+        // afterwards has declared one thing and done another - which compiles,
+        // works today, and is refused the moment anything checks the binding it
+        // is already keeping.
+        using var declared = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+
+        var (reached, _, left) = await HandshakeAsync(new ALog("a line"), consoleKey: declared);
+
+        await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None).Because(reached.Said);
+        using var conversation = reached.Conversation!;
+
+        await Assert.That(left).IsNotNull();
+
+        // READ OUT OF THE FRAME, the way the runner reads it and the way the
+        // control plane could: the ephemeral key is length-prefixed ahead of the
+        // ciphertext, so proving this needs nothing the seal protects.
+        var keyLength = BinaryPrimitives.ReadInt32BigEndian(left!.Sealed);
+        var sealedKey = Convert.ToBase64String(left.Sealed.AsSpan(4, keyLength));
+
+        await Assert.That(sealedKey)
+            .IsEqualTo(Convert.ToBase64String(declared.ExportSubjectPublicKeyInfo()))
+            .Because("the offer has to be sealed with the key the introduction was minted "
+                   + "with, or the hash the control plane stored is about nothing.");
+    }
+
+    [Test]
     public async Task A_runner_that_never_answers_says_so_rather_than_hanging()
     {
         using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        using var neverUsed = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
         var console = new ConsoleChannel([], TimeSpan.FromSeconds(2));
 
@@ -192,6 +232,7 @@ public class AConsoleReachesARunnerTests
                 Capability = "a-capability",
                 ExpiresAt = T0.AddMinutes(1),
             },
+            neverUsed,
             FreshPins(),
             T0,
             (_, _) => Task.CompletedTask,

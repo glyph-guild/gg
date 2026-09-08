@@ -132,10 +132,23 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
     /// <summary>
     /// Reaches one runner, through an introduction the control plane minted.
     /// </summary>
+    /// <param name="ephemeral">
+    /// The key whose public half was sent to mint <paramref name="introduction"/>.
+    /// </param>
     /// <param name="leaveAsync">Leaves the sealed offer where the runner will find it.</param>
     /// <param name="collectAsync">Asks whether the runner has answered yet.</param>
+    /// <remarks>
+    /// <b>The ephemeral key is PASSED IN rather than made here, and that is not
+    /// a style choice.</b> <c>RunnerIntroductionRequest</c> carries the console's
+    /// ephemeral public key, and the control plane stores its hash against the
+    /// introduction — so a console that mints an introduction with one key and
+    /// seals with another has declared something it did not do. Generating a
+    /// second key here would compile, work today, and be wrong the moment
+    /// anything checks the binding it already writes down.
+    /// </remarks>
     public async Task<Reached> ReachAsync(
         RunnerIntroduction introduction,
+        ECDiffieHellman ephemeral,
         PinnedRunnerKeys pins,
         DateTimeOffset now,
         Func<RunnerSealedOffer, CancellationToken, Task> leaveAsync,
@@ -143,6 +156,7 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(introduction);
+        ArgumentNullException.ThrowIfNull(ephemeral);
         ArgumentNullException.ThrowIfNull(pins);
         ArgumentNullException.ThrowIfNull(leaveAsync);
         ArgumentNullException.ThrowIfNull(collectAsync);
@@ -160,11 +174,16 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
               + $"run: gg runner repin {introduction.RunnerId}");
         }
 
-        var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
         var peer = new RTCPeerConnection(new RTCConfiguration
         {
             iceServers = [.. stunServers.Select(u => new RTCIceServer { urls = u })],
         });
+
+        // EVERY FAILURE BELOW CLOSES THE PEER, and cancellation is the exit none
+        // of them is written for. The registration is disposed on the way out,
+        // so a conversation that outlives this method is not closed by a token
+        // that meant "stop reaching".
+        await using var closeItIfWeAreStopped = cancellationToken.Register(peer.close);
 
         var opened = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);

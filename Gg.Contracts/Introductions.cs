@@ -74,6 +74,19 @@ public sealed record RunnerIntroductionRequest
 [PinnedId("2a90f6c3-58d1-4e07-b3a5-9c14e8b7205f")]
 public sealed record RunnerIntroduction
 {
+    /// <summary>
+    /// What this introduction is called, for as long as it lasts.
+    /// </summary>
+    /// <remarks>
+    /// <b>Missing from the first version of this type, and the omission is worth
+    /// keeping visible.</b> Without it the console had a capability and a key and
+    /// nowhere to put the offer it sealed: an introduction is a short
+    /// conversation with two ends, and both ends have to be able to name it. The
+    /// signalling route landed before anybody noticed, which is what a
+    /// conformance test finding an unserved route is for.
+    /// </remarks>
+    public required string IntroductionId { get; init; }
+
     /// <summary>The runner this is about.</summary>
     public required string RunnerId { get; init; }
 

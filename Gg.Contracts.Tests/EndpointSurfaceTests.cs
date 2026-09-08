@@ -264,8 +264,14 @@ public class EndpointSurfaceTests
         // audience, runner header, 202. A runner answering an introduction posts
         // OUTWARD, on the same footing as every other thing it says, because a
         // machine that never listens is what makes ICE viable here at all.
+        // Moved for the introduction's other end: POST and GET on
+        // /v1/introductions/{introductionId}, and that prefix joining the
+        // governed set. The signalling commit before it declared the RUNNER's
+        // half and left the console with a capability, a key, and nowhere to put
+        // what it sealed - a conformance test finding an unserved route is what
+        // led to the missing half.
         await Assert.That(Fingerprint())
-            .IsEqualTo("8bd5821af102b97802c6802de1f4d685e8ebff85bc5b71865e0f9e07edfd31f8")
+            .IsEqualTo("3881ebfee59820b53590d29e9d662757d7a83a7e07d4894fcffea40eb3e54e4f")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

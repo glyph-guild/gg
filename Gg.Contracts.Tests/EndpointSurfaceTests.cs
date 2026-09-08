@@ -251,8 +251,13 @@ public class EndpointSurfaceTests
         // the two doors carry identical statuses on purpose, because what
         // differs between them is which sentence is true rather than how they
         // behave.
+        // Moved for the runner retirement: POST /v1/runners/{id}/retirement
+        // arrives, developer audience, session header, 200/401/403/404 and no
+        // 409. It is the first act on a runner with no undo verb beside it -
+        // parking and reservation each carry a DELETE twin and this
+        // deliberately does not, because nothing un-retires a runner.
         await Assert.That(Fingerprint())
-            .IsEqualTo("d8ce5ba72c5d8553e3fbaa9821685da90b3436468b8a34550affa6b5abfc1a73")
+            .IsEqualTo("31dff31186e309d42322c264d0986c1cc9c6d087b98ae27dc654d092ea89a565")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

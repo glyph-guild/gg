@@ -370,7 +370,16 @@ public sealed class RunnerLoop(
             // The interval is the control plane's, read from its own answer,
             // never a constant here - it is derived from the staleness
             // threshold and only that side knows it.
-            return TimeSpan.FromSeconds(beat.NextHeartbeatSeconds);
+            //
+            // AND CLAMPED, because "read from its own answer" and "trusted" are
+            // not the same sentence. HeartbeatCadence has held the bound since
+            // the interval became load-bearing for introductions as well as for
+            // liveness, and the argument for keeping it on THIS side is written
+            // there: a bound only the sender enforces disappears the moment the
+            // sender is wrong, and this is the machine whose CPU and egress it
+            // spends. It was reachable from nothing but its own tests until the
+            // beat began running beside a flight, where a zero would spin.
+            return HeartbeatCadence.Respecting(beat.NextHeartbeatSeconds);
         }
         catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
         {

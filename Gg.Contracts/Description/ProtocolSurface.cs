@@ -138,7 +138,7 @@ public static class ProtocolSurface
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
         ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials",
-         "/v1/envelope", "/v1/invitations", "/v1/environments",
+         "/v1/envelope", "/v1/invitations", "/v1/environments", "/v1/introductions",
          // The topology decides which envelope names are REACHABLE, so an
          // undeclared route under it would be an unaudited way to widen what
          // every tenant's envelopes can reach - the /v1/environments
@@ -303,6 +303,37 @@ public static class ProtocolSurface
         // socket. The offer arrived on the heartbeat the runner was already
         // making; this is the answer going back the same way round - outbound,
         // from a machine that never listens.
+        // THE CONSOLE'S TWO ENDS OF THE SAME CONVERSATION. An introduction is
+        // minted, the console seals an offer to the key it came back with and
+        // leaves it here, and it collects the answer here too. Both are the
+        // person's side, so both take a session.
+        //
+        // UNDER /v1/introductions RATHER THAN UNDER THE RUNNER, because by this
+        // point the runner is not what is being addressed - one short-lived
+        // conversation is, and it outlives neither end of it.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/introductions/{introductionId}",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerSealedOffer),
+            // 202: left for the runner's next heartbeat to take. Waiting here
+            // would put the relay inside the conversation.
+            Statuses = [202, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/introductions/{introductionId}",
+            Audience = Audience.Developer,
+            Response = typeof(RunnerSealedAnswer),
+            // 204 WHILE THERE IS NO ANSWER YET, which is not 404: "not answered
+            // yet" and "no such introduction" are different facts, and a console
+            // polling has to tell waiting from wrong.
+            Statuses = [200, 204, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "POST",
@@ -1268,7 +1299,7 @@ public static class ProtocolSurface
             [typeof(PendingIntroduction)] = ["introductionId", "offer"],
             [typeof(RunnerSignalAnswer)] = ["introductionId", "answer"],
             [typeof(RunnerIntroduction)] =
-                ["runnerId", "runnerPublicKey", "capability", "expiresAt"],
+                ["introductionId", "runnerId", "runnerPublicKey", "capability", "expiresAt"],
             [typeof(RunnerCapabilityClaims)] =
                 ["principalId", "runnerId", "purpose", "expiresAt", "ephemeralKeyHash"],
             // NO MEMBER AN SDP COULD BE READ OUT OF, deliberately, which is

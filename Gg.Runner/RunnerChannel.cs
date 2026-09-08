@@ -50,7 +50,78 @@ public sealed record HandshakeResult(
     RunnerSealedAnswer? Answer,
     HandshakeFailure Failure,
     string Said,
-    IReadOnlyList<string> LocalCandidates);
+    IReadOnlyList<string> LocalCandidates,
+    Served? Serving = null);
+
+/// <summary>
+/// The peer a runner holds open for the console that asked for it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This exists because a handshake and a conversation have different
+/// lifetimes, and for one commit they did not.</b> <see cref="RunnerChannel"/>
+/// held its peer connection in a <c>using</c>, so it was disposed the instant
+/// the answer was returned — before the console had collected it, let alone
+/// connected. The method said it served the channel it brought and could not
+/// serve anything, and every test read the candidates off the returned record
+/// and so never noticed. A handshake half is testable with no far end; SERVING
+/// is not.
+/// </para>
+/// <para>
+/// <b>Arrival is bounded and the conversation is not.</b> The bound is the
+/// introduction's own lifetime: a console that has not turned up before the
+/// thing that authorised it expired is not going to, and holding a peer for it
+/// would let anybody who can open introductions pin a runner's memory by going
+/// quiet. Once somebody is actually on the other end, how long they stay is
+/// theirs — a person reading a log is not doing anything wrong by reading it
+/// slowly — so the owner disposes this when the conversation is over.
+/// </para>
+/// </remarks>
+public sealed class Served : IDisposable
+{
+    private readonly RTCPeerConnection _peer;
+    private readonly CancellationTokenSource _letGo = new();
+
+    internal Served(RTCPeerConnection peer, Task opened, TimeSpan arrivalBound)
+    {
+        _peer = peer;
+        Opened = WaitAsync(peer, opened, arrivalBound, _letGo.Token);
+    }
+
+    /// <summary>How it turned out: <c>None</c>, or why nobody arrived.</summary>
+    /// <remarks>
+    /// <b>The two failures here are ones only this side can tell apart.</b> ICE
+    /// never connecting is a network; ICE connecting with no channel on it is
+    /// us. Both were unreachable while the peer was disposed at return, which is
+    /// what an enum member no code path can produce usually means.
+    /// </remarks>
+    public Task<HandshakeFailure> Opened { get; }
+
+    private static async Task<HandshakeFailure> WaitAsync(
+        RTCPeerConnection peer, Task opened, TimeSpan arrivalBound, CancellationToken letGo)
+    {
+        if (await Task.WhenAny(opened, Task.Delay(arrivalBound, letGo)) == opened)
+        {
+            return HandshakeFailure.None;
+        }
+
+        // SIPSorcery's ICE states stop at `connected`; there is no `completed`,
+        // so this is the whole of "a route was found".
+        var why = peer.iceConnectionState is RTCIceConnectionState.connected
+            ? HandshakeFailure.ChannelNeverOpened
+            : HandshakeFailure.NoRouteBetweenUs;
+
+        peer.close();
+        return why;
+    }
+
+    public void Dispose()
+    {
+        _letGo.Cancel();
+        _letGo.Dispose();
+        _peer.close();
+    }
+}
 
 /// <summary>
 /// The runner's half of a handshake: it answers, and it never listens.
@@ -80,8 +151,20 @@ public sealed record HandshakeResult(
 /// </para>
 /// </remarks>
 public sealed class RunnerChannel(
-    IReadOnlyList<string> stunServers, TimeSpan patience)
+    IReadOnlyList<string> stunServers, TimeSpan patience, TimeSpan? arrivalBound = null)
 {
+    /// <summary>
+    /// How long a peer is held for a console that has not turned up.
+    /// </summary>
+    /// <remarks>
+    /// <b>One minute because that is what an introduction lasts.</b> The control
+    /// plane mints them with a sixty second life, so a console that has not
+    /// arrived by then is holding something that no longer authorises it.
+    /// Anything longer is a way to make a runner keep peers for conversations
+    /// that will not happen.
+    /// </remarks>
+    private readonly TimeSpan _arrivalBound = arrivalBound ?? TimeSpan.FromMinutes(1);
+
     /// <summary>
     /// Opens one introduction, answers it, and serves the channel it brings.
     /// </summary>
@@ -121,10 +204,20 @@ public sealed class RunnerChannel(
 
         var offer = Encoding.UTF8.GetString(offerBytes);
 
-        using var peer = new RTCPeerConnection(new RTCConfiguration
+        // NOT A `using`. This peer has to outlive the method that made it: the
+        // console cannot connect until the answer has been relayed, which cannot
+        // happen until this returns. Every path that does not hand it over
+        // closes it below.
+        var peer = new RTCPeerConnection(new RTCConfiguration
         {
             iceServers = [.. stunServers.Select(u => new RTCIceServer { urls = u })],
         });
+
+        // WHICH LEAVES CANCELLATION AS THE ONE EXIT NOT WRITTEN HERE. The
+        // registration is disposed on the way out either way, so a cancelled
+        // handshake closes its peer and a served one is not closed by a token
+        // whose conversation has outlived this method.
+        await using var closeItIfWeAreStopped = cancellationToken.Register(peer.close);
 
         var opened = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -152,6 +245,8 @@ public sealed class RunnerChannel(
                 sdp = offer,
             }) is not SetDescriptionResultEnum.OK)
         {
+            peer.close();
+
             return new HandshakeResult(
                 null, HandshakeFailure.OfferWasNotSdp,
                 "The offer opened and was not something this runner could answer. The seal is "
@@ -193,7 +288,11 @@ public sealed class RunnerChannel(
             },
             HandshakeFailure.None,
             "answered",
-            Offered(gathered));
+            Offered(gathered),
+            // THE COUNTDOWN STARTS HERE rather than at the peer's creation,
+            // because gathering has just spent some of the caller's patience and
+            // the console has not been told anything yet.
+            new Served(peer, opened.Task, _arrivalBound));
     }
 
     private static IReadOnlyList<string> Offered(List<string> gathered)

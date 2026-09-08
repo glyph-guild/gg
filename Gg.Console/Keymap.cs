@@ -161,6 +161,26 @@ public readonly record struct KeyBinding(KeyStroke Key, Command Command, string 
     public string? When { get; init; }
 
     /// <summary>
+    /// What a button for this key says, for a modal that draws them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own field because <see cref="Description"/> is written for a
+    /// different surface.</b> The hint line explains - "write it in your
+    /// editor" - and a button is a thing you point at. Using the one for the
+    /// other renders two half-labels in a box sized for a question.
+    /// </para>
+    /// <para>
+    /// <b>Null means this mode does not draw buttons yet</b>, and that is the
+    /// whole rollout mechanism: a mode joins in when somebody has labelled every
+    /// answer it has, and looks exactly as it does today until then. Half a set
+    /// is worse than none - a modal offering `approve` and not `reject` reads as
+    /// though approving is all there is.
+    /// </para>
+    /// </remarks>
+    public string? Label { get; init; }
+
+    /// <summary>
     /// Bound, and kept off the hint line.
     /// </summary>
     /// <remarks>
@@ -346,8 +366,10 @@ public static class Keymap
         // than being the first letter of a word that was taken.
         UiMode.ComposeChoice =>
         [
-            new(KeyStroke.Char('w'), Command.ComposeInEditor, "write it in your editor"),
-            new(KeyStroke.Char('m'), Command.ComposeWithAgent, "compose it with an agent"),
+            new(KeyStroke.Char('w'), Command.ComposeInEditor, "write it in your editor")
+                { Label = "Editor" },
+            new(KeyStroke.Char('m'), Command.ComposeWithAgent, "compose it with an agent")
+                { Label = "Agent" },
 
             // THE ONE WAY OUT, the same key it is in every other modal - which
             // is what makes it findable without being learned. Escaping opens
@@ -595,6 +617,40 @@ public static class Keymap
     /// dictionary order.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The answers this modal should draw as buttons, if it draws any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Derived from the bindings, so a button cannot say something the key
+    /// does not do.</b> Which answers a modal has is written once, here; a list
+    /// kept beside it would be a second place the same thing lives.
+    /// </para>
+    /// <para>
+    /// <b>Empty unless every answer is labelled.</b> See
+    /// <see cref="KeyBinding.Label"/>: a partly-buttoned modal hides one of its
+    /// own options behind a keystroke nobody was shown.
+    /// </para>
+    /// <para>
+    /// <b>The escape hatch is never one.</b> It is on every modal and the frame
+    /// already means there is a way out; a button for it would be the one
+    /// affordance nobody needed help finding.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<KeyBinding> Buttons(KeymapContext context)
+    {
+        if (context.Mode == UiMode.Normal)
+        {
+            return [];
+        }
+
+        var answers = Bindings(context).Where(b => b.Key != KeyStroke.Esc).ToList();
+
+        return answers.Count > 0 && answers.TrueForAll(b => b.Label is { Length: > 0 })
+            ? answers
+            : [];
+    }
+
     public static IReadOnlyList<KeyCatalogueEntry> Catalogue()
     {
         var entries = new List<KeyCatalogueEntry>();

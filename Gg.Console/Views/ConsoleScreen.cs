@@ -63,8 +63,17 @@ public sealed class ConsoleScreen : Window
     private readonly Label _runnerNotice;
     private readonly Button _runnerStart;
     private readonly TableView _runnersTable;
-    private readonly FrameView _modal;
+    private readonly Dialog _modal;
     private readonly Label _modalBody;
+
+    /// <summary>The modal's buttons, rebuilt whenever what it asks changes.</summary>
+    /// <remarks>
+    /// <b>Rebuilt rather than hidden.</b> Which answers exist depends on the
+    /// mode AND the model - the sign-in modal offers different keys once a code
+    /// is showing - so a fixed set toggled visible would be a second thing to
+    /// keep in step with <see cref="Keymap.Buttons"/>.
+    /// </remarks>
+    private readonly List<Button> _modalButtons = [];
 
     /// <summary>
     /// The flight modal's own body: a document, a form and a table.
@@ -394,7 +403,14 @@ public sealed class ConsoleScreen : Window
         // indistinguishable from a key that does nothing.
         _activity = new Label { X = 0, Y = Pos.AnchorEnd(2), Width = Dim.Fill() };
 
-        _modal = new FrameView
+        // A DIALOG FOR THE BUTTON ROW AND THE SHADOW, and NOT run as one.
+        // Dialog derives from Runnable and its own shape is run-me-and-take-a-
+        // Result, which would put the answer inside Terminal.Gui: where Keymap
+        // cannot see it, the generated key walk cannot prove the escape hatch,
+        // and AppState.Mode would stop describing the screen. So it is a child
+        // view whose visibility comes from the model, exactly as the frame's
+        // did, and its buttons send the same commands the keys send.
+        _modal = new Dialog
         {
             X = Pos.Center(),
             Y = Pos.Center(),
@@ -1012,6 +1028,42 @@ public sealed class ConsoleScreen : Window
         key.Handled = true;
     }
 
+    /// <summary>A button per answer the open modal has.</summary>
+    /// <remarks>
+    /// <b>From <see cref="Keymap.Buttons"/>, which answers with nothing until a
+    /// mode has labelled every one of its answers.</b> That is the rollout: a
+    /// modal joins in when somebody writes its labels, and looks exactly as it
+    /// does today until then - rather than growing a half-set of buttons that
+    /// hides the options nobody got round to naming.
+    /// </remarks>
+    private void RenderModalButtons()
+    {
+        foreach (var old in _modalButtons)
+        {
+            _modal.Remove(old);
+            old.Dispose();
+        }
+
+        _modalButtons.Clear();
+
+        foreach (var binding in Keymap.Buttons(Context()))
+        {
+            var button = new Button { Text = binding.Label! };
+
+            // THE SAME PATH A KEYSTROKE TAKES - the command itself, handed to
+            // the one place that acts on one. Not a copy of what it does.
+            var command = binding.Command;
+            button.Accepting += (_, e) =>
+            {
+                e.Handled = true;
+                Dispatch(command);
+            };
+
+            _modalButtons.Add(button);
+            _modal.AddButton(button);
+        }
+    }
+
     private void OnScreenKeyDown(object? sender, Key key)
     {
         var stroke = KeyTranslator.Translate(key);
@@ -1022,16 +1074,29 @@ public sealed class ConsoleScreen : Window
         }
 
         key.Handled = true;
+        Dispatch(command.Value);
+    }
+
+    /// <summary>Act on a command, whatever produced it.</summary>
+    /// <remarks>
+    /// <b>One place, because there is now more than one input.</b> A keystroke
+    /// and a button press are the same decision arriving by two routes, and two
+    /// copies of "is this the shell's or the reducer's" would be two places to
+    /// get that split wrong. <see cref="Keymap"/> stays the authority on what a
+    /// KEY means; this is what happens once something means it.
+    /// </remarks>
+    private void Dispatch(Command command)
+    {
         // ONE DECLARATION, READ HERE. A literal list is what this was, and it
         // silently excluded four commands the shell already had arms for.
-        if (ShellCommands.Handled.Contains(command.Value))
+        if (ShellCommands.Handled.Contains(command))
         {
-            ExitCommand = command.Value;
+            ExitCommand = command;
             _app.RequestStop(this);
             return;
         }
 
-        State = Reducer.Reduce(State, command.Value);
+        State = Reducer.Reduce(State, command);
         Render();
     }
 
@@ -1200,6 +1265,8 @@ public sealed class ConsoleScreen : Window
             _modalBody.Text = PaneText.Modal(State);
         }
 
+        RenderModalButtons();
+
         // SIZED BY WHAT IS IN IT. A question with two answers wants a box a
         // person's eye can take in at once; a document wants the screen. The
         // help page is twenty-one keys and a flight's detail is its whole log,
@@ -1207,8 +1274,19 @@ public sealed class ConsoleScreen : Window
         // which is a scrollbar where a reader wanted a page.
         var document = PaneText.ModalIsADocument(State.Mode);
 
-        _modal.Width = document ? Dim.Percent(92) : 52;
-        _modal.Height = document ? Dim.Percent(88) : 12;
+        // AND BY WHAT IS IN IT NOW THAT THERE IS MORE. Fifty-two by twelve fitted
+        // a one-sentence question; a body that explains two answers, with a row
+        // of buttons under it, is cut off in that box - and a cut-off answer
+        // reads as a shorter answer rather than as a box that is too small.
+        var wide = _modalButtons.Sum(b => b.Text.Length + 6) + 4;
+        // MEASURED RATHER THAN GUESSED: a border top and bottom, a button row,
+        // the shadow under it, and the blank line the dialog keeps above the
+        // buttons. Five was the guess and it cut the last two lines of the body.
+        var tall = PaneText.Modal(State).Split('\n').Length
+                 + (_modalButtons.Count > 0 ? 7 : 3);
+
+        _modal.Width = document ? Dim.Percent(92) : Math.Max(52, wide);
+        _modal.Height = document ? Dim.Percent(88) : Math.Max(12, tall);
 
         _activity.Text = PaneText.Activity(State);
         _hints.Text = Keymap.Hints(Context());

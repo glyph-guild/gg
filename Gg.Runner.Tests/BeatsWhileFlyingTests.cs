@@ -119,7 +119,11 @@ public class BeatsWhileFlyingTests
         },
     };
 
-    private sealed record Flown(FakeProtocol Protocol, RecordingObserver Observer, int BeatsWhileFlying);
+    private sealed record Flown(
+        FakeProtocol Protocol,
+        RecordingObserver Observer,
+        int BeatsWhileFlying,
+        IReadOnlyList<TimeSpan> Paced);
 
     /// <summary>
     /// Flies one flight, holding the agent inside it long enough to watch what
@@ -128,13 +132,19 @@ public class BeatsWhileFlyingTests
     private static async Task<Flown> FlyAsync(
         bool attended,
         bool wiredToBeDriven = false,
-        PendingIntroduction? introduceMidFlight = null)
+        PendingIntroduction? introduceMidFlight = null,
+        int? heartbeatSeconds = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, attended)));
+
+        if (heartbeatSeconds is { } asked)
+        {
+            protocol.HeartbeatSeconds = asked;
+        }
 
         var observer = new RecordingObserver();
         using var stopping = new CancellationTokenSource();
@@ -147,6 +157,7 @@ public class BeatsWhileFlyingTests
         };
 
         var executor = new BlockingExecutor();
+        var paced = new List<TimeSpan>();
 
         // THE SESSION NARRATES INTO THE TEST'S OWN OBSERVER, which is what makes
         // answering observable at all. The offer left below cannot be opened, so
@@ -184,6 +195,11 @@ public class BeatsWhileFlyingTests
                 // real instant so the flight it is running beside can proceed.
                 beatPace: (span, token) =>
                 {
+                    lock (paced)
+                    {
+                        paced.Add(span);
+                    }
+
                     clock.Advance(span);
                     return Task.Delay(1, token);
                 })
@@ -219,7 +235,10 @@ public class BeatsWhileFlyingTests
         executor.Release();
         await flying;
 
-        return new Flown(protocol, observer, beats);
+        lock (paced)
+        {
+            return new Flown(protocol, observer, beats, [.. paced]);
+        }
     }
 
     [Test]
@@ -256,6 +275,29 @@ public class BeatsWhileFlyingTests
                    + "whose session begins after the work ends, can never be reached during "
                    + "the one window a person actually wants: while the agent is working. "
                    + "Said: " + string.Join(" | ", flown.Observer.Events));
+    }
+
+    [Test]
+    public async Task A_cadence_the_control_plane_asks_for_is_clamped_before_it_is_waited()
+    {
+        // A CONTROL PLANE THAT ASKS FOR NOTHING gets the floor, and the floor is
+        // held HERE because this is the machine whose CPU and egress it spends.
+        // HeartbeatCadence says so in its own remarks - "a bound only the sender
+        // enforces is a bound that disappears the moment the sender is wrong" -
+        // and good-grief's heartbeat endpoint states as fact that "the runner
+        // clamps whatever arrives to HeartbeatCadence's floor". Nothing did.
+        // Respecting was reachable only from its own tests.
+        //
+        // It matters more now than when it was written: a beat that only fires
+        // between long polls could absorb a silly interval, and one running
+        // beside a flight turns it into a spin next to work that matters.
+        var flown = await FlyAsync(attended: false, heartbeatSeconds: 0);
+
+        await Assert.That(flown.Paced).IsNotEmpty();
+        await Assert.That(flown.Paced.All(p => p >= HeartbeatCadence.Floor)).IsTrue()
+            .Because("the runner waits what it was told, and what it was told is not "
+                   + $"trusted. {flown.Paced.Count} waits, the first few: "
+                   + string.Join(", ", flown.Paced.Take(6).Select(p => $"{p.TotalMilliseconds}ms")));
     }
 
     [Test]

@@ -205,9 +205,18 @@ public class StubSurfaceTests
         // The property is the absence of the probe: a port is taken by binding
         // the real listener, and the operating system arbitrates the only bind
         // that happens.
+        // THE READ OF THE SYSTEM'S LISTENER TABLE IS NOT A BIND, and it shares a
+        // substring with the type this refuses. `GetActiveTcpListeners` asks the
+        // operating system what is already listening - which is how
+        // RunnerStillDialsOutTests proves a runner opened nothing - and flagging
+        // it would refuse the one test that checks the property this rule is
+        // ultimately about. Removed from the text rather than the rule narrowed
+        // to `new TcpListener`, so the net stays broad.
         var offenders = Sources()
             .Where(f => Path.GetFileName(f) != "StubSurfaceTests.cs")
-            .Where(f => Code(f).Contains("TcpListener", StringComparison.Ordinal))
+            .Where(f => Code(f)
+                .Replace("GetActiveTcpListeners", "", StringComparison.Ordinal)
+                .Contains("TcpListener", StringComparison.Ordinal))
             .Select(f => Path.GetFileName(f)!)
             .ToList();
 
@@ -215,6 +224,23 @@ public class StubSurfaceTests
             .Because("a port that was probed and released is a port somebody else can take before "
                    + "it is bound, and two test assemblies were both doing it. Found: "
                    + string.Join(", ", offenders));
+
+        // AND THE EXCLUSION DOES NOT SWALLOW THE RULE. A blanket removal of the
+        // substring would make this test pass on a file that really does
+        // construct one, which is the failure mode of every convenient
+        // narrowing.
+        const string reading = "var x = props.GetActiveTcpListeners();";
+        const string binding = "var x = new TcpListener(addr, 0);";
+
+        await Assert.That(reading
+                .Replace("GetActiveTcpListeners", "", StringComparison.Ordinal)
+                .Contains("TcpListener", StringComparison.Ordinal))
+            .IsFalse();
+        await Assert.That(binding
+                .Replace("GetActiveTcpListeners", "", StringComparison.Ordinal)
+                .Contains("TcpListener", StringComparison.Ordinal))
+            .IsTrue()
+            .Because("a file that constructs one still has to be caught.");
     }
 
     /// <summary>Both stub servers, wherever they live.</summary>

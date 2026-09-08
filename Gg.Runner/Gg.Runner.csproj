@@ -12,6 +12,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- THE FORK, AND IT EXISTS TO BE DELETED. Upstream stalls in CookieEchoed
+         under Native AOT: the SCTP state cookie is reflection-serialised and the
+         trimmer removes its members, so data channels never open.
+         TheSipsorceryForkIsTemporaryTests fails when sipsorcery#1817 merges, so
+         the unpin is a build failure rather than a memory. -->
+    <PackageReference Include="SIPSorcery" />
     <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
     <ProjectReference Include="../Gg.Local/Gg.Local.csproj" />
   </ItemGroup>

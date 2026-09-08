@@ -113,9 +113,11 @@ public sealed class PtyEditorSession : IEditorSession
                     [.. parts.Skip(1), file],
                     Directory.GetCurrentDirectory(),
                     // NOTHING CHANGES WHILE AN EDITOR IS UP. Saving and quitting
-                    // is what ends this, and the editor says so itself - so the
-                    // one sentence is the whole of what gg has to add.
-                    () => _bar,
+                    // is what ends this, and the editor says so itself - so one
+                    // row is the whole of what gg has to add, and it never opens
+                    // into more: there is nothing an editor session can be asked
+                    // about that the editor is not already showing.
+                    () => (string[])[_bar],
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (

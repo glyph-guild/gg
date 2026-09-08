@@ -141,6 +141,38 @@ public class ModalButtonTests
     }
 
     [Test]
+    public async Task The_answer_focus_lands_on_is_never_one_that_stops_something()
+    {
+        // FOCUS STARTS ON THE FIRST BUTTON, and the marks now go with it, so the
+        // first answer is the one a person gets for pressing enter without
+        // reading. That makes the DECLARATION ORDER in Keymap load-bearing:
+        // swapping the runner's two answers would put `Shut down' under a
+        // reflex keypress, and nothing else in the suite would notice.
+        //
+        // Named rather than inferred, because "consequential" is not a property
+        // a command has. These two end something that is running.
+        var ending = (Command[])[Command.StopRunner, Command.GroundFlight];
+
+        foreach (var context in (KeymapContext[])
+                 [new(UiMode.Help), new(UiMode.SignIn),
+                  new(UiMode.SignIn) { SignInStarted = true },
+                  new(UiMode.Runner) { RunnerIsOurs = true },
+                  new(UiMode.ComposeChoice)])
+        {
+            var buttons = Keymap.Buttons(context);
+            if (buttons.Count == 0)
+            {
+                continue;
+            }
+
+            await Assert.That(ending).DoesNotContain(buttons[0].Command)
+                .Because($"{context.Mode} declares {buttons[0].Command} first, so it is what "
+                       + "focus and the default marks land on - and enter is pressed by "
+                       + "reflex.");
+        }
+    }
+
+    [Test]
     public async Task A_label_is_a_word_or_two_rather_than_the_hint_line_sentence()
     {
         // The description is written for a line that explains; a button is a

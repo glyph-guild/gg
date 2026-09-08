@@ -38,106 +38,27 @@ public class RawModeTests
     /// macOS and Linux, where <c>openpty</c> lives in libutil on one of them and
     /// not the other.
     /// </remarks>
-    // DllImport rather than LibraryImport: this project is never AOT
-    // published, and LibraryImport would need AllowUnsafeBlocks turned on for
-    // a test helper. RawMode itself is a different matter - it ships inside the
-    // AOT binary and uses the source-generated form.
-    [DllImport("libc", SetLastError = true)]
-    private static extern int posix_openpt(int flags);
-
-    [DllImport("libc", SetLastError = true)]
-    private static extern int close(int fd);
-
-    [DllImport("libc", SetLastError = true)]
-    private static extern int grantpt(int fd);
-
-    [DllImport("libc", SetLastError = true)]
-    private static extern int unlockpt(int fd);
-
-    [DllImport("libc", SetLastError = true)]
-    private static extern IntPtr ptsname(int fd);
-
-    [DllImport("libc", SetLastError = true, EntryPoint = "open")]
-    private static extern int open_(string path, int flags);
-
-    private const int ORdWr = 2;
-
-    /// <summary>
-    /// <c>O_NOCTTY</c>, WHICH IS A DIFFERENT NUMBER ON EACH PLATFORM.
-    /// </summary>
-    /// <remarks>
-    /// 0x20000 on macOS and 0x100 on Linux — and 0x20000 on Linux is
-    /// <c>O_NOFOLLOW</c>, so the wrong constant does not fail, it asks for
-    /// something else and is granted it. The same hazard as the termios offsets
-    /// in <c>RawMode</c>, found the same way: by asking what the other platform
-    /// calls it rather than assuming a header is a header.
-    /// </remarks>
-    private static int ONoctty => OperatingSystem.IsMacOS() ? 0x20000 : 0x100;
-
-    /// <summary>
-    /// The SLAVE side of a fresh pseudo-terminal.
-    /// </summary>
-    /// <remarks>
-    /// <b>The slave, not the master, and the distinction is the whole point.</b>
-    /// <c>posix_openpt</c> hands back the master - the end a terminal EMULATOR
-    /// holds - and termios settings belong to the slave, the end a program
-    /// believes is its terminal. Asking the master about its line discipline
-    /// answers about nothing, which is what a first version of this test did.
-    /// </remarks>
-    private static (int Master, int Slave) OpenTerminal()
-    {
-        var master = posix_openpt(ORdWr | ONoctty);
-        if (master < 0 || grantpt(master) != 0 || unlockpt(master) != 0)
-        {
-            return (-1, -1);
-        }
-
-        var name = Marshal.PtrToStringAnsi(ptsname(master));
-        if (name is null)
-        {
-            close(master);
-            return (-1, -1);
-        }
-
-        var slave = open_(name, ORdWr | ONoctty);
-        if (slave < 0)
-        {
-            close(master);
-            return (-1, -1);
-        }
-
-        return (master, slave);
-    }
-
     [Test]
     public async Task Raw_mode_turns_off_the_line_discipline_and_the_echo()
     {
         // The two properties the host actually needs. Canonical mode holds
         // input until Enter, which makes a keystroke-driven child unusable;
         // echo draws what is typed on top of what gg paints.
-        var (master, fd) = OpenTerminal();
+        using var pty = PseudoTerminal.Open();
 
-        try
-        {
-            var saved = RawMode.Enter(fd);
+        var saved = RawMode.Enter(pty.Slave);
 
-            await Assert.That(saved).IsNotNull()
-                .Because("a terminal that could be configured has settings to put back.");
+        await Assert.That(saved).IsNotNull()
+            .Because("a terminal that could be configured has settings to put back.");
 
-            var raw = RawMode.Describe(fd);
+        var raw = RawMode.Describe(pty.Slave);
 
-            await Assert.That(raw.Canonical).IsFalse();
-            await Assert.That(raw.Echo).IsFalse();
-            await Assert.That(raw.MinimumBytes).IsEqualTo(0)
-                .Because("a read must answer immediately with whatever is waiting, or the "
-                       + "input loop has to cancel one - and a cancelled read on a tty does "
-                       + "not abort the syscall, it stays pending and eats what arrives next.");
-        }
-        finally
-        {
-            close(fd);
-            close(master);
-        }
+        await Assert.That(raw.Canonical).IsFalse();
+        await Assert.That(raw.Echo).IsFalse();
+        await Assert.That(raw.MinimumBytes).IsEqualTo(0)
+            .Because("a read must answer immediately with whatever is waiting, or the "
+                   + "input loop has to cancel one - and a cancelled read on a tty does "
+                   + "not abort the syscall, it stays pending and eats what arrives next.");
     }
 
     [Test]
@@ -188,24 +109,16 @@ public class RawModeTests
         // success on the strength of having been asked, and was believed while
         // reads blocked forever. Describe must answer from the terminal, so
         // changing the terminal behind its back changes what it says.
-        var (master, fd) = OpenTerminal();
+        using var pty = PseudoTerminal.Open();
 
-        try
-        {
-            var saved = RawMode.Enter(fd);
-            await Assert.That(RawMode.Describe(fd).Canonical).IsFalse();
+        var saved = RawMode.Enter(pty.Slave);
+        await Assert.That(RawMode.Describe(pty.Slave).Canonical).IsFalse();
 
-            RawMode.Restore(fd, saved);
+        RawMode.Restore(pty.Slave, saved);
 
-            await Assert.That(RawMode.Describe(fd).Canonical).IsTrue()
-                .Because("restoring put the line discipline back, and a describe that "
-                       + "remembered what it had done would still be claiming raw.");
-        }
-        finally
-        {
-            close(fd);
-            close(master);
-        }
+        await Assert.That(RawMode.Describe(pty.Slave).Canonical).IsTrue()
+            .Because("restoring put the line discipline back, and a describe that "
+                   + "remembered what it had done would still be claiming raw.");
     }
 
     [Test]
@@ -214,21 +127,13 @@ public class RawModeTests
         // Not "puts back something reasonable". The terminal belongs to whoever
         // ran gg, and a session that ends with different settings from the ones
         // it found is one that changed a person's shell.
-        var (master, fd) = OpenTerminal();
+        using var pty = PseudoTerminal.Open();
 
-        try
-        {
-            var before = RawMode.Describe(fd);
-            var saved = RawMode.Enter(fd);
-            RawMode.Restore(fd, saved);
+        var before = RawMode.Describe(pty.Slave);
+        var saved = RawMode.Enter(pty.Slave);
+        RawMode.Restore(pty.Slave, saved);
 
-            await Assert.That(RawMode.Describe(fd)).IsEqualTo(before);
-        }
-        finally
-        {
-            close(fd);
-            close(master);
-        }
+        await Assert.That(RawMode.Describe(pty.Slave)).IsEqualTo(before);
     }
 
     [Test]

@@ -228,7 +228,7 @@ public sealed class RunnerLoop(
     // decision somebody made rather than a capability every runner has.
     //
     // LAST and defaulted, because every existing caller passes positionally.
-    Func<AttendedSession>? attendedSessions = null)
+    Func<string, AttendedSession>? attendedSessions = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -1858,7 +1858,14 @@ public sealed class RunnerLoop(
         // NULL WHEN THE FLIGHT IS HEADLESS OR THIS RUNNER WAS NOT WIRED TO BE
         // DRIVEN. Both are the ordinary case, and both mean introductions
         // arriving on these beats are ignored.
-        using var attended = lease.Attended is true ? attendedSessions?.Invoke() : null;
+        // BY FLIGHT ID, so the log this session can read is THIS flight's live
+        // view and not the machine's whole output. A journal would have handed
+        // somebody every flight the runner is running, including other people's;
+        // the lease authorises one conversation about one flight, and the file
+        // path is what makes that true rather than a filter somebody applies.
+        using var attended = lease.Attended is true
+            ? attendedSessions?.Invoke(lease.FlightId)
+            : null;
 
         while (_clock.UtcNow < until && !cancellationToken.IsCancellationRequested)
         {

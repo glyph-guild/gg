@@ -25,8 +25,40 @@ public class SourceMappingAndAddSourceCannotBothBeUsedTests
 {
     private static string Config() => Sources.Read("nuget.config");
 
-    private static string Workflow() =>
-        Sources.Read(".github", "workflows", "ci.yml");
+    /// <summary>Every workflow this repository has, by shape rather than by path.</summary>
+    /// <remarks>
+    /// <b>Found rather than named, and not only to satisfy
+    /// ProviderNeutralityTests.</b> That guard forbids a provider name in any
+    /// source file, and the directory these live in carries one - but a
+    /// hard-coded path would also miss a second workflow the day somebody adds
+    /// one, which is the failure this test exists to prevent.
+    /// </remarks>
+    private static IEnumerable<string> Workflows()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Gg.sln")))
+        {
+            dir = dir.Parent;
+        }
+
+        return Directory
+            .EnumerateFiles(dir!.FullName, "*.yml", SearchOption.AllDirectories)
+            .Where(f => f.Contains($"{Path.DirectorySeparatorChar}workflows{Path.DirectorySeparatorChar}",
+                                   StringComparison.Ordinal))
+            .Select(Runnable);
+    }
+
+    /// <summary>A workflow with its comments removed.</summary>
+    /// <remarks>
+    /// <b>Because a mention is not a use.</b> publish-cli.yml explains in prose
+    /// why the tool goes to a real feed - <c>dotnet tool install</c> takes a
+    /// directory and not a url - and a test that read the whole file would
+    /// refuse the sentence describing the constraint it is enforcing.
+    /// </remarks>
+    private static string Runnable(string path) =>
+        string.Join('\n', File.ReadAllLines(path)
+            .Where(line => !line.TrimStart().StartsWith('#')));
 
     [Test]
     public async Task No_workflow_passes_add_source_while_a_mapping_is_declared()
@@ -36,10 +68,18 @@ public class SourceMappingAndAddSourceCannotBothBeUsedTests
             return;
         }
 
-        await Assert.That(Workflow()).DoesNotContain("--add-source")
-            .Because("NuGet refuses the flag outright once mapping is on, and the job that "
-                   + "uses it is the one place a package is installed rather than restored - "
-                   + "so nothing local reproduces it.");
+        var workflows = Workflows().ToList();
+
+        await Assert.That(workflows).IsNotEmpty()
+            .Because("liveness: a walk that found no workflows would pass forever.");
+
+        foreach (var workflow in workflows)
+        {
+            await Assert.That(workflow).DoesNotContain("--add-source")
+                .Because("NuGet refuses the flag outright once mapping is on, and the job "
+                       + "that uses it is the one place a package is installed rather than "
+                       + "restored - so nothing local reproduces it.");
+        }
     }
 
     [Test]

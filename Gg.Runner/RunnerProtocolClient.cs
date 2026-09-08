@@ -26,6 +26,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(RunnerHeartbeat))]
 [JsonSerializable(typeof(HeartbeatAccepted))]
 [JsonSerializable(typeof(RunnerSignalAnswer))]
+[JsonSerializable(typeof(RunnerKeyOffer))]
 [JsonSerializable(typeof(LeaseClaimRequest))]
 [JsonSerializable(typeof(LeaseClaimAccepted))]
 [JsonSerializable(typeof(LeaseClaimStatus))]
@@ -86,6 +87,31 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
     /// the whole reason this travels on every request.
     /// </remarks>
     public const string FactVocabulary = Gg.Contracts.FactVocabulary.Version;
+
+    public async Task<KeyOfferResult> OfferKeyAsync(
+        string runnerId, string publicKey, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, $"/v1/runners/{runnerId}/key");
+        request.Content = JsonContent.Create(
+            new RunnerKeyOffer { PublicKey = publicKey }, RunnerJsonContext.Default.RunnerKeyOffer);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        // 409 IS AN ANSWER, NOT A FAULT. A different key already registered is
+        // a fact about this runner's identity that a person has to act on, and
+        // throwing here would take down a runner that is otherwise fine.
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            return KeyOfferResult.Refused;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        // 204 EITHER WAY, so this side cannot tell "set" from "already the
+        // same" - and does not need to. Both mean the runner can be reached.
+        return KeyOfferResult.Accepted;
+    }
 
     public async Task SignalAsync(
         string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default)

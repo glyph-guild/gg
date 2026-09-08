@@ -88,6 +88,19 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     private void Record<T>(T body) => Serialized.Add(JsonSerializer.Serialize(body, JsonSerializerOptions.Web));
 
+    /// <summary>Keys this fake was offered, in order.</summary>
+    internal List<string> KeysOffered { get; } = [];
+
+    /// <summary>What this fake says to a key offer.</summary>
+    internal KeyOfferResult KeyAnswer { get; set; } = KeyOfferResult.Accepted;
+
+    public Task<KeyOfferResult> OfferKeyAsync(
+        string runnerId, string publicKey, CancellationToken cancellationToken = default)
+    {
+        KeysOffered.Add(publicKey);
+        return Task.FromResult(KeyAnswer);
+    }
+
     /// <summary>Answers this fake posted outward, in order.</summary>
     internal List<RunnerSignalAnswer> Signalled { get; } = [];
 

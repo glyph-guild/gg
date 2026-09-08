@@ -140,6 +140,26 @@ public abstract record ReleaseResult
 /// lease and current flight - a runner that could say "busy" could say it
 /// while wedged, and a wedged runner that looks busy blocks a takeover.
 /// </remarks>
+/// <summary>What became of a runner offering its key.</summary>
+/// <remarks>
+/// <b>Three outcomes rather than a bool, because they mean different things to
+/// the person reading the runner's output.</b> Accepted is the migration
+/// working; already-known is the ordinary second start and says nothing;
+/// refused means the control plane holds a DIFFERENT key, which no runner can
+/// fix by itself and a person has to act on.
+/// </remarks>
+public enum KeyOfferResult
+{
+    /// <summary>It had none, and now it has this one.</summary>
+    Accepted,
+
+    /// <summary>It already had this exact key.</summary>
+    AlreadyKnown,
+
+    /// <summary>It has a DIFFERENT key, and consoles pinned that one.</summary>
+    Refused,
+}
+
 public interface IRunnerProtocol
 {
     /// <summary>
@@ -154,6 +174,18 @@ public interface IRunnerProtocol
     /// it - because a route that waited for the far end would put the relay
     /// inside the conversation.
     /// </remarks>
+    /// <summary>
+    /// Offers the key this runner can be reached on, when it has not already.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because registration is read-or-register and a runner that reuses a
+    /// stored credential never registers again.</b> The key it made locally was
+    /// therefore never presented, and every runner registered before keys
+    /// existed was permanently unreachable while holding one on its own disk.
+    /// </remarks>
+    Task<KeyOfferResult> OfferKeyAsync(
+        string runnerId, string publicKey, CancellationToken cancellationToken = default);
+
     Task SignalAsync(
         string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default);
 

@@ -37,6 +37,7 @@ public static class Vocabulary
         typeof(RunnerSaid),
         typeof(LogTail),
         typeof(RunnerStatusReport),
+        typeof(RunnerKeyOffer),
         typeof(RunnerRetirementRequest),
         typeof(RunnerRetired),
         typeof(RunnerParkRequest),

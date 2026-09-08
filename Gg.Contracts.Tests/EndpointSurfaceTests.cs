@@ -270,8 +270,15 @@ public class EndpointSurfaceTests
         // half and left the console with a capability, a key, and nowhere to put
         // what it sealed - a conformance test finding an unserved route is what
         // led to the missing half.
+        // Moved for a runner offering its key after the fact: POST
+        // /v1/runners/{id}/key - runner audience, runner header, 204, and 409
+        // for a DIFFERENT key. Registration is read-or-register, so a runner
+        // with a stored credential never registers again and never presents the
+        // key it made - which left every runner registered before 0.125.0
+        // permanently unreachable, holding a key on its own disk that nothing
+        // had ever seen. Found by walking the live fleet.
         await Assert.That(Fingerprint())
-            .IsEqualTo("3881ebfee59820b53590d29e9d662757d7a83a7e07d4894fcffea40eb3e54e4f")
+            .IsEqualTo("90af4ab8b5009dcf29cee29c87b54447c32be24c7f1964d53c8ef289af08c6be")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

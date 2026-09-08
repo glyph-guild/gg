@@ -139,6 +139,90 @@ public class ModalButtonTests
     }
 
     [Test]
+    public async Task The_gate_modal_says_what_is_being_decided()
+    {
+        // WHAT THE RATCHET FOUND, covered properly rather than left at "not
+        // empty". This is the one modal I could not screenshot - a gate needs a
+        // control plane to exist - so the text is asserted directly instead.
+        //
+        // It matters more than the compose modal it was found beside: this asks
+        // somebody to approve or reject, and the answer is attributed to them.
+        // "Waiting on you" over blank space is the wrong amount to say about
+        // that.
+        var state = new AppState
+        {
+            Mode = UiMode.GateDecision,
+            Queue =
+            [
+                new QueueRow
+                {
+                    FlightId = "01a0776a-cacb-76dc-b444-2b7031e840d8",
+                    FlightNumber = "GG-52",
+                    Name = "create a PR for a python script",
+                    Reason = QueueReason.AwaitingDecision,
+                    Since = DateTimeOffset.UnixEpoch,
+                },
+            ],
+            Gates = new Gg.Contracts.GateList
+            {
+                Gates =
+                [
+                    new Gg.Contracts.PendingGate
+                    {
+                        FlightNumber = "GG-52",
+                        ObligationId = "human-approves-the-diff",
+                        Approver = "kevin",
+                        Branch = "gg/GG-52",
+
+                        // A BRANCH WITH NO COMMIT IS NOT A GATE ANYBODY HAS.
+                        // The renderer prints the branch only alongside the
+                        // commit on it, on purpose - "the two absences render
+                        // as one sentence because they are one fact: there is
+                        // no code here" - so a fixture carrying one without the
+                        // other asks for output that would be wrong to produce.
+                        Commit = "3f9a1c2d4e5b6a7c8d9e0f1a2b3c4d5e6f7a8b9c",
+                        ManifestHash = "sha256:9f2c",
+                        Because = "the loop asked for a decision",
+                        AwaitingSince = DateTimeOffset.UnixEpoch,
+                        Attempt = 1,
+                    },
+                ],
+            },
+        };
+
+        var body = PaneText.Modal(state);
+
+        foreach (var said in (string[])
+                 ["GG-52", "human-approves-the-diff", "kevin", "gg/GG-52"])
+        {
+            await Assert.That(body).Contains(said, StringComparison.Ordinal)
+                .Because($"a person deciding this is owed '{said}'. Body:\n{body}");
+        }
+
+        // THE FIELD A HAND-WRITTEN VERSION OF THIS DROPPED. `because` is the
+        // Engine's own words for why the obligation attached, and when the
+        // condition is "the loop asked" it IS the decision - everything else on
+        // screen is bookkeeping around it. It is here because this renders
+        // through the same function `gg gates` uses rather than a second one
+        // somebody assembled from the fields they happened to remember.
+        await Assert.That(body).Contains("the loop asked for a decision", StringComparison.Ordinal)
+            .Because("rendering a gate without its reason is a decision asked in the dark. "
+                   + $"Body:\n{body}");
+    }
+
+    [Test]
+    public async Task A_gate_that_has_gone_says_so_rather_than_blanking()
+    {
+        // The list is re-read underneath a person, and somebody else may have
+        // answered it. An empty box for that is indistinguishable from the bug
+        // this whole file exists because of.
+        var body = PaneText.Modal(new AppState { Mode = UiMode.GateDecision });
+
+        await Assert.That(body).IsNotEmpty();
+        await Assert.That(body).Contains("no gate", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Test]
     public async Task No_modal_that_asks_something_is_drawn_empty()
     {
         // THE RATCHET FOR IT, and it asks about the SOURCE because that is the

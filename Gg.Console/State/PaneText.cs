@@ -1303,40 +1303,40 @@ public static class PaneText
 
     /// <summary>What is actually being decided.</summary>
     /// <remarks>
-    /// <b>The worse of the two empty boxes.</b> This one asks a person to
-    /// approve or reject something and said nothing at all about what - a title
-    /// reading "Waiting on you" over blank space, with `a` and `r` on the hint
-    /// line. Approving is a governance decision that is attributed to whoever
-    /// makes it, which is the last place a console should be terse.
+    /// <para>
+    /// <b>The worse of the two empty boxes.</b> This asked a person to approve
+    /// or reject and said nothing at all about what - a title reading "Waiting
+    /// on you" over blank space, with <c>a</c> and <c>r</c> on the hint line at
+    /// the foot of the screen. Approving is attributed to whoever does it,
+    /// which is the last place a console should be terse.
+    /// </para>
+    /// <para>
+    /// <b>Rendered by the function <c>gg gates</c> already uses, not a second
+    /// one.</b> A first version wrote the flight, obligation and approver out by
+    /// hand - a SECOND rendering of a gate, missing <c>because</c>, which is the
+    /// Engine's own words for why the obligation attached and the whole decision
+    /// when the condition is "the loop asked". It also has a layout rule of its
+    /// own, established by <c>GatePresentationTests</c>: prose an agent wrote
+    /// keeps its line breaks, and continuations are indented. None of that is
+    /// inherited by a copy, and the copy is the one nobody notices drifting.
+    /// </para>
     /// </remarks>
     private static string GateDecision(AppState state)
     {
         if (state.SelectedGate is not { } gate)
         {
-            // SAID, NOT BLANK. A gate that has gone - answered elsewhere, or
-            // the list re-read underneath - is a thing to explain rather than
-            // an empty box to stare at.
+            // SAID, NOT BLANK. A gate answered somewhere else, or a list
+            // re-read underneath a person, is a thing to explain - and an empty
+            // box for it is indistinguishable from the defect this arm exists
+            // because of.
             return "There is no gate on this row any more. It may have been "
                  + "answered somewhere else.\n\nEscape closes this.";
         }
 
-        var text = new System.Text.StringBuilder()
-            .AppendLine($"  flight      {Clean(gate.FlightNumber)}")
-            .AppendLine($"  obligation  {Clean(gate.ObligationId)}")
-            .AppendLine($"  approver    {Clean(gate.Approver)}");
-
-        if (gate.Branch is { Length: > 0 } branch)
-        {
-            text.AppendLine($"  branch      {Clean(branch)}");
-        }
-
-        return text
-            .AppendLine()
-            .AppendLine("  a   approve")
-            .AppendLine("  r   reject, with a reason")
-            .AppendLine()
-            .Append("Your answer is recorded against you.")
-            .ToString();
+        return Clean(
+            Gg.Client.VerbOutput.ToText(
+                new Gg.Client.VerbResult.Gates(new Gg.Contracts.GateList { Gates = [gate] })),
+            lines: true);
     }
 
     public static string ModalTitle(UiMode mode) => mode switch

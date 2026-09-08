@@ -88,6 +88,16 @@ internal sealed class FakeProtocol : IRunnerProtocol
 
     private void Record<T>(T body) => Serialized.Add(JsonSerializer.Serialize(body, JsonSerializerOptions.Web));
 
+    /// <summary>Answers this fake posted outward, in order.</summary>
+    internal List<RunnerSignalAnswer> Signalled { get; } = [];
+
+    public Task SignalAsync(
+        string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default)
+    {
+        Signalled.Add(answer);
+        return Task.CompletedTask;
+    }
+
     public Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
     {
@@ -302,6 +312,8 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Released(string leaseId, string disposition) => Record($"released:{disposition}");
 
     public void BoundBroken(string diagnosis) => Record($"bound-broke:{diagnosis}");
+
+    public void CannotBeFlownByHand(string diagnosis) => Record($"not-reachable:{diagnosis}");
     public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) =>
         Record($"control-plane-refused:{diagnosis}");
 

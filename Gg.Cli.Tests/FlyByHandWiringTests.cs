@@ -169,6 +169,8 @@ public class FlyByHandWiringTests
         public void Fenced(string leaseId) => Calls.Add("fenced");
         public void Released(string leaseId, string disposition) => Calls.Add("released");
         public void BoundBroken(string diagnosis) => Calls.Add("bound-broken");
+
+        public void CannotBeFlownByHand(string diagnosis) => Calls.Add("cannot-be-flown");
         public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) => Calls.Add("refused");
         public void Idle() => Calls.Add("idle");
         public void Parked() => Calls.Add("parked");

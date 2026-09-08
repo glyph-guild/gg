@@ -64,6 +64,23 @@ public sealed class WhatThisRunnerSays(
         }
     }
 
+    /// <summary>
+    /// Records something that went wrong without changing what this is doing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The two are not the same fact.</b> A handshake that failed is a person
+    /// who could not reach this runner; the runner went on doing whatever it was
+    /// doing. Writing it through <c>Doing</c> would report the flight as stopped
+    /// because somebody else's console timed out.
+    /// </remarks>
+    private void Diagnosed(string diagnosis)
+    {
+        lock (_gate)
+        {
+            _diagnosis = diagnosis;
+        }
+    }
+
     private void Doing(string what, string? diagnosis = null)
     {
         lock (_gate)
@@ -97,6 +114,16 @@ public sealed class WhatThisRunnerSays(
     {
         Doing($"released a flight: {disposition}");
         _inner.Released(leaseId, disposition);
+    }
+
+    public void CannotBeFlownByHand(string diagnosis)
+    {
+        // REMEMBERED AS A DIAGNOSIS, not as what this runner is DOING. It went
+        // on doing whatever it was doing; somebody else could not reach it, and
+        // overwriting `doing` would report the flight as stopped because a
+        // handshake failed.
+        Diagnosed(diagnosis);
+        _inner.CannotBeFlownByHand(diagnosis);
     }
 
     public void BoundBroken(string diagnosis)

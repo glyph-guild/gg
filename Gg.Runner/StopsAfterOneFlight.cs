@@ -59,6 +59,8 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void BoundBroken(string diagnosis) => _inner.BoundBroken(diagnosis);
 
+    public void CannotBeFlownByHand(string diagnosis) => _inner.CannotBeFlownByHand(diagnosis);
+
     public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) =>
         _inner.ControlPlaneRefused(diagnosis, retryIn);
 

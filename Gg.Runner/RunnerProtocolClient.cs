@@ -25,6 +25,7 @@ namespace Gg.Runner;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(RunnerHeartbeat))]
 [JsonSerializable(typeof(HeartbeatAccepted))]
+[JsonSerializable(typeof(RunnerSignalAnswer))]
 [JsonSerializable(typeof(LeaseClaimRequest))]
 [JsonSerializable(typeof(LeaseClaimAccepted))]
 [JsonSerializable(typeof(LeaseClaimStatus))]
@@ -85,6 +86,18 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
     /// the whole reason this travels on every request.
     /// </remarks>
     public const string FactVocabulary = Gg.Contracts.FactVocabulary.Version;
+
+    public async Task SignalAsync(
+        string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, $"/v1/runners/{runnerId}/signal");
+        request.Content = JsonContent.Create(
+            answer, RunnerJsonContext.Default.RunnerSignalAnswer);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
+    }
 
     public async Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)

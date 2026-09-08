@@ -25,6 +25,9 @@ public enum ReachFailure
     /// <summary>The runner never answered the introduction.</summary>
     RunnerNeverAnswered,
 
+    /// <summary>The introduction ended before the runner answered.</summary>
+    IntroductionExpired,
+
     /// <summary>It answered and this console could not open what it sent.</summary>
     AnswerWouldNotOpen,
 
@@ -152,7 +155,7 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         PinnedRunnerKeys pins,
         DateTimeOffset now,
         Func<RunnerSealedOffer, CancellationToken, Task> leaveAsync,
-        Func<CancellationToken, Task<RunnerSealedAnswer?>> collectAsync,
+        Func<CancellationToken, Task<Collected>> collectAsync,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(introduction);
@@ -218,16 +221,29 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             },
             cancellationToken);
 
-        var answer = await WaitForAnswerAsync(collectAsync, cancellationToken);
+        var collected = await WaitForAnswerAsync(collectAsync, cancellationToken);
 
-        if (answer is null)
+        // WAITING AND WRONG, KEPT APART. Before this the expiry arrived as a
+        // nullable answer and read as a silent runner - a sentence about a
+        // machine, for something that was a clock.
+        if (collected.State is AnswerState.Gone)
+        {
+            peer.close();
+            return new Reached(
+                null, ReachFailure.IntroductionExpired,
+                "The introduction ended before the runner answered. One lasts a minute, so this "
+              + "is a runner that was away for longer than that - not a network. Asking again "
+              + "mints a new one, and if it keeps happening the runner is not heartbeating.");
+        }
+
+        if (collected.Answer is not { } answer)
         {
             peer.close();
             return new Reached(
                 null, ReachFailure.RunnerNeverAnswered,
-                "The runner did not answer. It may be offline, or between heartbeats, or the "
-              + "introduction expired before it came back - an introduction lasts a minute and a "
-              + "runner picks one up within a second of being told there is one.");
+                "The runner did not answer, and the introduction is still open. It may be "
+              + "offline or between heartbeats - a runner picks one up within a second of being "
+              + "told there is one, so this is a machine that is not asking.");
         }
 
         byte[] answerSdp;
@@ -308,17 +324,20 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         }
     }
 
-    private async Task<RunnerSealedAnswer?> WaitForAnswerAsync(
-        Func<CancellationToken, Task<RunnerSealedAnswer?>> collectAsync,
+    private async Task<Collected> WaitForAnswerAsync(
+        Func<CancellationToken, Task<Collected>> collectAsync,
         CancellationToken cancellationToken)
     {
         var until = DateTimeOffset.UtcNow + patience;
 
         while (DateTimeOffset.UtcNow < until)
         {
-            if (await collectAsync(cancellationToken) is { } answer)
+            // GONE ENDS THE LOOP RATHER THAN CONTINUING IT. An introduction that
+            // is over will not come back, and asking for the rest of the
+            // patience turns a fact into a wait.
+            if (await collectAsync(cancellationToken) is { State: not AnswerState.NotYet } end)
             {
-                return answer;
+                return end;
             }
 
             // POLLED RATHER THAN PUSHED, because the control plane is not in
@@ -327,7 +346,7 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
 
-        return null;
+        return Collected.NotYet;
     }
 }
 

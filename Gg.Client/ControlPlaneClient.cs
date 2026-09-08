@@ -33,6 +33,10 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(FlightStory))]
 [JsonSerializable(typeof(TakeSeed))]
+[JsonSerializable(typeof(RunnerIntroductionRequest))]
+[JsonSerializable(typeof(RunnerIntroduction))]
+[JsonSerializable(typeof(RunnerSealedOffer))]
+[JsonSerializable(typeof(RunnerSealedAnswer))]
 [JsonSerializable(typeof(RunnerRetirementRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerList))]
@@ -893,6 +897,142 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerRetired, cancellationToken);
+    }
+
+    /// <summary>
+    /// Asks to be introduced to one runner, for one short conversation.
+    /// </summary>
+    /// <param name="ephemeralPublicKey">
+    /// The console's public key for this introduction and no other. The control
+    /// plane stores its hash against the row, so whatever seals the offer has to
+    /// be the private half of THIS.
+    /// </param>
+    /// <remarks>
+    /// <b>The control plane says WHERE and WHETHER, never WHAT.</b> What comes
+    /// back names the runner, says this caller may reach it, and says for how
+    /// long. Nothing that passes between the two ends afterwards is readable
+    /// here, which is the whole of ADR-0013's decision 3.
+    /// </remarks>
+    public async Task<Introduced> IntroduceRunnerAsync(
+        string sessionToken,
+        string runnerId,
+        string ephemeralPublicKey,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/runners/{runnerId}/introduction", sessionToken);
+        request.Content = JsonContent.Create(
+            new RunnerIntroductionRequest { EphemeralPublicKey = ephemeralPublicKey },
+            ProtocolJsonContext.Default.RunnerIntroductionRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        // THREE REFUSALS, THREE SENTENCES. The control plane sends a diagnosis
+        // with the 409 and this does not repeat it back at a person twice, so
+        // the sentence here is the one that says what to DO.
+        switch (response.StatusCode)
+        {
+            case HttpStatusCode.NotFound:
+                return new Introduced(
+                    null, IntroductionRefusal.NoSuchRunner,
+                    $"There is no runner {runnerId} here. It may have been retired, or the id "
+                  + "may belong to another tenant - `gg runners` lists the ones you can see.");
+
+            case HttpStatusCode.Forbidden:
+                return new Introduced(
+                    null, IntroductionRefusal.NotYoursToReach,
+                    $"Runner {runnerId} is in your tenant and somebody else registered it. "
+                  + "Reaching a machine means reading what it is doing, so that is theirs to "
+                  + "allow - `gg runners` names who registered it.");
+
+            case HttpStatusCode.Conflict:
+                return new Introduced(
+                    null, IntroductionRefusal.RegisteredBeforeKeys,
+                    $"Runner {runnerId} registered before runners offered keys, so there is "
+                  + "nothing to seal an introduction to. It still takes work. Restarting it "
+                  + "registers it again, with a key.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var introduction = await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RunnerIntroduction, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane introduced nothing.");
+
+        return new Introduced(introduction, IntroductionRefusal.None, "introduced");
+    }
+
+    /// <summary>
+    /// Leaves a sealed offer for the runner's next heartbeat to take.
+    /// </summary>
+    /// <returns>False when the introduction is gone.</returns>
+    /// <remarks>
+    /// <b>202, and nothing here waits for the far end.</b> A route that waited
+    /// would put the relay inside the conversation, which is the one thing the
+    /// whole design is arranged to prevent.
+    /// </remarks>
+    public async Task<bool> LeaveOfferAsync(
+        string sessionToken,
+        string introductionId,
+        RunnerSealedOffer offer,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/introductions/{introductionId}", sessionToken);
+        request.Content = JsonContent.Create(
+            offer, ProtocolJsonContext.Default.RunnerSealedOffer);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    /// <summary>
+    /// Asks whether the runner has answered yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>204 and 404 are different facts and stay different here.</b> Not
+    /// answered yet is a reason to ask again; no such introduction is a reason
+    /// to stop. A method returning a nullable answer would make the caller wait
+    /// out its patience on a conversation that had already ended, and then
+    /// report the runner as silent - blaming a machine for a clock.
+    /// </remarks>
+    public async Task<Collected> CollectAnswerAsync(
+        string sessionToken,
+        string introductionId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get, $"/v1/introductions/{introductionId}", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return Collected.NotYet;
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return Collected.Gone;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var answer = await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RunnerSealedAnswer, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered with nothing.");
+
+        return new Collected(answer, AnswerState.Arrived);
     }
 
     public async Task<CredentialRemoved?> RemoveCredentialAsync(

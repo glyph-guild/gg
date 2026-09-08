@@ -581,6 +581,34 @@ public sealed record LeaseGranted
 
     /// <summary>Seconds after which the runner should renew, well before expiry.</summary>
     public required int RenewWithinSeconds { get; init; }
+
+    /// <summary>
+    /// Whether a person is flying this one, so the runner opens a channel
+    /// instead of running headless.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>DERIVED FROM THE FLIGHT, never set beside it.</b> The flight is where a
+    /// person said so; this is the lease repeating it to the machine that has to
+    /// act on it. Two members that could be set independently are two members
+    /// that can disagree, and the disagreement here is the worst kind: a flight a
+    /// person is waiting at, running headless because the lease forgot to say —
+    /// which reads as a runner that ignored them.
+    /// </para>
+    /// <para>
+    /// <b>Why the runner holds this rather than the control plane.</b> The
+    /// channel's lifetime is the flight's lifetime, and the machine that can
+    /// actually end a channel is the one serving it. A control plane that merely
+    /// declined to mint introductions would be a bound only the sender enforces,
+    /// which disappears the moment the sender is wrong — the argument
+    /// <c>HeartbeatCadence</c> is on this contract for.
+    /// </para>
+    /// <para>
+    /// <b>Absent rather than false</b>, so a headless fleet's leases are
+    /// byte-for-byte what they always were.
+    /// </para>
+    /// </remarks>
+    public bool? Attended { get; init; }
 }
 
 /// <summary>Extends one specific lease.</summary>

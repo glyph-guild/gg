@@ -1342,14 +1342,14 @@ public static class ProtocolSurface
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
                  "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText",
-                 "nominationNote", "menu", "loop", "feedback"],
+                 "nominationNote", "menu", "loop", "feedback", "attended"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],
             [typeof(LeaseReleased)] = ["flightId", "disposition"],
             [typeof(FlightIntent)] = ["kind", "uri", "text", "provider", "id"],
             [typeof(FlightLaunchRequest)] =
-                ["name", "intent", "workKind", "environment", "repository", "runner"],
+                ["name", "intent", "workKind", "environment", "repository", "runner", "attended"],
             [typeof(FlightLaunched)] = ["flightId", "flightNumber"],
             [typeof(FlightSummary)] =
                 ["flightId", "flightNumber", "name", "intent", "createdAt",

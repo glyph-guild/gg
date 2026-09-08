@@ -92,6 +92,26 @@ public sealed class RunnerIdentityKey
     public string PublicKey => Convert.ToBase64String(_key.ExportSubjectPublicKeyInfo());
 
     /// <summary>
+    /// The half that opens what a console sealed. It stays on this machine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Handed to the runner loop by the composition root, and to nothing
+    /// else.</b> <c>Gg.Runner</c> cannot see this project — the runner is treated
+    /// as hostile and the reference graph keeps them apart — so <c>Gg.Cli</c>,
+    /// which is the only project that sees both, passes it. That is the same
+    /// route the takeover reader takes, and for the same reason.
+    /// </para>
+    /// <para>
+    /// <b>Named rather than exposed as a property.</b> Reaching for a private key
+    /// should read as an act at the call site: this returns the live object, not
+    /// a copy, and whoever takes it can open every offer ever sealed to this
+    /// runner.
+    /// </para>
+    /// </remarks>
+    public ECDiffieHellman ForOpeningWhatWasSealedToThisRunner() => _key;
+
+    /// <summary>
     /// Nobody but this account, where the platform can say so.
     /// </summary>
     /// <remarks>

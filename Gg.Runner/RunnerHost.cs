@@ -174,7 +174,18 @@ public static class RunnerHost
         IReadOnlyList<Gg.Local.IntentReader>? readers = null,
         IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
         string? flightId = null,
-        Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null)
+        Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null,
+        // THE PRIVATE HALF OF THIS RUNNER'S REGISTERED KEY, or null. It lives on
+        // this machine and never leaves it, and Gg.Runner does not go looking
+        // for it: the composition root either hands one in or does not, which
+        // makes "this runner may be flown by hand" a wiring decision somebody
+        // made rather than a capability every runner has.
+        System.Security.Cryptography.ECDiffieHellman? identityKey = null,
+        // WHERE TO ASK WHAT THIS MACHINE LOOKS LIKE FROM OUTSIDE. Empty is a
+        // real configuration - step 0 punched through two NATs with STUN alone
+        // and no rule added anywhere - and it is what a test uses to stay off
+        // the network entirely.
+        IReadOnlyList<string>? stunServers = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -261,7 +272,25 @@ public static class RunnerHost
             destinations: destinations,
             // HOW THIS RUNNER LEARNS WHAT A PERSON DECIDED. Null for a fleet
             // runner, which has no person and no file to look for.
-            returns: returns)
+            returns: returns,
+            // WHETHER THIS RUNNER CAN BE FLOWN BY HAND. Null unless a key was
+            // handed in - the private half lives on this machine and never
+            // leaves it, and Gg.Runner does not go looking for it. So a runner
+            // that can be driven is one somebody wired to be.
+            attendedSessions: identityKey is null
+                ? null
+                : flightId => new AttendedSession(
+                    identityKey,
+                    new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
+                    new AskDispatch(new WhatThisRunnerSays(
+                        narration,
+                        // THIS FLIGHT'S OWN OUTPUT, which is where an agent's
+                        // text actually is. Not the journal: that holds this
+                        // runner's narration and its crashes, and on the fleet's
+                        // only supervised unit it never holds a flight at all.
+                        new TheFlightsOwnOutput(Gg.Local.LocalPaths.LiveView(flightId)),
+                        () => DateTimeOffset.UtcNow)),
+                    narration))
         {
             HoldFor = holdFor,
         };

@@ -83,7 +83,7 @@ public sealed class AskDispatch(IAnswersAboutItself runner)
                 return new RunnerSaid
                 {
                     Kind = RunnerAskKinds.TailLog,
-                    Tail = _runner.Tail(lines),
+                    Tail = WithinBytes(_runner.Tail(lines)),
                 }.Stripped();
             }
 
@@ -102,5 +102,52 @@ public sealed class AskDispatch(IAnswersAboutItself runner)
                 Interlocked.Increment(ref _refused);
                 return null;
         }
+    }
+    /// <summary>
+    /// The same tail, cut to the byte bound the contract declares.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>RunnerAskBounds.MaxBytes</c> was declared, asserted as a constant,
+    /// and enforced NOWHERE.</b> It did not matter while no production log was
+    /// wired; it matters the moment the tail is a flight's live view, where a
+    /// single <c>text</c> entry is a paragraph of an agent's prose and two
+    /// hundred of them are megabytes.
+    /// </para>
+    /// <para>
+    /// <b>The bound is on the CONTRACT so this side can hold it</b>, which is
+    /// <c>HeartbeatCadence</c>'s argument: a bound only the far end enforces
+    /// disappears the moment the far end is wrong, and this is the machine whose
+    /// egress it spends.
+    /// </para>
+    /// <para>
+    /// <b>The NEWEST lines survive.</b> Cutting from the front would answer a
+    /// question about what a flight is doing NOW with what it was doing when it
+    /// started. <c>Truncated</c> already means "there is more than this", so it
+    /// stays true whichever bound did the cutting.
+    /// </para>
+    /// </remarks>
+    private static LogTail WithinBytes(LogTail tail)
+    {
+        var budget = RunnerAskBounds.MaxBytes;
+        var kept = new List<string>(tail.Lines.Count);
+
+        // BACKWARDS, so what is dropped is the oldest.
+        for (var i = tail.Lines.Count - 1; i >= 0; i--)
+        {
+            var cost = System.Text.Encoding.UTF8.GetByteCount(tail.Lines[i]) + 1;
+
+            if (cost > budget)
+            {
+                break;
+            }
+
+            budget -= cost;
+            kept.Insert(0, tail.Lines[i]);
+        }
+
+        return kept.Count == tail.Lines.Count
+            ? tail
+            : new LogTail { Lines = kept, Truncated = true };
     }
 }

@@ -1151,7 +1151,23 @@ static async Task<int> RunnerUpAsync()
         return await Gg.Runner.RunnerHost.RunAsync(
             new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
             new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
-            destinations: destinations, executor: executor);
+            destinations: destinations, executor: executor,
+            // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
+            // takeover reader is: Gg.Runner cannot see Gg.Client, and this
+            // project is the only one that sees both. The SAME key this machine
+            // registered with a moment ago - a second one would be a runner
+            // whose console pinned a key it can no longer open anything with.
+            identityKey: RunnerIdentityKey
+                .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName))
+                .ForOpeningWhatWasSealedToThisRunner(),
+            // WHERE THIS MACHINE ASKS WHAT IT LOOKS LIKE FROM OUTSIDE, from the
+            // environment for the reason the trackers and the hosts are: naming
+            // one in source would point every runner in every deployment at a
+            // service nobody chose, and the well-known ones belong to companies
+            // this binary may not name. Empty is a real answer -
+            // host candidates work between machines that can already reach each
+            // other - and TURN is S34.Q-04, still open.
+            stunServers: Gg.Runner.StunConfiguration.FromEnvironment());
     }
     finally
     {

@@ -112,18 +112,47 @@ public class ARemoteHandFlightIsTheSameShapeTests
         var source = File.ReadAllText(
             Path.Combine(Root(), "Gg.Runner", "RunnerLoop.cs"));
 
-        var emitting = source.IndexOf("new LoopAttended", StringComparison.Ordinal);
-        var deciding = source.IndexOf("lease.Attended", StringComparison.Ordinal);
+        await Assert.That(source).Contains("new LoopAttended");
+        await Assert.That(source).Contains("lease.Attended");
 
-        await Assert.That(emitting).IsGreaterThanOrEqualTo(0);
-        await Assert.That(deciding).IsGreaterThanOrEqualTo(0);
+        // SCOPED TO THE METHOD THAT BUILDS THE FACT, not to the distance
+        // between two strings. This asked whether one exact line appeared
+        // between the first mention of each, and both halves of that were
+        // wrong: the session moved from the hold up into WorkAsync, which put
+        // the lease's marker BEFORE the fact rather than hundreds of lines
+        // after it, and the line it looked for had since been wrapped over
+        // three - so the assertion went on passing while measuring nothing.
+        // What it always meant is here instead: the method that emits
+        // `loop.attended` does not read whether a person is watching.
+        var emitting = MethodContaining(source, "new LoopAttended");
 
-        // The fact is built from the EXECUTOR's answer; the nearest mention of
-        // the lease's marker is hundreds of lines away, in the hold.
-        var between = source[Math.Min(emitting, deciding)..Math.Max(emitting, deciding)];
+        await Assert.That(emitting).DoesNotContain("lease.Attended")
+            .Because("the two decisions are about different facts and must not become one: "
+                   + "the LEASE's marker says somebody is watching, and the EXECUTOR having "
+                   + "measured nothing says a person did the work. One flag driving both "
+                   + "records an agent's work as a human's.");
+    }
 
-        await Assert.That(between).DoesNotContain("lease.Attended is true ? attendedSessions")
-            .Because("the two decisions are about different facts and must not become one.");
+    /// <summary>The one method a string is inside, by its declaration.</summary>
+    /// <remarks>
+    /// <b>Crude on purpose, and it fails loudly rather than widening.</b> A
+    /// slice that could not find its bounds would silently become "the whole
+    /// file", which is how a scoped assertion turns into an unscoped one that
+    /// still passes.
+    /// </remarks>
+    private static string MethodContaining(string source, string needle)
+    {
+        var at = source.IndexOf(needle, StringComparison.Ordinal);
+        var opens = Regex.Matches(source[..at], @"\n    (private|public|internal) ");
+        var start = opens.Count > 0
+            ? opens[^1].Index
+            : throw new InvalidOperationException($"no declaration precedes '{needle}'");
+
+        var next = Regex.Match(source[(start + 8)..], @"\n    (private|public|internal) ");
+
+        return next.Success
+            ? source[start..(start + 8 + next.Index)]
+            : throw new InvalidOperationException($"no declaration follows '{needle}'");
     }
 
     [Test]

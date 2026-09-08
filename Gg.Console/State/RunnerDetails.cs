@@ -266,10 +266,11 @@ public static class RunnerDetails
             return "";
         }
 
-        if (Rows.Selected(state) is { Mine: false })
+        if (Rows.Selected(state) is { Mine: false } elsewhere)
         {
             return "This console did not start it, so there is no log here to read. What it "
-                 + "says is on the machine it is running on.";
+                 + "says is on the machine it is running on."
+                 + Suggestion(elsewhere);
         }
 
         // NOTHING ANYWHERE, said plainly. A modal that only ever described a
@@ -282,4 +283,89 @@ public static class RunnerDetails
             + "from this console."
             : "It has said nothing yet.";
     }
+
+    /// <summary>
+    /// Where to look, on a machine a person can reach, and how sure we are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A SUGGESTION, and it says so, because gg is guessing about somebody
+    /// else's machine.</b> ADR-0013 Decision 2 is reference-and-fetch: the modal
+    /// names where the output is and the person's own access is the channel. What
+    /// gg actually knows is a convention it follows itself, not a fact the
+    /// control plane reported - <c>XDG_STATE_HOME</c> may be set, the host may be
+    /// a container, and the label may not resolve to anything ssh can reach.
+    /// </para>
+    /// <para>
+    /// <b>The suffix decides which convention applies, and this was FOUND rather
+    /// than designed.</b> Walking the development fleet showed the pool host's
+    /// runner is a systemd unit, so its output is in the journal and
+    /// <c>~/.local/state/good-grief/runner.log</c> does not exist there at all.
+    /// The file path is written only when a CONSOLE starts a runner and captures
+    /// its streams. Offering the path for everything would have been a command
+    /// that fails on every properly supervised runner in a fleet.
+    /// </para>
+    /// <para>
+    /// <b>Which gg can tell from the name, because gg chose the names.</b>
+    /// <c>&lt;machine&gt;:maintain</c> is run by the unit gg ships in
+    /// <c>deploy/pool-host</c>, so naming that unit is a fact about our own
+    /// packaging rather than a guess about their host.
+    /// <c>&lt;machine&gt;:hand</c> is <see cref="Gg.Client.AttendedRunner"/> - a
+    /// person flying by hand, so a console started it and the file is there. A
+    /// bare machine name is <c>gg runner up</c>, which either could have started,
+    /// and that ambiguity is reported rather than resolved by picking one.
+    /// </para>
+    /// <para>
+    /// <b>No credential of ours is anywhere in this.</b> The person's own access
+    /// to their own host is the channel, which is <c>ReaderSessions</c>' shape:
+    /// the declaration carries a locator at most, and the child resolves it for
+    /// itself.
+    /// </para>
+    /// </remarks>
+    public static string Suggestion(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.Label is not { Length: > 0 } label)
+        {
+            // NOTHING TO NAME. A row the control plane never reported has no
+            // machine to reach, and a suggestion composed from a guess is what
+            // this whole method exists not to offer.
+            return "";
+        }
+
+        var machine = label.Split(':')[0];
+
+        if (label.EndsWith(":maintain", StringComparison.Ordinal))
+        {
+            return $"\n\n  ssh {machine} sudo journalctl -u gg-runner-maintain -n 200\n\n"
+                 + "That is the unit gg ships for a pool runner, so the command is a fact "
+                 + "about our packaging. Whether that host answers to this name is not.";
+        }
+
+        if (label.EndsWith(":hand", StringComparison.Ordinal))
+        {
+            return $"\n\n  ssh {machine} tail -n 200 {LogPath}\n\n"
+                 + "A console started that one, so gg wrote the file. Suggested rather than "
+                 + "reported: nothing here came from the control plane.";
+        }
+
+        return $"\n\n  ssh {machine} tail -n 200 {LogPath}\n"
+             + $"  ssh {machine} sudo journalctl -u 'gg-runner-*' -n 200\n\n"
+             + "One of the two: gg writes the file when a console starts a runner, and a "
+             + "service manager keeps the output itself when one starts it instead. Which "
+             + "is which is not something the control plane reports.";
+    }
+
+    /// <summary>
+    /// Where gg puts a runner log, spelled the way a person would type it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not <see cref="Gg.Local.LocalPaths.StateRoot"/> resolved.</b> That
+    /// answers for THIS machine - and on macOS it answers
+    /// <c>~/Library/Application Support/good-grief</c>, which is not where the
+    /// Linux host in the suggestion keeps anything. The tilde form is the
+    /// convention rather than this machine's answer to it.
+    /// </remarks>
+    private const string LogPath = "~/.local/state/good-grief/runner.log";
 }

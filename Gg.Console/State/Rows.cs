@@ -97,6 +97,18 @@ public sealed record RunnerRow(
     /// </remarks>
     string Id,
 
+    /// <summary>
+    /// The machine's own name, as the control plane holds it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <c>Runner</c> rather than parsed back out of it.</b> That column
+    /// is a display - a short id, two spaces, then this - and recovering the
+    /// label by splitting it would be a string format standing in for a value.
+    /// It is here because a suggested command needs the name to ssh to, and a
+    /// suffix on it says how the runner was started.
+    /// </remarks>
+    string Label,
+
     /// <summary>Why it was withheld, or empty when nobody did.</summary>
     string ParkedBecause,
     string Here,
@@ -303,6 +315,13 @@ public static class Rows
                 // Nothing about this row came from the control plane; it is
                 // invented from a file this machine wrote.
                 ParkedBecause: "",
+
+                // EMPTY, NOT THIS MACHINE'S NAME. The label is what the control
+                // plane holds, and this row is one the control plane has never
+                // heard of - so there is nothing to ssh to and no suffix saying
+                // how it was started. A suggestion composed from a guess is the
+                // thing step 2 exists not to offer.
+                Label: "",
                 // NOBODY, because nothing about this row came from the control
                 // plane - it is invented from a file this machine wrote.
                 RegisteredBy: "",
@@ -433,6 +452,7 @@ public static class Rows
         // this record is written to disk under GG_STATE_DUMP and read back by
         // things that are not PaneText.
         ParkedBecause: ControlText.Strip(runner.ParkedBecause),
+        Label: ControlText.Strip(runner.Label),
         Here: mine ? Ours : yours ? Owned : machine ? Alongside : " ",
         Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
             ? "  " + label

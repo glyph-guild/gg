@@ -67,7 +67,7 @@ public class ProjectReferenceTests
     }
 
     [Test]
-    public async Task The_console_carries_three_named_packages_and_the_runner_none()
+    public async Task The_console_carries_three_named_packages_and_the_runner_one()
     {
         // The stated shape of these two, which the shared project must not
         // change. If a dependency arrives it arrives visibly, here - and this
@@ -88,11 +88,40 @@ public class ProjectReferenceTests
         await Assert.That(Refs(Project("Gg.Console"), "PackageReference"))
             .IsEquivalentTo((string[])["Porta.Pty", "Terminal.Gui", "XTerm.NET"]);
 
-        // AND THE RUNNER STILL CARRIES NOTHING, which is the half of this that
-        // is load-bearing. The runner is treated as hostile and kept in its own
-        // process; what it does not depend on is what it cannot be reached
-        // through. Hosting a child is a console concern and must not leak here.
-        await Assert.That(Refs(Project("Gg.Runner"), "PackageReference")).IsEmpty();
+        // AND THE RUNNER CARRIES ONE, WHICH IT DID NOT UNTIL 2026-09-08.
+        //
+        // This half was "nothing", and it was the load-bearing half: the runner
+        // is treated as hostile and kept in its own process, and what it does not
+        // depend on is what it cannot be reached through. A networking library
+        // that binds sockets is, by that exact argument, the worst thing to add -
+        // so the widening is written out here rather than absorbed, and the next
+        // package has to make its own case against a list of one.
+        //
+        // WHY IT IS HERE. ADR-0013 gives a person a runner's own output without
+        // the control plane holding it, and the transport is WebRTC: ICE means
+        // neither peer runs a listening service, both dial out, and the runner's
+        // outbound-only posture survives. That property is what made the library
+        // admissible; without it this would be a server and the answer would
+        // have been no.
+        //
+        // WHAT PAYS FOR IT, each asserted somewhere rather than intended:
+        //
+        //   RunnerStillDialsOutTests   answering a handshake opens no listening
+        //                              TCP socket, measured against the process.
+        //   ChannelDispatchIsClosedTests
+        //                              the channel answers two closed kinds and
+        //                              drops everything else, counted not logged.
+        //   TheSipsorceryForkIsTemporaryTests
+        //                              the pin is a fork that exists to be
+        //                              deleted, and the unpin is a build failure
+        //                              rather than a memory.
+        //
+        // AND WHAT DOES NOT. This is a large C# networking stack in the process
+        // that runs customer code with credentials. Nothing here bounds what it
+        // does with a malformed packet before our code sees one, and no test can
+        // - that is the cost, and it is the reason this list is one long.
+        await Assert.That(Refs(Project("Gg.Runner"), "PackageReference"))
+            .IsEquivalentTo((string[])["SIPSorcery"]);
     }
 
     [Test]

@@ -271,6 +271,64 @@ public class AConsoleReachesARunnerTests
     }
 
     [Test]
+    public async Task The_console_waits_as_long_as_the_introduction_lasts()
+    {
+        // THE NUMBER THE CONSOLE ALREADY HAS AND DID NOT USE. An introduction
+        // carries ExpiresAt - "when it stops working", the control plane's own
+        // statement - and the answer wait was a constructor argument instead:
+        // twenty seconds against an introduction that lasts a minute.
+        //
+        // Twenty was never enough. An introduction is picked up on a heartbeat,
+        // and the ordinary interval is a third of the staleness bound - fifteen
+        // seconds on the deployed control plane - so the worst case is fifteen
+        // plus a handshake, against a console that stopped asking at twenty.
+        // Measured on the fleet: the offer was left at 23:18:58.9, the console
+        // polled 62 times over 19.8s and gave up, and the sentence it printed
+        // blamed the machine.
+        using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+
+        // A SHORT LOCAL PATIENCE and a longer introduction, so the two cannot be
+        // confused: gathering candidates and opening a channel are this
+        // machine's business, and how long a runner has to answer is not.
+        var console = new ConsoleChannel([], TimeSpan.FromSeconds(1));
+
+        var asked = new List<DateTimeOffset>();
+
+        var reached = await console.ReachAsync(
+            new RunnerIntroduction
+            {
+                IntroductionId = "intro-1",
+                RunnerId = "01a06385-322f-7371-93a2-ce35db5c4fbe",
+                RunnerPublicKey = Convert.ToBase64String(runnerKey.ExportSubjectPublicKeyInfo()),
+                Capability = "a-capability",
+                ExpiresAt = T0.AddSeconds(4),
+            },
+            ephemeral,
+            FreshPins(),
+            T0,
+            (_, _) => Task.CompletedTask,
+            _ =>
+            {
+                asked.Add(DateTimeOffset.UtcNow);
+                return Task.FromResult(Collected.NotYet);
+            },
+            CancellationToken.None);
+
+        await Assert.That(asked).IsNotEmpty();
+
+        // MEASURED FROM THE FIRST ASK, not from the call, so the time spent
+        // gathering candidates is not counted as time spent waiting.
+        await Assert.That(asked[^1] - asked[0]).IsGreaterThan(TimeSpan.FromSeconds(2))
+            .Because("the console has to still be asking when the runner's next beat comes "
+                   + "round, and giving up first turns a wait into a sentence about a "
+                   + $"machine. Asked {asked.Count} times over "
+                   + $"{(asked[^1] - asked[0]).TotalSeconds:0.0}s.");
+
+        await Assert.That(reached.Failure).IsEqualTo(ReachFailure.RunnerNeverAnswered);
+    }
+
+    [Test]
     public async Task A_runner_that_never_answers_says_so_rather_than_hanging()
     {
         using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
@@ -285,7 +343,10 @@ public class AConsoleReachesARunnerTests
                 RunnerId = "01a06385-322f-7371-93a2-ce35db5c4fbe",
                 RunnerPublicKey = Convert.ToBase64String(runnerKey.ExportSubjectPublicKeyInfo()),
                 Capability = "a-capability",
-                ExpiresAt = T0.AddMinutes(1),
+                // SHORT ON PURPOSE. The subject is the sentence, not the wait -
+                // and the wait is the introduction's own life now, so a minute
+                // here would be a minute of test.
+                ExpiresAt = T0.AddSeconds(1),
             },
             neverUsed,
             FreshPins(),

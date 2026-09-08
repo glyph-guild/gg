@@ -45,7 +45,8 @@ return CliArgs.Parse(args) switch
     CliAction.Fly { ByHand: true } hand => await HandAsync(hand),
     CliAction.Fly fly => await EmitAsync(
         fly.Json, c => c.FlyAsync(
-            fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository)),
+            fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository,
+            runner: fly.Runner, attended: fly.Attended)),
     CliAction.Flights flights => await EmitAsync(
         flights.Json, c => c.ListAsync(flights.All, intent: flights.Intent)),
     CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
@@ -67,6 +68,7 @@ return CliArgs.Parse(args) switch
         await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),
     CliAction.RunnerRetire retire =>
         await EmitAsync(retire.Json, c => c.RetireRunnerAsync(retire.RunnerId)),
+    CliAction.RunnerWatch watch => await WatchAsync(watch),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
@@ -903,6 +905,83 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 /// what only this project can supply: the control plane's address, this
 /// machine's session, its own runner slot, and the attended executor.
 /// </remarks>
+/// <summary>
+/// Watches what a runner's flight is saying, from wherever this is running.
+/// </summary>
+/// <remarks>
+/// <b>Wiring only, like every other verb here.</b> The order, the refusals and
+/// the sentence for each live in <see cref="WatchARunner"/>, where a test can
+/// reach them. What is here is what only this project can supply: the control
+/// plane's address, this machine's session, and the pinned keys file.
+/// </remarks>
+static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return Fail("not signed in — run `gg login` first. Watching a runner is a person's action.");
+    }
+
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    // CTRL-C ENDS IT, and that is the only way it ends while the flight is
+    // flying. Watching follows: the channel carries a request and a bounded
+    // response, so following is asking again, and a person stops when they have
+    // seen enough.
+    using var stopping = new CancellationTokenSource();
+
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        stopping.Cancel();
+    };
+
+    var header = false;
+
+    var watching = await new WatchARunner(
+        new ControlPlaneClient(http),
+        // STUN FROM THE ENVIRONMENT, for the runner's own reason: naming a
+        // server in source would point every console at a service nobody chose.
+        new ConsoleChannel(Gg.Runner.StunConfiguration.FromEnvironment(), TimeSpan.FromSeconds(20)))
+        .WatchAsync(
+            session.SessionToken,
+            watch.RunnerId,
+            new PinnedRunnerKeys(),
+            watch.Lines,
+            DateTimeOffset.UtcNow,
+            // WRITTEN AS IT ARRIVES rather than collected and printed at the
+            // end. A person watching a flight wants the screen to move; a tail
+            // that appeared all at once when the flight landed would be a log
+            // file with extra steps.
+            write: line =>
+            {
+                if (!header)
+                {
+                    header = true;
+                    Console.WriteLine();
+                }
+
+                Console.Out.WriteLine("  " + line);
+                Console.Out.Flush();
+            },
+            follow: true,
+            cancellationToken: stopping.Token);
+
+    if (watching.Outcome is not WatchOutcome.Watching)
+    {
+        // ONE SENTENCE, AND IT ALREADY NAMES THE NEXT MOVE. Every outcome in
+        // that enum sends somebody somewhere different, which is why there is an
+        // enum rather than a string.
+        return Fail(watching.Said);
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"  — {watching.Said}");
+
+    return 0;
+}
+
 static async Task<int> HandAsync(CliAction.Fly fly)
 {
     var session = new FileSessionStore().Read();

@@ -336,21 +336,38 @@ public static class RunnerDetails
 
         var machine = label.Split(':')[0];
 
+        // WHAT THE FLIGHT IS SAYING, FIRST, when there is a flight. Everything
+        // slice thirty-four built was reachable from nowhere: a person opening
+        // this pane found an ssh command and no way to use any of it. The two
+        // answer different questions and both belong here - `watch` is what the
+        // FLIGHT is saying, and the ssh below is what the RUNNER is doing.
+        //
+        // OFFERED ONLY WHILE SOMETHING IS FLYING, because a channel to a runner
+        // exists only while a flight does. Offering it on an idle machine would
+        // be a command that always fails, which is the thing this method exists
+        // not to do.
+        var watch = row.Work is { Length: > 0 } flying
+            ? $"\n\n  gg runner watch {row.Id}\n\n"
+            + $"What {flying} is saying, as it says it, over a channel this control plane "
+            + "relays and cannot read. It answers only for a flight opened to be watched; an "
+            + "ordinary flight has no channel, however healthy the machine is. Ctrl-C stops it."
+            : "";
+
         if (label.EndsWith(":maintain", StringComparison.Ordinal))
         {
-            return $"\n\n  ssh {machine} sudo journalctl -u gg-runner-maintain -n 200\n\n"
+            return watch + $"\n\n  ssh {machine} sudo journalctl -u gg-runner-maintain -n 200\n\n"
                  + "That is the unit gg ships for a pool runner, so the command is a fact "
                  + "about our packaging. Whether that host answers to this name is not.";
         }
 
         if (label.EndsWith(":hand", StringComparison.Ordinal))
         {
-            return $"\n\n  ssh {machine} tail -n 200 {LogPath}\n\n"
+            return watch + $"\n\n  ssh {machine} tail -n 200 {LogPath}\n\n"
                  + "A console started that one, so gg wrote the file. Suggested rather than "
                  + "reported: nothing here came from the control plane.";
         }
 
-        return $"\n\n  ssh {machine} tail -n 200 {LogPath}\n"
+        return watch + $"\n\n  ssh {machine} tail -n 200 {LogPath}\n"
              + $"  ssh {machine} sudo journalctl -u 'gg-runner-*' -n 200\n\n"
              + "One of the two: gg writes the file when a console starts a runner, and a "
              + "service manager keeps the output itself when one starts it instead. Which "

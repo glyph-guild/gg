@@ -73,13 +73,17 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
         return 0;
     }
 
-    [Test]
-    public async Task A_refill_leaves_the_view_scrolled_where_the_old_rows_put_it()
+    /// <summary>
+    /// A table showing entry 5's detail, scrolled to the end of it.
+    /// </summary>
+    /// <remarks>
+    /// What a person has done to get here: opened the log, arrowed down onto an
+    /// entry whose detail is thirty-five lines, and read to the bottom of it. The
+    /// next press is the one that leaves the entry.
+    /// </remarks>
+    private static (TableView Table, int Was, int From, int At, IReadOnlyList<LogRow> Next)
+        ReadToTheEndOfADetail()
     {
-        // THE REPRODUCTION, against the real widget, because this is a fact
-        // about Terminal.Gui rather than about this console: filling a table and
-        // setting a selection does not scroll to it. Everything else here is
-        // arithmetic; this is the reason the arithmetic is needed at all.
         var table = CollectionViews.Table();
         table.Width = 70;
         table.Height = 12;
@@ -95,10 +99,11 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
         table.EnsureValidSelection();
         table.EnsureCursorIsVisible();
 
-        await Assert.That(table.RowOffset).IsGreaterThan(0)
-            .Because("this is about a view that has been scrolled, and one that never scrolled "
-                   + "would pass the assertion below for the wrong reason.");
+        var was = last;
+        var from = table.RowOffset;
 
+        // THE PRESS THAT LEAVES ENTRY 5: it closes, entry 6 opens, and the whole
+        // table is refilled to draw it.
         var next = Rows.Unwrapped(log, 6, width);
         var at = StartOf(next, 6);
 
@@ -106,11 +111,48 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
         table.SetSelection(0, at, extendExistingSelection: false, null);
         table.EnsureValidSelection();
 
+        return (table, was, from, at, next);
+    }
+
+    [Test]
+    public async Task A_refill_leaves_the_view_scrolled_where_the_old_rows_put_it()
+    {
+        // THE REPRODUCTION, against the real widget, because this is a fact
+        // about Terminal.Gui rather than about this console: filling a table and
+        // setting a selection does not scroll to it. Everything else here is
+        // arithmetic; this is the reason the arithmetic is needed at all.
+        var (table, _, from, at, _) = ReadToTheEndOfADetail();
+
+        await Assert.That(from).IsGreaterThan(0)
+            .Because("this is about a view that has been scrolled, and one that never scrolled "
+                   + "would pass the assertion below for the wrong reason.");
+
         await Assert.That(at - table.RowOffset).IsLessThan(0)
             .Because($"the cursor is at row {at} with the view scrolled to {table.RowOffset}, so "
                    + "it is above the top of the viewport - which is the whole defect. If this "
                    + "ever stops being true the library started handling it and the arithmetic "
                    + "can go.");
+    }
+
+    [Test]
+    public async Task The_same_move_with_the_fix_puts_the_cursor_back_on_the_screen()
+    {
+        // THE LOOP CLOSED. Every other test here is arithmetic over numbers I
+        // measured once; this one takes them from the widget on the way past, so
+        // a change in how Terminal.Gui scrolls cannot leave the arithmetic
+        // passing against numbers that stopped being true.
+        var (table, was, from, at, _) = ReadToTheEndOfADetail();
+
+        table.RowOffset = Rows.KeepingTheCursorsLine(was, from, at);
+        table.EnsureCursorIsVisible();
+
+        var line = at - table.RowOffset;
+
+        await Assert.That(line).IsGreaterThanOrEqualTo(0)
+            .Because($"the cursor is {-line} lines above the top of the viewport.");
+        await Assert.That(line).IsLessThan(table.Viewport.Height)
+            .Because($"the cursor is {line} lines down a viewport {table.Viewport.Height} "
+                   + "lines tall, so it is off the bottom.");
     }
 
     [Test]

@@ -100,8 +100,16 @@ public class StoryStageTests
         // THE SWEEP, so a kind added later must decide. A kind with no stage and
         // no argument for having none is the quiet default this whole shape is
         // against.
+        // THE LIST IS THE ARGUMENT, and each entry has to have one. These four
+        // interrupt at any stage: a takeover and a lapsed hold can land on a
+        // flight in any of the six, a pool incident is about the machine rather
+        // than the flight, and an attended flight nobody came for can end before
+        // it reached a first stage at all.
         var interruptions = new[]
-            { StoryKinds.TakenOver, StoryKinds.HoldExpired, StoryKinds.PoolIncident };
+        {
+            StoryKinds.TakenOver, StoryKinds.HoldExpired, StoryKinds.PoolIncident,
+            StoryKinds.AttendedNobodyCame,
+        };
 
         foreach (var kind in StoryKinds.All.Where(k => !interruptions.Contains(k)))
         {

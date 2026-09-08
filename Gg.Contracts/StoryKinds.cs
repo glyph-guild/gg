@@ -93,6 +93,19 @@ public static class StoryKinds
     /// <summary>The pool this flight's machine came from had a bad time.</summary>
     public const string PoolIncident = "pool-incident";
 
+    /// <summary>
+    /// Nobody came to fly it by hand, and it was given up on.
+    /// </summary>
+    /// <remarks>
+    /// <b>An attended flight names a machine and a person waits at a terminal
+    /// for it.</b> If the machine never claims it within the staleness bound —
+    /// the time it takes the control plane to call a runner offline — the flight
+    /// ends having run nothing. It reads as an interruption rather than a stage
+    /// for the same reason a takeover does: it can happen to a flight that never
+    /// got as far as a first stage at all.
+    /// </remarks>
+    public const string AttendedNobodyCame = "attended-nobody-came";
+
     public static IReadOnlyList<string> All { get; } =
     [
         Created, OpenedByAdmission,
@@ -102,7 +115,7 @@ public static class StoryKinds
         Evaluated, EvidenceRejected, ObligationHalted, LoopWaitingForPerson,
         DecisionAsked, DecisionMade,
         Ended,
-        TakenOver, HoldExpired, PoolIncident,
+        TakenOver, HoldExpired, PoolIncident, AttendedNobodyCame,
     ];
 
     /// <summary>

@@ -692,7 +692,14 @@ public sealed class FlightCommands(
         CancellationToken cancellationToken = default,
         string? provider = null,
         string? id = null,
-        string? repository = null)
+        string? repository = null,
+        // WHICH MACHINE, and whether somebody will be watching it. Two flags
+        // rather than one: naming a runner is an ordinary directed flight and
+        // has been since it shipped; attended says a person is at the other end.
+        // Attended without a runner is refused at the door, because it would be
+        // a flight nobody chose a machine for and nothing to talk to.
+        string? runner = null,
+        bool attended = false)
     {
         var token = Session();
 
@@ -728,6 +735,10 @@ public sealed class FlightCommands(
             // that named one would be pinning from the least informed place in
             // the system. Null inherits, which is what it has always meant.
             Repository = repository is { Length: > 0 } ? repository : null,
+            Runner = runner is { Length: > 0 } ? runner : null,
+            // ABSENT RATHER THAN FALSE, which is what keeps every headless
+            // flight's body byte-for-byte what it always was.
+            Attended = attended ? true : null,
         };
 
         return new VerbResult.Launched(await _client.LaunchFlightAsync(token, request, cancellationToken));

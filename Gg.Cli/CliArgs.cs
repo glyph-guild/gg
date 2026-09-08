@@ -79,7 +79,20 @@ public abstract record CliAction
         /// obtained. A second verb would be a second way to open a flight, with
         /// its own subset of these flags and its own drift.
         /// </remarks>
-        bool ByHand = false)
+        bool ByHand = false,
+        /// <summary>Which machine this flight is for, by id.</summary>
+        string? Runner = null,
+        /// <summary>
+        /// A person will watch this one from wherever they are.
+        /// </summary>
+        /// <remarks>
+        /// <b>Distinct from <see cref="ByHand"/>, and the pair is worth keeping
+        /// straight.</b> By hand means a person is at THIS keyboard and the
+        /// agent's terminal is theirs. This means a person is somewhere else and
+        /// wants to see what the flight says - the runner opens a channel and an
+        /// agent still does the work.
+        /// </remarks>
+        bool Attended = false)
         : CliAction, IEmitsResult;
 
     /// <summary>
@@ -137,6 +150,17 @@ public abstract record CliAction
 
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
     public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>
+    /// Watch what a runner's flight is saying, from wherever you are.
+    /// </summary>
+    /// <remarks>
+    /// <b>The verb everything in slice thirty-four was machinery for.</b> The
+    /// offerer, the seal, the relay and the runner's session all existed and
+    /// nothing called them - a person opening the console found a suggested
+    /// <c>ssh</c> command and no way to use any of it.
+    /// </remarks>
+    public sealed record RunnerWatch(string RunnerId, int Lines, bool Json) : CliAction;
 
     /// <summary>Forgets a runner's pinned key, so the next one is trusted afresh.</summary>
     public sealed record RunnerRepin(string RunnerId, bool Json) : CliAction, IEmitsResult;
@@ -277,6 +301,8 @@ public static class CliArgs
     [
         "gg                             the console",
         "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
+        "  --runner <id>                open it for one machine",
+        "  --attended                   and watch it from wherever you are",
         "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
@@ -296,6 +322,7 @@ public static class CliArgs
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id>          take a runner out of the fleet, for good",
+        "gg runner watch <id>           watch what its flight is saying, as it says it",
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
@@ -328,6 +355,50 @@ public static class CliArgs
     /// </remarks>
     private static readonly string[] ReadOnly = ["read"];
 
+    /// <summary>The value after a named option, or null.</summary>
+    private static string? Value(string[] args, string option)
+    {
+        var at = Array.IndexOf(args, option);
+
+        return at >= 0 && at + 1 < args.Length && !args[at + 1].StartsWith("--", StringComparison.Ordinal)
+            ? args[at + 1]
+            : null;
+    }
+
+    /// <summary>
+    /// The arguments with a named option AND its value removed.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pair, because dropping only the name leaves the value behind</b> -
+    /// and a value left in the list is matched as a verb, which is how
+    /// `gg fly --runner abc "do it"` would become a flight whose text is the
+    /// runner id.
+    /// </remarks>
+    private static string[] Without(IEnumerable<string> args, string option)
+    {
+        var kept = new List<string>();
+        var skip = false;
+
+        foreach (var arg in args)
+        {
+            if (skip)
+            {
+                skip = false;
+                continue;
+            }
+
+            if (string.Equals(arg, option, StringComparison.Ordinal))
+            {
+                skip = true;
+                continue;
+            }
+
+            kept.Add(arg);
+        }
+
+        return [.. kept];
+    }
+
     public static CliAction Parse(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -345,13 +416,30 @@ public static class CliArgs
         // arms are list patterns, so composing by stripping is one line where
         // composing by enumeration is eight arms to keep in step.
         var byHand = args.Contains("--hand", StringComparer.Ordinal);
-        var rest = args.Where(a => a != "--json" && a != "--all" && a != "--hand").ToArray();
+
+        // --attended is stripped for --hand's reason, and --runner takes a value
+        // so it is stripped as a PAIR. An option left in the list is matched as
+        // a verb, and `fly`'s arms are list patterns.
+        var attended = args.Contains("--attended", StringComparer.Ordinal);
+        var runner = Value(args, "--runner");
+
+        var rest = Without(
+            args.Where(a => a != "--json" && a != "--all" && a != "--hand" && a != "--attended"),
+            "--runner");
 
         // AND REFUSED ON ANYTHING THAT IS NOT `fly`. Stripping it globally would
         // accept `gg flights --hand` and do nothing - a flag that reads as an
         // instruction and is not one, which is exactly what IEmitsResult stops
         // `--json` being. Done here rather than by a type because only one verb
         // has a hand.
+        if ((attended || runner is not null) && rest is not ["fly", ..])
+        {
+            return Unknown(
+                "--attended and --runner are flags on `gg fly`: they say which machine a "
+              + "flight is for and whether somebody will be watching it. On any other verb "
+              + "they would read as an instruction and do nothing.");
+        }
+
         if (byHand && rest is not ["fly", ..])
         {
             return Unknown(
@@ -373,11 +461,22 @@ public static class CliArgs
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
+            // LINES IS BOUNDED BY THE CONTRACT, not here: RunnerAskBounds.MaxLines
+            // is what the runner clamps to, and a second bound on this side would
+            // be a second answer to how much a person may ask for.
+            ["runner", "watch", var watchId] =>
+                new CliAction.RunnerWatch(watchId, 40, json),
+            ["runner", "watch", var watchId, "--lines", var howMany]
+                when int.TryParse(howMany, out var asked) =>
+                new CliAction.RunnerWatch(watchId, asked, json),
             ["runner", "repin", var repinId] => new CliAction.RunnerRepin(repinId, json),
             ["runner", "repin", ..] => Unknown(
                 "gg runner repin needs one runner id - the one whose key changed."),
             ["runner", "retire", ..] => Unknown(
                 "gg runner retire needs one runner id. Run gg runners to see the fleet."),
+            ["runner", "watch"] => Unknown(
+                "gg runner watch needs one runner id. Run gg runners to see the fleet - and "
+              + "a runner answers only while it is flying something opened to be watched."),
 
             // `--intent <provider>#<id>` is positional rather than pulled out
             // by the pre-scan above, and the difference is that it takes a
@@ -467,10 +566,10 @@ public static class CliArgs
             // that may drift, and a flight naming the key keeps resolving after
             // somebody renames the repository on the forge.
             ["fly", "--uri", var uri, "--repo", var repo] =>
-                new CliAction.Fly(null, uri, json, Repository: repo, ByHand: byHand),
-            ["fly", "--ticket", var ticket, "--repo", var repo] => Ticket(ticket, json, repo, byHand),
+                new CliAction.Fly(null, uri, json, Repository: repo, ByHand: byHand, Runner: runner, Attended: attended),
+            ["fly", "--ticket", var ticket, "--repo", var repo] => Ticket(ticket, json, repo, byHand, runner, attended),
             ["fly", var text, "--repo", var repo] when !Option(text) =>
-                new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand),
+                new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand, Runner: runner, Attended: attended),
 
             // A trailing `--repo` is somebody who meant to name one. Falling
             // through to the says-two-things arm below would diagnose the wrong
@@ -480,8 +579,8 @@ public static class CliArgs
                 "gg fly --repo needs the name a repository is registered under, e.g. "
               + "--repo payments. Run gg airspace show to see them."),
 
-            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand),
-            ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand),
+            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand, Runner: runner, Attended: attended),
+            ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand, runner: runner, attended: attended),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -496,7 +595,7 @@ public static class CliArgs
                 $"'{option}' is an option, and gg fly does not have it. It takes some text, "
               + "--uri <uri>, or --ticket <provider>#<id>."),
 
-            ["fly", var text] => new CliAction.Fly(text, null, json, ByHand: byHand),
+            ["fly", var text] => new CliAction.Fly(text, null, json, ByHand: byHand, Runner: runner, Attended: attended),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
               + "or --ticket <provider>#<id>."),
@@ -650,11 +749,12 @@ public static class CliArgs
         word.StartsWith('-');
 
     private static CliAction Ticket(
-        string token, bool json, string? repository = null, bool byHand = false) =>
+        string token, bool json, string? repository = null, bool byHand = false,
+        string? runner = null, bool attended = false) =>
         SplitTicket(token) is var (provider, id) && provider is not null
             ? new CliAction.Fly(
                 null, null, json, Provider: provider, Id: id, Repository: repository,
-                ByHand: byHand)
+                ByHand: byHand, Runner: runner, Attended: attended)
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");

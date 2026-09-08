@@ -356,8 +356,19 @@ public class AConsoleReachesARunnerTests
             CancellationToken.None);
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.RunnerNeverAnswered);
-        await Assert.That(reached.Said).Contains("offline")
-            .Because("the sentence has to name the causes a person can check, and a runner "
-                   + "between heartbeats is the one that resolves itself.");
+        // THE CAUSES CHANGED WITH THE WAIT. "Between heartbeats" used to be the
+        // cause that resolves itself, and it was the honest one while the
+        // console gave up after twenty seconds against a minute-long
+        // introduction. Now the console waits the whole life of it, so a beat
+        // that was merely due is no longer an explanation - what is left is a
+        // machine that is not beating at all, and the sentence has to say where
+        // to look rather than list a possibility that can no longer happen.
+        await Assert.That(reached.Said).Contains("not beating")
+            .Because("the sentence has to name causes a person can act on, and it must not "
+                   + "keep offering one the code has ruled out.");
+
+        await Assert.That(reached.Said).Contains("gg runners")
+            .Because("naming a cause without naming where to check it leaves a person with "
+                   + "a diagnosis and nowhere to take it.");
     }
 }

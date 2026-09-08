@@ -221,7 +221,16 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             },
             cancellationToken);
 
-        var collected = await WaitForAnswerAsync(collectAsync, cancellationToken);
+        // HOW LONG THE RUNNER HAS, taken from the introduction rather than from
+        // this console's own patience. ExpiresAt is the control plane's
+        // statement of when this stops working, and it was on the wire, in
+        // hand, and unused: the wait was `patience`, twenty seconds, against
+        // an introduction that lasts a minute and a runner that picks one up on
+        // a heartbeat. `patience` still governs what happens on THIS machine -
+        // gathering candidates, opening a channel - which is a different
+        // question from how long somebody else may take to answer.
+        var collected = await WaitForAnswerAsync(
+            collectAsync, TheRunnersTime(introduction, now), cancellationToken);
 
         // WAITING AND WRONG, KEPT APART. Before this the expiry arrived as a
         // nullable answer and read as a silent runner - a sentence about a
@@ -241,9 +250,10 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             peer.close();
             return new Reached(
                 null, ReachFailure.RunnerNeverAnswered,
-                "The runner did not answer, and the introduction is still open. It may be "
-              + "offline or between heartbeats - a runner picks one up within a second of being "
-              + "told there is one, so this is a machine that is not asking.");
+                "The runner did not answer for the whole life of the introduction. An offer is "
+              + "picked up on a heartbeat, so this is a machine that is not beating - it is "
+              + "off, wedged, or its heartbeat cannot reach the control plane. `gg runners` "
+              + "says when it was last heard from, which is the thing to look at first.");
         }
 
         byte[] answerSdp;
@@ -324,13 +334,40 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         }
     }
 
+    /// <summary>The longest this console will wait, whatever it was told.</summary>
+    /// <remarks>
+    /// <b>Held here for the reason <c>HeartbeatCadence</c> holds its floor: a
+    /// bound only the sender enforces disappears the moment the sender is
+    /// wrong.</b> A control plane that minted an introduction lasting a day
+    /// would otherwise hang a person at a terminal for one. Generous rather
+    /// than tight, because the number that has to be respected is the
+    /// introduction's and this only stops an absurd one.
+    /// </remarks>
+    private static readonly TimeSpan LongestWorthWaiting = TimeSpan.FromMinutes(5);
+
+    /// <summary>How long the runner still has to answer.</summary>
+    /// <remarks>
+    /// Never negative: an introduction that is already over is asked about
+    /// once, so the control plane's own "gone" is what a person reads rather
+    /// than this console's arithmetic.
+    /// </remarks>
+    private static TimeSpan TheRunnersTime(RunnerIntroduction introduction, DateTimeOffset now)
+    {
+        var left = introduction.ExpiresAt - now;
+
+        return left <= TimeSpan.Zero ? TimeSpan.Zero
+            : left > LongestWorthWaiting ? LongestWorthWaiting
+            : left;
+    }
+
     private async Task<Collected> WaitForAnswerAsync(
         Func<CancellationToken, Task<Collected>> collectAsync,
+        TimeSpan lasts,
         CancellationToken cancellationToken)
     {
-        var until = DateTimeOffset.UtcNow + patience;
+        var until = DateTimeOffset.UtcNow + lasts;
 
-        while (DateTimeOffset.UtcNow < until)
+        do
         {
             // GONE ENDS THE LOOP RATHER THAN CONTINUING IT. An introduction that
             // is over will not come back, and asking for the rest of the
@@ -345,6 +382,11 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             // and a push would make it a participant.
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
+        // ASKED AT LEAST ONCE, which a `while` at the top would not do for an
+        // introduction that is already over. Reporting "the runner never
+        // answered" without having asked would be a sentence about a machine
+        // nobody consulted.
+        while (DateTimeOffset.UtcNow < until);
 
         return Collected.NotYet;
     }

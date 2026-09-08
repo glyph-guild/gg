@@ -219,7 +219,13 @@ public class ModalButtonTests
         var body = PaneText.Modal(new AppState { Mode = UiMode.GateDecision });
 
         await Assert.That(body).IsNotEmpty();
-        await Assert.That(body).Contains("no gate", StringComparison.OrdinalIgnoreCase);
+
+        // "DECISION" RATHER THAN "GATE", which is what this used to say. A gate
+        // is what the code calls it; a decision is what the person was waiting
+        // to make, and the queue already calls it that on the row they came
+        // from. The test follows the words a reader sees rather than pinning
+        // the ones the implementation happens to use.
+        await Assert.That(body).Contains("decision", StringComparison.OrdinalIgnoreCase);
     }
 
     [Test]

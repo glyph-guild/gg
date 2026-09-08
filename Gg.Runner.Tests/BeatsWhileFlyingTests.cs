@@ -127,15 +127,14 @@ public class BeatsWhileFlyingTests
     /// </summary>
     private static async Task<Flown> FlyAsync(
         bool attended,
-        Func<string, AttendedSession>? sessions = null,
-        Action<FakeProtocol>? arrange = null)
+        bool wiredToBeDriven = false,
+        PendingIntroduction? introduceMidFlight = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, attended)));
-        arrange?.Invoke(protocol);
 
         var observer = new RecordingObserver();
         using var stopping = new CancellationTokenSource();
@@ -148,6 +147,21 @@ public class BeatsWhileFlyingTests
         };
 
         var executor = new BlockingExecutor();
+
+        // THE SESSION NARRATES INTO THE TEST'S OWN OBSERVER, which is what makes
+        // answering observable at all. The offer left below cannot be opened, so
+        // the runner says so - and saying so is the only evidence that it looked.
+        using var key = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        Func<string, AttendedSession>? sessions = wiredToBeDriven
+            ? flightId => new AttendedSession(
+                key,
+                new RunnerChannel([], TimeSpan.FromSeconds(1)),
+                new AskDispatch(new WhatThisRunnerSays(
+                    observer,
+                    new TheFlightsOwnOutput(Path.Combine(Path.GetTempPath(), $"{flightId}.ndjson")),
+                    () => T0)),
+                observer)
+            : null;
 
         var flying = new RunnerLoop(protocol, clock,
                 (span, token) =>
@@ -182,6 +196,16 @@ public class BeatsWhileFlyingTests
         // sends from there. Bounded, and loud if the flight never gets that far.
         await executor.Entered.WaitAsync(TimeSpan.FromSeconds(30));
 
+        // LEFT ONLY ONCE THE AGENT IS WORKING, which is the whole subject.
+        // Queued before the run it would be taken by the IDLE loop's first
+        // beat, and the test would pass with no beat during the flight at all -
+        // measured, by poisoning the pump and watching this assertion stay
+        // green. What arrives here can only be answered from inside the flight.
+        if (introduceMidFlight is not null)
+        {
+            protocol.Introductions.Enqueue(introduceMidFlight);
+        }
+
         var before = protocol.Calls.Count(c => c == "heartbeat");
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         int beats;
@@ -212,32 +236,26 @@ public class BeatsWhileFlyingTests
     [Test]
     public async Task An_introduction_is_taken_up_while_the_agent_is_still_working()
     {
-        // WIRED TO BE DRIVEN, which is what a non-null session factory means.
-        // The channel and the dispatch are real; only the offer is nonsense, so
-        // the runner gets as far as failing to open it - and that failure is the
-        // evidence that the beat delivered it.
-        using var key = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
-
         var flown = await FlyAsync(
             attended: true,
-            sessions: flightId => new AttendedSession(
-                key,
-                new RunnerChannel([], TimeSpan.FromSeconds(1)),
-                new AskDispatch(new WhatThisRunnerSays(
-                    new SilentObserver(),
-                    new TheFlightsOwnOutput(Path.Combine(Path.GetTempPath(), $"{flightId}.ndjson")),
-                    () => T0)),
-                new SilentObserver()),
-            arrange: p => p.Introductions.Enqueue(new PendingIntroduction
+            wiredToBeDriven: true,
+            introduceMidFlight: new PendingIntroduction
             {
                 IntroductionId = "introduction-1",
                 Offer = new RunnerSealedOffer { Sealed = [1, 2, 3, 4] },
-            }));
+            });
 
-        await Assert.That(flown.Protocol.IntroductionsTaken).IsGreaterThanOrEqualTo(1)
-            .Because("an introduction rides the heartbeat, and a runner that does not beat "
-                   + "while it flies can never be reached during the one window a person "
-                   + "actually wants: while the agent is working.");
+        // WHAT THE RUNNER DID, never what the fake handed over. Counting the
+        // hand-over passes on a runner that ignores every introduction it is
+        // given - measured, by pointing the pump at no session and watching
+        // that version stay green.
+        await Assert.That(flown.Observer.Events.Any(
+                e => e.StartsWith("not-reachable:", StringComparison.Ordinal))).IsTrue()
+            .Because("an introduction rides the heartbeat and is answered by a session that "
+                   + "exists for the flight. A runner that does not beat while it flies, or "
+                   + "whose session begins after the work ends, can never be reached during "
+                   + "the one window a person actually wants: while the agent is working. "
+                   + "Said: " + string.Join(" | ", flown.Observer.Events));
     }
 
     [Test]

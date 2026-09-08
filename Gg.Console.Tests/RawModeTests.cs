@@ -141,6 +141,47 @@ public class RawModeTests
     }
 
     [Test]
+    [Repeat(20)]
+    public async Task It_never_reports_success_while_the_terminal_is_still_cooked()
+    {
+        // THE PROPERTY THE FLAKY TEST WAS ASSERTING BY ACCIDENT. `tcsetattr`
+        // returns 0 "if any of the requested changes could be successfully
+        // performed" - POSIX's words - so a zero means SOME of it took, not all
+        // of it. Enter read that as success, and on Linux it is occasionally
+        // wrong: about one run in four left ICANON set with a non-null answer.
+        //
+        // Which is the exact failure this type exists because of, one layer
+        // down. Its own remarks say a diagnostic reporting intent rather than
+        // state is worse than none; the setter was doing the same thing.
+        //
+        // Repeated, because once passes even when the defect is present.
+        using var pty = PseudoTerminal.Open();
+
+        var saved = RawMode.Enter(pty.Slave);
+
+        try
+        {
+            if (saved is null)
+            {
+                // Refusing is allowed. Claiming is what must be true.
+                return;
+            }
+
+            var raw = RawMode.Describe(pty.Slave);
+
+            await Assert.That(raw.Canonical).IsFalse()
+                .Because("Enter answered with settings to put back, which says it did what it "
+                       + "was asked - and the terminal disagrees.");
+            await Assert.That(raw.Echo).IsFalse();
+            await Assert.That(raw.MinimumBytes).IsEqualTo(0);
+        }
+        finally
+        {
+            RawMode.Restore(pty.Slave, saved);
+        }
+    }
+
+    [Test]
     public async Task What_it_reports_is_read_back_rather_than_remembered()
     {
         // THE DEFECT THIS TYPE EXISTS BECAUSE OF. A previous version reported

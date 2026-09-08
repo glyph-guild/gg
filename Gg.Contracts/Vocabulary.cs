@@ -24,6 +24,8 @@ public static class Vocabulary
         typeof(RunnerRegistered),
         typeof(RunnerReservationRequest),
         typeof(RunnerReserved),
+        typeof(PendingIntroduction),
+        typeof(RunnerSignalAnswer),
         typeof(RunnerIntroductionRequest),
         typeof(RunnerIntroduction),
         typeof(RunnerCapabilityClaims),

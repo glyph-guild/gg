@@ -185,3 +185,22 @@ public sealed record RunnerSealedAnswer
     /// <summary>The sealed answer. Opaque to everything that carries it.</summary>
     public required byte[] Sealed { get; init; }
 }
+
+/// <summary>
+/// A runner answering one introduction.
+/// </summary>
+/// <remarks>
+/// <b>The runner posts this; the control plane files it under the id and hands
+/// it to whoever is waiting.</b> It carries no capability, because the
+/// authorisation was checked when the offer was opened - a capability travelling
+/// back would be a grant going the wrong way, which is a shape nobody asked for.
+/// </remarks>
+[PinnedId("1c6ea940-8b73-4d52-a087-f45c2e91b378")]
+public sealed record RunnerSignalAnswer
+{
+    /// <summary>Which introduction this answers.</summary>
+    public required string IntroductionId { get; init; }
+
+    /// <summary>The answer, sealed to the console's ephemeral key.</summary>
+    public required RunnerSealedAnswer Answer { get; init; }
+}

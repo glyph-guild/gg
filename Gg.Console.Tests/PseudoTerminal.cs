@@ -102,7 +102,41 @@ internal sealed class PseudoTerminal : IDisposable
           + "terminal handling against a real pty, so without one it would assert nothing.");
     }
 
+    /// <summary>Only one thread may be part-way through opening a pty.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>ptsname</c> returns a pointer to STATIC storage.</b> Its own manual
+    /// says so — "this buffer is overwritten on the next call" — and POSIX does
+    /// not require it to be thread-safe. These tests run in parallel and several
+    /// of them open a pty, so two can interleave between the call and reading
+    /// what it pointed at: the second overwrites the buffer, and the first then
+    /// opens the SECOND one's slave. Nothing fails at that moment. What fails is
+    /// an assertion later, in whichever test was handed a terminal another one
+    /// was also using.
+    /// </para>
+    /// <para>
+    /// <b>A lock rather than <c>ptsname_r</c>, which is glibc's and not
+    /// macOS's.</b> Opening a pty is not hot enough for the difference to
+    /// matter, and one lock is a smaller thing to be right about than two
+    /// platform-specific declarations.
+    /// </para>
+    /// <para>
+    /// This is a real defect in this helper whether or not it is the Linux flake
+    /// that prompted the look — the call was unsynchronised and the manual says
+    /// it may not be.
+    /// </para>
+    /// </remarks>
+    private static readonly Lock Opening = new();
+
     internal static PseudoTerminal Open()
+    {
+        lock (Opening)
+        {
+            return OpenOne();
+        }
+    }
+
+    private static PseudoTerminal OpenOne()
     {
         var master = posix_openpt(ORdWr | ONoctty);
         if (master < 0)

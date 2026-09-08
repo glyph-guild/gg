@@ -20,6 +20,18 @@ namespace Gg.Cli.Tests;
 /// without becoming able to act as one.
 /// </para>
 /// <para>
+/// <b>Serialised, because six real handshakes at once is not what this
+/// measures.</b> Each test stands up two peer connections and drives ICE, DTLS
+/// and SCTP through to an open data channel; six of those in parallel is twelve
+/// peers contending for a two-core CI runner, and one of them took longer than
+/// the twenty-second patience and reported <c>NoRouteBetweenUs</c> — a sentence
+/// about the network, produced by a shortage of CPU. The class passed four runs
+/// locally on a fast machine and failed once on CI, which is the shape of a test
+/// that passes because the machine was quick rather than because the code is
+/// right. Raising the patience would have hidden it and made the deadline stop
+/// meaning what it says.
+/// </para>
+/// <para>
 /// <b>The relay is two delegates rather than a control plane.</b> What the
 /// control plane does here is hold a sealed blob until the other end collects
 /// it — which is a function, and standing up a database to prove that would test
@@ -27,6 +39,7 @@ namespace Gg.Cli.Tests;
 /// including that it cannot read what it carries.
 /// </para>
 /// </remarks>
+[NotInParallel("a-real-webrtc-handshake")]
 public class AConsoleReachesARunnerTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 9, 8, 8, 0, 0, TimeSpan.Zero);

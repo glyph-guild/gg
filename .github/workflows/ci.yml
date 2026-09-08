@@ -76,8 +76,7 @@ jobs:
       - name: Install it from the package and run the command people type
         run: |
           dotnet tool install GlyphGuild.Gg.Cli \
-            --tool-path artifacts/tool \
-            --add-source artifacts
+            --tool-path artifacts/tool
           ./artifacts/tool/gg --version
 
   ci:

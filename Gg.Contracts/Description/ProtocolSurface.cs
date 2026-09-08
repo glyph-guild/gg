@@ -296,6 +296,25 @@ public static class ProtocolSurface
         // NO DELETE TWIN, unlike parking and reservation. A person changes their
         // mind about withholding a machine; nothing un-retires one. Bringing it
         // back is registering a runner.
+        // THE CONTROL PLANE INTRODUCES, AND HOLDS NOTHING. It says which runner,
+        // that this caller may reach it, and for how long - and never anything
+        // that passes between them afterwards.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/introduction",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerIntroductionRequest),
+            Response = typeof(RunnerIntroduction),
+            // 404 for a runner that is not this tenant's, per the heartbeat
+            // route. 403 WITHIN the tenant for one the caller did not register:
+            // somebody who can see the row in `gg runners` learns nothing from
+            // being refused, and the refusal names the rule. 409 for a runner
+            // that registered before keys existed - there is nothing to seal to,
+            // and that has to read as CANNOT rather than as no log.
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "POST",
@@ -1217,7 +1236,7 @@ public static class ProtocolSurface
         [typeof(InvitationRequest)] = [],
         [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
             [typeof(TenantNotice)] = ["code", "detail", "remedy", "blocking"],
-            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved"],
+            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved", "publicKey"],
             // Empty on purpose: the act is "reserve this to me" and the runner
             // is named by the path, so there is nothing for a body to say.
             [typeof(RunnerReservationRequest)] = [],
@@ -1229,6 +1248,15 @@ public static class ProtocolSurface
             // registration rather than a rewrite - which means these members are
             // declared here while ProtocolSurface.Endpoints names no route for
             // them at all. That asymmetry is the design, not an omission.
+            [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey"],
+            [typeof(RunnerIntroduction)] =
+                ["runnerId", "runnerPublicKey", "capability", "expiresAt"],
+            [typeof(RunnerCapabilityClaims)] =
+                ["principalId", "runnerId", "purpose", "expiresAt", "ephemeralKeyHash"],
+            // NO MEMBER AN SDP COULD BE READ OUT OF, deliberately, which is
+            // EvidenceReference's sentence about a different body.
+            [typeof(RunnerSealedOffer)] = ["capability", "sealed"],
+            [typeof(RunnerSealedAnswer)] = ["runnerId", "sealed"],
             [typeof(RunnerAsk)] = ["kind", "tailLog", "status"],
             [typeof(TailLogAsk)] = ["lines"],
             // Empty on purpose: the ask is "how are you", and a member here

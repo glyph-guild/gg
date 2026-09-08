@@ -256,8 +256,12 @@ public class EndpointSurfaceTests
         // 409. It is the first act on a runner with no undo verb beside it -
         // parking and reservation each carry a DELETE twin and this
         // deliberately does not, because nothing un-retires a runner.
+        // Moved for the introduction: POST /v1/runners/{id}/introduction,
+        // developer audience, session header, and 409 beside the usual set -
+        // a runner registered before keys existed has nothing to seal to, and
+        // "nothing to seal to" is a different fact from "no such runner".
         await Assert.That(Fingerprint())
-            .IsEqualTo("31dff31186e309d42322c264d0986c1cc9c6d087b98ae27dc654d092ea89a565")
+            .IsEqualTo("37f53b0788854e559d256dd1ae2518a52d2aa7c85d52f343739759492c29a13b")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

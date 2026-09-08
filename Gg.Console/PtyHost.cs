@@ -23,7 +23,8 @@ public delegate Task<int> HostRun(
     string command,
     IReadOnlyList<string> arguments,
     string workingDirectory,
-    Func<IReadOnlyList<string>> panel,
+    Func<int, IReadOnlyList<string>> panel,
+    Func<byte, bool> took,
     CancellationToken cancellationToken);
 
 /// <summary>
@@ -94,12 +95,14 @@ public static class PtyHost
         string command,
         IReadOnlyList<string> arguments,
         string workingDirectory,
-        Func<IReadOnlyList<string>> panel,
+        Func<int, IReadOnlyList<string>> panel,
+        Func<byte, bool> took,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(panel);
+        ArgumentNullException.ThrowIfNull(took);
 
-        var (columns, rows) = Fit(terminal, panel().Count);
+        var (columns, rows) = Fit(terminal, panel(Budget(terminal)).Count);
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
@@ -135,8 +138,6 @@ public static class PtyHost
             using var pty = await PtyProvider.SpawnAsync(options, cancellationToken);
             using var stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            var typing = Forward(terminal, pty, stopping.Token);
-
             // ONE THREAD IN THE EMULATOR AT A TIME. Two get here: this loop,
             // writing what the child produced, and the SIGWINCH handler, resizing
             // it. XTerm.NET makes no thread-safety promise and neither does a
@@ -160,7 +161,7 @@ public static class PtyHost
             // long as the session and is taken off again below.
             void Repaint()
             {
-                var kept = panel();
+                var kept = panel(Budget(terminal));
                 var (width, height) = Fit(terminal, kept.Count);
 
                 lock (screen)
@@ -195,6 +196,11 @@ public static class PtyHost
             }
 
             terminal.Resized += Repaint;
+
+            // FORWARDING STARTS ONCE THERE IS SOMETHING TO REPAINT WITH. It
+            // closes over Repaint, and a key arriving before the first frame
+            // would paint from an emulator nothing had written to.
+            var typing = Forward(terminal, pty, took, Repaint, stopping.Token);
 
             // AND ON A TICK, BECAUSE GG'S OWN ROWS CHANGE WHEN THE CHILD IS
             // SILENT. Repainting only on output ties what gg has to say to the
@@ -304,6 +310,21 @@ public static class PtyHost
     /// state this host has no way to paint.
     /// </para>
     /// </remarks>
+    /// <summary>How many rows gg may take, at most.</summary>
+    /// <remarks>
+    /// <b>The host's to decide, because only it knows how tall the terminal
+    /// is.</b> A panel choosing for itself could ask for more rows than exist,
+    /// which is not a screen a child can be given.
+    /// <para>
+    /// <b>Half, and never the whole thing.</b> The child is what a person came
+    /// for; gg is answering a question about it. A panel that could cover the
+    /// screen would be a different feature — the one that drops back to the full
+    /// console — and it should be built as that rather than arrived at by a
+    /// budget nobody bounded.
+    /// </para>
+    /// </remarks>
+    private static int Budget(IHostTerminal terminal) => Math.Max(terminal.Rows / 2, 2);
+
     private static (int Columns, int Rows) Fit(IHostTerminal terminal, int kept) =>
         (Math.Max(terminal.Columns, 20), Math.Max(terminal.Rows - Math.Max(kept, 1), 5));
 
@@ -328,7 +349,11 @@ public static class PtyHost
     /// </para>
     /// </remarks>
     private static Task Forward(
-        IHostTerminal terminal, IPtyConnection pty, CancellationToken stopping)
+        IHostTerminal terminal,
+        IPtyConnection pty,
+        Func<byte, bool> took,
+        Action changed,
+        CancellationToken stopping)
     {
         var keys = terminal.Keystrokes;
         var stale = new byte[1024];
@@ -348,6 +373,22 @@ public static class PtyHost
                         var read = keys.Read(typed, 0, typed.Length);
                         if (read > 0)
                         {
+                            // ONE BYTE ON ITS OWN IS A KEYSTROKE; A CHUNK IS A
+                            // PASTE. Offering gg the bytes of a paste would let
+                            // text somebody copied open a panel, and the rest of
+                            // the paste would then be typed into it. A real
+                            // keypress arrives alone, so that is the test - not
+                            // perfect, and the honest bound on what this does.
+                            if (read == 1 && took(typed[0]))
+                            {
+                                // NOT FORWARDED, and repainted at once rather
+                                // than on the next tick: a key that opened a
+                                // panel a quarter of a second later reads as a
+                                // key that did nothing.
+                                changed();
+                                continue;
+                            }
+
                             pty.WriterStream.Write(typed, 0, read);
                             pty.WriterStream.Flush();
                             continue;

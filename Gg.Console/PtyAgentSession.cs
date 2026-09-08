@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Gg.Contracts;
 using Gg.Local;
 
 namespace Gg.Console;
@@ -58,6 +59,7 @@ public sealed class PtyAgentSession : IEditorSession
     private readonly string _bar;
     private readonly string _submitted;
     private readonly Action<string> _say;
+    private readonly Func<EnvelopeState?> _envelope;
 
     /// <param name="agentCommand">
     /// The agent, as a command line. Defaults to <c>GG_TAKE_COMMAND</c> and then
@@ -95,6 +97,16 @@ public sealed class PtyAgentSession : IEditorSession
     /// </para>
     /// </param>
     /// <param name="say">Where a word to the person goes when this cannot run.</param>
+    /// <param name="envelope">
+    /// The rules in force, for the panel to show. A function rather than a
+    /// value, because the console reads the envelope between sessions and what
+    /// is true when this is constructed is not what is true when somebody asks.
+    /// <para>
+    /// Null answers nothing, and the panel says so out loud rather than showing
+    /// an empty box — an envelope nobody read and one with no instructions are
+    /// the same blank panel, and only the first is a thing to go and fix.
+    /// </para>
+    /// </param>
     public PtyAgentSession(
         string? agentCommand = null,
         Func<IHostTerminal?>? terminal = null,
@@ -105,7 +117,8 @@ public sealed class PtyAgentSession : IEditorSession
                    + "closing without submitting composes nothing",
         string submitted = "gg · composing — intent submitted · close when you are done, "
                          + "or submit again to replace it",
-        Action<string>? say = null)
+        Action<string>? say = null,
+        Func<EnvelopeState?>? envelope = null)
     {
         _agentCommand = agentCommand
             ?? Environment.GetEnvironmentVariable("GG_TAKE_COMMAND")
@@ -117,6 +130,7 @@ public sealed class PtyAgentSession : IEditorSession
         _bar = bar;
         _submitted = submitted;
         _say = say ?? System.Console.WriteLine;
+        _envelope = envelope ?? (() => null);
     }
 
     /// <summary>
@@ -153,6 +167,11 @@ public sealed class PtyAgentSession : IEditorSession
             return "";
         }
 
+        // WHAT GG IS SHOWING, for as long as this session. A local, because it
+        // belongs to one session and outliving one would mean the next opened
+        // on whatever the last person left up.
+        var showing = HostedView.Closed;
+
         var ours = _composeIn is null;
         var directory = _composeIn ?? Path.Combine(
             Path.GetTempPath(), "gg-compose-" + Guid.NewGuid().ToString("N")[..8]);
@@ -177,11 +196,30 @@ public sealed class PtyAgentSession : IEditorSession
                      // different if this were typed here.
                      "--allowedTools", IntentTool.Qualified],
                     Directory.GetCurrentDirectory(),
-                    // ASKED ON EVERY FRAME, and answered from the one thing that
-                    // knows: whether the file is there. The tool server writes it
-                    // by rename, so it is either absent or whole - which is what
-                    // makes a stat an honest answer rather than a race.
-                    () => (string[])[File.Exists(intent) ? _submitted : _bar],
+                    // ASKED ON EVERY FRAME, and the status answered from the one
+                    // thing that knows: whether the file is there. The tool
+                    // server writes it by rename, so it is either absent or
+                    // whole - which is what makes a stat an honest answer rather
+                    // than a race.
+                    most => HostedBar.Rows(
+                        showing,
+                        File.Exists(intent) ? _submitted : _bar,
+                        Body(showing, intent),
+                        most),
+
+                    // AND GG'S ONE KEY. The panel's state lives here rather than
+                    // in the host, because the host holds nothing between calls
+                    // and a test asserts it does not.
+                    typed =>
+                    {
+                        if (!HostedBar.Takes(showing, typed))
+                        {
+                            return false;
+                        }
+
+                        showing = HostedBar.Next(showing, typed);
+                        return true;
+                    },
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (
@@ -205,6 +243,29 @@ public sealed class PtyAgentSession : IEditorSession
             Forget(directory, ours);
         }
     }
+
+    /// <summary>What the open view has to show.</summary>
+    /// <remarks>
+    /// <b>The envelope is rendered by the same function the console's own pane
+    /// uses.</b> Two renderings of the rules in force would be two things to
+    /// keep in agreement, and the one that drifts is the one nobody is looking
+    /// at — which is the argument `instructions-in-the-envelope` makes about
+    /// prompts, one surface over.
+    /// </remarks>
+    private string Body(HostedView showing, string intent) => showing switch
+    {
+        HostedView.Envelope => _envelope() is { } state
+            ? PaneText.Envelope(new AppState { Envelope = state })
+            : "",
+
+        // ONLY AFTER IT LANDS, because before that gg does not know. An agent
+        // composes in its own session and hands the result back by tool call;
+        // there is nothing to show until it does, and guessing from the screen
+        // is what rule 7 forbids.
+        HostedView.Intent => File.Exists(intent) ? File.ReadAllText(intent) : "",
+
+        _ => "",
+    };
 
     /// <summary>Removes the intent, and the directory if this session made it.</summary>
     /// <remarks>

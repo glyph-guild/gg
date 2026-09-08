@@ -21,10 +21,10 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class SuggestedLogCommandTests
 {
-    private static RunnerRow Row(string label) => new(
+    private static RunnerRow Row(string label, string work = "") => new(
         Mine: false, Yours: false, Machine: false, RegisteredBy: "somebody",
         Id: "01a06385-322f-7371-93a2-ce35db5c4fbe", Label: label, ParkedBecause: "",
-        Here: " ", Runner: "01a06385  " + label, State: "offline", Work: "",
+        Here: " ", Runner: "01a06385  " + label, State: "offline", Work: work,
         Labels: "", Heard: "");
 
     [Test]
@@ -143,5 +143,44 @@ public class SuggestedLogCommandTests
             .Because("the sentence that was already there says WHY there is nothing, and the "
                    + "command says what to do about it. Both, or the second reads as an "
                    + "error message.");
+    }
+
+    [Test]
+    public async Task A_runner_that_is_flying_something_is_offered_a_way_to_watch_it()
+    {
+        // THE GAP THIS CLOSES. Everything the slice built was reachable from
+        // nowhere: a person arriving at this modal found an ssh command and no
+        // way to use the channel, the seal or the runner's session.
+        var said = RunnerDetails.Suggestion(Row("vmlinux001", work: "GG-1042"));
+
+        await Assert.That(said).Contains("gg runner watch 01a06385-322f-7371-93a2-ce35db5c4fbe")
+            .Because("this modal is where a person arrives wanting to know what a machine they "
+                   + "cannot reach is doing, and it is where the way to find out belongs.");
+
+        await Assert.That(said).Contains("GG-1042")
+            .Because("naming the flight is what makes it an offer about something rather than "
+                   + "a command to try.");
+
+        await Assert.That(said).Contains("opened to be watched")
+            .Because("an ordinary flight has no channel, and a person told to run a command "
+                   + "that cannot work is worse off than one told nothing.");
+
+        await Assert.That(said).Contains("ssh vmlinux001")
+            .Because("both belong here: watch is what the FLIGHT is saying, and ssh is what "
+                   + "the RUNNER is doing. They answer different questions.");
+    }
+
+    [Test]
+    public async Task A_runner_flying_nothing_is_not_offered_a_command_that_cannot_work()
+    {
+        // THE POISON TWIN. A channel to a runner exists only while a flight
+        // does, so offering this on an idle machine would be a command that
+        // always fails - which is the thing this whole method exists not to do.
+        var said = RunnerDetails.Suggestion(Row("vmlinux001"));
+
+        await Assert.That(said).DoesNotContain("gg runner watch");
+        await Assert.That(said).Contains("ssh vmlinux001")
+            .Because("there is still something to suggest, and losing it would be a worse "
+                   + "answer than the one before this change.");
     }
 }

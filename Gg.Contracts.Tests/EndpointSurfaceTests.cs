@@ -260,8 +260,12 @@ public class EndpointSurfaceTests
         // developer audience, session header, and 409 beside the usual set -
         // a runner registered before keys existed has nothing to seal to, and
         // "nothing to seal to" is a different fact from "no such runner".
+        // Moved for signalling: POST /v1/runners/{id}/signal arrives - runner
+        // audience, runner header, 202. A runner answering an introduction posts
+        // OUTWARD, on the same footing as every other thing it says, because a
+        // machine that never listens is what makes ICE viable here at all.
         await Assert.That(Fingerprint())
-            .IsEqualTo("37f53b0788854e559d256dd1ae2518a52d2aa7c85d52f343739759492c29a13b")
+            .IsEqualTo("8bd5821af102b97802c6802de1f4d685e8ebff85bc5b71865e0f9e07edfd31f8")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -299,6 +299,22 @@ public static class ProtocolSurface
         // THE CONTROL PLANE INTRODUCES, AND HOLDS NOTHING. It says which runner,
         // that this caller may reach it, and for how long - and never anything
         // that passes between them afterwards.
+        // THE RUNNER'S HALF OF THE HANDSHAKE, and it is a POST rather than a
+        // socket. The offer arrived on the heartbeat the runner was already
+        // making; this is the answer going back the same way round - outbound,
+        // from a machine that never listens.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/signal",
+            Audience = Audience.Runner,
+            Request = typeof(RunnerSignalAnswer),
+            // 202 rather than 200: the control plane files the answer and the
+            // console collects it. Nothing here waits for the far end, which is
+            // what stops this becoming a channel the relay is inside.
+            Statuses = [202, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
         new()
         {
             Method = "POST",
@@ -1249,6 +1265,8 @@ public static class ProtocolSurface
             // declared here while ProtocolSurface.Endpoints names no route for
             // them at all. That asymmetry is the design, not an omission.
             [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey"],
+            [typeof(PendingIntroduction)] = ["introductionId", "offer"],
+            [typeof(RunnerSignalAnswer)] = ["introductionId", "answer"],
             [typeof(RunnerIntroduction)] =
                 ["runnerId", "runnerPublicKey", "capability", "expiresAt"],
             [typeof(RunnerCapabilityClaims)] =
@@ -1271,7 +1289,9 @@ public static class ProtocolSurface
             [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] = ["labels"],
-            [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds"],
+            // `introductions` is absent unless a console is waiting, so an idle
+            // fleet's heartbeat body is byte-for-byte what it always was.
+            [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds", "introductions"],
             // `flightId` is absent unless a runner is asking for one flight by
             // name - an attended session, where a person opened the flight and
             // is waiting at a prompt for it. Every other claim is the fleet's

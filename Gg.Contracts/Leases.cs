@@ -40,6 +40,54 @@ public sealed record HeartbeatAccepted
 {
     /// <summary>Seconds the runner should wait before the next heartbeat.</summary>
     public required int NextHeartbeatSeconds { get; init; }
+
+    /// <summary>
+    /// Consoles waiting to be introduced to this runner, or absent when none are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>SIGNALLING RIDES A POLL THAT ALREADY EXISTS, and this member is the
+    /// whole of the mechanism.</b> ADR-0013 wanted ICE candidates to trickle
+    /// "over the runner's existing poll rather than needing a push channel" -
+    /// and the poll was already here, along with the cadence control that makes
+    /// it responsive. A runner gains no new loop, no long poll and no listening
+    /// socket, so its outbound-only posture survives by construction rather than
+    /// by care.
+    /// </para>
+    /// <para>
+    /// <b>Absent when empty rather than an empty list</b>, so an idle fleet's
+    /// heartbeat body is byte-for-byte what it was and the two repositories stay
+    /// free to upgrade out of step.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<PendingIntroduction>? Introductions { get; init; }
+}
+
+/// <summary>
+/// One console waiting for this runner to answer.
+/// </summary>
+/// <remarks>
+/// <b>The sealed offer and nothing else.</b> The control plane relays what it
+/// cannot read; a member here describing the offer would be the relay reading
+/// the thing it exists not to read, and it would arrive looking like a
+/// convenience.
+/// </remarks>
+[PinnedId("e83b71d6-4a09-4c25-9f13-6b07d2e5a814")]
+public sealed record PendingIntroduction
+{
+    /// <summary>
+    /// Which introduction this is, so an answer can be matched to it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the capability.</b> The capability is what the runner CHECKS; this
+    /// is what the answer is filed under. Using one value for both would mean a
+    /// runner had to disclose its authorisation to say which question it was
+    /// answering.
+    /// </remarks>
+    public required string IntroductionId { get; init; }
+
+    /// <summary>The offer, sealed to this runner's registered key.</summary>
+    public required RunnerSealedOffer Offer { get; init; }
 }
 
 /// <summary>Asks for a flight to work on, and waits.</summary>

@@ -23,7 +23,7 @@ public delegate Task<int> HostRun(
     string command,
     IReadOnlyList<string> arguments,
     string workingDirectory,
-    Func<string> bar,
+    Func<IReadOnlyList<string>> panel,
     CancellationToken cancellationToken);
 
 /// <summary>
@@ -76,10 +76,17 @@ public static class PtyHost
     /// </para>
     /// <para>
     /// <b>And it is asked for on every frame rather than given once.</b> What
-    /// the bar has to say changes while the session runs — most of all once a
+    /// gg's rows have to say changes while the session runs — most of all once a
     /// composing agent has submitted, because a person who cannot tell whether
-    /// gg received anything will submit again. A string handed over at the start
-    /// can only say what was true then.
+    /// gg received anything will submit again. Something handed over at the
+    /// start can only say what was true then.
+    /// </para>
+    /// <para>
+    /// <b>And how MANY rows changes too.</b> One while gg is only saying what
+    /// ends the session; several once somebody has asked to see the envelope. So
+    /// the child's size depends on the panel as well as on the terminal, and a
+    /// single <c>Repaint</c> owns both — separate paths for them would be two
+    /// places to get the same arithmetic right.
     /// </para>
     /// </remarks>
     public static async Task<int> RunAsync(
@@ -87,12 +94,12 @@ public static class PtyHost
         string command,
         IReadOnlyList<string> arguments,
         string workingDirectory,
-        Func<string> bar,
+        Func<IReadOnlyList<string>> panel,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(bar);
+        ArgumentNullException.ThrowIfNull(panel);
 
-        var (columns, rows) = Fit(terminal);
+        var (columns, rows) = Fit(terminal, panel().Count);
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
@@ -151,39 +158,43 @@ public static class PtyHost
             // A LOCAL, NOT A FIELD. This host holds no state between calls and a
             // test asserts it does not, so the subscription lives exactly as
             // long as the session and is taken off again below.
-            void OnResized()
+            void Repaint()
             {
-                var (width, height) = Fit(terminal);
-
-                try
-                {
-                    pty.Resize(width, height);
-                }
-                catch (IOException)
-                {
-                    // The child is already gone. A resize arriving in the gap
-                    // between its exit and this loop noticing is ordinary, not
-                    // an error, and it must not take the session down on its way
-                    // out.
-                    return;
-                }
+                var kept = panel();
+                var (width, height) = Fit(terminal, kept.Count);
 
                 lock (screen)
                 {
-                    // Resize rather than assigning Cols and Rows: those setters
-                    // are init-only, and this is the call that moves the buffer
-                    // with them rather than leaving a screen that disagrees with
-                    // itself.
-                    emulator.Resize(width, height);
+                    if (width != columns || height != rows)
+                    {
+                        try
+                        {
+                            pty.Resize(width, height);
+                        }
+                        catch (IOException)
+                        {
+                            // The child is already gone. A resize arriving in
+                            // the gap between its exit and this loop noticing is
+                            // ordinary, not an error, and must not take the
+                            // session down on its way out.
+                            return;
+                        }
 
-                    columns = width;
-                    rows = height;
+                        // Resize rather than assigning Cols and Rows: those
+                        // setters are init-only, and this is the call that moves
+                        // the buffer with them rather than leaving a screen that
+                        // disagrees with itself.
+                        emulator.Resize(width, height);
 
-                    terminal.Paint(PtyScreen.Paint(emulator, height, width, bar()));
+                        columns = width;
+                        rows = height;
+                    }
+
+                    terminal.Paint(PtyScreen.Paint(emulator, rows, columns, kept));
                 }
             }
 
-            terminal.Resized += OnResized;
+            terminal.Resized += Repaint;
 
             // THE BAR GOES UP BEFORE THE CHILD SAYS ANYTHING. Painting only on
             // arrival ties gg's own row to the child having written something,
@@ -191,10 +202,7 @@ public static class PtyHost
             // so the one row gg kept stayed blank for as long as the person sat
             // there. Found by an editor test, fixed here, because the bar is the
             // host's promise and not the caller's.
-            lock (screen)
-            {
-                terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar()));
-            }
+            Repaint();
 
             // READ TO THE END BEFORE ASKING FOR THE EXIT CODE. The child can
             // write and exit faster than this loop runs, and a host that
@@ -223,12 +231,11 @@ public static class PtyHost
                 lock (screen)
                 {
                     emulator.Write(Encoding.UTF8.GetString(buffer, 0, read));
-
-                    // Read inside the lock as well: the pair is written together
-                    // by a resize, and reading them apart paints one frame with
-                    // the new height and the old width.
-                    terminal.Paint(PtyScreen.Paint(emulator, rows, columns, bar()));
                 }
+
+                // OUTSIDE THE WRITE'S LOCK, because Repaint takes it itself -
+                // and it has to, since a resize can arrive between the two.
+                Repaint();
             }
 
             pty.WaitForExit(Timeout.Infinite);
@@ -236,7 +243,7 @@ public static class PtyHost
             await stopping.CancelAsync();
             await typing;
 
-            terminal.Resized -= OnResized;
+            terminal.Resized -= Repaint;
 
             return pty.ExitCode;
         }
@@ -255,14 +262,20 @@ public static class PtyHost
     /// How big the child's screen is: the terminal's, less gg's row.
     /// </summary>
     /// <remarks>
-    /// <b>One place, called twice.</b> The bar's row is subtracted at spawn and
-    /// again at every resize, and two subtractions that drift apart is a screen
-    /// that is one row wrong until somebody resizes it back. The floors are for
-    /// a terminal reporting nonsense - a resize can be observed mid-drag, and a
-    /// pty of zero columns is not a thing a child can be told about.
+    /// <b>One place, called from one repaint.</b> gg's rows are subtracted at
+    /// spawn, at every terminal resize, and every time the panel opens or
+    /// closes; subtractions that drift apart are a screen wrong by however many
+    /// rows until somebody resizes it back. The floors are for a terminal
+    /// reporting nonsense - a resize can be observed mid-drag, and a pty of zero
+    /// columns is not a thing a child can be told about.
+    /// <para>
+    /// <b>At least one row, always.</b> A caller handing over an empty panel
+    /// still owes the child a screen it can compute, and gg keeping nothing is a
+    /// state this host has no way to paint.
+    /// </para>
     /// </remarks>
-    private static (int Columns, int Rows) Fit(IHostTerminal terminal) =>
-        (Math.Max(terminal.Columns, 20), Math.Max(terminal.Rows - 1, 5));
+    private static (int Columns, int Rows) Fit(IHostTerminal terminal, int kept) =>
+        (Math.Max(terminal.Columns, 20), Math.Max(terminal.Rows - Math.Max(kept, 1), 5));
 
     /// <summary>
     /// Everything the person types, into the child, until the child is gone.

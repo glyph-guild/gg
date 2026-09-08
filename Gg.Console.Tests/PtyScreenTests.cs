@@ -50,7 +50,7 @@ public class PtyScreenTests
         // full-screen program cannot paint over the bar - which a scroll region
         // cannot achieve, because such a program resets the region and repaints
         // everything inside it.
-        var frame = PtyScreen.Paint(Screen(rows: 5, columns: 20), rows: 5, columns: 20, bar: "gg");
+        var frame = PtyScreen.Paint(Screen(rows: 5, columns: 20), rows: 5, columns: 20, panel: ["gg"]);
 
         await Assert.That(frame).Contains($"{Esc}[1;1H", StringComparison.Ordinal)
             .Because("the bar is written at the top left of the real terminal.");
@@ -69,14 +69,14 @@ public class PtyScreenTests
         // floating on whatever the child last left there. Truncated, because a
         // bar one column too long wraps onto the child's first row and shunts
         // the entire screen down by one.
-        var padded = PtyScreen.Paint(Screen(rows: 3, columns: 12), rows: 3, columns: 12, bar: "gg");
+        var padded = PtyScreen.Paint(Screen(rows: 3, columns: 12), rows: 3, columns: 12, panel: ["gg"]);
 
         await Assert.That(padded).Contains("gg          ", StringComparison.Ordinal)
             .Because("two columns of text and ten of padding is the twelve it was given.");
 
         var overlong = PtyScreen.Paint(
             Screen(rows: 3, columns: 12), rows: 3, columns: 12,
-            bar: "a bar far longer than this terminal is wide");
+            panel: ["a bar far longer than this terminal is wide"]);
 
         await Assert.That(overlong).Contains("a bar far lo", StringComparison.Ordinal);
         await Assert.That(overlong).DoesNotContain("longer", StringComparison.Ordinal)
@@ -91,7 +91,7 @@ public class PtyScreenTests
         // last column with the wrap armed; on the LAST row the next character
         // scrolls the screen and the bottom line is gone for good. Vim's INSERT
         // indicator lives on that line, which is how this was noticed at all.
-        var frame = PtyScreen.Paint(Screen(rows: 4, columns: 10), rows: 4, columns: 10, bar: "gg");
+        var frame = PtyScreen.Paint(Screen(rows: 4, columns: 10), rows: 4, columns: 10, panel: ["gg"]);
 
         await Assert.That(frame).Contains($"{Esc}[5;1H", StringComparison.Ordinal)
             .Because("four child rows under one bar makes the last of them terminal row "
@@ -115,14 +115,14 @@ public class PtyScreenTests
         // the floor and Claude Code came out monochrome.
         var frame = PtyScreen.Paint(
             Screen(rows: 3, columns: 10, wrote: $"{Esc}[31mred"),
-            rows: 3, columns: 10, bar: "gg");
+            rows: 3, columns: 10, panel: ["gg"]);
 
         await Assert.That(frame).Contains("38;5;1", StringComparison.Ordinal)
             .Because("red is palette entry one, and 38;5;n serves all 256 of them.");
 
         var bold = PtyScreen.Paint(
             Screen(rows: 3, columns: 10, wrote: $"{Esc}[1mloud"),
-            rows: 3, columns: 10, bar: "gg");
+            rows: 3, columns: 10, panel: ["gg"]);
 
         await Assert.That(bold).Contains($"{Esc}[0;1m", StringComparison.Ordinal)
             .Because("reset then bold, rather than a delta from the previous cell: a delta "
@@ -156,7 +156,7 @@ public class PtyScreenTests
         // asks for palette entry 1122867.
         var frame = PtyScreen.Paint(
             Screen(rows: 3, columns: 20, wrote: $"{Esc}{wrote}dressed"),
-            rows: 3, columns: 20, bar: "gg");
+            rows: 3, columns: 20, panel: ["gg"]);
 
         await Assert.That(frame).Contains(expected, StringComparison.Ordinal)
             .Because($"{kind} is something the child said and gg is repainting it.");
@@ -171,7 +171,7 @@ public class PtyScreenTests
         // rather than assumed, because assuming it is how a first version got
         // every cell on the screen wrong at once.
         var frame = PtyScreen.Paint(
-            Screen(rows: 3, columns: 10, wrote: "plain"), rows: 3, columns: 10, bar: "gg");
+            Screen(rows: 3, columns: 10, wrote: "plain"), rows: 3, columns: 10, panel: ["gg"]);
 
         foreach (var absurd in (string[])["38;5;256", "48;5;257", "38;5;-1", "48;5;-1"])
         {
@@ -186,9 +186,13 @@ public class PtyScreenTests
         // Off by the bar and typing looks haunted: the character lands one row
         // above the caret that is drawn.
         var terminal = Screen(rows: 5, columns: 20, wrote: $"{Esc}[3;7Hhere");
-        var frame = PtyScreen.Paint(terminal, rows: 5, columns: 20, bar: "gg");
+        var frame = PtyScreen.Paint(terminal, rows: 5, columns: 20, panel: ["gg"]);
 
-        var row = terminal.Buffer.Y + PtyScreen.FirstChildRow;
+        // TWO, WRITTEN OUT. It was PtyScreen.FirstChildRow, which was a constant
+        // that has since become a derived thing - and an assertion phrased in
+        // whatever the code computes moves when the code does. One row of panel
+        // puts the child's row zero on terminal row two, and that is the claim.
+        var row = terminal.Buffer.Y + 2;
         var column = terminal.Buffer.X + 1;
 
         await Assert.That(frame).EndsWith(
@@ -202,7 +206,7 @@ public class PtyScreenTests
     {
         var frame = PtyScreen.Paint(
             Screen(rows: 3, columns: 10, wrote: $"{Esc}[41mon red"),
-            rows: 3, columns: 10, bar: "gg");
+            rows: 3, columns: 10, panel: ["gg"]);
 
         await Assert.That(frame).Contains($"{Esc}[?25l", StringComparison.Ordinal)
             .Because("a cursor visible during a full repaint is drawn at every row in turn.");
@@ -245,7 +249,7 @@ public class PtyScreenTests
         await Assert.That(child.Buffer.YDisp).IsGreaterThan(0)
             .Because("a round-trip that never scrolled would be checking the easy half.");
 
-        var frame = PtyScreen.Paint(child, rows: 8, columns: 30, bar: "gg | flight 41");
+        var frame = PtyScreen.Paint(child, rows: 8, columns: 30, panel: ["gg | flight 41"]);
 
         // A terminal the size of the REAL one - the child's rows plus gg's row -
         // told exactly what gg would have written to it.

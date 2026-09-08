@@ -181,7 +181,7 @@ public sealed class PtyAgentSession : IEditorSession
                     // knows: whether the file is there. The tool server writes it
                     // by rename, so it is either absent or whole - which is what
                     // makes a stat an honest answer rather than a race.
-                    () => File.Exists(intent) ? _submitted : _bar,
+                    () => (string[])[File.Exists(intent) ? _submitted : _bar],
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (

@@ -48,22 +48,37 @@ public static class PtyScreen
     /// </remarks>
     private const string Esc = "\u001b";
 
-    /// <summary>Row 1 of the real terminal is gg's; the child's screen starts here.</summary>
-    public const int FirstChildRow = 2;
-
     /// <summary>
-    /// The bar, then <paramref name="rows"/> rows of the child's screen under
-    /// it, as one string to write in one go.
+    /// gg's panel, then <paramref name="rows"/> rows of the child's screen
+    /// under it, as one string to write in one go.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The size is given rather than read off the emulator.</b> They are
     /// normally the same, and passing them says which one is authoritative when
     /// they are not: the terminal gg is painting into, not the one the child was
     /// told about. A resize is exactly the moment those disagree, and the
     /// emulator learns about it after gg does.
+    /// </para>
+    /// <para>
+    /// <b>The panel is however many rows gg is keeping.</b> One while it is only
+    /// saying what ends the session; several when it has been asked to show the
+    /// envelope, because the rules in force are the wrong thing to abbreviate.
+    /// The child is told the screen is shorter by exactly this many, and does
+    /// not paint a row it does not believe exists — which is the same mechanism
+    /// that kept a single row, told about a bigger number.
+    /// </para>
     /// </remarks>
-    public static string Paint(XTermTerminal terminal, int rows, int columns, string bar)
+    public static string Paint(
+        XTermTerminal terminal, int rows, int columns, IReadOnlyList<string> panel)
     {
+        ArgumentNullException.ThrowIfNull(panel);
+
+        // WHERE THE CHILD STARTS, DERIVED RATHER THAN DECLARED. It was a
+        // constant, correct only while the panel was one row - and a cursor
+        // offset by a stale constant puts the caret somewhere the typing is not.
+        var firstChildRow = panel.Count + 1;
+
         var painted = new StringBuilder();
 
         // AUTO-WRAP OFF FIRST, BEFORE ANY CONTENT. Writing `columns` characters
@@ -75,9 +90,21 @@ public static class PtyScreen
 
         // Hidden for the duration: a cursor left visible through a full repaint
         // is drawn at every row in turn.
-        painted.Append($"{Esc}[?25l{Esc}[1;1H{Esc}[7m");
-        painted.Append(bar.Length > columns ? bar[..columns] : bar.PadRight(columns));
-        painted.Append($"{Esc}[0m");
+        painted.Append($"{Esc}[?25l");
+
+        for (var row = 0; row < panel.Count; row++)
+        {
+            var text = panel[row] ?? "";
+
+            // PADDED AND CUT, EVERY ROW. Unpadded, the child's screen shows
+            // through the gaps; unwrapped is the same defect the auto-wrap guard
+            // exists for, arriving from gg's own text rather than the child's -
+            // one long row would push everything below it down and the child's
+            // last row off the bottom.
+            painted.Append($"{Esc}[{row + 1};1H{Esc}[7m");
+            painted.Append(text.Length > columns ? text[..columns] : text.PadRight(columns));
+            painted.Append($"{Esc}[0m");
+        }
 
         var buffer = terminal.Buffer;
 
@@ -87,7 +114,7 @@ public static class PtyScreen
 
         for (var row = 0; row < rows; row++)
         {
-            painted.Append($"{Esc}[{row + FirstChildRow};1H{Esc}[K");
+            painted.Append($"{Esc}[{row + firstChildRow};1H{Esc}[K");
 
             var line = buffer.Lines[buffer.YDisp + row];
             if (line is null)
@@ -121,7 +148,7 @@ public static class PtyScreen
         // and the whole thing looks haunted. Wrapping restored last, because
         // leaving it off outlives this session and changes how the shell behaves
         // afterwards.
-        painted.Append($"{Esc}[{buffer.Y + FirstChildRow};{buffer.X + 1}H{Esc}[?25h{Esc}[?7h");
+        painted.Append($"{Esc}[{buffer.Y + firstChildRow};{buffer.X + 1}H{Esc}[?25h{Esc}[?7h");
 
         return painted.ToString();
     }

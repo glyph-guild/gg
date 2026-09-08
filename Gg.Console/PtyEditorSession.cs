@@ -114,10 +114,13 @@ public sealed class PtyEditorSession : IEditorSession
                     Directory.GetCurrentDirectory(),
                     // NOTHING CHANGES WHILE AN EDITOR IS UP. Saving and quitting
                     // is what ends this, and the editor says so itself - so one
-                    // row is the whole of what gg has to add, and it never opens
-                    // into more: there is nothing an editor session can be asked
-                    // about that the editor is not already showing.
-                    () => (string[])[_bar],
+                    // row is the whole of what gg has to add.
+                    _ => (string[])[_bar],
+                    // AND GG TAKES NO KEY AT ALL HERE. An editor session has
+                    // nothing gg could show that the editor is not already
+                    // showing, and a key charged for a panel that never opens is
+                    // a key taken from vim for nothing.
+                    _ => false,
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (

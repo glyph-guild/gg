@@ -64,7 +64,11 @@ public class PtyHostTests
             // both what it says and how many rows it is change while a composing
             // session runs, and these tests are about the frame rather than
             // about what gg chose to put on it.
-            panel: () => [bar],
+            panel: _ => [bar],
+            // AND GG TAKES NOTHING: these are about hosting, and a host that
+            // swallowed a key would make every assertion about what the child
+            // received depend on which key the test happened to type.
+            took: _ => false,
             CancellationToken.None);
 
     [Test]
@@ -244,11 +248,16 @@ public class PtyHostTests
 
         var taken = new List<byte>();
 
+        // A CHILD THAT READS ONE LINE AND ENDS. `cat` was the obvious choice and
+        // the wrong one: it ends on ctrl-D at the start of a line, and ctrl-D
+        // after unterminated input flushes it instead - so the session never
+        // closed and the test hung rather than failed.
         var host = PtyHost.RunAsync(
-            terminal, "/bin/cat", [], Path.GetTempPath(),
+            terminal, "/bin/sh", ["-c", "read line; printf '[%s]' \"$line\""],
+            Path.GetTempPath(),
             panel: _ => ["gg"],
-            // gg claims 'Q' and nothing else, which is a stand-in for a prefix:
-            // this test is about what interception DOES, not about which key.
+            // gg claims 'Q' and nothing else, which stands in for a prefix: this
+            // test is about what interception DOES, not about which key.
             took: typed =>
             {
                 if (typed != (byte)'Q')
@@ -263,21 +272,27 @@ public class PtyHostTests
 
         await Assert.That(Until(() => terminal.Painted.Length > 0)).IsTrue();
 
-        terminal.Type("aQb");
+        // ONE KEY AT A TIME, WHICH IS WHAT A PERSON DOES - and the reason the
+        // first version of this test failed. gg only claims a byte that arrived
+        // ALONE, because a chunk is a paste and text somebody copied must not
+        // open a panel and then be typed into it. Writing "aQb" in one call is
+        // a paste by that definition, and correctly went through untouched.
+        terminal.Type("Q");
 
         await Assert.That(Until(() => taken.Count > 0)).IsTrue()
-            .Because("gg was offered the byte and said it wanted it.");
+            .Because("gg was offered the byte, alone, and said it wanted it.");
 
-        await Assert.That(Until(() => terminal.Painted.Contains("ab", StringComparison.Ordinal)))
-            .IsTrue()
-            .Because("the child echoed what it was given, and what it was given is what "
-                   + "gg did not take. Painted: " + terminal.Painted);
+        terminal.Type("a");
+        terminal.Type("b");
+        terminal.Type("\n");
 
-        // Ctrl-D ends `cat`, which is how this session is meant to close.
-        terminal.Type("\u0004");
         await host;
 
-        await Assert.That(terminal.Painted).DoesNotContain("aQb", StringComparison.Ordinal)
+        await Assert.That(terminal.Painted).Contains("[ab]", StringComparison.Ordinal)
+            .Because("the child printed back what it read, and what it read is what gg did "
+                   + "not take. Painted: " + terminal.Painted);
+
+        await Assert.That(terminal.Painted).DoesNotContain("[aQb]", StringComparison.Ordinal)
             .Because("a byte gg claimed and the child also received is one that did two "
                    + "things, and the second is invisible.");
     }
@@ -292,21 +307,20 @@ public class PtyHostTests
         using var terminal = new HostedTerminal { Columns = 40, Rows = 10 };
 
         var host = PtyHost.RunAsync(
-            terminal, "/bin/cat", [], Path.GetTempPath(),
+            terminal, "/bin/sh", ["-c", "read line; printf '[%s]' \"$line\""],
+            Path.GetTempPath(),
             panel: _ => ["gg"],
             took: _ => false,
             CancellationToken.None);
 
         await Assert.That(Until(() => terminal.Painted.Length > 0)).IsTrue();
 
-        terminal.Type("hello");
-
-        await Assert.That(Until(() => terminal.Painted.Contains("hello", StringComparison.Ordinal)))
-            .IsTrue()
-            .Because("nothing was claimed, so everything arrived. Painted: " + terminal.Painted);
-
-        terminal.Type("\u0004");
+        terminal.Type("hello\n");
         await host;
+
+
+        await Assert.That(terminal.Painted).Contains("[hello]", StringComparison.Ordinal)
+            .Because("nothing was claimed, so everything arrived. Painted: " + terminal.Painted);
     }
 
     [Test]

@@ -158,7 +158,7 @@ public class PtyEditorSessionTests
             "vi",
             () => terminal,
             unhosted: new Stub("what the unhosted editor wrote"),
-            host: (_, _, _, _, _, _) => throw new DllNotFoundException("libporta_pty"))
+            host: (_, _, _, _, _, _, _) => throw new DllNotFoundException("libporta_pty"))
             .Edit("original text\n");
 
         await Assert.That(edited).IsEqualTo("what the unhosted editor wrote")
@@ -185,7 +185,7 @@ public class PtyEditorSessionTests
             "vi",
             () => terminal,
             unhosted: new Stub("edited"),
-            host: (_, _, _, _, _, _) => throw new DllNotFoundException("libporta_pty"),
+            host: (_, _, _, _, _, _, _) => throw new DllNotFoundException("libporta_pty"),
             say: said.Add)
             .Edit("original text\n");
 
@@ -240,7 +240,7 @@ public class PtyEditorSessionTests
             "vi",
             () => terminal,
             unhosted: new Stub("the fallback must not have run"),
-            host: (_, _, _, _, _, _) => throw new InvalidOperationException("no such editor"));
+            host: (_, _, _, _, _, _, _) => throw new InvalidOperationException("no such editor"));
 
         await Assert.That(() => session.Edit("original text\n"))
             .Throws<InvalidOperationException>();

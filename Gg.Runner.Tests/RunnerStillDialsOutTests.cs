@@ -1,5 +1,3 @@
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Gg.Contracts;
@@ -14,23 +12,24 @@ namespace Gg.Runner.Tests;
 /// <para>
 /// <b>The posture the whole transport choice rests on.</b> ADR-0013 chose WebRTC
 /// partly because "ICE means neither peer runs a listening service — both dial
-/// out and hole-punch — so the runner keeps its outbound-only posture". That is
-/// a claim about a process, and it is the one claim in the ADR that a reader
-/// cannot check by reading: a UDP socket bound for ICE looks, in code, exactly
-/// like a UDP socket bound to serve.
+/// out and hole-punch — so the runner keeps its outbound-only posture". Without
+/// that property this would be a server, and a networking library in the runner
+/// would not have been admissible at all.
 /// </para>
 /// <para>
-/// <b>A note on what this file may say.</b> gg talks only to the control plane,
-/// so no source file here names a cloud provider — including in a comment about
-/// where something was measured. The step 0 measurement was between a laptop
-/// behind a home NAT and a hosted machine behind a stateful firewall; which
-/// hosting that was is the control plane's business and not this binary's.
+/// <b>The first version of this test counted the machine's listening sockets
+/// before and after, and it was wrong.</b> It passed locally and failed on CI
+/// with "New listeners: 45119" — a port belonging to another test assembly,
+/// because `dotnet test` runs them as concurrent processes and a machine-wide
+/// count attributes anybody's socket to whoever is looking. A measurement that
+/// cannot say whose it is cannot support a claim about us.
 /// </para>
 /// <para>
-/// <b>So it is asserted against the machine.</b> The distinction that matters is
-/// TCP: a listening TCP socket is something anything on the network can connect
-/// to, which is what "runs a listening service" means. ICE binds UDP and
-/// initiates from it, and a UDP bind is not an accepting socket.
+/// <b>What is attributable is what ICE itself offered.</b> A listening socket in
+/// ICE terms is a TCP candidate — <c>typ host tcptype passive</c> is a peer
+/// saying "connect to me". So the property is that every candidate this runner
+/// offers is UDP, which is exactly "nothing here accepts connections", is
+/// deterministic, and belongs to this handshake rather than to the machine.
 /// </para>
 /// </remarks>
 public class RunnerStillDialsOutTests
@@ -42,77 +41,105 @@ public class RunnerStillDialsOutTests
         public TailRead Tail(int lines) => new([], false);
     }
 
-    private static IReadOnlySet<int> ListeningTcpPorts() =>
-        IPGlobalProperties.GetIPGlobalProperties()
-            .GetActiveTcpListeners()
-            .Select(e => e.Port)
-            .ToHashSet();
+    private static AskDispatch ADispatch() =>
+        new(new WhatThisRunnerSays(new SilentObserver(), new NoLog(), () => DateTimeOffset.UnixEpoch));
 
-    [Test]
-    public async Task Answering_a_handshake_opens_no_listening_socket()
+    /// <summary>
+    /// A real handshake against a real offer, so gathering actually happens.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first version handed the answerer something it could not parse,
+    /// on the reasoning that ICE binds before the description is rejected.</b>
+    /// It does - and the method then RETURNS before any candidate has arrived,
+    /// so the list was empty about a third of the time and only under load. It
+    /// passed alone and failed in the full run, which is the worst way for a
+    /// test to be wrong.
+    ///
+    /// So this makes a genuine offer. It costs a second peer connection and
+    /// buys a measurement that is about something.
+    /// </remarks>
+    private static async Task<HandshakeResult> AfterGatheringAsync()
     {
-        // MEASURED AS A DIFFERENCE, because this machine is already listening on
-        // whatever it was listening on - a test that asserted "no TCP listeners"
-        // would fail on any developer's laptop and prove nothing about us.
-        var before = ListeningTcpPorts();
-
-        var channel = new RunnerChannel(
-            ["stun:stun.l.google.com:19302"], TimeSpan.FromSeconds(3));
+        var channel = new RunnerChannel([], TimeSpan.FromSeconds(5));
 
         using var runner = AKey();
         using var ephemeral = AKey();
 
-        // An offer this runner cannot answer is still an offer it GATHERS for:
-        // the peer connection is built and ICE binds before the description is
-        // rejected, which is exactly the window a listening socket would appear
-        // in.
-        var offer = RunnerSeal.SealOffer(
+        using var console = new SIPSorcery.Net.RTCPeerConnection(
+            new SIPSorcery.Net.RTCConfiguration { iceServers = [] });
+
+        // THE CHANNEL IS WHAT PUTS AN SCTP M-LINE IN THE OFFER AT ALL, which is
+        // the spike's first finding: an offer made without one describes no
+        // data channel and the answer has nothing to agree to.
+        await console.createDataChannel("tail", null);
+
+        var offer = console.createOffer(null);
+        await console.setLocalDescription(offer);
+
+        var sealedOffer = RunnerSeal.SealOffer(
             Convert.ToBase64String(runner.ExportSubjectPublicKeyInfo()),
             ephemeral,
-            Encoding.UTF8.GetBytes("not sdp"));
+            Encoding.UTF8.GetBytes(console.localDescription.sdp.ToString()));
 
-        await channel.AnswerAsync(
+        return await channel.AnswerAsync(
             new PendingIntroduction
             {
                 IntroductionId = "intro-1",
-                Offer = new RunnerSealedOffer { Sealed = offer },
+                Offer = new RunnerSealedOffer { Sealed = sealedOffer },
             },
             runner,
-            new AskDispatch(new WhatThisRunnerSays(
-                new SilentObserver(), new NoLog(), () => DateTimeOffset.UnixEpoch)));
-
-        var after = ListeningTcpPorts();
-
-        await Assert.That(after.Except(before)).IsEmpty()
-            .Because("a runner that accepted connections would be reachable by anything on "
-                   + "its network, which is the posture ICE was chosen to preserve. New "
-                   + "listeners: " + string.Join(", ", after.Except(before)));
+            ADispatch());
     }
 
     [Test]
-    public async Task The_scan_can_see_a_listener_that_is_really_there()
+    public async Task Nothing_this_runner_offers_asks_to_be_connected_to()
     {
-        // THE POISON TWIN, and it is not decoration: the assertion above passes
-        // on a scan that returns the same set every time, which is what a broken
-        // enumeration looks like.
-        //
-        // A RAW SOCKET RATHER THAN THE CONVENIENCE LISTENER, because this
-        // assembly forbids that type by name and the rule is right: a port
-        // probed and released is a port somebody else can take in between.
-        // Nothing here probes - it binds one and holds it for the length of an
-        // assertion, which is the property that rule is protecting.
-        var before = ListeningTcpPorts();
+        var result = await AfterGatheringAsync();
 
-        using var planted = new Socket(
-            AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        await Assert.That(result.LocalCandidates).IsNotEmpty()
+            .Because("a runner that gathered nothing proves nothing about what it gathers.");
 
-        planted.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
-        planted.Listen(1);
+        var listening = result.LocalCandidates
+            .Where(c => c.Contains(" tcp ", StringComparison.OrdinalIgnoreCase)
+                     || c.Contains("tcptype", StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
-        var after = ListeningTcpPorts();
+        await Assert.That(listening).IsEmpty()
+            .Because("a TCP candidate is a peer saying connect to me, which is the posture ICE "
+                   + "was chosen to preserve the absence of. Found: "
+                   + string.Join("; ", listening));
+    }
 
-        await Assert.That(after.Except(before)).IsNotEmpty()
-            .Because("if this cannot find a listener somebody just started, it cannot find "
-                   + "one the runner started either.");
+    [Test]
+    public async Task Every_candidate_says_udp_rather_than_merely_not_saying_tcp()
+    {
+        // THE OTHER DIRECTION, because "contains no tcp" passes on a line that
+        // says nothing at all - an empty string, or a format that changed.
+        var result = await AfterGatheringAsync();
+
+        foreach (var candidate in result.LocalCandidates)
+        {
+            await Assert.That(candidate.Contains(" udp ", StringComparison.OrdinalIgnoreCase))
+                .IsTrue()
+                .Because($"'{candidate}' does not say what protocol it is, so the check above "
+                       + "was reading a shape it did not recognise.");
+        }
+    }
+
+    [Test]
+    public async Task The_scan_would_notice_a_candidate_that_asked_to_be_connected_to()
+    {
+        // The poison twin, against the line ICE-TCP really produces. Without it
+        // both assertions above pass on a matcher that finds nothing ever.
+        const string passive =
+            "a=candidate:1 1 tcp 2105524479 10.0.4.17 9 typ host tcptype passive";
+        const string dialling =
+            "a=candidate:2 1 udp 2113937663 10.0.4.17 54321 typ host generation 0";
+
+        await Assert.That(passive.Contains(" tcp ", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(passive.Contains("tcptype", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        await Assert.That(dialling.Contains(" tcp ", StringComparison.OrdinalIgnoreCase)).IsFalse()
+            .Because("the ordinary candidate must not be flagged, or the rule refuses every "
+                   + "handshake.");
     }
 }

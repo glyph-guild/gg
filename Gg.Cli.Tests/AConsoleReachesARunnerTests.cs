@@ -93,7 +93,9 @@ public class AConsoleReachesARunnerTests
                     new AskDispatch(new WhatThisRunnerSays(new SilentObserver(), log, () => T0)),
                     ct);
             },
-            _ => Task.FromResult(answered.Answer),
+            _ => Task.FromResult(answered.Answer is { } a
+                ? new Collected(a, AnswerState.Arrived)
+                : Collected.NotYet),
             CancellationToken.None);
 
         return (reached, answered, left);
@@ -216,6 +218,46 @@ public class AConsoleReachesARunnerTests
     }
 
     [Test]
+    public async Task An_introduction_that_ended_is_not_reported_as_a_silent_runner()
+    {
+        // WAITING AGAINST WRONG, at the far end of the chain that carries it.
+        // The control plane answers 404 for an introduction that expired and 204
+        // while there is simply no answer yet, and this is the sentence a person
+        // reads when it was the first.
+        using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+
+        var console = new ConsoleChannel([], TimeSpan.FromSeconds(20));
+
+        var started = DateTimeOffset.UtcNow;
+
+        var reached = await console.ReachAsync(
+            new RunnerIntroduction
+            {
+                IntroductionId = "intro-1",
+                RunnerId = "01a06385-322f-7371-93a2-ce35db5c4fbe",
+                RunnerPublicKey = Convert.ToBase64String(runnerKey.ExportSubjectPublicKeyInfo()),
+                Capability = "a-capability",
+                ExpiresAt = T0.AddMinutes(1),
+            },
+            ephemeral,
+            FreshPins(),
+            T0,
+            (_, _) => Task.CompletedTask,
+            _ => Task.FromResult(Collected.Gone),
+            CancellationToken.None);
+
+        await Assert.That(reached.Failure).IsEqualTo(ReachFailure.IntroductionExpired);
+        await Assert.That(reached.Said).Contains("not a network")
+            .Because("the runner is the wrong place to send somebody for this, and a sentence "
+                   + "about a machine is what sends them there.");
+
+        await Assert.That(DateTimeOffset.UtcNow - started).IsLessThan(TimeSpan.FromSeconds(15))
+            .Because("an introduction that is over will not come back, so asking for the rest "
+                   + "of the patience turns a fact into a wait.");
+    }
+
+    [Test]
     public async Task A_runner_that_never_answers_says_so_rather_than_hanging()
     {
         using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
@@ -236,7 +278,7 @@ public class AConsoleReachesARunnerTests
             FreshPins(),
             T0,
             (_, _) => Task.CompletedTask,
-            _ => Task.FromResult<RunnerSealedAnswer?>(null),
+            _ => Task.FromResult(Collected.NotYet),
             CancellationToken.None);
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.RunnerNeverAnswered);

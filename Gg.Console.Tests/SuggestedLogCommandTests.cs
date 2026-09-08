@@ -171,16 +171,28 @@ public class SuggestedLogCommandTests
     }
 
     [Test]
-    public async Task A_runner_flying_nothing_is_not_offered_a_command_that_cannot_work()
+    public async Task A_runner_flying_nothing_is_told_when_watching_would_work()
     {
-        // THE POISON TWIN. A channel to a runner exists only while a flight
-        // does, so offering this on an idle machine would be a command that
-        // always fails - which is the thing this whole method exists not to do.
+        // NAMED EITHER WAY, and this is a correction. The first version showed
+        // the verb only while something was flying, on the reasoning that
+        // offering a command which cannot work is what this method exists not to
+        // do. That is right about the ssh lines - they are offered as runnable
+        // NOW - and wrong here: it made the capability invisible on an idle
+        // fleet, which is most of the time, and a person who never sees it never
+        // learns it exists.
         var said = RunnerDetails.Suggestion(Row("vmlinux001"));
 
-        await Assert.That(said).DoesNotContain("gg runner watch");
+        await Assert.That(said).Contains("gg runner watch")
+            .Because("this modal is where somebody arrives wanting to know what a machine they "
+                   + "cannot reach is doing, and a capability nobody can see is one nobody "
+                   + "has.");
+
+        await Assert.That(said).Contains("Nothing is in the air on this machine right now")
+            .Because("naming it without saying it would not work now is how a person comes to "
+                   + "believe the feature is broken.");
+
         await Assert.That(said).Contains("ssh vmlinux001")
-            .Because("there is still something to suggest, and losing it would be a worse "
-                   + "answer than the one before this change.");
+            .Because("there is still something runnable to suggest, and losing it would be a "
+                   + "worse answer than the one before this change.");
     }
 }

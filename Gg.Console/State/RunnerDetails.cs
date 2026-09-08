@@ -346,12 +346,29 @@ public static class RunnerDetails
         // exists only while a flight does. Offering it on an idle machine would
         // be a command that always fails, which is the thing this method exists
         // not to do.
-        var watch = row.Work is { Length: > 0 } flying
-            ? $"\n\n  gg runner watch {row.Id}\n\n"
-            + $"What {flying} is saying, as it says it, over a channel this control plane "
-            + "relays and cannot read. It answers only for a flight opened to be watched; an "
-            + "ordinary flight has no channel, however healthy the machine is. Ctrl-C stops it."
-            : "";
+        // ALWAYS NAMED, AND THE SENTENCE SAYS WHETHER IT WOULD WORK NOW.
+        //
+        // The first version showed this only while something was flying, on the
+        // reasoning that offering a command which cannot work is what this
+        // method exists not to do. That reasoning is right about the ssh lines -
+        // they are offered as runnable NOW - and wrong here, because it made the
+        // capability invisible on an idle fleet, which is most of the time. A
+        // person who never sees it never learns it exists, and "I cannot tell
+        // where to go and watch a runner" is what that costs.
+        //
+        // So it is named either way and the difference is in the words: an offer
+        // when there is something to watch, and a statement of when it applies
+        // when there is not.
+        var watch = $"\n\n  gg runner watch {row.Id}\n\n"
+            + (row.Work is { Length: > 0 } flying
+                ? $"What {flying} is saying, as it says it, over a channel this control plane "
+                + "relays and cannot read. It answers only for a flight opened to be watched; "
+                + "an ordinary flight has no channel, however healthy the machine is. "
+                + "Ctrl-C stops it."
+                : "What its flight is saying, while it is flying one opened to be watched. "
+                + "Nothing is in the air on this machine right now, so there is nothing to "
+                + "watch yet - a channel to a runner exists only while a flight does, which "
+                + "is what stops it being a standing way in.");
 
         if (label.EndsWith(":maintain", StringComparison.Ordinal))
         {

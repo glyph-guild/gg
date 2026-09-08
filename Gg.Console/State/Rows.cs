@@ -653,6 +653,50 @@ public static class Rows
         return Math.Max(0, available - taken);
     }
 
+    /// <summary>
+    /// Where to scroll the log so the cursor stays on the line it is on.
+    /// </summary>
+    /// <param name="was">The row the cursor was on, in the rows being replaced.</param>
+    /// <param name="offset">What the view was scrolled to, in those same rows.</param>
+    /// <param name="now">The row the cursor is on, in the rows replacing them.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Every cursor move rewrites the row set, and a refill says nothing
+    /// about the scroll.</b> The entry being left closes and the one being
+    /// arrived at opens, so the rows between them move by however many lines
+    /// those two details are worth - and the view stays scrolled to a number
+    /// that meant something in the old set. Measured: reading to the end of a
+    /// thirty-five-line detail and pressing down once more put the cursor three
+    /// lines ABOVE the top of the viewport.
+    /// </para>
+    /// <para>
+    /// <b>The cursor keeps its line, and the log moves around it.</b> The
+    /// alternative is to anchor whatever entry is at the top of the viewport,
+    /// which holds the text still and lets the highlight drift instead - and a
+    /// drifting highlight is the symptom rather than the fix. What a person
+    /// follows is the highlight.
+    /// </para>
+    /// <para>
+    /// <b>Here rather than in the view, for <see cref="DetailWidth"/>'s
+    /// reason.</b> A <c>TableView</c> cannot be constructed without a terminal,
+    /// so arithmetic left in the view is arithmetic no test can reach.
+    /// </para>
+    /// </remarks>
+    public static int KeepingTheCursorsLine(int was, int offset, int now)
+    {
+        // NEVER NEGATIVE. A cursor above the top of the viewport is the thing
+        // this exists to prevent, so it is not an input to be honoured back out
+        // again - which is what the widget hands over after it has clamped an
+        // offset against a table that just got shorter.
+        var line = Math.Max(0, was - offset);
+
+        // AND NEVER PAST THE CURSOR. There is no room above the first row to
+        // put the missing lines in, so near the top the cursor ends up closer to
+        // it than it was. That is what actually happened: what was being read
+        // closed up.
+        return Math.Max(0, now - line);
+    }
+
     /// <summary>One column's width, plus the separator that follows it.</summary>
     private static int Column(string heading, IEnumerable<string> cells) =>
         Math.Max(heading.Length, cells.Select(cell => cell.Length).DefaultIfEmpty(0).Max()) + 1;

@@ -1546,6 +1546,12 @@ public sealed class ConsoleScreen : Window
         {
             _syncing = true;
 
+            // WHERE THE HIGHLIGHT IS ON THE SCREEN, read before the rows under
+            // it are replaced. Both numbers mean rows of the set being thrown
+            // away, so they are worth nothing once the fill has happened.
+            var was = _flightLog.Value?.SelectedCell.Y ?? 0;
+            var from = _flightLog.RowOffset;
+
             try
             {
                 CollectionViews.Fill(
@@ -1565,6 +1571,18 @@ public sealed class ConsoleScreen : Window
 
                     _flightLog.SetSelection(0, at, extendExistingSelection: false, null);
                     _flightLog.EnsureValidSelection();
+
+                    // AND SCROLLED SO THE HIGHLIGHT IS WHERE IT WAS. Neither of
+                    // the two calls above touches the offset - measured - so
+                    // without this the view stays scrolled to a row number that
+                    // meant something in the set just replaced, and the cursor
+                    // can end up off the top of the screen entirely.
+                    _flightLog.RowOffset = Rows.KeepingTheCursorsLine(was, from, at);
+
+                    // THE BACKSTOP, and the widget's own arithmetic rather than
+                    // a second copy of it: an offset that would leave the last
+                    // row short of the bottom is the widget's to correct.
+                    _flightLog.EnsureCursorIsVisible();
                 }
             }
             finally

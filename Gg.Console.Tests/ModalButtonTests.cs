@@ -141,16 +141,30 @@ public class ModalButtonTests
     [Test]
     public async Task No_modal_that_asks_something_is_drawn_empty()
     {
-        // THE RATCHET FOR IT, over every mode rather than the one that was
-        // wrong. A mode added later gets a title from ModalTitle and a body from
-        // Modal, and forgetting the second is silent - it looks like a box that
-        // has not loaded yet.
-        var empty = Enum.GetValues<UiMode>()
+        // THE RATCHET FOR IT, and it asks about the SOURCE because that is the
+        // only place the question has an answer. Two versions of this failed
+        // first, and both failed the same way: asked with `new AppState()`, and
+        // then with four hundred generated ones, a mode with no arm looks
+        // exactly like a mode whose arm has nothing to say yet - a flight's
+        // detail about no flight, a gate decision about no gate. What is wrong
+        // is a mode PaneText.Modal never mentions, and mentioning is a fact
+        // about code rather than about any state.
+        var source = ConsoleSource.Text("Gg.Console", "State/PaneText.cs");
+
+        var from = source.IndexOf("public static string Modal(", StringComparison.Ordinal);
+        await Assert.That(from).IsGreaterThan(0)
+            .Because("this scans one method, and a scan that found nothing would pass "
+                   + "silently for every mode at once.");
+
+        var arms = source[from..source.IndexOf("};", from, StringComparison.Ordinal)];
+
+        var unmentioned = Enum.GetValues<UiMode>()
             .Where(m => m != UiMode.Normal)
-            .Where(m => PaneText.Modal(new AppState { Mode = m }).Trim().Length == 0)
+            .Where(m => !arms.Contains($"UiMode.{m} =>", StringComparison.Ordinal))
             .ToList();
 
-        await Assert.That(empty).IsEmpty()
-            .Because("these draw a title over nothing: " + string.Join(", ", empty));
+        await Assert.That(unmentioned).IsEmpty()
+            .Because("these fall through to the empty default, so the modal draws a title "
+                   + "over nothing: " + string.Join(", ", unmentioned));
     }
 }

@@ -1282,6 +1282,63 @@ public static class PaneText
         _ => "",
     };
 
+    /// <summary>What the two ways of composing mean.</summary>
+    /// <remarks>
+    /// <b>It had none, and the box was empty.</b> The modal drew a title and
+    /// nothing under it, so the answers lived only on the hint line at the foot
+    /// of the screen - the furthest point from where somebody who has just
+    /// pressed <c>n</c> is looking. Nothing caught it because the test asserts
+    /// the HINTS name both ways, which they do.
+    /// </remarks>
+    private static string ComposeChoice() =>
+        "Something has to say what this flight is for.\n"
+      + "\n"
+      + "  w   write it yourself, in $EDITOR\n"
+      + "  m   compose it with an agent\n"
+      + "\n"
+      + "An agent reads what it needs and hands back an\n"
+      + "intent when you are both happy with it. gg keeps\n"
+      + "a row at the top; ctrl-g there shows the rules\n"
+      + "in force.";
+
+    /// <summary>What is actually being decided.</summary>
+    /// <remarks>
+    /// <b>The worse of the two empty boxes.</b> This one asks a person to
+    /// approve or reject something and said nothing at all about what - a title
+    /// reading "Waiting on you" over blank space, with `a` and `r` on the hint
+    /// line. Approving is a governance decision that is attributed to whoever
+    /// makes it, which is the last place a console should be terse.
+    /// </remarks>
+    private static string GateDecision(AppState state)
+    {
+        if (state.SelectedGate is not { } gate)
+        {
+            // SAID, NOT BLANK. A gate that has gone - answered elsewhere, or
+            // the list re-read underneath - is a thing to explain rather than
+            // an empty box to stare at.
+            return "There is no gate on this row any more. It may have been "
+                 + "answered somewhere else.\n\nEscape closes this.";
+        }
+
+        var text = new System.Text.StringBuilder()
+            .AppendLine($"  flight      {Clean(gate.FlightNumber)}")
+            .AppendLine($"  obligation  {Clean(gate.ObligationId)}")
+            .AppendLine($"  approver    {Clean(gate.Approver)}");
+
+        if (gate.Branch is { Length: > 0 } branch)
+        {
+            text.AppendLine($"  branch      {Clean(branch)}");
+        }
+
+        return text
+            .AppendLine()
+            .AppendLine("  a   approve")
+            .AppendLine("  r   reject, with a reason")
+            .AppendLine()
+            .Append("Your answer is recorded against you.")
+            .ToString();
+    }
+
     public static string ModalTitle(UiMode mode) => mode switch
     {
         UiMode.Help => "Keys",
@@ -1323,6 +1380,8 @@ public static class PaneText
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.SignIn => SignIn(state),
+            UiMode.GateDecision => GateDecision(state),
+            UiMode.ComposeChoice => ComposeChoice(),
             _ => "",
         };
     }

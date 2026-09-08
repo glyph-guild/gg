@@ -49,6 +49,31 @@ public sealed record RunnerRegistrationRequest
     /// </para>
     /// </remarks>
     public bool Reserved { get; init; }
+
+    /// <summary>
+    /// A long-lived public key this runner will be reached by, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Pinned at REGISTRATION rather than at introduction, and that is the
+    /// whole of the identity story.</b> A key handed over per-session could be
+    /// substituted per-session; taking it once, when a person runs
+    /// <c>gg runner up</c>, collapses trust to a single moment.
+    /// </para>
+    /// <para>
+    /// <b>Optional, so an old runner keeps working.</b> The two repositories are
+    /// not upgraded in step, and a runner registered before keys existed still
+    /// takes work - it simply cannot be introduced, which has to read as CANNOT
+    /// rather than as no log.
+    /// </para>
+    /// <para>
+    /// <b>The runner offers it; the control plane records it.</b> Nothing here
+    /// verifies that the runner holds the private half, because nothing on this
+    /// side could: what the key is FOR is the console pinning it and noticing
+    /// when it changes.
+    /// </para>
+    /// </remarks>
+    public string? PublicKey { get; init; }
 }
 
 /// <summary>

@@ -45,8 +45,16 @@ public static class RunnerDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return Rows.Selected(state) is { } row
-            ? row.Runner
+        if (Rows.Selected(state) is { } row)
+        {
+            return row.Runner;
+        }
+
+        // A CHILD WITH NO FLEET ROW YET, which is the case this modal exists
+        // for: `s` starts a runner and it registers a beat later, so for those
+        // seconds the fleet knows nothing and the console knows everything.
+        return state.Here is { Up: true }
+            ? "Starting here"
             : PaneText.ModalTitle(UiMode.Runner);
     }
 
@@ -64,7 +72,10 @@ public static class RunnerDetails
 
         if (Rows.Selected(state) is not { } row)
         {
-            return [];
+            // NO FLEET ROW IS NOT NO RUNNER. A runner this console just started
+            // has not registered yet; everything the fleet would say is unknown
+            // and everything the child knows is available.
+            return state.Here is { } starting ? Child(starting) : [];
         }
 
         var fields = new List<FlightField>
@@ -94,25 +105,43 @@ public static class RunnerDetails
             fields.Add(new FlightField("registered by", who));
         }
 
+        // WHY IT WAS WITHHELD, where there is room for a sentence. The grid has
+        // room for a word and says `parked`; without the reason that word sends
+        // somebody to ask a person, which is what recording a reason prevents.
+        if (row.ParkedBecause is { Length: > 0 } because)
+        {
+            fields.Add(new FlightField("parked", because));
+        }
+
         // WHAT ONLY THIS CONSOLE KNOWS, and only about its own child. A pid
         // under another host's runner would say a process is running here that
         // is not, which is the same defect the modal's subject had.
         if (row.Mine && state.Here is { } here)
         {
-            if (here.Pid is { } pid)
-            {
-                fields.Add(new FlightField("process", $"{pid}"));
-            }
+            fields.AddRange(Child(here));
+        }
 
-            if (here.Exit is { } exit)
-            {
-                fields.Add(new FlightField("exited", $"{exit}"));
-            }
+        return fields;
+    }
 
-            if (here.LogPath is { Length: > 0 } path)
-            {
-                fields.Add(new FlightField("log", path));
-            }
+    /// <summary>What this console knows about the child it started.</summary>
+    private static List<FlightField> Child(RunnerHere here)
+    {
+        var fields = new List<FlightField>();
+
+        if (here.Pid is { } pid)
+        {
+            fields.Add(new FlightField("process", $"{pid}"));
+        }
+
+        if (here.Exit is { } exit)
+        {
+            fields.Add(new FlightField("exited", $"{exit}"));
+        }
+
+        if (here.LogPath is { Length: > 0 } path)
+        {
+            fields.Add(new FlightField("log", path));
         }
 
         return fields;
@@ -130,7 +159,11 @@ public static class RunnerDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return Rows.Selected(state) is { Mine: true } && state.Here is { Log.Count: > 0 } here
+        // NOT SOMEBODY ELSE'S ROW - and NO row is not somebody else's row. A
+        // runner coming up here has no fleet row for a few seconds, and those
+        // are exactly the seconds a person opened this to watch.
+        return Rows.Selected(state) is not { Mine: false }
+            && state.Here is { Log.Count: > 0 } here
             ? string.Join("\n", here.Log)
             : "";
     }
@@ -176,6 +209,46 @@ public static class RunnerDetails
     }
 
     /// <summary>
+    /// The whole modal as one string, for the renderings that are not widgets.
+    /// </summary>
+    /// <remarks>
+    /// <b>Composed FROM the producers the view binds, never beside them.</b>
+    /// <see cref="FlightDetails.Linear"/>'s reason, one modal over: two
+    /// renderings assembled independently are two authors for one screen, and
+    /// they drift the first time a field is added to one of them. This one
+    /// drifted before it existed - the fields went in and the text rendering
+    /// still said what it had always said.
+    /// </remarks>
+    internal static string Linear(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var text = new System.Text.StringBuilder();
+
+        text.AppendLine($"  {Title(state)}");
+        text.AppendLine();
+
+        foreach (var field in Fields(state))
+        {
+            text.AppendLine($"  {field.Label,-13} {field.Value}");
+        }
+
+        text.AppendLine();
+        text.AppendLine($"  {LogTitle}");
+
+        if (LogAbsence(state) is { Length: > 0 } absence)
+        {
+            text.AppendLine($"  {absence}");
+
+            return text.ToString().TrimEnd();
+        }
+
+        text.AppendLine(Log(state));
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// What stands where the log would be, when there is none.
     /// </summary>
     /// <remarks>
@@ -193,9 +266,20 @@ public static class RunnerDetails
             return "";
         }
 
-        return Rows.Selected(state) is { Mine: true } or null
-            ? "It has said nothing yet."
-            : "This console did not start it, so there is no log here to read. What it says "
-            + "is on the machine it is running on.";
+        if (Rows.Selected(state) is { Mine: false })
+        {
+            return "This console did not start it, so there is no log here to read. What it "
+                 + "says is on the machine it is running on.";
+        }
+
+        // NOTHING ANYWHERE, said plainly. A modal that only ever described a
+        // runner would describe one it invented when there is none - and the
+        // empty fleet with no child is the state a person is most likely to be
+        // confused by, because it is what a machine that has never run one
+        // looks like.
+        return Rows.Selected(state) is null && state.Here is null
+            ? "There is no runner here: none registered on this machine, and none started "
+            + "from this console."
+            : "It has said nothing yet.";
     }
 }

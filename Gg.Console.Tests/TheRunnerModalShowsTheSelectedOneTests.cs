@@ -87,7 +87,11 @@ public class TheRunnerModalShowsTheSelectedOneTests
         var text = PaneText.Modal(Fleet(selected: 0));
 
         await Assert.That(text).Contains("01a078bb");
-        await Assert.That(text).Contains("this machine");
+
+        // WHICH MACHINE, rather than the words "this machine". The modal used
+        // to say it in prose; it says it now by naming the host in the title,
+        // which is the same fact and survives the row not being ours.
+        await Assert.That(text).Contains("Kevins-MBP");
     }
 
     [Test]

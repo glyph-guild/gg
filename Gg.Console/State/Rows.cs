@@ -96,6 +96,9 @@ public sealed record RunnerRow(
     /// identity.
     /// </remarks>
     string Id,
+
+    /// <summary>Why it was withheld, or empty when nobody did.</summary>
+    string ParkedBecause,
     string Here,
     string Runner,
     string State,
@@ -297,6 +300,9 @@ public static class Rows
             rows.Insert(0, new RunnerRow(
                 Mine: true,
                 Id: Short(mine),
+                // Nothing about this row came from the control plane; it is
+                // invented from a file this machine wrote.
+                ParkedBecause: "",
                 // NOBODY, because nothing about this row came from the control
                 // plane - it is invented from a file this machine wrote.
                 RegisteredBy: "",
@@ -422,11 +428,23 @@ public static class Rows
         // record is written to disk under GG_STATE_DUMP and read back by things
         // that are not PaneText.
         RegisteredBy: ControlText.Strip(runner.RegisteredBy),
+
+        // Cleaned at ingress like every other string a control plane composes:
+        // this record is written to disk under GG_STATE_DUMP and read back by
+        // things that are not PaneText.
+        ParkedBecause: ControlText.Strip(runner.ParkedBecause),
         Here: mine ? Ours : yours ? Owned : machine ? Alongside : " ",
         Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
             ? "  " + label
             : ""),
-        State: runner.State,
+        // BOTH FACTS OR NEITHER. Parking sits beside the state on the wire
+        // because a runner can be parked AND busy - draining, which is the
+        // reason to park anything. A column that printed only State would show
+        // a machine somebody deliberately withheld as `idle`, which is exactly
+        // the pair the claim path refuses to collapse.
+        State: runner.ParkedAt is null
+            ? runner.State
+            : $"{runner.State} · parked",
         Work: runner.CurrentFlightNumber ?? "",
         Labels: string.Join(", ", runner.Labels.Select(Advertised)),
         Heard: runner.LastHeartbeatAt is { } at ? at.ToString("u") : "never");

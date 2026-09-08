@@ -228,7 +228,14 @@ public sealed class RunnerLoop(
     // decision somebody made rather than a capability every runner has.
     //
     // LAST and defaulted, because every existing caller passes positionally.
-    Func<string, AttendedSession>? attendedSessions = null)
+    Func<string, AttendedSession>? attendedSessions = null,
+    // THE BEAT'S OWN PACE, and a SECOND waiting delegate deliberately.
+    // <paramref name="delay"/> paces the flight's own steps, which a test moves
+    // a clock through; this paces a cadence running BESIDE them. One delegate
+    // for both means every turn of the beat advances a test's clock by a
+    // heartbeat interval while the flight it is beside has not moved - which
+    // expires the lease the beat exists to keep alive. Null is the real one.
+    Func<TimeSpan, CancellationToken, Task>? beatPace = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -285,7 +292,8 @@ public sealed class RunnerLoop(
     /// correctly.
     /// </remarks>
     private async Task BeatIfDueAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken,
+        AttendedSession? attended = null)
     {
         if (_clock.UtcNow < _nextBeatDue)
         {
@@ -297,7 +305,8 @@ public sealed class RunnerLoop(
         // here would leave the beat due again immediately and try it on the
         // very next turn of the loop - a spin at whatever rate the claim
         // happens to run at.
-        _nextBeatDue = _clock.UtcNow + await BeatAsync(runnerId, labels, cancellationToken);
+        _nextBeatDue =
+            _clock.UtcNow + await BeatAsync(runnerId, labels, cancellationToken, attended);
     }
 
     /// <summary>
@@ -378,6 +387,9 @@ public sealed class RunnerLoop(
     }
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
+
+    private readonly Func<TimeSpan, CancellationToken, Task> _beatPace =
+        beatPace ?? ((span, token) => Task.Delay(span, token));
     private readonly IRunnerObserver _observer = observer;
     private readonly ICredentialResolver _credentials = credentials;
     private readonly IWorkspace _workspace = workspace;
@@ -810,6 +822,126 @@ public sealed class RunnerLoop(
         IReadOnlyDictionary<string, string> secretsByLocator,
         CancellationToken cancellationToken)
     {
+        // THE CHANNEL'S LIFETIME IS THE FLIGHT'S, and this `using` is the whole
+        // of it. It used to sit in HoldAsync, whose remark said exactly this
+        // sentence and delivered something narrower: the hold runs AFTER the
+        // agent has finished, shipped and landed, so the one window in which a
+        // person could reach a runner was the ten seconds after there was
+        // anything left to watch. Watching an agent work was not slow, it was
+        // impossible, and both ends reported it as the other end's fault.
+        //
+        // NULL WHEN THE FLIGHT IS HEADLESS OR THIS RUNNER WAS NOT WIRED TO BE
+        // DRIVEN. Both are the ordinary case, and both mean introductions
+        // arriving on these beats are ignored.
+        // BY FLIGHT ID, so the log this session can read is THIS flight's live
+        // view and not the machine's whole output. A journal would have handed
+        // somebody every flight the runner is running, including other people's;
+        // the lease authorises one conversation about one flight, and the file
+        // path is what makes that true rather than a filter somebody applies.
+        using var attended = lease.Attended is true
+            ? attendedSessions?.Invoke(lease.FlightId)
+            : null;
+
+        // BESIDE THE FLIGHT, not inside it. Every phase below either blocks on
+        // one long await or polls something of its own, so a beat threaded
+        // through them would cover the phases somebody remembered and leave the
+        // rest - and materializing a tree, which nobody would think of, is
+        // twenty seconds of silence on its own.
+        using var landing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var beating = BeatWhileFlyingAsync(runnerId, labels, attended, landing.Token);
+
+        try
+        {
+            await FlyAsync(runnerId, labels, lease, attended, secretsByLocator, cancellationToken);
+        }
+        finally
+        {
+            // STOPPED AND AWAITED, in that order. A pump left running would
+            // beat for a flight that has ended, and one never awaited would
+            // report its own failure into a void.
+            await landing.CancelAsync();
+            await beating;
+        }
+    }
+
+    /// <summary>
+    /// When the hold next has something to do: renew, or end.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both bounds, because either alone is a bug that shows up in only one
+    /// direction.</b> Waking only at the renewal overshoots the end of a short
+    /// hold; waking only at the end lets a lease lapse under a long one. Zero
+    /// rather than a negative span, which <c>Task.Delay</c> refuses.
+    /// </remarks>
+    private TimeSpan UntilTheHoldNeedsWaking(
+        DateTimeOffset until, DateTimeOffset expiresAt, LeaseGranted lease)
+    {
+        var renewAt = expiresAt - TimeSpan.FromSeconds(lease.RenewWithinSeconds);
+        var next = until < renewAt ? until : renewAt;
+        var wait = next - _clock.UtcNow;
+
+        return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
+    }
+
+    /// <summary>
+    /// Says this process is alive for as long as a flight lasts.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The beat used to stop when a flight started.</b> It was sent from the
+    /// idle loop and from inside the claim's poll, and neither runs once
+    /// <see cref="FlyAsync"/> begins - so a runner went quiet for the whole of
+    /// the work and came back when it was over. Measured on the fleet: four
+    /// beats sixteen seconds apart, then thirty-nine seconds of one renewal.
+    /// </para>
+    /// <para>
+    /// <b>Two things depended on it and neither said so.</b> Liveness is derived
+    /// control-plane-side from heartbeat age, so a busy runner decayed to
+    /// offline - the same defect <see cref="_nextBeatDue"/> records as fixed for
+    /// the idle case. And an introduction rides the beat, so a console reaching
+    /// a runner mid-flight was left holding an offer nothing would ever collect.
+    /// </para>
+    /// <para>
+    /// <b>A failure here is already survived rather than fatal</b> —
+    /// <see cref="BeatAsync"/> owns that rule, and it is the reason this pump
+    /// can run unattended beside work that matters more than it does.
+    /// </para>
+    /// </remarks>
+    private async Task BeatWhileFlyingAsync(
+        string runnerId,
+        IReadOnlyList<string> labels,
+        AttendedSession? attended,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await BeatIfDueAsync(runnerId, labels, cancellationToken, attended);
+
+                // UNTIL THE NEXT ONE IS OWED, which the control plane decided
+                // and this only reads. Waiting a constant here would put a
+                // second opinion about the cadence next to the one that is
+                // already derived from the staleness threshold.
+                var owed = _nextBeatDue - _clock.UtcNow;
+                await _beatPace(owed > TimeSpan.Zero ? owed : TimeSpan.Zero, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The flight ended. That is how this stops, and it is not a failure.
+        }
+    }
+
+    /// <summary>The flight itself: materialize, invoke, ship, land, hold.</summary>
+    private async Task FlyAsync(
+        string runnerId,
+        IReadOnlyList<string> labels,
+        LeaseGranted lease,
+        AttendedSession? attended,
+        IReadOnlyDictionary<string, string> secretsByLocator,
+        CancellationToken cancellationToken)
+    {
         WorkspaceResult workspace;
         try
         {
@@ -908,7 +1040,8 @@ public sealed class RunnerLoop(
                 : RunnerDisposition.Completed, (string?)null)
             : Decided(lease, workspace, decision);
 
-        await HoldAsync(runnerId, labels, lease, cancellationToken, disposition, detail);
+        await HoldAsync(
+            runnerId, labels, lease, attended, cancellationToken, disposition, detail);
     }
 
     /// <summary>
@@ -1842,43 +1975,26 @@ public sealed class RunnerLoop(
 
     private async Task HoldAsync(
         string runnerId, IReadOnlyList<string> labels, LeaseGranted lease,
+        AttendedSession? attended,
         CancellationToken cancellationToken,
         string disposition = RunnerDisposition.Completed, string? detail = null)
     {
         var expiresAt = lease.ExpiresAt;
         var until = _clock.UtcNow + HoldFor;
 
-        // THE CHANNEL'S LIFETIME IS THE FLIGHT'S, and this `using` is the whole
-        // of it. A session exists only inside a hold, so when the lease ends -
-        // released, fenced, taken over, or this method simply returning - every
-        // channel it opened closes with it. There is no standing capability to
-        // reach a runner; there is a flight, and while it is flying a person is
-        // talking to it.
+        // THE SESSION IS THE FLIGHT'S AND ARRIVES FROM ABOVE. It was made here
+        // once, which gave a person a channel that opened only after the agent
+        // had stopped working - see WorkAsync, which owns it now. The hold is
+        // still where it ENDS: the `using` up there closes every channel when
+        // the flight does, so there is no standing capability to reach a
+        // runner; there is a flight, and while it is flying a person is talking
+        // to it.
         //
-        // NULL WHEN THE FLIGHT IS HEADLESS OR THIS RUNNER WAS NOT WIRED TO BE
-        // DRIVEN. Both are the ordinary case, and both mean introductions
-        // arriving on these beats are ignored.
-        // BY FLIGHT ID, so the log this session can read is THIS flight's live
-        // view and not the machine's whole output. A journal would have handed
-        // somebody every flight the runner is running, including other people's;
-        // the lease authorises one conversation about one flight, and the file
-        // path is what makes that true rather than a filter somebody applies.
-        using var attended = lease.Attended is true
-            ? attendedSessions?.Invoke(lease.FlightId)
-            : null;
-
+        // AND NOTHING BEATS HERE ANY MORE. The pump beside the flight covers
+        // this window like every other, and a second beater would race it for
+        // _nextBeatDue and answer one introduction twice.
         while (_clock.UtcNow < until && !cancellationToken.IsCancellationRequested)
         {
-            // THROUGH THE GUARDED SENDER, which this used to bypass. A direct
-            // call here meant a 500 on a beat killed the process while it was
-            // holding somebody's flight - the loudest form of gg#303, and the
-            // one the idle-runner fix on its own would have left in place.
-            //
-            // The wait it answers with is the control plane's interval when the
-            // beat landed and the heartbeat's own backoff when it did not, so
-            // this loop paces itself either way without inventing a number.
-            var beatIn = await BeatAsync(runnerId, labels, cancellationToken, attended);
-
             // Renewal is decided against the control plane's expiry, never
             // against our own elapsed time. A process that was paused or
             // descheduled must not conclude it still has time in hand.
@@ -1900,7 +2016,10 @@ public sealed class RunnerLoop(
                 }
             }
 
-            await _delay(beatIn, cancellationToken);
+            // PACED BY WHAT THIS LOOP IS ACTUALLY FOR, now that the beat is
+            // not what wakes it: the sooner of the renewal it owes and the end
+            // of the hold. Never negative, and never a constant.
+            await _delay(UntilTheHoldNeedsWaking(until, expiresAt, lease), cancellationToken);
         }
 
         if (cancellationToken.IsCancellationRequested)

@@ -125,6 +125,30 @@ public sealed class MaintainLoop(
             // bad minute's wait.
             _backoff = TimeSpan.Zero;
             }
+            catch (InvalidOperationException refused)
+            {
+                // A REFUSAL IS NOT A REASON TO STOP MAINTAINING A POOL, and this
+                // is the third time this loop has had to learn that. gg#144 fixed
+                // the 500; the catch below is what came of it, and it takes
+                // HttpRequestException only. A 400 arrives here as
+                // InvalidOperationException from RunnerProtocolClient, so on
+                // 2026-09-07 this process aborted four times on the pool host
+                // over 180 microseconds of clock skew.
+                //
+                // NOT TREATED LIKE A 401, deliberately. A 401 stops because no
+                // amount of waiting fixes this machine's credential. A refusal
+                // may be transient - a clock a fraction out heals on the next
+                // cycle - and when it is permanent, a live loop saying so every
+                // cycle is more findable than a crash loop systemd keeps
+                // restarting. Either way the pool stays managed or the reason
+                // stays on screen.
+                //
+                // The diagnosis is carried whole because it names both clocks
+                // and is the only thing anybody can act on.
+                _backoff = TransientFailure.Next(_backoff);
+                _narrate(
+                    $"{refused.Message} Asking again in {_backoff.TotalSeconds:0}s.");
+            }
             catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
             {
                 // THE CONTROL PLANE'S PROBLEM, NOT THIS MACHINE'S. A deploy, a

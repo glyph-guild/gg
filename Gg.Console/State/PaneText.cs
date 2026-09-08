@@ -1300,15 +1300,16 @@ public static class PaneText
     /// </para>
     /// </remarks>
     private static string ComposeChoice() =>
-        "Something has to say what this flight is for.\n"
+        "Write it yourself and your editor opens on a blank page.\n"
+      + "Whatever you save is what this flight will do.\n"
       + "\n"
-      + "Write it yourself and $EDITOR opens on an empty\n"
-      + "buffer; what you save becomes the intent.\n"
+      + "Or work it out with an agent. It reads what it needs,\n"
+      + "talks it through with you, and hands the finished thing\n"
+      + "back when you are both happy with it.\n"
       + "\n"
-      + "An agent reads what it needs and hands back an\n"
-      + "intent when you are both happy with it. gg keeps\n"
-      + "a row at the top; ctrl-g there shows the rules\n"
-      + "in force.";
+      + "While an agent is running, gg keeps a row at the top of\n"
+      + "the screen. Press ctrl-g there to see the rules it is\n"
+      + "working under.";
 
     /// <summary>What is actually being decided.</summary>
     /// <remarks>
@@ -1338,8 +1339,8 @@ public static class PaneText
             // re-read underneath a person, is a thing to explain - and an empty
             // box for it is indistinguishable from the defect this arm exists
             // because of.
-            return "There is no gate on this row any more. It may have been "
-                 + "answered somewhere else.\n\nEscape closes this.";
+            return "There is no decision waiting on this row any more.\n"
+                 + "Somebody may have answered it already.";
         }
 
         return Clean(
@@ -1358,7 +1359,7 @@ public static class PaneText
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
-        UiMode.ComposeChoice => "How should this flight be written?",
+        UiMode.ComposeChoice => "How do you want to write this flight?",
         _ => "",
     };
 

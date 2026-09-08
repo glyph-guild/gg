@@ -1303,12 +1303,20 @@ public sealed class ConsoleScreen : Window
         // a one-sentence question; a body that explains two answers, with a row
         // of buttons under it, is cut off in that box - and a cut-off answer
         // reads as a shorter answer rather than as a box that is too small.
-        var wide = _modalButtons.Sum(b => b.Text.Length + 6) + 4;
+        // WIDE ENOUGH FOR THE WORDS AS WELL AS THE BUTTONS. Sizing to the
+        // buttons alone left the body hand-wrapped to whatever happened to fit,
+        // which breaks a sentence where the box ends rather than where it reads
+        // - and goes wrong silently the moment somebody rewords it.
+        var body = PaneText.Modal(State).Split('\n');
+
+        var wide = Math.Max(
+            _modalButtons.Sum(b => b.Text.Length + 6) + 4,
+            body.Max(line => line.Length) + 4);
+
         // MEASURED RATHER THAN GUESSED: a border top and bottom, a button row,
         // the shadow under it, and the blank line the dialog keeps above the
         // buttons. Five was the guess and it cut the last two lines of the body.
-        var tall = PaneText.Modal(State).Split('\n').Length
-                 + (_modalButtons.Count > 0 ? 7 : 3);
+        var tall = body.Length + (_modalButtons.Count > 0 ? 7 : 3);
 
         _modal.Width = document ? Dim.Percent(92) : Math.Max(52, wide);
         _modal.Height = document ? Dim.Percent(88) : Math.Max(12, tall);

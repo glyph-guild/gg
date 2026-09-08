@@ -196,6 +196,34 @@ public static class PtyHost
 
             terminal.Resized += Repaint;
 
+            // AND ON A TICK, BECAUSE GG'S OWN ROWS CHANGE WHEN THE CHILD IS
+            // SILENT. Repainting only on output ties what gg has to say to the
+            // child having said something - and the two are unrelated: an intent
+            // file appears because a tool server three processes away wrote it,
+            // and a person opening the panel is not the child talking either.
+            //
+            // A REAL AGENT HID THIS. Claude Code redraws many times a second, so
+            // the status would have looked live in every hand test while being
+            // wrong by construction; it was a test with a SILENT child that
+            // showed the property does not hold. Four frames a second is
+            // imperceptible for a status change and costs ~12 KiB/s next to the
+            // ~589 KiB/s a busy agent already produces.
+            using var ticking = new CancellationTokenSource();
+            var tick = Task.Run(async () =>
+            {
+                try
+                {
+                    while (!ticking.IsCancellationRequested)
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(250), ticking.Token);
+                        Repaint();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            });
+
             // THE BAR GOES UP BEFORE THE CHILD SAYS ANYTHING. Painting only on
             // arrival ties gg's own row to the child having written something,
             // and an editor that opens on an empty file writes nothing at all -
@@ -241,7 +269,9 @@ public static class PtyHost
             pty.WaitForExit(Timeout.Infinite);
 
             await stopping.CancelAsync();
+            await ticking.CancelAsync();
             await typing;
+            await tick;
 
             terminal.Resized -= Repaint;
 

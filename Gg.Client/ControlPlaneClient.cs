@@ -316,12 +316,22 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             : null;
     }
 
+    /// <param name="publicKey">
+    /// What a console will seal an introduction to, or null when this caller has
+    /// no key to offer.
+    /// </param>
     public async Task<RunnerRegistered> RegisterRunnerAsync(
-        string sessionToken, string label, CancellationToken cancellationToken = default)
+        string sessionToken, string label, CancellationToken cancellationToken = default,
+        string? publicKey = null)
     {
         using var request = Request(HttpMethod.Post, "/v1/runners", sessionToken);
         request.Content = JsonContent.Create(
-            new RunnerRegistrationRequest { Label = label, ProtocolVersion = GgVersions.Protocol },
+            new RunnerRegistrationRequest
+            {
+                Label = label,
+                ProtocolVersion = GgVersions.Protocol,
+                PublicKey = publicKey,
+            },
             ProtocolJsonContext.Default.RunnerRegistrationRequest);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);

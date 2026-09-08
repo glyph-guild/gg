@@ -128,6 +128,43 @@ public sealed class PinnedRunnerKeys
         Write(Read(), runnerId, offered, now);
     }
 
+    /// <summary>
+    /// Forgets one pin, so the next introduction trusts afresh.
+    /// </summary>
+    /// <remarks>
+    /// <b>Forgetting rather than accepting a key handed in.</b> At the moment a
+    /// person runs this the console is not talking to the runner, so there is no
+    /// key to accept - and taking one on a command line would invite pasting it
+    /// from the same place the wrong key came from.
+    /// </remarks>
+    /// <returns>Whether there was a pin to forget.</returns>
+    public bool Forget(string runnerId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runnerId);
+
+        var pins = Read();
+
+        if (!pins.ContainsKey(runnerId))
+        {
+            // NOT AN ERROR, and not a lie either: the caller asked for this
+            // runner to be unpinned and it is. Whether anything changed is
+            // answered rather than thrown, which is how releasing a reservation
+            // nobody holds already behaves.
+            return false;
+        }
+
+        var next = pins.Values
+            .Where(k => !string.Equals(k.RunnerId, runnerId, StringComparison.Ordinal))
+            .OrderBy(k => k.RunnerId, StringComparer.Ordinal)
+            .ToArray();
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        File.WriteAllText(
+            _path, JsonSerializer.Serialize(next, PinnedKeyContext.Default.PinnedKeyArray));
+
+        return true;
+    }
+
     /// <summary>What this machine has pinned, by runner id.</summary>
     public IReadOnlyDictionary<string, PinnedKey> Read()
     {
@@ -171,6 +208,29 @@ public sealed class PinnedRunnerKeys
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         File.WriteAllText(_path, JsonSerializer.Serialize(next, PinnedKeyContext.Default.PinnedKeyArray));
     }
+}
+
+/// <summary>
+/// What forgetting a pin did.
+/// </summary>
+/// <remarks>
+/// <b>Not a wire type, because repinning never reaches the control plane.</b>
+/// The pin is this machine's memory of a runner, and forgetting it is a local
+/// act - so this lives beside the store rather than in <c>Gg.Contracts</c>, and
+/// the contract does not move for it.
+/// </remarks>
+public sealed record RunnerRepinned
+{
+    public required string RunnerId { get; init; }
+
+    /// <summary>Whether there was a pin to forget.</summary>
+    /// <remarks>
+    /// <b>Answered rather than thrown.</b> "Make sure this runner is not pinned"
+    /// has to be one call, exactly as releasing a reservation nobody holds does -
+    /// and a person who ran this twice should be told what happened rather than
+    /// shown an error.
+    /// </remarks>
+    public required bool Forgotten { get; init; }
 }
 
 /// <summary>The pins could not be read, so nothing can be trusted about them.</summary>

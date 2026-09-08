@@ -42,10 +42,21 @@ public sealed class NotSignedInException(string message) : Exception(message);
 /// may see it - belongs to the control plane.
 /// </para>
 /// </remarks>
-public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sessions)
+public sealed class FlightCommands(
+    ControlPlaneClient client, ISessionStore sessions, PinnedRunnerKeys? pins = null)
 {
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
+
+    /// <summary>
+    /// The runner keys this machine has met.
+    /// </summary>
+    /// <remarks>
+    /// <b>Optional so every existing caller keeps working</b>, and defaulted to
+    /// the real store rather than to a null object: a repin that silently did
+    /// nothing would be worse than one that could not be called.
+    /// </remarks>
+    private readonly PinnedRunnerKeys _pins = pins ?? new PinnedRunnerKeys();
 
     /// <summary>The tenant's flights, or everything for one line of work.</summary>
     /// <remarks>
@@ -618,6 +629,36 @@ public sealed class FlightCommands(ControlPlaneClient client, ISessionStore sess
                 $"No runner {runnerId} here. Run gg runners to see this tenant's fleet.");
 
         return new VerbResult.RunnerRetired(retired);
+    }
+
+    /// <summary>
+    /// Forgets a runner's pinned key, so the next introduction trusts afresh.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one way through a refusal, and it is deliberately a command.</b> A
+    /// pinned key that changed is usually a reinstall and occasionally a
+    /// substitution, and nothing on this machine can tell which. A prompt would
+    /// fire on the common case, which is how people learn to click through
+    /// ssh's host-key warning; a command means somebody decided.
+    /// </para>
+    /// <para>
+    /// <b>It forgets rather than accepts.</b> There is no key to accept at this
+    /// moment - the console is not talking to the runner - so this drops the pin
+    /// and lets the NEXT introduction pin whatever it finds. Taking a key on the
+    /// command line would invite pasting one from the same place the wrong key
+    /// came from.
+    /// </para>
+    /// </remarks>
+    public Task<VerbResult> RepinRunnerAsync(
+        string runnerId, CancellationToken cancellationToken = default)
+    {
+        _ = cancellationToken;
+
+        var forgotten = _pins.Forget(runnerId);
+
+        return Task.FromResult<VerbResult>(new VerbResult.RunnerRepinned(
+            new RunnerRepinned { RunnerId = runnerId, Forgotten = forgotten }));
     }
 
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>

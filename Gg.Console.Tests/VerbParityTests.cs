@@ -115,6 +115,11 @@ public class VerbParityTests
                     + "why a flight is stopped, missing from the surface whose whole job is "
                     + "showing what needs somebody. Step 4.",
             ["RunnerLabels"] = "absent, and a gap: step 4, with dispositions beside the names.",
+            ["RunnerRepin"] = "absent, and it belongs where the refusal is. A pin only "
+                            + "matters when an introduction refuses, and nothing in the "
+                            + "console can be introduced yet - so a key here would act on "
+                            + "state no pane shows. It arrives with step 4, beside the "
+                            + "message that names it.",
             ["RunnerRetire"] = "absent, and DELIBERATELY so for now. Retiring is one-way "
                              + "and revokes a credential, and the console's runner modal "
                              + "is a place a person arrives at by arrow key. A key that "

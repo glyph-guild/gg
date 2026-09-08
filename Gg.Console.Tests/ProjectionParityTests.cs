@@ -94,6 +94,10 @@ public class ProjectionParityTests
             ["CredentialAdded"] = "step 5: the console can register one and cannot see the "
                                 + "result reach the model.",
             ["CredentialRemoved"] = "step 5, the mirror of it.",
+            ["RunnerRepinned"] = "no arm because no console verb, and nothing to project "
+                               + "either: forgetting a pin changes a file this machine "
+                               + "keeps, not anything a pane draws. The reason is at "
+                               + "VerbParityTests' entry for RunnerRepin.",
             ["RunnerRetired"] = "no arm because no console verb: retiring is one-way "
                               + "and the modal has no confirmation to hang it on. The "
                               + "reason is written out at ConsoleDataTests' exemption "

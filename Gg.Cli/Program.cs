@@ -63,6 +63,8 @@ return CliArgs.Parse(args) switch
     CliAction.AirspaceApply apply => await EmitAsync(
         apply.Json, c => c.AirspaceApplyAsync(Directory.GetCurrentDirectory())),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
+    CliAction.RunnerRepin repin =>
+        await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),
     CliAction.RunnerRetire retire =>
         await EmitAsync(retire.Json, c => c.RetireRunnerAsync(retire.RunnerId)),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
@@ -992,7 +994,12 @@ static async Task<int> HoldAsync(
         async () =>
         {
             var fresh = await new ControlPlaneClient(http)
-                .RegisterRunnerAsync(session.SessionToken, name);
+                .RegisterRunnerAsync(
+                    session.SessionToken, name,
+                    // MADE HERE, ON FIRST REGISTRATION, because that is the moment a
+                    // console pins. The private half never leaves this machine.
+                    publicKey: RunnerIdentityKey
+                        .LoadOrCreate(RunnerIdentityKey.PathFor(name)).PublicKey);
 
             return new StoredRunner
             {
@@ -1077,7 +1084,11 @@ static async Task<int> RunnerUpAsync()
         async () =>
         {
             var fresh = await new ControlPlaneClient(http)
-                .RegisterRunnerAsync(session.SessionToken, Environment.MachineName);
+                .RegisterRunnerAsync(
+                    session.SessionToken, Environment.MachineName,
+                    publicKey: RunnerIdentityKey
+                        .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName))
+                        .PublicKey);
 
             return new StoredRunner
             {
@@ -1340,7 +1351,14 @@ static async Task<int> RunnerMaintainAsync(string pool)
             }
 
             var fresh = await new ControlPlaneClient(http)
-                .RegisterRunnerAsync(signedIn.SessionToken, Environment.MachineName + ":maintain");
+                .RegisterRunnerAsync(
+                    signedIn.SessionToken, Environment.MachineName + ":maintain",
+                    // ONE KEY PER RUNNER NAME. This host's `runner up` has its own; sharing
+                    // would make a console pinning "this runner" pin "this host".
+                    publicKey: RunnerIdentityKey
+                        .LoadOrCreate(
+                            RunnerIdentityKey.PathFor(Environment.MachineName + ":maintain"))
+                        .PublicKey);
 
             return new StoredRunner
             {

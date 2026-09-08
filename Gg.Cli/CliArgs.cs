@@ -138,6 +138,9 @@ public abstract record CliAction
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
     public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Forgets a runner's pinned key, so the next one is trusted afresh.</summary>
+    public sealed record RunnerRepin(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
     public sealed record Invite(bool Json) : CliAction, IEmitsResult;
 
     public sealed record Doctor(bool Json) : CliAction, IEmitsResult;
@@ -293,6 +296,7 @@ public static class CliArgs
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id>          take a runner out of the fleet, for good",
+        "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
@@ -369,6 +373,9 @@ public static class CliArgs
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
+            ["runner", "repin", var repinId] => new CliAction.RunnerRepin(repinId, json),
+            ["runner", "repin", ..] => Unknown(
+                "gg runner repin needs one runner id - the one whose key changed."),
             ["runner", "retire", ..] => Unknown(
                 "gg runner retire needs one runner id. Run gg runners to see the fleet."),
 

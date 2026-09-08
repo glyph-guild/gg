@@ -132,6 +132,49 @@ public class PinnedRunnerKeyTests
     }
 
     [Test]
+    public async Task Forgetting_a_pin_lets_the_next_introduction_trust_afresh()
+    {
+        // THE ONE WAY THROUGH, and it forgets rather than accepts: at the moment
+        // a person runs this the console is not talking to the runner, so there
+        // is no key to accept - and taking one on a command line would invite
+        // pasting it from the same place the wrong key came from.
+        var pins = InADirectoryOfItsOwn();
+        pins.Check("runner-a", "key-one", T0);
+
+        await Assert.That(pins.Forget("runner-a")).IsTrue();
+
+        await Assert.That(pins.Check("runner-a", "key-two", T0.AddHours(1)))
+            .IsEqualTo(PinVerdict.Pinned)
+            .Because("forgetting has to make the next one a FIRST introduction, or the "
+                   + "recovery does not recover anything.");
+    }
+
+    [Test]
+    public async Task Forgetting_what_was_never_pinned_is_answered_rather_than_thrown()
+    {
+        // "Make sure this runner is not pinned" has to be one call, exactly as
+        // releasing a reservation nobody holds is - and a person who ran it twice
+        // should be told what happened rather than shown an error.
+        var pins = InADirectoryOfItsOwn();
+
+        await Assert.That(pins.Forget("never-met")).IsFalse();
+    }
+
+    [Test]
+    public async Task Forgetting_one_leaves_the_others_pinned()
+    {
+        var pins = InADirectoryOfItsOwn();
+        pins.Check("runner-a", "key-one", T0);
+        pins.Check("runner-b", "key-two", T0);
+
+        pins.Forget("runner-a");
+
+        await Assert.That(pins.Check("runner-b", "key-two", T0.AddHours(1)))
+            .IsEqualTo(PinVerdict.Matches)
+            .Because("a repin that un-pinned a fleet would be a worse cure than the disease.");
+    }
+
+    [Test]
     public async Task It_lives_beside_the_runner_credential_rather_than_in_state()
     {
         // A pin is not runtime state. Losing it silently would make every runner

@@ -181,6 +181,13 @@ public class ConsoleDataTests
             // and that confirmation is the work, not the wiring.
             "RetireRunnerAsync",
 
+            // A LOCAL ACT ON LOCAL STATE. Repinning forgets what this machine
+            // remembers about a runner's key; no pane shows a pin, and nothing in
+            // the console can be introduced yet, so a console equivalent would act
+            // on state a person cannot see. It arrives with step 4, beside the
+            // refusal that names it.
+            "RepinRunnerAsync",
+
             // A READ NOBODY ASKED FOR. The topology is envelope names and their
             // roles; no pane wants it and none is planned. The question a person
             // browsing actually has is "what can I fly against", which is

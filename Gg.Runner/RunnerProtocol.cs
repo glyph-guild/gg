@@ -142,6 +142,21 @@ public abstract record ReleaseResult
 /// </remarks>
 public interface IRunnerProtocol
 {
+    /// <summary>
+    /// Posts a sealed answer to an introduction the heartbeat brought.
+    /// </summary>
+    /// <remarks>
+    /// <b>Outward, on the runner's own poll, which is the posture the whole
+    /// transport choice rests on.</b> The offer arrived on a heartbeat this
+    /// runner made and the answer goes back the same way round; nothing here
+    /// listens, and nothing opens a connection to this machine. The route
+    /// answers 202 - the control plane files the answer and the console collects
+    /// it - because a route that waited for the far end would put the relay
+    /// inside the conversation.
+    /// </remarks>
+    Task SignalAsync(
+        string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default);
+
     Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default);
 

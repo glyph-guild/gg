@@ -36,6 +36,17 @@ public interface IRunnerObserver
     void BoundBroken(string diagnosis);
 
     /// <summary>
+    /// Somebody tried to fly this runner by hand and the handshake failed.
+    /// </summary>
+    /// <remarks>
+    /// <b>The person at the console learns which END gave up from their own
+    /// side; this is the runner's half of the same sentence.</b> On a supervised
+    /// machine it is the only place the failure is visible at all - the console
+    /// saw a timeout and the journal is where somebody looks next.
+    /// </remarks>
+    void CannotBeFlownByHand(string diagnosis);
+
+    /// <summary>
     /// The control plane refused or could not be reached, and the runner is
     /// going to ask again in <paramref name="retryIn"/>.
     /// </summary>
@@ -150,6 +161,8 @@ public interface IRunnerObserver
 /// <summary>Ignores everything, for tests where the narration is not the subject.</summary>
 public sealed class SilentObserver : IRunnerObserver
 {
+    public void CannotBeFlownByHand(string diagnosis) { }
+
     public void Claimed(LeaseGranted lease) { }
     public void Renewed(string leaseId, DateTimeOffset expiresAt) { }
     public void Fenced(string leaseId) { }
@@ -207,7 +220,15 @@ public sealed class RunnerLoop(
     IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
     TranscriptStore? transcripts = null,
     IReadOnlyList<IDestinationAdapter>? destinations = null,
-    Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null)
+    Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null,
+    // WHETHER THIS RUNNER CAN BE FLOWN BY HAND AT ALL, decided by whoever wired
+    // it. Gg.Runner does not go looking for the private key: it lives on the
+    // machine, never leaves it, and the composition root either hands in a way
+    // to open a session or does not. So "this runner may be driven" is a wiring
+    // decision somebody made rather than a capability every runner has.
+    //
+    // LAST and defaulted, because every existing caller passes positionally.
+    Func<AttendedSession>? attendedSessions = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -314,11 +335,24 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     private async Task<TimeSpan> BeatAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        string runnerId,
+        IReadOnlyList<string> labels,
+        CancellationToken cancellationToken,
+        AttendedSession? session = null)
     {
         try
         {
             var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
+
+            // ANSWERED ONLY INSIDE A HOLD. The idle loop beats too and its beats
+            // carry introductions the same way - they are ignored here, because
+            // nothing is holding a lease to authorise them. That is the whole of
+            // "there is no standing capability to reach a runner": not a check,
+            // but a session that only exists while a flight does.
+            if (session is not null && beat.Introductions is { Count: > 0 } waiting)
+            {
+                await session.AnswerAllAsync(runnerId, waiting, _protocol, cancellationToken);
+            }
 
             // A SERVED BEAT CLEARS IT, so an hour of health does not inherit a
             // bad minute's wait.
@@ -1814,6 +1848,18 @@ public sealed class RunnerLoop(
         var expiresAt = lease.ExpiresAt;
         var until = _clock.UtcNow + HoldFor;
 
+        // THE CHANNEL'S LIFETIME IS THE FLIGHT'S, and this `using` is the whole
+        // of it. A session exists only inside a hold, so when the lease ends -
+        // released, fenced, taken over, or this method simply returning - every
+        // channel it opened closes with it. There is no standing capability to
+        // reach a runner; there is a flight, and while it is flying a person is
+        // talking to it.
+        //
+        // NULL WHEN THE FLIGHT IS HEADLESS OR THIS RUNNER WAS NOT WIRED TO BE
+        // DRIVEN. Both are the ordinary case, and both mean introductions
+        // arriving on these beats are ignored.
+        using var attended = lease.Attended is true ? attendedSessions?.Invoke() : null;
+
         while (_clock.UtcNow < until && !cancellationToken.IsCancellationRequested)
         {
             // THROUGH THE GUARDED SENDER, which this used to bypass. A direct
@@ -1824,7 +1870,7 @@ public sealed class RunnerLoop(
             // The wait it answers with is the control plane's interval when the
             // beat landed and the heartbeat's own backoff when it did not, so
             // this loop paces itself either way without inventing a number.
-            var beatIn = await BeatAsync(runnerId, labels, cancellationToken);
+            var beatIn = await BeatAsync(runnerId, labels, cancellationToken, attended);
 
             // Renewal is decided against the control plane's expiry, never
             // against our own elapsed time. A process that was paused or

@@ -19,6 +19,9 @@ internal sealed class ConsoleObserver : IRunnerObserver
     public void Released(string leaseId, string disposition) =>
         System.Console.WriteLine($"released {leaseId} as {disposition}");
 
+    public void CannotBeFlownByHand(string diagnosis) =>
+        System.Console.Error.WriteLine($"somebody could not reach this runner: {diagnosis}");
+
     public void BoundBroken(string diagnosis) =>
         System.Console.Error.WriteLine(
             $"move bound BROKE mid-life: {diagnosis} This runner will not take further work.");

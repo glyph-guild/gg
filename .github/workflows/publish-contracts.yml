@@ -38,6 +38,12 @@ jobs:
       # -local.<timestamp> label, so it can never land in a NuGet cache under a
       # number a release published. See the note in Gg.Contracts.csproj for the
       # incident that bought this line.
+      # THE FORK, BEFORE ANYTHING RESTORES. nuget.config declares a local
+      # source at packages/ and NuGet fails a restore when a declared source is
+      # missing rather than skipping it - so the directory has to exist before
+      # the first build, not before the first use.
+      - name: The pinned SIPSorcery fork
+        run: ./scripts/fetch-sipsorcery.sh
       - run: dotnet pack Gg.Contracts/Gg.Contracts.csproj -c Release -o artifacts -p:ContractRelease=true
       # The release path checks its own artifact, because the tag below and the
       # asset it carries have to agree. Without ContractRelease the pack would

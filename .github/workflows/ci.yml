@@ -21,6 +21,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      # THE FORK, BEFORE ANYTHING RESTORES. nuget.config declares a local
+      # source at packages/, and NuGet fails a restore when a declared source is
+      # missing rather than skipping it - so the directory has to exist before
+      # the first build, not before the first use. gg#335 went red on all three
+      # jobs with NU1301 and nothing about the change it was testing.
+      - name: The pinned SIPSorcery fork
+        run: ./scripts/fetch-sipsorcery.sh
       - run: dotnet build -c Release
       # RealAgent, RealRemote, RealDocker and RealStack are excluded
       # DELIBERATELY and by name. Those
@@ -47,6 +54,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      # THE FORK, BEFORE ANYTHING RESTORES. nuget.config declares a local
+      # source at packages/, and NuGet fails a restore when a declared source is
+      # missing rather than skipping it - so the directory has to exist before
+      # the first build, not before the first use. gg#335 went red on all three
+      # jobs with NU1301 and nothing about the change it was testing.
+      - name: The pinned SIPSorcery fork
+        run: ./scripts/fetch-sipsorcery.sh
       - name: AOT-publish gg as a single self-contained binary
         run: dotnet publish Gg.Cli -c Release -r linux-x64 -o artifacts/aot
       - name: The published binary actually runs
@@ -65,6 +79,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      # THE FORK, BEFORE ANYTHING RESTORES. nuget.config declares a local
+      # source at packages/, and NuGet fails a restore when a declared source is
+      # missing rather than skipping it - so the directory has to exist before
+      # the first build, not before the first use. gg#335 went red on all three
+      # jobs with NU1301 and nothing about the change it was testing.
+      - name: The pinned SIPSorcery fork
+        run: ./scripts/fetch-sipsorcery.sh
       # THE SAME COMMAND publish-cli.yml PACKS WITH. If these drift, this job
       # proves a package nobody ships.
       - name: Pack the tool exactly as the release does

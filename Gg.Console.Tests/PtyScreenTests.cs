@@ -276,6 +276,111 @@ public class PtyScreenTests
     }
 
     [Test]
+    public async Task The_panel_can_be_more_than_one_row_and_the_child_starts_under_it()
+    {
+        // THE BAR OPENS. gg keeps one row while it is only saying what ends the
+        // session; asked to show the envelope it keeps several, because the
+        // envelope does not fit on one and abbreviating the rules in force is
+        // the wrong thing to abbreviate.
+        //
+        // The child does not paint a row it does not believe exists, which is
+        // what kept ONE row gg's - so the same lie, told about a bigger number,
+        // is the whole mechanism.
+        var frame = PtyScreen.Paint(
+            Screen(rows: 6, columns: 30), rows: 6, columns: 30,
+            panel: ["gg · composing", "instructions in force:", "  keep the diff small"]);
+
+        for (var row = 1; row <= 3; row++)
+        {
+            await Assert.That(frame).Contains($"{Esc}[{row};1H", StringComparison.Ordinal)
+                .Because($"panel row {row} is terminal row {row}.");
+        }
+
+        await Assert.That(frame).Contains($"{Esc}[4;1H", StringComparison.Ordinal)
+            .Because("three rows of panel means the child's first row is the fourth.");
+
+        await Assert.That(frame).Contains("instructions in force:", StringComparison.Ordinal);
+        await Assert.That(frame).Contains("keep the diff small", StringComparison.Ordinal);
+    }
+
+    [Test]
+    public async Task Every_panel_row_fills_its_width()
+    {
+        // The one-row bar padded so it read as a bar rather than as words
+        // floating on whatever the child left there. Every row of a taller panel
+        // is the same: an unpadded one shows the child's screen through the gaps.
+        var frame = PtyScreen.Paint(
+            Screen(rows: 5, columns: 12), rows: 5, columns: 12,
+            panel: ["gg", "envelope v6"]);
+
+        await Assert.That(frame).Contains("gg          ", StringComparison.Ordinal);
+        await Assert.That(frame).Contains("envelope v6 ", StringComparison.Ordinal);
+    }
+
+    [Test]
+    public async Task A_panel_row_too_long_is_cut_rather_than_wrapped()
+    {
+        // Wrapping would push every row below it down by one and the last row of
+        // the child off the bottom - the same defect the auto-wrap guard exists
+        // for, arriving from gg's own text instead of the child's.
+        var frame = PtyScreen.Paint(
+            Screen(rows: 5, columns: 12), rows: 5, columns: 12,
+            panel: ["gg", "an instruction far longer than this terminal is wide"]);
+
+        await Assert.That(frame).Contains("an instructi", StringComparison.Ordinal);
+        await Assert.That(frame).DoesNotContain("longer", StringComparison.Ordinal);
+    }
+
+    [Test]
+    public async Task The_cursor_is_offset_by_however_many_rows_gg_kept()
+    {
+        // Off by the bar and typing looks haunted; off by a PANEL and it looks
+        // haunted by more. The offset is whatever the panel actually is, not a
+        // constant that was right when the panel was one row.
+        var terminal = Screen(rows: 5, columns: 20, wrote: $"{Esc}[2;4Hhere");
+
+        var frame = PtyScreen.Paint(
+            terminal, rows: 5, columns: 20, panel: ["gg", "one", "two", "three"]);
+
+        await Assert.That(frame).EndsWith(
+            $"{Esc}[{terminal.Buffer.Y + 5};{terminal.Buffer.X + 1}H{Esc}[?25h{Esc}[?7h",
+            StringComparison.Ordinal)
+            .Because("four panel rows put the child's own row zero on terminal row five.");
+    }
+
+    [Test]
+    public async Task Replayed_into_a_terminal_a_taller_panel_still_IS_the_child_s_screen()
+    {
+        // THE ROUND TRIP, EXTENDED. The property that made the one-row renderer
+        // safe to change is the one that has to survive the panel growing: what
+        // a terminal makes of gg's frame is the child's screen, whatever gg kept
+        // above it.
+        var child = Screen(rows: 6, columns: 30);
+        child.Write($"{Esc}[1;1Hfirst{Esc}[3;5H{Esc}[31mred{Esc}[0m{Esc}[6;1Hlast");
+
+        string[] panel = ["gg · composing", "envelope v6", "  keep the diff small"];
+
+        var frame = PtyScreen.Paint(child, rows: 6, columns: 30, panel: panel);
+
+        var screen = new XTermTerminal(new TerminalOptions { Cols = 30, Rows = 9 });
+        screen.Write(frame);
+
+        var shown = screen.GetVisibleLines();
+        var drew = child.GetVisibleLines();
+
+        for (var row = 0; row < panel.Length; row++)
+        {
+            await Assert.That(shown[row]).StartsWith(panel[row], StringComparison.Ordinal);
+        }
+
+        for (var row = 0; row < drew.Length; row++)
+        {
+            await Assert.That(shown[row + panel.Length]).IsEqualTo(drew[row])
+                .Because($"child row {row} is terminal row {row + panel.Length}.");
+        }
+    }
+
+    [Test]
     public async Task No_escape_is_written_as_a_byte_you_cannot_see()
     {
         // THE RATCHET FOR THE BUG THAT CAUSED ALL FOUR REPORTED SYMPTOMS AT

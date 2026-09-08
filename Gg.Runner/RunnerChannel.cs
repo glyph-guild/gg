@@ -35,8 +35,22 @@ public enum HandshakeFailure
 }
 
 /// <summary>What answering an introduction produced.</summary>
+/// <param name="LocalCandidates">
+/// The ways this runner offered to be reached, as ICE candidate lines.
+/// </param>
+/// <remarks>
+/// <b>The candidates are reported because a person debugging needs them and
+/// because a test needs them.</b> "No route between us" is a sentence somebody
+/// can only act on if they can see what each end offered - one host candidate
+/// and no server-reflexive one is a STUN problem, not a firewall - and it is
+/// also the only attributable way to check that nothing here listens, since a
+/// machine-wide socket count belongs to whatever else is running.
+/// </remarks>
 public sealed record HandshakeResult(
-    RunnerSealedAnswer? Answer, HandshakeFailure Failure, string Said);
+    RunnerSealedAnswer? Answer,
+    HandshakeFailure Failure,
+    string Said,
+    IReadOnlyList<string> LocalCandidates);
 
 /// <summary>
 /// The runner's half of a handshake: it answers, and it never listens.
@@ -101,7 +115,8 @@ public sealed class RunnerChannel(
             return new HandshakeResult(
                 null, HandshakeFailure.OfferWouldNotOpen,
                 "The offer would not open with this runner's key. Either it was sealed to a "
-              + $"different runner, or something rewrote it in transit: {opening.Message}");
+              + $"different runner, or something rewrote it in transit: {opening.Message}",
+                []);
         }
 
         var offer = Encoding.UTF8.GetString(offerBytes);
@@ -140,7 +155,8 @@ public sealed class RunnerChannel(
             return new HandshakeResult(
                 null, HandshakeFailure.OfferWasNotSdp,
                 "The offer opened and was not something this runner could answer. The seal is "
-              + "fine and what was inside it is not.");
+              + "fine and what was inside it is not.",
+                Offered(gathered));
         }
 
         var answer = peer.createAnswer(null);
@@ -176,7 +192,16 @@ public sealed class RunnerChannel(
                     theirEphemeralKey, runnerKey, Encoding.UTF8.GetBytes(sdp)),
             },
             HandshakeFailure.None,
-            "answered");
+            "answered",
+            Offered(gathered));
+    }
+
+    private static IReadOnlyList<string> Offered(List<string> gathered)
+    {
+        lock (gathered)
+        {
+            return [.. gathered];
+        }
     }
 
     /// <summary>

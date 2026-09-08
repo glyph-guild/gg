@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- THE FORK, for the same reason Gg.Runner carries it: the console is the
+         other peer. See ProjectReferenceTests for what that dependency costs and
+         what pays for it. -->
+    <PackageReference Include="SIPSorcery" />
     <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
   </ItemGroup>
 

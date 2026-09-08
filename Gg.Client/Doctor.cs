@@ -58,6 +58,20 @@ public static class DoctorChecks
     /// </remarks>
     public const string CredentialStore = "credential store";
 
+    /// <summary>
+    /// Whether a data channel can be established at all on this binary.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because the failure it looks for exists only in a PUBLISHED binary.</b>
+    /// Upstream SIPSorcery stalls in <c>CookieEchoed</c> under Native AOT: the
+    /// SCTP state cookie is reflection-serialised and the trimmer removes its
+    /// members, so the association never completes and data channels never open.
+    /// A test assembly runs on the JIT and cannot see it — which is why this is a
+    /// doctor check rather than a test, and why CI runs it against the artifact
+    /// it just published.
+    /// </remarks>
+    public const string Channel = "channel";
+
     /// <summary>Whether every registered reference resolves on this machine.</summary>
     /// <remarks>
     /// ADR-0004 named this failure before it existed: a runner that cannot
@@ -401,6 +415,7 @@ public sealed class Doctor(
         checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
         checks.Add(RunnerCheck(stored));
         checks.Add(MovesCheck());
+        checks.Add(await ChannelCheckAsync(cancellationToken));
         checks.Add(HandoffAccountCheck(accountsMissing));
         checks.Add(CredentialStoreCheck());
         checks.Add(await CredentialResolutionCheckAsync(
@@ -847,6 +862,117 @@ public sealed class Doctor(
     /// to take work when it does not hold.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Opens a data channel to this machine's own other end, and says so.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE ONE CHECK THAT CANNOT BE A TEST.</b> Upstream SIPSorcery stalls in
+    /// <c>CookieEchoed</c> under Native AOT — the SCTP state cookie is
+    /// reflection-serialised and the trimmer removes its members — so an
+    /// association never completes and a data channel never opens. A test
+    /// assembly runs on the JIT, where the cookie survives and everything
+    /// passes. The failure lives in the published binary and nowhere else, so
+    /// the assertion has to live there too.
+    /// </para>
+    /// <para>
+    /// <b>Loopback, with no ICE servers.</b> Both peers are in this process and
+    /// host candidates on the local interface are enough; a check that needed
+    /// STUN would fail on an aeroplane and teach somebody to ignore it. What is
+    /// under test is the ASSOCIATION, not the network — hole punching was
+    /// measured separately, in step 0, between two real machines.
+    /// </para>
+    /// <para>
+    /// <b>Not blocking.</b> A machine that cannot open a channel can still fly
+    /// flights, take work and land them; what it cannot do is let somebody watch
+    /// a runner from elsewhere. Blocking on it would stop a fleet over a feature
+    /// most of it is not using.
+    /// </para>
+    /// </remarks>
+    private static async Task<DoctorCheck> ChannelCheckAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var opened = await OpensADataChannelAsync(cancellationToken);
+
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Channel,
+                Passed = opened,
+                Blocking = false,
+                Fixable = false,
+                Detail = opened
+                    ? "a data channel opens on this binary, so the SCTP association completes. "
+                    + "That is what a person watching a runner from elsewhere depends on."
+                    : "a data channel did NOT open on this binary. The association stalls, which "
+                    + "is what happens when the SCTP state cookie has been trimmed away - the "
+                    + "exact failure the pinned SIPSorcery fork exists to fix. Watching a runner "
+                    + "from elsewhere will not work; everything else will.",
+            };
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            // SAID RATHER THAN THROWN. Doctor is what a person runs when
+            // something is already wrong, and one that dies on a check has told
+            // them nothing about the other twelve.
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Channel,
+                Passed = false,
+                Blocking = false,
+                Fixable = false,
+                Detail = $"a data channel could not be attempted on this binary: {failure.Message}",
+            };
+        }
+    }
+
+    /// <summary>Two peers in this process, and whether they got a channel open.</summary>
+    private static async Task<bool> OpensADataChannelAsync(CancellationToken cancellationToken)
+    {
+        using var offering = new SIPSorcery.Net.RTCPeerConnection(
+            new SIPSorcery.Net.RTCConfiguration { iceServers = [] });
+        using var answering = new SIPSorcery.Net.RTCPeerConnection(
+            new SIPSorcery.Net.RTCConfiguration { iceServers = [] });
+
+        var opened = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // THE CHANNEL IS CREATED BEFORE THE OFFER, because its existence is what
+        // puts an SCTP m-line in the SDP at all - the spike's first finding, and
+        // an offer without one describes nothing for the answer to agree to.
+        var channel = await offering.createDataChannel("doctor", null);
+        channel.onopen += () => opened.TrySetResult(true);
+
+        var offer = offering.createOffer(null);
+        await offering.setLocalDescription(offer);
+
+        answering.setRemoteDescription(new SIPSorcery.Net.RTCSessionDescriptionInit
+        {
+            type = SIPSorcery.Net.RTCSdpType.offer,
+            sdp = offering.localDescription.sdp.ToString(),
+        });
+
+        var answer = answering.createAnswer(null);
+        await answering.setLocalDescription(answer);
+
+        offering.setRemoteDescription(new SIPSorcery.Net.RTCSessionDescriptionInit
+        {
+            type = SIPSorcery.Net.RTCSdpType.answer,
+            sdp = answering.localDescription.sdp.ToString(),
+        });
+
+        // BOUNDED, because a stalled association does not fail - it waits. That
+        // is the whole shape of the bug: no crash, no error, a channel that
+        // never opens.
+        using var patience = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        patience.CancelAfter(TimeSpan.FromSeconds(15));
+
+        var finished = await Task.WhenAny(
+            opened.Task, Task.Delay(Timeout.Infinite, patience.Token));
+
+        return finished == opened.Task;
+    }
+
     private static DoctorCheck MovesCheck() =>
         new()
         {

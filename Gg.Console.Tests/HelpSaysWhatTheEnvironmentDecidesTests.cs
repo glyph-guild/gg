@@ -34,17 +34,24 @@ public class HelpSaysWhatTheEnvironmentDecidesTests
         Mode = UiMode.Help,
         Settings =
         [
+            // ONE FROM EACH SIDE OF THE PRECEDENCE, so the pane is rendered
+            // against a setting that is overriding the file as well as one
+            // nobody set at all. Shadowed is the half a person needs when an
+            // edit to the file appeared to do nothing.
             new EnvironmentSetting
             {
                 Name = "EDITOR",
                 Value = "code",
                 Why = "the editor `n` hands the terminal to",
+                Source = SettingSources.Environment,
+                Shadowed = "hx",
             },
             new EnvironmentSetting
             {
                 Name = IntentConfiguration.ServedVariable,
                 Value = null,
                 Why = "which trackers this machine reads",
+                Source = SettingSources.Unset,
             },
         ],
     };

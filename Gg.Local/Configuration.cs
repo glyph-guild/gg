@@ -78,26 +78,79 @@ public sealed record Configuration
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 
-    /// <summary>Every text member, beside the key it is written under.</summary>
+    /// <summary>One member: the variable it answers, its key, and how to read and set it.</summary>
+    public sealed record Member
+    {
+        /// <summary>The environment variable this member stands in for.</summary>
+        public required string Variable { get; init; }
+
+        /// <summary>How it is spelled in the file.</summary>
+        public required string Key { get; init; }
+
+        /// <summary>Its value as text, or null when unset.</summary>
+        public required Func<Configuration, string?> Get { get; init; }
+
+        /// <summary>The configuration with this member set.</summary>
+        public required Func<Configuration, string, Configuration> With { get; init; }
+    }
+
+    /// <summary>
+    /// Every setting the file can carry, and the variable each one answers.
+    /// </summary>
     /// <remarks>
-    /// <b>One list, read by the blank rule and by the renderer's key check.</b>
-    /// A member added without an entry here is a member nothing holds to the
-    /// blank rule, which is the one blank nobody checked — so the list is here
-    /// rather than repeated at each use.
+    /// <para>
+    /// <b>One table, read by four things</b>: the blank rule below, the
+    /// resolution in <see cref="Settings"/>, <c>gg config set</c>, and the page
+    /// that says whether a value can be in the file at all. A member added
+    /// without a row here is a member the file silently cannot carry and nothing
+    /// holds to the blank rule — which is the one blank nobody checked.
+    /// </para>
+    /// <para>
+    /// <b>Reading and writing are both here</b> rather than the second being
+    /// derived: an accessor pair that disagreed would set one member and read
+    /// another, and no test that only round-trips a whole document would notice.
+    /// </para>
     /// </remarks>
-    internal static IReadOnlyList<(string Key, Func<Configuration, string?> Of)> Text { get; } =
+    public static IReadOnlyList<Member> Members { get; } =
     [
-        ("control-plane", c => c.ControlPlane),
-        ("editor", c => c.Editor),
-        ("take-command", c => c.TakeCommand),
-        ("intent-hosts", c => c.IntentHosts),
-        ("intent-readers", c => c.IntentReaders),
-        ("vcs-hosts", c => c.VcsHosts),
-        ("destination-apis", c => c.DestinationApis),
-        ("executor-binary", c => c.ExecutorBinary),
-        ("runner-labels", c => c.RunnerLabels),
-        ("pool-endpoint", c => c.PoolEndpoint),
-        ("stun-servers", c => c.StunServers),
+        new() { Variable = "GG_CONTROL_PLANE", Key = "control-plane",
+                Get = c => c.ControlPlane, With = (c, v) => c with { ControlPlane = v } },
+        new() { Variable = "EDITOR", Key = "editor",
+                Get = c => c.Editor, With = (c, v) => c with { Editor = v } },
+        new() { Variable = "GG_TAKE_COMMAND", Key = "take-command",
+                Get = c => c.TakeCommand, With = (c, v) => c with { TakeCommand = v } },
+        new() { Variable = "GG_INTENT_HOSTS", Key = "intent-hosts",
+                Get = c => c.IntentHosts, With = (c, v) => c with { IntentHosts = v } },
+        new() { Variable = "GG_INTENT_READERS", Key = "intent-readers",
+                Get = c => c.IntentReaders, With = (c, v) => c with { IntentReaders = v } },
+        new() { Variable = "GG_VCS_HOSTS", Key = "vcs-hosts",
+                Get = c => c.VcsHosts, With = (c, v) => c with { VcsHosts = v } },
+        new() { Variable = "GG_DESTINATION_APIS", Key = "destination-apis",
+                Get = c => c.DestinationApis, With = (c, v) => c with { DestinationApis = v } },
+        new() { Variable = "GG_EXECUTOR_BINARY", Key = "executor-binary",
+                Get = c => c.ExecutorBinary, With = (c, v) => c with { ExecutorBinary = v } },
+        new() { Variable = "GG_RUNNER_LABELS", Key = "runner-labels",
+                Get = c => c.RunnerLabels, With = (c, v) => c with { RunnerLabels = v } },
+
+        // THE ONE NUMBER, rendered to text here so the resolution has one shape
+        // to work in. Its variable carries text like every other, and the file
+        // holds a number because that is what a person editing would write.
+        new() { Variable = "GG_RUNNER_HOLD_SECONDS", Key = "runner-hold-seconds",
+                Get = c => c.RunnerHoldSeconds?.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                With = (c, v) => c with
+                {
+                    RunnerHoldSeconds = int.TryParse(
+                        v, System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+                        ? seconds
+                        : throw new ArgumentOutOfRangeException(
+                            nameof(v), v, "'runner-hold-seconds' is a whole number of seconds."),
+                } },
+
+        new() { Variable = "GG_POOL_ENDPOINT", Key = "pool-endpoint",
+                Get = c => c.PoolEndpoint, With = (c, v) => c with { PoolEndpoint = v } },
+        new() { Variable = "GG_STUN_SERVERS", Key = "stun-servers",
+                Get = c => c.StunServers, With = (c, v) => c with { StunServers = v } },
     ];
 
     /// <summary>Why this configuration cannot be used, or null when it can.</summary>
@@ -110,9 +163,11 @@ public sealed record Configuration
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        foreach (var (key, of) in Text)
+        foreach (var member in Members)
         {
-            if (of(configuration) is { } value && string.IsNullOrWhiteSpace(value))
+            var key = member.Key;
+
+            if (member.Get(configuration) is { } value && string.IsNullOrWhiteSpace(value))
             {
                 return $"'{key}' is set to a blank value. Blank is not the same as unset: "
                      + "whoever typed it wrote a value, and the reader would see nothing "

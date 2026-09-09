@@ -84,16 +84,22 @@ public class EveryValueSaysWhereItCameFromTests
     {
         // ONE AT A TIME, so a member added to Configuration without a row in
         // the table is the one setting the file silently cannot carry.
-        foreach (var (variable, _, _) in Configuration.Settings)
+        foreach (var member in Configuration.Members)
         {
+            // A number for the one number, so `With` has something it can parse.
+            var written = member.Variable == "GG_RUNNER_HOLD_SECONDS" ? "30" : "a-value";
+
             var carried = Settings.Resolve(
-                variable,
-                Settings.With(new Configuration(), variable, "a-value"),
+                member.Variable,
+                Settings.With(new Configuration(), member.Variable, written),
                 environment: _ => null);
 
             await Assert.That(carried.Source).IsEqualTo(SettingSources.File)
-                .Because($"'{variable}' is a member of Configuration, so the file has "
-                       + "somewhere to put it and the resolution must read it.");
+                .Because($"'{member.Variable}' is a member of Configuration, so the file "
+                       + "has somewhere to put it and the resolution must read it.");
+            await Assert.That(carried.Value).IsEqualTo(written)
+                .Because($"'{member.Variable}' reads back as something other than what "
+                       + "With wrote, so the pair disagree about which member they are.");
         }
     }
 

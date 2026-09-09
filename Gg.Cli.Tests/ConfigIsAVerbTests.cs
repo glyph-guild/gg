@@ -71,7 +71,7 @@ public class ConfigIsAVerbTests
 
         try
         {
-            var refused = Assert.Throws<ArgumentOutOfRangeException>(
+            var refused = Assert.Throws<ConfigurationRefused>(
                 () => ConfigCommands.Set(path, "controlplane", "https://example.invalid"));
 
             await Assert.That(refused!.Message).Contains("control-plane", StringComparison.Ordinal)
@@ -118,7 +118,7 @@ public class ConfigIsAVerbTests
 
         try
         {
-            var refused = Assert.Throws<ArgumentOutOfRangeException>(
+            var refused = Assert.Throws<ConfigurationRefused>(
                 () => ConfigCommands.Set(path, "control-plane", "localhost:5199"));
 
             await Assert.That(refused).IsNotNull();
@@ -128,6 +128,43 @@ public class ConfigIsAVerbTests
         finally
         {
             File.Delete(path);
+        }
+    }
+
+    [Test]
+    public async Task Every_validating_verb_exits_non_zero_on_a_document_it_refused()
+    {
+        // WHAT THE TESTS ABOVE COULD NOT SEE. They assert the RESULT, and the
+        // exit code is decided one layer up in EmitLocal - so `config validate`
+        // returned a refusal and exited 0 while every test here passed, and it
+        // took running the verb to notice. A validator that reports success on
+        // a document it just refused is one nobody can put in a pipeline.
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Gg.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        var root = (directory ?? throw new InvalidOperationException("Gg.sln not found")).FullName;
+        var source = File.ReadAllText(Path.Combine(root, "Gg.Cli", "Program.cs"));
+
+        var at = source.IndexOf("static int EmitLocal(", StringComparison.Ordinal);
+
+        await Assert.That(at).IsGreaterThan(-1)
+            .Because("this scans one method, and a scan that found nothing would pass "
+                   + "silently for every verb at once.");
+
+        var method = source[at..source.IndexOf("\n}", at, StringComparison.Ordinal)];
+
+        // EVERY kind whose name says it validated something, so the next one
+        // added cannot be the one nobody wired to an exit code.
+        foreach (var kind in (string[])["EnvelopeValidated", "ConfigValidated"])
+        {
+            await Assert.That(method).Contains(
+                $"VerbResult.{kind} {{ Value.Valid: false }}", StringComparison.Ordinal)
+                .Because($"{kind} can report a document it refused, and this is the only "
+                       + "place that turns that into an exit code.");
         }
     }
 

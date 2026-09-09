@@ -278,6 +278,19 @@ public abstract record CliAction
     /// <summary>Checks an envelope without contacting anything.</summary>
     public sealed record EnvelopeValidate(string Source, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Every setting in force, and which source answered.</summary>
+    public sealed record ConfigShow(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Checks a configuration document. Contacts nothing.</summary>
+    public sealed record ConfigValidate(string Source, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Writes a file seeded from what is in force.</summary>
+    public sealed record ConfigInit(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Changes one setting, leaving the rest of the document alone.</summary>
+    public sealed record ConfigSet(string Key, string Value, bool Json)
+        : CliAction, IEmitsResult;
+
     public sealed record Unknown(string Message) : CliAction;
 }
 
@@ -333,6 +346,10 @@ public static class CliArgs
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
         "gg envelope apply <file>|-     write them back",
         "gg envelope validate <file>|-  check a file without sending it anywhere",
+        "gg config show                 every setting, and where its value came from",
+        "gg config init                 write a file seeded from what is in force",
+        "gg config set <key> <value>    change one setting",
+        "gg config validate <file>|-    check a configuration without applying it",
         "gg doctor                      check what gg needs to work",
         "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",
@@ -544,6 +561,18 @@ public static class CliArgs
             ["envelope", "validate"] => Unknown(
                 "gg envelope validate needs a file, or - to read the envelope from stdin."),
             ["envelope", ..] => Unknown("gg envelope takes show, apply or validate."),
+
+            // NONE OF THESE CONTACTS ANYTHING. Configuration is a fact about
+            // this machine, so every one works with no session and no network.
+            ["config", "show"] => new CliAction.ConfigShow(json),
+            ["config", "init"] => new CliAction.ConfigInit(json),
+            ["config", "set", var key, var value] => new CliAction.ConfigSet(key, value, json),
+            ["config", "set", ..] => Unknown(
+                "gg config set needs a setting and a value, as `gg config set editor hx`."),
+            ["config", "validate", var source] => new CliAction.ConfigValidate(source, json),
+            ["config", "validate"] => Unknown(
+                "gg config validate needs a file, or - to read one from stdin."),
+            ["config", ..] => Unknown("gg config takes show, init, set or validate."),
 
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),

@@ -17,6 +17,20 @@
          what pays for it. -->
     <PackageReference Include="SIPSorcery" />
     <ProjectReference Include="../Gg.Contracts/Gg.Contracts.csproj" />
+
+    <!-- THE ONE EDGE THE CONFIGURATION SLICE ADDS, argued rather than
+         convenient. the json flag and the rendered form have to be two views of one
+         VerbResult - the property VerbParityTests holds - so the configuration
+         document has to reach VerbResult, and that document lives in Gg.Local
+         because a filesystem path is not a wire type and must not ship in one.
+
+         The alternative was verb bodies in Gg.Cli bypassing VerbResult, which
+         gives up the one-renderer property for every config verb.
+
+         Gg.Local still depends on nothing; only its consumer count grows, which
+         is the direction its charter was written for - "local paths and local
+         configuration, readable by a runner and a console alike." -->
+    <ProjectReference Include="../Gg.Local/Gg.Local.csproj" />
   </ItemGroup>
 
 </Project>

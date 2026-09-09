@@ -83,6 +83,23 @@ public class VerbParityTests
     internal static readonly IReadOnlyDictionary<string, string> Decided =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            // --- the configuration verbs ---
+            // READING IS REACHABLE, WRITING IS NOT YET. The Environment page in
+            // help shows every setting with the source that answered, which is
+            // `config show` rendered by the console rather than fetched from
+            // it. The other three are the command line's until step 5 puts an
+            // edit key on that page.
+            ["ConfigShow"] = "reachable: the Environment page in help, built from the same "
+                           + "resolution and showing the same source column.",
+            ["ConfigInit"] = "not reachable, deliberately for now: seeding writes a file, and "
+                           + "a write happens between sessions with the terminal free. Step 5.",
+            ["ConfigSet"] = "not reachable, deliberately for now: same reason as init. Step 5 "
+                          + "hands the whole file to $EDITOR rather than adding a field, "
+                          + "because nothing in this console is written by typing.",
+            ["ConfigValidate"] = "not reachable: checking a file somebody names is a "
+                               + "command-line shape. The console validates what it is about "
+                               + "to write, which is step 5 and a different question.",
+
             // --- reachable from the console today ---
             ["Decide"] = "reachable: approve on a key, reject through $EDITOR.",
             ["Flights"] = "reachable, derived: fetched at boot and projected into the queue "

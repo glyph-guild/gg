@@ -13,7 +13,11 @@ public sealed class TerminalGuiSession(
     LiveTails? tails = null,
     IRunnerLog? runnerLog = null,
     AutoRefresh? refresh = null,
-    Func<bool>? signInLanded = null) : IUiSession
+    Func<bool>? signInLanded = null,
+    // A READ A KEYPRESS ASKED FOR, handed through to the screen that folds
+    // it on its tick. Last and defaulted, because every existing caller passes
+    // positionally.
+    BackgroundReads? reads = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -24,7 +28,8 @@ public sealed class TerminalGuiSession(
 
         using var app = Application.Create();
         app.Init();
-        using var screen = new ConsoleScreen(app, state, tails, runnerLog, refresh, signInLanded);
+        using var screen = new ConsoleScreen(
+            app, state, tails, runnerLog, refresh, signInLanded, reads);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

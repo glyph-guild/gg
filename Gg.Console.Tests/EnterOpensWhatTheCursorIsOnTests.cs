@@ -89,15 +89,27 @@ public class EnterOpensWhatTheCursorIsOnTests
             .IsEqualTo(Command.ShowFlight)
             .Because("enter is the key a person presses on a row without being told to.");
 
-        // THROUGH THE SHELL, because the modal reads. The reducer's arm for this
-        // command changes nothing on purpose - ShellHandledTests forbids a shell
-        // command with a second, local effect - so the named method above is
-        // what the loop calls once the log has arrived.
-        await Assert.That(ShellCommands.Handled).Contains(Command.ShowFlight);
-        await Assert.That(Reducer.Reduce(Listing(), Command.ShowFlight).Mode)
-            .IsEqualTo(UiMode.Normal)
-            .Because("opening it from the reducer would open it whether or not the log was "
-                   + "read, over a pane that then never corrects itself.");
+        // AND NOT THROUGH THE SHELL ANY MORE. It was, because the modal reads -
+        // and the cost was the whole screen going away and coming back to make
+        // one request. It opens on the summary already in hand and the log is
+        // folded when it lands, which is AutoRefresh's exception and its
+        // argument: the session does not read, it folds a result that arrived.
+        await Assert.That(ShellCommands.Handled.Contains(Command.ShowFlight)).IsFalse();
+        await Assert.That(ShellCommands.Reads).Contains(Command.ShowFlight)
+            .Because("the screen reads this set to know which keypresses want an answer "
+                   + "fetched beside the console.");
+        // THE PREMISE UNDER THIS HAS CHANGED, AND IT WAS THE RIGHT PREMISE.
+        // Opening from the reducer used to mean opening "over a pane that then
+        // never corrects itself" - true while nothing folded a later answer,
+        // and the reason the whole screen went away to fetch one. It corrects
+        // itself now, and the pane says which absence it is meanwhile rather
+        // than stating as fact that no story was fetched.
+        var reduced = Reducer.Reduce(Listing(), Command.ShowFlight);
+
+        await Assert.That(reduced.Mode).IsEqualTo(UiMode.FlightDetail);
+        await Assert.That(reduced.ReadInFlight).IsTrue()
+            .Because("the modal is open and the log is not here yet, and something has to "
+                   + "carry that difference to the pane.");
     }
 
     [Test]

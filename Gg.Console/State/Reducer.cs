@@ -22,12 +22,18 @@ public static class Reducer
             // work is worse than one that is not offered, and a modal whose
             // only content is the way out is exactly that. The key stays bound
             // because whether a row exists is not the keymap's question.
-            // THE SHELL'S, SINCE THE MODAL READS. Opening a flight fetches that
-            // flight's log - the boot only reads logs for flights still in the
-            // air - so the effect lives in ConsoleLoop and this arm changes
-            // nothing. See Reducer.FlightShown for what it does once the log has
-            // arrived, and ShellCommands for why the split.
-            Command.ShowFlight => state,
+            // OPENED NOW, FILLED WHEN THE READ LANDS. This was the shell's and
+            // changed nothing here: the session ended, one request was made,
+            // and a new session was built over the answer - a whole screen
+            // taken away and given back to fetch a log. The summary is already
+            // in hand from the boot, so the number, the name and the intent
+            // draw at once; ReadInFlight is what lets the log say it is still
+            // coming rather than that there is none. See Reducer.FlightShown
+            // for what happens when it arrives.
+            Command.ShowFlight => Modal(state, UiMode.FlightDetail) with
+            {
+                ReadInFlight = true,
+            },
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
 
             // ASKS RATHER THAN OPENING. The key used to hand the terminal

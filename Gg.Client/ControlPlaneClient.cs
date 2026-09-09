@@ -1189,10 +1189,13 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// are different facts and stay different.
     /// </para>
     /// <para>
-    /// <b>And there is no 404 to handle</b>, by declaration: one offer per
-    /// tenant, always askable, so a missing route would be a real fault rather
-    /// than an empty answer and <c>EnsureSuccessStatusCode</c> is right to
-    /// raise it.
+    /// <b>And a 404 is the far end being too old</b>, not an empty answer.
+    /// The declaration says this route has no 404, so one means a control plane
+    /// that predates the contract — which is a different fact from "nothing is
+    /// offered" and must not be reported as it. That is
+    /// <see cref="TelemetryAsync"/>'s own warning, and it bites harder here:
+    /// told "nothing is offered", a person concludes their fleet is as
+    /// configured as it looks.
     /// </para>
     /// </remarks>
     public async Task<OfferedConfiguration?> OfferedConfigurationAsync(
@@ -1205,6 +1208,15 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.NoContent)
         {
             return null;
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new ControlPlaneTooOldException(
+                "this control plane does not serve offered configuration - it is older than "
+              + "the contract this gg was built against. Nothing is wrong with your machine, "
+              + "and nothing here can tell you what is offered until the control plane is "
+              + "updated.");
         }
 
         response.EnsureSuccessStatusCode();
@@ -1477,3 +1489,23 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
 /// <summary>Raised when the control plane refuses this binary's protocol version.</summary>
 public sealed class ProtocolTooOldException(string message) : Exception(message);
+
+/// <summary>
+/// Raised when the control plane does not serve a route this gg is sure of.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The mirror of <see cref="ProtocolTooOldException"/>, and there was no
+/// name for it.</b> A 426 is the far end saying this gg is behind, and it says
+/// so out loud. The reverse arrives as a bare 404, which is indistinguishable
+/// from a domain answer at the transport and is exactly how "this cannot be
+/// asked" comes to be read as "the answer is nothing".
+/// </para>
+/// <para>
+/// <b>Only for a route whose declaration has no 404.</b> Where 404 is a real
+/// answer — no such flight, no such credential — it stays one. This is for the
+/// doors where the declaration says the question is always askable, so a 404 can
+/// only mean the far half of the protocol has not arrived yet.
+/// </para>
+/// </remarks>
+public sealed class ControlPlaneTooOldException(string message) : Exception(message);

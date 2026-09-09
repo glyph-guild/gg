@@ -234,6 +234,13 @@ static async Task<int> OfferAsync(
     {
         return Fail(behind.Message);
     }
+    catch (ControlPlaneTooOldException unserved)
+    {
+        // THE OTHER DIRECTION, and it needs its own arm because the sentence is
+        // about somebody else's deployment rather than this machine. Reported
+        // rather than crashed, and never as "nothing is offered".
+        return Fail(unserved.Message);
+    }
     catch (HttpRequestException unreachable)
     {
         return Fail(unreachable.Message);

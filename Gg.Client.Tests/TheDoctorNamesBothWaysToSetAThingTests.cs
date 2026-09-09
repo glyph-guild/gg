@@ -49,11 +49,21 @@ public partial class TheDoctorNamesBothWaysToSetAThingTests
     /// while the thing it is for is still wrong.
     /// </remarks>
     private static List<string> Advice(string source) =>
-        [.. Literal().Matches(source)
+        // JOINED FIRST, because a sentence in this file is written as several
+        // literals with `+` between them and the walk would otherwise judge the
+        // halves. It found `...or set GG_VCS_HOSTS...` as its own line and
+        // called it advice that offers nothing else, while the offer was in the
+        // fragment above it.
+        [.. Literal().Matches(Joined().Replace(source, ""))
             .Select(m => m.Groups[1].Value)
             .Where(s => s.Contains("GG_", StringComparison.Ordinal))
-            .Where(s => s.Contains("Set ", StringComparison.Ordinal)
-                     || s.Contains("correct ", StringComparison.Ordinal))];
+            // CASE-INSENSITIVE, AND THE ANCHOR IS WHY. Rewriting the advice to
+            // put the file first turned "Set GG_..." into "...or set GG_...",
+            // and an ordinal match went blind to every line it had just been
+            // written to judge. The liveness anchor failed rather than the
+            // walk quietly passing, which is the whole reason it is there.
+            .Where(s => s.Contains("set ", StringComparison.OrdinalIgnoreCase)
+                     || s.Contains("correct ", StringComparison.OrdinalIgnoreCase))];
 
     [Test]
     public async Task The_walk_finds_the_advice_it_is_about_to_judge()
@@ -89,4 +99,8 @@ public partial class TheDoctorNamesBothWaysToSetAThingTests
 
     [GeneratedRegex("\"((?:[^\"\\\\]|\\\\.)*)\"")]
     private static partial Regex Literal();
+
+    /// <summary>The `" + "` between two halves of one sentence.</summary>
+    [GeneratedRegex("\"\\s*\\+\\s*\"")]
+    private static partial Regex Joined();
 }

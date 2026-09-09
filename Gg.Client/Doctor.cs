@@ -360,7 +360,8 @@ public sealed class Doctor(
                 Fixable = !_addressConfigured,
                 Fix = _addressConfigured
                     ? null
-                    : "Set GG_CONTROL_PLANE to the address of your control plane.",
+                    : "Run `gg config set control-plane <address>`, or set "
+                    + "GG_CONTROL_PLANE for this shell only.",
             });
         }
 
@@ -456,7 +457,8 @@ public sealed class Doctor(
                        + "never invoke an agent",
                 Blocking = false,
                 Fixable = true,
-                Fix = "Set GG_EXECUTOR_BINARY to the agent binary this machine should run.",
+                Fix = "Run `gg config set executor-binary <path>`, or set "
+                    + "GG_EXECUTOR_BINARY for this shell only.",
             }
             : !role.ExecutorPresent
             ? new DoctorCheck
@@ -469,7 +471,9 @@ public sealed class Doctor(
                 Detail = $"the configured agent binary is not there: {role.ExecutorBinary}",
                 Blocking = false,
                 Fixable = true,
-                Fix = "Install the agent, or correct GG_EXECUTOR_BINARY.",
+                Fix = "Install the agent, or correct it with `gg config set "
+                    + "executor-binary <path>` - GG_EXECUTOR_BINARY overrides that if it "
+                    + "is set.",
             }
             : new DoctorCheck
             {
@@ -502,7 +506,8 @@ public sealed class Doctor(
                        + "clone one here",
                 Blocking = false,
                 Fixable = true,
-                Fix = "Set GG_VCS_HOSTS for the forges this machine should serve.",
+                Fix = "Run `gg config set vcs-hosts <key=host>` for the forges this "
+                    + "machine should serve, or set GG_VCS_HOSTS for this shell only.",
             },
 
         role.PoolEndpoint is { Length: > 0 } pool

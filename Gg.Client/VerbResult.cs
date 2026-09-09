@@ -186,6 +186,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.ConfigValidated;
     }
 
+    /// <summary>What a control plane offers, and what was done about it.</summary>
+    /// <remarks>
+    /// <b>One arm for both verbs.</b> <c>gg config offered</c> and
+    /// <c>gg config accept</c> answer the same question and differ in whether
+    /// this run wrote it, so a second arm would be a second rendering to keep
+    /// in agreement about identical facts.
+    /// </remarks>
+    public sealed record ConfigOffered(OfferedView Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.ConfigOffered;
+    }
+
     /// <summary>
     /// Why each obligation applied to a flight, or did not.
     /// </summary>
@@ -287,6 +299,8 @@ public static class VerbResultKinds
 
     public const string ConfigValidated = "config-validated";
 
+    public const string ConfigOffered = "config-offered";
+
     public const string Plan = "plan";
     public const string AirspaceTopology = "airspace-topology";
 
@@ -336,6 +350,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(EnvelopeValidation))]
 [JsonSerializable(typeof(ConfigurationView))]
 [JsonSerializable(typeof(ConfigurationValidation))]
+[JsonSerializable(typeof(OfferedView))]
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(EnvelopeTopology))]
@@ -414,6 +429,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ConfigurationView),
         VerbResult.ConfigValidated r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ConfigurationValidation),
+        VerbResult.ConfigOffered r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.OfferedView),
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
         VerbResult.AirspaceTopology r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
@@ -474,6 +491,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.ConfigurationView))),
         VerbResultKinds.ConfigValidated => new VerbResult.ConfigValidated(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.ConfigurationValidation))),
+        VerbResultKinds.ConfigOffered => new VerbResult.ConfigOffered(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.OfferedView))),
         // No notes, for the reason written on the record: they described this
         // invocation's hold, and a payload re-rendered somewhere else holds nothing.
         VerbResultKinds.Plan => new VerbResult.Plan(Require(
@@ -531,6 +550,7 @@ public static class VerbOutput
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         VerbResult.ConfigShown r => ConfigShownText(r.Value),
         VerbResult.ConfigValidated r => ConfigValidatedText(r.Value),
+        VerbResult.ConfigOffered r => ConfigOfferedText(r.Value),
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
@@ -662,6 +682,112 @@ public static class VerbOutput
                     .Append(setting.Name)
                     .Append(" is overriding it\n");
             }
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// What is offered, against what is in force, and the line to take it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The value being REPLACED is the point of this rendering.</b> A person
+    /// can read a control plane's offer out of <c>--json</c>; what they cannot
+    /// get anywhere else is which forge host or which control plane they are
+    /// about to stop using — and that is the entire argument for those keys
+    /// being offerable at all.
+    /// </para>
+    /// <para>
+    /// <b>The line to run carries the version.</b> <c>accept</c> refuses
+    /// anything but what is offered now, so the verb that shows the offer has
+    /// to hand the version over — and it is deliberately NOT printed for a
+    /// document already in force, or for one this gg refuses.
+    /// </para>
+    /// </remarks>
+    private static string ConfigOfferedText(OfferedView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+
+        var text = new StringBuilder();
+
+        text.Append("file  ").Append(view.Path).Append('\n');
+
+        if (view.Version is not { Length: > 0 } version)
+        {
+            // AN ANSWER, NOT A BLANK. A fleet nobody is reconfiguring is the
+            // ordinary state, and a person checking has to read something.
+            text.Append("offer  nothing is offered by this control plane\n");
+            return text.ToString();
+        }
+
+        text.Append("offer  ").Append(version);
+
+        if (view.OfferedAt is { } at)
+        {
+            text.Append(", offered ").Append(at.ToString("u", CultureInfo.InvariantCulture));
+        }
+
+        text.Append('\n');
+
+        if (view.Accepted)
+        {
+            text.Append("       accepted, and written to the file above\n");
+        }
+        else if (view.AlreadyAccepted)
+        {
+            text.Append("       already accepted here - nothing to do\n");
+        }
+
+        if (view.Refused is { Length: > 0 } refused)
+        {
+            // SHOWN WITH THE VALUES BELOW IT, not instead of them. A person told
+            // only that their control plane is offering something wrong has to
+            // go and ask somebody what.
+            text.Append("       THIS GG WILL NOT TAKE IT: ").Append(refused).Append('\n');
+        }
+        else if (view.NeedsAPerson && !view.Accepted && !view.AlreadyAccepted)
+        {
+            text.Append("       it repoints something, so only a person can take it\n");
+        }
+
+        // WHY WOULD NOTHING HAPPEN, answered in the same breath as the offer.
+        // The key is named because the answer is one line in one file, and
+        // naming it is cheaper than making somebody search for it.
+        if (!view.AcceptsOffered)
+        {
+            text.Append("       this machine accepts nothing offered - set 'accept-offered' ")
+                .Append("to true in the file above\n");
+        }
+
+        if (view.Changes.Count == 0)
+        {
+            text.Append("\n       the offer names no settings\n");
+        }
+        else
+        {
+            text.Append('\n');
+
+            var width = view.Changes.Max(c => c.Key.Length);
+
+            foreach (var change in view.Changes)
+            {
+                text.Append("  ").Append(change.Key.PadRight(width + 2))
+                    .Append(change.Offered).Append('\n');
+
+                text.Append("  ").Append(new string(' ', width + 2))
+                    .Append(change.Changes
+                        ? change.Current is { Length: > 0 } current
+                            ? $"replacing {current}"
+                            : "not set here yet"
+                        : "already in force")
+                    .Append('\n');
+            }
+        }
+
+        if (!view.Accepted && !view.AlreadyAccepted && view.Refused is null)
+        {
+            text.Append("\ntake it with `gg config accept ").Append(version).Append("`\n");
         }
 
         return text.ToString();

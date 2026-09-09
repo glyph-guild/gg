@@ -100,6 +100,24 @@ public class VerbParityTests
                                + "command-line shape. The console validates what it is about "
                                + "to write, which is step 5 and a different question.",
 
+            // AND THESE TWO ARE ABSENT FOR A REASON NO OTHER CONFIG VERB HAS.
+            // They are the only ones that CONTACT ANYTHING, and a UI session may
+            // read a local file and nothing else - so the fetch cannot happen
+            // during a session at all. It is not the write that stops them,
+            // unlike init and set; it is the read.
+            ["ConfigOffered"] = "absent, and the reason is the session rule rather than the "
+                              + "write: fetching an offer is a network call, and a UI session "
+                              + "may read a local file and nothing else. It would have to go "
+                              + "between sessions through ShellCommands.Handled, the way the "
+                              + "$EDITOR handoff does - a real shape, and not this step's.",
+            ["ConfigAccept"] = "absent, and it is the gap worth naming. An offer's whole "
+                             + "safety argument is that a PERSON sees what is being "
+                             + "repointed, and the console is where the person is - so this "
+                             + "belongs there more than most. It needs the fetch above AND a "
+                             + "write, so it is two between-session round trips rather than "
+                             + "one, and the command line is the honest home until somebody "
+                             + "builds both.",
+
             // --- reachable from the console today ---
             ["Decide"] = "reachable: approve on a key, reject through $EDITOR.",
             ["Flights"] = "reachable, derived: fetched at boot and projected into the queue "

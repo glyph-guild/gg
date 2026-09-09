@@ -97,6 +97,18 @@ public class ProjectionParityTests
                                 + "console's equivalent is step 5, where a bad edit is "
                                 + "refused before it is written.",
 
+            // AND THIS ONE CANNOT REACH THE CONSOLE AT ALL, which is a stronger
+            // statement than the two above. They are answers the console
+            // computes another way; this is an answer only a network call
+            // produces, and a UI session may read a local file and nothing else.
+            // There is no ConsoleData method to give an arm to, and adding one
+            // would be the exception LiveStreamingTests exists to refuse.
+            ["ConfigOffered"] = "not projected, and it is the session rule rather than a "
+                              + "missing wrapper: an offer comes from a control plane, and a "
+                              + "UI session may read a local file and nothing else. Reaching "
+                              + "it means going between sessions, which is the shape "
+                              + "VerbParityTests' ConfigAccept entry describes.",
+
             ["Gates"] = "step 3: answering a gate has to refetch them, and today the boot's "
                       + "copy is the only one there will ever be.",
             // A DECISION NOW, NOT A GAP - and the difference is worth the words.

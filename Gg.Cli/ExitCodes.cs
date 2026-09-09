@@ -67,6 +67,13 @@ public static class ExitCodes
     /// </remarks>
     public static int For(VerbResult result) => result switch
     {
+        // A CONTROL PLANE OFFERING SOMETHING THIS GG WILL NOT TAKE, reported
+        // rather than thrown, because being shown what is wrong with it is the
+        // point. Non-zero: a document somebody else wrote was refused, which is
+        // the shape `gg config validate` already exits on. An offer merely
+        // WAITING is not a failure - it is the verb working.
+        VerbResult.ConfigOffered { Value.Refused: not null } => Refused,
+
         VerbResult.Decided decided => decided.Value.Observation.State switch
         {
             ObservationStates.Decided => Ok,

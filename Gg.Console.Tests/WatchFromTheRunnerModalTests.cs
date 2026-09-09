@@ -110,7 +110,7 @@ public class WatchFromTheRunnerModalTests
         // named a command the console could not run for a whole slice; now it
         // can, and a person reading it has to be told so. The letter is read
         // off the keymap, so a rebind moves both.
-        var said = RunnerDetails.Suggestion(Rows.Selected(State("GG-71"))!);
+        var said = RunnerDetails.LogAbsence(State("GG-71"));
 
         await Assert.That(said).Contains("`w`")
             .Because("a console that knows the answer and makes a person leave to use it is "
@@ -120,10 +120,15 @@ public class WatchFromTheRunnerModalTests
         // names the capability - that is where somebody learns it exists - but
         // offering a key that is not bound right now is the thing the whole
         // method exists not to do.
-        var idle = RunnerDetails.Suggestion(Rows.Selected(State(null))!);
+        // THE IDLE PANE OFFERS NOTHING IT CANNOT DO. It used to explain, at
+        // length, when watching would work; the key is on the hint line the
+        // moment it is live, so the pane says the one true thing instead.
+        var idle = RunnerDetails.LogAbsence(State(null));
 
-        await Assert.That(idle).DoesNotContain("Press")
-            .Because("Said: " + idle);
+        await Assert.That(idle).StartsWith("No log is available when idle.");
+        await Assert.That(idle.Contains("`w`", StringComparison.Ordinal)).IsFalse()
+            .Because("the key is not bound while it flies nothing, and a pane offering one "
+                   + "that is not live teaches somebody to distrust the pane. Said: " + idle);
     }
 
     /// <summary>A start that records which runner it was asked about.</summary>

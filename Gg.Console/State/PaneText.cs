@@ -819,9 +819,17 @@ public static class PaneText
                 LiveSilence.NothingYet =>
                     "Watching. The flight is writing a live view and the agent has not said "
                   + "anything yet.",
-                _ =>
-                    "Nothing is running. This pane is off by default and is meant to stay that "
-                  + "way.",
+                // AND NOTHING ELSE. It went on "This pane is off by default and
+                // is meant to stay that way", which is a note to whoever built
+                // it rather than an answer to whoever is looking: a person who
+                // opened the pane knows they opened it, and the design's own
+                // argument is not something the pane has to make to them.
+                //
+                // The three above keep their sentences, because each says WHICH
+                // silence it is - an empty box cannot, and reading "nothing is
+                // writing" as "nothing has been said yet" is how somebody
+                // concludes the feature is broken.
+                _ => "Nothing is running.",
             };
         }
 

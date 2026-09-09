@@ -197,8 +197,10 @@ public class LivePaneTests
     {
         // A trust artifact meant to decay. On by default is a viewer.
         await Assert.That(new AppState().LiveVisible).IsFalse();
-        await Assert.That(PaneText.Live(new AppState()))
-            .Contains("off by default");
+        // "Nothing is running." and nothing else. It went on to say the pane
+        // "is off by default and is meant to stay that way", which is a note to
+        // whoever built it rather than an answer to whoever is looking.
+        await Assert.That(PaneText.Live(new AppState())).IsEqualTo("Nothing is running.");
     }
 
     [Test]

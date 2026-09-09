@@ -40,6 +40,14 @@ internal static partial class Sources
             ["GG_IMAGE_DIGEST"] =
                 "a pool maintainer writes it into a member container so the member can "
               + "report which image it is. It is measured, not chosen.",
+
+            ["GG_GIT_SECRET"] =
+                "gg writes it into a child git process so a credential helper can read "
+              + "it — in the environment and never in argv, because ps shows argv to "
+              + "every process on the machine. It is the one exemption that would be "
+              + "actively harmful to lift: the page renders on a shared screen and into "
+              + "a state dump, and TheEnvironmentPageNamesNoSecretTests refuses a name "
+              + "like this one for exactly that reason.",
         };
 
     /// <summary>Every `GG_*` name that appears anywhere in production source.</summary>

@@ -38,4 +38,33 @@ public sealed record EnvironmentSetting
 
     /// <summary>What this decides, in one line, from the person's side.</summary>
     public required string Why { get; init; }
+
+    /// <summary>Which source answered. One of <see cref="SettingSources"/>.</summary>
+    /// <remarks>
+    /// <b>Shown, because precedence a person cannot see is a trap.</b> Three
+    /// places can answer and the reader has no way to tell which did — so an
+    /// edit to the file that changed nothing reads as a broken file rather than
+    /// as a variable winning.
+    /// </remarks>
+    public required string Source { get; init; }
+
+    /// <summary>
+    /// The file's value, when an environment variable is overriding it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The line that answers "why did my edit do nothing".</b> Null unless
+    /// the file really is being overridden, so nothing is said where there is
+    /// nothing to say.
+    /// </remarks>
+    public string? Shadowed { get; init; }
+
+    /// <summary>Whether this one cannot be put in the file at all.</summary>
+    /// <remarks>
+    /// <b>Said rather than left out.</b> The three path roots decide where the
+    /// file itself lives, so a value inside it could not be read before it was
+    /// needed; <c>GG_STATE_DUMP</c> is a thing a person turns on for one run.
+    /// Omitting them would leave somebody hunting the file for a key that
+    /// cannot exist.
+    /// </remarks>
+    public bool EnvironmentOnly { get; init; }
 }

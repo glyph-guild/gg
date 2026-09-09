@@ -128,10 +128,11 @@ public class WatchFromTheRunnerModalTests
 
     /// <summary>A connect that works, and reports which runner it was asked about.</summary>
     private static ConsoleWatchRunner.Connect Reaching(List<string> asked) =>
-        (runnerId, flightId, _) =>
+        (runnerId, flightId, say) =>
         {
             asked.Add($"{runnerId}/{flightId}");
-            return true;
+            say("connected");
+            return new ConsoleWatchRunner.Reached(true, "watching GG-71 on vmlinux001");
         };
 
     [Test]
@@ -169,7 +170,12 @@ public class WatchFromTheRunnerModalTests
 
         _ = ConsoleWatchRunner.Watch(
             State("GG-71"),
-            (_, _, say) => { say("asking the control plane"); say("connected"); return true; },
+            (_, _, say) =>
+            {
+                say("asking the control plane");
+                say("connected");
+                return new ConsoleWatchRunner.Reached(true, "watching");
+            },
             say: said.Add);
 
         await Assert.That(said).IsNotEmpty()
@@ -183,10 +189,78 @@ public class WatchFromTheRunnerModalTests
         // silence this whole path keeps producing: a box that means "the agent
         // is working" over a conversation that never happened.
         var after = ConsoleWatchRunner.Watch(
-            State("GG-71"), (_, _, _) => false, say: _ => { });
+            State("GG-71"),
+            (_, _, say) =>
+            {
+                say("offer left; waiting for the runner to pick it up on its next heartbeat");
+                return new ConsoleWatchRunner.Reached(
+                    false,
+                    "The runner did not answer for the whole life of the introduction. "
+                  + "vmlinux001 is flying GG-71, so it is not away: a runner opens a channel "
+                  + "only for a flight launched with `--attended`.");
+            },
+            say: _ => { });
 
-        await Assert.That(after.LiveVisible).IsFalse();
-        await Assert.That(after.LastRunner).IsNotNull();
+        // THE WATCH'S OWN SENTENCE, not the console's. GG-79 was flown without
+        // --attended, watched, and answered with "gave up after 45s without a
+        // channel" - a deadline this console invented, racing the diagnosis the
+        // watch was about to give and winning. The reason was known and thrown
+        // away.
+        await Assert.That(after.LastRunner).Contains("--attended")
+            .Because("the watch knows why nobody answered and this console does not, so a "
+                   + "deadline here that fires first replaces a reason with a shrug. Said: "
+                   + after.LastRunner);
+    }
+
+    [Test]
+    public async Task The_steps_land_in_the_log_as_well_as_on_the_terminal()
+    {
+        // WHERE A PERSON IS LOOKING AFTERWARDS. The terminal they were printed
+        // on is gone by the time the console redraws, so a connect that took
+        // fifteen seconds and then failed leaves nothing behind to read.
+        var after = ConsoleWatchRunner.Watch(
+            State("GG-71"),
+            (_, _, say) =>
+            {
+                say("checking the runner's key against the one this console pinned");
+                say("finding a route from this machine");
+                return new ConsoleWatchRunner.Reached(true, "watching");
+            },
+            say: _ => { });
+
+        var log = after.Live.Select(l => l.Text).ToList();
+
+        await Assert.That(log.Any(l => l.Contains("key", StringComparison.Ordinal))).IsTrue()
+            .Because("the log is where the connect is read after it happened. Log: "
+                   + string.Join(" | ", log));
+        await Assert.That(after.Live.All(l => l.Kind == StreamLineKind.Setup)).IsTrue()
+            .Because("they are setup rather than the agent's own words, and the pane draws "
+                   + "the two differently.");
+    }
+
+    [Test]
+    public async Task A_connect_that_failed_leaves_its_reason_in_the_log()
+    {
+        // BOTH HALVES OF WHAT WENT WRONG. The steps say how far it got and the
+        // sentence says why it stopped, and a person reading the pane after the
+        // fact has neither unless they are put there.
+        var after = ConsoleWatchRunner.Watch(
+            State("GG-71"),
+            (_, _, say) =>
+            {
+                say("offer left; waiting for the runner to pick it up on its next heartbeat");
+                return new ConsoleWatchRunner.Reached(false, "nobody answered, and here is why");
+            },
+            say: _ => { });
+
+        var log = string.Join(" | ", after.Live.Select(l => l.Text));
+
+        await Assert.That(log).Contains("offer left");
+        await Assert.That(log).Contains("nobody answered")
+            .Because("the reason belongs beside the steps that led to it. Log: " + log);
+        await Assert.That(after.LiveVisible).IsTrue()
+            .Because("a pane that stays shut after a failed connect hides the only account of "
+                   + "it, which is the silence this path keeps producing.");
     }
 
     [Test]
@@ -198,7 +272,9 @@ public class WatchFromTheRunnerModalTests
         var reached = false;
 
         var after = ConsoleWatchRunner.Watch(
-            State(null), (_, _, _) => { reached = true; return true; }, say: _ => { });
+            State(null),
+            (_, _, _) => { reached = true; return new ConsoleWatchRunner.Reached(true, ""); },
+            say: _ => { });
 
         await Assert.That(reached).IsFalse();
         await Assert.That(after.LastRunner).Contains("nothing")
@@ -223,7 +299,9 @@ public class WatchFromTheRunnerModalTests
         };
 
         var after = ConsoleWatchRunner.Watch(
-            blind, (_, _, _) => { reached = true; return true; }, say: _ => { });
+            blind,
+            (_, _, _) => { reached = true; return new ConsoleWatchRunner.Reached(true, ""); },
+            say: _ => { });
 
         await Assert.That(reached).IsFalse();
         await Assert.That(after.LastRunner).Contains("GG-71")
@@ -239,7 +317,9 @@ public class WatchFromTheRunnerModalTests
         // runner gone. A flight that is simply flying is in none of those, so
         // watching worked for exactly the flights nobody wants to watch.
         var after = ConsoleWatchRunner.Watch(
-            State("GG-77"), (_, _, _) => true, say: _ => { });
+            State("GG-77"),
+            (_, _, _) => new ConsoleWatchRunner.Reached(true, ""),
+            say: _ => { });
 
         await Assert.That(after.Queue).IsEmpty()
             .Because("this is the case that was broken and it has to stay the case.");

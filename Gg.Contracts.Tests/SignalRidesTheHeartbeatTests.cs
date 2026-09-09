@@ -44,13 +44,23 @@ public class SignalRidesTheHeartbeatTests
         // ABSENT RATHER THAN AN EMPTY LIST. The two repositories are not
         // upgraded in step, and a heartbeat body that grew a `[]` would be a new
         // shape arriving at an old reader for no reason at all.
-        var introductions = typeof(HeartbeatAccepted).GetProperty("Introductions")!;
+        //
+        // EVERY OPTIONAL MEMBER, not the one this started with. `Offered` joined
+        // it and inherits the rule rather than being trusted to have thought of
+        // it - the whole point of the poll carrying things is that a fleet with
+        // nothing waiting sends what it always sent.
+        foreach (var member in (string[])["Introductions", "Offered"])
+        {
+            var declared = typeof(HeartbeatAccepted).GetProperty(member)!;
 
-        await Assert.That(new NullabilityInfoContext().Create(introductions).WriteState)
-            .IsEqualTo(NullabilityState.Nullable);
+            await Assert.That(new NullabilityInfoContext().Create(declared).WriteState)
+                .IsEqualTo(NullabilityState.Nullable)
+                .Because($"{member} is absent when there is none, so an idle fleet's body "
+                       + "does not grow a shape an older reader has to skip.");
+        }
 
         await Assert.That(ProtocolSurface.JsonMembers[typeof(HeartbeatAccepted)])
-            .IsEquivalentTo(new[] { "nextHeartbeatSeconds", "introductions" });
+            .IsEquivalentTo(new[] { "nextHeartbeatSeconds", "introductions", "offered" });
     }
 
     [Test]

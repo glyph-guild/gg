@@ -38,7 +38,7 @@ public partial class AnOfferRidesThePollThatExistsTests
         };
 
         await Assert.That(accepted.Offered).IsNotNull();
-        await Assert.That(accepted.Offered!.Settings).HasCount(1);
+        await Assert.That(accepted.Offered!.Settings.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -84,6 +84,6 @@ public partial class AnOfferRidesThePollThatExistsTests
                    + "reach a machine: " + string.Join(", ", offered));
     }
 
-    [GeneratedRegex("\"(v1/[^\"]*)\"")]
+    [GeneratedRegex("\"(/v1/[^\"]*)\"")]
     private static partial Regex Route();
 }

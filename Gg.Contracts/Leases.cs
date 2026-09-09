@@ -61,6 +61,33 @@ public sealed record HeartbeatAccepted
     /// </para>
     /// </remarks>
     public IReadOnlyList<PendingIntroduction>? Introductions { get; init; }
+
+    /// <summary>
+    /// Configuration this tenant is offering, or absent when none is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ON THE POLL THAT ALREADY EXISTS, for the reason written one member
+    /// up.</b> Nothing connects inbound to a machine and nothing is going to; a
+    /// runner heartbeats and a console refreshes, so an offer travels on a
+    /// response the machine already asked for. It gains no loop, no long poll
+    /// and no listening socket. A route of its own would be a second way to
+    /// reach a machine, which is the channel this design exists to avoid.
+    /// </para>
+    /// <para>
+    /// <b>An offer, and the machine decides.</b> Nothing here applies: what may
+    /// be offered is a closed vocabulary of two data-only keys, and whether any
+    /// offer is taken at all is a setting in the machine's own local file that
+    /// this document cannot carry. A control plane able to set that would be
+    /// granting itself the permission.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, because absence means something.</b> A tenant offering
+    /// nothing sends no member, and a machine one version behind reads this
+    /// response exactly as it did before.
+    /// </para>
+    /// </remarks>
+    public OfferedConfiguration? Offered { get; init; }
 }
 
 /// <summary>

@@ -1342,7 +1342,7 @@ public static class ProtocolSurface
             [typeof(RunnerHeartbeat)] = ["labels"],
             // `introductions` is absent unless a console is waiting, so an idle
             // fleet's heartbeat body is byte-for-byte what it always was.
-            [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds", "introductions"],
+            [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds", "introductions", "offered"],
             // `flightId` is absent unless a runner is asking for one flight by
             // name - an attended session, where a person opened the flight and
             // is waiting at a prompt for it. Every other claim is the fleet's

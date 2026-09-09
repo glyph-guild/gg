@@ -494,7 +494,14 @@ static async Task<int> DoctorAsync(bool json)
         // reading happens. Without it a console offers only its own local
         // address and watching a runner from anywhere else answers "no route
         // between them" - which reads as a firewall and is a variable.
-        stunServers: Gg.Runner.StunConfiguration.FromEnvironment())
+        // THROUGH THE ONE READER, like every other configurable value the root
+        // resolves. Called argumentless this falls back to the environment,
+        // which is right for a runner in its own process and wrong here: this
+        // process has the file, and a `stun-servers` line in it would reach
+        // nothing. The fallback made the doctor answer "nobody could reach
+        // this machine" for a reason it had not looked at.
+        stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.StunConfiguration.Variable)))
         .RunAsync(role: role);
 
     var result = new VerbResult.Diagnosis(report);
@@ -521,7 +528,14 @@ static async Task<int> BundleAsync(bool json)
     var client = new ControlPlaneClient(http);
     var report = await new Doctor(
             client, sessions, new FileCredentialStore(), new Uri(baseAddress),
-            stunServers: Gg.Runner.StunConfiguration.FromEnvironment())
+            // THROUGH THE ONE READER, like every other configurable value the root
+        // resolves. Called argumentless this falls back to the environment,
+        // which is right for a runner in its own process and wrong here: this
+        // process has the file, and a `stun-servers` line in it would reach
+        // nothing. The fallback made the doctor answer "nobody could reach
+        // this machine" for a reason it had not looked at.
+        stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.StunConfiguration.Variable)))
         .RunAsync();
 
     // Observed with no tree: a bundle is taken from wherever somebody happens

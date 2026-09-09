@@ -36,26 +36,23 @@ public static class ConsoleWatchRunner
     /// whether a channel is open, and everything it wants to say about how it
     /// went it says through <paramref name="say"/> while it happens.
     /// </remarks>
-    public delegate Reached Connect(string runnerId, string flightId, Action<string> say);
-
     /// <summary>
-    /// Whether there is a channel, and what the watch made of it.
+    /// Begins watching one runner's flight, and returns without waiting.
     /// </summary>
     /// <remarks>
-    /// <b>The sentence comes back even on success</b>, because the console has
-    /// none of its own worth reading: the watch is what talked to the control
-    /// plane and to the runner, and it is the only thing that knows whether
-    /// nobody answered because the machine is away or because the flight was
-    /// never opened to be watched.
+    /// <b>It answers whether it STARTED, never whether it connected.</b>
+    /// Reaching a runner takes up to a heartbeat interval and its steps are
+    /// worth watching, so waiting for it here would hold the console down over
+    /// exactly the thing a person wants to see happening. Everything it has to
+    /// say - each step, and why it stopped if it did - arrives in the pane.
     /// </remarks>
-    public sealed record Reached(bool Open, string Said);
+    public delegate bool Start(string runnerId, string flightId);
 
     /// <summary>Goes and watches, or says why it did not.</summary>
-    public static AppState Watch(AppState state, Connect connect, Action<string> say)
+    public static AppState Watch(AppState state, Start start)
     {
         ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(connect);
-        ArgumentNullException.ThrowIfNull(say);
+        ArgumentNullException.ThrowIfNull(start);
 
         if (Rows.Selected(state) is not { } row || row.Id.Length == 0)
         {
@@ -94,52 +91,23 @@ public static class ConsoleWatchRunner
             };
         }
 
-        // KEPT AS WELL AS SAID. `say` writes to the terminal that is free right
-        // now, and that terminal is gone by the time the console redraws - so a
-        // connect that took fifteen seconds and then failed left nothing behind
-        // to read. These go into the pane too.
-        var steps = new List<string>();
-
-        var reached = connect(row.Id, flightId, step =>
+        // STARTED AND NOT WAITED FOR. What the connect has to say - each step,
+        // and why it stopped if it does - goes into the buffer the pane drains,
+        // so a person watches it happen instead of watching a bare terminal
+        // that stops existing the moment this returns.
+        if (!start(row.Id, flightId))
         {
-            steps.Add(step);
-            say(step);
-        });
-
-        var shown = steps
-            .Append(reached.Said)
-            .Where(line => line.Length > 0)
-            .Aggregate(
-                state with { Live = [] },
-                (carried, line) => Reducer.StreamArrived(carried, new StreamLine
-                {
-                    Kind = StreamLineKind.Setup,
-                    Text = line,
-                    At = DateTimeOffset.UtcNow,
-                }));
-
-        if (!reached.Open)
-        {
-            // THE PANE OPENS ANYWAY, and that is the change. A pane kept shut
-            // after a failed connect hides the only account of it - and the
-            // account is worth reading: the watch knows whether nobody answered
-            // because the machine is away or because the flight was never
-            // opened to be watched, and this console knows neither.
-            return shown with
+            return state with
             {
-                Mode = UiMode.Normal,
-                WatchedFlightId = flightId,
-                LiveVisible = true,
-                ActiveTab = TabId.Live,
-                LastRunner = reached.Said.Length > 0
-                    ? reached.Said
-                    : $"Could not reach {row.Label}.",
+                LastRunner = $"This console is not configured to watch {row.Label}.",
             };
         }
 
         // THE PANE IS TOLD WHICH FLIGHT rather than left to infer it from a
-        // cursor that cannot point at this one.
-        return shown with
+        // cursor that cannot point at this one. Live is cleared because what
+        // follows is one flight's account from its first step, and lines left
+        // over from whatever was drawn before would sit above it unlabelled.
+        return state with { Live = [] } with
         {
             // THE MODAL CLOSES, because the thing it was asked from is now
             // happening behind it and the pane it happens in is another tab.
@@ -147,7 +115,7 @@ public static class ConsoleWatchRunner
             WatchedFlightId = flightId,
             LiveVisible = true,
             ActiveTab = TabId.Live,
-            LastRunner = $"Watching {flying} on {row.Label}. It ends when the flight does.",
+            LastRunner = $"Watching {flying} on {row.Label}. The pane says how it is going.",
         };
     }
 }

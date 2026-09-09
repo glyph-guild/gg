@@ -867,25 +867,16 @@ static async Task<int> LaunchConsoleAsync()
         // terminal is free - which is what makes three calls to the control
         // plane and a handshake ordinary rather than an exception - and then
         // the pane draws from the buffer the watch fills.
+        // GOING AND WATCHING. It STARTS the watch and comes straight back, so
+        // the console is down for the instant a session takes to rebuild rather
+        // than for however long a runner takes to answer. Every step, and the
+        // reason if it fails, arrives in the pane.
         watchRunner: current => Gg.Console.ConsoleWatchRunner.Watch(
             current,
-            connect: (runnerId, flightId, say) =>
+            start: (runnerId, flightId) =>
             {
-                watched.Start(runnerId, flightId, saying: say);
-
-                // WAITED OUT RATHER THAN RACED. The watch bounds itself by the
-                // introduction's own life - a minute - and ends with a sentence
-                // that names what went wrong. A deadline shorter than that
-                // fired first every time and replaced the reason with a shrug,
-                // which is what "gave up after 45s without a channel" was.
-                var (open, said) = watched.Opened(TimeSpan.FromMinutes(3), say);
-
-                return new Gg.Console.ConsoleWatchRunner.Reached(open, said);
-            },
-            say: step =>
-            {
-                Console.Out.WriteLine("  … " + step);
-                Console.Out.Flush();
+                watched.Start(runnerId, flightId);
+                return true;
             }),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the

@@ -127,6 +127,29 @@ public class OneWatchAtATimeTests
     }
 
     [Test]
+    public async Task Starting_a_watch_returns_while_the_watch_is_still_running()
+    {
+        // THE CONSOLE IS NOT HELD DOWN. Reaching a runner takes up to a
+        // heartbeat interval and its steps are worth watching, so waiting for
+        // it would hold the screen shut over exactly the thing a person wants
+        // to see. Following never finishes here, which is the shape of a
+        // connect still waiting on a runner's next beat.
+        using var watched = new WatchedRunner(Following("a line"), () => T0);
+
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        watched.Start("a-runner", "a-flight");
+        started.Stop();
+
+        await Assert.That(started.Elapsed).IsLessThan(TimeSpan.FromSeconds(2))
+            .Because("the watch runs beside the console rather than in front of it. Took: "
+                   + started.Elapsed);
+
+        await Assert.That(watched.SourceFor("a-flight")).IsNotNull()
+            .Because("and the pane has somewhere to read from the moment it returns, or the "
+                   + "first steps arrive before anything is listening.");
+    }
+
+    [Test]
     public async Task A_flight_nobody_is_watching_has_no_source()
     {
         using var watched = new WatchedRunner(Following(), () => T0);

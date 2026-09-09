@@ -65,7 +65,7 @@ public sealed class WatchedRunner(
     /// heartbeat interval, and the caller has steps to print meanwhile — see
     /// <see cref="Opened"/> for the wait.
     /// </remarks>
-    public void Start(string runnerId, string flightId, Action<string>? saying = null)
+    public void Start(string runnerId, string flightId)
     {
         Stop();
 
@@ -100,16 +100,24 @@ public sealed class WatchedRunner(
                                 Text = line,
                                 At = now(),
                             }]),
-                        // THE CONNECT'S OWN STEPS, handed to whoever asked for
-                        // the watch: they happen on the freed terminal, before
-                        // there is a pane to put them in.
-                        step => saying?.Invoke(step),
+                        // THE CONNECT'S OWN STEPS, INTO THE PANE. They used to
+                        // print on a terminal the console had torn itself down
+                        // to free, which is a screen that stops existing the
+                        // moment it comes back. Reaching a runner takes up to a
+                        // heartbeat interval and it is worth watching happen.
+                        step => Say(source, step),
                         () =>
                         {
                             source.Opened();
                             open.TrySetResult(true);
                         },
                         stopping.Token);
+
+                    // AND HOW IT ENDED, beside the steps that led there. "How
+                    // far it got" and "why it stopped" are two halves of one
+                    // account, and a person reading the pane has neither unless
+                    // both are put in it.
+                    Say(source, said);
 
                     lock (_gate)
                     {
@@ -122,6 +130,8 @@ public sealed class WatchedRunner(
                     // an ended watch from a silent agent - and kept in words
                     // too, because "it stopped" and "it stopped because the
                     // token expired" are different things to read.
+                    Say(source, failure.Message);
+
                     lock (_gate)
                     {
                         _said = failure.Message;
@@ -170,7 +180,41 @@ public sealed class WatchedRunner(
 
         // CANCELLED, NOT DISPOSED. The pump owns the disposal, because it is
         // the thing that might still be holding the token.
-        stopping?.Cancel();
+        //
+        // AND CANCELLING ONE ALREADY DISPOSED IS NOT AN ERROR HERE. The pump
+        // disposes when it ends, and it can end on its own - a watch whose
+        // introduction expired returns a sentence and stops - so a Stop that
+        // arrives afterwards is asking for something that has already happened.
+        // The first version threw ObjectDisposedException out of Dispose(),
+        // which took down whatever was tidying up.
+        try
+        {
+            stopping?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // It ended by itself, which is what Cancel was for.
+        }
+    }
+
+    /// <summary>One line about the watch itself, in the pane's own shape.</summary>
+    /// <remarks>
+    /// <b>Setup rather than text</b>, because these are this console reaching a
+    /// machine and the lines after them are an agent's own words. The pane
+    /// draws the two differently and a person should be able to tell them
+    /// apart without reading.
+    /// </remarks>
+    private void Say(RemoteLiveSource source, string line)
+    {
+        if (line.Length > 0)
+        {
+            source.Offer([new StreamLine
+            {
+                Kind = StreamLineKind.Setup,
+                Text = line,
+                At = now(),
+            }]);
+        }
     }
 
     /// <summary>

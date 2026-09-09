@@ -69,6 +69,17 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? stopRunner = null,
 
     /// <summary>
+    /// Hands the terminal to a watch on the runner the modal is over.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, like its neighbours: it starts this binary again
+    /// under another verb, and what that child does inside - three calls to the
+    /// control plane and a WebRTC socket - is what a UI session may not do at
+    /// all. Between sessions it is ordinary.
+    /// </remarks>
+    Func<AppState, AppState>? watchRunner = null,
+
+    /// <summary>
     /// Folds what is known about the runner this console started into the model.
     /// </summary>
     /// <remarks>
@@ -388,6 +399,19 @@ public sealed class ConsoleLoop(
                     state = Reducer.RunnerShown(state);
                     break;
 
+                case Command.WatchRunner:
+                    // A CHILD THAT OWNS THE TERMINAL until a person stops it or
+                    // the flight ends. The session is already over by the time
+                    // this arm runs, which is the whole reason the watch may
+                    // make the calls it makes.
+                    state = Watched(state, watchRunner);
+
+                    // AND THE MODAL AGAIN, because a person who was watching a
+                    // runner is looking at that runner, and the sentence that
+                    // came back is about the row this modal names.
+                    state = Reducer.RunnerShown(state);
+                    break;
+
                 case Command.GroundFlight:
                     // A WRITE, AND A SENTENCE ASKED FOR FIRST. Both are things
                     // a UI session may not do, so the session ends, the loop
@@ -664,6 +688,11 @@ public sealed class ConsoleLoop(
         start is null
             ? state with { LastRunner = "This console is not configured to start a runner." }
             : start(state);
+
+    private static AppState Watched(AppState state, Func<AppState, AppState>? watch) =>
+        watch is null
+            ? state with { LastRunner = "This console is not configured to watch a runner." }
+            : watch(state);
 
     private static AppState Stopped(AppState state, Func<AppState, AppState>? stop) =>
         stop is null

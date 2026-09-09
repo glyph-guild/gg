@@ -180,6 +180,11 @@ public class TheSignInModalReadsTests
             // flag on the model - there is nothing to set true directly, and a
             // model without a fleet leaves it false however the derivation is
             // written.
+            //
+            // AND THAT RUNNER IS FLYING SOMETHING, for the same reason and a
+            // second flag: watching is offered only while there is a flight to
+            // watch, so an idle row leaves RunnerIsFlying false and this
+            // assertion cannot tell that from a derivation that never reads it.
             Machine = "a-laptop",
             LocalRunnerId = "01a078bb-4b97-779b-81ff-554c4ea662c0",
             RunnerSelected = 0,
@@ -191,7 +196,8 @@ public class TheSignInModalReadsTests
                     {
                         RunnerId = "01a078bb-4b97-779b-81ff-554c4ea662c0",
                         Label = "a-laptop",
-                        State = Gg.Contracts.RunnerStates.Idle,
+                        State = Gg.Contracts.RunnerStates.Busy,
+                        CurrentFlightNumber = "GG-1",
                     },
                 ],
             },

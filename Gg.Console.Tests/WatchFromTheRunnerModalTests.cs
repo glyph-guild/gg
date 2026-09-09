@@ -96,6 +96,29 @@ public class WatchFromTheRunnerModalTests
     }
 
     [Test]
+    public async Task The_modal_names_the_key_rather_than_only_the_command()
+    {
+        // THE PARAGRAPH AND THE KEY ARE ONE BINDING RENDERED TWICE. This text
+        // named a command the console could not run for a whole slice; now it
+        // can, and a person reading it has to be told so. The letter is read
+        // off the keymap, so a rebind moves both.
+        var said = RunnerDetails.Suggestion(Rows.Selected(State("GG-71"))!);
+
+        await Assert.That(said).Contains("`w`")
+            .Because("a console that knows the answer and makes a person leave to use it is "
+                   + "what this key was added to stop. Said: " + said);
+
+        // AND NOT WHEN THERE IS NOTHING TO PRESS IT ON. The idle sentence still
+        // names the capability - that is where somebody learns it exists - but
+        // offering a key that is not bound right now is the thing the whole
+        // method exists not to do.
+        var idle = RunnerDetails.Suggestion(Rows.Selected(State(null))!);
+
+        await Assert.That(idle).DoesNotContain("Press")
+            .Because("Said: " + idle);
+    }
+
+    [Test]
     public async Task It_hands_the_terminal_to_this_gg_and_names_the_whole_runner_id()
     {
         // WHICH gg, and the whole id. A bare `gg` off PATH is whichever one is

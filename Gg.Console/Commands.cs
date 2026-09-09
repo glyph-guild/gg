@@ -163,6 +163,20 @@ public enum Command
     /// </remarks>
     RestartRunner,
 
+    /// <summary>Go and watch what the runner under the cursor is flying.</summary>
+    /// <remarks>
+    /// <b>The modal has named <c>gg runner watch</c> since slice thirty-four
+    /// and offered no way to run it.</b> Reference-and-fetch is right about the
+    /// ssh lines beside it - those are about somebody else's machine and gg is
+    /// guessing - but this is gg's own verb against gg's own runner.
+    /// <para>
+    /// <b>A child, so the session ends first.</b> Reaching a runner is three
+    /// calls to the control plane and a WebRTC socket, and a UI session may
+    /// make none of them. This takes the slot the editor takes instead.
+    /// </para>
+    /// </remarks>
+    WatchRunner,
+
     /// <summary>Shut the runner on this machine down.</summary>
     /// <remarks>The shell's: it signals a child, which a UI session may not.</remarks>
     StopRunner,
@@ -395,6 +409,11 @@ public static class ShellCommands
         // Signals one, and spawns one again after.
         Command.StopRunner,
         Command.RestartRunner,
+
+        // SPAWNS A CHILD THAT OWNS THE TERMINAL until a person stops it or the
+        // flight ends - the editor's shape, and for the editor's reason: what
+        // it does inside is a network call a session may not make.
+        Command.WatchRunner,
 
         // AND SO IS OPENING A FLIGHT, since the boot stopped reading a log for
         // every flight ever flown. The modal shows one flight's log; the flight

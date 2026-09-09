@@ -1093,6 +1093,36 @@ public static class PaneText
     /// while a list scrolled underneath is a modal about nothing in particular,
     /// and the answer would be given about whatever is on screen.
     /// </remarks>
+    /// <summary>What grounding this flight would mean, before it happens.</summary>
+    /// <remarks>
+    /// <b>It names the flight, because the key is pressed over a modal and the
+    /// modal is the only thing on the screen.</b> A confirmation that said
+    /// "ground it?" would be a question about whichever flight the person
+    /// believes they are looking at.
+    /// </remarks>
+    private static string ConfirmGround(AppState state) =>
+        Detailed(state) is not { } flight
+            ? ""
+            : $"Ground {flight.FlightNumber}, {flight.Name}?\n\n"
+            + "It stops the attempt rather than withdrawing the question, so the flight is "
+            + "still a record of having been tried. You will be asked to write why, and a "
+            + "flight is not grounded until you do.";
+
+    /// <summary>What flying it again would mean, before the editor opens.</summary>
+    /// <remarks>
+    /// <b>It says the editor comes next, because that is where the decision
+    /// really lands.</b> Nothing is opened by answering this: what follows is
+    /// the same editor `n` opens, on this flight's own words, and abandoning it
+    /// there opens nothing either.
+    /// </remarks>
+    private static string ConfirmFlyAgain(AppState state) =>
+        Detailed(state) is not { } flight
+            ? ""
+            : $"Open a new flight on {flight.FlightNumber}'s intent?\n\n"
+            + "The editor opens on what it said, so you can change it first. Nothing is "
+            + "opened until you save and quit, and a flight opened by accident is a record "
+            + "somebody has to explain and a number that is now taken.";
+
     private static string ConfirmFlight(AppState state) =>
         state.PendingFlight is not { } pending
             ? ""
@@ -1357,6 +1387,8 @@ public static class PaneText
         UiMode.HandFlight => "Nothing was created",
         UiMode.Runner => "No runner",
         UiMode.ConfirmFlight => "This has flown before",
+        UiMode.ConfirmGround => "Ground this flight?",
+        UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
         UiMode.ComposeChoice => "How do you want to write this flight?",
@@ -1389,6 +1421,8 @@ public static class PaneText
             UiMode.Runner => Runner(state),
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
+            UiMode.ConfirmGround => ConfirmGround(state),
+            UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.SignIn => SignIn(state),
             UiMode.GateDecision => GateDecision(state),
             UiMode.ComposeChoice => ComposeChoice(),
@@ -1622,6 +1656,8 @@ public static class PaneText
         UiMode.Help => "While this page is open",
         UiMode.FlightActions => "While the actions list is open",
         UiMode.ConfirmFlight => "When asked whether to open a second flight",
+        UiMode.ConfirmGround => "When asked whether to ground a flight",
+        UiMode.ConfirmFlyAgain => "When asked whether to fly one again",
         UiMode.GateDecision => "While answering a gate",
         _ => "",
     };

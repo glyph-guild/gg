@@ -65,6 +65,23 @@ public enum UiMode
     /// </remarks>
     ConfirmFlight,
 
+    /// <summary>Asking whether to ground the flight on the screen.</summary>
+    /// <remarks>
+    /// <b>Because `x` used to take the terminal away on one keypress.</b> It
+    /// ended the session and handed the screen to <c>$EDITOR</c> to ask for a
+    /// reason, so the only way back out of a mistyped one was to write nothing
+    /// and read the refusal. A prompt asks WHAT; this asks WHETHER.
+    /// </remarks>
+    ConfirmGround,
+
+    /// <summary>Asking whether to open a new flight on this one's intent.</summary>
+    /// <remarks>
+    /// One flight opened by accident is a record somebody has to explain and a
+    /// number that is now taken — <c>ConsoleHandFlight</c>'s reason, and the
+    /// same reason <see cref="ConfirmFlight"/> exists.
+    /// </remarks>
+    ConfirmFlyAgain,
+
     /// <summary>
     /// Answering a gate: what is being decided, the evidence, and both answers.
     /// </summary>

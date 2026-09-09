@@ -103,6 +103,37 @@ public static class FlightDetails
     }
 
     /// <summary>
+    /// The intent as a person would have typed it, for seeding a new flight.
+    /// </summary>
+    /// <remarks>
+    /// <b>Raw, and not what the pane renders.</b> <see cref="Intent"/> wraps a
+    /// uri in backticks because that is how it reads on a screen; seeding an
+    /// editor with that hands the open path something nobody would have typed.
+    /// <para>
+    /// <b>Empty when there is nothing on the screen</b>, rather than the
+    /// sentence that says so — a flight opened about the words "No flight is
+    /// selected." is exactly the record somebody has to explain.
+    /// </para>
+    /// </remarks>
+    public static string IntentToFlyAgain(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (PaneText.Detailed(state) is not { } flight)
+        {
+            return "";
+        }
+
+        return flight.Intent.Kind switch
+        {
+            FlightIntentKinds.Uri => ControlText.Strip(flight.Intent.Uri),
+            FlightIntentKinds.Ticket =>
+                $"{ControlText.Strip(flight.Intent.Provider)}#{ControlText.Strip(flight.Intent.Id)}",
+            _ => ControlText.Strip(flight.Intent.Text, allowLineBreaks: true),
+        };
+    }
+
+    /// <summary>
     /// How many lines the intent is, before anything wraps it.
     /// </summary>
     /// <remarks>

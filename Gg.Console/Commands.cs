@@ -177,6 +177,28 @@ public enum Command
     /// </remarks>
     WatchRunner,
 
+    /// <summary>Asks whether to ground the flight the modal is about.</summary>
+    /// <remarks>
+    /// Separate from <see cref="GroundFlight"/>, which is now the ANSWER. The
+    /// two used to be one key, and a mistyped `x` was a session ended and an
+    /// editor open before anybody had agreed to anything.
+    /// </remarks>
+    AskToGround,
+
+    /// <summary>Asks whether to open a new flight on this one's intent.</summary>
+    AskToFlyAgain,
+
+    /// <summary>
+    /// Opens the editor on the flight's own intent, and then opens a flight.
+    /// </summary>
+    /// <remarks>
+    /// <b>It does not fly the summary.</b> A summary carries the intent and no
+    /// repository, so flying from it would reproduce most flights as flights
+    /// about nothing. Seeding the editor hands the ordinary open path
+    /// everything it already knows.
+    /// </remarks>
+    FlyAgain,
+
     /// <summary>Shut the runner on this machine down.</summary>
     /// <remarks>The shell's: it signals a child, which a UI session may not.</remarks>
     StopRunner,
@@ -414,6 +436,10 @@ public static class ShellCommands
         // flight ends - the editor's shape, and for the editor's reason: what
         // it does inside is a network call a session may not make.
         Command.WatchRunner,
+
+        // OPENS AN EDITOR AND THEN A FLIGHT, which is what `n` does; the only
+        // difference is what the editor opens on.
+        Command.FlyAgain,
 
         // AND SO IS OPENING A FLIGHT, since the boot stopped reading a log for
         // every flight ever flown. The modal shows one flight's log; the flight

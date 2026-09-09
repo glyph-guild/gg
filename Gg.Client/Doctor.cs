@@ -1021,9 +1021,11 @@ public sealed class Doctor(
                   + "address on its own network. Somebody watching a runner from anywhere else "
                   + "gets \"no route between them\" - which reads as a firewall and is this.",
                 Fix =
-                    "Set GG_STUN_SERVERS to one or more `stun:host:port`. There is no built-in "
-                  + "default because a well-known server belongs to somebody, and which one to "
-                  + "depend on is not this binary's decision to make.",
+                    "Run `gg config set stun-servers <stun:host:port,...>`, or set "
+                  + "GG_STUN_SERVERS to the same. There is no built-in default because a "
+                  + "well-known server belongs to somebody, and which one to depend on is not "
+                  + "this binary's decision to make - and a machine stood up from a shell "
+                  + "profile starts the next one from nothing, which is what the file is for.",
             };
         }
 

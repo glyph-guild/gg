@@ -340,10 +340,11 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             + "the other, and something in between is refusing it."
             : "Both ends spoke and no route between them was found. This console has no STUN "
             + "server configured, so it offered only its own address on its own network - "
-            + "which nothing anywhere else can reach. Set GG_STUN_SERVERS to one or more "
-            + "`stun:host:port`, the same way the runner is configured, and try again. There "
-            + "is no built-in default because a well-known server belongs to somebody, and "
-            + "which one to depend on is not this binary's decision to make.";
+            + "which nothing anywhere else can reach. Run `gg config set stun-servers "
+            + "<stun:host:port,...>`, or set GG_STUN_SERVERS to the same, the way the runner "
+            + "is configured, and try again. There is no built-in default because a "
+            + "well-known server belongs to somebody, and which one to depend on is not this "
+            + "binary's decision to make.";
 
     private static TimeSpan Later(DateTimeOffset deadline, DateTimeOffset from) =>
         deadline > from ? deadline - from : TimeSpan.FromSeconds(1);

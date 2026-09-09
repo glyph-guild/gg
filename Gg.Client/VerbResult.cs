@@ -626,6 +626,24 @@ public static class VerbOutput
             text.Append("      not written yet - `gg config init` will seed it\n");
         }
 
+        // WHO MAY CONFIGURE THIS MACHINE, said before the settings rather than
+        // after them, and said even when the answer is no. An operator checking
+        // that nothing else can change this machine needs a line to read, not an
+        // absence to interpret.
+        // ONE VOCABULARY FOR BOTH ANSWERS, so a person who greps for the word
+        // finds the line whichever way it reads - and so the two are read as
+        // the same question answered, rather than two unrelated sentences.
+        text.Append(view.AcceptsOffered
+            ? "offers  this machine ACCEPTS configuration offered by its control plane"
+            : "offers  no configuration offered by a control plane is accepted here\n");
+
+        if (view.AcceptsOffered)
+        {
+            text.Append(view.AppliesUnattended
+                ? ", and applies it with nobody watching\n"
+                : ", once somebody accepts each one\n");
+        }
+
         text.Append('\n');
 
         var width = view.Settings.Max(s => s.Name.Length);

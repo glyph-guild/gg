@@ -24,6 +24,24 @@ public sealed record ConfigurationView
     public required string Path { get; init; }
 
     public required IReadOnlyList<EnvironmentSetting> Settings { get; init; }
+
+    /// <summary>Whether a control plane may change what this machine does.</summary>
+    /// <remarks>
+    /// <b>On the view rather than in the settings list, because it is not one of
+    /// them.</b> It has no environment variable by design — a variable would be
+    /// a second way to turn it on, and one a container image could carry — so it
+    /// never reaches the page that lists variables, and without this it reached
+    /// no surface at all.
+    /// </remarks>
+    public bool AcceptsOffered { get; init; }
+
+    /// <summary>Whether an accepted offer applies with nobody watching.</summary>
+    /// <remarks>
+    /// <b>False unless offers are accepted at all.</b> The second setting alone
+    /// is inert, and showing it as live would say a machine applies offers while
+    /// it refuses every one.
+    /// </remarks>
+    public bool AppliesUnattended { get; init; }
 }
 
 /// <summary>Whether a document is one, and what it looks like written out.</summary>
@@ -61,14 +79,24 @@ public sealed record ConfigurationValidation
 public static class ConfigCommands
 {
     /// <summary>Everything in force, and the file it would be written to.</summary>
-    public static VerbResult Show(IReadOnlyList<EnvironmentSetting> settings, string? path = null)
+    public static VerbResult Show(
+        IReadOnlyList<EnvironmentSetting> settings,
+        string? path = null,
+        Configuration? file = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
+
+        var accepts = file?.AcceptOffered is true;
 
         return new VerbResult.ConfigShown(new ConfigurationView
         {
             Path = path ?? ConfigurationFile.DefaultPath(),
             Settings = settings,
+            AcceptsOffered = accepts,
+
+            // BOTH, OR IT IS NOT LIVE. Unattended on its own applies nothing,
+            // because nothing is accepted in the first place.
+            AppliesUnattended = accepts && file?.AcceptUnattended is true,
         });
     }
 

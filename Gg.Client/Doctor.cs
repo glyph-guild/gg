@@ -156,6 +156,19 @@ public sealed record MachineRole
     /// </remarks>
     public bool ExecutorPresent { get; init; }
 
+    /// <summary>An agent binary found on PATH, when none is configured.</summary>
+    /// <remarks>
+    /// <b>What this machine already has, offered rather than applied.</b> Nobody
+    /// sets the executor variable - measured - and an unset one makes a runner
+    /// claim work and invoke nothing, which looks like a busy machine doing
+    /// nothing. Naming what is already installed turns two steps into one.
+    /// <para>
+    /// Null when nothing was found, and the advice then says nothing about it:
+    /// an offer of nothing still reads as an offer.
+    /// </para>
+    /// </remarks>
+    public string? ExecutorOnPath { get; init; }
+
     /// <summary>The forge hosts this machine serves, as configured.</summary>
     public string? ForgeHosts { get; init; }
 
@@ -442,9 +455,20 @@ public sealed class Doctor(
     /// most. All of it is fixable, because every one of these is a value on
     /// this machine.
     /// </remarks>
-    private static IReadOnlyList<DoctorCheck> RoleChecks(MachineRole role) =>
-    [
-        role.ExecutorBinary is not { Length: > 0 }
+    /// <summary>
+    /// What the doctor says about this machine's agent binary.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own method so it can be asked directly.</b> The advice here now
+    /// depends on what was found on the machine as well as on what was
+    /// configured, and a test that had to build a whole report to read one
+    /// sentence would be asserting the report.
+    /// </remarks>
+    public static DoctorCheck ExecutorCheck(MachineRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+
+        return role.ExecutorBinary is not { Length: > 0 }
             ? new DoctorCheck
             {
                 Name = DoctorChecks.Executor,
@@ -457,7 +481,14 @@ public sealed class Doctor(
                        + "never invoke an agent",
                 Blocking = false,
                 Fixable = true,
-                Fix = "Run `gg config set executor-binary <path>`, or set "
+
+                // NAMING WHAT IS ALREADY HERE, when there is something to name.
+                // Without it a person is told to go and find a path this check
+                // has already located.
+                Fix = role.ExecutorOnPath is { Length: > 0 } here
+                    ? $"Run `gg config set executor-binary {here}` - that one is on this "
+                    + "machine's PATH already. GG_EXECUTOR_BINARY overrides it if set."
+                    : "Run `gg config set executor-binary <path>`, or set "
                     + "GG_EXECUTOR_BINARY for this shell only.",
             }
             : !role.ExecutorPresent
@@ -482,7 +513,12 @@ public sealed class Doctor(
                 Detail = role.ExecutorBinary,
                 Blocking = false,
                 Fixable = false,
-            },
+            };
+    }
+
+    private static IReadOnlyList<DoctorCheck> RoleChecks(MachineRole role) =>
+    [
+        ExecutorCheck(role),
 
         role.ForgeHosts is { Length: > 0 } hosts
             ? new DoctorCheck

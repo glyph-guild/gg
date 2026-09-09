@@ -243,6 +243,20 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
         // READ FIRST, because this shape APPENDS relations rather than setting
         // them - so a retry would leave the same item linked twice, which is
         // the duplicate the seam's rule forbids.
+        //
+        // AND COMPARED ON THE ID, NOT THE URL, which a walk against a real
+        // tracker is what taught this. The relation comes back naming the
+        // project by GUID where the request named it by NAME:
+        //
+        //   asked:    .../ORG/JDX/_apis/wit/workitems/18599
+        //   returned: .../ORG/139e24b0-…/_apis/wit/workItems/18599
+        //
+        // so whole-url equality never matches and every retry duplicates. The
+        // trailing id is the only part both spellings agree on.
+        //
+        // ON THE KIND AS WELL, because an item can be a parent of the thing it
+        // duplicates: a proposal for a related link is not satisfied by a
+        // hierarchy link that happens to point at the same item.
         using (var reading = await _client.GetAsync(
             $"{_host}/_apis/wit/workitems/{Uri.EscapeDataString(target)}"
           + $"?$expand=relations&api-version={ApiVersion}",
@@ -257,7 +271,9 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
                 && relations.ValueKind == JsonValueKind.Array
                 && relations.EnumerateArray().Any(r =>
                     r.TryGetProperty("url", out var at)
-                    && string.Equals(at.GetString(), url, StringComparison.OrdinalIgnoreCase)))
+                    && string.Equals(Related(at.GetString()), to, StringComparison.Ordinal)
+                    && r.TryGetProperty("rel", out var kind)
+                    && string.Equals(kind.GetString(), relation, StringComparison.OrdinalIgnoreCase)))
             {
                 return new WorkItemWrite(
                     proposal.Operation, target, Where(target), AlreadyDone: true);
@@ -287,6 +303,23 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
 
         return new WorkItemWrite(proposal.Operation, target, Where(target), AlreadyDone: false);
     }
+
+    /// <summary>
+    /// The work item a relation points at, or null where it points at something
+    /// that is not one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The last segment, and nothing before it.</b> Relations also carry
+    /// attachments and hyperlinks, whose urls end in something that is not an
+    /// item id - so this answers null for those rather than matching a link by
+    /// accident. What makes the last segment trustworthy is that every spelling
+    /// of a work-item url this tracker produces ends with the id.
+    /// </remarks>
+    private static string? Related(string? url) =>
+        url is { Length: > 0 }
+        && url.Contains("/_apis/wit/workitems/", StringComparison.OrdinalIgnoreCase)
+            ? url[(url.LastIndexOf('/') + 1)..]
+            : null;
 
     /// <summary>The item this flight already created, if it created one.</summary>
     private async Task<string?> FoundAsync(string idempotencyKey, CancellationToken cancellationToken)

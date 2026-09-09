@@ -420,8 +420,41 @@ public static class DestinationKinds
     // Slice twelve's step 0 found AirspaceRegistration declared but absent
     // here, so an envelope declaring it was refused by the very vocabulary
     // that declared it. Repaired riding 0.59.0.
+    /// <summary>
+    /// A work-item tracker: somebody's backlog, and the changes a flight
+    /// proposes be made to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The second destination whose act leaves this system, and it leaves on
+    /// the customer's credential.</b> <see cref="EnvelopeChange"/> and
+    /// <see cref="AirspaceRegistration"/> are performed by admission itself
+    /// inside the tenant's own stream; <see cref="Flight"/> opens a flight and
+    /// nothing leaves at all; <see cref="CheckRun"/> leaves on the control
+    /// plane's credential. This one is <see cref="PullRequest"/>'s shape: the
+    /// runner performs it, on a credential the developer registered, after
+    /// admission - and the agent that proposed the change never holds one.
+    /// </para>
+    /// <para>
+    /// <b>What is admitted is each proposal, not the batch.</b> A triage flight
+    /// ships one <c>work-item.proposal</c> fact per change, so a person can
+    /// admit the re-field and refuse the link. A destination that admitted the
+    /// batch would make "some of that, not the rest" unsayable, which is the
+    /// answer triage most often deserves.
+    /// </para>
+    /// <para>
+    /// <b>Not a repository, and this is the third proof that the model is not
+    /// repository-shaped.</b> <see cref="AirspaceRegistration"/> was the first
+    /// and <see cref="Flight"/> the second. What makes this one different from
+    /// both is that it writes to a system nobody here owns, on somebody else's
+    /// schema, through an adapter that maps our verbs onto whatever that
+    /// tracker calls them.
+    /// </para>
+    /// </remarks>
+    public const string WorkItemTracker = "work-item-tracker";
+
     public static IReadOnlyList<string> All { get; } =
-        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun, Flight];
+        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun, Flight, WorkItemTracker];
 }
 
 /// <summary>
@@ -636,7 +669,36 @@ public static class SubjectKinds
     /// </remarks>
     public const string Envelope = "envelope";
 
-    public static IReadOnlyList<string> All { get; } = [Repository, Envelope];
+    /// <summary>
+    /// A work-item tracker the flight is reading: a backlog, and no tree.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same argument <see cref="Envelope"/> was added under.</b> A
+    /// triage work kind is one that ships, and it had no honest declaration
+    /// available to it: <c>[]</c> would say it is about nothing, and
+    /// <c>[repository]</c> would say it is about a tree it never checks out.
+    /// A flight that reads a backlog and proposes changes to it is about
+    /// SOMETHING, and until this constant existed the schema had no way for it
+    /// to say what.
+    /// </para>
+    /// <para>
+    /// <b>No tree, so the path bound is <c>none</c>.</b> That is the
+    /// classification the paragraph above this list calls the cost of a fourth
+    /// kind - one classification rather than an edit to a refusal - and this is
+    /// the fourth kind arriving and paying exactly that.
+    /// </para>
+    /// <para>
+    /// <b>It is the SUBJECT, not the destination.</b> A flight can read one
+    /// tracker and be admitted to write to another, or read one and write
+    /// nowhere at all, which is the ordinary dry run. Conflating the two would
+    /// make "look at this backlog and tell me what you think" impossible to
+    /// declare without also granting a write.
+    /// </para>
+    /// </remarks>
+    public const string Tracker = "tracker";
+
+    public static IReadOnlyList<string> All { get; } = [Repository, Envelope, Tracker];
 
     /// <summary>Whether this is a subject kind this version understands.</summary>
     public static bool IsKnown(string? kind) =>
@@ -656,6 +718,12 @@ public static class SubjectKinds
     {
         Repository => true,
         Envelope => false,
+
+        // A BACKLOG IS NOT A WORKING TREE. The flight reads it over an api and
+        // checks nothing out, so there are no paths for a glob to select - and
+        // a kind that claimed one would make the schema ask for a bound over
+        // something with nothing to bound.
+        Tracker => false,
         _ => throw new ArgumentOutOfRangeException(
             nameof(kind), kind,
             "No subject kind by this name is classified, so nothing can say whether work over "

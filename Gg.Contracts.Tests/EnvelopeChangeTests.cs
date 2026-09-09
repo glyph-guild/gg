@@ -90,9 +90,17 @@ public class EnvelopeChangeTests
     public async Task A_destination_that_is_not_a_repository_is_its_own_kind()
     {
         await Assert.That(DestinationKinds.All).Contains(DestinationKinds.EnvelopeChange);
-        await Assert.That(DestinationKinds.All.Count).IsEqualTo(5)
-            .Because("five, and the fifth finishes the category the first two opened: "
-                   + "`flight`, whose act is that a flight EXISTS. Performed by admission "
+        await Assert.That(DestinationKinds.All.Count).IsEqualTo(6)
+            .Because("SIX, and the sixth is the second whose act leaves this system on the "
+                   + "CUSTOMER'S credential: `work-item-tracker`, somebody's backlog and the "
+                   + "changes a flight proposes be made to it. It is pull-request's shape - "
+                   + "the runner performs it, after admission, on a credential the developer "
+                   + "registered - and it is the first that writes to a system nobody here "
+                   + "owns, on somebody else's schema, through an adapter that maps our verbs "
+                   + "onto whatever that tracker calls them. What is admitted is each "
+                   + "proposal and not the batch, so a person can take the re-field and "
+                   + "refuse the link, which is the answer triage most often deserves. "
+                   + "The five before it: `flight`, whose act is that a flight EXISTS. Performed by admission "
                    + "like those two, and unlike either outward kind nothing leaves and no "
                    + "credential is involved - which is what lets a classifier be governed "
                    + "rather than trusted. The four before it: "

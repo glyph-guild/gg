@@ -53,7 +53,16 @@ public class ATrackerIsADestinationTests
         // validation, which is where the tree classification is read.
         var triage = new Envelope
         {
-            Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
+            // `none`, AND THE VALIDATOR TAUGHT THIS TEST THAT. It was written
+            // with a glob, because a work kind with a scope is what every other
+            // one looks like - and a tracker has no paths for a glob to select,
+            // so the bound has to say so rather than select nothing quietly.
+            // Which is HasTree being load-bearing rather than decorative.
+            Context = new ContextBinding
+            {
+                Scope = EnvelopeScopes.None,
+                Constitution = "1.0.0",
+            },
             Accepts = [SubjectKinds.Tracker],
             Produces = [FactKinds.WorkItemProposal],
             Obligations =

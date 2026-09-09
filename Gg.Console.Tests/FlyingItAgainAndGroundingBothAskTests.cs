@@ -137,6 +137,76 @@ public class FlyingItAgainAndGroundingBothAskTests
         await Assert.That(FlightDetails.IntentToFlyAgain(Showing(intent))).IsEqualTo("ado#1234");
     }
 
+    /// <summary>A UI that presses what it is told to, once each.</summary>
+    private sealed class Pressing(params Func<AppState, UiOutcome>[] script) : IUiSession
+    {
+        private readonly Queue<Func<AppState, UiOutcome>> _script = new(script);
+
+        public List<AppState> Seen { get; } = [];
+
+        public UiOutcome Run(AppState state)
+        {
+            Seen.Add(state);
+            return _script.Dequeue()(state);
+        }
+    }
+
+    /// <summary>An editor that says what it was opened on.</summary>
+    private sealed class Recording : IEditorSession
+    {
+        public string? Opened { get; private set; }
+
+        public string Edit(string initialText)
+        {
+            Opened = initialText;
+            return initialText;
+        }
+    }
+
+    [Test]
+    public async Task Pressing_the_key_opens_the_question()
+    {
+        // THE HALF THAT REACHED NOBODY. Both asks were written in the loop, and
+        // the screen hands a command to the loop only when the shell DECLARES
+        // it - so they went to the reducer, which had no arm, and the keys did
+        // nothing at all. `f` was dead and `x` stopped grounding, which is a
+        // confirmation added to grounding that broke grounding.
+        //
+        // ASSERTED WHERE THE KEYPRESS LANDS rather than on the keymap, because
+        // the keymap was right the whole time.
+        await Assert.That(Reducer.Reduce(Showing(Text("t")), Command.AskToFlyAgain).Mode)
+            .IsEqualTo(UiMode.ConfirmFlyAgain);
+
+        await Assert.That(Reducer.Reduce(Showing(Text("t")), Command.AskToGround).Mode)
+            .IsEqualTo(UiMode.ConfirmGround);
+    }
+
+    [Test]
+    public async Task Answering_it_opens_the_editor_on_the_old_intent()
+    {
+        // AND THE OTHER HALF, THROUGH THE LOOP. The answer IS the shell's,
+        // because opening a flight spawns a child - so the two halves meet
+        // here: the reducer opens the question and the loop answers it.
+        var editor = new Recording();
+        var actions = new ConsoleDoubles.Records();
+
+        var ui = new Pressing(
+            state => new UiOutcome(Command.FlyAgain, state),
+            state => new UiOutcome(Command.Quit, state));
+
+        new ConsoleLoop(ui, editor, actions: actions)
+            .Run(Showing(Text("count to ten"), UiMode.ConfirmFlyAgain));
+
+        await Assert.That(editor.Opened).IsEqualTo("count to ten")
+            .Because("the editor is where a person confirms what they are about to open, and "
+                   + "it opens on what the flight said. Opened on: " + editor.Opened);
+
+        await Assert.That(actions.Pasted).IsEquivalentTo(new[] { "count to ten" })
+            .Because("and what the editor came back with is what gets flown - the ordinary "
+                   + "open path, which is why this needed no contract change. Flew: "
+                   + string.Join(" | ", actions.Pasted));
+    }
+
     [Test]
     public async Task Nothing_on_the_screen_seeds_nothing()
     {

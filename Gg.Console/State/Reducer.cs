@@ -49,6 +49,15 @@ public static class Reducer
             },
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
+            // ASKING IS A MODE CHANGE AND NOTHING ELSE, which is the reducer's
+            // whole job. Both of these were written in the loop, where they
+            // reached nobody: the screen hands a command to the shell only when
+            // the shell declares it, and everything else comes here. `f` did
+            // nothing and `x` stopped grounding - a confirmation added to
+            // grounding that broke grounding.
+            Command.AskToGround => Modal(state, UiMode.ConfirmGround),
+            Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
+
             // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
             // it is: the loop sends the decision, the control plane records it, the Engine
             // re-evaluates, and what comes back is what closes this modal. A reducer that

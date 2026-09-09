@@ -99,6 +99,14 @@ public sealed class ConsoleLoop(
     /// </remarks>
     Func<AppState, Func<string>, AppState>? groundFlight = null,
 
+    /// <param name="configure">
+    /// Hands the configuration document to an editor and writes back what
+    /// validates. A delegate rather than a port for the reason every read here
+    /// is one: a type with a file on it, inside this loop, is one step from a
+    /// file inside a session.
+    /// </param>
+    Func<AppState, Func<string, string>, AppState>? configure = null,
+
     /// <summary>
     /// Opens the verification link in a browser.
     /// </summary>
@@ -441,6 +449,21 @@ public sealed class ConsoleLoop(
                         : groundFlight(Closed(state), () => editor.Edit(""));
                     break;
 
+                case Command.EditConfiguration:
+                    // A CHILD AND THEN A WRITE, which is why this is here and
+                    // not in the session that asked for it. The editor is
+                    // handed the document as it stands and what comes back is
+                    // validated before anything lands - so a bad edit leaves
+                    // the file exactly as it was.
+                    state = configure is null
+                        ? state with
+                        {
+                            LastConfiguration =
+                                "This console is not configured to edit configuration.",
+                        }
+                        : configure(state, text => editor.Edit(text));
+                    break;
+
                 case Command.OpenSignInUri:
                 case Command.CopySignInUri:
                 case Command.CopySignInCode:
@@ -718,6 +741,7 @@ public sealed class ConsoleLoop(
     public static string? Said(AppState before, AppState after) =>
         after.LastFlightOpened != before.LastFlightOpened ? after.LastFlightOpened
         : after.LastCredential != before.LastCredential ? after.LastCredential
+        : after.LastConfiguration != before.LastConfiguration ? after.LastConfiguration
         : after.LastInvite != before.LastInvite ? after.LastInvite
         : after.LastDecision != before.LastDecision ? after.LastDecision
         : after.LastTakeover != before.LastTakeover ? after.LastTakeover

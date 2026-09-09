@@ -287,6 +287,27 @@ public static class Keymap
             // an arm and this list did not, and every test called the reducer
             // directly. A key advertised and bound to nothing is the shape
             // ShellHandledTests exists for, one modal down.
+            // WHERE THE SETTINGS ARE READ. `e` is the envelope pane in Normal
+            // mode and stays it - the modal owns the keyboard while it is open,
+            // which is what makes one letter safe in two places. Bound for the
+            // whole modal rather than only the Environment page, because
+            // knowing which page is showing would mean a new field on
+            // KeymapContext and every property test's cross-product doubling
+            // for a distinction a person does not feel.
+            new(KeyStroke.Char('e'), Command.EditConfiguration, "edit the configuration")
+            {
+                // LABELLED, BECAUSE THE ALL-OR-NOTHING RULE MEANS IT MUST BE.
+                // An unlabelled answer here takes the help page's buttons away
+                // entirely rather than adding one that does nothing - which is
+                // the rule working, and it fired on this the first time.
+                //
+                // A click opens an editor on this machine's own configuration.
+                // That tears the console down, and it is recoverable by
+                // quitting without saving - the same size of consequence as
+                // turning the page beside it.
+                Label = "Edit file",
+            },
+
             new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment")
             {
                 // NOT "Keys" OR "Environment", EITHER OF WHICH IS WRONG HALF

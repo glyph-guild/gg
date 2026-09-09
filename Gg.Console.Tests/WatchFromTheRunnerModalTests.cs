@@ -47,6 +47,11 @@ public class WatchFromTheRunnerModalTests
         Label = "vmlinux001",
         State = flying is null ? RunnerStates.Idle : RunnerStates.Busy,
         CurrentFlightNumber = flying,
+
+        // WHERE THE FLIGHT ID COMES FROM. The row shows a NUMBER because that
+        // is what a person types; the pane needs an id, and the fleet answer is
+        // the only place this console has both.
+        CurrentFlightId = flying is null ? null : TheFlight,
         LastHeartbeatAt = Beat,
         RegisteredByPrincipalId = Me,
         RegisteredBy = "Kevin Deenanauth",
@@ -64,31 +69,11 @@ public class WatchFromTheRunnerModalTests
         RunnerSelected = 0,
         Runners = new RunnerList { Runners = [Runner(flying)] },
 
-        // THE QUEUE THE LIVE PANE READS. It is bound to the queue cursor, so
-        // watching has to move that cursor to the flight it just connected to -
-        // a pane pointed at whatever was under the cursor before is a pane
-        // showing somebody else's flight.
-        Queue = flying is null
-            ? []
-            :
-            [
-                new QueueRow
-                {
-                    FlightId = "another-flight",
-                    FlightNumber = "GG-1",
-                    Name = "something else",
-                    Reason = QueueReason.AwaitingDecision,
-                    Since = Beat,
-                },
-                new QueueRow
-                {
-                    FlightId = TheFlight,
-                    FlightNumber = flying,
-                    Name = "the one being watched",
-                    Reason = QueueReason.AwaitingDecision,
-                    Since = Beat,
-                },
-            ],
+        // NO QUEUE, WHICH IS THE ORDINARY CASE AND THE ONE THAT WAS BROKEN.
+        // The queue is a queue of PROBLEMS - awaiting a decision, a lease
+        // expired twice, a runner gone - so a flight that is simply flying is
+        // never in it. Binding the pane to the queue cursor meant watching
+        // worked for exactly the flights nobody wants to watch.
     };
 
     [Test]
@@ -167,9 +152,10 @@ public class WatchFromTheRunnerModalTests
             .Because("a watch that connected and showed nothing is a watch a person cannot "
                    + "tell from one that failed.");
 
-        await Assert.That(after.Selected?.FlightId).IsEqualTo(TheFlight)
-            .Because("the live pane is bound to the queue cursor, so a watch that did not "
-                   + "move it draws whatever flight happened to be under it before.");
+        await Assert.That(after.WatchedFlightId).IsEqualTo(TheFlight)
+            .Because("the pane needs to be told WHICH flight, and the queue cursor cannot "
+                   + "say: the queue holds flights that need somebody, and one being watched "
+                   + "is usually just flying.");
     }
 
     [Test]
@@ -220,21 +206,44 @@ public class WatchFromTheRunnerModalTests
     }
 
     [Test]
-    public async Task A_flight_the_queue_does_not_hold_is_not_watched()
+    public async Task A_fleet_that_does_not_say_which_flight_is_not_watched()
     {
-        // THE PANE CANNOT DRAW WHAT THE QUEUE DOES NOT HAVE. The runner row
-        // carries a flight NUMBER and the pane needs an ID, and the queue is
-        // where the two meet - so a runner flying something this console has
-        // not loaded yet is a connect with nowhere to put the output.
+        // THE ROW SHOWS A NUMBER AND THE PANE NEEDS AN ID. The fleet answer
+        // carries both; a row without the id is one this console cannot key a
+        // buffer under, which is a refusal rather than a blank box.
         var reached = false;
 
+        var state = State("GG-71");
+        var blind = state with
+        {
+            Runners = new RunnerList
+            {
+                Runners = [state.Runners!.Runners[0] with { CurrentFlightId = null }],
+            },
+        };
+
         var after = ConsoleWatchRunner.Watch(
-            State("GG-71") with { Queue = [] },
-            (_, _, _) => { reached = true; return true; },
-            say: _ => { });
+            blind, (_, _, _) => { reached = true; return true; }, say: _ => { });
 
         await Assert.That(reached).IsFalse();
         await Assert.That(after.LastRunner).Contains("GG-71")
-            .Because("it has to name the flight it could not find. Said: " + after.LastRunner);
+            .Because("it has to name the flight it could not place. Said: " + after.LastRunner);
+    }
+
+    [Test]
+    public async Task A_flight_that_is_only_flying_is_watchable()
+    {
+        // THE WHOLE DEFECT, AS A ROW. GG-77 was started, watched, and nothing
+        // appeared: the pane was bound to the queue cursor and the queue is a
+        // queue of PROBLEMS - awaiting a decision, a lease expired twice, a
+        // runner gone. A flight that is simply flying is in none of those, so
+        // watching worked for exactly the flights nobody wants to watch.
+        var after = ConsoleWatchRunner.Watch(
+            State("GG-77"), (_, _, _) => true, say: _ => { });
+
+        await Assert.That(after.Queue).IsEmpty()
+            .Because("this is the case that was broken and it has to stay the case.");
+        await Assert.That(after.WatchedFlightId).IsEqualTo(TheFlight);
+        await Assert.That(after.LiveVisible).IsTrue();
     }
 }

@@ -254,10 +254,27 @@ public class BeatsWhileFlyingTests
     }
 
     [Test]
-    public async Task An_introduction_is_taken_up_while_the_agent_is_still_working()
+    public async Task Any_flight_can_be_watched_and_not_only_one_opened_to_be()
     {
+        // THE MARKER WAS A SECOND LOCK ON A DOOR THAT ALREADY HAD ONE. A channel
+        // exists only while a flight does - the `using` in WorkAsync is the whole
+        // of that - and the control plane refuses to introduce anybody but the
+        // principal who REGISTERED the runner, with a 403 that says so: "only the
+        // registrant may, and that is stricter than flying at it, which any
+        // principal here may do."
+        //
+        // WHAT IT COST was the ordinary case. A flight opened from the console,
+        // or by a schedule, or by anybody who did not think to pass --attended,
+        // was unwatchable on a machine its owner can already `ssh` into and
+        // `cat` the live view of. The channel grants no capability the operator
+        // lacks; it is a remote reader for a file they own, which is the same
+        // argument the runner modal already makes for the ssh line beside it.
+        //
+        // WHAT THE MARKER STILL DOES is control-plane side and unchanged: a
+        // flight opened attended that nobody comes to watch is GROUNDED, which
+        // is a promise about a person turning up rather than a permission.
         var flown = await FlyAsync(
-            attended: true,
+            attended: false,
             wiredToBeDriven: true,
             introduceMidFlight: new PendingIntroduction
             {
@@ -272,10 +289,32 @@ public class BeatsWhileFlyingTests
         await Assert.That(flown.Observer.Events.Any(
                 e => e.StartsWith("not-reachable:", StringComparison.Ordinal))).IsTrue()
             .Because("an introduction rides the heartbeat and is answered by a session that "
-                   + "exists for the flight. A runner that does not beat while it flies, or "
-                   + "whose session begins after the work ends, can never be reached during "
-                   + "the one window a person actually wants: while the agent is working. "
-                   + "Said: " + string.Join(" | ", flown.Observer.Events));
+                   + "exists for the flight - any flight. A runner that opens one only for a "
+                   + "flight somebody remembered to mark cannot be watched in the case that "
+                   + "actually arises. Said: " + string.Join(" | ", flown.Observer.Events));
+    }
+
+    [Test]
+    public async Task A_runner_nobody_wired_to_be_driven_still_cannot_be()
+    {
+        // THE LOCK THAT IS NOT BEING REMOVED. Gg.Runner never goes looking for
+        // the private key: it lives on the machine, never leaves it, and the
+        // composition root either hands in a way to open a session or does not.
+        // Widening WHICH FLIGHTS may be watched must not widen WHICH RUNNERS.
+        var flown = await FlyAsync(
+            attended: false,
+            wiredToBeDriven: false,
+            introduceMidFlight: new PendingIntroduction
+            {
+                IntroductionId = "introduction-1",
+                Offer = new RunnerSealedOffer { Sealed = [1, 2, 3, 4] },
+            });
+
+        await Assert.That(flown.Observer.Events.Any(
+                e => e.StartsWith("not-reachable:", StringComparison.Ordinal))).IsFalse()
+            .Because("a runner with no key answers nothing, and an introduction arriving at "
+                   + "one is ignored rather than refused. Said: "
+                   + string.Join(" | ", flown.Observer.Events));
     }
 
     [Test]

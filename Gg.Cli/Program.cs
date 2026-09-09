@@ -93,9 +93,9 @@ return CliArgs.Parse(args) switch
     CliAction.EnvelopeValidate check => EmitLocal(check.Json, () =>
         EnvelopeCommands.Validate(ReadEnvelope(check.Source))),
 
-    // THE CONFIG VERBS, none of which contacts anything either. Configuration
-    // is a fact about this machine, so a person on a plane can still read it,
-    // check it and change it.
+    // THE FIRST FOUR CONFIG VERBS CONTACT NOTHING. What this machine is
+    // configured to do is a fact about this machine, so a person on a plane can
+    // still read it, check it and change it.
     CliAction.ConfigShow show => EmitLocal(show.Json, () =>
         ConfigCommands.Show(
             ConsoleEnvironment.Read(InForce.Configuration),
@@ -112,6 +112,16 @@ return CliArgs.Parse(args) switch
 
     CliAction.ConfigSet set => EmitLocal(set.Json, () =>
         ConfigCommands.Set(path: null, set.Key, set.Value)),
+
+    // AND THESE TWO DO CONTACT SOMETHING, which is why they are not beside the
+    // four above. An offer is a fact about somebody else's control plane, so it
+    // takes a session and a network - and wired through EmitLocal they would
+    // build no client, read no session, and report that nothing is offered.
+    CliAction.ConfigOffered offered => await OfferAsync(
+        offered.Json, o => ConfigCommands.Offered(o, InForce.Configuration)),
+
+    CliAction.ConfigAccept accept => await OfferAsync(
+        accept.Json, o => ConfigCommands.Accept(o, accept.Version)),
 
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
@@ -172,6 +182,65 @@ static int EmitLocal(bool json, Func<VerbResult> run)
     catch (UnauthorizedAccessException unreadable)
     {
         return Fail(unreadable.Message);
+    }
+}
+
+/// <summary>
+/// The two config verbs that read an offer, and what they refuse.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The fetch is here and the decision is not.</b> This resolves the session,
+/// asks the control plane once, and hands the answer to a static command that
+/// contacts nothing - so what a machine does with an offer is testable with
+/// nothing running, and this harness is the only place that has to be right
+/// about the network.
+/// </para>
+/// <para>
+/// <b>A refused offer exits non-zero.</b> It is a produced answer rather than a
+/// throw - a control plane offering something this gg will not take is exactly
+/// what a person needs told - and `gg config validate` has already been the
+/// verb that reported a refusal and exited 0 here, because the tests asserted
+/// the result and this layer decides the code.
+/// </para>
+/// </remarks>
+static async Task<int> OfferAsync(
+    bool json, Func<Gg.Contracts.OfferedConfiguration?, VerbResult> run)
+{
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    try
+    {
+        var session = new FileSessionStore().Read()?.SessionToken
+            ?? throw new NotSignedInException("Not signed in. Run gg login.");
+
+        var offered = await new ControlPlaneClient(http).OfferedConfigurationAsync(session);
+        var result = run(offered);
+
+        Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
+
+        return ExitCodes.For(result);
+    }
+    catch (NotSignedInException refusal)
+    {
+        return Fail(refusal.Message);
+    }
+    catch (Gg.Client.ConfigurationRefused refused)
+    {
+        return Fail(refused.Message);
+    }
+    catch (ProtocolTooOldException behind)
+    {
+        return Fail(behind.Message);
+    }
+    catch (HttpRequestException unreachable)
+    {
+        return Fail(unreachable.Message);
+    }
+    catch (IOException unwritable)
+    {
+        return Fail(unwritable.Message);
     }
 }
 
@@ -528,7 +597,7 @@ static async Task<int> BundleAsync(bool json)
     var client = new ControlPlaneClient(http);
     var report = await new Doctor(
             client, sessions, new FileCredentialStore(), new Uri(baseAddress),
-            // THROUGH THE ONE READER, like every other configurable value the root
+        // THROUGH THE ONE READER, like every other configurable value the root
         // resolves. Called argumentless this falls back to the environment,
         // which is right for a runner in its own process and wrong here: this
         // process has the file, and a `stun-servers` line in it would reach
@@ -654,29 +723,29 @@ static async Task<int> LaunchConsoleAsync()
         // they may be sharing and into the state dump. These are the variables
         // gg itself reads, and every one is named where it is read.
         with
-        {
-            Settings = ConsoleEnvironment.Read(InForce.Configuration),
+    {
+        Settings = ConsoleEnvironment.Read(InForce.Configuration),
 
-            // WHICH RUNNER IN THE FLEET IS THIS MACHINE'S. The id, and only the
-            // id: StoredRunner beside it holds a runner token, and this model is
-            // serialized under GG_STATE_DUMP and handed to the diagnostics
-            // bundle. Read here for the reason the principal is - it is a file
-            // this machine already wrote, not a verb.
-            // THE NAMED SLOT, which is the one `gg runner up` writes. The
-            // unnamed one is `gg runner maintain`'s and keeps its name so an
-            // upgrade does not take a pool host down - reading it here said a
-            // pool host's maintain runner was the one you are sitting at, and
-            // on a laptop said there was no runner at all while one was up.
-            LocalRunnerId = new FileRunnerStore(
+        // WHICH RUNNER IN THE FLEET IS THIS MACHINE'S. The id, and only the
+        // id: StoredRunner beside it holds a runner token, and this model is
+        // serialized under GG_STATE_DUMP and handed to the diagnostics
+        // bundle. Read here for the reason the principal is - it is a file
+        // this machine already wrote, not a verb.
+        // THE NAMED SLOT, which is the one `gg runner up` writes. The
+        // unnamed one is `gg runner maintain`'s and keeps its name so an
+        // upgrade does not take a pool host down - reading it here said a
+        // pool host's maintain runner was the one you are sitting at, and
+        // on a laptop said there was no runner at all while one was up.
+        LocalRunnerId = new FileRunnerStore(
                 FileRunnerStore.PathFor(Environment.MachineName)).Read()?.RunnerId,
 
-            // THE SAME NAME A RUNNER REGISTERS AS ITS LABEL, which is what
-            // makes it the join between the fleet and the person reading it.
-            // One place reads what this machine is called; Rows is pure and
-            // must not, or the fleet's order would depend on the host a test
-            // runs on.
-            Machine = Environment.MachineName,
-        };
+        // THE SAME NAME A RUNNER REGISTERS AS ITS LABEL, which is what
+        // makes it the join between the fleet and the person reading it.
+        // One place reads what this machine is called; Rows is pure and
+        // must not, or the fleet's order would depend on the host a test
+        // runs on.
+        Machine = Environment.MachineName,
+    };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
     // arguments that only tests ever supplied, so the console's takeover key

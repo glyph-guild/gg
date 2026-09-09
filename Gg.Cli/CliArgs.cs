@@ -291,6 +291,25 @@ public abstract record CliAction
     public sealed record ConfigSet(string Key, string Value, bool Json)
         : CliAction, IEmitsResult;
 
+    /// <summary>What this control plane offers, against what is in force.</summary>
+    /// <remarks>
+    /// <b>The first config verb that contacts anything.</b> Its four siblings
+    /// are facts about this machine and work on a plane; an offer is a fact
+    /// about somebody else's control plane, so this one needs a session.
+    /// </remarks>
+    public sealed record ConfigOffered(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Takes the offer whose version was named.</summary>
+    /// <remarks>
+    /// <b>The version is required, and that is the safety property.</b> A bare
+    /// <c>accept</c> would be consent to whatever arrives: a control plane can
+    /// change its offer between somebody reading one and taking it, and the
+    /// whole reason a directed key may be offered is that a person saw what was
+    /// being repointed.
+    /// </remarks>
+    public sealed record ConfigAccept(string Version, bool Json)
+        : CliAction, IEmitsResult;
+
     public sealed record Unknown(string Message) : CliAction;
 }
 
@@ -562,8 +581,9 @@ public static class CliArgs
                 "gg envelope validate needs a file, or - to read the envelope from stdin."),
             ["envelope", ..] => Unknown("gg envelope takes show, apply or validate."),
 
-            // NONE OF THESE CONTACTS ANYTHING. Configuration is a fact about
-            // this machine, so every one works with no session and no network.
+            // THE FIRST FOUR CONTACT NOTHING. What this machine is configured
+            // to do is a fact about this machine, so show, init, set and
+            // validate work with no session and no network.
             ["config", "show"] => new CliAction.ConfigShow(json),
             ["config", "init"] => new CliAction.ConfigInit(json),
             ["config", "set", var key, var value] => new CliAction.ConfigSet(key, value, json),
@@ -572,7 +592,21 @@ public static class CliArgs
             ["config", "validate", var source] => new CliAction.ConfigValidate(source, json),
             ["config", "validate"] => Unknown(
                 "gg config validate needs a file, or - to read one from stdin."),
-            ["config", ..] => Unknown("gg config takes show, init, set or validate."),
+            // AND THESE TWO DO, because an offer is a fact about somebody
+            // else's control plane rather than about this machine.
+            ["config", "offered"] => new CliAction.ConfigOffered(json),
+            ["config", "accept", var version] => new CliAction.ConfigAccept(version, json),
+
+            // THE VERSION IS REQUIRED, and the refusal says where one comes
+            // from. A bare `accept` would be consent to whatever arrives, and
+            // somebody who does not know the version needs telling what to run
+            // rather than that an argument is missing.
+            ["config", "accept", ..] => Unknown(
+                "gg config accept needs the version of the offer you read, as `gg config "
+              + "accept offer@7`. Run `gg config offered` to see what is offered and the "
+              + "exact line to run."),
+            ["config", ..] => Unknown(
+                "gg config takes show, init, set, validate, offered or accept."),
 
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),
@@ -600,13 +634,13 @@ public static class CliArgs
             ["fly", var text, "--repo", var repo] when !Option(text) =>
                 new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand, Runner: runner, Attended: attended),
 
-            // A trailing `--repo` is somebody who meant to name one. Falling
-            // through to the says-two-things arm below would diagnose the wrong
-            // half of the line, and taking it as no repository would open work
-            // against an empty tree and report success.
-            ["fly", _, _, "--repo"] or ["fly", _, "--repo"] => Unknown(
-                "gg fly --repo needs the name a repository is registered under, e.g. "
-              + "--repo payments. Run gg airspace show to see them."),
+                // A trailing `--repo` is somebody who meant to name one. Falling
+                // through to the says-two-things arm below would diagnose the wrong
+                // half of the line, and taking it as no repository would open work
+                // against an empty tree and report success.
+                ["fly", _, _, "--repo"] or ["fly", _, "--repo"] => Unknown(
+                    "gg fly --repo needs the name a repository is registered under, e.g. "
+                  + "--repo payments. Run gg airspace show to see them."),
 
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand, Runner: runner, Attended: attended),
             ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand, runner: runner, attended: attended),

@@ -157,6 +157,19 @@ public static class FactKinds
     /// </remarks>
     public const string LoopAttended = "loop.attended";
 
+    /// <summary>
+    /// A change an agent proposes be made to a work item in a tracker.
+    /// </summary>
+    /// <remarks>
+    /// The SECOND kind that is an agent's request rather than a measurement,
+    /// and the argument for a second is that it asks for a different thing: a
+    /// nomination asks that a flight exist, and this asks that somebody else's
+    /// backlog change. One fact per proposal, so a person can say yes to the
+    /// re-field and no to the link - which a fact carrying a list would leave
+    /// nowhere to say.
+    /// </remarks>
+    public const string WorkItemProposal = "work-item.proposal";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -171,7 +184,7 @@ public static class FactKinds
          DestinationPushed,
          LoopDigest,
          HumanAccount,
-         FlightNomination, LoopQuestion, LoopAttended];
+         FlightNomination, LoopQuestion, LoopAttended, WorkItemProposal];
 }
 
 /// <summary>
@@ -316,7 +329,7 @@ public static class FactVocabulary
     /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
     /// none still never crosses from a working runner - a broken bound
     /// releases the lease with the diagnosis instead of shipping anything.
-    public const string Version = "0.27.0";
+    public const string Version = "0.28.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -977,6 +990,17 @@ public sealed record FactEnvelope
     /// </remarks>
     public LoopAttended? Attended { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.WorkItemProposal"/>.
+    /// </summary>
+    /// <remarks>
+    /// Its own slot beside <see cref="Nomination"/> rather than sharing one,
+    /// because they ask for different things and a reader who could not tell
+    /// them apart would read a request to change somebody's backlog as a
+    /// request to open a flight.
+    /// </remarks>
+    public WorkItemProposal? Proposal { get; init; }
+
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
@@ -1020,6 +1044,7 @@ public sealed record FactEnvelope
             (FactKinds.LoopDigest, envelope.LoopDigest is not null),
             (FactKinds.HumanAccount, envelope.Human is not null),
             (FactKinds.FlightNomination, envelope.Nomination is not null),
+            (FactKinds.WorkItemProposal, envelope.Proposal is not null),
             (FactKinds.LoopQuestion, envelope.Question is not null),
             (FactKinds.LoopAttended, envelope.Attended is not null),
         };
@@ -1062,6 +1087,12 @@ public sealed record FactEnvelope
             && LoopQuestion.Validate(question) is { } badQuestion)
         {
             return badQuestion;
+        }
+
+        if (envelope.Proposal is { } proposal
+            && WorkItemProposal.Validate(proposal) is { } badProposal)
+        {
+            return badProposal;
         }
 
         if (envelope.Attended is { } attended

@@ -95,6 +95,14 @@ public static class FactCategories
         // how long they held it, what the machine could not see - and names no
         // subject at all, so Tree would make it unproducible by the one kind of
         // flight that produces it.
+        // AN ASK ABOUT SOMEBODY ELSE'S BACKLOG IS STILL ABOUT THIS EPISODE.
+        // The nomination's argument exactly, one subject over: a triage flight
+        // may take no repository at all - it reads a tracker - so filing this
+        // under Tree would make it unproducible by the only kind of flight that
+        // produces it, and every rule reading it structurally inapplicable, for
+        // ever and silently.
+        [FactKinds.WorkItemProposal] = Flight,
+
         [FactKinds.LoopAttended] = Flight,
         [FactKinds.DestinationPushed] = Flight,
         [FactKinds.DestinationLanded] = Flight,

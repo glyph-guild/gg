@@ -132,7 +132,7 @@ public class SliceTwelveGuardTests
     /// extractor and admission both read. The count below is unchanged, which
     /// is what this guard is for.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.27.0";
+    private const string VocabularyAtSliceStart = "0.28.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -180,7 +180,32 @@ public class SliceTwelveGuardTests
     /// and two would be a habit of describing sessions nothing watched.
     /// </para>
     /// </remarks>
-    private const int KindsThatCross = 12;
+    /// <para>
+    /// <b>THIRTEEN, and here is the argument the count asked for.</b> Every
+    /// entry above this one moved the vocabulary version without moving the
+    /// count - four running - which is what made those rows cheap and this one
+    /// not. <c>work-item.proposal</c> is a KIND: a change an agent proposes be
+    /// made to a work item in somebody's tracker.
+    /// </para>
+    /// <para>
+    /// <b>It survives both prior arguments against a new kind, and it survives
+    /// the third one this file added.</b> It belongs to a flight, so it is not
+    /// the flightless path the attestation was refused for. It is runner-origin
+    /// and it is read from a tool call rather than from prose, so it is not a
+    /// sentence wearing a fact's name. And it is not a second declaration of an
+    /// absence - the direction this guard says would be worth stopping over.
+    /// </para>
+    /// <para>
+    /// <b>Two of thirteen are now an agent's request.</b> That is the number
+    /// worth watching next, not the total: <c>flight.nomination</c> asks that a
+    /// flight exist and this asks that a backlog change, and both are held
+    /// against a menu a person wrote. A THIRD ask would be worth stopping over
+    /// for the reason the second was worth arguing - the pressure on this
+    /// vocabulary runs one way, towards facts that are configuration an agent
+    /// writes, and the thing that has held it back so far is that every ask
+    /// crosses as a value and is answered by an admission.
+    /// </para>
+    private const int KindsThatCross = 13;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

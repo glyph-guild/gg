@@ -75,6 +75,37 @@ public sealed record Configuration
     /// <summary>The scope-enforcing proxy a pool maintainer works through.</summary>
     public string? PoolEndpoint { get; init; }
 
+    /// <summary>
+    /// Whether this machine accepts configuration a control plane offers.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Off unless it is here and true, and it is NOT an offerable key</b> —
+    /// which is the whole safety argument for offered configuration rather than
+    /// a detail of it. A control plane that could set this would be granting
+    /// itself the ability to configure the machine.
+    /// </para>
+    /// <para>
+    /// <b>And it has no environment variable either.</b> A variable would be a
+    /// second way to turn it on, and one that a container image or a systemd
+    /// unit could carry without anybody reading it. Turning this on means
+    /// opening the file, which is the deliberate amount of friction for a
+    /// decision to let something else configure your machine.
+    /// </para>
+    /// </remarks>
+    public bool? AcceptOffered { get; init; }
+
+    /// <summary>
+    /// Whether an accepted offer applies with nobody watching.
+    /// </summary>
+    /// <remarks>
+    /// <b>For a pool member, where there is no person to show it to.</b> Also
+    /// not offerable and also without a variable, for
+    /// <see cref="AcceptOffered"/>'s reasons — and useless on its own, since
+    /// nothing is accepted at all until that one is true.
+    /// </remarks>
+    public bool? AcceptUnattended { get; init; }
+
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 

@@ -214,8 +214,13 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
         await Assert.That(RunnerDetails.LogAbsence(State(ours, new RunnerHere { Pid = 4242 })))
             .Contains("nothing yet");
 
+        // THE SECOND SILENCE, SAID SHORTER. It used to open "This console did
+        // not start it, so there is no log here to read" and then explain for
+        // five more lines; the distinction this test is about is which silence,
+        // not how long it takes to say so. Busy() is flying something, so the
+        // pane offers the key rather than a sentence about idleness.
         await Assert.That(RunnerDetails.LogAbsence(State(Busy())))
-            .Contains("did not start it");
+            .Contains("No log is available here");
 
         await Assert.That(RunnerDetails.LogAbsence(
                 State(ours, new RunnerHere { Pid = 4242, Log = ["something"] })))

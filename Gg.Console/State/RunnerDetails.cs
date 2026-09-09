@@ -268,8 +268,21 @@ public static class RunnerDetails
 
         if (Rows.Selected(state) is { Mine: false } elsewhere)
         {
-            return "This console did not start it, so there is no log here to read. What it "
-                 + "says is on the machine it is running on."
+            // ONE TRUE SENTENCE, THEN ONE COMMAND. This used to open with a
+            // paragraph about why there is no log here, follow it with a watch
+            // line and an explanation, and finish with two ssh commands and
+            // another explanation - six lines of prose in a box where a log
+            // goes, for a machine that is usually sitting idle.
+            //
+            // WHAT IT SAYS DEPENDS ON WHETHER THERE IS ANYTHING TO SAY. Idle,
+            // there is no log to fetch and nothing to watch, and everything
+            // after the first sentence is about something that is not
+            // happening. Flying, the one actionable thing is the key.
+            return (elsewhere.Work is { Length: > 0 } flying
+                    ? $"No log is available here. It is flying {flying} - press {WatchKey()} "
+                    + "to watch what it is saying, over a channel this control plane relays "
+                    + "and cannot read."
+                    : "No log is available when idle.")
                  + Suggestion(elsewhere);
         }
 
@@ -359,42 +372,32 @@ public static class RunnerDetails
         // So it is named either way and the difference is in the words: an offer
         // when there is something to watch, and a statement of when it applies
         // when there is not.
-        var watch = $"\n\n  gg runner watch {row.Id}\n\n"
-            + (row.Work is { Length: > 0 } flying
-                ? $"What {flying} is saying, as it says it, over a channel this control plane "
-                + "relays and cannot read. It answers only for a flight opened to be watched; "
-                + "an ordinary flight has no channel, however healthy the machine is. "
-                // AND THE CONSOLE WILL RUN IT. This paragraph named a command
-                // and nothing here could run it, which is a console that knows
-                // the answer and makes a person leave to use it. The key is
-                // READ OFF THE KEYMAP rather than spelled here, because a
-                // letter written in two places is a letter that drifts.
-                + $"Press {WatchKey()} and this console hands the terminal over; Ctrl-C brings "
-                + "it back."
-                : "What its flight is saying, while it is flying one opened to be watched. "
-                + "Nothing is in the air on this machine right now, so there is nothing to "
-                + "watch yet - a channel to a runner exists only while a flight does, which "
-                + "is what stops it being a standing way in.");
 
         if (label.EndsWith(":maintain", StringComparison.Ordinal))
         {
-            return watch + $"\n\n  ssh {machine} sudo journalctl -u gg-runner-maintain -n 200\n\n"
-                 + "That is the unit gg ships for a pool runner, so the command is a fact "
-                 + "about our packaging. Whether that host answers to this name is not.";
+            return $"\n\n  ssh {machine} sudo journalctl -u gg-runner-maintain -n 200\n\n"
+                 + "Suggested, not reported: that unit is one gg ships, and whether this host "
+                 + "answers to that name is not something the control plane said.";
         }
 
         if (label.EndsWith(":hand", StringComparison.Ordinal))
         {
-            return watch + $"\n\n  ssh {machine} tail -n 200 {LogPath}\n\n"
-                 + "A console started that one, so gg wrote the file. Suggested rather than "
-                 + "reported: nothing here came from the control plane.";
+            return $"\n\n  ssh {machine} tail -n 200 {LogPath}\n\n"
+                 + "Suggested, not reported: a console started that one so gg wrote the file, "
+                 + "and nothing here came from the control plane.";
         }
 
-        return watch + $"\n\n  ssh {machine} tail -n 200 {LogPath}\n"
+        // BOTH, BECAUSE GG CANNOT TELL WHICH. `gg runner up` can be started by a
+        // console or by a service manager and the console cannot know which
+        // did; choosing one would be right about half a fleet. Cutting this to
+        // one was tried and the guard for it fired, correctly - what was worth
+        // cutting was the paragraph, not the second command.
+        return $"\n\n  ssh {machine} tail -n 200 {LogPath}\n"
              + $"  ssh {machine} sudo journalctl -u 'gg-runner-*' -n 200\n\n"
-             + "One of the two: gg writes the file when a console starts a runner, and a "
-             + "service manager keeps the output itself when one starts it instead. Which "
-             + "is which is not something the control plane reports.";
+             + "One of the two, suggested rather than reported: gg writes the file when a "
+             + "console starts a runner and a service manager keeps the output itself when "
+             + "one starts it instead, and which is which is not something the control plane "
+             + "says.";
     }
 
     /// <summary>The key that watches, as the keymap spells it.</summary>

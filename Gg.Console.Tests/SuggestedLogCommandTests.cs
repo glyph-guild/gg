@@ -27,6 +27,27 @@ public class SuggestedLogCommandTests
         Here: " ", Runner: "01a06385  " + label, State: "offline", Work: work,
         Labels: "", Heard: "");
 
+    /// <summary>A fleet with one runner nobody here started.</summary>
+    private static AppState Flying(string label, string? flying) => new()
+    {
+        RunnerSelected = 0,
+        Runners = new Gg.Contracts.RunnerList
+        {
+            Runners =
+            [
+                new Gg.Contracts.RunnerSummary
+                {
+                    RunnerId = "01a06385-322f-7371-93a2-ce35db5c4fbe",
+                    Label = label,
+                    State = flying is null
+                        ? Gg.Contracts.RunnerStates.Idle
+                        : Gg.Contracts.RunnerStates.Busy,
+                    CurrentFlightNumber = flying,
+                },
+            ],
+        },
+    };
+
     [Test]
     public async Task A_pool_runner_is_pointed_at_the_unit_gg_ships()
     {
@@ -80,13 +101,12 @@ public class SuggestedLogCommandTests
         {
             var said = RunnerDetails.Suggestion(Row(label));
 
-            await Assert.That(said.Contains("not something the control plane reports",
-                                  StringComparison.Ordinal)
-                           || said.Contains("Suggested rather than reported",
-                                  StringComparison.Ordinal)
-                           || said.Contains("is not.", StringComparison.Ordinal))
+            await Assert.That(said.Contains("Suggested", StringComparison.OrdinalIgnoreCase)
+                || said.Contains("not something the control plane", StringComparison.Ordinal))
                 .IsTrue()
-                .Because($"'{label}' offered a command with nothing saying gg is guessing.");
+                .Because("gg is guessing about somebody else's machine and has to say so. The "
+                       + "wording moved when the paragraph was cut; the admission did not. "
+                       + "Said: " + said);
         }
     }
 
@@ -139,10 +159,11 @@ public class SuggestedLogCommandTests
 
         await Assert.That(absence).Contains("journalctl -u gg-runner-maintain")
             .Because("a suggestion the pane never renders is a function nobody calls.");
-        await Assert.That(absence).Contains("no log here to read")
-            .Because("the sentence that was already there says WHY there is nothing, and the "
-                   + "command says what to do about it. Both, or the second reads as an "
-                   + "error message.");
+        await Assert.That(absence).Contains("No log is available")
+            .Because("the sentence says WHY there is nothing and the command says what to do "
+                   + "about it - both, or the second reads as an error message. It used to "
+                   + "open with a paragraph; the property is that it says why, not how long "
+                   + "it takes to.");
     }
 
     [Test]
@@ -151,48 +172,42 @@ public class SuggestedLogCommandTests
         // THE GAP THIS CLOSES. Everything the slice built was reachable from
         // nowhere: a person arriving at this modal found an ssh command and no
         // way to use the channel, the seal or the runner's session.
-        var said = RunnerDetails.Suggestion(Row("vmlinux001", work: "GG-1042"));
+        //
+        // AND IT IS THE KEY NOW, NOT THE COMMAND. When this was written the
+        // console could only NAME `gg runner watch`; pressing `w` does it, from
+        // this modal, without leaving. The property is unmoved - a capability
+        // nobody can see is one nobody learns - and the letter is read off the
+        // keymap rather than typed here, so the two cannot drift.
+        var said = RunnerDetails.LogAbsence(Flying("vmlinux001", "GG-71"));
 
-        await Assert.That(said).Contains("gg runner watch 01a06385-322f-7371-93a2-ce35db5c4fbe")
-            .Because("this modal is where a person arrives wanting to know what a machine they "
-                   + "cannot reach is doing, and it is where the way to find out belongs.");
+        await Assert.That(said).Contains("`w`")
+            .Because("this modal is where somebody arrives wanting to know what a machine "
+                   + "they cannot reach is doing. Said: " + said);
 
-        await Assert.That(said).Contains("GG-1042")
-            .Because("naming the flight is what makes it an offer about something rather than "
-                   + "a command to try.");
-
-        await Assert.That(said).Contains("opened to be watched")
-            .Because("an ordinary flight has no channel, and a person told to run a command "
-                   + "that cannot work is worse off than one told nothing.");
-
-        await Assert.That(said).Contains("ssh vmlinux001")
-            .Because("both belong here: watch is what the FLIGHT is saying, and ssh is what "
-                   + "the RUNNER is doing. They answer different questions.");
+        await Assert.That(said).Contains("GG-71")
+            .Because("naming what it is flying is what makes the offer about something. "
+                   + "Said: " + said);
     }
 
     [Test]
-    public async Task A_runner_flying_nothing_is_told_when_watching_would_work()
+    public async Task A_runner_flying_nothing_is_told_nothing_it_cannot_use()
     {
-        // NAMED EITHER WAY, and this is a correction. The first version showed
-        // the verb only while something was flying, on the reasoning that
-        // offering a command which cannot work is what this method exists not to
-        // do. That is right about the ssh lines - they are offered as runnable
-        // NOW - and wrong here: it made the capability invisible on an idle
-        // fleet, which is most of the time, and a person who never sees it never
-        // learns it exists.
-        var said = RunnerDetails.Suggestion(Row("vmlinux001"));
+        // A CORRECTION OF A CORRECTION. The first version showed the verb only
+        // while something was flying; the second showed it always, so that a
+        // person on an idle fleet - which is most of the time - would learn the
+        // capability exists at all. That was right while the only way in was a
+        // command somebody had to be told about.
+        //
+        // It is a KEY now, and a key is advertised on the hint line the moment
+        // it is live. So the pane stops explaining a verb that cannot work here
+        // and says the one true thing instead, which is what an idle runner
+        // has: nothing.
+        var said = RunnerDetails.LogAbsence(Flying("vmlinux001", flying: null));
 
-        await Assert.That(said).Contains("gg runner watch")
-            .Because("this modal is where somebody arrives wanting to know what a machine they "
-                   + "cannot reach is doing, and a capability nobody can see is one nobody "
-                   + "has.");
+        await Assert.That(said).StartsWith("No log is available when idle.");
 
-        await Assert.That(said).Contains("Nothing is in the air on this machine right now")
-            .Because("naming it without saying it would not work now is how a person comes to "
-                   + "believe the feature is broken.");
-
-        await Assert.That(said).Contains("ssh vmlinux001")
-            .Because("there is still something runnable to suggest, and losing it would be a "
-                   + "worse answer than the one before this change.");
+        await Assert.That(said.Contains("`w`", StringComparison.Ordinal)).IsFalse()
+            .Because("the key is not bound while it flies nothing, and a pane offering one "
+                   + "that is not live teaches somebody to distrust the pane. Said: " + said);
     }
 }

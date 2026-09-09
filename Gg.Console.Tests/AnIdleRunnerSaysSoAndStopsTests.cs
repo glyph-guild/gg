@@ -58,9 +58,14 @@ public class AnIdleRunnerSaysSoAndStopsTests
                    + "after that first sentence is a paragraph about something that is not "
                    + "happening. Said: " + said);
 
-        await Assert.That(said.Split('\n').Count(l => l.TrimStart().StartsWith("ssh ")))
-            .IsEqualTo(1)
-            .Because("one command a person can run, not a menu. Said: " + said);
+        // TWO COMMANDS AND NO PARAGRAPHS. Cutting to one was tried and a guard
+        // fired, correctly: `gg runner up` can be started by a console or by a
+        // service manager and this console cannot tell which, so choosing would
+        // be right about half a fleet. What was worth cutting was the essay.
+        await Assert.That(said.Split('\n').Count(l => l.Trim().Length > 0))
+            .IsLessThanOrEqualTo(5)
+            .Because("it was six lines of prose and three commands in a box where a log "
+                   + "goes. Said:\n" + said);
     }
 
     [Test]

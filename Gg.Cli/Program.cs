@@ -97,7 +97,10 @@ return CliArgs.Parse(args) switch
     // is a fact about this machine, so a person on a plane can still read it,
     // check it and change it.
     CliAction.ConfigShow show => EmitLocal(show.Json, () =>
-        ConfigCommands.Show(ConsoleEnvironment.Read(InForce.Configuration))),
+        ConfigCommands.Show(
+            ConsoleEnvironment.Read(InForce.Configuration),
+            path: null,
+            file: InForce.Configuration)),
 
     CliAction.ConfigValidate check => EmitLocal(check.Json, () =>
         ConfigCommands.Validate(ReadEnvelope(check.Source))),

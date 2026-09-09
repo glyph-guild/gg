@@ -129,10 +129,29 @@ public class AttendedExecutorTests
         // The bound is not `--allowedTools`; the bound is this.
         var arguments = Arguments(Request());
 
+        // THE PROPERTY IS UNCHANGED AND THE MECHANISM MOVED. This asserted the
+        // value was EMPTY, which cleared the operator's settings by clearing
+        // everyone's - the repository's too, so a skill in the tree a flight
+        // materialized did not register. The sources are the repository's now
+        // and the mode is pinned outright, which is stronger than absence: it
+        // does not depend on no file existing.
         var sources = arguments.ToList().IndexOf("--setting-sources");
-        await Assert.That(sources).IsGreaterThanOrEqualTo(0)
-            .Because("without it the operator's permission mode decides what this session may do.");
-        await Assert.That(arguments[sources + 1]).IsEqualTo("");
+        await Assert.That(sources).IsGreaterThanOrEqualTo(0);
+
+        await Assert.That(arguments[sources + 1]).IsEqualTo("project")
+            .Because("the flag takes the sources to load and `user` is not among them, which "
+                   + "is what keeps the operator's ~/.claude out of an attended session.");
+
+        var mode = arguments.ToList().IndexOf("--permission-mode");
+        await Assert.That(mode).IsGreaterThanOrEqualTo(0)
+            .Because("this is what the empty value used to do for free. Measured at step 0: "
+                   + "without it the session reports the operator's own `auto`; measured "
+                   + "again when the sources changed: a repository's own "
+                   + "`permissions.defaultMode: acceptEdits` wrote a file under a read-only "
+                   + "allowlist, and passing this stopped it. On an attended session nothing "
+                   + "is in the allowlist at all, so the mode IS the bound.");
+
+        await Assert.That(arguments[mode + 1]).IsEqualTo("default");
 
         await Assert.That(arguments).Contains("--strict-mcp-config");
     }

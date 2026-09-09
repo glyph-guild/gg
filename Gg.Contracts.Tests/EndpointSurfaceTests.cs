@@ -277,8 +277,21 @@ public class EndpointSurfaceTests
         // key it made - which left every runner registered before 0.125.0
         // permanently unreachable, holding a key on its own disk that nothing
         // had ever seen. Found by walking the live fleet.
+        // Moved for the offer a person fetches: GET /v1/configuration/offered -
+        // developer audience, session header, 200 or 204, and deliberately no
+        // 404 because one offer per tenant is always askable. It is the first
+        // route here whose whole justification is that a PERSON starts it. An
+        // offer rides a runner's heartbeat and still does, but three of the five
+        // offerable keys may only be taken by somebody who sees what is being
+        // repointed - and until this route, nothing that somebody could run had
+        // ever seen an offer.
+        //
+        // AND THIS ONE MOVES THE CONTRACT LEDGER TOO, unlike every entry above
+        // it. /v1/configuration joins GovernedPrefixes, which the closed
+        // vocabularies DO hash - so 0.141.0 records a real surface move rather
+        // than this file's usual "loud, and invisible to the version".
         await Assert.That(Fingerprint())
-            .IsEqualTo("90af4ab8b5009dcf29cee29c87b54447c32be24c7f1964d53c8ef289af08c6be")
+            .IsEqualTo("5d9649bb6890efc758bbf1ec15fe1d0dbbaebd5a1e39e8b8f5561b23800027a7")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

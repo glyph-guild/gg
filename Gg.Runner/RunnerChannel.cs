@@ -227,7 +227,36 @@ public sealed class RunnerChannel(
         peer.ondatachannel += channel =>
         {
             channel.onopen += () => opened.TrySetResult(true);
-            channel.onmessage += (_, _, data) => Serve(dispatch, channel, data);
+            channel.onmessage += (_, _, data) =>
+            {
+                // A MESSAGE IS PROOF OF ARRIVAL, and the strongest available:
+                // a channel that carried one was open, whatever any event did
+                // or did not say.
+                opened.TrySetResult(true);
+                Serve(dispatch, channel, data);
+            };
+
+            // AND ALREADY OPEN BY THE TIME WE ARE TOLD ABOUT IT, which is the
+            // case `onopen` cannot cover. `ondatachannel` announces a channel
+            // the far end created, and on this fork it arrives ALREADY `open` -
+            // so the subscription above is made after the event it wants has
+            // fired, and it never fires again. The channel then works perfectly
+            // and the runner reports ChannelNeverOpened a minute later, which
+            // is what the fleet did twice while the tail was on somebody's
+            // screen.
+            //
+            // AN EVENT YOU MAY HAVE MISSED IS NOT A STATE. Read the state.
+            //
+            // ALL THREE ARE KEPT, and the two added here were each measured to
+            // be sufficient ALONE - which is how "arrives already open" stopped
+            // being a guess. They cover different orderings rather than the
+            // same one three times: `onopen` for a channel that is still
+            // connecting, this for one that is not, and the message for a
+            // reading of `readyState` that is wrong about either.
+            if (channel.readyState == RTCDataChannelState.open)
+            {
+                opened.TrySetResult(true);
+            }
         };
 
         var gathered = new List<string>();

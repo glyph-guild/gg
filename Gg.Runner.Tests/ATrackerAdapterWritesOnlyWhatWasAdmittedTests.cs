@@ -152,8 +152,15 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
         // relation url names the project by GUID where the request named it by
         // NAME, and capitalises `workItems` where the route is `workitems`:
         //
-        //   asked:    https://dev.azure.com/ORG/JDX/_apis/wit/workitems/18599
-        //   returned: https://dev.azure.com/ORG/139e24b0-…/_apis/wit/workItems/18599
+        //   asked:    <host>/<org>/<project-name>/_apis/wit/workitems/18599
+        //   returned: <host>/<org>/<project-guid>/_apis/wit/workItems/18599
+        //
+        // THE HOST IS NOT NAMED HERE, and that is the neutrality guard rather
+        // than discretion: this binary is public and talks only to the control
+        // plane, so a tracker's name in it says gg knows about one. It does
+        // not - `WiqlWorkItemSource` is named for a SHAPE and the host arrives
+        // in the constructor. What is worth recording is the shape, and the
+        // shape is what is above.
         //
         // So comparing whole urls never matches, the duplicate is never seen,
         // and a retry leaves the item linked twice - the exact failure the
@@ -163,7 +170,7 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
         {
             Existing = """
             {"id":18598,"relations":[{"rel":"System.LinkTypes.Related",
-             "url":"https://dev.azure.com/ORG/139e24b0-96af-4805-8f33-7e130c310e2b/_apis/wit/workItems/18599"}]}
+             "url":"https://tracker.example/team/139e24b0-96af-4805-8f33-7e130c310e2b/_apis/wit/workItems/18599"}]}
             """,
         };
 
@@ -197,7 +204,7 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
         {
             Existing = """
             {"id":18598,"relations":[{"rel":"System.LinkTypes.Hierarchy-Reverse",
-             "url":"https://dev.azure.com/ORG/139e24b0-96af-4805-8f33-7e130c310e2b/_apis/wit/workItems/18599"}]}
+             "url":"https://tracker.example/team/139e24b0-96af-4805-8f33-7e130c310e2b/_apis/wit/workItems/18599"}]}
             """,
         };
 

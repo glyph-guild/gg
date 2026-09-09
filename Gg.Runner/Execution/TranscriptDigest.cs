@@ -634,6 +634,157 @@ public static class TranscriptDigest
         return null;
     }
 
+    /// <summary>
+    /// Every change the agent proposed, in the order it proposed them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>MANY, where <see cref="Nomination"/> is one, and the order is part of
+    /// the record.</b> A classifier nominates a single work kind and the last
+    /// answered call wins; a triage reads a backlog and proposes a dozen
+    /// changes to it. A link proposed after a re-field was proposed by an agent
+    /// that had already decided the first one, so this returns a list rather
+    /// than a set.
+    /// </para>
+    /// <para>
+    /// <b>Answered calls only</b>, the nomination's rule: an unanswered call
+    /// and an errored one are both things the agent TRIED, and neither is a
+    /// thing the platform took.
+    /// </para>
+    /// <para>
+    /// <b>And a malformed one THROWS, where a malformed nomination is silently
+    /// skipped.</b> The difference is what an absence means. A missing
+    /// nomination says the classifier declined, which is a real answer the
+    /// absence states correctly. A missing proposal says nothing at all: an
+    /// agent that proposed eleven changes and an agent whose twelfth was
+    /// dropped are indistinguishable in the record, and the second is a bug
+    /// nobody will ever see. The server refuses every malformation BEFORE
+    /// answering, and this reads only answered calls - so an answered malformed
+    /// call is a transcript that did not come from this server, which is worth
+    /// stopping the flight over rather than quietly shipping eleven.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// A call the server answered carries a payload the contract refuses.
+    /// </exception>
+    public static IReadOnlyList<Gg.Contracts.WorkItemProposal> Proposals(string transcript)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+
+        // Two passes over one walk, because a result always follows its call
+        // but nothing guarantees they are adjacent.
+        var asked = new List<(string Id, Gg.Contracts.WorkItemProposal Proposal)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                // The digest's own rule: a half-written last line is ordinary
+                // while a file is still being appended to. NOT the loud case -
+                // this is a line nobody finished writing, not a payload
+                // somebody wrote wrong.
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            Proposed(block, asked);
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        return [.. asked.Where(a => answered.Contains(a.Id)).Select(a => a.Proposal)];
+    }
+
+    /// <summary>Records a call to the proposal tool, when that is what it is.</summary>
+    /// <remarks>
+    /// <b>The refusal is here rather than at the end</b>, so the diagnosis can
+    /// name the call. A message saying a proposal was malformed, in a transcript
+    /// with twelve of them, is a message with no way into the file.
+    /// </remarks>
+    private static void Proposed(
+        JsonElement block, List<(string Id, Gg.Contracts.WorkItemProposal Proposal)> asked)
+    {
+        if (!block.TryGetProperty("name", out var name)
+            || !string.Equals(
+                name.GetString(), WorkItemProposalTool.Qualified, StringComparison.Ordinal)
+            || !block.TryGetProperty("id", out var id)
+            || id.GetString() is not { Length: > 0 } callId
+            || !block.TryGetProperty("input", out var input)
+            || input.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        // NOT INVENTED AND NOT DEFAULTED. An absent required argument is not a
+        // proposal with a hole in it, it is a payload this extractor may not
+        // complete - so it is carried through as the empty string and refused
+        // by the contract below, which owns what a whole proposal is.
+        var proposal = new Gg.Contracts.WorkItemProposal
+        {
+            Operation = Argument(input, "operation") ?? "",
+            Reason = Argument(input, "reason") ?? "",
+            Target = Argument(input, "target"),
+            Score = Argument(input, "score"),
+            // TAKEN WHOLE, because nothing here knows what it means. Cloned
+            // because the JsonDocument it belongs to is disposed with the line.
+            Detail = input.TryGetProperty("detail", out var detail)
+                     && detail.ValueKind != JsonValueKind.Null
+                ? detail.Clone()
+                : null,
+        };
+
+        // THE CONTRACT DECIDES, not this. One definition of a whole proposal,
+        // read by the server before it answers and by this before it ships -
+        // two would mean a proposal the tool took and the runner dropped.
+        if (Gg.Contracts.WorkItemProposal.Validate(proposal) is { } refused)
+        {
+            throw new InvalidOperationException(
+                $"The proposal in call '{callId}' is one this platform cannot ship: {refused} "
+              + "The tool server refuses these before it answers, so an answered call carrying "
+              + "one did not come from it.");
+        }
+
+        asked.Add((callId, proposal));
+    }
+
     /// <summary>Records a call to the nomination tool, when that is what it is.</summary>
     private static void Asked(
         JsonElement block, List<(string Id, Gg.Contracts.FlightNomination Nomination)> asked)

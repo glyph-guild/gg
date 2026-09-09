@@ -1257,6 +1257,8 @@ public static class ProtocolSurface
             [typeof(FlightNomination)] =
                 ["workKind", "reason", "note", "environment", "repository"],
         [typeof(LoopQuestion)] = ["question"],
+            [typeof(WorkItemProposal)] =
+                ["operation", "reason", "target", "score", "detail"],
             [typeof(LoopAttended)] =
                 ["loopId", "rung", "binary", "binaryVersion", "budgetSeconds", "heldSeconds",
                  "unmeasured", "settingsCleared"],
@@ -1467,7 +1469,7 @@ public static class ProtocolSurface
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
                  "loop", "transcript", "landed", "pushed", "loopDigest", "human", "nomination",
-                 "question", "attended"],
+                 "question", "attended", "proposal"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             // Refusals only: accepted and duplicates are answers the write has,

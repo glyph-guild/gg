@@ -133,14 +133,22 @@ public class ProposalExtractionTests
              ("an operation nobody declared", """{"operation":"delete","target":"1421","reason":"dup"}"""),
              ("an update with no target", """{"operation":"update","reason":"stale"}""")])
         {
-            var transcript = Called("a", arguments);
+            var transcript = Called("toolu_017qx", arguments);
 
             var thrown = Assert.Throws<InvalidOperationException>(
                 () => TranscriptDigest.Proposals(transcript));
 
-            await Assert.That(thrown!.Message).Contains("a", StringComparison.Ordinal)
-                .Because($"{what}: the diagnosis names the call, or whoever reads it has a "
-                       + "transcript and no way into it.");
+            // THE CALL ID, not just "a proposal was malformed". A message like
+            // that, in a transcript with twelve of them, is a message with no
+            // way into the file.
+            await Assert.That(thrown!.Message).Contains("toolu_017qx", StringComparison.Ordinal)
+                .Because($"{what}: the diagnosis has to name the call. Said: {thrown.Message}");
+
+            // AND WHAT WAS WRONG WITH IT, which is the contract's own sentence
+            // rather than a second wording of the same rule kept here.
+            await Assert.That(thrown.Message.Length).IsGreaterThan(80)
+                .Because($"{what}: Article XI asks for a diagnosis, and a reader who gets "
+                       + $"'refused' goes to read our code. Said: {thrown.Message}");
         }
     }
 

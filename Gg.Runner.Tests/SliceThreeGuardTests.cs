@@ -58,7 +58,16 @@ public class SliceThreeGuardTests
     /// the argument for it being a fact at all is made where this guard's
     /// criterion lives, in <c>SliceTwelveGuardTests</c>.
     /// </remarks>
-    private const int KindsThatCross = 12;
+    /// <remarks>
+    /// Thirteen: <c>work-item.proposal</c> at slice thirty-five, step 3. It is
+    /// the SECOND kind that is an agent's request rather than a measurement or
+    /// an account, and the argument for a second is that it asks for a
+    /// different thing - <c>flight.nomination</c> asks that a flight exist and
+    /// this asks that somebody else's backlog change. Both cross as a value and
+    /// are answered by an admission against a menu a person wrote, which is the
+    /// property that made a second ask arguable at all.
+    /// </remarks>
+    private const int KindsThatCross = 13;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -142,6 +151,13 @@ public class SliceThreeGuardTests
         // - the question an agent could not answer from the work itself, which
         // belongs to the flight whose loop asked it - and the twelfth is
         // loop.attended, which belongs to the flight a person flew by hand.
+        //
+        // THIRTEEN NOW. work-item.proposal is a change an agent proposes be made
+        // to a work item in somebody's tracker - the SECOND kind that is an
+        // agent's request rather than a measurement or an account. It crosses as
+        // a value and is answered by an admission, which is the property that
+        // made a second ask arguable at all; the number worth watching from here
+        // is that one, two of thirteen, and not the total.
         // This test
         // used to say "no fact
         // kind has been added" and the halt it produced is what sent the decision
@@ -165,6 +181,7 @@ public class SliceThreeGuardTests
                 FactKinds.LoopQuestion,
                 FactKinds.LoopTranscript,
                 FactKinds.SourceProvenance,
+                FactKinds.WorkItemProposal,
             }.Order(StringComparer.Ordinal).ToList())
             .Because("named, so a kind swapped for another is caught as well as a kind added.");
     }

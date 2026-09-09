@@ -109,6 +109,31 @@ public sealed record Configuration
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 
+    /// <summary>The version of the last offer accepted here.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A record, not a setting</b> — which is why it has no row in
+    /// <see cref="Members"/> and no variable. Nobody chooses it; accepting an
+    /// offer writes it. It is here because a control plane's one standing
+    /// document would otherwise be new every time anybody looked, and a
+    /// re-offer could not be told from a withdraw-and-reissue.
+    /// </para>
+    /// <para>
+    /// <b>And not offerable</b>, for <see cref="AcceptOffered"/>'s reason one
+    /// step along: a control plane able to write "your machine accepted this"
+    /// could stop a machine being offered something it never took.
+    /// </para>
+    /// <para>
+    /// <b>This file is also the whole of the attribution.</b> Nothing is
+    /// reported back — a machine that told its control plane what it accepted
+    /// would turn a carried offer into a tracked instruction, and would need a
+    /// write route where there is deliberately only a read. The file lives
+    /// under one person's <c>XDG_CONFIG_HOME</c>, so whoever owns it is whoever
+    /// accepted.
+    /// </para>
+    /// </remarks>
+    public string? AcceptedOffer { get; init; }
+
     /// <summary>One member: the variable it answers, its key, and how to read and set it.</summary>
     public sealed record Member
     {
@@ -204,6 +229,18 @@ public sealed record Configuration
                      + "whoever typed it wrote a value, and the reader would see nothing "
                      + $"there and use the default instead. Remove the line to mean unset.";
             }
+        }
+
+        // THE RECORD IS HELD TO THE SAME BLANK RULE, and it needs its own clause
+        // because it has no row in Members - it is written by accepting an offer
+        // rather than chosen. A blank here would read as "nothing accepted"
+        // while somebody had written a value, which is the one blank the loop
+        // above exists to refuse.
+        if (configuration.AcceptedOffer is { } accepted && string.IsNullOrWhiteSpace(accepted))
+        {
+            return "'accepted-offer' is set to a blank value. It names the offer this "
+                 + "machine took, so blank would read as 'nothing accepted' while somebody "
+                 + "had written a value. Remove the line to mean nothing was accepted.";
         }
 
         if (configuration.RunnerHoldSeconds is { } hold && hold < 1)

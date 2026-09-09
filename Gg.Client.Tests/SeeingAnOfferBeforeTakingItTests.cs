@@ -203,6 +203,57 @@ public class SeeingAnOfferBeforeTakingItTests
     }
 
     [Test]
+    public async Task Accepting_says_what_it_replaced_rather_than_what_is_now_true()
+    {
+        // FOUND BY WALKING THE VERBS. `accept` built its answer from the file it
+        // had just written, so every line read "already in force" - true, and
+        // the least useful thing it could say. A person accepting a REDIRECT is
+        // owed the value that went, and that is the entire argument for those
+        // keys being offerable: somebody sees what is being repointed. Seeing it
+        // beforehand and not at the moment of the change is half a guarantee.
+        var path = ATempFile();
+
+        try
+        {
+            ConfigurationFile.Write(
+                new Configuration
+                {
+                    AcceptOffered = true,
+                    StunServers = "stun:old.invalid:3478",
+                },
+                path);
+
+            var view = ((VerbResult.ConfigOffered)ConfigCommands.Accept(
+                Offering("offer@7",
+                    (OfferableKeys.StunServers, Relays),
+                    (OfferableKeys.VcsHosts, "forge=git.invalid")),
+                version: "offer@7",
+                path: path)).Value;
+
+            await Assert.That(view.Accepted).IsTrue();
+
+            var relays = view.Changes.Single(c => c.Key == OfferableKeys.StunServers);
+
+            await Assert.That(relays.Current).IsEqualTo("stun:old.invalid:3478")
+                .Because("this is the value that is GONE, and it is the one thing a person "
+                       + "cannot recover from anywhere else once the file is written.");
+            await Assert.That(relays.Changes).IsTrue();
+
+            var text = VerbOutput.ToText(new VerbResult.ConfigOffered(view));
+
+            await Assert.That(text).Contains("stun:old.invalid:3478", StringComparison.Ordinal)
+                .Because("the rendering is where a person reads it.");
+            await Assert.That(text).DoesNotContain("replacing", StringComparison.Ordinal)
+                .Because("it has been replaced. Present tense here describes a change that "
+                       + "has not happened, on the one screen where it has.");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public async Task Accepting_a_version_that_is_not_what_is_offered_is_refused()
     {
         // THE RACE THE VERSION EXISTS FOR. Between reading an offer and taking

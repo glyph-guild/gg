@@ -634,15 +634,9 @@ public static class VerbOutput
         // finds the line whichever way it reads - and so the two are read as
         // the same question answered, rather than two unrelated sentences.
         text.Append(view.AcceptsOffered
-            ? "offers  this machine ACCEPTS configuration offered by its control plane"
+            ? "offers  this machine accepts what its control plane offers, once "
+            + "somebody runs `gg config accept`\n"
             : "offers  no configuration offered by a control plane is accepted here\n");
-
-        if (view.AcceptsOffered)
-        {
-            text.Append(view.AppliesUnattended
-                ? ", and applies it with nobody watching\n"
-                : ", once somebody accepts each one\n");
-        }
 
         text.Append('\n');
 

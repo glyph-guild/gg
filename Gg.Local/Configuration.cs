@@ -95,16 +95,16 @@ public sealed record Configuration
     /// </remarks>
     public bool? AcceptOffered { get; init; }
 
-    /// <summary>
-    /// Whether an accepted offer applies with nobody watching.
-    /// </summary>
-    /// <remarks>
-    /// <b>For a pool member, where there is no person to show it to.</b> Also
-    /// not offerable and also without a variable, for
-    /// <see cref="AcceptOffered"/>'s reasons — and useless on its own, since
-    /// nothing is accepted at all until that one is true.
-    /// </remarks>
-    public bool? AcceptUnattended { get; init; }
+    // WHERE `accept-unattended` WAS, and why it is not. It was for a pool
+    // member with nobody watching - and a pool member has no file to set it in:
+    // DockerPoolAdapter creates members with no binds, so nothing from the host
+    // filesystem reaches one. It was a switch for a machine that could not
+    // reach it, and the only acceptance path is now a person typing
+    // `gg config accept`.
+    //
+    // The GUARD against a redirect applying unattended stays - see
+    // OfferableKeys.NeedsAPerson. It defends a door that is currently locked,
+    // which is the right state for a door that may be unlocked later.
 
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }

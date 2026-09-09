@@ -159,40 +159,28 @@ public class WatchFromTheRunnerModalTests
     }
 
     [Test]
-    public async Task It_does_not_wait_for_the_channel()
+    public async Task Nothing_here_waits_for_a_channel()
     {
-        // THE WHOLE COMPLAINT, AS A ROW. Watching used to tear the console down,
-        // print the connect on the bare terminal, and WAIT there for a channel -
-        // up to a full heartbeat interval when it worked, and up to the
-        // introduction's whole life when it did not. A person pressing a key got
-        // a blank terminal for a minute.
+        // THE COMPLAINT, AS A PROPERTY OF THIS FILE. Watching used to tear the
+        // console down, print the connect on the bare terminal, and WAIT there -
+        // up to a heartbeat interval when it worked and up to the
+        // introduction's whole life when it did not. Raising that deadline so
+        // it stopped racing the watch's own diagnosis made the wait worse: a
+        // person pressing a key got a blank terminal for a minute.
         //
-        // The connect already ran on a task of its own; the only thing keeping
-        // the console down was this waiting for it. So it does not: the watch
-        // starts, the console comes straight back, and every step lands in the
-        // pane as it happens - which is where they were wanted in the first
-        // place.
-        var started = new ManualResetEventSlim(false);
-        var release = new ManualResetEventSlim(false);
+        // ASSERTED AS ABSENCE, because a wait is easy to reintroduce and hard
+        // to see: it looks like one more line asking a reasonable question.
+        // Where the console must not be held down is checked for real in
+        // OneWatchAtATimeTests, which times Start against a follow that never
+        // finishes.
+        var source = Sources.Read("Gg.Console", "ConsoleWatchRunner.cs");
 
-        var watching = Task.Run(() => ConsoleWatchRunner.Watch(
-            State("GG-71"),
-            (_, _) =>
-            {
-                started.Set();
-
-                // A CONNECT THAT NEVER FINISHES, which is the shape of one
-                // waiting on a runner's next heartbeat. Anything that waited for
-                // it would never return.
-                release.Wait(TimeSpan.FromSeconds(30));
-                return true;
-            }));
-
-        await Assert.That(watching.Wait(TimeSpan.FromSeconds(5))).IsTrue()
-            .Because("the console may not be held down while a channel is reached; the pane "
-                   + "is what shows how it is going.");
-
-        release.Set();
+        foreach (var waiting in new[] { "Wait", "Opened(", "Result", "GetAwaiter" })
+        {
+            await Assert.That(source.Contains(waiting, StringComparison.Ordinal)).IsFalse()
+                .Because($"a `{waiting}` here holds the console down over exactly the thing a "
+                       + "person wants to watch happening.");
+        }
     }
 
     [Test]

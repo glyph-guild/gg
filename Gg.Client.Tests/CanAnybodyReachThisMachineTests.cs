@@ -76,8 +76,17 @@ public class CanAnybodyReachThisMachineTests
         await Assert.That(check.Detail).Contains("stun:stun.example:3478")
             .Because("naming what it asked is the difference between a typo and an outage. "
                    + "Said: " + check.Detail);
-        await Assert.That(check.Fix!.Contains("Set GG_STUN_SERVERS", StringComparison.Ordinal))
-            .IsFalse()
-            .Because("it is already set; the remedy is a different one. Fix: " + check.Fix);
+        // ASSERTED AS A PROPERTY, because the phrase this pinned went away.
+        // It read `!Fix.Contains("Set GG_STUN_SERVERS")` - true of the arm it
+        // was about and true of every other string in the program, so once the
+        // advice was reworded to offer `gg config set` this passed while
+        // proving nothing. What it means is that the remedy for a server that
+        // did not answer is not "configure a server".
+        await Assert.That(check.Fix!.Contains("config set", StringComparison.Ordinal)).IsFalse()
+            .Because("it is already set; telling somebody to set it again is the advice that "
+                   + "teaches people to ignore a check. Fix: " + check.Fix);
+        await Assert.That(check.Fix!).Contains("UDP")
+            .Because("the remedy is about reachability of what was named - a network that "
+                   + "allows HTTPS may still drop STUN. Fix: " + check.Fix);
     }
 }

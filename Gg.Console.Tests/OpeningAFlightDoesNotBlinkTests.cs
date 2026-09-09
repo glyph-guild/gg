@@ -96,12 +96,19 @@ public class OpeningAFlightDoesNotBlinkTests
         // model already tells them apart, because the log is nullable.
         var after = Reducer.Reduce(Looking(), Command.ShowFlight);
 
+        await Assert.That(after.ReadInFlight).IsTrue()
+            .Because("the reducer opened the modal and asked for a read; nothing else knows "
+                   + "one is coming.");
+
         await Assert.That(after.FlightLog).IsNull()
             .Because("nothing has been read yet, and a value here would be a claim.");
 
-        await Assert.That(FlightDetails.Log(after)).Contains("still")
-            .Because("a person opening a flight in the instant before its log lands must not "
-                   + "read an empty box as an answer. Said: " + FlightDetails.Log(after));
+        var absence = FlightDetails.LogAbsence(after);
+
+        await Assert.That(absence).Contains("still")
+            .Because("\"No story was fetched for this flight\" is a statement of fact and is "
+                   + "false while one is being fetched - the same defect as a live pane that "
+                   + "cannot tell an ended watch from a silent agent. Said: " + absence);
     }
 
     [Test]
@@ -111,7 +118,7 @@ public class OpeningAFlightDoesNotBlinkTests
         // read answering with a whole AppState is a snapshot taken before the
         // person moved and applied after.
         var reads = new BackgroundReads((_, _) => Task.FromResult<Func<AppState, AppState>>(
-            state => state with { FlightLog = new FlightLog { Entries = [] } }));
+            state => state with { FlightLog = new FlightLog { FlightId = "01a08431-a096-72cf-8c8f-55ed2233f2f8", FlightNumber = "GG-81", Entries = [] } }));
 
         var opened = Reducer.Reduce(Looking(), Command.ShowFlight);
 

@@ -286,7 +286,13 @@ public static class FlightDetails
 
         if (PaneText.StoryOf(state, flight.FlightId) is not { } story)
         {
-            return "No story was fetched for this flight.";
+            // THREE ABSENCES, NOT TWO. A read in the air is not a read that
+            // found nothing and is not a read nobody made, and the modal opens
+            // before the first of those finishes now - so a sentence in the
+            // past tense would be false for as long as the request takes.
+            return state.ReadInFlight
+                ? "Its story is still coming."
+                : "No story was fetched for this flight.";
         }
 
         return story.Entries.Count == 0

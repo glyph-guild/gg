@@ -714,6 +714,20 @@ public sealed record AppState
     /// </remarks>
     public string? WatchedFlightId { get; init; }
 
+    /// <summary>
+    /// Whether a read this console asked for has not come back yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>So an absence can say which absence it is.</b> Opening a flight used
+    /// to end the session, make one request and build a new session over the
+    /// answer — a whole screen taken away and given back to fetch a log. It
+    /// opens immediately now and the answer is folded when it lands, which
+    /// leaves an instant where nothing has been read; without this the modal
+    /// says "No story was fetched for this flight", which is a statement of
+    /// fact and false while one is being fetched.
+    /// </remarks>
+    public bool ReadInFlight { get; init; }
+
     /// <summary>Held still so text can be selected.</summary>
     public bool Frozen { get; init; }
 

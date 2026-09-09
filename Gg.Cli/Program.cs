@@ -822,7 +822,14 @@ static async Task<int> LaunchConsoleAsync()
         started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult());
 
     var final = new ConsoleLoop(
-        new TerminalGuiSession(tails, runnerLog, refresh, () => signIn.Arrived() is not null),
+        new TerminalGuiSession(
+            tails, runnerLog, refresh, () => signIn.Arrived() is not null,
+            // A READ A KEYPRESS ASKED FOR, folded on the tick. Opening a flight
+            // used to end the session for exactly one request, which is a whole
+            // screen taken away and given back - AutoRefresh's argument, one
+            // keypress over.
+            reads: new Gg.Console.BackgroundReads(
+                (_, current) => Task.Run(() => Gg.Console.ConsoleFlightLog.Patch(data, current)))),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -901,7 +908,6 @@ static async Task<int> LaunchConsoleAsync()
         // ONE FLIGHT'S LOG, ON THE KEYPRESS. The boot reads a log only for a
         // flight still in the air - those are the only ones whose log can put a
         // row in the queue - so the detail modal reads its own.
-        flightLog: current => ConsoleFlightLog.Read(data, current),
         // STOPPING THE FLIGHT ON THE SCREEN, with the terminal free: the reason
         // is typed into $EDITOR and the write happens between sessions.
         groundFlight: (current, ask) => ConsoleGround.Ground(data, current, ask),

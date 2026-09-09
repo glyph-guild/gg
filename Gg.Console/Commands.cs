@@ -376,6 +376,29 @@ public enum Command
 /// </remarks>
 public static class ShellCommands
 {
+    /// <summary>
+    /// Commands whose answer is fetched beside the console rather than by
+    /// ending it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The set the flicker came from.</b> Every one of these used to be
+    /// declared as the shell's, so a keypress disposed Terminal.Gui, left the
+    /// alternate screen, made one request and built a new session over the
+    /// answer. That teardown is right for handing the terminal to a child and
+    /// it is a blink for a read — and <c>AutoRefresh</c> had already won the
+    /// argument for not doing it: the session does not read, it folds a result
+    /// that has arrived.
+    /// <para>
+    /// Read by <c>ConsoleScreen</c> to know which keypresses want one, and by
+    /// the composition root to know which reads to supply. One declaration, so
+    /// the two cannot disagree about which is which.
+    /// </para>
+    /// </remarks>
+    public static readonly IReadOnlySet<Command> Reads = new HashSet<Command>
+    {
+        Command.ShowFlight,
+    };
+
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
     public static IReadOnlySet<Command> Handled { get; } = new HashSet<Command>
     {
@@ -453,11 +476,13 @@ public static class ShellCommands
         // difference is what the editor opens on.
         Command.FlyAgain,
 
-        // AND SO IS OPENING A FLIGHT, since the boot stopped reading a log for
-        // every flight ever flown. The modal shows one flight's log; the flight
-        // it shows is usually one that landed, whose log the boot deliberately
-        // skips. One request, on a keypress, with the terminal released.
-        Command.ShowFlight,
+        // OPENING A FLIGHT IS NOT HERE ANY MORE. It was, for the reason above -
+        // the modal shows one flight's log and the boot only reads logs for
+        // flights still in the air - and the cost was the whole screen going
+        // away and coming back to make one request. The modal opens on the
+        // summary already in hand and BackgroundReads folds the log when it
+        // lands, which is AutoRefresh's exception and AutoRefresh's argument:
+        // the session does not read, it folds a result that has arrived.
 
         // TWO REQUESTS AND A CREDENTIAL WRITTEN TO DISK, which is as far from
         // "a session may read a local file" as this console gets. It is also

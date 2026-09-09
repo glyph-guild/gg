@@ -85,28 +85,49 @@ public class TheBootReadsWhatItShowsTests
 
         var before = plane.StoriesRead.Count;
 
-        var ui = new ScriptedUi(
-            state => new UiOutcome(Command.ShowFlight, state),
-            state => new UiOutcome(Command.Quit, state));
+        // THROUGH THE READ THAT RUNS BESIDE THE CONSOLE, not through the loop.
+        // This used to go out to the shell: the session ended, one request was
+        // made, and a new session was built over the answer - which is a whole
+        // screen taken away and given back to fetch a log. The property is
+        // unchanged and is asserted the same way; only who makes the request
+        // moved.
+        var opened = Reducer.Reduce(booted, Command.ShowFlight);
 
-        var final = new ConsoleLoop(
-            ui,
-            new NoEditor(),
-            flightLog: current => ConsoleFlightLog.Read(data, current))
-            .Run(booted);
+        await Assert.That(opened.Mode).IsEqualTo(UiMode.FlightDetail)
+            .Because("the modal opens on the summary already in hand, before anything is "
+                   + "asked - which is what removes the blink.");
+
+        var reads = new BackgroundReads(
+            (_, current) => Task.FromResult(ConsoleFlightLog.Patch(data, current)));
+
+        reads.Start(Command.ShowFlight, opened);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var final = opened;
+
+        while (final.Story is null && DateTime.UtcNow < deadline)
+        {
+            final = reads.Advance(final);
+            await Task.Delay(10);
+        }
 
         await Assert.That(plane.StoriesRead.Count).IsEqualTo(before + 1)
             .Because("one flight, one request, and only when somebody asked.");
 
         await Assert.That(final.Story?.FlightNumber).IsEqualTo(newest.FlightNumber)
-            .Because("and the answer is in the model the next session renders, for the "
-                   + "flight the cursor was on.");
+            .Because("and the answer is folded onto what is on screen, for the flight the "
+                   + "cursor was on.");
 
-        await Assert.That(ui.StatesSeen[1].Mode).IsEqualTo(UiMode.FlightDetail)
-            .Because("the modal opens over the story rather than before it.");
+        await Assert.That(final.Mode).IsEqualTo(UiMode.FlightDetail)
+            .Because("the modal opens BEFORE the story rather than over it now, and stays "
+                   + "open while it lands - which is the whole of not blinking.");
 
-        await Assert.That(PaneText.Modal(ui.StatesSeen[1])).Contains("read-on-demand")
-            .Because("and what it shows is what was just read.");
+        await Assert.That(PaneText.Modal(final)).Contains("read-on-demand")
+            .Because("and what it shows once the read lands is what was read.");
+
+        await Assert.That(FlightDetails.LogAbsence(opened)).Contains("still")
+            .Because("meanwhile it says the story is coming rather than that none was "
+                   + "fetched, which would be a statement of fact about a read in the air.");
     }
 
     private sealed class ScriptedUi(params Func<AppState, UiOutcome>[] script) : IUiSession

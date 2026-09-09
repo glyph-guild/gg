@@ -173,6 +173,7 @@ public sealed class ConsoleScreen : Window
     private readonly LiveTails? _tails;
     private readonly IRunnerLog? _runnerLog;
     private readonly AutoRefresh? _refresh;
+    private readonly BackgroundReads? _reads;
 
     /// <summary>
     /// Whether the sign-in this console started has been approved.
@@ -212,12 +213,17 @@ public sealed class ConsoleScreen : Window
         LiveTails? tails = null,
         IRunnerLog? runnerLog = null,
         AutoRefresh? refresh = null,
-        Func<bool>? signInLanded = null)
+        Func<bool>? signInLanded = null,
+        // A READ A KEYPRESS ASKED FOR, folded on the tick beside the one the
+        // timer asks for. Last and defaulted, because every existing caller
+        // passes positionally.
+        BackgroundReads? reads = null)
     {
         _app = app;
         _tails = tails;
         _runnerLog = runnerLog;
         _refresh = refresh;
+        _reads = reads;
         _signInLanded = signInLanded;
         State = state;
         Title = "Good Grief";
@@ -718,6 +724,29 @@ public sealed class ConsoleScreen : Window
             });
         }
 
+        if (_reads is not null)
+        {
+            // THE SAME EXCEPTION, FOR A READ SOMEBODY ASKED FOR. AutoRefresh
+            // folds one nobody asked for on a timer; this folds one a keypress
+            // wanted. Neither waits, which is the whole of the argument.
+            //
+            // FASTER THAN THE COUNTDOWN, because a person who pressed a key is
+            // watching for the answer rather than letting it arrive.
+            _app.AddTimeout(TimeSpan.FromMilliseconds(120), () =>
+            {
+                var advanced = _reads.Advance(State);
+
+                if (ReferenceEquals(advanced, State) && advanced.ReadInFlight == State.ReadInFlight)
+                {
+                    return true;
+                }
+
+                State = advanced;
+                Render();
+                return true;
+            });
+        }
+
         if (_refresh is not null)
         {
             // A SECOND EXCEPTION, ARGUED IN AutoRefresh. The session does not
@@ -977,6 +1006,15 @@ public sealed class ConsoleScreen : Window
         }
 
         State = Reducer.Reduce(State, command);
+
+        // AND THE READ IT WANTED, started here because the reducer cannot and
+        // the shell no longer sees this command at all. The modal is already
+        // open by now; what is missing is the part that had to be asked for.
+        if (_reads is not null && ShellCommands.Reads.Contains(command))
+        {
+            _reads.Start(command, State);
+        }
+
         Render();
     }
 

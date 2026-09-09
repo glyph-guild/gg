@@ -39,6 +39,55 @@ namespace Gg.Console;
 /// </remarks>
 public static class ConsoleFlightLog
 {
+    /// <summary>
+    /// The same read, as a patch applied to whatever is on screen when it lands.
+    /// </summary>
+    /// <remarks>
+    /// <b>A patch and not a model</b>, which is <c>AutoRefresh</c>'s argument:
+    /// a read answering with a whole <see cref="AppState"/> is a snapshot taken
+    /// before the person moved the cursor and applied after. This one runs
+    /// beside the console rather than in place of it — the modal is already
+    /// open while it is in the air — so between asking and answering somebody
+    /// may well have moved.
+    /// </remarks>
+    public static Func<AppState, AppState> Patch(ConsoleData data, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (PaneText.Detailed(state) is not { } flight)
+        {
+            return current => current;
+        }
+
+        // ALREADY HELD, ALREADY PAID FOR - the same rule Read has, for the same
+        // reason: a flight opened twice in a row costs once.
+        if (state.Story is { } held
+            && string.Equals(held.FlightId, flight.FlightId, StringComparison.Ordinal))
+        {
+            return current => current;
+        }
+
+        try
+        {
+            var story = data.StoryAsync(flight.FlightNumber).GetAwaiter().GetResult();
+
+            return current => ConsoleProjection.Apply(current, story);
+        }
+        catch (Exception failure) when (failure is NotSignedInException
+                                            or ProtocolTooOldException
+                                            or FlightNotFoundException
+                                            or HttpRequestException)
+        {
+            // ITS OWN FAILURE, said in the pane, and a different sentence from
+            // "nothing happened to this flight" - PaneText already tells the
+            // three absences apart.
+            var said = "The flight's story could not be read: " + failure.Message;
+
+            return current => current with { Diagnosis = said };
+        }
+    }
+
     public static AppState Read(ConsoleData data, AppState state)
     {
         ArgumentNullException.ThrowIfNull(data);

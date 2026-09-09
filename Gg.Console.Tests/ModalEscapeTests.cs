@@ -142,15 +142,6 @@ public class ModalEscapeTests
           + "flying anything, so the real decision lands where a person can still change it - "
           + "and abandoning the editor opens nothing either.",
 
-        [UiMode.FlightDetail] =
-            "opened by ConsoleLoop's ShowFlight arm after reading that flight's log - a "
-          + "read, so it cannot happen inside a UI session. The boot fetches a log only "
-          + "for a flight still in the air, and the modal is usually opened on one that "
-          + "landed, so opening it from a key would show `no log fetched' over a pane "
-          + "that never comes back to correct itself. Entered through Reducer.FlightShown "
-          + "and left through CloseModal; TheBootReadsWhatItShowsTests drives the real "
-          + "loop into it and asserts the log it renders is the one just read.",
-
         [UiMode.HandFlight] =
             "opened by ConsoleLoop's FlyByHand arm, and only when nothing was created. "
           + "Whether it opens depends on a read the loop makes with the terminal released - "

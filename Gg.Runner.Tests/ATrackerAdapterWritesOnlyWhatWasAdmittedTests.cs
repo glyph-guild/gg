@@ -146,6 +146,79 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
     }
 
     [Test]
+    public async Task A_link_this_item_already_has_is_recognised_however_the_tracker_spells_it()
+    {
+        // MEASURED AGAINST A REAL TRACKER, and this is what it returns. The
+        // relation url names the project by GUID where the request named it by
+        // NAME, and capitalises `workItems` where the route is `workitems`:
+        //
+        //   asked:    https://dev.azure.com/ORG/JDX/_apis/wit/workitems/18599
+        //   returned: https://dev.azure.com/ORG/139e24b0-…/_apis/wit/workItems/18599
+        //
+        // So comparing whole urls never matches, the duplicate is never seen,
+        // and a retry leaves the item linked twice - the exact failure the
+        // seam's idempotency rule exists to prevent. Found by walking it; kept
+        // found by this.
+        var tracker = new Recording
+        {
+            Existing = """
+            {"id":18598,"relations":[{"rel":"System.LinkTypes.Related",
+             "url":"https://dev.azure.com/ORG/139e24b0-96af-4805-8f33-7e130c310e2b/_apis/wit/workItems/18599"}]}
+            """,
+        };
+
+        var written = await Sink(tracker).PerformAsync(
+            [new WorkItemProposal
+            {
+                Operation = WorkItemOperations.Link,
+                Target = "18598",
+                Reason = "duplicate of 18599",
+                Detail = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                    """{"to":"18599"}"""),
+            }],
+            "gg-flight-81");
+
+        await Assert.That(written[0].AlreadyDone).IsTrue()
+            .Because("the item already has this relation, and the only stable part of that "
+                   + "url is the id on the end. Wrote: " + string.Join(" | ", tracker.Wrote));
+
+        await Assert.That(tracker.Wrote).IsEmpty()
+            .Because("recognising it and writing anyway would be worse than not recognising "
+                   + "it at all.");
+    }
+
+    [Test]
+    public async Task A_different_kind_of_link_to_the_same_item_is_not_the_same_link()
+    {
+        // THE OTHER HALF, and the reason matching on the id alone is wrong. An
+        // item can legitimately be a PARENT and a duplicate of the same thing,
+        // so a proposal for one is not satisfied by the other already existing.
+        var tracker = new Recording
+        {
+            Existing = """
+            {"id":18598,"relations":[{"rel":"System.LinkTypes.Hierarchy-Reverse",
+             "url":"https://dev.azure.com/ORG/139e24b0-96af-4805-8f33-7e130c310e2b/_apis/wit/workItems/18599"}]}
+            """,
+        };
+
+        var written = await Sink(tracker).PerformAsync(
+            [new WorkItemProposal
+            {
+                Operation = WorkItemOperations.Link,
+                Target = "18598",
+                Reason = "also a duplicate",
+                Detail = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                    """{"to":"18599","relation":"System.LinkTypes.Related"}"""),
+            }],
+            "gg-flight-81");
+
+        await Assert.That(written[0].AlreadyDone).IsFalse()
+            .Because("a parent link is not a related link, and treating one as the other "
+                   + "would silently drop a proposal a person admitted.");
+        await Assert.That(tracker.Wrote.Count).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task A_write_with_no_credential_is_refused_in_our_own_words()
     {
         var tracker = new Recording();

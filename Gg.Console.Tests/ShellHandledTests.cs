@@ -58,6 +58,59 @@ public class ShellHandledTests
     }
 
     [Test]
+    public async Task Every_command_a_key_can_resolve_reaches_somebody()
+    {
+        // THE RULE THE LIST ABOVE IS FOUR EXAMPLES OF. That test names the four
+        // commands that once did nothing, one at a time, so a future change
+        // dropping one of THOSE fails clearly - and a fifth is invisible to it.
+        // A fifth duly arrived: `x` in the flight modal was changed to ask
+        // before grounding, the question was implemented in the loop, and the
+        // ask was never declared as the shell's - so the screen handed it to
+        // the reducer, the reducer had no arm, and the key did nothing at all.
+        // Grounding stopped working while a confirmation was being added to it.
+        //
+        // KEYS TO HANDLERS, which is the whole path a keypress takes. Every
+        // command the keymap can produce is either the shell's or the
+        // reducer's, and a command that is neither is a key advertised on the
+        // hint line that does nothing when pressed.
+        var reducer = Source("Gg.Console", Path.Combine("State", "Reducer.cs"));
+
+        var resolvable = (from mode in Enum.GetValues<UiMode>()
+                          from showing in Enum.GetValues<TabId>()
+                          from frozen in (bool[])[false, true]
+                          from takeable in (bool[])[false, true]
+                          from handedBack in (bool[])[false, true]
+                          from started in (bool[])[false, true]
+                          from ours in (bool[])[false, true]
+                          from flying in (bool[])[false, true]
+                          let context = new KeymapContext(
+                              mode, showing, frozen, takeable, handedBack)
+                          {
+                              SignInStarted = started,
+                              RunnerIsOurs = ours,
+                              RunnerIsFlying = flying,
+                          }
+                          from binding in Keymap.Bindings(context)
+                          select binding.Command)
+            .Distinct()
+            .ToList();
+
+        await Assert.That(resolvable).IsNotEmpty()
+            .Because("an empty walk passes this by finding nothing to check.");
+
+        var orphans = resolvable
+            .Where(command => !ShellCommands.Handled.Contains(command))
+            .Where(command => !reducer.Contains($"Command.{command}", StringComparison.Ordinal))
+            .Select(command => command.ToString())
+            .ToList();
+
+        await Assert.That(orphans).IsEmpty()
+            .Because("a command bound to a key and handled by neither the shell nor the "
+                   + "reducer is a key that does nothing when pressed, advertised on the hint "
+                   + "line as though it did. Found: " + string.Join(", ", orphans));
+    }
+
+    [Test]
     public async Task Quit_is_still_the_shell_s()
     {
         // The one that always worked, asserted so a change that moved to the

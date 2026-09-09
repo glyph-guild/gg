@@ -40,17 +40,24 @@ public sealed class LiveTails(Func<string, ILiveSource> source)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (!state.LiveVisible || state.Selected is not { } row)
+        // WHAT IT WAS TOLD TO DRAW, THEN WHAT THE CURSOR IS ON. A watched
+        // flight is named outright because the queue cannot name it: the queue
+        // holds flights that need somebody, and a flight being watched is
+        // usually just flying. Following the cursor stays the default, so every
+        // pane that worked before works unchanged.
+        var flightId = state.WatchedFlightId ?? state.Selected?.FlightId;
+
+        if (!state.LiveVisible || flightId is not { Length: > 0 })
         {
             return state with { Silence = LiveSilence.NotAttached };
         }
 
         try
         {
-            if (!_tails.TryGetValue(row.FlightId, out var tail))
+            if (!_tails.TryGetValue(flightId, out var tail))
             {
-                tail = source(row.FlightId);
-                _tails[row.FlightId] = tail;
+                tail = source(flightId);
+                _tails[flightId] = tail;
             }
 
             foreach (var line in tail.Read())

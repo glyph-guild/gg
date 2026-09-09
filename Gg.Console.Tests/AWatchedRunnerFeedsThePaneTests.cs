@@ -92,6 +92,90 @@ public class AWatchedRunnerFeedsThePaneTests
                    + "ones already on the screen.");
     }
 
+    /// <summary>A source that answers with what it was given, once.</summary>
+    private sealed class Scripted(bool exists, params StreamLine[] lines) : ILiveSource
+    {
+        private bool _handed;
+
+        public bool Exists => exists;
+
+        public IReadOnlyList<StreamLine> Read()
+        {
+            if (_handed)
+            {
+                return [];
+            }
+
+            _handed = true;
+            return lines;
+        }
+    }
+
+    [Test]
+    public async Task The_pane_draws_the_flight_it_was_told_to_watch()
+    {
+        // THE ASSERTION THAT WAS MISSING, and its absence is what let GG-77 be
+        // watched with nothing on the screen. Everything about the watch was
+        // right - it connected, the buffer filled - and the pane was bound to
+        // the queue cursor, which cannot point at a flight that is merely
+        // flying. State being correct is not the same as a pane drawing it.
+        var asked = new List<string>();
+
+        var tails = new LiveTails(flightId =>
+        {
+            asked.Add(flightId);
+            return new Scripted(exists: true, Line("from the runner"));
+        });
+
+        var after = tails.Advance(new AppState
+        {
+            LiveVisible = true,
+            WatchedFlightId = "the-watched-flight",
+
+            // NO QUEUE AT ALL, which is the ordinary state for a flight that is
+            // simply flying. The old binding had nothing to read here.
+            Queue = [],
+        });
+
+        await Assert.That(asked).IsEquivalentTo(new[] { "the-watched-flight" });
+        await Assert.That(after.Live.Select(l => l.Text))
+            .IsEquivalentTo(new[] { "from the runner" });
+    }
+
+    [Test]
+    public async Task Following_the_cursor_is_still_what_happens_by_default()
+    {
+        // THE HALF THAT MUST NOT HAVE CHANGED. Every pane that worked before is
+        // a queue row with the cursor on it, and a watch that took the binding
+        // away from them would fix one pane by breaking the rest.
+        var asked = new List<string>();
+
+        var tails = new LiveTails(flightId =>
+        {
+            asked.Add(flightId);
+            return new Scripted(exists: true, Line("from the file"));
+        });
+
+        _ = tails.Advance(new AppState
+        {
+            LiveVisible = true,
+            Queue =
+            [
+                new QueueRow
+                {
+                    FlightId = "under-the-cursor",
+                    FlightNumber = "GG-1",
+                    Name = "a flight needing somebody",
+                    Reason = QueueReason.AwaitingDecision,
+                    Since = T0,
+                },
+            ],
+        });
+
+        await Assert.That(asked).IsEquivalentTo(new[] { "under-the-cursor" })
+            .Because("null means follow the cursor, which is what every pane did before.");
+    }
+
     [Test]
     public async Task The_buffer_reaches_no_conversation_and_no_terminal()
     {

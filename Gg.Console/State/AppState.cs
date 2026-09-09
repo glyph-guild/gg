@@ -670,6 +670,33 @@ public sealed record AppState
     /// </summary>
     public bool LiveVisible { get; init; }
 
+    /// <summary>
+    /// The flight the live pane is drawing, when it was chosen rather than
+    /// followed from the cursor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The pane used to have exactly one binding and it was the queue
+    /// cursor.</b> That is right for the queue tab - a person moving the cursor
+    /// with the pane open IS watching the flight they moved to - and wrong for
+    /// everything else, because the queue is a queue of PROBLEMS: awaiting a
+    /// decision, a lease expired twice, a runner gone. A flight that is simply
+    /// flying is in none of them.
+    /// </para>
+    /// <para>
+    /// <b>Which made watching a fleet runner draw nothing.</b> GG-77 was
+    /// started, watched, connected, and the pane had nowhere to point - the
+    /// output was arriving in a buffer nothing was reading. Named here rather
+    /// than faked by adding a row to the queue, because a flying flight in a
+    /// queue of decisions is a lie about what the queue is.
+    /// </para>
+    /// <para>
+    /// Null is the ordinary state and means "follow the cursor", so every pane
+    /// that worked before works unchanged.
+    /// </para>
+    /// </remarks>
+    public string? WatchedFlightId { get; init; }
+
     /// <summary>Held still so text can be selected.</summary>
     public bool Frozen { get; init; }
 

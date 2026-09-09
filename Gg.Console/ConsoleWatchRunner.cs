@@ -66,28 +66,23 @@ public static class ConsoleWatchRunner
             };
         }
 
-        // THE ROW HAS A NUMBER AND THE PANE NEEDS AN ID, and the queue is where
-        // the two meet. A runner flying something this console has not loaded
-        // yet is a connect with nowhere to put the output, which is a refusal
-        // rather than a blank box.
-        var at = state.Queue
-            .Select((flight, index) => (flight, index))
-            .Where(both => string.Equals(both.flight.FlightNumber, flying, StringComparison.Ordinal))
-            .Select(both => (int?)both.index)
-            .FirstOrDefault();
-
-        if (at is not { } cursor)
+        // THE ROW HAS A NUMBER AND THE PANE NEEDS AN ID, and the FLEET ANSWER is
+        // where the two meet. It was the queue once, which is why watching drew
+        // nothing: the queue holds flights that need somebody, and a flight
+        // being watched is usually just flying.
+        if (state.Runners?.Runners
+                .FirstOrDefault(r => string.Equals(r.RunnerId, row.Id, StringComparison.Ordinal))
+                ?.CurrentFlightId is not { Length: > 0 } flightId)
         {
             return state with
             {
                 LastRunner =
-                    $"{row.Label} is flying {flying}, and this console has not loaded that "
-                  + "flight yet, so there is nowhere to show what it says. Refresh and try "
-                  + "again.",
+                    $"{row.Label} is flying {flying} and the fleet does not say which flight "
+                  + "that is, so there is nowhere to put what it says. Refresh and try again.",
             };
         }
 
-        if (!connect(row.Id, state.Queue[cursor].FlightId, say))
+        if (!connect(row.Id, flightId, say))
         {
             // NO PANE OVER A CONVERSATION THAT NEVER HAPPENED. An open live view
             // with nothing in it is the box that means "the agent is working",
@@ -100,15 +95,14 @@ public static class ConsoleWatchRunner
             };
         }
 
-        // THE CURSOR MOVES TO WHAT IS BEING WATCHED. The live pane is bound to
-        // the queue cursor, so a watch that connected and did not move it draws
-        // whatever flight happened to be under it before - somebody else's.
+        // THE PANE IS TOLD WHICH FLIGHT rather than left to infer it from a
+        // cursor that cannot point at this one.
         return state with
         {
             // THE MODAL CLOSES, because the thing it was asked from is now
             // happening behind it and the pane it happens in is another tab.
             Mode = UiMode.Normal,
-            SelectedRow = cursor,
+            WatchedFlightId = flightId,
             LiveVisible = true,
             ActiveTab = TabId.Live,
             LastRunner = $"Watching {flying} on {row.Label}. It ends when the flight does.",

@@ -309,16 +309,41 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         {
             peer.close();
             return new Reached(
-                null, ReachFailure.NoRouteBetweenUs,
-                "Both ends spoke and no route between them was found. This is the network "
-              + "rather than either machine: hole punching needs one side's traffic to reach "
-              + "the other, and something in between is refusing it.");
+                null, ReachFailure.NoRouteBetweenUs, NoRoute(stunServers.Count > 0));
         }
 
         say("connected");
 
         return new Reached(new Conversation(peer, channel), ReachFailure.None, "reached");
     }
+
+    /// <summary>Why no route was found, which depends on whether one was sought.</summary>
+    /// <remarks>
+    /// <b>Two quite different failures wore one sentence.</b> With a STUN
+    /// server this console offers a server-reflexive candidate and a failure
+    /// really is the network between two machines — the case TURN exists for.
+    /// With none it offers only HOST candidates, its own address on its own
+    /// LAN, and nothing on another network could ever have reached it: that is
+    /// this end, and saying "rather than either machine" sends a person to look
+    /// at a firewall over a variable they never set.
+    /// <para>
+    /// <b>Named rather than defaulted.</b> <c>StunConfiguration</c> records why
+    /// there is no built-in server — the well-known ones belong to companies
+    /// this binary may not name — so the choice is a deployment's. A sentence
+    /// that names the variable is what makes it a choice somebody can see.
+    /// </para>
+    /// </remarks>
+    public static string NoRoute(bool askedAnywhere) =>
+        askedAnywhere
+            ? "Both ends spoke and no route between them was found. This is the network "
+            + "rather than either machine: hole punching needs one side's traffic to reach "
+            + "the other, and something in between is refusing it."
+            : "Both ends spoke and no route between them was found. This console has no STUN "
+            + "server configured, so it offered only its own address on its own network - "
+            + "which nothing anywhere else can reach. Set GG_STUN_SERVERS to one or more "
+            + "`stun:host:port`, the same way the runner is configured, and try again. There "
+            + "is no built-in default because a well-known server belongs to somebody, and "
+            + "which one to depend on is not this binary's decision to make.";
 
     private static TimeSpan Later(DateTimeOffset deadline, DateTimeOffset from) =>
         deadline > from ? deadline - from : TimeSpan.FromSeconds(1);

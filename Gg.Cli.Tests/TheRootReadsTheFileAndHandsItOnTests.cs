@@ -133,7 +133,15 @@ public partial class TheRootReadsTheFileAndHandsItOnTests
     {
         // The end of the thread, asserted where it can be: the page is built
         // from the same resolution the root hands to everything else.
-        var page = ConsoleEnvironment.Read(new Configuration { Editor = "hx" });
+        //
+        // AGAINST A STATED ENVIRONMENT, NOT THE PROCESS ONE. This test passed
+        // alone and failed beside its neighbours, which is the four-wide hazard
+        // LocalPaths already names: whether EDITOR happens to be exported
+        // decides whether the file gets to answer, and the suite is not the
+        // place to find out what somebody's shell does.
+        var page = ConsoleEnvironment.Read(
+            new Configuration { Editor = "hx" }, environment: _ => null);
+
         var editor = page.Single(s => s.Name == "EDITOR");
 
         await Assert.That(editor.Source).IsEqualTo(SettingSources.File);

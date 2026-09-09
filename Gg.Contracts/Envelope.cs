@@ -216,7 +216,39 @@ public static class LoopMoves
     /// </remarks>
     public const string Propose = "propose";
 
-    public static IReadOnlyList<string> All { get; } = [Read, Edit, RunTests, Search, Write, Propose];
+    /// <summary>
+    /// Proposing a change to a work item in a tracker: create, update, field,
+    /// link, score.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It grants a tool that acts on nothing.</b> The call records what was
+    /// proposed and returns that it did; the control plane admits it against
+    /// the envelope's destination or refuses; the runner writes. Nothing here
+    /// puts a tracker credential in the agent's reach, which is why the tool
+    /// may accept the full gamut of operations — what bounds a flight is the
+    /// admission, not the shape of what it may ask for.
+    /// </para>
+    /// <para>
+    /// <b>Its own move rather than <see cref="Propose"/>'s.</b> That one
+    /// nominates a work kind, and one move granting both tools would be the
+    /// server-prefix grant wearing a different hat — the thing
+    /// <c>ClaudeCodeExecutor.Tool</c> refuses by naming whole tools. This is
+    /// the second tool on the platform's own server, so that argument stops
+    /// being about a hypothetical today.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version</b>, on <see cref="Propose"/>'s reasoning: the
+    /// only safe response to an unknown value in a closed vocabulary is to
+    /// halt, so an added value breaks every prior reader by design. Envelopes
+    /// in force are unchanged in meaning — they cannot propose a work item,
+    /// which they could not before either.
+    /// </para>
+    /// </remarks>
+    public const string ProposeWorkItem = "propose-work-item";
+
+    public static IReadOnlyList<string> All { get; } =
+        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem];
 }
 
 /// <summary>What happens when a loop runs out of budget.</summary>

@@ -108,7 +108,20 @@ public class SliceTwelveGuardTests
     /// say it. The alternative was a member of its own with a vocabulary and a
     /// validation arm, for one value that never varies on this path.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.25.0";
+    /// <para>
+    /// <b>And to 0.26.0, which added no kind either</b> — <c>LoopMoves</c> gains
+    /// <c>propose-work-item</c>. Same shape as the three entries above: the
+    /// surface moves because the closed vocabulary is part of it, the count
+    /// below is unchanged, and nothing was smuggled in beside it. This one is
+    /// worth a sentence of its own because it is the FIRST move added since the
+    /// guard existed, and a move is the one value in this vocabulary that turns
+    /// into a capability: <c>ClaudeCodeExecutor.Tool</c> maps a declared move to
+    /// exactly one qualified tool, so admitting a value here is admitting a tool
+    /// an envelope may ask for. It is record-only in <c>MoveKinds</c> — it
+    /// writes a fact and touches no tracker — which is the property that made
+    /// admitting it safe rather than merely convenient.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.26.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

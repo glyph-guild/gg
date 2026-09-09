@@ -448,8 +448,18 @@ public sealed class ClaudeCodeExecutor(
     /// exists and spends turns calling nothing.
     /// </remarks>
     private bool Grantable(string move, ExecutorRequest request) =>
-        !string.Equals(move, Gg.Contracts.LoopMoves.Propose, StringComparison.Ordinal)
-        || Serves(request);
+        !ServedHere(move) || Serves(request);
+
+    /// <summary>Whether this runner is the thing that answers the move's tool.</summary>
+    /// <remarks>
+    /// <b>Two moves now, and the list is here rather than at each call.</b>
+    /// Every other move maps to a tool the agent binary already has; these map
+    /// to tools this runner serves, so they are granted only when the server is
+    /// actually configured - or the agent is told a tool exists and spends
+    /// turns calling nothing.
+    /// </remarks>
+    private static bool ServedHere(string move) =>
+        move is Gg.Contracts.LoopMoves.Propose or Gg.Contracts.LoopMoves.ProposeWorkItem;
 
     /// <summary>
     /// The one server, as the flag's JSON.
@@ -794,6 +804,11 @@ public sealed class ClaudeCodeExecutor(
         // with nothing in the record marking the day it changed - which is the
         // argument `write` was created under, one layer over.
         LoopMoves.Propose => NominationTool.Qualified,
+        // THE SECOND TOOL ON THAT SERVER, and the day the line above stopped
+        // being about a hypothetical. Its own move and its own whole name: one
+        // move granting both would be exactly the prefix grant the comment
+        // above refuses, arriving by a different route.
+        LoopMoves.ProposeWorkItem => WorkItemProposalTool.Qualified,
         _ => move,
     };
 

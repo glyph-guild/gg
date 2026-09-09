@@ -82,6 +82,51 @@ public class OneWatchAtATimeTests
     }
 
     [Test]
+    public async Task The_connect_narrates_into_the_pane_and_so_does_its_ending()
+    {
+        // WHERE THE STEPS WERE WANTED. They used to print on the bare terminal
+        // the console had just torn itself down to free - which is a screen that
+        // stops existing the moment the console comes back, so a connect that
+        // took fifteen seconds and failed left nothing to read.
+        //
+        // AND THE ENDING WITH THEM, because "how far it got" and "why it
+        // stopped" are two halves of one account.
+        using var watched = new WatchedRunner(
+            async (_, _, onStep, _, _) =>
+            {
+                onStep("asking the control plane to introduce you to vmlinux001");
+                onStep("offer left; waiting for the runner to pick it up");
+                await Task.CompletedTask;
+                return "nobody answered, and here is why";
+            },
+            () => T0);
+
+        watched.Start("a-runner", "a-flight");
+
+        var source = watched.SourceFor("a-flight")!;
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var seen = new List<StreamLine>();
+
+        while (seen.Count < 3 && DateTime.UtcNow < deadline)
+        {
+            seen.AddRange(source.Read());
+            await Task.Delay(10);
+        }
+
+        var whole = string.Join(" | ", seen.Select(l => l.Text));
+
+        await Assert.That(whole).Contains("introduce you");
+        await Assert.That(whole).Contains("offer left");
+        await Assert.That(whole).Contains("nobody answered")
+            .Because("the reason belongs beside the steps that led to it, in the pane a "
+                   + "person is looking at. Seen: " + whole);
+
+        await Assert.That(seen.All(l => l.Kind == StreamLineKind.Setup)).IsTrue()
+            .Because("they are setup rather than the agent's own words, and the pane draws "
+                   + "the two differently.");
+    }
+
+    [Test]
     public async Task A_flight_nobody_is_watching_has_no_source()
     {
         using var watched = new WatchedRunner(Following(), () => T0);

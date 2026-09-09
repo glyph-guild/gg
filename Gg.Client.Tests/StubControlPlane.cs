@@ -75,6 +75,18 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, every flight lookup answers 404.</summary>
     public bool FlightNotFound { get; set; }
 
+    /// <summary>
+    /// What this control plane is offering, or null to offer nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null answers 204 rather than 404</b>, which is what the declaration
+    /// says and is the ordinary state of a fleet nobody is reconfiguring. An
+    /// offer with an EMPTY settings list is a different thing and stays
+    /// reachable: a control plane that withdrew what it was offering, which
+    /// still has a version and is still something a person can accept.
+    /// </remarks>
+    public OfferedConfiguration? Offered { get; set; }
+
     /// <summary>The body of the most recent request that carried one.</summary>
     /// <remarks>
     /// Recorded so what gg actually PUT ON THE WIRE is assertable, rather than
@@ -381,6 +393,21 @@ public sealed class StubControlPlane : IAsyncDisposable
                 });
                 return;
 
+            case "/v1/configuration/offered":
+                // 204, NOT 404, when nothing is offered. One offer per tenant
+                // and it is always askable, so "nothing is offered" and "this
+                // route is wrong" must not share an answer.
+                if (Offered is { } offering)
+                {
+                    await WriteJsonAsync(context, 200, offering);
+                }
+                else
+                {
+                    await WriteAsync(context, 204, "");
+                }
+
+                return;
+
             case "/v1/gates":
                 // THE WRITE BECOMING VISIBLE, ONE OBSERVATION AT A TIME. Counted
                 // here because this is the route every observation reads first -
@@ -400,74 +427,74 @@ public sealed class StubControlPlane : IAsyncDisposable
 
             case var _ when path.EndsWith("/decisions", StringComparison.Ordinal)
                          && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
-            {
-                if (RefuseDecision is { Length: > 0 } refusedWith)
                 {
-                    await WriteAsync(context, 400, refusedWith);
+                    if (RefuseDecision is { Length: > 0 } refusedWith)
+                    {
+                        await WriteAsync(context, 400, refusedWith);
+                        return;
+                    }
+
+                    var request = JsonSerializer.Deserialize(
+                        LastBody, ProtocolJsonContext.Default.DecisionRequest)!;
+
+                    if (OpenGate is null)
+                    {
+                        // WHAT THE REAL ONE DOES ON A REPEAT, and it is why the retry
+                        // hazard exists: the gate is closed, so a second submission of
+                        // a decision that SUCCEEDED is answered as though nobody asked.
+                        await WriteAsync(context, 400,
+                            $"Nothing is waiting on a decision about '{request.ObligationId}'.");
+                        return;
+                    }
+
+                    var approved = string.Equals(
+                        request.Outcome, DecisionOutcomes.Approved, StringComparison.Ordinal);
+
+                    // The mapping the real Engine applies: an approval against the work
+                    // shown satisfies the obligation, a rejection leaves it violated.
+                    _decidedOutcome = approved
+                        ? ObligationOutcomes.Satisfied : ObligationOutcomes.Violated;
+                    _pendingObservations = VisibleAfterPolls;
+
+                    if (_pendingObservations <= 0)
+                    {
+                        OpenGate = null;
+                        ObservedOutcome = _decidedOutcome;
+                    }
+
+                    var recorded = new DecisionRecorded
+                    {
+                        FlightNumber = FlightRef.Format(42),
+                        ObligationId = request.ObligationId,
+                        Outcome = request.Outcome,
+                        DecidedBy = "someone@example.test",
+                        DecidedAt = new DateTimeOffset(2026, 8, 15, 14, 0, 0, TimeSpan.Zero),
+                    };
+
+                    Decisions.Add(recorded);
+
+                    if (AcceptsWithoutRecording)
+                    {
+                        // ACCEPTED, NOT ANSWERED. The gate still closes and the verdict
+                        // still lands - what is gone is the caller being told inline.
+                        await WriteAsync(context, 202, "");
+                        return;
+                    }
+
+                    await WriteJsonAsync(context, 200, recorded);
                     return;
                 }
-
-                var request = JsonSerializer.Deserialize(
-                    LastBody, ProtocolJsonContext.Default.DecisionRequest)!;
-
-                if (OpenGate is null)
-                {
-                    // WHAT THE REAL ONE DOES ON A REPEAT, and it is why the retry
-                    // hazard exists: the gate is closed, so a second submission of
-                    // a decision that SUCCEEDED is answered as though nobody asked.
-                    await WriteAsync(context, 400,
-                        $"Nothing is waiting on a decision about '{request.ObligationId}'.");
-                    return;
-                }
-
-                var approved = string.Equals(
-                    request.Outcome, DecisionOutcomes.Approved, StringComparison.Ordinal);
-
-                // The mapping the real Engine applies: an approval against the work
-                // shown satisfies the obligation, a rejection leaves it violated.
-                _decidedOutcome = approved
-                    ? ObligationOutcomes.Satisfied : ObligationOutcomes.Violated;
-                _pendingObservations = VisibleAfterPolls;
-
-                if (_pendingObservations <= 0)
-                {
-                    OpenGate = null;
-                    ObservedOutcome = _decidedOutcome;
-                }
-
-                var recorded = new DecisionRecorded
-                {
-                    FlightNumber = FlightRef.Format(42),
-                    ObligationId = request.ObligationId,
-                    Outcome = request.Outcome,
-                    DecidedBy = "someone@example.test",
-                    DecidedAt = new DateTimeOffset(2026, 8, 15, 14, 0, 0, TimeSpan.Zero),
-                };
-
-                Decisions.Add(recorded);
-
-                if (AcceptsWithoutRecording)
-                {
-                    // ACCEPTED, NOT ANSWERED. The gate still closes and the verdict
-                    // still lands - what is gone is the caller being told inline.
-                    await WriteAsync(context, 202, "");
-                    return;
-                }
-
-                await WriteJsonAsync(context, 200, recorded);
-                return;
-            }
 
             case var _ when path.EndsWith("/why", StringComparison.Ordinal)
                          && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
-            {
-                await WriteJsonAsync(context, 200, new FlightAttribution
                 {
-                    FlightNumber = FlightRef.Format(42),
-                    EnvelopeVersion = "v1",
-                    Obligations =
-                    [
-                        new ObligationAttribution
+                    await WriteJsonAsync(context, 200, new FlightAttribution
+                    {
+                        FlightNumber = FlightRef.Format(42),
+                        EnvelopeVersion = "v1",
+                        Obligations =
+                        [
+                            new ObligationAttribution
                         {
                             ObligationId = "reversibility-plan",
                             Attachment = Attachments.Attached,
@@ -475,9 +502,9 @@ public sealed class StubControlPlane : IAsyncDisposable
                             Outcome = ObservedOutcome,
                         },
                     ],
-                });
-                return;
-            }
+                    });
+                    return;
+                }
 
             case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal) && FlightNotFound:
                 await WriteAsync(context, 404, "");

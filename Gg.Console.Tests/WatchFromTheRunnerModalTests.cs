@@ -1,7 +1,5 @@
-using System.Diagnostics;
 using Gg.Contracts;
 using Gg.Console;
-using Gg.Local;
 
 namespace Gg.Console.Tests;
 
@@ -55,6 +53,8 @@ public class WatchFromTheRunnerModalTests
         Labels = [],
     };
 
+    private const string TheFlight = "01a08388-4474-7733-b566-d5c2bf369645";
+
     private static AppState State(string? flying) => new()
     {
         Mode = UiMode.Runner,
@@ -63,10 +63,33 @@ public class WatchFromTheRunnerModalTests
         PrincipalId = Me,
         RunnerSelected = 0,
         Runners = new RunnerList { Runners = [Runner(flying)] },
-    };
 
-    private static SelfInvocation TheBinary() =>
-        new("/usr/local/bin/gg", ["runner", "tools"]);
+        // THE QUEUE THE LIVE PANE READS. It is bound to the queue cursor, so
+        // watching has to move that cursor to the flight it just connected to -
+        // a pane pointed at whatever was under the cursor before is a pane
+        // showing somebody else's flight.
+        Queue = flying is null
+            ? []
+            :
+            [
+                new QueueRow
+                {
+                    FlightId = "another-flight",
+                    Flight = "GG-1",
+                    Stage = "flying",
+                    State = "open",
+                    Intent = "something else",
+                },
+                new QueueRow
+                {
+                    FlightId = TheFlight,
+                    Flight = flying,
+                    Stage = "flying",
+                    State = "open",
+                    Intent = "the one being watched",
+                },
+            ],
+    };
 
     [Test]
     public async Task The_modal_offers_a_way_to_watch_a_runner_that_is_flying()
@@ -119,38 +142,57 @@ public class WatchFromTheRunnerModalTests
     }
 
     [Test]
-    public async Task It_hands_the_terminal_to_this_gg_and_names_the_whole_runner_id()
+    public async Task Watching_connects_and_leaves_the_pane_on_that_flight()
     {
-        // WHICH gg, and the whole id. A bare `gg` off PATH is whichever one is
-        // installed, which on a developer's machine is routinely not the one
-        // they are running - SelfInvocation's own argument. And the grid shows
-        // eight characters while the verb takes all of it.
-        var info = ConsoleWatchRunner.StartInfoFor(TheBinary(), Vmlinux);
+        // THE WHOLE POINT OF THE CHANGE. Handing the terminal over for the
+        // duration was a watch a person had to leave the console to have; this
+        // connects with the terminal free and comes back with the pane live.
+        var asked = new List<string>();
 
-        await Assert.That(info.FileName).IsEqualTo("/usr/local/bin/gg");
-        await Assert.That(info.ArgumentList).IsEquivalentTo(
-            new[] { "runner", "watch", Vmlinux });
-        await Assert.That(info.UseShellExecute).IsFalse()
-            .Because("the child owns this terminal; a shell between them owns it instead.");
-        await Assert.That(info.RedirectStandardOutput).IsFalse()
-            .Because("what the agent is saying has to reach the screen, not a pipe nobody "
-                   + "reads.");
+        var after = ConsoleWatchRunner.Watch(State("GG-71"), Reaching(asked), say: _ => { });
+
+        await Assert.That(asked).IsEquivalentTo(new[] { $"{Vmlinux}/{TheFlight}" })
+            .Because("the connect is asked for by runner and the pane is keyed by flight, so "
+                   + "both have to cross.");
+
+        await Assert.That(after.LiveVisible).IsTrue()
+            .Because("a watch that connected and showed nothing is a watch a person cannot "
+                   + "tell from one that failed.");
+
+        await Assert.That(after.Selected?.FlightId).IsEqualTo(TheFlight)
+            .Because("the live pane is bound to the queue cursor, so a watch that did not "
+                   + "move it draws whatever flight happened to be under it before.");
     }
 
     [Test]
-    public async Task Watching_runs_the_child_and_says_what_became_of_it()
+    public async Task The_steps_of_the_connect_reach_the_freed_terminal()
     {
-        ProcessStartInfo? started = null;
+        // WHERE THEY BELONG. The connect happens between sessions, so the
+        // terminal is this console's to write on - and the wait it narrates is
+        // up to a full heartbeat interval, which is the difference between a
+        // person waiting and a person deciding it has hung.
+        var said = new List<string>();
 
+        _ = ConsoleWatchRunner.Watch(
+            State("GG-71"),
+            (_, _, say) => { say("asking the control plane"); say("connected"); return true; },
+            say: said.Add);
+
+        await Assert.That(said).IsNotEmpty()
+            .Because("a connect that says nothing is one a person cannot tell from a hang.");
+    }
+
+    [Test]
+    public async Task A_connect_that_fails_says_so_and_shows_no_pane()
+    {
+        // AND DOES NOT LEAVE THE PANE OPEN OVER NOTHING, which would be the
+        // silence this whole path keeps producing: a box that means "the agent
+        // is working" over a conversation that never happened.
         var after = ConsoleWatchRunner.Watch(
-            State("GG-71"), TheBinary(), info => { started = info; return 0; });
+            State("GG-71"), (_, _, _) => false, say: _ => { });
 
-        await Assert.That(started).IsNotNull();
-        await Assert.That(started!.ArgumentList).Contains(Vmlinux);
-        await Assert.That(after.LastRunner).Contains("GG-71")
-            .Because("the model is the only thing that crosses back from a session that "
-                   + "released the terminal, so the receipt has to name what was watched. "
-                   + "Said: " + after.LastRunner);
+        await Assert.That(after.LiveVisible).IsFalse();
+        await Assert.That(after.LastRunner).IsNotNull();
     }
 
     [Test]
@@ -158,30 +200,33 @@ public class WatchFromTheRunnerModalTests
     {
         // THE KEY AND THE ACT AGREE. The hint line is derived from one place and
         // dispatch from another; a command that arrived anyway - a rebind, a
-        // stale modal - must not start a child that cannot work.
-        var ran = false;
+        // stale modal - must not connect to something that cannot answer.
+        var reached = false;
 
         var after = ConsoleWatchRunner.Watch(
-            State(null), TheBinary(), _ => { ran = true; return 0; });
+            State(null), (_, _, _) => { reached = true; return true; }, say: _ => { });
 
-        await Assert.That(ran).IsFalse();
+        await Assert.That(reached).IsFalse();
         await Assert.That(after.LastRunner).Contains("nothing")
             .Because("it has to say why rather than fail silently. Said: " + after.LastRunner);
     }
 
     [Test]
-    public async Task A_console_that_cannot_name_its_own_binary_says_so()
+    public async Task A_flight_the_queue_does_not_hold_is_not_watched()
     {
-        // SelfInvocation returns null when it cannot work out how to re-run
-        // this process, and handing the flight to whichever gg is on PATH is
-        // the failure ConsoleHandFlight already refuses for the same reason.
-        var ran = false;
+        // THE PANE CANNOT DRAW WHAT THE QUEUE DOES NOT HAVE. The runner row
+        // carries a flight NUMBER and the pane needs an ID, and the queue is
+        // where the two meet - so a runner flying something this console has
+        // not loaded yet is a connect with nowhere to put the output.
+        var reached = false;
 
         var after = ConsoleWatchRunner.Watch(
-            State("GG-71"), null, _ => { ran = true; return 0; });
+            State("GG-71") with { Queue = [] },
+            (_, _, _) => { reached = true; return true; },
+            say: _ => { });
 
-        await Assert.That(ran).IsFalse();
-        await Assert.That(after.LastRunner).Contains("re-run itself")
-            .Because("Said: " + after.LastRunner);
+        await Assert.That(reached).IsFalse();
+        await Assert.That(after.LastRunner).Contains("GG-71")
+            .Because("it has to name the flight it could not find. Said: " + after.LastRunner);
     }
 }

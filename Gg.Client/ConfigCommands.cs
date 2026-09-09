@@ -35,13 +35,6 @@ public sealed record ConfigurationView
     /// </remarks>
     public bool AcceptsOffered { get; init; }
 
-    /// <summary>Whether an accepted offer applies with nobody watching.</summary>
-    /// <remarks>
-    /// <b>False unless offers are accepted at all.</b> The second setting alone
-    /// is inert, and showing it as live would say a machine applies offers while
-    /// it refuses every one.
-    /// </remarks>
-    public bool AppliesUnattended { get; init; }
 }
 
 /// <summary>Whether a document is one, and what it looks like written out.</summary>
@@ -86,17 +79,11 @@ public static class ConfigCommands
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        var accepts = file?.AcceptOffered is true;
-
         return new VerbResult.ConfigShown(new ConfigurationView
         {
             Path = path ?? ConfigurationFile.DefaultPath(),
             Settings = settings,
-            AcceptsOffered = accepts,
-
-            // BOTH, OR IT IS NOT LIVE. Unattended on its own applies nothing,
-            // because nothing is accepted in the first place.
-            AppliesUnattended = accepts && file?.AcceptUnattended is true,
+            AcceptsOffered = file?.AcceptOffered is true,
         });
     }
 

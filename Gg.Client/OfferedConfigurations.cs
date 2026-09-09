@@ -78,11 +78,6 @@ public static class OfferedConfigurations
             return new OfferTaken { Waiting = true };
         }
 
-        if (!attended && into.AcceptUnattended is not true)
-        {
-            return new OfferTaken { Waiting = offered.Settings.Count > 0 };
-        }
-
         var changed = into;
 
         foreach (var setting in offered.Settings)

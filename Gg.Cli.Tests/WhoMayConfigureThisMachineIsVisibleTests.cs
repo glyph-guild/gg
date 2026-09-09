@@ -59,24 +59,17 @@ public class WhoMayConfigureThisMachineIsVisibleTests
     }
 
     [Test]
-    public async Task Unattended_is_only_meaningful_once_offers_are_accepted_at_all()
+    public async Task The_line_says_how_an_offer_is_taken_rather_than_only_that_it_may_be()
     {
-        // Turning on the second without the first does nothing, and a surface
-        // that showed it as live would say a machine applies offers when it
-        // refuses every one.
-        var view = Shown(new Configuration { AcceptUnattended = true });
+        // `accept-unattended` used to be the other half of this and is gone: it
+        // was a switch for a pool member, and a pool member has no file to set
+        // it in. So a machine that accepts offers accepts them ONE WAY, and the
+        // line names the way rather than leaving somebody to wonder when.
+        var text = VerbOutput.ToText(
+            new VerbResult.ConfigShown(Shown(new Configuration { AcceptOffered = true })));
 
-        await Assert.That(view.AcceptsOffered).IsFalse();
-        await Assert.That(view.AppliesUnattended).IsFalse()
-            .Because("nothing is accepted at all, so nothing is applied unattended either.");
-    }
-
-    [Test]
-    public async Task Both_together_are_the_only_way_a_machine_applies_one_on_its_own()
-    {
-        var view = Shown(new Configuration { AcceptOffered = true, AcceptUnattended = true });
-
-        await Assert.That(view.AppliesUnattended).IsTrue();
+        await Assert.That(text).Contains("gg config accept", StringComparison.Ordinal)
+            .Because("a machine that will accept an offer should say what makes it happen.");
     }
 
     [Test]
@@ -86,6 +79,5 @@ public class WhoMayConfigureThisMachineIsVisibleTests
         // has to be off in both readings, or "I have not configured this yet"
         // would mean something different from "I configured it to refuse".
         await Assert.That(Shown(null).AcceptsOffered).IsFalse();
-        await Assert.That(Shown(null).AppliesUnattended).IsFalse();
     }
 }

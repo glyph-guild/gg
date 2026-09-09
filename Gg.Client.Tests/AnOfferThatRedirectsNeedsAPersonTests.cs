@@ -17,12 +17,26 @@ namespace Gg.Client.Tests;
 /// refusal, and it is not answered by dropping it either.
 /// </para>
 /// <para>
-/// <b>So the set grows and the guarantee splits.</b> Data keys may apply with
+/// <b>So the set grows and the guarantee splits.</b> Data keys could apply with
 /// nobody watching: wrong relays degrade a connection and grant nothing, and
 /// labels can only ever offer to do less or different work. Directed keys — the
 /// ones that change where something is fetched from or sent to — may be offered
 /// and <b>never apply unattended</b>. A person accepts each one and sees exactly
 /// what is being repointed.
+/// </para>
+/// <para>
+/// <b>Nothing calls this unattended today, and the tests do it anyway.</b>
+/// <c>accept-unattended</c> was the switch and it is gone: it existed for a pool
+/// member, and a pool member has no file to set it in — <c>DockerPoolAdapter</c>
+/// creates members with no binds, so nothing from the host filesystem reaches
+/// one. Every acceptance now goes through a person typing
+/// <c>gg config accept</c>.
+/// </para>
+/// <para>
+/// <b>Which is exactly why these assertions stay.</b> The guard defends a door
+/// that is currently locked, and an unexercised guard on a door somebody later
+/// unlocks is no guard at all — so <c>attended: false</c> is asked here even
+/// though no caller asks it.
 /// </para>
 /// <para>
 /// <b>Whole-offer, not per-key.</b> An offer carrying any directed key needs a
@@ -47,8 +61,17 @@ public class AnOfferThatRedirectsNeedsAPersonTests
             })],
         };
 
-    private static Configuration Unattended() =>
-        new() { AcceptOffered = true, AcceptUnattended = true };
+    /// <summary>
+    /// A machine that accepts offers, asked about one with nobody at it.
+    /// </summary>
+    /// <remarks>
+    /// There is no longer a switch that lets this happen - <c>accept-unattended</c>
+    /// was removed, because it was for a pool member and a pool member has no
+    /// file to set it in. What remains is the GUARD, and these tests are what
+    /// keep it live: it defends a door that is currently locked, and an
+    /// unexercised guard on a door somebody later unlocks is no guard at all.
+    /// </remarks>
+    private static Configuration AcceptingOffers() => new() { AcceptOffered = true };
 
     [Test]
     public async Task The_three_the_walk_asked_for_are_offerable_now()
@@ -67,7 +90,7 @@ public class AnOfferThatRedirectsNeedsAPersonTests
         foreach (var key in OfferableKeys.All.Where(OfferableKeys.NeedsAPerson))
         {
             var taken = OfferedConfigurations.Accept(
-                Offering((key, "forge=host.invalid")), Unattended(), attended: false);
+                Offering((key, "forge=host.invalid")), AcceptingOffers(), attended: false);
 
             await Assert.That(taken.Configuration).IsNull()
                 .Because($"'{key}' changes where something is fetched from or sent to, and "
@@ -93,7 +116,7 @@ public class AnOfferThatRedirectsNeedsAPersonTests
     public async Task A_data_key_still_applies_unattended()
     {
         var taken = OfferedConfigurations.Accept(
-            Offering(("stun-servers", "stun:relay.invalid:3478")), Unattended(), attended: false);
+            Offering(("stun-servers", "stun:relay.invalid:3478")), AcceptingOffers(), attended: false);
 
         await Assert.That(taken.Configuration!.StunServers)
             .IsEqualTo("stun:relay.invalid:3478");
@@ -108,7 +131,7 @@ public class AnOfferThatRedirectsNeedsAPersonTests
         var taken = OfferedConfigurations.Accept(
             Offering(("stun-servers", "stun:relay.invalid:3478"),
                      ("vcs-hosts", "forge=host.invalid")),
-            Unattended(),
+            AcceptingOffers(),
             attended: false);
 
         await Assert.That(taken.Configuration).IsNull()

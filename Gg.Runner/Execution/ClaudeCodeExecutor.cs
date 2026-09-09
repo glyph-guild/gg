@@ -231,10 +231,12 @@ public sealed class ClaudeCodeExecutor(
     /// from.
     /// </summary>
     /// <remarks>
-    /// <c>--setting-sources</c> empty and strict tool-server configuration
-    /// remove the operator's plugins and external servers. They do not remove
-    /// the machine's skills or memory, which is why that is a declared gap
-    /// rather than a solved problem.
+    /// <c>--setting-sources project</c> and strict tool-server configuration
+    /// remove the OPERATOR's plugins, servers and settings while keeping the
+    /// repository's own. They do not remove the machine's skills or memory,
+    /// which is why that is a declared gap rather than a solved problem — and
+    /// a skill in the repository is now the answer to it, because that one
+    /// travels with the code and is the same on every runner.
     /// </remarks>
     private ProcessStartInfo StartInfo(ExecutorRequest request, string? secret = null)
     {
@@ -284,7 +286,29 @@ public sealed class ClaudeCodeExecutor(
     /// </para>
     /// </remarks>
     private string[] BoundingArguments(ExecutorRequest request, string? secret) =>
-        ["--setting-sources", "",
+        // THE REPOSITORY'S, AND ONLY THE REPOSITORY'S. This was empty, which
+        // cleared the OPERATOR's settings - the point - and also cleared the
+        // repository's, which was not. A skill in the tree the flight
+        // materialized then did not register: the Skill tool answered "Unknown
+        // skill" and the agent reached the answer by opening SKILL.md as a
+        // file, which is the agent going looking rather than a skill running.
+        //
+        // NOT `user`: the machine's skills and settings are the operator's, and
+        // clearing those is what this flag was always for. NOT `local`: that
+        // file is a person's, gitignored, and a fleet runner has no person.
+        ["--setting-sources", "project",
+         // AND THE MODE PINNED, because loading a settings file hands it the
+         // lever the empty value was holding. Measured: a repository declaring
+         // `permissions.defaultMode: acceptEdits` wrote a file under
+         // `--allowedTools Read` - an envelope's moves defeated by the
+         // repository they were about - and passing this stopped it. It matters
+         // MORE on an attended session, where nothing is in the allowlist and
+         // the mode is the whole of the bound.
+         //
+         // A repository's hooks now run, and that is accepted rather than
+         // overlooked: a SessionStart hook is a command on the runner and no
+         // probe fires before it. MoveBoundProbe still covers the moves.
+         "--permission-mode", "default",
          // STRICT, AND NOW WITH SOMETHING TO BE STRICT ABOUT. This
          // clears the operator's own servers, which is the whole point
          // - and until there was a --mcp-config beside it, it also left

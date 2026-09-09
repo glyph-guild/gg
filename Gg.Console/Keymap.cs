@@ -387,9 +387,25 @@ public static class Keymap
         // `x' STOPS THE THING THIS MODAL IS ABOUT, which is what it already
         // means in the runner's modal. One letter, one idea, in the two places
         // a modal is about something that can be stopped.
+        // NEITHER ACTS WITHOUT ASKING. `x` grounded on one keypress - the
+        // session ended and an editor opened for a reason before anybody had
+        // agreed - and a prompt asks what, not whether.
+        UiMode.ConfirmGround =>
+        [
+            new(KeyStroke.Char('y'), Command.GroundFlight, "ground it"),
+            new(KeyStroke.Esc, Command.CloseModal, "leave it flying"),
+        ],
+
+        UiMode.ConfirmFlyAgain =>
+        [
+            new(KeyStroke.Char('y'), Command.FlyAgain, "open one on this intent"),
+            new(KeyStroke.Esc, Command.CloseModal, "leave it alone"),
+        ],
+
         UiMode.FlightDetail =>
         [
-            new(KeyStroke.Char('x'), Command.GroundFlight, "ground it"),
+            new(KeyStroke.Char('x'), Command.AskToGround, "ground it"),
+            new(KeyStroke.Char('f'), Command.AskToFlyAgain, "fly it again"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
             // THE LOG'S CURSOR, and the entry it lands on is the one that
             // unwraps. Untaught and off the hint line for the reason the queue's

@@ -59,38 +59,59 @@ public class GroundingIsOfferedOnlyWhereTheFlightIsTests
     };
 
     [Test]
-    public async Task The_flight_modal_offers_it()
+    public async Task The_flight_modal_is_where_it_starts()
     {
+        // `x' STILL MEANS "STOP THE THING THIS MODAL IS ABOUT", and it now
+        // ASKS rather than doing it: the session used to end and an editor open
+        // for a reason before anybody had agreed to anything, so the only way
+        // out of a mistyped `x' was to write nothing and read the refusal.
         var key = Keymap.Resolve(KeyStroke.Char('x'), new KeymapContext(UiMode.FlightDetail));
 
-        await Assert.That(key).IsEqualTo(Command.GroundFlight)
+        await Assert.That(key).IsEqualTo(Command.AskToGround)
             .Because("`x' stops the thing the modal is about, which is what it already means "
                    + "in the runner's modal - one letter, one idea, in the two places a "
                    + "modal is about something that can be stopped.");
     }
 
     [Test]
-    public async Task And_nowhere_else_does()
+    public async Task And_only_the_question_it_opens_answers_it()
     {
-        var elsewhere = from mode in Enum.GetValues<UiMode>()
-                        where mode != UiMode.FlightDetail
-                        from showing in Enum.GetValues<TabId>()
-                        from frozen in (bool[])[false, true]
-                        from takeable in (bool[])[false, true]
-                        from handedBack in (bool[])[false, true]
-                        select new KeymapContext(mode, showing, frozen, takeable, handedBack);
+        // THE CHAIN IS THE PROPERTY, and it is narrower than before rather than
+        // wider: asking is offered in the modal that names the flight, the
+        // answer is offered in the question that modal opens, and neither is
+        // anywhere else. A `y' that grounded from any other mode would be the
+        // scrolled-cursor defect wearing a confirmation.
+        var everywhere = from mode in Enum.GetValues<UiMode>()
+                         from showing in Enum.GetValues<TabId>()
+                         from frozen in (bool[])[false, true]
+                         from takeable in (bool[])[false, true]
+                         from handedBack in (bool[])[false, true]
+                         select new KeymapContext(mode, showing, frozen, takeable, handedBack);
 
-        var offered = elsewhere
+        var asking = everywhere
+            .Where(context => context.Mode != UiMode.FlightDetail)
             .SelectMany(Keymap.Bindings)
-            .Where(binding => binding.Command == Command.GroundFlight)
+            .Where(binding => binding.Command == Command.AskToGround)
             .Select(binding => binding.Key.Name)
             .Distinct()
             .ToList();
 
-        await Assert.That(offered).IsEmpty()
+        await Assert.That(asking).IsEmpty()
             .Because("every other key acts on the row under the cursor, and a person who "
-                   + $"scrolled would end a flight they were not reading. Found: "
-                   + string.Join(", ", offered));
+                   + "scrolled would end a flight they were not reading. Found: "
+                   + string.Join(", ", asking));
+
+        var answering = everywhere
+            .Where(context => context.Mode != UiMode.ConfirmGround)
+            .SelectMany(Keymap.Bindings)
+            .Where(binding => binding.Command == Command.GroundFlight)
+            .Select(binding => $"{binding.Key.Name}")
+            .Distinct()
+            .ToList();
+
+        await Assert.That(answering).IsEmpty()
+            .Because("the answer belongs to the question and to nothing else. Found: "
+                   + string.Join(", ", answering));
     }
 
     [Test]

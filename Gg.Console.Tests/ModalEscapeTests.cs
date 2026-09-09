@@ -125,6 +125,23 @@ public class ModalEscapeTests
           + "left through CloseModal, and Every_modal_has_exactly_one_escape_hatch above "
           + "already covers it.",
 
+        [UiMode.ConfirmGround] =
+            "opened by `x` inside the flight modal, which is itself opened by the loop after "
+          + "a read - so it is two steps from a fresh state and this test presses one key. "
+          + "It exists because `x` used to ground on that one keypress: the session ended and "
+          + "an editor opened for a reason before anybody had agreed to anything, and the "
+          + "only way back out was to write nothing and read the refusal. "
+          + "GroundingIsOfferedOnlyWhereTheFlightIsTests holds the chain - asked in the modal "
+          + "that names the flight, answered in the question that modal opens, and neither "
+          + "anywhere else - and escapability is covered above, because StateGenerator emits "
+          + "every UiMode.",
+
+        [UiMode.ConfirmFlyAgain] =
+            "opened by `f` inside the flight modal, for the reason above and by the same two "
+          + "steps. Answering it opens the editor on this flight's own intent rather than "
+          + "flying anything, so the real decision lands where a person can still change it - "
+          + "and abandoning the editor opens nothing either.",
+
         [UiMode.FlightDetail] =
             "opened by ConsoleLoop's ShowFlight arm after reading that flight's log - a "
           + "read, so it cannot happen inside a UI session. The boot fetches a log only "

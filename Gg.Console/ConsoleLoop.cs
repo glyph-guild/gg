@@ -408,17 +408,50 @@ public sealed class ConsoleLoop(
                     state = Watched(state, watchRunner);
                     break;
 
+                case Command.AskToGround:
+                case Command.AskToFlyAgain:
+                    // A QUESTION IS A MODE, and asking is all this does. Both
+                    // used to be the act itself: `x` ended the session and
+                    // opened an editor before anybody had agreed to anything.
+                    state = state with
+                    {
+                        Mode = outcome.Exit == Command.AskToGround
+                            ? UiMode.ConfirmGround
+                            : UiMode.ConfirmFlyAgain,
+                    };
+                    break;
+
+                case Command.FlyAgain:
+                    // THE ORDINARY OPEN PATH, on a seeded editor. Nothing here
+                    // reproduces a flight: the summary has no repository, so a
+                    // console that flew from it would open most flights about
+                    // nothing. The editor is where a person confirms what they
+                    // are about to open, and it opens on what the flight said.
+                    state = Reloaded(
+                        Opened(
+                            Closed(state),
+                            actions,
+                            Chosen(Command.ComposeInEditor, editor, compose),
+                            seed: FlightDetails.IntentToFlyAgain(state)),
+                        reload,
+                        asked: false);
+                    break;
+
                 case Command.GroundFlight:
                     // A WRITE, AND A SENTENCE ASKED FOR FIRST. Both are things
                     // a UI session may not do, so the session ends, the loop
                     // asks, and what came back is in the model the next session
                     // renders.
+                    //
+                    // AND IT ARRIVES FROM A CONFIRMATION NOW, so the question
+                    // closes with the answer rather than being left open behind
+                    // the editor it opened.
                     state = groundFlight is null
-                        ? state with
+                        ? Closed(state) with
                         {
                             LastGrounded = "This console is not configured to ground flights.",
                         }
-                        : groundFlight(state, () => editor.Edit(""));
+                        : groundFlight(Closed(state), () => editor.Edit(""));
                     break;
 
                 case Command.OpenSignInUri:
@@ -747,7 +780,7 @@ public sealed class ConsoleLoop(
         state with { Mode = UiMode.Normal, ComposingFor = ComposingFor.Nothing };
 
     public static AppState Opened(
-        AppState state, IConsoleActions? actions, IEditorSession editor)
+        AppState state, IConsoleActions? actions, IEditorSession editor, string seed = "")
     {
         if (actions is null)
         {
@@ -760,7 +793,12 @@ public sealed class ConsoleLoop(
         // The editor IS the prompt at this cardinality: it opens on an empty buffer,
         // a person types a line or a paragraph, and saving is the answer. Adding a
         // separate one-line reader would be the second path this comment warns about.
-        var intent = editor.Edit("").Trim();
+        // SEEDED, WHICH IS THE WHOLE OF FLYING ONE AGAIN. Empty is a new flight
+        // and the flight's own intent is a second go at it; everything after
+        // this line - the repository, the envelope, the refusals - is the same
+        // path either way, which is why a summary carrying no repository is not
+        // a problem this has to solve.
+        var intent = editor.Edit(seed).Trim();
 
         return state with
         {

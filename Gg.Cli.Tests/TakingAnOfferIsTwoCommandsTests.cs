@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Gg.Client;
 using Gg.Contracts;
 using Gg.Local;
@@ -24,8 +25,60 @@ namespace Gg.Cli.Tests;
 /// what was being repointed.
 /// </para>
 /// </remarks>
-public class TakingAnOfferIsTwoCommandsTests
+public partial class TakingAnOfferIsTwoCommandsTests
 {
+    /// <summary>The parse's own source, which is where the sub-verbs are.</summary>
+    private static string ParseSource()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Gg.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        var root = (directory ?? throw new InvalidOperationException("Gg.sln not found")).FullName;
+
+        return File.ReadAllText(Path.Combine(root, "Gg.Cli", "CliArgs.cs"));
+    }
+
+    /// <summary>Matches a `["config", "verb"` pattern in the parse.</summary>
+    [GeneratedRegex("""\["config", "([a-z]+)""")]
+    private static partial Regex ConfigVerb();
+
+    [Test]
+    public async Task Every_config_verb_the_parse_accepts_is_in_the_usage()
+    {
+        // FOUND BY RUNNING THE BINARY, and it is the same class of defect as
+        // `gg config validate` exiting 0 on a document it had refused.
+        // Nineteen assertions passed, two totality guards fired and were
+        // answered - and both new verbs were still missing from the one place a
+        // person looks for a verb they do not know exists. Nothing in this
+        // repository asserted over the usage text at all, so there was no guard
+        // to fire.
+        //
+        // Derived from the parse rather than listed, so the NEXT config verb
+        // cannot be the one nobody advertised.
+        var accepted = ConfigVerb().Matches(ParseSource())
+            .Select(m => m.Groups[1].Value)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(accepted).IsNotEmpty()
+            .Because("no config sub-verbs were found, so this ratchet asserted nothing.");
+
+        var usage = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
+
+        var unadvertised = accepted
+            .Where(v => !usage.Contains($"gg config {v}", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(unadvertised).IsEmpty()
+            .Because("a verb absent from gg's own usage is a verb nobody finds. Found: "
+                   + string.Join(", ", unadvertised));
+    }
+
     [Test]
     public async Task Offered_is_a_verb()
     {

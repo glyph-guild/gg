@@ -400,16 +400,12 @@ public sealed class ConsoleLoop(
                     break;
 
                 case Command.WatchRunner:
-                    // A CHILD THAT OWNS THE TERMINAL until a person stops it or
-                    // the flight ends. The session is already over by the time
-                    // this arm runs, which is the whole reason the watch may
-                    // make the calls it makes.
+                    // THE CONNECT HAPPENS HERE, which is the whole reason it may
+                    // happen at all: the session is over, the terminal is free,
+                    // and three calls to the control plane and a handshake are
+                    // ordinary between sessions. What survives into the next
+                    // session is a buffer the pane drains on its own tick.
                     state = Watched(state, watchRunner);
-
-                    // AND THE MODAL AGAIN, because a person who was watching a
-                    // runner is looking at that runner, and the sentence that
-                    // came back is about the row this modal names.
-                    state = Reducer.RunnerShown(state);
                     break;
 
                 case Command.GroundFlight:

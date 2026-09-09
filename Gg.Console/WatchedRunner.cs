@@ -33,7 +33,7 @@ namespace Gg.Console;
 /// </para>
 /// </remarks>
 public sealed class WatchedRunner(
-    Func<string, Action<string>, Action<string>, CancellationToken, Task> follow,
+    Func<string, Action<string>, Action<string>, Action, CancellationToken, Task> follow,
     Func<DateTimeOffset> now) : IDisposable
 {
     private readonly Lock _gate = new();
@@ -56,13 +56,21 @@ public sealed class WatchedRunner(
         }
     }
 
+    private TaskCompletionSource<bool>? _open;
+
     /// <summary>Starts watching one runner's flight, stopping whatever was.</summary>
-    public void Start(string runnerId, string flightId)
+    /// <remarks>
+    /// <b>It returns before there is a channel.</b> Reaching one takes up to a
+    /// heartbeat interval, and the caller has steps to print meanwhile — see
+    /// <see cref="Opened"/> for the wait.
+    /// </remarks>
+    public void Start(string runnerId, string flightId, Action<string>? saying = null)
     {
         Stop();
 
         var source = new RemoteLiveSource();
-        source.Opened();
+        var open = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         var stopping = new CancellationTokenSource();
 
@@ -71,6 +79,7 @@ public sealed class WatchedRunner(
             _flightId = flightId;
             _source = source;
             _stopping = stopping;
+            _open = open;
         }
 
         // NOT AWAITED, and nothing may throw out of it. It runs beside a
@@ -90,12 +99,15 @@ public sealed class WatchedRunner(
                                 Text = line,
                                 At = now(),
                             }]),
-                        // THE CONNECT'S OWN STEPS, dropped here: by the time
-                        // this pump is running the connect has already
-                        // happened, on the freed terminal, where a person read
-                        // them. Kept in the signature because the caller that
-                        // does the connecting is the one that supplies this.
-                        _ => { },
+                        // THE CONNECT'S OWN STEPS, handed to whoever asked for
+                        // the watch: they happen on the freed terminal, before
+                        // there is a pane to put them in.
+                        step => saying?.Invoke(step),
+                        () =>
+                        {
+                            source.Opened();
+                            open.TrySetResult(true);
+                        },
                         stopping.Token);
                 }
                 catch (Exception)
@@ -108,6 +120,11 @@ public sealed class WatchedRunner(
                 finally
                 {
                     source.Closed();
+
+                    // A PUMP THAT ENDED WITHOUT OPENING NEVER WILL. Whoever is
+                    // waiting has to be told that rather than wait out the
+                    // whole deadline for a connect that already failed.
+                    open.TrySetResult(false);
 
                     // DISPOSED HERE, BY WHOEVER USED IT. Stop() used to cancel
                     // and dispose in one breath, which is a race when the pump
@@ -134,6 +151,7 @@ public sealed class WatchedRunner(
             _stopping = null;
             _source = null;
             _flightId = null;
+            _open = null;
         }
 
         // CLOSED FIRST, so a pane drawn between these two lines says the watch
@@ -143,6 +161,42 @@ public sealed class WatchedRunner(
         // CANCELLED, NOT DISPOSED. The pump owns the disposal, because it is
         // the thing that might still be holding the token.
         stopping?.Cancel();
+    }
+
+    /// <summary>
+    /// Waits until there is a channel, or until there plainly will not be.
+    /// </summary>
+    /// <remarks>
+    /// <b>Bounded, because the alternative is a console that hangs.</b> The
+    /// ordinary wait is one heartbeat interval; the deadline is for a runner
+    /// that stopped beating between the fleet read and the offer.
+    /// </remarks>
+    public bool Opened(TimeSpan within, Action<string>? saying = null)
+    {
+        TaskCompletionSource<bool>? open;
+
+        lock (_gate)
+        {
+            open = _open;
+        }
+
+        if (open is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            return open.Task.WaitAsync(within).GetAwaiter().GetResult();
+        }
+        catch (TimeoutException)
+        {
+            saying?.Invoke(
+                $"gave up after {(int)within.TotalSeconds}s without a channel");
+
+            Stop();
+            return false;
+        }
     }
 
     public void Dispose() => Stop();

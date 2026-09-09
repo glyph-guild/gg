@@ -32,10 +32,14 @@ public class OneWatchAtATimeTests
         new(2026, 9, 9, 1, 45, 0, TimeSpan.Zero);
 
     /// <summary>A follow that hands over what it is told to, then waits to be stopped.</summary>
-    private static Func<string, Action<string>, Action<string>, CancellationToken, Task>
+    private static Func<string, Action<string>, Action<string>, Action, CancellationToken, Task>
         Following(params string[] lines) =>
-        async (_, onLine, _, token) =>
+        async (_, onLine, _, onOpen, token) =>
         {
+            // OPENED FIRST, because that is the order the real one has: the
+            // channel answers an ask before anything is written.
+            onOpen();
+
             foreach (var line in lines)
             {
                 onLine(line);
@@ -98,12 +102,14 @@ public class OneWatchAtATimeTests
         var stopped = new TaskCompletionSource();
 
         using var watched = new WatchedRunner(
-            async (runner, _, _, token) =>
+            async (runner, _, _, onOpen, token) =>
             {
                 if (runner == "first")
                 {
                     token.Register(stopped.SetResult);
                 }
+
+                onOpen();
 
                 await Task.Delay(Timeout.Infinite, token);
             },
@@ -131,6 +137,9 @@ public class OneWatchAtATimeTests
 
         var source = watched.SourceFor("a-flight")!;
 
+        // OPEN ONLY ONCE THERE IS A CHANNEL. Start returns before there is one,
+        // which is the whole reason Opened exists.
+        await Assert.That(watched.Opened(TimeSpan.FromSeconds(10))).IsTrue();
         await Assert.That(source.Exists).IsTrue();
 
         watched.Stop();

@@ -633,7 +633,36 @@ static async Task<int> LaunchConsoleAsync()
     // the screen advances it on a timer during one; both resume from the same
     // offset or the same lines arrive twice. It is owned here, outside every UI
     // lifetime, which is what keeps "a session retains nothing" true.
-    var tails = new LiveTails(flightId => new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)));
+    // THE ONE RUNNER THIS CONSOLE IS WATCHING, if any. It holds the
+    // conversation and the buffer its output lands in; the pane never knows the
+    // difference, because ILiveSource is Read-and-Exists and says nothing about
+    // where the lines came from.
+    using var watched = new Gg.Console.WatchedRunner(
+        (runnerId, onLine, onStep, onOpen, token) =>
+            new WatchARunner(
+                new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(baseAddress) }),
+                new ConsoleChannel(
+                    Gg.Runner.StunConfiguration.FromEnvironment(), TimeSpan.FromSeconds(20)))
+            .WatchAsync(
+                new FileSessionStore().Read()?.SessionToken ?? "",
+                runnerId,
+                new PinnedRunnerKeys(),
+                lines: 200,
+                DateTimeOffset.UtcNow,
+                write: onLine,
+                follow: true,
+                saying: onStep,
+                opened: onOpen,
+                cancellationToken: token),
+        () => DateTimeOffset.UtcNow);
+
+    // THE WATCHED FLIGHT FIRST, THEN THE FILE. A runner on this machine writes
+    // its live view here and a fleet runner writes it on the fleet host, so the
+    // two sources answer the same question about different flights - and the
+    // fallback is what keeps every flight that is NOT being watched drawing
+    // exactly as it did.
+    var tails = new LiveTails(flightId =>
+        watched.SourceFor(flightId) ?? new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)));
 
     // THE RUNNER THIS CONSOLE MAY START, and the log it writes. The handle on
     // the child is owned here, outside every UI lifetime, for the reason the
@@ -829,14 +858,26 @@ static async Task<int> LaunchConsoleAsync()
         // the browser's. This one owns the terminal until the flight ends or
         // somebody stops it, and a grace period here would take the screen back
         // from a person mid-sentence.
+        // GOING AND WATCHING, which the modal has named since slice thirty-four
+        // and could not do. The connect runs HERE, between sessions, where the
+        // terminal is free - which is what makes three calls to the control
+        // plane and a handshake ordinary rather than an exception - and then
+        // the pane draws from the buffer the watch fills.
         watchRunner: current => Gg.Console.ConsoleWatchRunner.Watch(
             current,
-            Gg.Local.SelfInvocation.Current,
-            info =>
+            connect: (runnerId, flightId, say) =>
             {
-                using var child = Process.Start(info);
-                child?.WaitForExit();
-                return child?.ExitCode ?? -1;
+                watched.Start(runnerId, flightId, saying: say);
+
+                // WAITED FOR, so a person is not returned to a pane over a
+                // channel that has not opened. The steps are said on the
+                // terminal as they happen; this is the one that takes time.
+                return watched.Opened(TimeSpan.FromSeconds(45), say);
+            },
+            say: step =>
+            {
+                Console.Out.WriteLine("  … " + step);
+                Console.Out.Flush();
             }),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the

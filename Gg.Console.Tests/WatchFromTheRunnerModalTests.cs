@@ -75,18 +75,18 @@ public class WatchFromTheRunnerModalTests
                 new QueueRow
                 {
                     FlightId = "another-flight",
-                    Flight = "GG-1",
-                    Stage = "flying",
-                    State = "open",
-                    Intent = "something else",
+                    FlightNumber = "GG-1",
+                    Name = "something else",
+                    Reason = QueueReason.AwaitingDecision,
+                    Since = Beat,
                 },
                 new QueueRow
                 {
                     FlightId = TheFlight,
-                    Flight = flying,
-                    Stage = "flying",
-                    State = "open",
-                    Intent = "the one being watched",
+                    FlightNumber = flying,
+                    Name = "the one being watched",
+                    Reason = QueueReason.AwaitingDecision,
+                    Since = Beat,
                 },
             ],
     };
@@ -140,6 +140,14 @@ public class WatchFromTheRunnerModalTests
         await Assert.That(idle).DoesNotContain("Press")
             .Because("Said: " + idle);
     }
+
+    /// <summary>A connect that works, and reports which runner it was asked about.</summary>
+    private static ConsoleWatchRunner.Connect Reaching(List<string> asked) =>
+        (runnerId, flightId, _) =>
+        {
+            asked.Add($"{runnerId}/{flightId}");
+            return true;
+        };
 
     [Test]
     public async Task Watching_connects_and_leaves_the_pane_on_that_flight()

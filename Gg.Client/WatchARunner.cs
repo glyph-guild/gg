@@ -70,6 +70,12 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
         // to land: this is the connect and that is the agent's own words. A
         // caller wanting none passes none.
         Action<string>? saying = null,
+        // SAID ONCE, WHEN THERE IS A CHANNEL AND IT HAS ANSWERED. A caller
+        // deciding whether to put a pane in front of somebody needs the
+        // difference between "still connecting" and "connected", and reading
+        // that off the last sentence in `saying` would be a caller matching on
+        // prose.
+        Action? opened = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(write);
@@ -158,6 +164,10 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
 
         using (conversation)
         {
+            // SAID AFTER THE FIRST ASK LANDS, not on the handshake. A channel
+            // that opened and then declined to answer is a runner problem, and
+            // a caller told "connected" before that was known would put a pane
+            // over it and call the silence the agent thinking.
             var first = await AskAsync(conversation, lines, cancellationToken);
 
             if (first is not { } tail)
@@ -168,6 +178,8 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
                   + "runner rather than the network - the route is there and something on the "
                   + "far side declined to say anything.");
             }
+
+            opened?.Invoke();
 
             foreach (var line in tail.Lines)
             {

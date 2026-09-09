@@ -1,97 +1,60 @@
-using System.Diagnostics;
-using Gg.Local;
-
 namespace Gg.Console;
 
 /// <summary>
-/// Hands the terminal to <c>gg runner watch</c> for the runner under the cursor.
+/// Connects to the runner under the cursor and leaves the live pane on its flight.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Why a child and not a pane.</b> Reaching a runner is three calls to the
-/// control plane — mint an introduction, leave the sealed offer, collect the
-/// answer — and then a WebRTC socket carrying the conversation. A UI session
-/// may make none of those: <c>LiveStreamingTests</c> scans the session sources
-/// and fails on an <c>HttpClient</c> or a <c>Socket</c>, and that rule is the
-/// reason the console can promise the terminal is free between sessions. So
-/// this takes the slot <c>$EDITOR</c> takes.
+/// <b>The connect happens BETWEEN sessions and the watching happens during
+/// one.</b> Reaching a runner is three calls to the control plane and a WebRTC
+/// handshake, which a UI session may not do — so it is done here, with the
+/// terminal free, where its steps can also be read. What survives into the
+/// session is a buffer, and draining a buffer on the tick is the same shape as
+/// reading a file.
 /// </para>
 /// <para>
-/// <b>The live pane in this console is not a precedent for doing it inline.</b>
-/// That pane reads a LOCAL file — the live view a runner on this machine wrote
-/// — which is the narrowest exception available and the only one a session
-/// has. A fleet runner's output is on the fleet runner; that is the whole
-/// premise of the feature.
+/// <b>Which is why this costs no exception.</b> The rule is that a session may
+/// read a local file and nothing else, and the reason is that everything else
+/// happens with the terminal provably free. Both halves of that still hold.
 /// </para>
 /// <para>
-/// <b>Through <see cref="SelfInvocation"/>, so the child is THIS gg.</b> A bare
-/// <c>gg</c> off PATH is whichever one is installed, which on a developer's
-/// machine is routinely not the one they are running — <c>ConsoleHandFlight</c>
-/// refuses for the same reason and this refuses the same way.
+/// <b>The first version ran <c>gg runner watch</c> as a child for the whole
+/// watch.</b> That works and is what the editor does, but it is a watch a
+/// person has to leave the console to have — and it turned out to be
+/// unnecessary, because <c>LiveTails</c> was already built to take a source it
+/// does not choose.
 /// </para>
 /// </remarks>
 public static class ConsoleWatchRunner
 {
-    /// <summary>How to start the watch, as a child of this process.</summary>
-    public static ProcessStartInfo StartInfoFor(SelfInvocation self, string runnerId)
-    {
-        ArgumentNullException.ThrowIfNull(self);
-
-        var info = new ProcessStartInfo(self.Command)
-        {
-            // NOTHING REDIRECTED. What the agent is saying has to reach the
-            // screen; a pipe here is a tail nobody reads, and stdin has to
-            // reach the child so Ctrl-C stops the watch rather than the console.
-            RedirectStandardInput = false,
-            RedirectStandardOutput = false,
-            RedirectStandardError = false,
-            UseShellExecute = false,
-        };
-
-        // THROUGH `Under`, which already answers whether this process needs its
-        // own assembly handed back to it - `dotnet Gg.Cli.dll` rather than `gg`.
-        // SelfInvocation's remark says a second verb must ask rather than
-        // re-derive it, and the failure it records is a child that never
-        // started with nothing that said so.
-        foreach (var argument in self.Under("runner", "watch"))
-        {
-            info.ArgumentList.Add(argument);
-        }
-
-        // THE WHOLE ID. The grid shows eight characters and the verb takes all
-        // of it, which is why the row carries both.
-        info.ArgumentList.Add(runnerId);
-
-        return info;
-    }
-
     /// <summary>
-    /// Goes and watches, or says why it did not.
+    /// Reaches one runner about one flight, saying what it is doing.
     /// </summary>
-    /// <param name="start">
-    /// Runs the child and answers its exit code. The composition root's,
-    /// because starting a process is not something this assembly may do to a
-    /// terminal it does not know it has.
-    /// </param>
-    public static AppState Watch(
-        AppState state, SelfInvocation? self, Func<ProcessStartInfo, int> start)
+    /// <remarks>
+    /// The composition root's: the session token, the control plane and the
+    /// pinned keys are all things this assembly may not hold. It answers
+    /// whether a channel is open, and everything it wants to say about how it
+    /// went it says through <paramref name="say"/> while it happens.
+    /// </remarks>
+    public delegate bool Connect(string runnerId, string flightId, Action<string> say);
+
+    /// <summary>Goes and watches, or says why it did not.</summary>
+    public static AppState Watch(AppState state, Connect connect, Action<string> say)
     {
         ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(start);
+        ArgumentNullException.ThrowIfNull(connect);
+        ArgumentNullException.ThrowIfNull(say);
 
         if (Rows.Selected(state) is not { } row || row.Id.Length == 0)
         {
-            return state with
-            {
-                LastRunner = "There is no runner under the cursor to watch.",
-            };
+            return state with { LastRunner = "There is no runner under the cursor to watch." };
         }
 
         // THE SAME RULE THE KEY OBEYS, checked again here rather than trusted.
         // The hint line is derived in one place and dispatch happens in
         // another; a command that arrived anyway - a rebind, a modal that
-        // outlived the row it was over - must not start a child that cannot
-        // work and then blame the network for it.
+        // outlived the row it was over - must not reach for a channel that
+        // cannot exist and then blame the network for it.
         if (row.Work is not { Length: > 0 } flying)
         {
             return state with
@@ -103,28 +66,52 @@ public static class ConsoleWatchRunner
             };
         }
 
-        if (self is null)
+        // THE ROW HAS A NUMBER AND THE PANE NEEDS AN ID, and the queue is where
+        // the two meet. A runner flying something this console has not loaded
+        // yet is a connect with nowhere to put the output, which is a refusal
+        // rather than a blank box.
+        var at = state.Queue
+            .Select((flight, index) => (flight, index))
+            .Where(both => string.Equals(both.flight.FlightNumber, flying, StringComparison.Ordinal))
+            .Select(both => (int?)both.index)
+            .FirstOrDefault();
+
+        if (at is not { } cursor)
         {
             return state with
             {
                 LastRunner =
-                    "Nothing was watched: this gg cannot work out how to re-run itself, so "
-                  + "the watch would be handed to whichever gg is on PATH.",
+                    $"{row.Label} is flying {flying}, and this console has not loaded that "
+                  + "flight yet, so there is nowhere to show what it says. Refresh and try "
+                  + "again.",
             };
         }
 
-        var exit = start(StartInfoFor(self, row.Id));
+        if (!connect(row.Id, state.Queue[cursor].FlightId, say))
+        {
+            // NO PANE OVER A CONVERSATION THAT NEVER HAPPENED. An open live view
+            // with nothing in it is the box that means "the agent is working",
+            // and putting it over a failed connect is the silence this whole
+            // path keeps producing. Whatever went wrong was said through `say`,
+            // on the terminal that was free at the time.
+            return state with
+            {
+                LastRunner = $"Could not reach {row.Label}. What it got as far as is above.",
+            };
+        }
 
-        // WHAT CAME BACK, and a zero is not a promise that anybody was reached.
-        // `watch` answers with a sentence of its own on the terminal the child
-        // owned - which this console has just taken back and cannot reprint -
-        // so the receipt says where to look rather than inventing a verdict.
+        // THE CURSOR MOVES TO WHAT IS BEING WATCHED. The live pane is bound to
+        // the queue cursor, so a watch that connected and did not move it draws
+        // whatever flight happened to be under it before - somebody else's.
         return state with
         {
-            LastRunner = exit == 0
-                ? $"Watched {flying} on {row.Label}. The channel closes with the flight."
-                : $"Watching {flying} on {row.Label} ended with exit {exit}. Its own sentence "
-                + "was on the screen the watch had.",
+            // THE MODAL CLOSES, because the thing it was asked from is now
+            // happening behind it and the pane it happens in is another tab.
+            Mode = UiMode.Normal,
+            SelectedRow = cursor,
+            LiveVisible = true,
+            ActiveTab = TabId.Live,
+            LastRunner = $"Watching {flying} on {row.Label}. It ends when the flight does.",
         };
     }
 }

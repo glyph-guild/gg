@@ -985,6 +985,17 @@ static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
                 Console.Out.Flush();
             },
             follow: true,
+            // WHAT IT IS DOING WHILE IT DOES IT. The connect can take a full
+            // heartbeat interval - fifteen seconds on the deployed control
+            // plane - and it used to spend all of it silent, so the ordinary
+            // healthy case looked exactly like a hang. To stderr, because it is
+            // progress rather than output: `gg runner watch > file` should get
+            // the agent's words and not this.
+            saying: step =>
+            {
+                Console.Error.WriteLine("  … " + step);
+                Console.Error.Flush();
+            },
             cancellationToken: stopping.Token);
 
     if (watching.Outcome is not WatchOutcome.Watching)

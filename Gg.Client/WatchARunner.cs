@@ -65,11 +65,20 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
         DateTimeOffset now,
         Action<string> write,
         bool follow = true,
+        // WHAT IT IS DOING WHILE IT DOES IT, kept apart from `write` because
+        // the two have different audiences and, in a console, different places
+        // to land: this is the connect and that is the agent's own words. A
+        // caller wanting none passes none.
+        Action<string>? saying = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(write);
 
         ArgumentNullException.ThrowIfNull(pins);
+
+        var say = saying ?? (_ => { });
+
+        say("asking the control plane which runners you can see");
 
         var fleet = await control.ListRunnersAsync(sessionToken, cancellationToken);
 
@@ -103,6 +112,11 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
 
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
+        // THE CONTROL PLANE'S WHOLE PART IN THIS: it says which runner, that you
+        // may reach it, and for how long. Nothing that passes afterwards is
+        // readable by it, which is worth a person seeing named as its own step.
+        say($"asking the control plane to introduce you to {runner.Label}");
+
         var introduced = await control.IntroduceRunnerAsync(
             sessionToken,
             runner.RunnerId,
@@ -123,6 +137,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
                 control.LeaveOfferAsync(sessionToken, introduction.IntroductionId, offer, token),
             token =>
                 control.CollectAnswerAsync(sessionToken, introduction.IntroductionId, token),
+            saying,
             cancellationToken);
 
         if (reached.Conversation is not { } conversation)

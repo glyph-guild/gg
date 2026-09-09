@@ -7,9 +7,9 @@ namespace Gg.Client;
 /// <remarks>
 /// <b>Every one of these sends somebody somewhere different</b>, which is the
 /// reason there is a kind rather than a string. A runner that is not beating is
-/// a machine; one flying nothing is a queue; one flying something headless is a
-/// flight that was launched without <c>--attended</c> and cannot be reached
-/// however healthy it is.
+/// a machine; one flying nothing is a queue; one flying something and answering
+/// nothing is a machine again — an older gg, or one started without a key —
+/// because ANY flight on a runner you registered can be watched now.
 /// </remarks>
 public enum WatchOutcome
 {
@@ -48,8 +48,8 @@ public sealed record Watched(
 /// </para>
 /// <para>
 /// <b>It asks the fleet first, and that is not an optimisation.</b> A channel
-/// exists only while an attended flight is flying, so a runner that is offline
-/// or idle cannot be reached however correct everything else is — and reaching
+/// exists only while a flight is flying, so a runner that is offline or idle
+/// cannot be reached however correct everything else is — and reaching
 /// anyway would spend twenty seconds and then say "the runner did not answer",
 /// which reads as a broken machine. The fleet read already carries state and the
 /// current flight; using it is the difference between a diagnosis and a timeout.
@@ -150,13 +150,16 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
         {
             // THE ONE SENTENCE THE CHANNEL CANNOT WRITE FOR ITSELF. ReachAsync
             // knows nobody answered; only here is it known that this runner IS
-            // flying something - so the likeliest reason is a flight nobody
-            // launched attended, which no amount of network is going to fix.
+            // flying something - which used to mean "a flight nobody launched
+            // attended" and now means the machine, because any flight on a
+            // runner you registered can be watched.
             var why = reached.Failure is ReachFailure.RunnerNeverAnswered
                 ? reached.Said
-                + $" {runner.Label} is flying {runner.CurrentFlightNumber}, so it is not away: "
-                + "a runner opens a channel only for a flight launched with `--attended`, and "
-                + "an ordinary flight cannot be watched however healthy the machine is."
+                + $" {runner.Label} is flying {runner.CurrentFlightNumber}, so it is not away. "
+                + "Any flight on a runner you registered can be watched, so this is the "
+                + "machine rather than the flight: either it is running a gg too old to "
+                + "answer, or it was started without a key and cannot be reached by hand at "
+                + "all - `gg runners` says when it was last heard from."
                 : reached.Said;
 
             return Nothing(WatchOutcome.NotReached, why);

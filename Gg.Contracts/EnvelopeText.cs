@@ -186,6 +186,14 @@ public static class EnvelopeText
                 Sequence(text, "opens", opens, depth: 2);
             }
 
+            // SAME RULE, THIRD KNOB. Only a tracker may carry this, so emitting
+            // it for the five kinds that may not would put a refused key into
+            // every document anybody has written.
+            if (destination.MayPerform is { } performable)
+            {
+                Sequence(text, "may-perform", performable, depth: 2);
+            }
+
             // AND THE SAME AGAIN, one member over. Emitted only when declared,
             // and each set only when IT is declared - writing `environments: []`
             // for a destination that bounded only repositories would say the

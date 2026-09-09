@@ -93,6 +93,13 @@ public class ATrackerIsADestinationTests
                     Id = "backlog",
                     Kind = DestinationKinds.WorkItemTracker,
                     Requires = ["loop-ran"],
+                    // DECLARED SINCE THE MENU EXISTS, and this test is how it
+                    // was noticed: a tracker destination that permits no
+                    // operation is one whose admission can never act, so the
+                    // envelope this row is about stopped validating the day
+                    // may-perform arrived. Which is the rule working on the
+                    // first document that had to obey it.
+                    MayPerform = [WorkItemOperations.Field, WorkItemOperations.Score],
                 },
             ],
         };

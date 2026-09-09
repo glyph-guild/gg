@@ -408,19 +408,6 @@ public sealed class ConsoleLoop(
                     state = Watched(state, watchRunner);
                     break;
 
-                case Command.AskToGround:
-                case Command.AskToFlyAgain:
-                    // A QUESTION IS A MODE, and asking is all this does. Both
-                    // used to be the act itself: `x` ended the session and
-                    // opened an editor before anybody had agreed to anything.
-                    state = state with
-                    {
-                        Mode = outcome.Exit == Command.AskToGround
-                            ? UiMode.ConfirmGround
-                            : UiMode.ConfirmFlyAgain,
-                    };
-                    break;
-
                 case Command.FlyAgain:
                     // THE ORDINARY OPEN PATH, on a seeded editor. Nothing here
                     // reproduces a flight: the summary has no repository, so a

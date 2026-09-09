@@ -72,6 +72,20 @@ public static class DoctorChecks
     /// </remarks>
     public const string Channel = "channel";
 
+    /// <summary>
+    /// Whether anything outside this machine could reach it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A different question from <see cref="Channel"/>, which is why it is a
+    /// different check.</b> That one asks whether a data channel can open at
+    /// all on this binary and uses no ICE servers on purpose. This asks whether
+    /// anybody could get here to open one — and the answer is a reflexive
+    /// candidate coming back, never a variable being set: a typo, a server that
+    /// is down and a network that eats UDP all leave the variable set and the
+    /// machine unreachable.
+    /// </remarks>
+    public const string Reachable = "reachable";
+
     /// <summary>Whether every registered reference resolves on this machine.</summary>
     /// <remarks>
     /// ADR-0004 named this failure before it existed: a runner that cannot
@@ -306,13 +320,19 @@ public sealed record DoctorReport
 /// </remarks>
 public sealed class Doctor(
     ControlPlaneClient client, ISessionStore sessions, ICredentialStore credentials, Uri controlPlane,
-    bool addressConfigured = true)
+    bool addressConfigured = true,
+    // WHAT THIS MACHINE WAS TOLD TO ASK, from the composition root like every
+    // other environment reading: one place reads a variable, and a doctor that
+    // read it itself would answer a different question from the code it is
+    // reporting on.
+    IReadOnlyList<string>? stunServers = null)
 {
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
     private readonly ICredentialStore _credentials = credentials;
     private readonly Uri _controlPlane = controlPlane;
     private readonly bool _addressConfigured = addressConfigured;
+    private readonly IReadOnlyList<string> _stunServers = stunServers ?? [];
 
     /// <param name="accountsMissing">
     /// How many recent flights produced no closing account. Passed in because
@@ -430,6 +450,7 @@ public sealed class Doctor(
         checks.Add(RunnerCheck(stored));
         checks.Add(MovesCheck());
         checks.Add(await ChannelCheckAsync(cancellationToken));
+        checks.Add(ReachableCheck(_stunServers, await ReflexiveAsync(cancellationToken)));
         checks.Add(HandoffAccountCheck(accountsMissing));
         checks.Add(CredentialStoreCheck());
         checks.Add(await CredentialResolutionCheckAsync(
@@ -964,6 +985,146 @@ public sealed class Doctor(
                 Fixable = false,
                 Detail = $"a data channel could not be attempted on this binary: {failure.Message}",
             };
+        }
+    }
+
+    /// <summary>
+    /// Whether anything outside could reach this machine, and what to do if not.
+    /// </summary>
+    /// <param name="stunServers">What this machine was told to ask.</param>
+    /// <param name="reflexive">
+    /// The server-reflexive candidates that came back. Empty is the answer that
+    /// matters: it means nothing outside knows how to send anything here.
+    /// </param>
+    /// <remarks>
+    /// <b>Pure, so all three answers are reachable without a network.</b> The
+    /// third is the one that would otherwise never be tested: a variable set to
+    /// something that does not answer looks exactly like a variable set
+    /// correctly, and the remedies are different sentences.
+    /// </remarks>
+    public static DoctorCheck ReachableCheck(
+        IReadOnlyList<string> stunServers, IReadOnlyList<string> reflexive)
+    {
+        ArgumentNullException.ThrowIfNull(stunServers);
+        ArgumentNullException.ThrowIfNull(reflexive);
+
+        if (stunServers.Count == 0)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Reachable,
+                Passed = false,
+                Blocking = false,
+                Fixable = true,
+                Detail =
+                    "this machine has no STUN server configured, so it can only offer its own "
+                  + "address on its own network. Somebody watching a runner from anywhere else "
+                  + "gets \"no route between them\" - which reads as a firewall and is this.",
+                Fix =
+                    "Set GG_STUN_SERVERS to one or more `stun:host:port`. There is no built-in "
+                  + "default because a well-known server belongs to somebody, and which one to "
+                  + "depend on is not this binary's decision to make.",
+            };
+        }
+
+        if (reflexive.Count == 0)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Reachable,
+                Passed = false,
+                Blocking = false,
+                Fixable = true,
+                Detail =
+                    $"this machine asked {string.Join(", ", stunServers)} what it looks like "
+                  + "from outside and got no answer, so it can still only offer its own local "
+                  + "address. The variable is set; what it names did not reply.",
+                Fix =
+                    "Check the server is reachable from here - STUN is UDP, and a network that "
+                  + "allows HTTPS may still drop it. Naming a second server is the cheapest "
+                  + "way to tell an outage from a blocked protocol.",
+            };
+        }
+
+        return new DoctorCheck
+        {
+            Name = DoctorChecks.Reachable,
+            Passed = true,
+            Blocking = false,
+            Fixable = false,
+            Detail =
+                $"this machine looks like {string.Join(", ", reflexive)} from outside, so "
+              + "somebody watching a runner here has an address to reach. Whether they get "
+              + "through is still the network between the two of you.",
+        };
+    }
+
+    /// <summary>
+    /// What this machine looks like from outside, asked of the servers it names.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing is asked when nothing was named</b>, so a machine with no
+    /// STUN configured pays no network for a question whose answer is already
+    /// known — and a doctor on an aeroplane still finishes.
+    /// <para>
+    /// <b>Failures are an empty answer, never an exception.</b> "Nowhere
+    /// replied" is exactly what this check is for; throwing would turn the
+    /// finding into a crash and tell somebody nothing about the other thirteen.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> ReflexiveAsync(CancellationToken cancellationToken)
+    {
+        if (_stunServers.Count == 0)
+        {
+            return [];
+        }
+
+        try
+        {
+            using var peer = new SIPSorcery.Net.RTCPeerConnection(
+                new SIPSorcery.Net.RTCConfiguration
+                {
+                    iceServers = [.. _stunServers.Select(
+                        u => new SIPSorcery.Net.RTCIceServer { urls = u })],
+                });
+
+            var seen = new List<string>();
+
+            peer.onicecandidate += candidate =>
+            {
+                // SERVER-REFLEXIVE ONLY. A host candidate is this machine's own
+                // address and is exactly what it can offer without asking
+                // anybody, so counting one would make every machine reachable.
+                if (candidate?.type == SIPSorcery.Net.RTCIceCandidateType.srflx)
+                {
+                    lock (seen)
+                    {
+                        seen.Add($"{candidate.address}:{candidate.port}");
+                    }
+                }
+            };
+
+            _ = await peer.createDataChannel("reachable", null);
+            await peer.setLocalDescription(peer.createOffer(null));
+
+            var until = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
+
+            while (peer.iceGatheringState != SIPSorcery.Net.RTCIceGatheringState.complete
+                && DateTimeOffset.UtcNow < until)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            }
+
+            peer.close();
+
+            lock (seen)
+            {
+                return [.. seen.Distinct(StringComparer.Ordinal)];
+            }
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            return [];
         }
     }
 

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using Gg.Contracts;
 using Gg.Runner;
@@ -222,11 +223,11 @@ public class BeatsWhileFlyingTests
             protocol.Introductions.Enqueue(introduceMidFlight);
         }
 
-        var before = protocol.Calls.Count(c => c == "heartbeat");
+        var before = protocol.Heartbeats;
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         int beats;
 
-        while ((beats = protocol.Calls.Count(c => c == "heartbeat") - before) < 2
+        while ((beats = protocol.Heartbeats - before) < 2
             && DateTime.UtcNow < deadline)
         {
             await Task.Delay(25);
@@ -298,6 +299,130 @@ public class BeatsWhileFlyingTests
             .Because("the runner waits what it was told, and what it was told is not "
                    + $"trusted. {flown.Paced.Count} waits, the first few: "
                    + string.Join(", ", flown.Paced.Take(6).Select(p => $"{p.TotalMilliseconds}ms")));
+    }
+
+    [Test]
+    public async Task A_beat_that_fails_beside_a_failing_flight_does_not_replace_its_failure()
+    {
+        // AN EXCEPTION THROWN FROM A `finally` REPLACES THE ONE TRAVELLING, and
+        // the pump is awaited in one. A beat's 401 is fatal in its own right -
+        // the token is this machine's credential and no waiting fixes it - so a
+        // runner whose registration was revoked mid-flight would report its
+        // credential where the workspace, the agent or the push actually
+        // failed. The wrong cause for the wrong thing, and nothing to say the
+        // two were different.
+        using var fixture = new GitFixture();
+        using var trees = new ScratchTreeRoot();
+        var clock = new MovableClock(T0);
+        var protocol = new FakeProtocol();
+        protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, attended: false)));
+
+        var observer = new RecordingObserver();
+        var executor = new ThrowingExecutor();
+
+        var flying = new RunnerLoop(protocol, clock,
+                (span, token) =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    clock.Advance(span);
+                    return Task.CompletedTask;
+                },
+                observer, new NoCredentialResolver(),
+                trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
+                executor: executor,
+                beatPace: (span, token) =>
+                {
+                    clock.Advance(span);
+                    return Task.Delay(1, token);
+                })
+            .RunAsync("runner-1", ["linux"], CancellationToken.None);
+
+        // ONLY ONCE THE FLIGHT IS UNDER WAY. Queued before the run, the first
+        // idle beat takes it and the runner never claims anything at all.
+        await executor.Entered.WaitAsync(TimeSpan.FromSeconds(30));
+
+        protocol.HeartbeatAlwaysThrows =
+            new HttpRequestException("unauthorized", null, HttpStatusCode.Unauthorized);
+
+        // AND WAIT FOR THE BEAT TO ACTUALLY FAIL BEFORE LETTING THE FLIGHT GO.
+        // Releasing straight away is a race the first version of this test lost
+        // once in about six full runs: the flight ends, the finally cancels the
+        // pump, and the pump exits on the cancellation without ever attempting
+        // the beat that was supposed to fail. The exception then never exists,
+        // so there is nothing to prefer against and nothing to narrate - and the
+        // FIRST assertion still passes, which is what made it look like a flake
+        // in something else. The fake records the attempt before it throws, so a
+        // count that has grown is a beat that has already failed.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (protocol.HeartbeatsRefused == 0)
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new InvalidOperationException(
+                    "the beat beside the flight never came round, so this test could not "
+                  + "reach what it is about");
+            }
+
+            await Task.Delay(10);
+        }
+
+        executor.Release();
+
+        var escaped = await Assert.ThrowsAsync<Exception>(async () => await flying)
+            ?? throw new InvalidOperationException("nothing escaped the runner at all");
+
+        await Assert.That(escaped).IsTypeOf<NotSupportedException>()
+            .Because("the flight's own failure is the one a person needs. Got: "
+                   + escaped.GetType().Name + ": " + escaped.Message);
+
+        await Assert.That(observer.Events.Any(
+                e => e.Contains("beat beside this flight", StringComparison.Ordinal))).IsTrue()
+            .Because("the beat's failure is preferred-against, not swallowed: it has to be "
+                   + "said, or a revoked runner looks like a working one. Said: "
+                   + string.Join(" | ", observer.Events));
+    }
+
+    /// <summary>An executor that fails the flight, once it has been let go.</summary>
+    private sealed class ThrowingExecutor : IExecutorPort
+    {
+        private readonly TaskCompletionSource _entered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal Task Entered => _entered.Task;
+
+        internal void Release() => _release.TrySetResult();
+
+        public ExecutorCapabilities Capabilities => ClaudeCodeExecutor.Capabilities;
+
+        public async Task<ExecutorRun?> ExecuteAsync(
+            ExecutorRequest request, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            if (string.Equals(request.LoopId, "gg-move-bound-probe", StringComparison.Ordinal))
+            {
+                return new ExecutorRun
+                {
+                    LoopId = request.LoopId,
+                    Outcome = LoopOutcomes.Completed,
+                    Reason = "probed",
+                    Attempts = 1,
+                    DurationMs = 10,
+                    MovesUsed = [],
+                };
+            }
+
+            _entered.TrySetResult();
+            await _release.Task.WaitAsync(cancellationToken);
+
+            // NOT InvalidOperationException: the workspace catches that one by
+            // name, and a test whose failure was absorbed on the way out would
+            // be asserting about the wrong exception.
+            throw new NotSupportedException("the flight's own failure");
+        }
     }
 
     [Test]

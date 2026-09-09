@@ -489,7 +489,12 @@ static async Task<int> DoctorAsync(bool json)
         new ControlPlaneClient(http), new FileSessionStore(), new FileCredentialStore(),
         new Uri(baseAddress),
         addressConfigured: Settings.Resolve("GG_CONTROL_PLANE", InForce.Configuration)
-            .Source != SettingSources.Default)
+            .Source != SettingSources.Default,
+        // WHAT THIS MACHINE WOULD ASK, read where every other environment
+        // reading happens. Without it a console offers only its own local
+        // address and watching a runner from anywhere else answers "no route
+        // between them" - which reads as a firewall and is a variable.
+        stunServers: Gg.Runner.StunConfiguration.FromEnvironment())
         .RunAsync(role: role);
 
     var result = new VerbResult.Diagnosis(report);
@@ -514,7 +519,9 @@ static async Task<int> BundleAsync(bool json)
 
     var sessions = new FileSessionStore();
     var client = new ControlPlaneClient(http);
-    var report = await new Doctor(client, sessions, new FileCredentialStore(), new Uri(baseAddress))
+    var report = await new Doctor(
+            client, sessions, new FileCredentialStore(), new Uri(baseAddress),
+            stunServers: Gg.Runner.StunConfiguration.FromEnvironment())
         .RunAsync();
 
     // Observed with no tree: a bundle is taken from wherever somebody happens

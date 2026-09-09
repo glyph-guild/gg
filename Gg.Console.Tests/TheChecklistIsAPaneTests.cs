@@ -101,10 +101,23 @@ public class TheChecklistIsAPaneTests
         // did.
         var before = new AppState { Queue = [Row("a", 1)] };
 
-        await Assert.That(ShellCommands.Handled).Contains(Command.ToggleChecklist);
+        // THE SHELL'S NO LONGER, AND THE RULE IS UNCHANGED. "Showing it is a
+        // read, and a session may not make one" is right; ending the session
+        // was one way to honour it and cost the whole screen going away and
+        // coming back once per keypress. It is in `Reads` now, which honours
+        // the same rule by making the request BESIDE the console - AutoRefresh's
+        // exception, whose argument is that the session still does not read.
+        //
+        // NOT BROWSE, WHICH STAYS. That one launches an executable with a
+        // credential in its environment, and no exception here stretches to a
+        // spawn.
+        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleChecklist)).IsFalse();
+        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleChecklist);
+
         await Assert.That(Reducer.Reduce(before, Command.ToggleChecklist))
-            .IsEqualTo(before)
-            .Because("a shell command with a reducer arm is a key that half works.");
+            .IsNotEqualTo(before)
+            .Because("the toggle is a mode change and the reducer owns it now; the pane opens "
+                   + "at once and what fills it is folded when it lands.");
     }
 
     [Test]

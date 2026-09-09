@@ -724,29 +724,6 @@ public sealed class ConsoleScreen : Window
             });
         }
 
-        if (_reads is not null)
-        {
-            // THE SAME EXCEPTION, FOR A READ SOMEBODY ASKED FOR. AutoRefresh
-            // folds one nobody asked for on a timer; this folds one a keypress
-            // wanted. Neither waits, which is the whole of the argument.
-            //
-            // FASTER THAN THE COUNTDOWN, because a person who pressed a key is
-            // watching for the answer rather than letting it arrive.
-            _app.AddTimeout(TimeSpan.FromMilliseconds(120), () =>
-            {
-                var advanced = _reads.Advance(State);
-
-                if (ReferenceEquals(advanced, State) && advanced.ReadInFlight == State.ReadInFlight)
-                {
-                    return true;
-                }
-
-                State = advanced;
-                Render();
-                return true;
-            });
-        }
-
         if (_refresh is not null)
         {
             // A SECOND EXCEPTION, ARGUED IN AutoRefresh. The session does not
@@ -1012,7 +989,26 @@ public sealed class ConsoleScreen : Window
         // open by now; what is missing is the part that had to be asked for.
         if (_reads is not null && ShellCommands.Reads.Contains(command))
         {
-            _reads.Start(command, State);
+            // TOLD, NOT POLLED. Terminal.Gui's guidance is that all UI work
+            // happens on the main thread and a background result reaches it
+            // through Invoke - so the read says when it has landed and this
+            // hands the fold back to the thread allowed to draw. The first
+            // version asked every hundred and twenty milliseconds whether it
+            // had finished, which is a timer spinning for something that can
+            // simply say so, and up to that long late when it had.
+            _reads.Start(command, State, () => _app.Invoke(() =>
+            {
+                var advanced = _reads.Advance(State);
+
+                if (ReferenceEquals(advanced, State)
+                    && advanced.ReadInFlight == State.ReadInFlight)
+                {
+                    return;
+                }
+
+                State = advanced;
+                Render();
+            }));
         }
 
         Render();

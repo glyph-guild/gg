@@ -158,8 +158,15 @@ public class WhatThisTenantCanFlyAgainstTests
             .Contains("Repositories", StringComparison.Ordinal);
         await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
             .Contains("r", StringComparison.Ordinal);
-        await Assert.That(ShellCommands.Handled).Contains(Command.ToggleRepositories)
-            .Because("showing them is a read, and a session may not make one.");
+        // THE SHELL'S NO LONGER, AND THE RULE IS UNCHANGED. "Showing them is a
+        // read, and a session may not make one" is right - and ending the whole
+        // session was one way to honour it, at the cost of a screen taken away
+        // and given back. `Reads` honours the same rule by making the request
+        // beside the console rather than instead of it.
+        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleRepositories)).IsFalse();
+        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleRepositories)
+            .Because("showing them is a read, and a session still does not make one - it "
+                   + "folds one that arrived.");
     }
 
     [Test]

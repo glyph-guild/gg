@@ -397,6 +397,23 @@ public static class ShellCommands
     public static readonly IReadOnlySet<Command> Reads = new HashSet<Command>
     {
         Command.ShowFlight,
+
+        // THE FOUR TOGGLES, for the same reason and with the same shape: a
+        // pane that is opened wants filling, and filling it used to mean the
+        // console going away and coming back. Closing one reads nothing, which
+        // the read function decides rather than the screen - a toggle that shut
+        // a pane and then fetched what to put in it is a request nobody asked
+        // for.
+        // NOT ToggleBrowse, AND THAT IS NOT AN OVERSIGHT. Browsing is not a
+        // read: an IntentReader is a Command, its Arguments, the environment
+        // variable "the only place a secret may go", and a credential locator -
+        // it is a CHILD PROCESS HOLDING A CREDENTIAL, and a session may do
+        // neither. AutoRefresh's exception is for a read and does not stretch
+        // to a spawn. Four guards said so before this was tried, each with the
+        // reason written out, and they were right.
+        Command.ToggleChecklist,
+        Command.ToggleEnvelope,
+        Command.ToggleRepositories,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
@@ -434,12 +451,15 @@ public static class ShellCommands
         Command.AddCredential,
         Command.Invite,
 
-        // NOT A PREFERENCE. Showing the browser starts a reader, and a session
-        // may read a local file and nothing else. The loop owns the reader for
-        // the same reason it owns the editor and the take.
+        // BROWSING STAYS, AND THE THREE BESIDE IT DID NOT. The reason written
+        // here was "showing the browser starts a reader, and a session may read
+        // a local file and nothing else" - and it is exactly right about
+        // browsing, which launches an executable with a credential in its
+        // environment. It was over-broad about the checklist, the envelope and
+        // the repositories, which are control-plane reads like any other and
+        // are in `Reads` now. Ending the whole session was one way to honour
+        // the rule; for a read it costs a screen taken away and given back.
         Command.ToggleBrowse,
-        Command.ToggleChecklist,
-        Command.ToggleEnvelope,
         Command.ForgetCredential,
 
         // It opens a child and then writes a file, which is two things a
@@ -448,9 +468,6 @@ public static class ShellCommands
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,
-
-        // A read, like browsing.
-        Command.ToggleRepositories,
 
         // SPAWNS A CHILD, so both halves of what this set means apply.
         Command.StartRunner,

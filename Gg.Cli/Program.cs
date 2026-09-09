@@ -467,6 +467,14 @@ static async Task<int> DoctorAsync(bool json)
     {
         ExecutorBinary = executor,
         ExecutorPresent = executor is { Length: > 0 } && File.Exists(executor),
+
+        // WHAT IS ALREADY HERE, looked for only when nothing is configured.
+        // Probing regardless would be a PATH walk on every doctor run to
+        // answer a question nobody asked.
+        ExecutorOnPath = executor is { Length: > 0 }
+            ? null
+            : Gg.Local.OnPath.Find(
+                Settings.Value("GG_TAKE_COMMAND", InForce.Configuration) ?? "claude"),
         ForgeHosts = Settings.Value(
             Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration),
         DestinationApis = Settings.Value(

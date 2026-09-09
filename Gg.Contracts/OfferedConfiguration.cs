@@ -11,18 +11,34 @@ namespace Gg.Contracts;
 /// the whole set, and anything else is refused by name.
 /// </para>
 /// <para>
-/// <b>What is in it can only ever be data.</b> Relay addresses, and the labels a
-/// machine advertises work for. Wrong relays degrade a connection and grant
+/// <b>TWO TIERS, and the difference is what may happen while nobody is
+/// looking.</b> <see cref="Unwatched"/> is data: relay addresses, and the labels
+/// a machine advertises work for. Wrong relays degrade a connection and grant
 /// nothing; labels can only ever offer to do less or different work, never more.
+/// Those may apply on a machine with no person at it.
 /// </para>
 /// <para>
-/// <b>What is deliberately out, and why each one is an instruction wearing
-/// configuration's clothes.</b> The executor binary is a control plane naming a
-/// program a machine executes. The intent readers' value <i>is</i> a command
-/// line, with a credential variable in it. The forge hosts and destination APIs
-/// redirect where code is cloned from and where a proposal is opened. The
-/// control plane address is a redirect and self-referential. The pool endpoint
-/// is the scope-enforcing proxy, and moving it removes the scope enforcement.
+/// <b>The rest are DIRECTED — they change where something is fetched from or
+/// sent to</b> — and they may be offered but never applied unattended. A wrong
+/// forge host fetches code from somewhere nobody chose; a wrong control plane
+/// leaves a machine talking to something else and unable to be told otherwise.
+/// A person accepts each one and sees exactly what is being repointed, and that
+/// control is what makes offering them tolerable at all.
+/// </para>
+/// <para>
+/// <b>The second tier exists because the walk asked.</b> An earlier version
+/// refused these three outright. Asked which values they actually change across
+/// a fleet by hand, an operator named all three — and a need that real is not
+/// answered by keeping the refusal, nor by dropping it and pretending a redirect
+/// is data.
+/// </para>
+/// <para>
+/// <b>What stays out entirely, because no person accepting makes it safe.</b>
+/// The executor binary is a control plane naming a program a machine executes,
+/// and a path a person glances at is not review of what that program does. The
+/// intent readers' value <i>is</i> a command line with a credential variable in
+/// it. The pool endpoint is the scope-enforcing proxy, and moving it removes the
+/// enforcement rather than redirecting it.
 /// </para>
 /// <para>
 /// <b>And the keys that decide whether ANY of this is accepted are not here</b>,
@@ -31,9 +47,9 @@ namespace Gg.Contracts;
 /// file, off by default, and an operator turns them on per machine.
 /// </para>
 /// <para>
-/// <b>Two, not three.</b> A hold in seconds was proposed and dropped: it is set
-/// by nobody, measured, and a key offered for a need nothing evidences is
-/// surface with no argument behind it.
+/// <b>A hold in seconds was proposed and dropped.</b> Nobody sets it, measured,
+/// and a key offered for a need nothing evidences is surface with no argument
+/// behind it.
 /// </para>
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Contract)]
@@ -45,7 +61,39 @@ public static class OfferableKeys
     /// <summary>Which work a machine advertises for.</summary>
     public const string RunnerLabels = "runner-labels";
 
-    public static IReadOnlyList<string> All { get; } = [StunServers, RunnerLabels];
+    /// <summary>Which forge each provider key clones from.</summary>
+    public const string VcsHosts = "vcs-hosts";
+
+    /// <summary>Where a proposal is opened, per provider key.</summary>
+    public const string DestinationApis = "destination-apis";
+
+    /// <summary>The control plane a machine reads and writes.</summary>
+    public const string ControlPlane = "control-plane";
+
+    public static IReadOnlyList<string> All { get; } =
+        [StunServers, RunnerLabels, VcsHosts, DestinationApis, ControlPlane];
+
+    /// <summary>
+    /// The keys that may apply with nobody watching.
+    /// </summary>
+    /// <remarks>
+    /// <b>Stated, never derived.</b> Growing <see cref="All"/> must not quietly
+    /// grow what applies unattended, so this is its own list and the difference
+    /// between them is the whole safety argument rather than a consequence of
+    /// how the first one is written.
+    /// </remarks>
+    public static IReadOnlyList<string> Unwatched { get; } = [StunServers, RunnerLabels];
+
+    /// <summary>Whether this key may only be taken by a person.</summary>
+    /// <remarks>
+    /// <b>A directed key changes where something is fetched from or sent to</b>,
+    /// and that is the line. Wrong relays degrade a connection and wrong labels
+    /// offer to do less work; a wrong forge host fetches code from somewhere
+    /// nobody chose, and a wrong control plane leaves a machine talking to
+    /// something else and unable to be told otherwise.
+    /// </remarks>
+    public static bool NeedsAPerson(string key) =>
+        !Unwatched.Contains(key, StringComparer.Ordinal);
 }
 
 /// <summary>One setting a control plane offers.</summary>
@@ -90,6 +138,31 @@ public sealed record OfferedConfiguration
     public required IReadOnlyList<OfferedSetting> Settings { get; init; }
 
     public required DateTimeOffset OfferedAt { get; init; }
+
+    /// <summary>Whether this offer may only be taken by a person.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Whole-offer, not per-key.</b> One directed key holds all of it back,
+    /// including a half that would have been safe alone. Applying part would
+    /// make a machine's state depend on which portion of a document it agreed
+    /// with, and leave no single answer to whether this offer is in force.
+    /// </para>
+    /// <para>
+    /// <b>A method rather than a property, and the difference is the wire.</b>
+    /// Written as <c>=&gt; Settings.Any(...)</c> it was a get-only property, and
+    /// a get-only property on a wire type is a MEMBER: it lands in the surface
+    /// fingerprint and a sender writes it. A derived value on the wire is a
+    /// second copy of something the reader can compute, and the two can
+    /// disagree. <c>NullIsNotOnTheWireTests</c> caught it, which is a test for a
+    /// different hazard noticing this one.
+    /// </para>
+    /// </remarks>
+    public static bool NeedsAPerson(OfferedConfiguration offered)
+    {
+        ArgumentNullException.ThrowIfNull(offered);
+
+        return offered.Settings.Any(s => OfferableKeys.NeedsAPerson(s.Key));
+    }
 
     /// <summary>Why this offer cannot be taken, or null when it can.</summary>
     /// <remarks>

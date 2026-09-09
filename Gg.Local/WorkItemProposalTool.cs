@@ -1,7 +1,7 @@
 namespace Gg.Local;
 
 /// <summary>
-/// The platform's second tool, and the one a triage flight proposes through.
+/// The tool a triage flight proposes changes to work items through.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -14,11 +14,12 @@ namespace Gg.Local;
 /// </para>
 /// <para>
 /// <b>The same server as the nomination, and that is the interesting part.</b>
-/// Until now the platform's server had one tool, so "grant the server" and
-/// "grant the tool" were the same set and the distinction was theory.
-/// <c>ClaudeCodeExecutor.Tool</c> refused the prefix anyway, on the argument
+/// The platform's server hosts four tools and this is the second that a move
+/// grants - so "grant the server" and "grant the tool" are no longer the same
+/// set, and the distinction <c>ClaudeCodeExecutor.Tool</c> has always drawn
+/// stops being theory. It refused the <c>mcp__gg</c> prefix on the argument
 /// that a prefix would retroactively grant whatever came next to every envelope
-/// in force. This is what came next.
+/// already in force. This is what came next.
 /// </para>
 /// <para>
 /// <b>Calling it acts on nothing.</b> It records what was proposed and answers

@@ -654,5 +654,10 @@
     "version": "0.136.0",
     "surface": "2e68ca67bd2349e717cf2287d27ab22144de57c731ef304002efbe96ad5851fd",
     "note": "LoopMoves.propose-work-item, and GG-Fact-Vocabulary 0.26.0 with it. THE WIRE SURFACE DOES NOT MOVE - no type, no member - so this entry repeats 0.135.0's fingerprint, which is why the two ledgers exist separately: the contract version tells a consumer whether their client still compiles, and it still does, while the vocabulary version tells a runner whether the values it may name are the ones this control plane evaluates. It costs a package version anyway because the constant is IN the package: a control plane pinned to 0.135.0 cannot name the move, cannot classify it, and cannot admit what it produces. See fact-vocabulary.json 0.26.0 for what the move is and why it is record-only."
+  },
+  {
+    "version": "0.137.0",
+    "surface": "2e68ca67bd2349e717cf2287d27ab22144de57c731ef304002efbe96ad5851fd",
+    "note": "WorkItemOperations and WorkItemProposalLimits, and GG-Fact-Vocabulary 0.27.0 with the first. THE WIRE SURFACE DOES NOT MOVE - no type on it, no member - so this repeats 0.136.0's fingerprint, the same shape as that entry one step earlier: the contract version says whether a consumer still compiles and it does, and the vocabulary version says whether the values a runner may name are the ones the control plane evaluates, and those have moved. It costs a package version because both constants are IN the package and the control plane needs them to write a condition over an operation or to refuse a proposal for length. THE LIMITS ARE HERE RATHER THAN ON THE TOOL because the tool is not the only reader: the server refuses an oversized argument at the call where the agent can shorten it and try again, and the extractor refuses one in a transcript where nobody can. Two bounds would mean a proposal the tool took and the runner dropped. MaxReason is FlightNomination's, not a second guess: three measured triage runs put a real reason at 700-800 characters and nothing about a work item makes its reason a different size. See fact-vocabulary.json 0.27.0 for the menu and why it is not narrowed."
   }
 ]

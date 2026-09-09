@@ -1409,10 +1409,88 @@ public static class PaneText
     public static bool ModalIsADocument(UiMode mode) =>
         mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner;
 
+    /// <summary>How wide a question's words may run.</summary>
+    /// <remarks>
+    /// <b>The box is sized to its longest line</b>, so this is what stops a
+    /// body being a request for a dialog wider than the terminal. Sixty-four
+    /// plus the border and the padding is a box inside eighty columns, which is
+    /// the narrowest screen anybody here has - and comfortably narrower than
+    /// the button row, which sets the floor anyway.
+    /// </remarks>
+    public const int QuestionColumns = 64;
+
+    /// <summary>
+    /// The same words, broken between them rather than at the box's edge.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here rather than in the view, so it can be read without a
+    /// terminal.</b> Every other layout decision in this console is arithmetic
+    /// a test can check; a wrap done by a widget is one only a person looking
+    /// at a screen would ever know had gone wrong.
+    /// </para>
+    /// <para>
+    /// <b>Blank lines survive.</b> A blank line is a paragraph break somebody
+    /// wrote on purpose - the question, then what answering it means - and a
+    /// wrapper that ate it would run the two together.
+    /// </para>
+    /// <para>
+    /// <b>A word longer than the line is left whole.</b> A url, a flight id, a
+    /// path: breaking one makes it uncopyable, which is worse than a box one
+    /// line too wide. It is also the case a naive wrapper loops forever on.
+    /// </para>
+    /// </remarks>
+    public static string Wrapped(string text, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var wrapped = new List<string>();
+
+        foreach (var paragraph in text.ReplaceLineEndings("\n").Split('\n'))
+        {
+            if (paragraph.Length <= columns)
+            {
+                wrapped.Add(paragraph);
+                continue;
+            }
+
+            var line = new System.Text.StringBuilder();
+
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (line.Length > 0 && line.Length + 1 + word.Length > columns)
+                {
+                    wrapped.Add(line.ToString());
+                    line.Clear();
+                }
+
+                if (line.Length > 0)
+                {
+                    line.Append(' ');
+                }
+
+                line.Append(word);
+            }
+
+            if (line.Length > 0)
+            {
+                wrapped.Add(line.ToString());
+            }
+        }
+
+        return string.Join("\n", wrapped);
+    }
+
     public static string Modal(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // NOT WRAPPED HERE. This is the CONTENT and the wrap is presentation:
+        // ConsoleScreen applies it before sizing the box, because the box is
+        // sized to its longest line. Wrapping here instead broke a test
+        // asserting a sentence the wrap had split - and sixteen others were
+        // passing only because their phrases happened not to straddle a break,
+        // which is a whole file of assertions resting on where words fall.
         return state.Mode switch
         {
             UiMode.Help => Help(state),

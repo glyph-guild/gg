@@ -1321,7 +1321,21 @@ public sealed class ConsoleScreen : Window
         // buttons alone left the body hand-wrapped to whatever happened to fit,
         // which breaks a sentence where the box ends rather than where it reads
         // - and goes wrong silently the moment somebody rewords it.
-        var body = PaneText.Modal(State).Split('\n');
+        // WRAPPED BEFORE IT IS MEASURED, which is the whole of not asking for a
+        // box wider than the screen. The width below is the longest LINE, so an
+        // unwrapped paragraph is a request for a two-hundred-column dialog -
+        // and a terminal with eighty gives back one running off the side with
+        // its text uncut. A document wraps itself in columns and is left alone.
+        var body = (PaneText.ModalIsADocument(State.Mode)
+                ? PaneText.Modal(State)
+                : PaneText.Wrapped(PaneText.Modal(State), PaneText.QuestionColumns))
+            .Split('\n');
+
+        if (!document)
+        {
+            _modalBody.Text = string.Join('\n', body);
+        }
+
 
         var wide = Math.Max(
             _modalButtons.Sum(b => b.Text.Length + 6) + 4,

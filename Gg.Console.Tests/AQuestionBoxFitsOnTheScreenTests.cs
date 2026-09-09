@@ -89,8 +89,40 @@ public class AQuestionBoxFitsOnTheScreenTests
     };
 
     [Test]
-    public async Task No_question_asks_for_a_box_wider_than_a_screen()
+    public async Task The_box_is_measured_on_wrapped_text()
     {
+        // WHERE THE PROPERTY LIVES. The first version of this wrapped inside
+        // PaneText.Modal and asserted over its output - which broke a test
+        // asserting a sentence the wrap had split, and revealed that sixteen
+        // other files reading modal prose were passing only because their
+        // phrases happened not to straddle a line break. Wrapping the CONTENT
+        // put a whole file of assertions at the mercy of where words fall.
+        //
+        // So the wrap is presentation and lives in the view, and what is
+        // asserted here is that the view measures what it wrapped rather than
+        // what it was given. Sizing on unwrapped text is the defect; sizing on
+        // wrapped text cannot produce it.
+        var screen = Sources.Read("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
+
+        var measuring = screen[screen.IndexOf(
+            "var body = ", StringComparison.Ordinal)..];
+        measuring = measuring[..measuring.IndexOf("var wide", StringComparison.Ordinal)];
+
+        await Assert.That(measuring).Contains("PaneText.Wrapped")
+            .Because("the width is the longest LINE, so an unwrapped paragraph is a request "
+                   + "for a dialog wider than the terminal. Measured: " + measuring.Trim());
+
+        await Assert.That(measuring).Contains("ModalIsADocument")
+            .Because("a document lays itself out in columns and folding one would break a "
+                   + "table in half.");
+    }
+
+    [Test]
+    public async Task Every_question_wraps_to_something_a_screen_has()
+    {
+        // AND THE CONTENT REALLY DOES FIT once wrapped, over every mode that
+        // asks something - which is the half a structural check cannot see: a
+        // body could be wrapped and still carry one unbreakable line.
         var offenders = new List<string>();
 
         foreach (var mode in Enum.GetValues<UiMode>())
@@ -100,19 +132,22 @@ public class AQuestionBoxFitsOnTheScreenTests
                 continue;
             }
 
-            foreach (var line in PaneText.Modal(Filled(mode)).Split('\n'))
+            var wrapped = PaneText.Wrapped(
+                PaneText.Modal(Filled(mode)), PaneText.QuestionColumns);
+
+            foreach (var line in wrapped.Split('\n'))
             {
                 if (line.Length > PaneText.QuestionColumns)
                 {
-                    offenders.Add($"{mode}: {line.Length} cols — {line[..40]}…");
+                    offenders.Add($"{mode}: {line.Length} cols — {line}");
                 }
             }
         }
 
         await Assert.That(offenders).IsEmpty()
-            .Because("the box is sized to its longest line, so a body that is one long "
-                   + "sentence asks for a dialog wider than the terminal and gets one running "
-                   + "off the side. Found:\n" + string.Join("\n", offenders));
+            .Because("a single word longer than the line is left whole on purpose, so this "
+                   + "finding means a body carries one - a url or a path that wants its own "
+                   + "line. Found:\n" + string.Join("\n", offenders));
     }
 
     [Test]

@@ -653,7 +653,11 @@ static async Task<int> LaunchConsoleAsync()
                 follow: true,
                 saying: onStep,
                 opened: onOpen,
-                cancellationToken: token),
+                cancellationToken: token)
+            // THE SENTENCE, WHICH IS THE POINT OF ASKING. Only the watch knows
+            // whether nobody answered because the machine is away or because
+            // the flight was never opened to be watched.
+            .ContinueWith(done => done.Result.Said, TaskScheduler.Default),
         () => DateTimeOffset.UtcNow);
 
     // THE WATCHED FLIGHT FIRST, THEN THE FILE. A runner on this machine writes
@@ -869,10 +873,14 @@ static async Task<int> LaunchConsoleAsync()
             {
                 watched.Start(runnerId, flightId, saying: say);
 
-                // WAITED FOR, so a person is not returned to a pane over a
-                // channel that has not opened. The steps are said on the
-                // terminal as they happen; this is the one that takes time.
-                return watched.Opened(TimeSpan.FromSeconds(45), say);
+                // WAITED OUT RATHER THAN RACED. The watch bounds itself by the
+                // introduction's own life - a minute - and ends with a sentence
+                // that names what went wrong. A deadline shorter than that
+                // fired first every time and replaced the reason with a shrug,
+                // which is what "gave up after 45s without a channel" was.
+                var (open, said) = watched.Opened(TimeSpan.FromMinutes(3), say);
+
+                return new Gg.Console.ConsoleWatchRunner.Reached(open, said);
             },
             say: step =>
             {

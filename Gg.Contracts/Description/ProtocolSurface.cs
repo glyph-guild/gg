@@ -148,7 +148,13 @@ public static class ProtocolSurface
          // what a person reads about a managed pool. Governed for the lease
          // prefix's reason - a runner-audience route nobody declared would be
          // an unaudited way for a runner to reach the control plane.
-         "/v1/pools"];
+         "/v1/pools",
+         // What a control plane offers a fleet. An offer can change where code
+         // is fetched from and where proposals are sent, so a route under this
+         // prefix that nobody declared would be an unaudited way to repoint
+         // machines - which is the argument /v1/credentials and /v1/invitations
+         // came in on, applied to redirection rather than to a credential.
+         "/v1/configuration"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -1134,6 +1140,39 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        new()
+        {
+            // WHAT A CONTROL PLANE OFFERS, ASKED FOR BY A PERSON. An offer
+            // rides a runner's heartbeat and always will - nothing connects
+            // inbound to a machine. But three of the five offerable keys are
+            // DIRECTED, and those may be taken only by somebody who sees what
+            // is being repointed. That somebody is here, at a console, and
+            // until this route nothing they could run had ever seen an offer.
+            //
+            // A READ A PERSON STARTS IS NOT A WAY TO REACH THEM, which is the
+            // distinction the heartbeat rule turns on. gg dials out, as it does
+            // for every other verb in this file.
+            Method = "GET",
+            Path = "/v1/configuration/offered",
+            Audience = Audience.Developer,
+
+            // NEVER Runner, and it is structural rather than a note about
+            // today's callers: a runner presenting its own credential is
+            // refused here, so what a runner can have stays exactly what rode
+            // the poll it was already making.
+            Response = typeof(OfferedConfiguration),
+
+            // NO REQUEST BODY. A machine describing itself to be answered
+            // specifically is how a tenant-wide offer becomes a per-machine
+            // instruction, and the answer is the same document for everybody
+            // who asks.
+            //
+            // 204 IS OFFERING NOTHING, and there is no 404: one offer per
+            // tenant, always askable, so "nothing is offered" must not share an
+            // answer with "this route is wrong".
+            Statuses = [200, 204, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
     ];
 
     /// <summary>
@@ -1256,7 +1295,7 @@ public static class ProtocolSurface
                 ["by", "statement", "confirmation", "confirmedAt", "wasProposed"],
             [typeof(FlightNomination)] =
                 ["workKind", "reason", "note", "environment", "repository"],
-        [typeof(LoopQuestion)] = ["question"],
+            [typeof(LoopQuestion)] = ["question"],
             [typeof(WorkItemProposal)] =
                 ["operation", "reason", "target", "score", "detail"],
             [typeof(LoopAttended)] =
@@ -1300,10 +1339,10 @@ public static class ProtocolSurface
             [typeof(DeviceTokenRequest)] = ["deviceCode"],
             [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
             [typeof(WhoAmI)] = ["principalId", "principalDisplay", "tenantId", "expiresAt", "notices"],
-        // An invitation names nobody: no address, no display, no tenant. The
-        // request really is empty, and the empty set is the assertion.
-        [typeof(InvitationRequest)] = [],
-        [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
+            // An invitation names nobody: no address, no display, no tenant. The
+            // request really is empty, and the empty set is the assertion.
+            [typeof(InvitationRequest)] = [],
+            [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
             [typeof(TenantNotice)] = ["code", "detail", "remedy", "blocking"],
             [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved", "publicKey"],
             // Empty on purpose: the act is "reserve this to me" and the runner
@@ -1346,16 +1385,24 @@ public static class ProtocolSurface
             // `introductions` is absent unless a console is waiting, so an idle
             // fleet's heartbeat body is byte-for-byte what it always was.
             [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds", "introductions", "offered"],
+            // THE SAME DOCUMENT TWO WAYS ROUND, which is why its member names
+            // had to be pinned the moment it became a route's answer: a runner
+            // reads it off `offered` above and a person reads it from
+            // /v1/configuration/offered, and a casing split between the two
+            // would leave the tier where a person accepts unable to read what
+            // the tier that applies unattended had been reading all along.
+            [typeof(OfferedConfiguration)] = ["version", "settings", "offeredAt"],
+            [typeof(OfferedSetting)] = ["key", "value"],
             // `flightId` is absent unless a runner is asking for one flight by
             // name - an attended session, where a person opened the flight and
             // is waiting at a prompt for it. Every other claim is the fleet's
             // and carries three members exactly as before.
             [typeof(LeaseClaimRequest)] = ["runnerId", "labels", "maxWaitSeconds", "flightId"],
-        [typeof(LeaseClaimAccepted)] = ["requestId", "pollAfterSeconds"],
-        // `lease` is absent unless `state` is granted, and `waitingOn` names
-        // repositories rather than counting them - a number says something is
-        // wrong, a name says which credential to register.
-        [typeof(LeaseClaimStatus)] = ["state", "waitingOn", "lease"],
+            [typeof(LeaseClaimAccepted)] = ["requestId", "pollAfterSeconds"],
+            // `lease` is absent unless `state` is granted, and `waitingOn` names
+            // repositories rather than counting them - a number says something is
+            // wrong, a name says which credential to register.
+            [typeof(LeaseClaimStatus)] = ["state", "waitingOn", "lease"],
             [typeof(LeaseRepoRef)] = ["provider", "slug", "pinnedRef", "baseRef", "continuesFrom"],
             // unresolvedRepos joined at slice six: an empty `credentials` was
             // two different facts - no credential registered, or one not yet

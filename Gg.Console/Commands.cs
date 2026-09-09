@@ -79,6 +79,14 @@ public enum Command
     /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
     ToggleEnvelope,
 
+    /// <summary>Hand the configuration file to $EDITOR.</summary>
+    /// <remarks>
+    /// <b>A handoff, because nothing in this console is written by typing.</b>
+    /// The session ends, the loop opens an editor with the terminal free, and
+    /// what comes back is validated before it lands.
+    /// </remarks>
+    EditConfiguration,
+
     /// <summary>
     /// Forgets a credential this tenant holds a reference to.
     /// </summary>
@@ -410,6 +418,10 @@ public static class ShellCommands
         Command.ToggleChecklist,
         Command.ToggleEnvelope,
         Command.ForgetCredential,
+
+        // It opens a child and then writes a file, which is two things a
+        // session may not do.
+        Command.EditConfiguration,
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,

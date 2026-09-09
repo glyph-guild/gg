@@ -1023,6 +1023,9 @@ public sealed record AppState
     /// </remarks>
     public string? LastCredential { get; init; }
 
+    /// <summary>What the last configuration edit did, or why it did nothing.</summary>
+    public string? LastConfiguration { get; init; }
+
     /// <summary>
     /// Where the last invitation link was put.
     /// </summary>

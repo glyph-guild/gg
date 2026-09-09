@@ -207,12 +207,12 @@ public sealed class WatchedRunner(
         catch (TimeoutException)
         {
             // THE LAST RESORT AND NOT THE ORDINARY ENDING. The watch bounds
-            // itself by the introduction's own life and answers with a sentence
-            // that names what went wrong - "a runner opens a channel only for a
-            // flight launched with `--attended`" is one it already has. This
-            // deadline used to be shorter than that, so it fired first every
-            // time and replaced a reason with a shrug. It is longer than the
-            // introduction now, and reaching it means the watch itself hung.
+            // itself by the introduction's own life and ends with a sentence
+            // that names what went wrong and where to look. This deadline used
+            // to be shorter than that, so it fired first every time and
+            // replaced a reason with a shrug - "gave up after 45s without a
+            // channel", against an introduction that lasts sixty. It is longer
+            // than one now, and reaching it means the watch itself hung.
             saying?.Invoke($"gave up after {(int)within.TotalSeconds}s without a channel");
 
             Stop();

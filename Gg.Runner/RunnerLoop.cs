@@ -839,17 +839,31 @@ public sealed class RunnerLoop(
         // anything left to watch. Watching an agent work was not slow, it was
         // impossible, and both ends reported it as the other end's fault.
         //
-        // NULL WHEN THE FLIGHT IS HEADLESS OR THIS RUNNER WAS NOT WIRED TO BE
-        // DRIVEN. Both are the ordinary case, and both mean introductions
-        // arriving on these beats are ignored.
+        // ANY FLIGHT, NOT ONLY ONE SOMEBODY MARKED. The attended marker used to
+        // gate this and it was a second lock on a door that already had one:
+        // the `using` here is the channel's whole lifetime, and the control
+        // plane refuses to introduce anybody but the principal who REGISTERED
+        // this runner - "stricter than flying at it, which any principal here
+        // may do". What the marker cost was the ordinary case, because a flight
+        // opened from a console or a schedule carries no marker and was
+        // unwatchable on a machine whose owner can already read the same file
+        // over ssh. The channel grants nothing the operator lacks; it is a
+        // remote reader for a file they own.
+        //
+        // THE MARKER STILL MEANS SOMETHING, control-plane side: a flight opened
+        // attended that nobody comes to watch is grounded. That is a promise
+        // about a person turning up rather than a permission to look.
+        //
+        // NULL WHEN THIS RUNNER WAS NOT WIRED TO BE DRIVEN, which is the lock
+        // that stays. Gg.Runner never goes looking for the private key - it
+        // lives on the machine and never leaves it - so the composition root
+        // either hands in a way to open a session or does not.
         // BY FLIGHT ID, so the log this session can read is THIS flight's live
         // view and not the machine's whole output. A journal would have handed
         // somebody every flight the runner is running, including other people's;
         // the lease authorises one conversation about one flight, and the file
         // path is what makes that true rather than a filter somebody applies.
-        using var attended = lease.Attended is true
-            ? attendedSessions?.Invoke(lease.FlightId)
-            : null;
+        using var attended = attendedSessions?.Invoke(lease.FlightId);
 
         // BESIDE THE FLIGHT, not inside it. Every phase below either blocks on
         // one long await or polls something of its own, so a beat threaded

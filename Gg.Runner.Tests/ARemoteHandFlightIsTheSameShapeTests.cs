@@ -67,23 +67,32 @@ public class ARemoteHandFlightIsTheSameShapeTests
     }
 
     [Test]
-    public async Task One_place_decides_that_somebody_is_watching()
+    public async Task The_runner_does_not_decide_who_may_be_watched()
     {
-        // THE LEASE SAYS SO, ONCE. A second reader would be a second answer to
-        // "is a person on the other end of this", and the two would disagree
-        // the first time either moved.
+        // NOWHERE, WHICH IS STRONGER THAN ONCE. This used to require exactly one
+        // read of `lease.Attended`, because a second reader would be a second
+        // answer to "is a person on the other end of this". There is no reader
+        // now: the marker gated whether a channel could exist at all, and it was
+        // a second lock on a door that already had one.
+        //
+        // WHAT THE DOOR HAS INSTEAD, and had all along: a channel lives exactly
+        // as long as the flight does, and the control plane refuses to introduce
+        // anybody but the principal who REGISTERED the runner - 403, "stricter
+        // than flying at it, which any principal here may do". The marker added
+        // nothing to either and cost the ordinary case, because a flight opened
+        // from a console or a schedule carries no marker.
+        //
+        // ASSERTED AS ABSENCE so it cannot creep back as a condition somewhere
+        // else: a runner that decided for itself which flights may be watched
+        // would be a second policy beside the one the control plane enforces.
         var readers = Runner()
             .Where(l => Regex.IsMatch(l.Text, @"\blease\.Attended\b"))
             .Select(l => $"{l.File}:{l.Line}")
             .ToList();
 
-        await Assert.That(readers).HasSingleItem()
-            .Because("the channel's lifetime is the flight's, and one place deciding is what "
-                   + "makes that a property rather than a convention. Found: "
-                   + string.Join(", ", readers));
-
-        await Assert.That(readers[0]).StartsWith("RunnerLoop.cs")
-            .Because("it belongs in the hold, which is what owns the lease.");
+        await Assert.That(readers).IsEmpty()
+            .Because("who may watch is the control plane's answer and the lease's lifetime, "
+                   + "not a flag this runner reads. Found: " + string.Join(", ", readers));
     }
 
     [Test]
@@ -113,7 +122,6 @@ public class ARemoteHandFlightIsTheSameShapeTests
             Path.Combine(Root(), "Gg.Runner", "RunnerLoop.cs"));
 
         await Assert.That(source).Contains("new LoopAttended");
-        await Assert.That(source).Contains("lease.Attended");
 
         // SCOPED TO THE METHOD THAT BUILDS THE FACT, not to the distance
         // between two strings. This asked whether one exact line appeared
@@ -126,6 +134,10 @@ public class ARemoteHandFlightIsTheSameShapeTests
         // `loop.attended` does not read whether a person is watching.
         var emitting = MethodContaining(source, "new LoopAttended");
 
+        // STILL WORTH ASSERTING, and for the original reason. The runner reads
+        // the lease's marker nowhere at all now, which makes conflating the two
+        // harder rather than impossible - the marker is one field away on a
+        // record this method already has in scope.
         await Assert.That(emitting).DoesNotContain("lease.Attended")
             .Because("the two decisions are about different facts and must not become one: "
                    + "the LEASE's marker says somebody is watching, and the EXECUTOR having "

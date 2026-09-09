@@ -63,7 +63,8 @@ public class AConsoleReachesARunnerTests
             IReadOnlyLog log,
             PinnedRunnerKeys? pins = null,
             string? pretendKeyIs = null,
-            ECDiffieHellman? consoleKey = null)
+            ECDiffieHellman? consoleKey = null,
+            TimeSpan? arrivalBound = null)
     {
         using var runnerKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
         using var ownKey = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
@@ -86,7 +87,7 @@ public class AConsoleReachesARunnerTests
         HandshakeResult answered = new(null, HandshakeFailure.None, "not run", []);
 
         var console = new ConsoleChannel([], TimeSpan.FromSeconds(20));
-        var runner = new RunnerChannel([], TimeSpan.FromSeconds(20));
+        var runner = new RunnerChannel([], TimeSpan.FromSeconds(20), arrivalBound);
 
         var reached = await console.ReachAsync(
             introduction,
@@ -112,6 +113,47 @@ public class AConsoleReachesARunnerTests
             CancellationToken.None);
 
         return (reached, answered, left);
+    }
+
+    [Test]
+    public async Task The_runner_knows_the_console_arrived()
+    {
+        // THE DIAGNOSTIC HAS TO BE RIGHT ABOUT SUCCESS, and this one was wrong
+        // about every success. On the fleet on 2026-09-09, two attended flights
+        // carried an agent's own output to a laptop, and the runner wrote
+        // "answered and nobody arrived: ChannelNeverOpened. A route was found
+        // and no channel opened on it, which is this end" for both - a minute
+        // after the conversation had already happened.
+        //
+        // A DIAGNOSTIC THAT CRIES WOLF ON SUCCESS IS WORSE THAN NONE: it points
+        // whoever reads the journal at the end that worked, which is exactly
+        // the wrong-end problem this whole path keeps having.
+        //
+        // Short bound so the wrong answer arrives in seconds rather than in the
+        // minute a real runner allows.
+        var (reached, answered, _) = await HandshakeAsync(
+            new ALog("first", "second"), arrivalBound: TimeSpan.FromSeconds(3));
+
+        await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None).Because(reached.Said);
+
+        using var conversation = reached.Conversation!;
+
+        // ASKED AND ANSWERED FIRST, so "the channel opened" is not an opinion:
+        // a reply came back over it. Whatever the runner then says about
+        // arrival is being said about a channel that demonstrably worked.
+        var said = await conversation.AskAsync(
+            new RunnerAsk
+            {
+                Kind = RunnerAskKinds.TailLog,
+                TailLog = new TailLogAsk { Lines = 1 },
+            },
+            TimeSpan.FromSeconds(10));
+
+        await Assert.That(said?.Tail?.Lines).IsEquivalentTo(new[] { "second" });
+
+        await Assert.That(await answered.Serving!.Opened).IsEqualTo(HandshakeFailure.None)
+            .Because("a message came back over this channel, so the runner cannot be allowed "
+                   + "to report that nobody arrived on it.");
     }
 
     [Test]

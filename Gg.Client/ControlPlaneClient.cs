@@ -69,6 +69,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(MemberCredentialRedemption))]
 [JsonSerializable(typeof(MemberCredentialIssued))]
+[JsonSerializable(typeof(OfferedConfiguration))]
 /// <summary>
 /// How this client serializes wire types.
 /// </summary>
@@ -1165,6 +1166,51 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.GateList, cancellationToken)
             ?? new GateList { Gates = [] };
+    }
+
+    /// <summary>
+    /// What this tenant's control plane is offering, or null for nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A read a PERSON starts, which is what makes it allowed.</b> An offer
+    /// rides a runner's heartbeat because nothing connects inbound to a
+    /// machine; this adds no inbound reach, because gg dials out here exactly
+    /// as it does for every other verb. The route answers a session and refuses
+    /// a runner credential, so what a runner may have is still only what rode
+    /// the poll it was already making.
+    /// </para>
+    /// <para>
+    /// <b>Null is 204, and it is the fleet's ordinary state.</b> Unlike
+    /// <c>GatesAsync</c> above, an absence cannot be flattened into an empty
+    /// document here: an offer with no settings HAS a version and is a control
+    /// plane that withdrew what it was offering, which is something a person
+    /// can still accept. "Nothing is offered" and "nothing is offered any more"
+    /// are different facts and stay different.
+    /// </para>
+    /// <para>
+    /// <b>And there is no 404 to handle</b>, by declaration: one offer per
+    /// tenant, always askable, so a missing route would be a real fault rather
+    /// than an empty answer and <c>EnsureSuccessStatusCode</c> is right to
+    /// raise it.
+    /// </para>
+    /// </remarks>
+    public async Task<OfferedConfiguration?> OfferedConfigurationAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/configuration/offered", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.OfferedConfiguration, cancellationToken);
     }
 
     /// <summary>

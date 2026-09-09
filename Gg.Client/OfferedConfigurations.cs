@@ -20,8 +20,25 @@ public sealed record OfferTaken
     /// </remarks>
     public bool Waiting { get; init; }
 
-    /// <summary>Whether taking it would actually change anything.</summary>
+    /// <summary>Whether taking it would actually change a setting.</summary>
+    /// <remarks>
+    /// <b>About the SETTINGS, not the document.</b> A control plane that
+    /// reissued the same values under a new version has made a new offer, so
+    /// there is a record to write — but nothing about this machine moves, and
+    /// reporting otherwise would make every reissue look like a change somebody
+    /// should read.
+    /// </remarks>
     public bool Changed { get; init; }
+
+    /// <summary>Whether this exact offer had already been accepted here.</summary>
+    /// <remarks>
+    /// <b>Neither a refusal nor a wait, which is why it is its own answer.</b>
+    /// Nothing is wrong and nobody is being asked for anything: the document is
+    /// in force. Called a refusal it would send somebody looking for a fault;
+    /// called waiting it would put a person back in front of a decision they
+    /// have already made.
+    /// </remarks>
+    public bool AlreadyAccepted { get; init; }
 }
 
 /// <summary>
@@ -62,6 +79,16 @@ public static class OfferedConfigurations
         if (OfferedConfiguration.Validate(offered) is { } refused)
         {
             return new OfferTaken { Refused = refused };
+        }
+
+        // ALREADY IN FORCE, ASKED BEFORE THE GATE. A machine that accepted an
+        // offer and later stopped accepting them has still accepted this one,
+        // and reporting it as waiting would put a person in front of a decision
+        // they made. Ordinal: the version names an exact document, so two
+        // spellings are two documents.
+        if (string.Equals(into.AcceptedOffer, offered.Version, StringComparison.Ordinal))
+        {
+            return new OfferTaken { AlreadyAccepted = true };
         }
 
         if (into.AcceptOffered is not true)
@@ -108,9 +135,17 @@ public static class OfferedConfigurations
             return new OfferTaken { Refused = wrong };
         }
 
+        // TWO QUESTIONS, AND THEY HAVE DIFFERENT ANSWERS. Whether a setting
+        // moved is asked BEFORE the record is stamped on: a reissue of values
+        // already in force writes a version and changes nothing, and folding
+        // the record into the comparison would report every reissue as a change
+        // somebody should read.
+        //
+        // Which also means the caller writes on `Configuration is not null`
+        // rather than on `Changed`.
         return new OfferTaken
         {
-            Configuration = changed,
+            Configuration = changed with { AcceptedOffer = offered.Version },
             Changed = changed != into,
         };
     }

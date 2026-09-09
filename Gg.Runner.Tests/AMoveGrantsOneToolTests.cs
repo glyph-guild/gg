@@ -55,7 +55,7 @@ public class AMoveGrantsOneToolTests
     {
         var granted = ClaudeCodeExecutor.ToolFor(LoopMoves.ProposeWorkItem);
 
-        await Assert.That(granted).IsEqualTo(WorkItemProposalTool.Qualified)
+        await Assert.That(granted).IsEqualTo(Gg.Local.WorkItemProposalTool.Qualified)
             .Because("one move, one tool, named whole. Granted: " + granted);
 
         await Assert.That(granted).StartsWith("mcp__")
@@ -75,7 +75,7 @@ public class AMoveGrantsOneToolTests
         // tools on this server must not grant each other.
         var arguments = Arguments([LoopMoves.Read]);
 
-        await Assert.That(arguments.Contains(WorkItemProposalTool.Qualified)).IsFalse()
+        await Assert.That(arguments.Contains(Gg.Local.WorkItemProposalTool.Qualified)).IsFalse()
             .Because("read was the only move. Passed: " + string.Join(" ", arguments));
 
         await Assert.That(arguments.Contains(Gg.Local.NominationTool.Qualified)).IsFalse()
@@ -88,7 +88,7 @@ public class AMoveGrantsOneToolTests
     {
         var arguments = Arguments([LoopMoves.Read, LoopMoves.ProposeWorkItem]);
 
-        await Assert.That(arguments).Contains(WorkItemProposalTool.Qualified);
+        await Assert.That(arguments).Contains(Gg.Local.WorkItemProposalTool.Qualified);
 
         await Assert.That(arguments.Contains(Gg.Local.NominationTool.Qualified)).IsFalse()
             .Because("proposing a work item is not nominating a work kind, and one move "

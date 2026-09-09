@@ -65,6 +65,13 @@ public static class MoveKinds
             // has been messaged, and admission can refuse it. That is the whole
             // difference between declaring a value and acting on one.
             [LoopMoves.Propose] = RecordOnly,
+
+            // AND NEITHER DOES PROPOSING A WORK ITEM. It writes a fact saying
+            // what someone thinks a tracker should hold; the tracker is not
+            // touched, no agent holds a credential for one, and the write - if
+            // it happens at all - is the runner's, after a destination admits
+            // it. An agent that proposes has still not acted.
+            [LoopMoves.ProposeWorkItem] = RecordOnly,
         };
 
     /// <summary>The kind of a declared move. THROWS on one nobody classified.</summary>

@@ -20,14 +20,16 @@ namespace Gg.Cli;
 /// was told to write. The same argument covers an agent saying it is stuck.
 /// </para>
 /// <para>
-/// <b>ONE CHANNEL, TWO TOOLS, and they are granted on opposite terms.</b>
-/// Nominating a work kind is the whole output of one KIND of work, so an
-/// envelope that never declares `propose` has no business granting it. Asking
-/// for a decision is not a move at all and no envelope may withhold it: one
-/// able to would be one that makes a stuck agent silent. Both are listed here
-/// and the grant is decided in the one place a grant is already decided - the
-/// launch's allow-list - because a `tools/list` that varied by envelope would
-/// be a second place the same rule lives.
+/// <b>ONE CHANNEL, FOUR TOOLS, granted on three different terms.</b> Two are
+/// the output of a KIND of work and each has a move of its own, so an envelope
+/// that declares neither grants neither: nominating a work kind, and proposing
+/// a change to a work item. Asking for a decision is not a move at all and no
+/// envelope may withhold it - one able to would be one that makes a stuck agent
+/// silent. Submitting an intent is granted on almost no launch and declared on
+/// every one. All four are listed here and every grant is decided in the one
+/// place a grant is already decided - the launch's allow-list - because a
+/// `tools/list` that varied by envelope would be a second place the same rule
+/// lives, and the two would disagree the first time either was edited.
 /// </para>
 /// <para>
 /// <b>STDOUT IS THE PROTOCOL.</b> Nothing here may narrate, log, or greet: one
@@ -88,6 +90,27 @@ public static class PlatformToolServer
 
     /// <summary>Which repository, when the destination permits a choice.</summary>
     private const string RepositoryArgument = "repository";
+
+    /// <summary>What a proposal asks be done: one of <see cref="Gg.Contracts.WorkItemOperations"/>.</summary>
+    private const string OperationArgument = "operation";
+
+    /// <summary>Which work item, when the operation is about one that exists.</summary>
+    private const string TargetArgument = "target";
+
+    /// <summary>What the flight thinks the item is worth, in the rubric's terms.</summary>
+    private const string ScoreArgument = "score";
+
+    /// <summary>
+    /// The part of a proposal nothing here reads.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declared and never interpreted.</b> It exists so another agent on
+    /// another day can re-evaluate what this one thought, and that only works if
+    /// today's server takes it whole rather than validating it into the shape
+    /// that made sense the week it was written. What the server does check is
+    /// its size, because unbounded means a repository can arrive in a fact.
+    /// </remarks>
+    private const string DetailArgument = "detail";
 
     /// <summary>
     /// Serves until the input ends, and answers nothing else.
@@ -351,6 +374,101 @@ public static class PlatformToolServer
 
             writer.WriteEndObject();
 
+            // THE FOURTH TOOL, and the one that most needs its description
+            // read. An agent given something called `propose_work_item` while
+            // looking at a backlog will assume it changes the backlog - so the
+            // description says three things it cannot work out for itself, and
+            // the receipt says the first of them again on every call.
+            //
+            //   - proposing changes nothing in the tracker,
+            //   - declining to propose is a real answer,
+            //   - and a refusal is an ordinary outcome, not a wall to route
+            //     around by doing the work some other way.
+            //
+            // The third is the one this feature adds to the nomination's
+            // wording. A nomination is refused or it is not, and the flight is
+            // over either way; a triage proposes a dozen things and expects
+            // some of them back, and an agent that reads a refusal as a failure
+            // will either retry it or stop.
+            writer.WriteStartObject();
+            writer.WriteString("name", WorkItemProposalTool.Name);
+            writer.WriteString("description",
+                "Propose a change to a work item: create one, update its text, set a field, "
+              + "link it to another, or score it. Call it once for each change you are "
+              + "proposing, then stop and say what you proposed and why. Proposing changes "
+              + "nothing in the tracker and grants nothing - a person decides which of your "
+              + "proposals are performed, and the platform performs the ones they admit. "
+              + "Some of what you propose may be refused; that is an ordinary answer and not "
+              + "a failure, so do not retry a refused proposal and do not look for another "
+              + "way to make the change. If an item does not say enough to propose anything, "
+              + "do NOT call this - say which question you could not answer. Declining is a "
+              + "real answer.");
+
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+
+            // THE MENU IS THE CONTRACT'S, not a list typed here. The extractor
+            // checks what came back against the same one and the control plane
+            // writes conditions over it, so a second spelling would make an
+            // operation proposable and unadmittable at once.
+            writer.WriteStartObject(OperationArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "What you are proposing be done to the item.");
+            writer.WriteStartArray("enum");
+            foreach (var operation in Gg.Contracts.WorkItemOperations.All)
+            {
+                writer.WriteStringValue(operation);
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+
+            writer.WriteStartObject(TargetArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "The id of the work item, as the tracker gave it to you. Leave it out only "
+              + "for `create`, where the item does not exist yet.");
+            writer.WriteEndObject();
+
+            writer.WriteStartObject(ScoreArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "The score, in whatever terms your rubric asks for - a level, a number, a "
+              + "short phrase. Required for `score` and left out otherwise.");
+            writer.WriteEndObject();
+
+            writer.WriteStartObject(ReasonArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Why you are proposing this, in your own words. It is what the person "
+              + "deciding reads, so say what you found rather than what you did.");
+            writer.WriteEndObject();
+
+            // NO `properties` UNDER IT, and that absence is the declaration. A
+            // shape here would be this week deciding what a reader in six
+            // months may ask, which is the one thing this member exists to
+            // avoid.
+            writer.WriteStartObject(DetailArgument);
+            writer.WriteString("type", "object");
+            writer.WriteString("description",
+                "Optional. Anything else about this proposal that somebody re-reading it "
+              + "later would want - the rubric you scored against, what you considered and "
+              + "ruled out, what you were unsure of. Nothing reads it now; it is kept whole "
+              + "for whoever does.");
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
+            writer.WriteStartArray("required");
+            writer.WriteStringValue(OperationArgument);
+            writer.WriteStringValue(ReasonArgument);
+            writer.WriteEndArray();
+
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
             writer.WriteEndArray();
             writer.WriteEndObject();
         });
@@ -378,6 +496,11 @@ public static class PlatformToolServer
         if (string.Equals(called, IntentTool.Name, StringComparison.Ordinal))
         {
             return Submitted(id, arguments, intentPath);
+        }
+
+        if (string.Equals(called, WorkItemProposalTool.Name, StringComparison.Ordinal))
+        {
+            return Proposed(id, arguments);
         }
 
         // NOT AN UNKNOWN-TOOL ARM, deliberately. The nomination tool is what
@@ -434,6 +557,124 @@ public static class PlatformToolServer
             $"Recorded: work kind '{workKind}'. This grants nothing and opens nothing - a "
           + "person decides whether a flight of that kind is opened. Your part is done: stop "
           + "now and say what you nominated and why.");
+    }
+
+    /// <summary>
+    /// Takes a proposed change to a work item, checks it is whole, and answers.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It performs nothing, and the receipt says so every time.</b> The
+    /// record of what was proposed is the tool CALL, which the runner reads out
+    /// of the transcript - so this method's whole job is to refuse what a
+    /// reader could not use and to tell the agent what was taken. Nothing is
+    /// written, nothing is sent, and no credential is within reach of the
+    /// process this runs in.
+    /// </para>
+    /// <para>
+    /// <b>Structural completeness only, never policy.</b> An update naming no
+    /// target is half a proposal - a value the runner would have to invent the
+    /// rest of - and that is the same argument the nomination refuses a missing
+    /// reason under. What this must NOT do is refuse an operation somebody
+    /// might not want performed: that is admission's answer, against a menu a
+    /// person wrote, and taking it here would move a refusal from a place that
+    /// records one to a place that leaves nothing behind.
+    /// </para>
+    /// </remarks>
+    private static string Proposed(JsonElement id, JsonElement arguments)
+    {
+        var operation = Text(arguments, OperationArgument);
+        var reason = Text(arguments, ReasonArgument);
+
+        if (operation is null || reason is null)
+        {
+            return Content(id, isError: true,
+                $"Refused: a proposal needs both '{OperationArgument}' and "
+              + $"'{ReasonArgument}'. Nothing was recorded.");
+        }
+
+        // AGAINST THE CONTRACT'S MENU, not a list here. An operation nobody
+        // declared is not a proposal the control plane could admit or refuse -
+        // it is one nothing downstream can read, which is worse than either.
+        if (!Gg.Contracts.WorkItemOperations.All.Contains(operation, StringComparer.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: '{operation}' is not an operation this platform has. It has "
+              + $"{string.Join(", ", Gg.Contracts.WorkItemOperations.All)}. Nothing was recorded.");
+        }
+
+        var target = Text(arguments, TargetArgument);
+
+        // CREATE IS THE EXCEPTION AND IT IS THE ONLY ONE. An item that does not
+        // exist has no id; every other operation is ABOUT an item, and one that
+        // does not say which is a change the runner would have to guess the
+        // subject of.
+        if (target is null && !string.Equals(operation, Gg.Contracts.WorkItemOperations.Create, StringComparison.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: '{operation}' is about a work item and this one names none. Give "
+              + $"'{TargetArgument}' as the tracker's own id, or propose "
+              + $"'{Gg.Contracts.WorkItemOperations.Create}' if the item does not exist yet. Nothing was "
+              + "recorded.");
+        }
+
+        var score = Text(arguments, ScoreArgument);
+
+        if (score is null && string.Equals(operation, Gg.Contracts.WorkItemOperations.Score, StringComparison.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: a '{Gg.Contracts.WorkItemOperations.Score}' proposal with no '{ScoreArgument}' "
+              + "says an item should be scored without saying what to. Nothing was recorded.");
+        }
+
+        // BOUNDED, NEVER TRIMMED, the note's rule one fact over: a silent
+        // truncation hands the next reader a value that looks whole.
+        foreach (var (what, given, bound) in ((string, string?, int)[])
+            [(TargetArgument, target, Gg.Contracts.WorkItemProposalLimits.MaxTarget),
+             (ScoreArgument, score, Gg.Contracts.WorkItemProposalLimits.MaxScore),
+             (ReasonArgument, reason, Gg.Contracts.WorkItemProposalLimits.MaxReason)])
+        {
+            if (given is not null && given.Length > bound)
+            {
+                return Content(id, isError: true,
+                    $"Refused: '{what}' is at most {bound} characters and this one is "
+                  + $"{given.Length}. Nothing was recorded.");
+            }
+        }
+
+        // THE ONE MEASUREMENT TAKEN OF SOMETHING NOBODY HERE READS. Its shape is
+        // the agent's and stays the agent's; its size is not, because the facts
+        // of one flight travel together in one batch.
+        if (arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty(DetailArgument, out var detail)
+            && detail.ValueKind != JsonValueKind.Null)
+        {
+            if (detail.ValueKind != JsonValueKind.Object)
+            {
+                return Content(id, isError: true,
+                    $"Refused: '{DetailArgument}' is an object - whatever a later reader "
+                  + "would want, in fields it can find. Nothing was recorded.");
+            }
+
+            var written = detail.GetRawText().Length;
+            if (written > Gg.Contracts.WorkItemProposalLimits.MaxDetail)
+            {
+                return Content(id, isError: true,
+                    $"Refused: '{DetailArgument}' is at most "
+                  + $"{Gg.Contracts.WorkItemProposalLimits.MaxDetail} characters and this one is "
+                  + $"{written}. Nothing was recorded.");
+            }
+        }
+
+        // ECHOED IN CANONICAL FORM AND SAYING WHAT DID NOT HAPPEN. The
+        // description is read once at the top of a session; this is read after
+        // every call, which is where an agent decides whether it is done.
+        return Content(id, isError: false,
+            $"Recorded: proposed to {operation} "
+          + (target is null ? "a new work item" : $"work item {target}")
+          + (score is null ? "" : $", scoring it '{score}'")
+          + ". Nothing has been changed in the tracker: a person decides which proposals are "
+          + "performed. Propose the next change, or stop and say what you proposed and why.");
     }
 
     /// <summary>

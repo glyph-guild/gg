@@ -1,7 +1,7 @@
 namespace Gg.Local;
 
 /// <summary>
-/// The platform's own tool server, and the one tool on it.
+/// The tool a classifier nominates a work kind through.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,8 +33,9 @@ public static class NominationTool
     /// </summary>
     /// <remarks>
     /// Granted whole. A grant of the <c>mcp__gg</c> prefix would widen what an
-    /// already-declared move permits every time this platform adds a second
-    /// tool to its own server.
+    /// already-declared move permits every time this platform adds a tool to
+    /// its own server - which it has now done three times, so the sentence
+    /// above is a description of what happened rather than a precaution.
     /// </remarks>
     public const string Qualified = $"mcp__{Server}__{Name}";
 }

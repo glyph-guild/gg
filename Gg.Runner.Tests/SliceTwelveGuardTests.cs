@@ -121,7 +121,18 @@ public class SliceTwelveGuardTests
     /// writes a fact and touches no tracker — which is the property that made
     /// admitting it safe rather than merely convenient.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.26.0";
+    /// <para>
+    /// <b>And to 0.27.0, which added no kind either</b> — the same slice step
+    /// over, and the FIRST entry here that is a whole new closed vocabulary
+    /// rather than a value on an existing one. <c>WorkItemOperations</c> is the
+    /// menu a proposal names one of. It is declared a step before the fact that
+    /// carries it because a tool's schema is where a menu like this gets
+    /// decided by accident: the agent has to be offered the operations, and a
+    /// list typed into the schema would be a second spelling of what the
+    /// extractor and admission both read. The count below is unchanged, which
+    /// is what this guard is for.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.27.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

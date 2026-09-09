@@ -96,7 +96,7 @@ public class PlatformToolServerTests
                    + "beside them, which is the only arrangement that cannot drift.");
 
         await Assert.That(IntentTool.Server).IsEqualTo(NominationTool.Server)
-            .Because("three tools on ONE server. A second server key would shadow the first "
+            .Because("four tools on ONE server. A second server key would shadow the first "
                    + "if an operator ever configured a reader under it.");
     }
 
@@ -288,7 +288,7 @@ public class PlatformToolServerTests
     }
 
     [Test]
-    public async Task It_declares_one_tool_taking_a_work_kind_and_a_reason()
+    public async Task It_declares_four_tools_and_a_fifth_has_to_argue_for_itself()
     {
         // TWO NOW, AND THE OLD REASON WAS THE WRONG ONE. This asserted one tool
         // because "a second on this server would be granted by the same move" -
@@ -319,21 +319,42 @@ public class PlatformToolServerTests
         // it refuses out loud rather than silently, because an agent that cannot
         // submit must not look like one that chose not to.
         //
-        // A FOURTH still has to make its own argument. None of these three is it.
+        // FOUR NOW, AND HERE IS THE ARGUMENT THE COUNT ASKED FOR AGAIN.
+        // `propose_work_item` is the whole output of a KIND of work, the way
+        // the nomination is - a triage flight reads a backlog and its product
+        // is a set of proposed changes to it. So it is granted the way the
+        // nomination is: by a declared move, LoopMoves.ProposeWorkItem, whole
+        // and by name.
+        //
+        // Which makes it the FIRST tool that does not extend the pattern this
+        // count keeps surfacing. Three tools were three grant terms; the fourth
+        // reuses the first. That is the argument rather than a hole in it: the
+        // alternative was widening `propose` to grant both, which would
+        // retroactively change what every envelope already declaring it
+        // permits, with nothing in the record marking the day it changed.
+        //
+        // What it does NOT do is act. It records what was proposed and answers
+        // that it did; admission decides which proposals are performed and the
+        // runner performs them. So the tool is one more thing an injected agent
+        // can reach and it is not one more thing an injected agent can DO,
+        // which is the property that made a fourth affordable at all.
+        //
+        // A FIFTH still has to make its own argument. None of these four is it.
         var answers = await ExchangeAsync(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
 
         var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(3)
-            .Because("one channel, three tools, each granted on its own terms. A fourth is a "
-                   + "decision somebody has to argue for.");
+        await Assert.That(tools.GetArrayLength()).IsEqualTo(4)
+            .Because("one channel, four tools. A fifth is a decision somebody has to argue "
+                   + "for, in this comment, where the last two were argued for.");
 
         var listed = tools.EnumerateArray()
             .Select(t => t.GetProperty("name").GetString()!).ToList();
         await Assert.That(listed).IsEquivalentTo(
-            new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name })
-            .Because("named rather than counted, so a fourth tool cannot arrive by swapping "
-                   + "which three are declared. Found: " + string.Join(", ", listed));
+            new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
+                    WorkItemProposalTool.Name })
+            .Because("named rather than counted, so a tool cannot arrive by swapping which "
+                   + "ones are declared. Found: " + string.Join(", ", listed));
 
         var tool = tools[0];
         await Assert.That(tool.GetProperty("name").GetString()).IsEqualTo(NominationTool.Name);

@@ -50,10 +50,21 @@ public class TheProposalToolActsOnNothingTests
     }
 
     /// <summary>A tools/call for the proposal tool, named from the declaration.</summary>
+    /// <remarks>
+    /// <b>Folded onto ONE line, because the server reads lines.</b> The
+    /// arguments below are wrapped where they are long enough to be worth
+    /// reading, and a wrapped literal reaching the server as several lines is
+    /// several messages that will not parse - which this server SKIPS rather
+    /// than failing, so the test would see silence and have to guess why.
+    /// Written down because it cost a run to find.
+    /// </remarks>
     private static string Propose(string arguments) =>
         """{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"TOOL","arguments":ARGS}}"""
             .Replace("TOOL", WorkItemProposalTool.Name, StringComparison.Ordinal)
-            .Replace("ARGS", arguments, StringComparison.Ordinal);
+            .Replace("ARGS", OneLine(arguments), StringComparison.Ordinal);
+
+    private static string OneLine(string json) => string.Join(' ', json
+        .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private static bool IsError(JsonDocument answer) =>
         answer.RootElement.TryGetProperty("result", out var result)
@@ -179,9 +190,13 @@ public class TheProposalToolActsOnNothingTests
         // sentence is only true while this list stays empty.
         var source = await File.ReadAllTextAsync(PlatformSource("PlatformToolServer.cs"));
 
+        // `Token` WAS THE FIRST SPELLING AND IT WAS THE WRONG ONE: it matches
+        // CancellationToken, which every async method here takes and which is
+        // not a way out of anything. A needle that fires on the correct code is
+        // one somebody eventually deletes rather than reads.
         foreach (var reaching in (string[])
-            ["ICredentialResolver", "Credential", "Secret", "Token", "IWorkItemSource",
-             "HttpClient", "Environment.GetEnvironmentVariable"])
+            ["ICredentialResolver", "Credential", "Secret", "AccessToken", "IWorkItemSource",
+             "HttpClient", "GetEnvironmentVariable"])
         {
             await Assert.That(source.Contains(reaching, StringComparison.Ordinal)).IsFalse()
                 .Because($"'{reaching}' in this server would put a way OUT in the one process "

@@ -113,7 +113,7 @@ public class TheProposalToolIsNamedOnceTests
 
         var offered = schema.GetProperty("properties")
             .GetProperty("operation").GetProperty("enum").EnumerateArray()
-            .Select(value => value.GetString())
+            .Select(value => value.GetString()!)
             .ToList();
 
         // THE SAME HAZARD AS THE NAME, one field over. The tool offers the menu,

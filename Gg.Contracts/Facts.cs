@@ -1257,4 +1257,17 @@ public sealed record LandingDecision
     /// unmet, or a control plane too old to answer.
     /// </remarks>
     public DestinationAdmission? Admission { get; init; }
+
+    /// <summary>
+    /// Which proposed changes to a tracker may now be performed, if any.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null means write nothing</b>, on the rule the two fields above state:
+    /// two permissions, two fields, each refused by its own absence. A runner
+    /// must not derive this from <see cref="Admission"/>, from
+    /// <see cref="Push"/>, or from a verdict it can see - a flight that
+    /// proposed and was told nothing has proposed and nothing more, which is
+    /// the ordinary dry run and needs no flag.
+    /// </remarks>
+    public TrackerAdmission? Tracker { get; init; }
 }

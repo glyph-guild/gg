@@ -133,8 +133,16 @@ public sealed record PoolConfiguration
 {
     public required string Endpoint { get; init; }
 
-    public static PoolConfiguration? FromEnvironment() =>
-        Environment.GetEnvironmentVariable("GG_POOL_ENDPOINT") is { Length: > 0 } endpoint
+    /// <summary>The endpoint in force, or null when nobody declared one.</summary>
+    /// <param name="declared">
+    /// A value the caller already resolved, for the reason every sibling
+    /// configuration takes one: the composition root reads the environment and
+    /// the configuration file together, so a reader going looking on its own
+    /// would reach a different answer than the page shows.
+    /// </param>
+    public static PoolConfiguration? FromEnvironment(string? declared = null) =>
+        (declared ?? Environment.GetEnvironmentVariable("GG_POOL_ENDPOINT"))
+            is { Length: > 0 } endpoint
             ? new PoolConfiguration { Endpoint = endpoint }
             : null;
 }

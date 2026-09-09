@@ -239,8 +239,11 @@ static async Task<int> StrategyAsync(bool json, Func<StrategyCommands, Task<Verb
     }
 }
 
+// THROUGH THE ONE READER, so the file reaches it. The default lives in
+// Settings.Defaults now rather than here: it was quoted in four places and the
+// page could not tell anybody what it was.
 static string ControlPlaneAddress() =>
-    Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") ?? "http://localhost:5199";
+    Settings.Value("GG_CONTROL_PLANE", InForce.Configuration)!;
 
 /// <summary>
 /// Runs a verb and prints its result - one way or the other, never both.
@@ -427,22 +430,25 @@ static async Task<int> DoctorAsync(bool json)
     // WHAT THIS MACHINE IS, read here because this is where the environment
     // belongs. Gg.Client references only Gg.Contracts, so the doctor is handed
     // facts rather than going looking for variables.
-    var executor = Environment.GetEnvironmentVariable(
-        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable);
+    var executor = Settings.Value(
+        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration);
 
     var role = new MachineRole
     {
         ExecutorBinary = executor,
         ExecutorPresent = executor is { Length: > 0 } && File.Exists(executor),
-        ForgeHosts = Environment.GetEnvironmentVariable("GG_VCS_HOSTS"),
-        DestinationApis = Environment.GetEnvironmentVariable("GG_DESTINATION_APIS"),
-        PoolEndpoint = Environment.GetEnvironmentVariable("GG_POOL_ENDPOINT"),
+        ForgeHosts = Settings.Value(
+            Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration),
+        DestinationApis = Settings.Value(
+            Gg.Runner.Vcs.DestinationConfiguration.ApisVariable, InForce.Configuration),
+        PoolEndpoint = Settings.Value("GG_POOL_ENDPOINT", InForce.Configuration),
     };
 
     var report = await new Doctor(
         new ControlPlaneClient(http), new FileSessionStore(), new FileCredentialStore(),
         new Uri(baseAddress),
-        addressConfigured: Environment.GetEnvironmentVariable("GG_CONTROL_PLANE") is { Length: > 0 })
+        addressConfigured: Settings.Resolve("GG_CONTROL_PLANE", InForce.Configuration)
+            .Source != SettingSources.Default)
         .RunAsync(role: role);
 
     var result = new VerbResult.Diagnosis(report);
@@ -587,7 +593,7 @@ static async Task<int> LaunchConsoleAsync()
         // gg itself reads, and every one is named where it is read.
         with
         {
-            Settings = ConsoleEnvironment.Read(),
+            Settings = ConsoleEnvironment.Read(InForce.Configuration),
 
             // WHICH RUNNER IN THE FLEET IS THIS MACHINE'S. The id, and only the
             // id: StoredRunner beside it holds a runner token, and this model is
@@ -642,7 +648,8 @@ static async Task<int> LaunchConsoleAsync()
             new WatchARunner(
                 new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(baseAddress) }),
                 new ConsoleChannel(
-                    Gg.Runner.StunConfiguration.FromEnvironment(), TimeSpan.FromSeconds(20)))
+                    Gg.Runner.StunConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)), TimeSpan.FromSeconds(20)))
             .WatchAsync(
                 new FileSessionStore().Read()?.SessionToken ?? "",
                 runnerId,
@@ -737,7 +744,9 @@ static async Task<int> LaunchConsoleAsync()
     // should say so about rather than keep a keystroke waiting on; SpawnedReader
     // turns this into a deadline and reports the number it waited.
     await using var readers = new Gg.Console.ReaderSessions(
-        Gg.Local.IntentConfiguration.FromEnvironment(), TimeSpan.FromSeconds(15));
+        Gg.Local.IntentConfiguration.FromEnvironment(
+            Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)), TimeSpan.FromSeconds(15));
 
     // THE TAB IN FRONT OF SOMEBODY, EVERY THIRTY SECONDS. On a task, so the
     // session folds a finished answer rather than waiting for one - the
@@ -777,7 +786,12 @@ static async Task<int> LaunchConsoleAsync()
         // where there is no /dev/tty to open. That decision lives inside the one
         // type on purpose - a second construction site here would be a second
         // place to answer it, and the two would eventually disagree.
-        new PtyEditorSession(),
+        new PtyEditorSession(
+            // RESOLVED HERE, because the session's own fallback reads the
+            // variable and would miss the file. Gg.Console can reach
+            // Settings - it is Gg.Local - but not the file this root read
+            // once, so the value is handed over rather than looked up.
+            Settings.Value("EDITOR", InForce.Configuration)),
         // THE OTHER WAY TO COMPOSE, and it is passed here for the same reason
         // the editor is: this is the only place that may name a self-invocation.
         // gg serves its own intent tool by starting itself again, and a console
@@ -786,6 +800,7 @@ static async Task<int> LaunchConsoleAsync()
         // A KEY THAT OFFERED THIS AND FELL BACK WOULD READ AS A FLICKER, which
         // is what EveryPortIsPassedTests exists to catch - it caught this one.
         compose: new PtyAgentSession(
+            Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
             // THE RULES IN FORCE, FOR THE PANEL TO SHOW. Read here because this
             // is the only place that may name the control plane, and read once
             // per compose session rather than on the keypress - the panel opens
@@ -795,7 +810,9 @@ static async Task<int> LaunchConsoleAsync()
         // NAMED, like every other port. Fourteen optional arguments and one
         // positional is how a port gets passed to the wrong slot, and
         // EveryPortIsPassedTests can only see the ones that say their name.
-        take: new TakeSession(claim: reference =>
+        take: new TakeSession(
+            command: Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
+            claim: reference =>
             takes.ClaimAsync(reference).GetAwaiter().GetResult()),
         hand: null,
         // THE WRITE PATH. Async verbs, a synchronous shell, and the bridge at the
@@ -892,7 +909,7 @@ static async Task<int> LaunchConsoleAsync()
             // WHAT THIS MACHINE ADVERTISES, read the same way `gg fly --hand`
             // reads it. The plan prices against the fleet, and a label some
             // other runner has is useless to a person at this keyboard.
-            advertised: (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
+            advertised: (Settings.Value("GG_RUNNER_LABELS", InForce.Configuration) ?? "")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             ask: ask,
             self: Gg.Local.SelfInvocation.Current,
@@ -1002,7 +1019,8 @@ static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
         new ControlPlaneClient(http),
         // STUN FROM THE ENVIRONMENT, for the runner's own reason: naming a
         // server in source would point every console at a service nobody chose.
-        new ConsoleChannel(Gg.Runner.StunConfiguration.FromEnvironment(), TimeSpan.FromSeconds(20)))
+        new ConsoleChannel(Gg.Runner.StunConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)), TimeSpan.FromSeconds(20)))
         .WatchAsync(
             session.SessionToken,
             watch.RunnerId,
@@ -1068,7 +1086,7 @@ static async Task<int> HandAsync(CliAction.Fly fly)
     var client = new ControlPlaneClient(http);
     var commands = new FlightCommands(client, new FileSessionStore());
 
-    var labels = (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
+    var labels = (Settings.Value("GG_RUNNER_LABELS", InForce.Configuration) ?? "")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     return await FlyByHandCommand.RunAsync(
@@ -1168,7 +1186,8 @@ static async Task<int> HoldAsync(
         TimeSpan.Zero,
         new LocalCredentialResolver(new FileCredentialStore()),
         new Gg.Runner.Workspace(
-            Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot()),
+            Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot()),
         cancellationToken,
         destinations: Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
             api => new HttpClient { BaseAddress = new Uri(api) }),
@@ -1179,7 +1198,9 @@ static async Task<int> HoldAsync(
         // this machine has.
         executor: new Gg.Runner.Execution.AttendedExecutor(
             binary,
-            Gg.Local.IntentConfiguration.FromEnvironment(),
+            Gg.Local.IntentConfiguration.FromEnvironment(
+            Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)),
             secretFor: locator => new FileCredentialStore().Read(locator),
             self: Gg.Local.SelfInvocation.Current),
         flightId: flightId,
@@ -1248,10 +1269,11 @@ static async Task<int> RunnerUpAsync()
         },
         DateTimeOffset.UtcNow);
 
-    var labels = (Environment.GetEnvironmentVariable("GG_RUNNER_LABELS") ?? "")
+    var labels = (Settings.Value("GG_RUNNER_LABELS", InForce.Configuration) ?? "")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    var holdFor = int.TryParse(Environment.GetEnvironmentVariable("GG_RUNNER_HOLD_SECONDS"), out var seconds)
+    var holdFor = int.TryParse(
+        Settings.Value("GG_RUNNER_HOLD_SECONDS", InForce.Configuration), out var seconds)
         ? TimeSpan.FromSeconds(seconds)
         : TimeSpan.FromSeconds(10);
 
@@ -1269,7 +1291,8 @@ static async Task<int> RunnerUpAsync()
     // distributed, and which forge a tenant uses is the control plane's
     // business. A provider nobody configured is a declared capability gap.
     var workspace = new Gg.Runner.Workspace(
-        Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot());
+        Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot());
 
     // Where this runner may LAND work, which is a second declaration on purpose.
     // A runner configured to read and not to write cannot write - there is no
@@ -1347,7 +1370,8 @@ static async Task<int> RunnerUpAsync()
             // this binary may not name. Empty is a real answer -
             // host candidates work between machines that can already reach each
             // other - and TURN is S34.Q-04, still open.
-            stunServers: Gg.Runner.StunConfiguration.FromEnvironment());
+            stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)));
     }
     finally
     {
@@ -1464,7 +1488,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     }
 
     var holdFor = int.TryParse(
-        Environment.GetEnvironmentVariable("GG_RUNNER_HOLD_SECONDS"), out var seconds)
+        Settings.Value("GG_RUNNER_HOLD_SECONDS", InForce.Configuration), out var seconds)
         ? TimeSpan.FromSeconds(seconds)
         : TimeSpan.FromSeconds(10);
 
@@ -1472,7 +1496,8 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
 
     var workspace = new Gg.Runner.Workspace(
-        Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(), new Gg.Runner.Vcs.WorkingTreeRoot());
+        Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot());
 
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
         api => new HttpClient { BaseAddress = new Uri(api) });
@@ -1504,7 +1529,8 @@ static async Task<int> RunnerMaintainAsync(string pool)
     // The scope-enforcing proxy, or nothing. A resident runner with no
     // endpoint is not a resident, and guessing a socket path here would be
     // the exact reach § 12 forbids - refused loudly, naming the variable.
-    var configuration = Gg.Runner.Pools.PoolConfiguration.FromEnvironment();
+    var configuration = Gg.Runner.Pools.PoolConfiguration.FromEnvironment(
+        Settings.Value("GG_POOL_ENDPOINT", InForce.Configuration));
     if (configuration is null)
     {
         return Fail("GG_POOL_ENDPOINT is not set. The resident runner acts only through the "

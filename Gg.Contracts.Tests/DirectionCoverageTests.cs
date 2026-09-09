@@ -118,6 +118,30 @@ public class DirectionCoverageTests
         ],
     };
 
+    /// <summary>A document whose tracker destination permits these operations.</summary>
+    /// <remarks>
+    /// <b>A tracker rather than a flight, because the menu is refused anywhere
+    /// else.</b> Only a <c>work-item-tracker</c> performs operations, so a
+    /// may-perform on the flight destination <see cref="Opening"/> builds would
+    /// not validate - the same shape as <c>opens</c> needing its own document.
+    /// </remarks>
+    private static Envelope Performing(IReadOnlyList<string> mayPerform) => Doc() with
+    {
+        Context = new ContextBinding { Scope = EnvelopeScopes.None, Constitution = "1.0.0" },
+        Accepts = [],
+        Produces = [],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "the-backlog",
+                Kind = DestinationKinds.WorkItemTracker,
+                Requires = ["in-scope"],
+                MayPerform = mayPerform,
+            },
+        ],
+    };
+
     private static IReadOnlyList<Move> Moves() =>
     [
         new("ContextBinding.Scope", "context.scope",
@@ -232,6 +256,16 @@ public class DirectionCoverageTests
 
         new("Destination.Opens", "opens",
             Opening(["research"]), Opening(["implement", "research"]),
+            ReverseAlsoWidens: false),
+
+        // A MENU THAT GROWS IS A WIDENING, the way opens is. A destination that
+        // permitted only a re-score and now permits a re-field lets an admitted
+        // flight change something on somebody's backlog it could not change
+        // before - which is exactly what the bound is for, and so exactly the
+        // change a person should be shown.
+        new("Destination.MayPerform", "may-perform",
+            Performing([WorkItemOperations.Score]),
+            Performing([WorkItemOperations.Score, WorkItemOperations.Field]),
             ReverseAlsoWidens: false),
 
         // BOTH MENUS WIDEN BY GROWING, the way opens does above. A destination

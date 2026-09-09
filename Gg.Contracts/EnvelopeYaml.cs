@@ -676,7 +676,8 @@ public static class EnvelopeYaml
 
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select");
+        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select",
+            "may-perform");
 
         return new Destination
         {
@@ -699,6 +700,13 @@ public static class EnvelopeYaml
             // AND THE SAME AGAIN. Absent stays absent: a missing `may-select`
             // read back as empty sets would say the tenant permits nothing,
             // which is a different document from one that bounds no selection.
+            // AND THE SAME AGAIN, one menu over. Absent stays absent, because
+            // on a tracker destination absence is refused by Validate with a
+            // sentence naming the operations - which is a better place to learn
+            // it than an empty list this parser invented.
+            MayPerform = entry.Body.Entries.TryGetValue("may-perform", out var performable)
+                ? Strings(performable, $"{entry.Body.Path}.may-perform")
+                : null,
             MaySelect = entry.Body.Entries.TryGetValue("may-select", out var selection)
                 ? MapSelection(selection, $"{entry.Body.Path}.may-select")
                 : null,

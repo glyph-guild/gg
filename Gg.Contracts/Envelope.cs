@@ -1284,6 +1284,38 @@ public sealed record Destination
     /// On a flight destination or nowhere, for the reason <c>Opens</c> gives.
     /// </remarks>
     public DestinationSelection? MaySelect { get; init; }
+
+    /// <summary>
+    /// Which operations a flight admitted here may have performed on the
+    /// tracker, or null on any other kind.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own menu rather than <see cref="Opens"/>, because that one bounds
+    /// something else.</b> <c>Opens</c> is a list of work kinds and is read only
+    /// when a nomination opens a flight; reusing it here would mean one key
+    /// meaning two things depending on the kind beside it, which is how a
+    /// person reads a document and learns the wrong rule.
+    /// </para>
+    /// <para>
+    /// <b>Absent and empty are one answer, as on <see cref="Opens"/>.</b> A
+    /// tracker destination that may perform nothing is one whose admission can
+    /// never act - ADR-0019 § 3's unreachable destination - so both are refused
+    /// at authoring rather than discovered by a flight that proposed a dozen
+    /// changes and was told nothing.
+    /// </para>
+    /// <para>
+    /// <b>And there is no condition language here, deliberately.</b> A menu
+    /// bounds what may be PERFORMED; it cannot mention a proposal's opaque
+    /// detail, so a rule written over that member is not refused, it is
+    /// unsayable. The alternative - a predicate language over a fact's fields -
+    /// would put the decision about what a later reader may ask into a
+    /// document written today, which is the one thing that member exists to
+    /// avoid.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<string>? MayPerform { get; init; }
 }
 
 /// <summary>
@@ -1822,6 +1854,46 @@ public sealed record Envelope
                 return $"Destination '{destination.Id}' declares opens and is a "
                      + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
                      + "anything, so on this kind the list bounds nothing.";
+            }
+
+            // THE SAME SENTENCE AGAIN, A THIRD KNOB. Only a tracker performs
+            // operations, so `may-perform:` anywhere else bounds nothing and
+            // somebody wrote it believing they had granted a permission.
+            var writesToATracker = string.Equals(
+                destination.Kind, DestinationKinds.WorkItemTracker, StringComparison.Ordinal);
+
+            if (destination.MayPerform is not null && !writesToATracker)
+            {
+                return $"Destination '{destination.Id}' declares may-perform and is a "
+                     + $"'{destination.Kind}'. Only a '{DestinationKinds.WorkItemTracker}' "
+                     + "performs operations, so on this kind the list bounds nothing.";
+            }
+
+            if (writesToATracker)
+            {
+                // ABSENT AND EMPTY ARE ONE ANSWER, on Opens' argument: a tracker
+                // destination that may perform nothing is one whose admission
+                // can never act, so a flight would propose a dozen changes and
+                // be told nothing, for a reason authored days earlier.
+                if (destination.MayPerform is not { Count: > 0 })
+                {
+                    return $"Destination '{destination.Id}' is a "
+                         + $"'{DestinationKinds.WorkItemTracker}' and declares no may-perform. "
+                         + "A tracker destination that permits no operation is one whose "
+                         + "admission can never act: name the operations a flight admitted "
+                         + "here may have performed, from "
+                         + string.Join(", ", WorkItemOperations.All) + ".";
+                }
+
+                if (destination.MayPerform.FirstOrDefault(
+                        o => !WorkItemOperations.All.Contains(o, StringComparer.Ordinal))
+                    is { } unknownOperation)
+                {
+                    return $"Destination '{destination.Id}' may-perform names "
+                         + $"'{unknownOperation}', which is not an operation this platform "
+                         + "has. Expected one of: "
+                         + string.Join(", ", WorkItemOperations.All) + ".";
+                }
             }
 
             // THE SAME RULE, ONE MEMBER OVER. A selection bound is read when a

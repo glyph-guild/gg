@@ -273,7 +273,7 @@ public class EnvelopeModelRoundTripTests
             nameof(LoopBudget.WallClock), nameof(LoopBudget.Attempts),
             nameof(Destination.Id), nameof(Destination.Kind), nameof(Destination.Requires),
             nameof(Destination.PreserveUnadmitted), nameof(Destination.Opens),
-            nameof(Destination.MaySelect),
+            nameof(Destination.MaySelect), nameof(Destination.MayPerform),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
             nameof(EnvelopeNarrowing.Obligations),
         ];

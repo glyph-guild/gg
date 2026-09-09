@@ -404,6 +404,24 @@ public static class EnvelopeDirection
                   + "obligations apply - that a nomination can newly reach.");
             }
 
+            // AND THE THIRD MENU, which is the one that changes somebody else's
+            // system. An operation gained here is a change an admitted flight
+            // may newly make to a backlog nobody in this document owns - a
+            // destination that permitted a re-score and now permits a re-field
+            // has moved an item to another team's area path without anyone
+            // approving that it could. Written by hand like the others, because
+            // an operator in the composition table is not a direction rule.
+            var performable = (now.MayPerform ?? [])
+                .Except(was.MayPerform ?? [], StringComparer.Ordinal).ToList();
+            if (performable.Count > 0)
+            {
+                return Widen($"{at}.may-perform",
+                    $"operation '{performable[0]}' could not be performed here before, and "
+                  + "may-perform intersects: it can only ever narrow. What is gained is a kind "
+                  + "of change an admitted flight may make to somebody's tracker, on a "
+                  + "credential a person registered for a narrower purpose.");
+            }
+
             // AND THE TWO MENUS BESIDE IT, written by hand for the same reason:
             // an operator in the table is not a direction rule, and a set that
             // grows with no arm here is a bound loosening with no approver in

@@ -69,14 +69,25 @@ public class AConfigurableValueReachesTheDoctorTests
             .Because("the doctor's STUN check is not built here at all, so this scan judges "
                    + "nothing.");
 
-        // NAMED WHERE IT IS PASSED, so the resolution and the use are one line
-        // apart and a reader can see that the file was consulted.
-        await Assert.That(Regex.IsMatch(
-            source, @"stunServers:\s*[^)\n]*Settings\.Value\("))
-            .IsTrue()
-            .Because("every stunServers argument in the root must be a resolved value. Found: "
-                   + string.Join(" | ", Regex.Matches(source, @"stunServers:[^\n]*")
-                       .Select(m => m.Value.Trim())));
+        // OVER A WINDOW, NOT A LINE. This first demanded Settings.Value on the
+        // same line as the argument, which is a claim about where somebody
+        // wrapped a call rather than about where the value came from - and it
+        // failed on the fix. The property is that each argument resolves; how
+        // it is formatted is nobody's business.
+        var arguments = Regex.Matches(source, @"stunServers:", RegexOptions.None)
+            .Select(m => source.Substring(m.Index, Math.Min(220, source.Length - m.Index)))
+            .ToList();
+
+        await Assert.That(arguments).IsNotEmpty();
+
+        foreach (var argument in arguments)
+        {
+            await Assert.That(argument.Contains("Settings.Value(", StringComparison.Ordinal))
+                .IsTrue()
+                .Because("every stunServers argument in the root must be a resolved value, or "
+                       + "the file reaches the check that most looks like a network problem. "
+                       + "Passed: " + argument.Split('\n')[0].Trim());
+        }
     }
 
     [Test]

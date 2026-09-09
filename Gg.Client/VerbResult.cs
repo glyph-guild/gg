@@ -174,6 +174,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.EnvelopeValidated;
     }
 
+    /// <summary>What is configured on this machine, and where it came from.</summary>
+    public sealed record ConfigShown(ConfigurationView Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.ConfigShown;
+    }
+
+    /// <summary>Whether a configuration document is one.</summary>
+    public sealed record ConfigValidated(ConfigurationValidation Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.ConfigValidated;
+    }
+
     /// <summary>
     /// Why each obligation applied to a flight, or did not.
     /// </summary>
@@ -271,6 +283,10 @@ public static class VerbResultKinds
     public const string EnvelopeApplied = "envelope-applied";
     public const string EnvelopeValidated = "envelope-validated";
 
+    public const string ConfigShown = "config-shown";
+
+    public const string ConfigValidated = "config-validated";
+
     public const string Plan = "plan";
     public const string AirspaceTopology = "airspace-topology";
 
@@ -318,6 +334,8 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(DecisionReport))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
+[JsonSerializable(typeof(ConfigurationView))]
+[JsonSerializable(typeof(ConfigurationValidation))]
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(EnvelopeTopology))]
@@ -392,6 +410,10 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeValidation),
+        VerbResult.ConfigShown r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ConfigurationView),
+        VerbResult.ConfigValidated r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ConfigurationValidation),
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
         VerbResult.AirspaceTopology r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
@@ -448,6 +470,10 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeApplied)), []),
         VerbResultKinds.EnvelopeValidated => new VerbResult.EnvelopeValidated(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeValidation))),
+        VerbResultKinds.ConfigShown => new VerbResult.ConfigShown(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.ConfigurationView))),
+        VerbResultKinds.ConfigValidated => new VerbResult.ConfigValidated(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.ConfigurationValidation))),
         // No notes, for the reason written on the record: they described this
         // invocation's hold, and a payload re-rendered somewhere else holds nothing.
         VerbResultKinds.Plan => new VerbResult.Plan(Require(
@@ -503,6 +529,8 @@ public static class VerbOutput
         VerbResult.Decided r => DecidedText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
+        VerbResult.ConfigShown r => ConfigShownText(r.Value),
+        VerbResult.ConfigValidated r => ConfigValidatedText(r.Value),
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
@@ -578,6 +606,68 @@ public static class VerbOutput
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>Every setting, its value, and which source answered.</summary>
+    /// <remarks>
+    /// <b>The source column is the whole point of this rendering.</b> A list of
+    /// names and values is what a person could get from their own shell; what
+    /// they cannot get anywhere else is which of the three places answered, and
+    /// what a value in the file is being overridden by.
+    /// </remarks>
+    private static string ConfigShownText(ConfigurationView view)
+    {
+        var text = new System.Text.StringBuilder();
+
+        text.Append("file  ").Append(view.Path).Append('\n');
+
+        if (!File.Exists(view.Path))
+        {
+            text.Append("      not written yet - `gg config init` will seed it\n");
+        }
+
+        text.Append('\n');
+
+        var width = view.Settings.Max(s => s.Name.Length);
+
+        foreach (var setting in view.Settings)
+        {
+            text.Append(setting.Source.PadRight(12))
+                .Append(setting.Name.PadRight(width + 2))
+                .Append(setting.Value ?? "")
+                .Append('\n');
+
+            // THE LINE THAT ANSWERS "WHY DID MY EDIT DO NOTHING". Only where
+            // there is something being overridden, so nothing is said where
+            // there is nothing to say.
+            if (setting.Shadowed is { Length: > 0 } shadowed)
+            {
+                text.Append("            ")
+                    .Append(new string(' ', width + 2))
+                    .Append("the file says ")
+                    .Append(shadowed)
+                    .Append(", and ")
+                    .Append(setting.Name)
+                    .Append(" is overriding it\n");
+            }
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>Valid or not, what is wrong, and what gg would write.</summary>
+    private static string ConfigValidatedText(ConfigurationValidation validation)
+    {
+        ArgumentNullException.ThrowIfNull(validation);
+
+        if (!validation.Valid)
+        {
+            return $"not a configuration\n\n{validation.Diagnosis}\n";
+        }
+
+        return validation.Canonical is { Length: > 0 } canonical
+            ? $"a configuration\n\n{canonical}"
+            : "a configuration\n";
     }
 
     private static string EnvelopeValidated(EnvelopeValidation validation)

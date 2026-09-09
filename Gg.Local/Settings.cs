@@ -155,6 +155,40 @@ public static class Settings
             .Select(m => m.Get(file))
             .FirstOrDefault();
 
+    /// <summary>
+    /// A configuration recording what somebody has actually set.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only what the environment declares</b> — not the defaults. Writing a
+    /// default into the file would pin it: the machine would keep that value
+    /// after the built-in one changed, and nothing on the page would say why it
+    /// differed from a fresh machine's. A seeded file is a recording of what a
+    /// person chose, and nobody chose a default.
+    /// </para>
+    /// <para>
+    /// <b>Which is what makes seeding safe.</b> Nothing it writes changes a
+    /// resolved value, because every value it writes was already answering —
+    /// and the environment still wins over it anyway.
+    /// </para>
+    /// </remarks>
+    public static Configuration Seed(Func<string, string?>? environment = null)
+    {
+        var seeded = new Configuration();
+
+        foreach (var member in Configuration.Members)
+        {
+            if (Resolve(member.Variable, file: null, environment).Source
+                == SettingSources.Environment
+             && Resolve(member.Variable, file: null, environment).Value is { Length: > 0 } value)
+            {
+                seeded = member.With(seeded, value);
+            }
+        }
+
+        return seeded;
+    }
+
     /// <summary>The configuration with one setting changed.</summary>
     /// <remarks>
     /// <b>Production, not a test seam.</b> <c>gg config set</c> is how a value

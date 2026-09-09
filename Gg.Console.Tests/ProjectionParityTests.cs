@@ -79,6 +79,24 @@ public class ProjectionParityTests
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             // --- arms this slice adds, each with the step that adds it ---
+
+            // THE CONFIGURATION VERBS, and the console's answer to them is not
+            // a projection. What a person reads in the console is the
+            // Environment page, which is built from ConsoleEnvironment.Read -
+            // the same resolution these verbs render - rather than from a
+            // VerbResult travelling back. So there is nothing to project, and
+            // an arm would be a second path to the same values.
+            //
+            // Editing is step 5: a key on that page hands the file to $EDITOR
+            // between sessions, because nothing in this console is written by
+            // typing into a widget.
+            ["ConfigShown"] = "not projected: the console reads the same resolution directly "
+                            + "for its Environment page, so a projection would be a second "
+                            + "path to one answer.",
+            ["ConfigValidated"] = "not projected: validating is a command-line answer. The "
+                                + "console's equivalent is step 5, where a bad edit is "
+                                + "refused before it is written.",
+
             ["Gates"] = "step 3: answering a gate has to refetch them, and today the boot's "
                       + "copy is the only one there will ever be.",
             // A DECISION NOW, NOT A GAP - and the difference is worth the words.

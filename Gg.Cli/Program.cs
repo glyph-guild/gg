@@ -93,6 +93,23 @@ return CliArgs.Parse(args) switch
     CliAction.EnvelopeValidate check => EmitLocal(check.Json, () =>
         EnvelopeCommands.Validate(ReadEnvelope(check.Source))),
 
+    // THE CONFIG VERBS, none of which contacts anything either. Configuration
+    // is a fact about this machine, so a person on a plane can still read it,
+    // check it and change it.
+    CliAction.ConfigShow show => EmitLocal(show.Json, () =>
+        ConfigCommands.Show(ConsoleEnvironment.Read(InForce.Configuration))),
+
+    CliAction.ConfigValidate check => EmitLocal(check.Json, () =>
+        ConfigCommands.Validate(ReadEnvelope(check.Source))),
+
+    // SEEDED FROM WHAT IS IN FORCE, so writing the file changes no resolved
+    // value - it records what this machine was already doing.
+    CliAction.ConfigInit start => EmitLocal(start.Json, () =>
+        ConfigCommands.Init(Gg.Local.Settings.Seed())),
+
+    CliAction.ConfigSet set => EmitLocal(set.Json, () =>
+        ConfigCommands.Set(path: null, set.Key, set.Value)),
+
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
@@ -130,7 +147,20 @@ static int EmitLocal(bool json, Func<VerbResult> run)
     {
         var result = run();
         Console.WriteLine(json ? VerbOutput.ToJson(result) : VerbOutput.ToText(result));
-        return result is VerbResult.EnvelopeValidated { Value.Valid: false } ? 1 : 0;
+
+        // A VALIDATOR THAT REPORTS SUCCESS ON A DOCUMENT IT JUST REFUSED is one
+        // nobody can put in a pipeline. Both document kinds, because the second
+        // was added and the exit code was not - which the tests missed, since
+        // they asserted the RESULT and this harness is what turns one into an
+        // exit code.
+        return result is VerbResult.EnvelopeValidated { Value.Valid: false }
+                      or VerbResult.ConfigValidated { Value.Valid: false }
+            ? 1
+            : 0;
+    }
+    catch (Gg.Client.ConfigurationRefused refused)
+    {
+        return Fail(refused.Message);
     }
     catch (IOException unreadable)
     {

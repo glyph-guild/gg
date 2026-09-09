@@ -65,6 +65,28 @@ public class RealTrackerSinkTests
     /// <summary>A key nothing else will ever use, so the retry search is honest.</summary>
     private static string AKey() => "walk-" + Guid.NewGuid().ToString("N")[..12];
 
+    /// <summary>
+    /// What a created item should be, in this project's process.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named rather than defaulted, because the default would succeed and be
+    /// wrong.</b> The adapter falls back to <c>Issue</c> when a proposal's
+    /// detail does not say, and <c>Issue</c> exists in the Agile process
+    /// alongside <c>User Story</c> - so a walk that let the fallback run would
+    /// file Issues onto a Stories backlog, pass every assertion here, and leave
+    /// somebody a column of the wrong thing. Which type a project has is a fact
+    /// about a deployment, so it arrives the way the host does.
+    /// </remarks>
+    private static string ItemType =>
+        Environment.GetEnvironmentVariable("GG_ADO_ITEM_TYPE") is { Length: > 0 } declared
+            ? declared
+            : throw new InvalidOperationException(
+                "GG_ADO_ITEM_TYPE is not set. This walk CREATES work items, and the type is "
+              + "the one thing it must not guess: `Issue` exists in the Agile process beside "
+              + "`User Story`, so guessing succeeds and files the wrong kind onto somebody's "
+              + "backlog. Set it to what this project's process calls a story - `User Story` "
+              + "on Agile, `Product Backlog Item` on Scrum, `Issue` on Basic.");
+
     private static JsonElement Detail(string json) =>
         JsonSerializer.Deserialize<JsonElement>(json);
 
@@ -73,7 +95,7 @@ public class RealTrackerSinkTests
         Operation = WorkItemOperations.Create,
         Reason = "Created by gg's slice-thirty-five walk. Safe to delete.",
         Detail = Detail(
-            $$"""{"type":"Issue","title":"{{title}}","description":"gg walk, safe to delete"}"""),
+            $$"""{"type":"{{ItemType}}","title":"{{title}}","description":"gg walk, safe to delete"}"""),
     };
 
     [Test]

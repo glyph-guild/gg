@@ -33,7 +33,7 @@ namespace Gg.Console;
 /// </para>
 /// </remarks>
 public sealed class WatchedRunner(
-    Func<string, Action<string>, Action<string>, Action, CancellationToken, Task> follow,
+    Func<string, Action<string>, Action<string>, Action, CancellationToken, Task<string>> follow,
     Func<DateTimeOffset> now) : IDisposable
 {
     private readonly Lock _gate = new();
@@ -57,6 +57,7 @@ public sealed class WatchedRunner(
     }
 
     private TaskCompletionSource<bool>? _open;
+    private string _said = "";
 
     /// <summary>Starts watching one runner's flight, stopping whatever was.</summary>
     /// <remarks>
@@ -90,7 +91,7 @@ public sealed class WatchedRunner(
             {
                 try
                 {
-                    await follow(
+                    var said = await follow(
                         runnerId,
                         line => source.Offer(
                             [new StreamLine
@@ -109,13 +110,22 @@ public sealed class WatchedRunner(
                             open.TrySetResult(true);
                         },
                         stopping.Token);
+
+                    lock (_gate)
+                    {
+                        _said = said;
+                    }
                 }
-                catch (Exception)
+                catch (Exception failure)
                 {
-                    // SAID BY GOING QUIET, which the pane can already tell from
-                    // an open channel with nothing on it: the source closes, so
-                    // the box says the watch ended rather than that the agent
-                    // is thinking.
+                    // SAID BY GOING QUIET on the pane, which can already tell
+                    // an ended watch from a silent agent - and kept in words
+                    // too, because "it stopped" and "it stopped because the
+                    // token expired" are different things to read.
+                    lock (_gate)
+                    {
+                        _said = failure.Message;
+                    }
                 }
                 finally
                 {
@@ -171,7 +181,7 @@ public sealed class WatchedRunner(
     /// ordinary wait is one heartbeat interval; the deadline is for a runner
     /// that stopped beating between the fleet read and the offer.
     /// </remarks>
-    public bool Opened(TimeSpan within, Action<string>? saying = null)
+    public (bool Open, string Said) Opened(TimeSpan within, Action<string>? saying = null)
     {
         TaskCompletionSource<bool>? open;
 
@@ -182,20 +192,31 @@ public sealed class WatchedRunner(
 
         if (open is null)
         {
-            return false;
+            return (false, "");
         }
 
         try
         {
-            return open.Task.WaitAsync(within).GetAwaiter().GetResult();
+            var opened = open.Task.WaitAsync(within).GetAwaiter().GetResult();
+
+            lock (_gate)
+            {
+                return (opened, _said);
+            }
         }
         catch (TimeoutException)
         {
-            saying?.Invoke(
-                $"gave up after {(int)within.TotalSeconds}s without a channel");
+            // THE LAST RESORT AND NOT THE ORDINARY ENDING. The watch bounds
+            // itself by the introduction's own life and answers with a sentence
+            // that names what went wrong - "a runner opens a channel only for a
+            // flight launched with `--attended`" is one it already has. This
+            // deadline used to be shorter than that, so it fired first every
+            // time and replaced a reason with a shrug. It is longer than the
+            // introduction now, and reaching it means the watch itself hung.
+            saying?.Invoke($"gave up after {(int)within.TotalSeconds}s without a channel");
 
             Stop();
-            return false;
+            return (false, $"Nothing came back within {(int)within.TotalSeconds}s.");
         }
     }
 

@@ -32,8 +32,8 @@ public class OneWatchAtATimeTests
         new(2026, 9, 9, 1, 45, 0, TimeSpan.Zero);
 
     /// <summary>A follow that hands over what it is told to, then waits to be stopped.</summary>
-    private static Func<string, Action<string>, Action<string>, Action, CancellationToken, Task>
-        Following(params string[] lines) =>
+    private static Func<string, Action<string>, Action<string>, Action, CancellationToken,
+        Task<string>> Following(params string[] lines) =>
         async (_, onLine, _, onOpen, token) =>
         {
             // OPENED FIRST, because that is the order the real one has: the
@@ -46,6 +46,7 @@ public class OneWatchAtATimeTests
             }
 
             await Task.Delay(Timeout.Infinite, token);
+            return "";
         };
 
     [Test]
@@ -112,6 +113,7 @@ public class OneWatchAtATimeTests
                 onOpen();
 
                 await Task.Delay(Timeout.Infinite, token);
+                return "";
             },
             () => T0);
 
@@ -139,7 +141,7 @@ public class OneWatchAtATimeTests
 
         // OPEN ONLY ONCE THERE IS A CHANNEL. Start returns before there is one,
         // which is the whole reason Opened exists.
-        await Assert.That(watched.Opened(TimeSpan.FromSeconds(10))).IsTrue();
+        await Assert.That(watched.Opened(TimeSpan.FromSeconds(10)).Open).IsTrue();
         await Assert.That(source.Exists).IsTrue();
 
         watched.Stop();

@@ -111,6 +111,36 @@ public class ShellHandledTests
     }
 
     [Test]
+    public async Task A_command_is_the_shells_or_a_read_and_never_both()
+    {
+        // THE HOLE THAT LET A MISTAKE THROUGH. Moving ToggleBrowse into `Reads`
+        // failed nothing, because it was still in `Handled` too - so the key
+        // would have ended the session AND started a background read, and the
+        // guard asserting browsing is the shell's went on passing.
+        var both = ShellCommands.Handled.Intersect(ShellCommands.Reads).ToList();
+
+        await Assert.That(both).IsEmpty()
+            .Because("one ends the session and the other runs beside it; a command in both "
+                   + "does each once per keypress. Found: "
+                   + string.Join(", ", both.Select(c => c.ToString())));
+    }
+
+    [Test]
+    public async Task Browsing_is_not_a_read_however_much_it_looks_like_one()
+    {
+        // THE MISTAKE ITSELF, NAMED. Three toggles beside it are control-plane
+        // reads and moved; this one is not. An IntentReader is a Command, its
+        // Arguments, the environment variable that is "the only place a secret
+        // may go", and a credential locator - a CHILD PROCESS HOLDING A
+        // CREDENTIAL. AutoRefresh's exception is for a read and does not
+        // stretch to a spawn, and no amount of folding-on-a-tick changes what
+        // is being folded.
+        await Assert.That(ShellCommands.Reads.Contains(Command.ToggleBrowse)).IsFalse()
+            .Because("a session may not spawn a process and may not resolve a credential, and "
+                   + "browsing does both. It ends the session, which is what that is for.");
+    }
+
+    [Test]
     public async Task Quit_is_still_the_shell_s()
     {
         // The one that always worked, asserted so a change that moved to the

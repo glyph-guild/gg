@@ -35,15 +35,51 @@ public sealed class BackgroundReads(Func<Command, AppState, Task<Func<AppState, 
 {
     private Task<Func<AppState, AppState>>? _running;
 
-    /// <summary>Asks for one, replacing whatever was already in the air.</summary>
-    public void Start(Command command, AppState state)
+    /// <summary>
+    /// Asks for one, replacing whatever was already in the air.
+    /// </summary>
+    /// <param name="landed">
+    /// Called when the answer arrives, on whatever thread it arrives on.
+    /// </param>
+    /// <remarks>
+    /// <b>Told rather than polled.</b> Terminal.Gui's own guidance is that all
+    /// UI work happens on the main thread and a background result reaches it
+    /// through <c>Invoke</c>; the first version of this asked every hundred and
+    /// twenty milliseconds whether the task had finished, which is a timer
+    /// spinning for something that can simply say so. The callback does no UI
+    /// work itself — it hands back to whoever can.
+    /// </remarks>
+    public void Start(Command command, AppState state, Action? landed = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         // ABANDONED RATHER THAN CANCELLED. The old one will finish and its
         // answer is simply not folded; cancelling a request that is already on
         // the wire buys nothing a dropped result does not.
-        _running = read(command, state);
+        var running = read(command, state);
+        _running = running;
+
+        if (landed is null)
+        {
+            return;
+        }
+
+        // NOTHING MAY THROW OUT OF THIS. It runs on a thread pool thread beside
+        // a console somebody is using, and an exception escaping here would
+        // take the process down over a read.
+        _ = running.ContinueWith(
+            _ =>
+            {
+                try
+                {
+                    landed();
+                }
+                catch (Exception)
+                {
+                    // Said by the absence, the way a failed read already is.
+                }
+            },
+            TaskScheduler.Default);
     }
 
     /// <summary>

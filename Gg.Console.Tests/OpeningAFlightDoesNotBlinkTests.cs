@@ -122,16 +122,17 @@ public class OpeningAFlightDoesNotBlinkTests
 
         var opened = Reducer.Reduce(Looking(), Command.ShowFlight);
 
-        reads.Start(Command.ShowFlight, opened);
+        // TOLD, NOT POLLED - which is what the screen does too. Terminal.Gui's
+        // guidance is that a background result reaches the main thread through
+        // Invoke, so the read says when it has landed rather than being asked
+        // on a timer that is up to its own interval late.
+        var landed = new TaskCompletionSource();
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        var folded = opened;
+        reads.Start(Command.ShowFlight, opened, landed.SetResult);
 
-        while (folded.FlightLog is null && DateTime.UtcNow < deadline)
-        {
-            folded = reads.Advance(folded);
-            await Task.Delay(10);
-        }
+        await landed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var folded = reads.Advance(opened);
 
         await Assert.That(folded.FlightLog).IsNotNull()
             .Because("the tick asks only whether it has finished, and folds it when it has.");

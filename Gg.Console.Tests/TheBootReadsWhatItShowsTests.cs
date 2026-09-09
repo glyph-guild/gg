@@ -100,16 +100,13 @@ public class TheBootReadsWhatItShowsTests
         var reads = new BackgroundReads(
             (_, current) => Task.FromResult(ConsoleFlightLog.Patch(data, current)));
 
-        reads.Start(Command.ShowFlight, opened);
+        var landed = new TaskCompletionSource();
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        var final = opened;
+        reads.Start(Command.ShowFlight, opened, landed.SetResult);
 
-        while (final.Story is null && DateTime.UtcNow < deadline)
-        {
-            final = reads.Advance(final);
-            await Task.Delay(10);
-        }
+        await landed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        var final = reads.Advance(opened);
 
         await Assert.That(plane.StoriesRead.Count).IsEqualTo(before + 1)
             .Because("one flight, one request, and only when somebody asked.");

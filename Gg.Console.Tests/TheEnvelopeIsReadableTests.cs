@@ -91,9 +91,23 @@ public class TheEnvelopeIsReadableTests
     {
         var before = new AppState();
 
-        await Assert.That(ShellCommands.Handled).Contains(Command.ToggleEnvelope);
-        await Assert.That(Reducer.Reduce(before, Command.ToggleEnvelope)).IsEqualTo(before)
-            .Because("a shell command with a reducer arm is a key that half works.");
+        // THE SHELL'S NO LONGER, AND THE RULE IS UNCHANGED. "Showing it is a
+        // read, and a session may not make one" is right; ending the session
+        // was one way to honour it and cost the whole screen going away and
+        // coming back once per keypress. It is in `Reads` now, which honours
+        // the same rule by making the request BESIDE the console - AutoRefresh's
+        // exception, whose argument is that the session still does not read.
+        //
+        // NOT BROWSE, WHICH STAYS. That one launches an executable with a
+        // credential in its environment, and no exception here stretches to a
+        // spawn.
+        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleEnvelope)).IsFalse();
+        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleEnvelope);
+
+        await Assert.That(Reducer.Reduce(before, Command.ToggleEnvelope))
+            .IsNotEqualTo(before)
+            .Because("the toggle is a mode change and the reducer owns it now; the pane opens "
+                   + "at once and what fills it is folded when it lands.");
     }
 
     [Test]

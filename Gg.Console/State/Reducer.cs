@@ -36,6 +36,24 @@ public static class Reducer
             },
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
 
+            // THE THREE THAT ALSO BLINKED. Each was the shell's so the pane
+            // could be filled before it was shown, and the cost was the whole
+            // screen going away and coming back once per keypress. The toggle
+            // is a mode change and belongs here; the read runs beside the
+            // console and is folded when it lands.
+            //
+            // BROWSE IS NOT AMONG THEM. It launches an executable with a
+            // credential in its environment, and a session may do neither -
+            // AutoRefresh's exception is for a read and does not stretch to a
+            // spawn.
+            //
+            // CLOSING READS NOTHING, which the read function decides rather
+            // than this: a toggle that shut a pane and then fetched what to put
+            // in it is a request nobody asked for.
+            Command.ToggleChecklist => ChecklistToggled(state) with { ReadInFlight = true },
+            Command.ToggleEnvelope => EnvelopeToggled(state) with { ReadInFlight = true },
+            Command.ToggleRepositories => RepositoriesToggled(state) with { ReadInFlight = true },
+
             // ASKS RATHER THAN OPENING. The key used to hand the terminal
             // straight to $EDITOR; there are two ways to compose now and neither
             // is the obvious one. This sets a field and nothing else - the loop

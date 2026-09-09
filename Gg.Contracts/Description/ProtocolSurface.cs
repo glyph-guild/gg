@@ -1269,6 +1269,7 @@ public static class ProtocolSurface
             [typeof(DestinationLanded)] =
                 ["destinationId", "branch", "pullRequestUri", "pullRequestNumber"],
             [typeof(DestinationPushed)] = ["slug", "branch", "commit", "preserved"],
+            [typeof(TrackerAdmission)] = ["destinationId", "reason", "proposals"],
             [typeof(DestinationAdmission)] =
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
@@ -1477,7 +1478,7 @@ public static class ProtocolSurface
             // LandingDecision, which carries `settled` so a runner can tell
             // "not yet" from "no" - absence means refusal only once it is true.
             [typeof(FactBatchAccepted)] = ["rejected"],
-            [typeof(LandingDecision)] = ["settled", "push", "admission"],
+            [typeof(LandingDecision)] = ["settled", "push", "admission", "tracker"],
             [typeof(ClassificationRule)] = ["pathGlob", "classification"],
             // Paths and counts. Nothing here a line of a file could travel in,
             // asserted over the shape as well as declared.

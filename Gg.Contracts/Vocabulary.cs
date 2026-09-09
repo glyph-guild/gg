@@ -98,6 +98,7 @@ public static class Vocabulary
         typeof(HumanAccount),
         typeof(FlightNomination),
         typeof(WorkItemProposal),
+        typeof(TrackerAdmission),
         typeof(LoopQuestion),
         typeof(LoopAttended),
         typeof(FlightAttribution),

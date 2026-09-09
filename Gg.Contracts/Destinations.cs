@@ -320,3 +320,98 @@ public static class DestinationBranch
     private static string Safe(string component) =>
         new([.. component.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-')]);
 }
+
+/// <summary>
+/// Which proposed changes to a tracker may be performed, and why.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A sibling of <see cref="DestinationAdmission"/> rather than a widening of
+/// it.</b> That one requires a branch, a base ref and a slug; a tracker has
+/// none of the three. Carrying a tracker on it would mean making those three
+/// optional, which weakens the repository path silently - their being required
+/// is what stops a runner pushing somewhere nobody named.
+/// </para>
+/// <para>
+/// <b>Each proposal, not the batch.</b> A triage ships one
+/// <c>work-item.proposal</c> fact per change so a person can take the re-field
+/// and refuse the link. An admission that said only <i>yes</i> would hand the
+/// runner a decision nobody made.
+/// </para>
+/// <para>
+/// <b>Named by idempotency key, which the facts already carry.</b> Minting a
+/// second identity for a thing that has one is how two identifiers drift, and
+/// the runner already knows these: it computed them when it shipped the batch.
+/// </para>
+/// </remarks>
+[PinnedId("6cb1f0d5-3a47-4e92-b8d1-7f2c05ae9134")]
+public sealed record TrackerAdmission
+{
+    /// <summary>Which destination, by its id in the envelope.</summary>
+    public required string DestinationId { get; init; }
+
+    /// <summary>Why, in the words a person deciding would recognise.</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>
+    /// The proposals that may be performed, by the idempotency key of the fact
+    /// that carried each.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never empty, and the absence of this whole record is how nothing is
+    /// admitted.</b> An empty list would be a control plane that decided and
+    /// then failed to say what, which a runner cannot tell apart from "all of
+    /// them" without guessing - and guessing here writes to somebody's backlog.
+    /// </remarks>
+    public required IReadOnlyList<string> Proposals { get; init; }
+
+    /// <summary>The most proposals one admission may name.</summary>
+    /// <remarks>
+    /// A backlog triage is a person's afternoon, not a migration. Past this the
+    /// flight is rewriting a tracker rather than triaging one, and a bound is
+    /// how that stays a conversation instead of an incident.
+    /// </remarks>
+    public const int MaxProposals = 256;
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(TrackerAdmission admission)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+
+        if (string.IsNullOrWhiteSpace(admission.DestinationId))
+        {
+            return "A tracker admission names the destination it is for. One that names none "
+                 + "is an answer with no question attached.";
+        }
+
+        if (string.IsNullOrWhiteSpace(admission.Reason))
+        {
+            return "A tracker admission says why. It is what the person who did not make it "
+                 + "reads to find out what was decided on their behalf.";
+        }
+
+        if (admission.Proposals.Count == 0)
+        {
+            return "A tracker admission naming no proposal is a decision with its subject "
+                 + "missing. Admitting none of them is an ABSENT admission - absence is how "
+                 + "nothing is said, and a runner cannot tell an empty list from 'all of "
+                 + "them' without guessing.";
+        }
+
+        if (admission.Proposals.Count > MaxProposals)
+        {
+            return $"A tracker admission names at most {MaxProposals} proposals and this one "
+                 + $"names {admission.Proposals.Count}. Past that the flight is rewriting a "
+                 + "tracker rather than triaging one.";
+        }
+
+        if (admission.Proposals.Any(string.IsNullOrWhiteSpace))
+        {
+            return "A tracker admission names a proposal with a blank key. A key that names "
+                 + "nothing matches nothing, and the runner would perform one change fewer "
+                 + "than was admitted with no record of which.";
+        }
+
+        return null;
+    }
+}

@@ -156,6 +156,7 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         DateTimeOffset now,
         Func<RunnerSealedOffer, CancellationToken, Task> leaveAsync,
         Func<CancellationToken, Task<Collected>> collectAsync,
+        Action<string>? saying = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(introduction);
@@ -163,6 +164,13 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         ArgumentNullException.ThrowIfNull(pins);
         ArgumentNullException.ThrowIfNull(leaveAsync);
         ArgumentNullException.ThrowIfNull(collectAsync);
+
+        // NARRATED STEP BY STEP, and each line is said BEFORE the thing it
+        // names rather than after: the point of them is to tell a person what
+        // is being waited for while it is still being waited for.
+        var say = saying ?? (_ => { });
+
+        say("checking the runner's key against the one this console pinned");
 
         // BEFORE ANYTHING IS SEALED. Sealing first and checking after would have
         // sent the offer - candidates and all - to whoever substituted the key.
@@ -209,6 +217,10 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         await peer.setLocalDescription(offer);
 
         var deadline = now + patience;
+
+        // THE LOCAL HALF, and the only step whose failure is about the network
+        // between the two machines rather than about either of them.
+        say("finding a route from this machine");
         await GatheredAsync(peer, cancellationToken);
 
         await leaveAsync(
@@ -229,6 +241,12 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         // a heartbeat. `patience` still governs what happens on THIS machine -
         // gathering candidates, opening a channel - which is a different
         // question from how long somebody else may take to answer.
+        // THE LONG ONE, AND WHY IT IS LONG. An offer is picked up on the
+        // runner's next heartbeat, so a person watching this line is waiting
+        // for a machine to come round rather than for a network - which is the
+        // difference between waiting and going to look at something.
+        say("offer left; waiting for the runner to pick it up on its next heartbeat");
+
         var collected = await WaitForAnswerAsync(
             collectAsync, TheRunnersTime(introduction, now), cancellationToken);
 
@@ -276,6 +294,8 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
               + opening.Message);
         }
 
+        say("the runner answered; opening the channel");
+
         peer.setRemoteDescription(new RTCSessionDescriptionInit
         {
             type = RTCSdpType.answer,
@@ -294,6 +314,8 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
               + "rather than either machine: hole punching needs one side's traffic to reach "
               + "the other, and something in between is refusing it.");
         }
+
+        say("connected");
 
         return new Reached(new Conversation(peer, channel), ReachFailure.None, "reached");
     }

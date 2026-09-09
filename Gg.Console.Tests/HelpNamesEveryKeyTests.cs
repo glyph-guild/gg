@@ -56,6 +56,15 @@ public class HelpNamesEveryKeyTests
         from takeable in (bool[])[false, true]
         from handedBack in (bool[])[false, true]
         from started in (bool[])[false, true]
+        // THE TWO THE RUNNER MODAL BRANCHES ON, and one of them was missing.
+        // This method's own remark says the union "is only a union if nothing
+        // is left out of it" and RunnerIsOurs was left out of it - counted by
+        // the ratchet below, never crossed here, so every context this produced
+        // was over somebody else's runner and the two keys that need a pidfile
+        // were invisible to the completeness check. Adding RunnerIsFlying is
+        // what made that visible.
+        from ours in (bool[])[false, true]
+        from flying in (bool[])[false, true]
         // TWO OF THE COUNTDOWN, because it is presentation rather than
         // dispatch: nothing branches on it, and a string cannot be crossed
         // exhaustively. Both shapes are here so the description it lands in is
@@ -64,6 +73,8 @@ public class HelpNamesEveryKeyTests
         select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = started,
+            RunnerIsOurs = ours,
+            RunnerIsFlying = flying,
             Refresh = refresh,
         };
 
@@ -108,7 +119,7 @@ public class HelpNamesEveryKeyTests
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(members.Count).IsEqualTo(8)
+        await Assert.That(members.Count).IsEqualTo(9)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

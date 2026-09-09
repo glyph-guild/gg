@@ -364,7 +364,13 @@ public static class RunnerDetails
                 ? $"What {flying} is saying, as it says it, over a channel this control plane "
                 + "relays and cannot read. It answers only for a flight opened to be watched; "
                 + "an ordinary flight has no channel, however healthy the machine is. "
-                + "Ctrl-C stops it."
+                // AND THE CONSOLE WILL RUN IT. This paragraph named a command
+                // and nothing here could run it, which is a console that knows
+                // the answer and makes a person leave to use it. The key is
+                // READ OFF THE KEYMAP rather than spelled here, because a
+                // letter written in two places is a letter that drifts.
+                + $"Press {WatchKey()} and this console hands the terminal over; Ctrl-C brings "
+                + "it back."
                 : "What its flight is saying, while it is flying one opened to be watched. "
                 + "Nothing is in the air on this machine right now, so there is nothing to "
                 + "watch yet - a channel to a runner exists only while a flight does, which "
@@ -390,6 +396,19 @@ public static class RunnerDetails
              + "service manager keeps the output itself when one starts it instead. Which "
              + "is which is not something the control plane reports.";
     }
+
+    /// <summary>The key that watches, as the keymap spells it.</summary>
+    /// <remarks>
+    /// <b>Asked rather than written.</b> The hint line at the bottom of the
+    /// screen and this paragraph are two renderings of one binding, and a
+    /// letter typed into both is the pair that disagrees after somebody rebinds
+    /// one of them.
+    /// </remarks>
+    private static string WatchKey() =>
+        Keymap.Catalogue()
+            .Where(entry => entry.Binding.Command == Command.WatchRunner)
+            .Select(entry => $"`{entry.Binding.Key.Name}`")
+            .FirstOrDefault() ?? "the watch key";
 
     /// <summary>
     /// Where gg puts a runner log, spelled the way a person would type it.

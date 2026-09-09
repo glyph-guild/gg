@@ -819,6 +819,25 @@ static async Task<int> LaunchConsoleAsync()
         startRunner: runner.Start,
         stopRunner: runner.Stop,
         runnerHere: runner.Advance,
+        // GOING AND WATCHING, which the modal has named since slice thirty-four
+        // and could not do. It is here rather than in the console for the
+        // reason its neighbours are: the child is this binary re-execed, and a
+        // console that could name that invocation would be a console that can
+        // act as a runner.
+        //
+        // WAITED FOR WITHOUT A DEADLINE, like flying by hand's child and unlike
+        // the browser's. This one owns the terminal until the flight ends or
+        // somebody stops it, and a grace period here would take the screen back
+        // from a person mid-sentence.
+        watchRunner: current => Gg.Console.ConsoleWatchRunner.Watch(
+            current,
+            Gg.Local.SelfInvocation.Current,
+            info =>
+            {
+                using var child = Process.Start(info);
+                child?.WaitForExit();
+                return child?.ExitCode ?? -1;
+            }),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the
         // child would be, and how to run it. The order - refuse before asking,

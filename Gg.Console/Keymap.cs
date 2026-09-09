@@ -81,6 +81,18 @@ public readonly record struct KeymapContext(
     public bool RunnerIsOurs { get; init; }
 
     /// <summary>
+    /// Whether the runner the cursor is on is flying something.
+    /// </summary>
+    /// <remarks>
+    /// <b>What decides whether watching is offered at all.</b> A channel to a
+    /// runner exists only while a flight does - which is what stops it being a
+    /// standing way in - so on an idle machine the key would be one that always
+    /// fails. The modal's text still names the capability there, because a
+    /// person who never sees it never learns it exists.
+    /// </remarks>
+    public bool RunnerIsFlying { get; init; }
+
+    /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
     /// </summary>
@@ -135,6 +147,11 @@ public readonly record struct KeymapContext(
             // `x` has to work on it for exactly those seconds - it is the only
             // way to stop something that is starting badly.
             RunnerIsOurs = Rows.Selected(state) is not { Mine: false },
+
+            // WHETHER THERE IS ANYTHING TO WATCH. Derived here with the rest,
+            // so the hint line and the dispatch cannot disagree about whether
+            // the key is live.
+            RunnerIsFlying = Rows.Selected(state) is { Work.Length: > 0 },
 
             // WHAT THE REFRESH KEY HAS TO SAY, derived here with everything
             // else the hints are made of, so the line has one author.
@@ -241,6 +258,25 @@ public static class Keymap
     /// keyboard" means concretely: nothing underneath is reachable while one is
     /// open, so no key can act on a flight the person cannot currently see.
     /// </remarks>
+    /// <summary>The watch key, when there is anything to watch.</summary>
+    /// <remarks>
+    /// <b>One definition spread into both arms rather than written twice.</b>
+    /// The runner modal has two shapes - ours and somebody else's - and this
+    /// key is the one thing that is the same in both, which is exactly the pair
+    /// a second copy would let drift.
+    /// </remarks>
+    private static IReadOnlyList<KeyBinding> Watching(KeymapContext context) =>
+        context.RunnerIsFlying
+            ?
+            [
+                new(KeyStroke.Char('w'), Command.WatchRunner, "watch what it is flying")
+                {
+                    When = "while it is flying something",
+                    Label = "Watch",
+                },
+            ]
+            : [];
+
     public static IReadOnlyList<KeyBinding> Bindings(KeymapContext context) => context.Mode switch
     {
         UiMode.Help =>
@@ -307,9 +343,16 @@ public static class Keymap
         // key that does nothing and the worst is one that shuts down the local
         // runner while a person is looking at another row. Close is always
         // there: a modal with no way out is worse than one with nothing to do.
+        // AND `w` OVER ANY RUNNER THAT IS FLYING, ours or not - which is the
+        // whole point of it. `watch` reaches a machine through the control
+        // plane rather than through a pidfile this one wrote, so unlike `r` and
+        // `x` it is exactly as available over somebody else's runner as over
+        // this one. Withheld while nothing is in the air, because a channel to
+        // a runner exists only while a flight does.
         UiMode.Runner => context.RunnerIsOurs
             ?
             [
+                .. Watching(context),
                 new(KeyStroke.Char('r'), Command.RestartRunner, "restart it")
                 {
                     When = "over the runner on this machine",
@@ -332,6 +375,7 @@ public static class Keymap
             ]
             :
             [
+                .. Watching(context),
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
 
@@ -739,10 +783,17 @@ public static class Keymap
         // sets of keys behind one mode. Left out, `x shut it down` would appear
         // on the help page unconditionally while resolving in only one of them.
         from runnerIsOurs in (bool[])[false, true]
+        // AND WHETHER THERE IS ANYTHING TO WATCH, which is a third set of keys
+        // behind the same mode. Left out, `w watch what it is flying` resolved
+        // over a flying runner and appeared on no page - the sign-in modal's
+        // defect exactly, one modal over, which is what a catalogue built by
+        // enumeration rather than by hand is for.
+        from runnerIsFlying in (bool[])[false, true]
         select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,
+            RunnerIsFlying = runnerIsFlying,
         };
 
     /// <summary>

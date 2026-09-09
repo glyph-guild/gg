@@ -775,11 +775,17 @@ public static class VerbOutput
                 text.Append("  ").Append(change.Key.PadRight(width + 2))
                     .Append(change.Offered).Append('\n');
 
+                // THE TENSE MOVES WITH WHAT HAPPENED. "replacing X" describes a
+                // change that has not happened, and on the accept screen it
+                // has - so a person reading what they just did would be told
+                // about a future. The value that WENT is the load-bearing half
+                // either way: it is the one thing they cannot recover from
+                // anywhere else once the write lands.
                 text.Append("  ").Append(new string(' ', width + 2))
                     .Append(change.Changes
                         ? change.Current is { Length: > 0 } current
-                            ? $"replacing {current}"
-                            : "not set here yet"
+                            ? view.Accepted ? $"replaced {current}" : $"replacing {current}"
+                            : view.Accepted ? "was not set here before" : "not set here yet"
                         : "already in force")
                     .Append('\n');
             }

@@ -86,6 +86,30 @@ internal sealed class FakeProtocol : IRunnerProtocol
     internal int IntroductionsTaken { get; private set; }
 
     /// <summary>
+    /// Beats attempted and beats refused, countable from another thread.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="Calls"/> is a plain list and the beat now runs beside the
+    /// flight</b>, so a test that scanned it while the pump appended to it was
+    /// reading a collection another thread was writing. These are the two
+    /// numbers a test about the beat actually wants, and Interlocked is what
+    /// makes asking for them from the test's own thread legitimate.
+    /// </remarks>
+    internal int Heartbeats => Volatile.Read(ref _heartbeats);
+
+    /// <summary>Beats this fake refused, counted where it refuses them.</summary>
+    /// <remarks>
+    /// Separate from <see cref="Heartbeats"/> because "a beat was attempted"
+    /// and "a beat failed" are different facts, and a test that waited for the
+    /// first while meaning the second passes on a beat that was already in
+    /// flight when the refusal was armed - measured, at about one run in six.
+    /// </remarks>
+    internal int HeartbeatsRefused => Volatile.Read(ref _heartbeatsRefused);
+
+    private int _heartbeats;
+    private int _heartbeatsRefused;
+
+    /// <summary>
     /// When set, every heartbeat throws it: an outage that does not pass.
     /// </summary>
     /// <remarks>
@@ -127,6 +151,7 @@ internal sealed class FakeProtocol : IRunnerProtocol
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
     {
         Calls.Add("heartbeat");
+        Interlocked.Increment(ref _heartbeats);
 
         // RECORDED BEFORE IT THROWS, so a test can count the ATTEMPTS. Whether
         // a failing heartbeat paces itself is a claim about how often it is
@@ -134,11 +159,13 @@ internal sealed class FakeProtocol : IRunnerProtocol
         // tell a bounded retry from a spin.
         if (HeartbeatAlwaysThrows is { } always)
         {
+            Interlocked.Increment(ref _heartbeatsRefused);
             throw always;
         }
 
         if (HeartbeatThrows.Count > 0)
         {
+            Interlocked.Increment(ref _heartbeatsRefused);
             throw HeartbeatThrows.Dequeue();
         }
 

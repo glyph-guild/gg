@@ -859,9 +859,12 @@ public sealed class RunnerLoop(
         using var landing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var beating = BeatWhileFlyingAsync(runnerId, labels, attended, landing.Token);
 
+        var flight = FlyAsync(
+            runnerId, labels, lease, attended, secretsByLocator, cancellationToken);
+
         try
         {
-            await FlyAsync(runnerId, labels, lease, attended, secretsByLocator, cancellationToken);
+            await flight;
         }
         finally
         {
@@ -869,7 +872,24 @@ public sealed class RunnerLoop(
             // beat for a flight that has ended, and one never awaited would
             // report its own failure into a void.
             await landing.CancelAsync();
-            await beating;
+
+            try
+            {
+                await beating;
+            }
+            catch (Exception beating_) when (flight.IsFaulted)
+            {
+                // NOT ALLOWED TO REPLACE THE FLIGHT'S OWN FAILURE. A beat's
+                // 401 is fatal too - the token is this machine's credential
+                // and no waiting fixes it - but an exception thrown from a
+                // `finally` REPLACES the one already travelling, so a revoked
+                // runner would report its credential where the workspace or
+                // the push actually failed. Said rather than swallowed, and
+                // the next beat raises it again with nothing in front of it.
+                _observer.ControlPlaneRefused(
+                    $"the beat beside this flight also failed: {beating_.Message}",
+                    TimeSpan.Zero);
+            }
         }
     }
 

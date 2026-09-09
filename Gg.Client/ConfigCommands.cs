@@ -363,8 +363,14 @@ public static class ConfigCommands
             ConfigurationFile.Write(accepted, at);
         }
 
+        // AGAINST THE FILE AS IT WAS, never the one just written. The value
+        // that GOES is the one thing a person cannot recover once the write
+        // lands, and it is the whole argument for a redirect being offerable at
+        // all - so the answer to "what did I just accept" has to be composed
+        // from before. Found by walking the verbs: composed from `after`, every
+        // line read "already in force", which was true and useless.
         return new VerbResult.ConfigOffered(
-            View(offered, taken.Configuration ?? file, at, accepted: taken.Configuration is not null));
+            View(offered, file, at, accepted: taken.Configuration is not null));
     }
 
     /// <summary>

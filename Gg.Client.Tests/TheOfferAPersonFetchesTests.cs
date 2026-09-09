@@ -113,6 +113,31 @@ public class TheOfferAPersonFetchesTests
     }
 
     [Test]
+    public async Task A_control_plane_too_old_to_serve_this_is_not_reported_as_offering_nothing()
+    {
+        // THE HAZARD TelemetryAsync ALREADY WRITES DOWN, one route along: "a 404
+        // means an older control plane that predates the disclosure, which is a
+        // different fact from 'exports nothing' and must not be reported as it".
+        // Here it is sharper, because the declaration says there is NO 404 on
+        // this route - so one means the far end is older than the contract, and
+        // a null would tell a person nothing is offered when the truth is that
+        // nobody can tell them.
+        //
+        // The stub 404s anything it does not serve, which is exactly what a
+        // control plane that has not conformed yet does.
+        await using var stub = new StubControlPlane { ServesOffers = false };
+        using var http = new HttpClient { BaseAddress = new Uri(stub.BaseAddress) };
+
+        var refusal = await Assert.That(async () => await new ControlPlaneClient(http)
+                .OfferedConfigurationAsync(StubControlPlane.IssuedSessionToken))
+            .Throws<ControlPlaneTooOldException>();
+
+        await Assert.That(refusal!.Message).Contains("offered", StringComparison.OrdinalIgnoreCase)
+            .Because("the sentence has to say which capability is missing, or it is a 404 "
+                   + "with better grammar.");
+    }
+
+    [Test]
     public async Task A_gg_below_the_floor_is_told_so_here_too()
     {
         await using var stub = new StubControlPlane

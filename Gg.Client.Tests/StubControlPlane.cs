@@ -87,6 +87,18 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public OfferedConfiguration? Offered { get; set; }
 
+    /// <summary>
+    /// When false, this route is not served at all — the state of a control
+    /// plane that has not conformed to the contract yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Distinct from <see cref="Offered"/> being null, and that is the whole
+    /// point.</b> Null is a control plane saying "nothing"; this is one that
+    /// cannot be asked, and a client that reported them alike would tell a
+    /// person nothing is offered when the truth is that nobody can say.
+    /// </remarks>
+    public bool ServesOffers { get; set; } = true;
+
     /// <summary>The body of the most recent request that carried one.</summary>
     /// <remarks>
     /// Recorded so what gg actually PUT ON THE WIRE is assertable, rather than
@@ -391,6 +403,13 @@ public sealed class StubControlPlane : IAsyncDisposable
                         },
                     ],
                 });
+                return;
+
+            case "/v1/configuration/offered" when !ServesOffers:
+                // NOT SERVED AT ALL, which is what a control plane predating
+                // this contract does. It falls through to the same 404 the
+                // default arm gives, said here so the state is nameable.
+                await WriteAsync(context, 404, "");
                 return;
 
             case "/v1/configuration/offered":

@@ -369,6 +369,8 @@ public static class CliArgs
         "gg config init                 write a file seeded from what is in force",
         "gg config set <key> <value>    change one setting",
         "gg config validate <file>|-    check a configuration without applying it",
+        "gg config offered              what your control plane offers this machine",
+        "gg config accept <version>     take the offer you just read, by version",
         "gg doctor                      check what gg needs to work",
         "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",

@@ -43,7 +43,14 @@ public sealed record OfferTaken
 public static class OfferedConfigurations
 {
     /// <summary>What this machine should do with an offer.</summary>
-    public static OfferTaken Accept(OfferedConfiguration offered, Configuration into)
+    /// <param name="attended">
+    /// Whether a person is doing this. False is a runner applying one on its
+    /// own, and a directed offer never applies that way — the whole reason
+    /// those keys are offerable at all is that somebody sees what is being
+    /// repointed.
+    /// </param>
+    public static OfferTaken Accept(
+        OfferedConfiguration offered, Configuration into, bool attended = true)
     {
         ArgumentNullException.ThrowIfNull(offered);
         ArgumentNullException.ThrowIfNull(into);
@@ -58,6 +65,20 @@ public static class OfferedConfigurations
         }
 
         if (into.AcceptOffered is not true)
+        {
+            return new OfferTaken { Waiting = offered.Settings.Count > 0 };
+        }
+
+        // WAITING, NOT REFUSED, and the difference matters to whoever reads it.
+        // A directed offer is one somebody may take; it simply may not take
+        // itself. Reporting it as a refusal would send an operator looking for
+        // something wrong with the document.
+        if (!attended && OfferedConfiguration.NeedsAPerson(offered))
+        {
+            return new OfferTaken { Waiting = true };
+        }
+
+        if (!attended && into.AcceptUnattended is not true)
         {
             return new OfferTaken { Waiting = offered.Settings.Count > 0 };
         }

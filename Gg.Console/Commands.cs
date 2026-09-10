@@ -129,6 +129,19 @@ public enum Command
     /// </remarks>
     DraftEstate,
 
+    /// <summary>
+    /// Say where this machine's airspace working copy is.
+    /// </summary>
+    /// <remarks>
+    /// <b>The other half of refusing an unset airspace.</b> The read, pull
+    /// and apply keys all need a path and none of them could ask for one, so
+    /// the console fell back to whatever directory it was launched from -
+    /// which is how `p` came to write a tree into somebody's home directory
+    /// with no git to refuse it. A pane that reports a state and offers no
+    /// way out of it is a dead end; this is the way out.
+    /// </remarks>
+    SetAirspacePath,
+
     /// <summary>Hand the configuration file to $EDITOR.</summary>
     /// <remarks>
     /// <b>A handoff, because nothing in this console is written by typing.</b>
@@ -529,6 +542,7 @@ public static class ShellCommands
         Command.PullEstate,
         Command.ApplyEstate,
         Command.DraftEstate,
+        Command.SetAirspacePath,
 
         // It asks the control plane and then writes a file. The second half is
         // the one that puts it here; the first is why it cannot be a read the

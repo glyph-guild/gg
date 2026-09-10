@@ -493,9 +493,13 @@ public static class PaneText
 
         var text = new StringBuilder();
 
+        // THE FIRST LINE IS WHERE, because it is the question every other
+        // line depends on: a document is only "edited" relative to a tree,
+        // and a person who cannot see which tree cannot read the rest.
         text.AppendLine(estate.Root is { Length: > 0 } root
-            ? $"documents ({Clean(root)}{(estate.IsRepository ? "" : ", not a git tree")})"
-            : "documents (no working copy configured - gg config set airspace <path>)");
+            ? $"airspace: {Clean(root)}"
+                + (estate.IsRepository ? "" : "  (not a git tree)")
+            : "airspace: not set - press w to say where it is");
 
         if (estate.Diagnosis is { Length: > 0 } wrong)
         {

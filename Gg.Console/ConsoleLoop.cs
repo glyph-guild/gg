@@ -183,7 +183,17 @@ public sealed class ConsoleLoop(
     /// this binary again to serve its own tools, and a console that could name
     /// that invocation would be a console that can act as a runner.
     /// </remarks>
-    Func<AppState, AppState>? draftEstate = null)
+    Func<AppState, AppState>? draftEstate = null,
+
+    /// <summary>
+    /// Takes a path from a person and writes it into the configuration.
+    /// </summary>
+    /// <remarks>
+    /// The same shape as <c>configure</c> beside it - a state and a way to
+    /// ask for text - because it is the same act one value smaller, and it
+    /// happens with the terminal free for the same reason.
+    /// </remarks>
+    Func<AppState, Func<string, string>, AppState>? setAirspace = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -463,7 +473,23 @@ public sealed class ConsoleLoop(
                         : groundFlight(Closed(state), () => editor.Edit(""));
                     break;
 
-                case Command.DraftEstate:
+                case Command.SetAirspacePath:
+                // AND THEN RE-READ, because every row in the pane is about
+                // the tree this just repointed - the working-copy states
+                // were computed against the old one.
+                state = Reloaded(
+                    setAirspace is null
+                        ? state with
+                        {
+                            LastEstate =
+                                "This console is not configured to set the airspace.",
+                        }
+                        : setAirspace(state, text => editor.Edit(text)),
+                    reload,
+                    asked: false);
+                break;
+
+            case Command.DraftEstate:
                 // AND THEN RE-READ, because whatever the agent submitted is a
                 // file now and the documents column is the only thing that will
                 // say which. The session does not report that itself: a count

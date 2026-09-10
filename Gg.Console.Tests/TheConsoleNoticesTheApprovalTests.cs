@@ -186,8 +186,18 @@ public class TheConsoleNoticesTheApprovalTests
         // looks at the answer is exactly the console this replaced.
         var root = ConsoleSource.Text("Gg.Cli", "Program.cs");
 
-        await Assert.That(root).Contains("Arrived")
+        await Assert.That(root).Contains("Landed")
             .Because("the composition root is the only place that holds both the session "
                    + "doing the polling and the screen that has to notice it land.");
+
+        // AND IT NOTICES BY LOOKING, NOT BY TAKING. This asserted "Arrived"
+        // and passed for as long as the console could not sign in at all: the
+        // tick spent the answer to produce a bool, and the loop that folds it
+        // was handed null. The intent above was always right - the root does
+        // have to wire the noticing - and naming the consuming method is what
+        // made a true sentence pin a broken wire.
+        await Assert.That(root).DoesNotContain("Arrived")
+            .Because("Arrived is consume-once and the loop is what spends it. See "
+                   + "TheScreenAsksWithoutTakingTests.");
     }
 }

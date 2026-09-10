@@ -105,6 +105,7 @@ public class TheScreenAsksWithoutTakingTests
         // the two were wired together, and the composition root is the one file
         // no test was reading.
         var offenders = new List<string>();
+        var permitted = new List<string>();
 
         foreach (var file in Directory.EnumerateFiles(
                      RepoRoot(), "*.cs", SearchOption.AllDirectories))
@@ -125,16 +126,30 @@ public class TheScreenAsksWithoutTakingTests
                 continue;
             }
 
-            // SignInSession.cs declares and implements it; ConsoleLoop.cs folds
-            // it. Any third file is a second place the answer can be spent.
-            if (relative.EndsWith("SignInSession.cs", StringComparison.Ordinal)
-                || relative.EndsWith("ConsoleLoop.cs", StringComparison.Ordinal))
+            // ONE FILE FOLDS IT. The pattern is a CALL - SignInSession.cs
+            // declares and implements Arrived and never calls it, so it does
+            // not need an exemption and must not be given one. The anchor
+            // below caught exactly that: an exemption for a file the sweep
+            // could never have matched, which is a hole shaped like a rule.
+            if (relative.EndsWith("ConsoleLoop.cs", StringComparison.Ordinal))
             {
+                permitted.Add(relative);
                 continue;
             }
 
             offenders.Add(relative);
         }
+
+        // THE ANCHOR, BECAUSE AN EMPTY SET PROVES NOTHING ON ITS OWN. A wrong
+        // root, a moved file or a renamed method all make the sweep above find
+        // nothing and pass - which is the failure mode a guard like this is
+        // for. Both permitted callers have to be SEEN for the absence of a
+        // third to mean anything.
+        await Assert.That(permitted)
+            .IsEquivalentTo(new[] { Path.Combine("Gg.Console", "ConsoleLoop.cs") })
+            .Because("an empty offender list proves nothing unless the sweep reached the "
+                   + "one caller that is allowed. A wrong root, a moved file or a renamed "
+                   + "method all make it find nothing and pass.");
 
         await Assert.That(offenders).IsEmpty()
             .Because("Arrived is consume-once, so every caller beyond the loop is an "

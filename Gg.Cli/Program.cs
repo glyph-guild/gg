@@ -1044,7 +1044,7 @@ static async Task<int> LaunchConsoleAsync()
 
     var final = new ConsoleLoop(
         new TerminalGuiSession(
-            tails, runnerLog, refresh, () => signIn.Arrived() is not null,
+            tails, runnerLog, refresh, signIn.Landed,
             // A READ A KEYPRESS ASKED FOR, folded on the tick. Opening a flight
             // used to end the session for exactly one request, which is a whole
             // screen taken away and given back - AutoRefresh's argument, one

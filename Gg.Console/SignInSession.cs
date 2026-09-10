@@ -69,6 +69,20 @@ public interface ISignInSession
     SignInStep Start();
 
     /// <summary>
+    /// Whether the wait has finished, WITHOUT taking what it produced.
+    /// </summary>
+    /// <remarks>
+    /// <b>The screen's question, and it is a different one.</b>
+    /// <see cref="Arrived"/> is consume-once - the answer is handed to the model
+    /// and the session lets go of it - so a caller that only needs to know
+    /// "is it over" cannot be the one to ask it. The screen ticks once a second
+    /// to decide whether to END the session; the loop folds the answer
+    /// afterwards, with the terminal free. Asking here spends nothing, so both
+    /// can happen for one approval, in that order.
+    /// </remarks>
+    bool Landed();
+
+    /// <summary>
     /// What the wait produced, or null while it is still outstanding.
     /// </summary>
     /// <remarks>
@@ -168,6 +182,8 @@ public sealed class SignInSession(
             Said = "Waiting for you to approve it.",
         };
     }
+
+    public bool Landed() => _waiting is { IsCompleted: true };
 
     public SignInStep? Arrived()
     {

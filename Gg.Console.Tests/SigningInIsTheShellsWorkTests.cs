@@ -61,6 +61,14 @@ public class SigningInIsTheShellsWorkTests
             return started;
         }
 
+        /// <summary>
+        /// Looking, and this double is where the real one's trap was hidden:
+        /// it hands the same answer back every time, so the loop tests could
+        /// not have seen a screen that spent it. Counted separately for that
+        /// reason - a look is not a wait.
+        /// </summary>
+        public bool Landed() => waited is not null;
+
         public SignInStep? Arrived()
         {
             Waits++;

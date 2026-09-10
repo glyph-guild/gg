@@ -19,16 +19,26 @@ namespace Gg.Console;
 /// to be tested again.
 /// </para>
 /// <para>
-/// <b>What comes back arrives by tool call, and there is nothing else it could
-/// arrive by.</b> The agent is never told where the intent goes: that path is
-/// handed to <c>PlatformToolServer</c> through its own entry in the MCP config
-/// written below, and it appears in neither the agent's environment nor its
-/// command line. An agent that knew the path could write the file itself, and
-/// the tool would be decorative — a governance decision back in the hands of
-/// whatever the agent felt like doing. Opening a flight takes a number, is
-/// attributed, and is a record somebody has to explain, which is why
+/// <b>What comes back arrives by tool call, and that is a channel rather than
+/// a barrier.</b> The intent's path is handed to <c>PlatformToolServer</c>
+/// through its own <c>env</c> entry in the MCP config written below, so the
+/// server is the only thing that needs to know it — but this once claimed the
+/// path <i>"appears in neither the agent's environment nor its command line"</i>
+/// and drew a guarantee from that, and it was false in the second half. The
+/// config is passed as a JSON string in <c>--mcp-config</c>, which IS the
+/// agent's command line: one <c>ps</c> away, and this session's agent has a
+/// shell.
+/// </para>
+/// <para>
+/// The property is not achievable and should not be claimed. An agent running
+/// as the same user can read any file gg could write, so a temp file only
+/// raises the bar. What the tool actually buys is <see cref="DocumentTool"/>'s
+/// answer one session over — <i>"Not to stop it"</i> — a validated write and a
+/// call somebody chose to make. Opening a flight takes a number, is attributed,
+/// and is a record somebody has to explain, which is why
 /// <c>instructions-in-the-envelope</c> rule 7 refuses to have it parsed out of
-/// prose.
+/// prose; none of that depends on the agent not knowing a path.
+/// </para>
 /// </para>
 /// <para>
 /// <b>Launched bare, the way this console already launches an agent.</b>

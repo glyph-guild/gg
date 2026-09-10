@@ -20,13 +20,15 @@ namespace Gg.Console;
 /// would mean returning a string the caller would try to open a flight with.
 /// </para>
 /// <para>
-/// <b>The agent is never told where the working copy is.</b> The root reaches
-/// the tool server through its own <c>env</c> entry in the MCP config below,
-/// and appears in neither the agent's environment nor its command line — the
-/// same arrangement <c>submit_intent</c> uses for its path, and for the same
-/// reason: the server is the only thing here permitted to know where a document
-/// goes. The agent works in that directory as its cwd, which is how it reads
-/// the documents above the one it is drafting — a narrowing only means anything
+/// <b>The root is handed to the tool server, and it is not a secret.</b> It
+/// reaches the server through its own <c>env</c> entry in the MCP config
+/// below, which is what makes the server the only thing that has to be told
+/// where a document goes. This once said the root <i>"appears in neither the
+/// agent's environment nor its command line"</i>; that was false, and here it
+/// was never even material. The config is passed as a JSON string in
+/// <c>--mcp-config</c>, so it IS on the command line — and the agent's cwd is
+/// that same directory anyway, which is the point: it reads the documents
+/// above the one it is drafting, because a narrowing only means anything
 /// against the root and work kind it constrains.
 /// </para>
 /// <para>

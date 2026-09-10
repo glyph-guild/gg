@@ -74,6 +74,18 @@ public enum UiMode
     /// </remarks>
     ConfirmGround,
 
+    /// <summary>Asking whether to apply the working copy.</summary>
+    /// <remarks>
+    /// <b>The only act on the Envelope tab that asks.</b> Pull writes files and
+    /// git guards it; apply submits one amendment flight per changed document,
+    /// each taking a number and an attribution, and there is no key that
+    /// unopens one. So the question is asked for the same reason
+    /// <see cref="ConfirmGround"/>'s is, about a heavier act - and the body
+    /// names the changeset in the order it will land, because what a person
+    /// agrees to is a sequence.
+    /// </remarks>
+    ConfirmApply,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a

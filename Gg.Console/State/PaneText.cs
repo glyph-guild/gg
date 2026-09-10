@@ -1348,12 +1348,67 @@ public static class PaneText
         UiMode.Runner => "No runner",
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.ConfirmGround => "Ground this flight?",
+        UiMode.ConfirmApply => "Apply the working copy?",
         UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
         UiMode.ComposeChoice => "How do you want to write this flight?",
         _ => "",
     };
+
+    /// <summary>
+    /// The changeset an apply would submit, in the order it will take.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read from the diff, in the order the diff already put them in.</b>
+    /// Apply lands tightenings before widenings so no intermediate state is
+    /// looser than either endpoint (ADR-0016 § 7), and the diff verb sorts its
+    /// own answer that way for exactly this reason - <i>the order a person
+    /// reads is the order that will happen</i>. Sorting again here would be a
+    /// second opinion about a sequence.
+    /// </para>
+    /// <para>
+    /// <b>Widenings are marked, because they do not land.</b> One opens a
+    /// flight and waits for whoever the widened document names, so somebody who
+    /// expected a version would go looking for one that was never minted.
+    /// </para>
+    /// </remarks>
+    private static string ConfirmApply(AppState state)
+    {
+        var changes = state.Estate?.Working?.Changes ?? [];
+        var retiring = state.Estate?.Working?.Retiring ?? [];
+
+        if (changes.Count == 0 && retiring.Count == 0)
+        {
+            return "Nothing to apply: the working copy matches the estate.";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine("One flight per document, in this order:");
+        text.AppendLine();
+
+        foreach (var change in changes)
+        {
+            var waits = string.Equals(
+                change.Direction, Gg.Client.Changeset.Widening, StringComparison.Ordinal)
+                ? change.Field is { Length: > 0 } field
+                    ? $" - widens {Clean(field)}, so it opens a flight and waits at a gate"
+                    : " - a widening, so it opens a flight and waits at a gate"
+                : " - a tightening, so it lands";
+
+            text.AppendLine($"  {Clean(change.Name)}{waits}");
+        }
+
+        foreach (var name in retiring)
+        {
+            text.AppendLine($"  {Clean(name)} is missing from the tree - reported, never "
+                          + "performed: retiring a name is its own gated change");
+        }
+
+        return text.ToString();
+    }
 
     /// <summary>
     /// Whether this modal shows something a person reads down.
@@ -1460,6 +1515,7 @@ public static class PaneText
             UiMode.FlightActions => Actions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
+            UiMode.ConfirmApply => ConfirmApply(state),
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.SignIn => SignIn(state),
             UiMode.GateDecision => GateDecision(state),

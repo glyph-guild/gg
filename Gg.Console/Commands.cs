@@ -100,6 +100,25 @@ public enum Command
     /// </remarks>
     PullEstate,
 
+    /// <summary>Ask whether to apply the working copy.</summary>
+    /// <remarks>
+    /// Holds no I/O at all, which is why it can happen inside a session while
+    /// the thing it asks about happens outside one - the same property
+    /// <c>ComposeChoice</c> relies on.
+    /// </remarks>
+    AskToApplyEstate,
+
+    /// <summary>
+    /// Submit every changed document, one amendment flight each.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pen, reached from a third surface.</b> One flight, one gate, one
+    /// minted version and one attribution per document, in the safe order -
+    /// tightenings before widenings, so no intermediate state is looser than
+    /// either endpoint.
+    /// </remarks>
+    ApplyEstate,
+
     /// <summary>Hand the configuration file to $EDITOR.</summary>
     /// <remarks>
     /// <b>A handoff, because nothing in this console is written by typing.</b>
@@ -498,6 +517,7 @@ public static class ShellCommands
         // session may not do.
         Command.EditConfiguration,
         Command.PullEstate,
+        Command.ApplyEstate,
 
         // It asks the control plane and then writes a file. The second half is
         // the one that puts it here; the first is why it cannot be a read the

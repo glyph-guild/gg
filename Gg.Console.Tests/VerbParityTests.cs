@@ -250,16 +250,15 @@ public class VerbParityTests
                              + "is where the working-copy states in the documents column come "
                              + "from.",
 
-            // AND APPLY IS STILL ABSENT, on its own argument rather than the
-            // one above. It opens one flight per changed document, each with a
-            // gate and an attribution - so it is not a read that got a pane, it
-            // is a governed act with a divert answer to render and a person to
-            // tell about a gate. Wiring it beside a pull that only writes files
-            // would put the two most different acts in this feature on adjacent
-            // keys.
-            ["AirspaceApply"] = "absent, and next: it opens a flight per changed document and "
-                              + "has a gate and an approver to report, which is a surface of "
-                              + "its own rather than a key beside pull.",
+            // APPLY IS REACHED NOW TOO, and it is the only one of the four that
+            // asks first. It opens one flight per changed document, each with a
+            // gate and an attribution, so a single keypress would be a mistype
+            // somebody has to explain - `s' opens a question naming the
+            // changeset in the order it will land, and `y' inside it applies.
+            ["AirspaceApply"] = "reached from the console: `s' on the Envelope tab asks, `y' "
+                              + "in the confirmation applies, through ConsoleApply. The only "
+                              + "act on that pane that asks, because it is the only one that "
+                              + "mints a version and opens a gate.",
 
             // NOT THE SAME REASON, AND THAT IS THE POINT. The three above are
             // absent because their subject is a working copy the console does

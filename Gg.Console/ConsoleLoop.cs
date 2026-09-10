@@ -164,7 +164,16 @@ public sealed class ConsoleLoop(
     /// every positional call site to a different one.
     /// </para>
     /// </remarks>
-    Func<AppState, AppState>? pullEstate = null)
+    Func<AppState, AppState>? pullEstate = null,
+
+    /// <summary>
+    /// Submits every changed document, and says what became of each.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, for the same reason as its neighbour, and with
+    /// a heavier act behind it: this one opens flights.
+    /// </remarks>
+    Func<AppState, AppState>? applyEstate = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -444,7 +453,23 @@ public sealed class ConsoleLoop(
                         : groundFlight(Closed(state), () => editor.Edit(""));
                     break;
 
-                case Command.PullEstate:
+                case Command.ApplyEstate:
+                // CLOSED FIRST, THEN APPLIED, THEN RE-READ. The question is
+                // answered however it went, the estate is submitted with the
+                // terminal free, and the pane is re-read because every version
+                // it was showing has just moved.
+                state = Reloaded(
+                    applyEstate is null
+                        ? Closed(state) with
+                        {
+                            LastEstate = "This console is not configured to apply the estate.",
+                        }
+                        : applyEstate(Closed(state)),
+                    reload,
+                    asked: false);
+                break;
+
+            case Command.PullEstate:
                 // AND THEN RE-READ, because the pane a person is looking at
                 // describes the tree this just rewrote. Without the reload the
                 // documents column would still show what was true before the

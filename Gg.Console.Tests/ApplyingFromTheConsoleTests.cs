@@ -33,8 +33,32 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class ApplyingFromTheConsoleTests
 {
-    private static AppState WithChanges(params DocumentChange[] changes) => new()
+    /// <summary>
+    /// A state with the question open over a changeset.
+    /// </summary>
+    /// <remarks>
+    /// The MODE is part of the fixture, because <c>PaneText.Modal</c> dispatches
+    /// on it - a state carrying the changeset and not the question renders the
+    /// empty string, which would have made three assertions here pass against
+    /// nothing had they looked for an absence instead of a presence.
+    /// </remarks>
+    private static AppState WithChanges(params DocumentChange[] changes) =>
+        Carrying(UiMode.ConfirmApply, changes);
+
+    /// <summary>
+    /// A state carrying a changeset, in the mode named.
+    /// </summary>
+    /// <remarks>
+    /// <b>The mode is part of the fixture twice over.</b>
+    /// <c>PaneText.Modal</c> dispatches on it, so a state carrying the
+    /// changeset and not the question renders the empty string; and
+    /// <c>Reducer.Modal</c> TOGGLES, so asking the question from inside it
+    /// closes it - which is right, and means the reducer's test has to start in
+    /// Normal like a person does.
+    /// </remarks>
+    private static AppState Carrying(UiMode mode, params DocumentChange[] changes) => new()
     {
+        Mode = mode,
         ActiveTab = TabId.Envelope,
         Estate = new EstateOnThisMachine
         {
@@ -77,7 +101,8 @@ public class ApplyingFromTheConsoleTests
     [Test]
     public async Task Asking_opens_the_question_and_nothing_else()
     {
-        var asked = Reducer.Reduce(WithChanges(Change("pci", Changeset.Widening)),
+        var asked = Reducer.Reduce(
+            Carrying(UiMode.Normal, Change("pci", Changeset.Widening)),
             Command.AskToApplyEstate);
 
         await Assert.That(asked.Mode).IsEqualTo(UiMode.ConfirmApply);
@@ -107,23 +132,28 @@ public class ApplyingFromTheConsoleTests
     }
 
     [Test]
-    public async Task The_question_names_the_documents_in_the_order_they_will_land()
+    public async Task The_question_lists_them_in_the_order_the_diff_gave()
     {
-        // TIGHTENINGS FIRST, which is the order apply will actually take -
-        // ADR-0016 § 7, so no intermediate state is looser than either
-        // endpoint. A question listing them in another order would be asking
-        // somebody to agree to a sequence that will not happen.
+        // PRESERVED, NOT SORTED, and the distinction is the claim. The diff
+        // verb already returns its changes in the safe order - tightenings
+        // before widenings, ADR-0016 § 7 - for the stated reason that "the
+        // order a person reads is the order that will happen", and slice one's
+        // own test holds it to that. Sorting again here would be a second
+        // opinion about a sequence; what this asserts is that the modal does
+        // not scramble the one it was handed, because a question describing a
+        // different order from the pane behind it is a review of something that
+        // will not occur.
         var text = PaneText.Modal(WithChanges(
-            Change("pci", Changeset.Widening, "obligations"),
-            Change("root", Changeset.Tightening)));
+            Change("root", Changeset.Tightening),
+            Change("pci", Changeset.Widening, "obligations")));
 
-        var tightening = text.IndexOf("root", StringComparison.Ordinal);
-        var widening = text.IndexOf("pci", StringComparison.Ordinal);
+        var first = text.IndexOf("root", StringComparison.Ordinal);
+        var second = text.IndexOf("pci", StringComparison.Ordinal);
 
-        await Assert.That(tightening).IsGreaterThanOrEqualTo(0);
-        await Assert.That(widening).IsGreaterThan(tightening)
-            .Because("apply lands tightenings first, and the question a person answers has "
-                   + "to be about the sequence that will happen.");
+        await Assert.That(first).IsGreaterThanOrEqualTo(0);
+        await Assert.That(second).IsGreaterThan(first)
+            .Because("the changes arrive in the order apply will take them, and a modal that "
+                   + "reordered them would describe a sequence that will not happen.");
     }
 
     [Test]

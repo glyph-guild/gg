@@ -429,6 +429,14 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "leave it flying"),
         ],
 
+        UiMode.ConfirmApply =>
+        [
+            new(KeyStroke.Char('y'), Command.ApplyEstate, "apply them")
+                { Label = "Apply" },
+            new(KeyStroke.Esc, Command.CloseModal, "leave the estate as it is")
+                { Label = "Leave it" },
+        ],
+
         UiMode.ConfirmFlyAgain =>
         [
             new(KeyStroke.Char('y'), Command.FlyAgain, "open one on this intent"),
@@ -624,9 +632,18 @@ public static class Keymap
                     { When = "while the live tab is showing" }]
                 : [],
             .. context.Showing == TabId.Envelope
-                ? (KeyBinding[])[new(KeyStroke.Char('p'), Command.PullEstate,
-                    "pull the estate")
-                    { When = "while the envelope tab is showing" }]
+                ? (KeyBinding[])[
+                    new(KeyStroke.Char('p'), Command.PullEstate, "pull the estate")
+                        { When = "while the envelope tab is showing" },
+
+                    // `s' FOR SUBMIT, which is the control plane's own word for
+                    // what this does: each changed document is submitted as an
+                    // amendment flight. `a' is flight actions in Normal and
+                    // taking it here would shadow it - a key chosen for its
+                    // mnemonic that silently shadows another is worse than one
+                    // chosen for being free and said to be.
+                    new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the estate")
+                        { When = "while the envelope tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")

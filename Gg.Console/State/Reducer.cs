@@ -92,6 +92,7 @@ public static class Reducer
             // grounding that broke grounding.
             Command.AskToGround => Modal(state, UiMode.ConfirmGround),
             Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
+            Command.AskToApplyEstate => Modal(state, UiMode.ConfirmApply),
 
             // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
             // it is: the loop sends the decision, the control plane records it, the Engine

@@ -383,6 +383,20 @@ public sealed class ConsoleData(
         string root, CancellationToken cancellationToken = default) =>
         _commands.AirspacePullAsync(root, cancellationToken);
 
+    /// <summary>
+    /// `gg airspace apply` - submits every changed document, one flight each.
+    /// </summary>
+    /// <remarks>
+    /// <b>The write that mints something, and the console asks before it.</b>
+    /// One flight, one gate, one version and one attribution per changed
+    /// document, in the safe order. It is the pen ADR-0016 § 1 says does not
+    /// multiply when a surface does - which is why this calls the same verb the
+    /// command line does rather than reaching the endpoint itself.
+    /// </remarks>
+    public Task<VerbResult> ApplyEstateAsync(
+        string root, CancellationToken cancellationToken = default) =>
+        _commands.AirspaceApplyAsync(root, cancellationToken);
+
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);

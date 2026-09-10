@@ -1274,6 +1274,12 @@ static async Task<int> LaunchConsoleAsync()
             LastEstate = ConsolePull.Pulled(
                 () => data.PullEstateAsync(EstateRoot()).GetAwaiter().GetResult()),
         },
+
+        applyEstate: current => current with
+        {
+            LastEstate = ConsoleApply.Applied(
+                () => data.ApplyEstateAsync(EstateRoot()).GetAwaiter().GetResult()),
+        },
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))
         .Run(initial);
 

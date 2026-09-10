@@ -189,6 +189,74 @@ public class TheAirspacePathIsTypedInTests
     }
 
     [Test]
+    public async Task The_box_says_enter_begins_editing_it()
+    {
+        // TWO STAGES, AND THE TITLE IS WHERE THE SECOND ONE IS OFFERED. The box
+        // holds the focus as soon as the tab does - so a person can see the
+        // cursor in it, and copy the path out of it - and it takes no keystroke
+        // until enter says so. A focusable field that started editing on
+        // arrival would be the always-focused version this console measured
+        // against: p, s and m would go into a path.
+        foreach (var state in (AppState[])
+        [
+            new() { Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" } },
+            new() { Estate = new EstateOnThisMachine { Root = null } },
+        ])
+        {
+            await Assert.That(PaneText.AirspaceBox(state))
+                .Contains("enter", StringComparison.OrdinalIgnoreCase)
+                .Because("focus alone does not say a field can be typed into, so the box "
+                       + "says which key starts.");
+        }
+    }
+
+    [Test]
+    public async Task While_editing_the_box_says_how_to_stop()
+    {
+        var text = PaneText.AirspaceBox(new AppState
+        {
+            Mode = UiMode.AirspacePath,
+            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+        });
+
+        await Assert.That(text).Contains("esc", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(text).DoesNotContain(
+                "enter to edit", StringComparison.OrdinalIgnoreCase)
+            .Because("it is already being edited, and a title offering to start again is a "
+                   + "title nobody can act on.");
+    }
+
+    [Test]
+    public async Task The_field_routes_commands_rather_than_swallowing_them()
+    {
+        // THE HAZARD THIS WHOLE DESIGN IS SHAPED BY, and the only assertion
+        // available for it without a terminal. A focused TextView consumes
+        // printable keys - that is what ate all twenty-one of them through
+        // TableView's type-to-search - so a field that holds focus while NOT
+        // editing has to hand what it is given back to the one keymap rather
+        // than keeping it. Asserted at the source because the alternative needs
+        // a real terminal, and what would go wrong is silent: p would insert a
+        // character instead of pulling.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Gg.sln")))
+        {
+            root = root.Parent;
+        }
+
+        var source = File.ReadAllText(Path.Combine(
+            root!.FullName, "Gg.Console", "Views", "ConsoleScreen.cs"));
+
+        var handler = source[source.IndexOf(
+            "private void OnAirspacePathKeyDown", StringComparison.Ordinal)..];
+        handler = handler[..handler.IndexOf("\n    private", StringComparison.Ordinal)];
+
+        await Assert.That(handler).Contains("Keymap.Resolve", StringComparison.Ordinal)
+            .Because("while the field is not being edited its keys are the tab's, and the "
+                   + "keymap is the one authority on what a key means. A handler that "
+                   + "decided for itself would be a second keymap for one widget.");
+    }
+
+    [Test]
     public async Task Every_mode_says_whether_it_draws_a_dialog()
     {
         // THE DECLARATION THREE RATCHETS NOW READ. They walked every non-Normal

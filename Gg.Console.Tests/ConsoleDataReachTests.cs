@@ -42,7 +42,7 @@ public class ConsoleDataReachTests
         await Assert.That(declared).IsNotEmpty()
             .Because("ConsoleData has no public methods, so this ratchet asserted nothing.");
 
-        var callers = ConsoleSource.In("Gg.Console")
+        var callers = ConsoleSource.In("Gg.Console", "Gg.Cli")
             .Where(f => !f.EndsWith("ConsoleData.cs", StringComparison.Ordinal))
             .Select(File.ReadAllText)
             .ToList();
@@ -66,7 +66,16 @@ public class ConsoleDataReachTests
         // method somebody has since wired reads as though the gap were still
         // open, and the next person to look believes the console cannot do
         // something it can.
-        var callers = ConsoleSource.In("Gg.Console")
+        //
+        // THE SWEEP READS Gg.Cli TOO, and both sweeps in this file must agree
+        // about that or a live exemption would be called stale by one of them.
+        // The root is a real caller: `plan:` is passed from Program.cs because
+        // ConsoleHandFlight reads a checklist to refuse a hand-flown flight the
+        // fleet cannot serve. Scoping the sweep to Gg.Console alone said that
+        // wrapper had no caller, which was a fact about the sweep rather than
+        // about the console - and the honest repair is a wider sweep, not an
+        // exemption describing a caller that exists.
+        var callers = ConsoleSource.In("Gg.Console", "Gg.Cli")
             .Where(f => !f.EndsWith("ConsoleData.cs", StringComparison.Ordinal))
             .Select(File.ReadAllText)
             .ToList();
@@ -115,5 +124,6 @@ public class ConsoleDataReachTests
             // and both were removed by the author who wrote the condition. That
             // is what an exemption list is for - an empty one is the outcome,
             // not the design.
+
         };
 }

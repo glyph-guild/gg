@@ -596,8 +596,6 @@ public static class Keymap
             new(KeyStroke.Char('r'), Command.ToggleRepositories,
                 Closes(context, TabId.Repositories, "repositories")) { OffTheHintLine = true },
             // `p` for plan, which is the verb it calls.
-            new(KeyStroke.Char('p'), Command.ToggleChecklist,
-                Closes(context, TabId.Checklist, "checklist")) { OffTheHintLine = true },
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,
                 Closes(context, TabId.Envelope, "envelope")) { OffTheHintLine = true },

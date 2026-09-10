@@ -56,7 +56,6 @@ public static class Tabs
             TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
-            TabId.Checklist => state.ChecklistVisible,
             TabId.Envelope => state.EnvelopeVisible,
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
@@ -84,7 +83,6 @@ public static class Tabs
         // the word, it is free, and a key chosen for its mnemonic that silently
         // shadows another is worse than one chosen for being free and said to be.
         TabId.Runners => KeyStroke.Char('u'),
-        TabId.Checklist => KeyStroke.Char('p'),
         TabId.Envelope => KeyStroke.Char('e'),
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
@@ -109,7 +107,6 @@ public static class Tabs
         // NOT A SHELL COMMAND, unlike the four below it. Showing this reads
         // nothing: the fleet is already in the model, fetched at boot.
         TabId.Runners => Command.ToggleRunners,
-        TabId.Checklist => Command.ToggleChecklist,
         TabId.Envelope => Command.ToggleEnvelope,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
@@ -192,7 +189,6 @@ public static class Tabs
         TabId.Browse => "Browse",
         TabId.Repositories => "Repositories",
         TabId.Runners => "Runners",
-        TabId.Checklist => "Checklist",
         TabId.Envelope => "Envelope",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };

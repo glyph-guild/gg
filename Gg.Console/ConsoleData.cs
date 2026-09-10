@@ -435,9 +435,6 @@ public static class ConsoleProjection
             // WHY THIS FLIGHT IS STOPPED, which is the question the queue's rows
             // pose and nothing here could answer.
             VerbResult.Why why => state with { Attribution = why.Value, Diagnosis = null },
-            // WHAT MUST HOLD BEFORE THIS FLIGHT CAN START, which is the other
-            // half of the same question and the one a person can act on.
-            VerbResult.Plan plan => state with { Checklist = plan.Value, Diagnosis = null },
             // THE RULES IN FORCE. Every flight names this document's version and
             // nothing here could show the document.
             VerbResult.EnvelopeShown envelope => state with

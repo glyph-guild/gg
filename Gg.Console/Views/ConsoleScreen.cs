@@ -38,8 +38,6 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
     private readonly Label _repositories;
-    private readonly Label _checklist;
-    private readonly FrameView _checklistPane;
     private readonly Label _envelope;
     private readonly FrameView _envelopePane;
     private readonly Label _flights;
@@ -298,22 +296,7 @@ public sealed class ConsoleScreen : Window
         _browse = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _browsePane.Add(_browse);
 
-        // THE FOURTH OCCUPANT OF THAT REGION. ChecklistToggled turns the other
-        // three off for the same reason BrowseToggled turns two off: two visible
-        // flags over one region is two panes drawn on top of each other.
-        _checklistPane = new FrameView
-        {
-            Title = "Checklist",
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            Visible = false,
-        };
-        _checklist = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _checklistPane.Add(_checklist);
-
-        // THE FIFTH OCCUPANT OF THAT ONE REGION.
+        // THE FOURTH OCCUPANT OF THAT ONE REGION.
         _envelopePane = new FrameView
         {
             Title = "Envelope",
@@ -634,7 +617,6 @@ public sealed class ConsoleScreen : Window
             (TabId.Live, Tabbed(_livePane)),
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
-            (TabId.Checklist, Tabbed(_checklistPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
         ];
 
@@ -663,7 +645,7 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
-        Muted(_envelope, _checklist, _evidence, _live, _flight, _modalBody, _runners,
+        Muted(_envelope, _evidence, _live, _flight, _modalBody, _runners,
             _flightIntent, _flightLogAbsent);
 
         Add(_bar, _activity, _hints, _modal);
@@ -1261,7 +1243,6 @@ public sealed class ConsoleScreen : Window
         {
             _syncing = false;
         }
-        _checklist.Text = PaneText.Checklist(State);
         _envelope.Text = PaneText.Envelope(State);
 
         _flights.Text = PaneText.Flights(State);
@@ -1813,7 +1794,6 @@ public sealed class ConsoleScreen : Window
             // arrow keys do nothing until you press one to get off a button is
             // a tab that reads as broken.
             TabId.Runners => _runnersTable.Visible ? _runnersTable : _runners,
-            TabId.Checklist => _checklist,
             TabId.Envelope => _envelope,
 
             // The queue tab is the one with two panes, and the list is the half

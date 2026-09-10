@@ -114,7 +114,6 @@ public static class PaneText
             TabId.Live => Live(state),
             TabId.Browse => Browse(state),
             TabId.Repositories => Repositories(state),
-            TabId.Checklist => Checklist(state),
             TabId.Envelope => Envelope(state),
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
@@ -433,132 +432,6 @@ public static class PaneText
               + "as one that does.");
 
     /// <summary>
-    /// What must hold before the selected flight can start.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Each item with its satisfier and its disposition</b>, which is what
-    /// makes the answer a job rather than a mood: an unmet requirement whose
-    /// satisfier is a label nobody advertises is a different task from one
-    /// waiting on an approver, and a list of requirement names cannot tell them
-    /// apart.
-    /// </para>
-    /// <para>
-    /// <b>An unread checklist says so, and it matters more here than anywhere.</b>
-    /// An empty list reads as <i>nothing is stopping this flight</i>, which is
-    /// the opposite of <i>nobody asked</i> - and one of those is good news.
-    /// </para>
-    /// </remarks>
-    public static string Checklist(AppState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        var text = new StringBuilder();
-
-        // THE FLEET FOLLOWS WHATEVER THE CHECKLIST SAID, INCLUDING NOTHING.
-        // Showing it only when the checklist read succeeded would hide the
-        // fleet exactly when the checklist failed - and the fleet is what a
-        // person reads to find out why.
-        if (state.Checklist is not { } checklist)
-        {
-            text.AppendLine(state.Selected is null
-                ? "No flight selected."
-                : "not read for this row - press p to read it");
-        }
-        else
-        {
-            text.AppendLine($"  envelope      {Clean(checklist.EnvelopeVersion)}");
-
-            if (checklist.Repository is { Length: > 0 } repository)
-            {
-                text.AppendLine($"  repository    {Clean(repository)}");
-            }
-
-            text.AppendLine($"  labels        {Labels(checklist.RequiredLabels)}");
-            text.AppendLine();
-
-            if (checklist.Items.Count == 0)
-            {
-                text.AppendLine("  nothing is required before this flight can start.");
-            }
-
-            foreach (var item in checklist.Items)
-            {
-                text.AppendLine(
-                    $"  {Clean(item.Disposition),-8} {Clean(item.Requirement)}");
-                text.AppendLine(
-                    $"           satisfied by {Clean(item.Satisfier)}, checked by "
-                  + Clean(item.Verification));
-            }
-        }
-
-        text.AppendLine();
-        text.Append(FleetText(state));
-
-        return text.ToString().TrimEnd();
-    }
-
-    /// <summary>
-    /// What the fleet advertises, each label beside its disposition.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Under the checklist because that is where the question is asked.</b>
-    /// An item reading <c>unmet  environment=docker</c> is answered by what the
-    /// runners advertise, and a person who has to change panes to find out is
-    /// comparing two screens from memory.
-    /// </para>
-    /// <para>
-    /// <b>The disposition is never separated from the name.</b> That is
-    /// <c>AdvertisedLabel</c>'s own rule and the reason the type exists: a
-    /// stated claim read as a measurement is what a bare name invites.
-    /// </para>
-    /// <para>
-    /// <b>And a fleet that was not read is not an empty fleet.</b> "No runners
-    /// are registered" is a claim about the estate with an action attached;
-    /// saying it because nothing was read sends somebody to build a machine
-    /// they already have.
-    /// </para>
-    /// </remarks>
-    private static string FleetText(AppState state)
-    {
-        if (state.Runners is not { } fleet)
-        {
-            return "  fleet         not read";
-        }
-
-        if (fleet.Runners.Count == 0)
-        {
-            return "  fleet         no runners are registered. Run gg runner up on a machine "
-                 + "that should take work.";
-        }
-
-        var text = new StringBuilder();
-        text.AppendLine("  fleet");
-
-        foreach (var runner in fleet.Runners)
-        {
-            text.AppendLine($"    {Clean(runner.State),-8} {Clean(runner.Label)}");
-
-            if (runner.Labels.Count == 0)
-            {
-                // A fact somebody diagnosing a waiting flight needs, not an
-                // absence to hide.
-                text.AppendLine("             (advertises nothing)");
-                continue;
-            }
-
-            foreach (var label in runner.Labels)
-            {
-                text.AppendLine(
-                    $"             {Clean(label.Name),-34} {Clean(label.Disposition)}");
-            }
-        }
-
-        return text.ToString().TrimEnd();
-    }
-
-    /// <summary>
     /// The rules in force, as the command line prints them.
     /// </summary>
     /// <remarks>
@@ -583,17 +456,6 @@ public static class PaneText
         return Clean(Gg.Client.VerbOutput.ToText(
             new Gg.Client.VerbResult.EnvelopeShown(applied)), lines: true);
     }
-
-    /// <summary>
-    /// What the fleet has to advertise, said out loud.
-    /// </summary>
-    /// <remarks>
-    /// "none" rather than a blank: a checklist requiring no labels and one whose
-    /// labels failed to render look identical otherwise, and the first is the
-    /// ordinary case.
-    /// </remarks>
-    private static string Labels(IReadOnlyList<string> labels) =>
-        labels.Count == 0 ? "none" : string.Join(", ", labels.Select(l => Clean(l)));
 
     /// <summary>
     /// What is holding this flight, in the control plane's own words.

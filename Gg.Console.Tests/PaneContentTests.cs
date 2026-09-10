@@ -188,44 +188,6 @@ public class PaneContentTests
     }
 
     [Test]
-    public async Task The_checklist_is_read_for_the_selected_flight()
-    {
-        // S28.4-01. ConsoleData.PlanAsync has had no caller since it was
-        // written, and the real stack is where the items come from: a
-        // constructed Checklist proves a renderer renders.
-        var seeded = await AgainstARealControlPlaneTests.GatedAsync();
-        var booted = await ConsoleStart.LoadAsync(seeded.Data, seeded.Principal);
-
-        var opened = ConsoleChecklist.Read(seeded.Data, booted);
-
-        await Assert.That(opened.Checklist).IsNotNull()
-            .Because("the pane a person stares at while a flight waits could not be filled.");
-        await Assert.That(opened.Checklist!.FlightNumber)
-            .IsEqualTo(booted.Selected!.FlightNumber)
-            .Because("read for the row the cursor is on, not for the envelope at large - "
-                   + "PlanAsync answers both questions and only one of them is this pane's.");
-        await Assert.That(opened.Checklist!.EnvelopeVersion)
-            .IsEqualTo(booted.Flight!.EnvelopeVersion)
-            .Because("and against the envelope that governs it.");
-
-        // NO ITEMS, AND THAT IS THE ANSWER RATHER THAN A GAP. `gg plan` builds
-        // one item per REQUIRED LABEL and nothing else - obligations are not in
-        // it; they are the `why` pane's half. This tenant's envelope declares no
-        // environment, so it compiles to no labels, so the honest checklist is
-        // empty. Which makes the empty sentence the common case, not the
-        // exceptional one.
-        await Assert.That(opened.Checklist!.RequiredLabels).IsEmpty();
-
-        var pane = PaneText.Checklist(opened);
-
-        await Assert.That(pane).DoesNotContain("not read")
-            .Because("it WAS read, and that sentence appearing means nothing asked.");
-        await Assert.That(pane).Contains("nothing is required")
-            .Because("an empty list has to SAY it is empty. A blank pane here and an unread "
-                   + "one look identical, and they are opposite facts.");
-    }
-
-    [Test]
     public async Task The_envelope_in_force_is_readable_from_the_console()
     {
         // S28.4-04. The console had no envelope method at all, so every flight

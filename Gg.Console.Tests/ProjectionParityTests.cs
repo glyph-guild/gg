@@ -80,6 +80,26 @@ public class ProjectionParityTests
         {
             // --- arms this slice adds, each with the step that adds it ---
 
+            // THE CHECKLIST TAB WAS WITHDRAWN AND ITS ARM WENT WITH IT. Plan
+            // is still a verb - `gg plan` renders it - and the console still
+            // ASKS for one: ConsoleHandFlight reads a checklist to refuse a
+            // hand-flown flight whose labels the fleet cannot serve. What it no
+            // longer does is put one in the model, because nothing draws it.
+            //
+            // The pane was withdrawn for answering two questions at once. A
+            // checklist's requirements are PINNED to what the flight compiled
+            // at creation; its satisfiers are recomputed LIVE against today's
+            // fleet. Before a lease those agree; after one the satisfier column
+            // is a reading of the estate rather than a fact about the flight,
+            // and nothing gated the tab, so it said so on flights that had long
+            // since flown.
+            //
+            // REMOVE THIS ENTRY when a pane draws a checklist again - and if
+            // one does, it should say which of the two questions it answers.
+            ["Plan"] = "not projected: the checklist tab was withdrawn. The verb and the "
+                     + "contract stay, and the hand-flight refusal still reads one directly "
+                     + "rather than through the model.",
+
             // THE CONFIGURATION VERBS, and the console's answer to them is not
             // a projection. What a person reads in the console is the
             // Environment page, which is built from ConsoleEnvironment.Read -

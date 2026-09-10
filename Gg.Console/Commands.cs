@@ -74,7 +74,6 @@ public enum Command
     /// The shell's, because showing it is a read. Same reason as
     /// <see cref="ToggleBrowse"/>, for a much smaller request.
     /// </remarks>
-    ToggleChecklist,
 
     /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
     ToggleEnvelope,
@@ -423,7 +422,6 @@ public static class ShellCommands
         // neither. AutoRefresh's exception is for a read and does not stretch
         // to a spawn. Four guards said so before this was tried, each with the
         // reason written out, and they were right.
-        Command.ToggleChecklist,
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
     };

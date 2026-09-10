@@ -29,7 +29,12 @@ public class EveryNewPaneIsProjectedTests
         // because it and RunnersAsync are one request under two names - so its
         // entry stops being a gap and becomes a decision, reworded rather than
         // deleted.
-        string[] built = ["Plan", "Why", "EnvelopeShown", "Identity"];
+        // PLAN LEFT THIS LIST WHEN ITS PANE DID. Step 4 built four panes and
+        // this held all four to their arms; the checklist tab was later
+        // withdrawn, so Plan is no longer a pane that was built and holding it
+        // here would demand an arm for a renderer that no longer exists -
+        // RunnerLabels' case above, arrived at from the other direction.
+        string[] built = ["Why", "EnvelopeShown", "Identity"];
         var parked = built.Where(ProjectionParityTests.Exempt.ContainsKey).ToArray();
 
         await Assert.That(parked).IsEmpty()
@@ -41,7 +46,9 @@ public class EveryNewPaneIsProjectedTests
     [Test]
     public async Task No_field_step_four_renders_is_waiting_to_be_assigned()
     {
-        string[] filled = ["Notices", "Attribution", "Checklist", "Envelope", "Runners"];
+        // Checklist is not here for the reason Plan is not above: the field
+        // went with the pane, so there is nothing left to assign.
+        string[] filled = ["Notices", "Attribution", "Envelope", "Runners"];
         var parked = filled.Where(StateAssignmentTests.Exempt.ContainsKey).ToArray();
 
         await Assert.That(parked).IsEmpty()

@@ -679,6 +679,27 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
     {
         return Fail(refusal.Message);
     }
+    catch (DirtyWorkingCopyException refusal)
+    {
+        // THE AIRSPACE VERBS' TWO REFUSALS, and they crashed here for as long
+        // as those verbs have run through this emitter. Both were routed to a
+        // function that catches seven other refusals - including one whose own
+        // comment above records this exact failure, in these words - and
+        // neither was added to it. EnvelopeAsync, one function away, catches
+        // both.
+        //
+        // The list of files is the actionable part, so it reaches a person
+        // whole rather than as "the tree is dirty".
+        return Fail(refusal.Message);
+    }
+    catch (EnvelopeRefusedException refused)
+    {
+        // NAMES THE FILES THAT WILL NOT PARSE, for the reason apply refuses at
+        // all: landing the rest would put part of a changeset somebody meant
+        // as a whole into the stream. A refusal that did not say which files
+        // would leave a person to find them by bisecting their own tree.
+        return Fail(refused.Message);
+    }
     catch (FlightReferenceException refusal)
     {
         return Fail(refusal.Message);

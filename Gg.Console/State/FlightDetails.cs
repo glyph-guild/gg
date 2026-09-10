@@ -161,18 +161,32 @@ public static class FlightDetails
     /// underneath, and how much of it is left is a proportion.
     /// </remarks>
     /// <remarks>
-    /// <b>Two thirds, and it was 45%.</b> That protected the log too well: the
-    /// intent is what a person opens this modal to read - it says why the
-    /// flight exists at all - and a long one scrolled inside thirteen rows of
-    /// thirty while the story underneath sat idle. It is still a CAP, so an
-    /// intent that fits under it takes only what it needs and the short-intent
-    /// case this sizing was written for is unchanged.
+    /// <b>Two fifths to two thirds, and it was three-to-45%.</b> The cap moved
+    /// first and moved nothing that mattered: a one-line intent is content-
+    /// sized at three rows and never reaches any ceiling, so the complaint that
+    /// the box was too small was about the FLOOR. There now is one.
+    /// </remarks>
+    /// <remarks>
+    /// <b>Why a short intent gets room it does not fill.</b> Content-sizing
+    /// looked like the frugal answer and it optimised the wrong thing: the
+    /// intent is why the flight exists and the log is what it did. Sizing the
+    /// first to its text means the modal jumps between layouts as flights
+    /// change, and the common case is unreadable the moment somebody pastes two
+    /// paragraphs. Between the floor and the cap it still content-sizes, which
+    /// is the part of that idea worth keeping.
     /// </remarks>
     public static int IntentRows(int lines, int room)
     {
         var wanted = Math.Max(3, lines + 2);
 
-        return room <= 0 ? wanted : Math.Min(wanted, Math.Max(3, room * 2 / 3));
+        if (room <= 0)
+        {
+            return wanted;
+        }
+
+        // A FLOOR AS WELL AS A CAP, and the floor is the half that was missing.
+        // Two fifths never exceeds two thirds, so the clamp cannot invert.
+        return Math.Clamp(wanted, Math.Max(3, room * 2 / 5), Math.Max(3, room * 2 / 3));
     }
 
     /// <summary>

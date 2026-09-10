@@ -82,6 +82,12 @@ public static class ConsoleEnvironment
         Of(DestinationConfiguration.ApisVariable, file, environment,
            "where a proposal is opened, per provider key."),
 
+        Of(Gg.Runner.Intent.TrackerConfiguration.ApisVariable, file, environment,
+           "where an admitted change to a work item is written, per destination id. "
+         + "Unset means this machine may READ a tracker and cannot change one, "
+         + "however an envelope is written - reading and writing are two "
+         + "declarations because they are two credentials."),
+
         // THE RUNNER'S OWN, none of which were on this page. An operator
         // standing up a machine reads them here or nowhere.
         Of(ExecutorConfiguration.BinaryVariable, file, environment,

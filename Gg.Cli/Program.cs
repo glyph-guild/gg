@@ -1671,6 +1671,10 @@ static async Task<int> RunnerUpAsync()
     // S7.4-02 recorded the last time.
     var trackers = Gg.Runner.Intent.TrackerConfiguration.FromEnvironment(
         api => new HttpClient(),
+        // THROUGH THE ONE READER, so a tracker-apis line in the configuration
+        // file reaches the sinks. Read straight from the environment this
+        // would be the stun-servers defect again, one variable over.
+        apis: Settings.Value(Gg.Runner.Intent.TrackerConfiguration.ApisVariable),
         secretFor: destination => new FileCredentialStore().Read(destination));
 
     // WHICH AGENT THIS MACHINE HAS, and none is a real answer. Until this line
@@ -1729,7 +1733,7 @@ static async Task<int> RunnerUpAsync()
         return await Gg.Runner.RunnerHost.RunAsync(
             new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
             new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
-            destinations: destinations, executor: executor,
+            destinations: destinations, trackers: trackers, executor: executor,
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine
@@ -1916,6 +1920,10 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     // S7.4-02 recorded the last time.
     var trackers = Gg.Runner.Intent.TrackerConfiguration.FromEnvironment(
         api => new HttpClient(),
+        // THROUGH THE ONE READER, so a tracker-apis line in the configuration
+        // file reaches the sinks. Read straight from the environment this
+        // would be the stun-servers defect again, one variable over.
+        apis: Settings.Value(Gg.Runner.Intent.TrackerConfiguration.ApisVariable),
         secretFor: destination => new FileCredentialStore().Read(destination));
 
     // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
@@ -1927,7 +1935,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), identity.RunnerId, identity.RunnerToken, identity.Labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
-        destinations: destinations, executor: executor);
+        destinations: destinations, trackers: trackers, executor: executor);
 }
 
 static async Task<int> RunnerMaintainAsync(string pool)

@@ -285,6 +285,7 @@ public static class RunnerHost
             // runner should fetch at all, and which tracker can read one.
             hosts ?? Vcs.VcsConfiguration.DeclaredHosts(),
             destinations: destinations,
+            trackers: trackers,
             // HOW THIS RUNNER LEARNS WHAT A PERSON DECIDED. Null for a fleet
             // runner, which has no person and no file to look for.
             returns: returns,

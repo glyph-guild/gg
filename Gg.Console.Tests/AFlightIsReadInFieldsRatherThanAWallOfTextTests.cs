@@ -266,10 +266,19 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
     // ---- how tall the intent's box is ----
 
     [Test]
-    public async Task A_one_line_intent_does_not_get_a_box_sized_for_a_page()
+    public async Task Even_a_one_line_intent_gets_a_box_worth_reading_in()
     {
-        // THE COMMON CASE. `gg fly "fix the login bug"' is one line, and a
-        // third of the modal around it is nine empty rows taken off the log.
+        // THIS TEST ASSERTED THE OPPOSITE AND THE OPPOSITE WAS WRONG. It said a
+        // one-line intent gets three rows, on the argument that a box sized for
+        // a page around `fix the login bug' is empty rows taken off the log.
+        // True as far as it went, and it optimised the wrong thing: the intent
+        // is why the flight exists, the log is what it did, and shrinking the
+        // first to nothing whenever it happens to be short makes the modal jump
+        // between layouts and leaves the common case unreadable the moment
+        // somebody pastes two paragraphs.
+        //
+        // So the intent gets a FLOOR as well as a cap - two fifths of the body,
+        // which roughly halves the log - and content-sizes between them.
         var typed = Opened(new FlightIntent
         {
             Kind = FlightIntentKinds.Text,
@@ -277,8 +286,9 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
         });
 
         await Assert.That(FlightDetails.IntentLines(typed)).IsEqualTo(1);
-        await Assert.That(FlightDetails.IntentRows(1, room: 30)).IsEqualTo(3)
-            .Because("two borders and a line is the floor, and a one-line intent is at it.");
+        await Assert.That(FlightDetails.IntentRows(1, room: 30)).IsEqualTo(12)
+            .Because("two fifths of the body, so a short intent still has somewhere to be "
+                   + "read and the pane does not resize as the text changes.");
     }
 
     [Test]
@@ -295,9 +305,12 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
         // than a row count, because what it protects is a proportion.
         await Assert.That(FlightDetails.IntentRows(200, room: 30)).IsEqualTo(20)
             .Because("a long intent gets two thirds of the body, and the log keeps a third.");
-        await Assert.That(FlightDetails.IntentRows(8, room: 30)).IsEqualTo(10)
-            .Because("and an intent that fits under the cap takes only what it needs - "
-                   + "raising the cap moves nothing for the intents that were never at it.");
+        await Assert.That(FlightDetails.IntentRows(8, room: 30)).IsEqualTo(12)
+            .Because("an eight-line intent wants ten and the floor gives it twelve, because "
+                   + "below two fifths the log is taking room nothing is reading.");
+        await Assert.That(FlightDetails.IntentRows(14, room: 30)).IsEqualTo(16)
+            .Because("and between the floor and the cap it still content-sizes, which is the "
+                   + "part worth keeping from the version this replaced.");
     }
 
     [Test]

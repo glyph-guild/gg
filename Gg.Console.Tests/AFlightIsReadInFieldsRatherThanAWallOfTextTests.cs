@@ -287,11 +287,17 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
         await Assert.That(FlightDetails.IntentLines(Opened())).IsGreaterThan(5)
             .Because("the fixture's intent is a paragraph with steps in it.");
 
-        await Assert.That(FlightDetails.IntentRows(200, room: 30)).IsEqualTo(13)
-            .Because("the cap is a share of the body rather than a number of rows, because "
-                   + "what is being protected is the log underneath.");
+        // TWO THIRDS, NOT UNDER A HALF. 45% was chosen to protect the log and
+        // protected it too well: an intent is the thing a person opens this
+        // modal to read, and thirteen rows of thirty for a long one meant
+        // scrolling the part that says what the flight is FOR while the part
+        // saying what it did sat idle underneath. The cap stays a share rather
+        // than a row count, because what it protects is a proportion.
+        await Assert.That(FlightDetails.IntentRows(200, room: 30)).IsEqualTo(20)
+            .Because("a long intent gets two thirds of the body, and the log keeps a third.");
         await Assert.That(FlightDetails.IntentRows(8, room: 30)).IsEqualTo(10)
-            .Because("and an intent that fits under the cap takes only what it needs.");
+            .Because("and an intent that fits under the cap takes only what it needs - "
+                   + "raising the cap moves nothing for the intents that were never at it.");
     }
 
     [Test]

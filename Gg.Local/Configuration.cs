@@ -57,6 +57,20 @@ public sealed record Configuration
     /// <summary>Where a proposal is opened, per provider key.</summary>
     public string? DestinationApis { get; init; }
 
+    /// <summary>
+    /// Where an admitted change to a work item is written, per destination id.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second declaration beside <see cref="DestinationApis"/>, and for
+    /// its reason.</b> Reading a tracker and changing one are different
+    /// permissions on different credentials, so a machine that reads a backlog
+    /// does not thereby write to it: absent means this runner holds no sink
+    /// and can perform nothing, however an envelope is written. The credential
+    /// is not here — this names which tracker, never how to authenticate to
+    /// one.
+    /// </remarks>
+    public string? TrackerApis { get; init; }
+
     /// <summary>The agent binary a runner invokes.</summary>
     public string? ExecutorBinary { get; init; }
 
@@ -183,6 +197,8 @@ public sealed record Configuration
                 Get = c => c.VcsHosts, With = (c, v) => c with { VcsHosts = v } },
         new() { Variable = "GG_DESTINATION_APIS", Key = "destination-apis",
                 Get = c => c.DestinationApis, With = (c, v) => c with { DestinationApis = v } },
+        new() { Variable = "GG_TRACKER_APIS", Key = "tracker-apis",
+                Get = c => c.TrackerApis, With = (c, v) => c with { TrackerApis = v } },
         new() { Variable = "GG_EXECUTOR_BINARY", Key = "executor-binary",
                 Get = c => c.ExecutorBinary, With = (c, v) => c with { ExecutorBinary = v } },
         new() { Variable = "GG_RUNNER_LABELS", Key = "runner-labels",

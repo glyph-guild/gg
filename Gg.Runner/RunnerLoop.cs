@@ -220,6 +220,7 @@ public sealed class RunnerLoop(
     IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
     TranscriptStore? transcripts = null,
     IReadOnlyList<IDestinationAdapter>? destinations = null,
+    IReadOnlyDictionary<string, Intent.IWorkItemSink>? trackers = null,
     Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null,
     // WHETHER THIS RUNNER CAN BE FLOWN BY HAND AT ALL, decided by whoever wired
     // it. Gg.Runner does not go looking for the private key: it lives on the
@@ -468,6 +469,20 @@ public sealed class RunnerLoop(
     /// surviving as the default.
     /// </remarks>
     private readonly IReadOnlyList<IDestinationAdapter> _destinations = destinations ?? [];
+
+    /// <summary>
+    /// Where this runner may write to a tracker, by the destination id an
+    /// envelope names.
+    /// </summary>
+    /// <remarks>
+    /// <b>Keyed by destination id because that is what an admission carries.</b>
+    /// Empty is ordinary - a runner that never triages holds none - and a
+    /// flight admitted to a tracker this machine cannot reach is a REFUSAL
+    /// rather than a silence, because the alternative is a person reading a
+    /// landed flight whose backlog never changed.
+    /// </remarks>
+    private readonly IReadOnlyDictionary<string, Intent.IWorkItemSink> _trackers =
+        trackers ?? new Dictionary<string, Intent.IWorkItemSink>(StringComparer.Ordinal);
 
     /// <summary>
     /// What the person who was handed this terminal decided, given the tree they
@@ -1074,7 +1089,7 @@ public sealed class RunnerLoop(
         // still be holding what it would push when the answer comes back. Said
         // out loud because it is the mechanism rather than an incidental
         // consequence of where the release happens to sit.
-        await ShipAsync(lease, workspace, invoked, probe, cancellationToken);
+        var proposed = await ShipAsync(lease, workspace, invoked, probe, cancellationToken);
 
         // AND THEN IT ASKS, because shipping is accepted rather than answered.
         // The control plane records the batch and evaluates afterwards, so the
@@ -1082,7 +1097,7 @@ public sealed class RunnerLoop(
         // while the runner waits for it.
         var decision = await AwaitLandingAsync(lease, cancellationToken);
 
-        await LandAsync(lease, workspace, decision, secretsByLocator, cancellationToken);
+        await LandAsync(lease, workspace, decision, secretsByLocator, proposed, cancellationToken);
 
         // WHAT THE PERSON DECIDED, and the disposition that matches it. Only an
         // attended flight has one: an agent's outcome was measured and shipped
@@ -1456,7 +1471,13 @@ public sealed class RunnerLoop(
     /// <c>Digest</c> produces, and what ships takes what only <c>Filter</c>
     /// produces.
     /// </remarks>
-    private async Task ShipAsync(
+    /// <returns>
+    /// Every proposal this batch shipped, by the idempotency key the pipeline
+    /// gave its fact. <b>Returned rather than remembered on a field</b>: this
+    /// loop outlives a flight, and a map that survived one would join the next
+    /// flight's admission to the last one's proposals.
+    /// </returns>
+    private async Task<IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal>> ShipAsync(
         LeaseGranted lease, WorkspaceResult workspace, Invocation invoked,
         Execution.ProbeResult? probe, CancellationToken cancellationToken)
     {
@@ -1531,6 +1552,15 @@ public sealed class RunnerLoop(
             {
                 payloads.Add(new FactPayload.Nomination(nomination));
             }
+
+            // ONE FACT EACH, in the order they were proposed. A link proposed
+            // after a re-field was proposed by an agent that had already
+            // decided the first one, and a person admits them one at a time -
+            // so the batch is a dozen facts rather than one carrying a list.
+            foreach (var proposal in run.Proposals)
+            {
+                payloads.Add(new FactPayload.Proposal(proposal));
+            }
         }
         else if (invoked.Attended is { } attended)
         {
@@ -1555,6 +1585,14 @@ public sealed class RunnerLoop(
         await _protocol.ShipFactsAsync(
             lease.LeaseId, lease.Generation, filtered, cancellationToken);
         _observer.FactsShipped(filtered.Items.Count);
+
+        // THE KEYS THE PIPELINE JUST MINTED, which is the only place they
+        // exist. An admission names proposals by these, so without carrying
+        // them out of here the runner would have to re-derive a key it already
+        // computed - and two derivations of one identity is how they drift.
+        return filtered.Items
+            .Where(i => i.Proposal is not null)
+            .ToDictionary(i => i.IdempotencyKey, i => i.Proposal!, StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -1625,13 +1663,96 @@ public sealed class RunnerLoop(
     /// reaching across the boundary rather than a check bolted on here.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Performs the proposals a tracker destination admitted, if any were.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Absent means write nothing</b>, and it means it for every reason at
+    /// once: no tracker destination declared, its obligations unmet, no
+    /// proposal inside its menu, or a control plane too old to answer. The
+    /// runner never derives this from a verdict it can see.
+    /// </para>
+    /// <para>
+    /// <b>Only what was admitted, matched by the key the facts already
+    /// carried.</b> The admission names idempotency keys and the run holds the
+    /// proposals it shipped, so the two are joined here rather than the
+    /// control plane sending back what it was sent - which would make the
+    /// answer as large as the question and let a mismatch pass unnoticed.
+    /// </para>
+    /// <para>
+    /// <b>Admitted to a tracker this machine cannot reach is a REFUSAL.</b> A
+    /// silence would land a flight whose backlog never changed, and the person
+    /// reading it would have no way to tell that from a flight that proposed
+    /// nothing.
+    /// </para>
+    /// </remarks>
+    private async Task WriteToTrackerAsync(
+        LandingDecision? accepted,
+        IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
+        CancellationToken cancellationToken)
+    {
+        if (accepted?.Tracker is not { } admitted)
+        {
+            return;
+        }
+
+        if (!_trackers.TryGetValue(admitted.DestinationId, out var sink))
+        {
+            _observer.Landed("refused",
+                $"admitted to write to '{admitted.DestinationId}' and this runner has no "
+              + $"tracker declared for it. {Intent.TrackerConfiguration.ApisVariable} names "
+              + "which trackers this machine may write to, and a runner that may read one is "
+              + "not thereby able to change it.");
+            return;
+        }
+
+        // JOINED BY KEY, and a key naming nothing is a refusal rather than a
+        // shortfall: performing three of four admitted changes and reporting
+        // success is the shape that leaves somebody's backlog half-scored.
+        var performing = new List<Gg.Contracts.WorkItemProposal>();
+
+        foreach (var key in admitted.Proposals)
+        {
+            if (!proposed.TryGetValue(key, out var proposal))
+            {
+                _observer.Landed("refused",
+                    $"admission named proposal '{key}' and this run shipped no such fact. "
+                  + "Performing the rest would leave a backlog changed in a way nobody can "
+                  + "reconcile against what was decided.");
+                return;
+            }
+
+            performing.Add(proposal);
+        }
+
+        var written = await sink.PerformAsync(performing, admitted.DestinationId, cancellationToken);
+
+        _observer.Landed("wrote",
+            $"{written.Count} change(s) on '{admitted.DestinationId}': "
+          + string.Join(", ", written.Select(w =>
+                $"{w.Operation} {w.Target}{(w.AlreadyDone ? " (already)" : "")}")));
+    }
+
     private async Task LandAsync(
         LeaseGranted lease,
         WorkspaceResult workspace,
         LandingDecision? accepted,
         IReadOnlyDictionary<string, string> secretsByLocator,
+        IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
         CancellationToken cancellationToken)
     {
+        // THREE GATES NOW, AND THE THIRD DOES NOT PASS THROUGH THE OTHER TWO.
+        // A tracker admission carries no push - a triage flight has no branch
+        // and no tree to push from, and its LANDING IS THE WRITE. So it is
+        // performed before the push gate rather than after it, because the
+        // early return below is correct for every destination that has a
+        // branch and would skip a triage flight's entire landing.
+        //
+        // That is the rule the contract already states about these fields:
+        // each is refused by its own absence, and none is derived from another.
+        await WriteToTrackerAsync(accepted, proposed, cancellationToken);
+
         // TWO GATES, READ INDEPENDENTLY. The push is granted when no machine
         // obligation is violated; the proposal when every requirement is satisfied.
         // Neither is derived from the other: a runner that inferred a push from an

@@ -1033,6 +1033,13 @@ public sealed class ClaudeCodeExecutor(
             // its own extractor - but it is read here, once, from the stream
             // this machine already has.
             Nomination = TranscriptDigest.Nomination(transcript.ToString()),
+            // AND THE PROPOSALS, at the same boundary and from the same text.
+            // The extractor for these shipped a slice before anything called
+            // it, so a triage flight produced no proposal facts at all and
+            // every layer above - the menu, the admission, the adapter - was
+            // answering a question nobody asked. Many rather than one, because
+            // a triage's whole product is a dozen of them.
+            Proposals = TranscriptDigest.Proposals(transcript.ToString()),
             // BESIDE THE OUTCOME, not inside it. A run that asked and then went
             // on to finish carries both a question and `completed`: asking and
             // finishing are two facts, not one state.

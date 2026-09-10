@@ -363,6 +363,19 @@ public sealed record ExecutorRun
     public Gg.Contracts.FlightNomination? Nomination { get; init; }
 
     /// <summary>
+    /// The changes this run proposed be made to work items, in the order it
+    /// proposed them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Many where <see cref="Nomination"/> is one</b>, because a classifier
+    /// names a single work kind and a triage reads a backlog. Empty is the
+    /// ordinary answer for every run that is not a triage, and for a triage
+    /// that found nothing worth changing - which is a real answer rather than
+    /// a failure.
+    /// </remarks>
+    public IReadOnlyList<Gg.Contracts.WorkItemProposal> Proposals { get; init; } = [];
+
+    /// <summary>
     /// What this run asked a person, when it asked anything.
     /// </summary>
     /// <remarks>

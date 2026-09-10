@@ -47,6 +47,17 @@ public abstract record FactPayload
     /// </remarks>
     public sealed record Nomination(FlightNomination Value) : FactPayload;
 
+    /// <summary>
+    /// A change an agent proposed be made to a work item.
+    /// </summary>
+    /// <remarks>
+    /// <b>One payload per proposal, because one fact per proposal.</b> A
+    /// triage ships a dozen so a person can take the re-field and refuse the
+    /// link, and a payload carrying a list would make the batch the thing
+    /// admission answers.
+    /// </remarks>
+    public sealed record Proposal(WorkItemProposal Value) : FactPayload;
+
     /// <summary>A question an agent could not answer from the work itself.</summary>
     public sealed record Question(LoopQuestion Value) : FactPayload;
 
@@ -106,6 +117,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(LoopDigest))]
+[JsonSerializable(typeof(WorkItemProposal))]
 [JsonSerializable(typeof(FactEnvelope))]
 internal sealed partial class FactJsonContext : JsonSerializerContext;
 
@@ -213,6 +225,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Nomination = nomination.Value,
+                },
+
+                FactPayload.Proposal proposal => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Proposal = proposal.Value,
                 },
 
                 FactPayload.Landing landing => new FactEnvelope
@@ -379,6 +400,10 @@ public static class FactPipeline
         FactPayload.Nomination nomination => (
             FactKinds.FlightNomination,
             JsonSerializer.Serialize(nomination.Value, FactJsonContext.Default.FlightNomination)),
+
+        FactPayload.Proposal proposal => (
+            FactKinds.WorkItemProposal,
+            JsonSerializer.Serialize(proposal.Value, FactJsonContext.Default.WorkItemProposal)),
 
         FactPayload.Question question => (
             FactKinds.LoopQuestion,

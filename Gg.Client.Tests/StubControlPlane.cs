@@ -56,6 +56,22 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>Degradations whoami reports for this tenant.</summary>
     public IReadOnlyList<TenantNotice> Notices { get; set; } = [];
 
+    /// <summary>The documents this estate holds, for the airspace read.</summary>
+    /// <remarks>
+    /// Empty by default, and that is a state rather than a gap: a tenant with
+    /// no documents is one whose working copy pull would empty, which is a
+    /// thing the verbs have to answer for.
+    /// </remarks>
+    public IReadOnlyList<NamedEnvelopeState> Documents { get; set; } = [];
+
+    /// <summary>The strategies this estate holds, read through their own door.</summary>
+    /// <remarks>
+    /// A second property because it is a second request: <c>ReadEstateAsync</c>
+    /// joins two GETs, so a stub that served one list would let a test pass
+    /// against half an estate.
+    /// </remarks>
+    public IReadOnlyList<EnvironmentStrategyState> Strategies { get; set; } = [];
+
     /// <summary>
     /// When set, a takeover claim is refused and this is who holds it.
     /// </summary>
@@ -403,6 +419,14 @@ public sealed class StubControlPlane : IAsyncDisposable
                         },
                     ],
                 });
+                return;
+
+            case "/v1/airspace/envelopes":
+                await WriteJsonAsync(context, 200, new NamedEnvelopeList { Documents = Documents });
+                return;
+
+            case "/v1/airspace/strategies":
+                await WriteJsonAsync(context, 200, new StrategyList { Strategies = Strategies });
                 return;
 
             case "/v1/configuration/offered" when !ServesOffers:

@@ -395,6 +395,89 @@ public class TheAirspacePathIsTypedInTests
     }
 
     [Test]
+    public async Task A_file_dialog_is_one_keystroke_while_editing()
+    {
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Control('o'),
+                new KeymapContext(UiMode.AirspacePath, TabId.Envelope)))
+            .IsEqualTo(Command.AirspacePathFromDialog);
+
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Control('o'), new KeymapContext(UiMode.Normal, TabId.Envelope)))
+            .IsNull()
+            .Because("outside the field it would browse for a value with nowhere to put it.");
+    }
+
+    [Test]
+    public async Task The_box_names_the_browser_too()
+    {
+        var text = PaneText.AirspaceBox(new AppState
+        {
+            Mode = UiMode.AirspacePath,
+            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+        });
+
+        await Assert.That(text).Contains("ctrl-o", StringComparison.OrdinalIgnoreCase)
+            .Because("three ways to fill one field is only useful if the title says so; a "
+                   + "control combination nobody is told about is a feature nobody has.");
+    }
+
+    [Test]
+    public async Task The_browser_is_declared_as_the_screen_s()
+    {
+        await Assert.That(ShellCommands.OnTheWidget.ContainsKey(Command.AirspacePathFromDialog))
+            .IsTrue()
+            .Because("it runs a dialog and puts its answer in a widget, which is neither the "
+                   + "shell's nor the reducer's - and an undeclared category reads as a key "
+                   + "that does nothing.");
+    }
+
+    [Test]
+    public async Task The_browser_picks_a_directory_and_not_a_file()
+    {
+        // THE ONE THING THAT MATTERS ABOUT IT AND CANNOT BE SEEN FROM HERE. An
+        // airspace is a directory; a dialog left on its default would let
+        // somebody choose a file, and the path would be written, and pull would
+        // then render a tree beside it. Asserted at the source because the
+        // dialog needs a terminal, and what goes wrong is silent.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Gg.sln")))
+        {
+            root = root.Parent;
+        }
+
+        var screen = File.ReadAllText(Path.Combine(
+            root!.FullName, "Gg.Console", "Views", "ConsoleScreen.cs"));
+
+        await Assert.That(screen).Contains("OpenMode.Directory", StringComparison.Ordinal)
+            .Because("the airspace is a directory, so the picker has to be one too.");
+    }
+
+    [Test]
+    public async Task Browsing_the_filesystem_is_a_stated_exception_too()
+    {
+        // NARROWER THAN THE CLIPBOARD'S, AND STILL WORTH SAYING. A dialog reads
+        // directory listings a person chooses as they go, which is more than
+        // "a local file whose path the console already holds" - the scope
+        // LiveStreamingTests states for the read a session may make. It spawns
+        // nothing and reaches no network, which is why it is the cheaper of the
+        // two exceptions; recording it is what stops the next reader inferring
+        // that any filesystem read was always fine.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Gg.sln")))
+        {
+            root = root.Parent;
+        }
+
+        var guard = File.ReadAllText(Path.Combine(
+            root!.FullName, "Gg.Console.Tests", "LiveStreamingTests.cs"));
+
+        await Assert.That(guard).Contains("FileDialog", StringComparison.Ordinal)
+            .Because("the test that polices what a session may reach is where an exception "
+                   + "to it is written down.");
+    }
+
+    [Test]
     public async Task Every_mode_says_whether_it_draws_a_dialog()
     {
         // THE DECLARATION THREE RATCHETS NOW READ. They walked every non-Normal

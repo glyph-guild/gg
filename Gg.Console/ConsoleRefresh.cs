@@ -44,7 +44,6 @@ public static class ConsoleRefresh
                     data, cancellationToken),
                 TabId.Runners => Apply(await data.RunnersAsync(cancellationToken)),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
-                TabId.Checklist => Apply(await data.PlanAsync(null, cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
                 _ => Nothing,
             };

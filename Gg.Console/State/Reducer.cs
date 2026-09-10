@@ -50,7 +50,6 @@ public static class Reducer
             // CLOSING READS NOTHING, which the read function decides rather
             // than this: a toggle that shut a pane and then fetched what to put
             // in it is a request nobody asked for.
-            Command.ToggleChecklist => ChecklistToggled(state) with { ReadInFlight = true },
             Command.ToggleEnvelope => EnvelopeToggled(state) with { ReadInFlight = true },
             Command.ToggleRepositories => RepositoriesToggled(state) with { ReadInFlight = true },
 
@@ -203,7 +202,6 @@ public static class Reducer
         LiveVisible = tab == TabId.Live ? open : state.LiveVisible,
         BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
         RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
-        ChecklistVisible = tab == TabId.Checklist ? open : state.ChecklistVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
     };
 
@@ -250,7 +248,7 @@ public static class Reducer
         {
             return state with
             {
-                Flight = null, FlightLog = null, Attribution = null, Checklist = null,
+                Flight = null, FlightLog = null, Attribution = null,
             };
         }
 
@@ -268,15 +266,6 @@ public static class Reducer
             Attribution = string.Equals(
                 state.Attribution?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
                     ? state.Attribution
-                    : null,
-
-            // AND THE SAME FOR THE CHECKLIST, which names the flight it was
-            // read for. Its FlightNumber is nullable - `gg plan` answers for an
-            // envelope with no flight too - and a checklist with none was not
-            // read for this row either.
-            Checklist = string.Equals(
-                state.Checklist?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
-                    ? state.Checklist
                     : null,
         };
     }
@@ -753,7 +742,7 @@ public static class Reducer
         return Toggled(state, TabId.Browse);
     }
 
-    /// <summary>Shows or hides the checklist, and gives it the region.</summary>
+    /// <summary>Shows or hides the envelope, and gives it the region.</summary>
     /// <remarks>
     /// Not reachable through <see cref="Reduce"/>, and a ratchet says so:
     /// showing this pane is a READ, so the loop calls it directly the way it
@@ -761,15 +750,6 @@ public static class Reducer
     /// would have two effects, the local one happening whether or not the
     /// remote one did.
     /// </remarks>
-    public static AppState ChecklistToggled(AppState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        return Toggled(state, TabId.Checklist);
-    }
-
-    /// <summary>Shows or hides the envelope, and gives it the region.</summary>
-    /// <remarks>The reason is <see cref="ChecklistToggled"/>'s.</remarks>
     public static AppState EnvelopeToggled(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

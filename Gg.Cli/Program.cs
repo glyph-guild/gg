@@ -1132,7 +1132,6 @@ static async Task<int> LaunchConsoleAsync()
         // at the edge again: async verbs, a synchronous shell, and the terminal
         // is provably free while these run.
         signIn: signIn,
-        checklist: current => ConsoleChecklist.Read(data, current),
         // ONE FLIGHT'S LOG, ON THE KEYPRESS. The boot reads a log only for a
         // flight still in the air - those are the only ones whose log can put a
         // row in the queue - so the detail modal reads its own.

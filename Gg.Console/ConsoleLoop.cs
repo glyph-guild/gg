@@ -16,7 +16,6 @@ public sealed class ConsoleLoop(
     LiveTails? tails = null,
     IWorkBrowser? browser = null,
     Func<AppState, AppState>? reload = null,
-    Func<AppState, AppState>? checklist = null,
     Func<AppState, AppState>? envelope = null,
     Func<AppState, AppState>? repositories = null,
 
@@ -500,27 +499,9 @@ public sealed class ConsoleLoop(
                     state = Started(Stopped(state, stopRunner), startRunner);
                     break;
 
-                case Command.ToggleChecklist:
-                    // THE SAME SHAPE AS BROWSE, for a much smaller request.
-                    // Showing this pane is a read and a UI session may not do
-                    // I/O, so the session ends, the loop asks, and the next
-                    // session renders it.
-                    //
-                    // Only on the way IN, and the answer survives hiding:
-                    // somebody who closes the pane and opens it again should not
-                    // pay for a second read of a flight that has not moved.
-                    state = Reducer.ChecklistToggled(state);
-
-                    if (state.ChecklistVisible && checklist is not null)
-                    {
-                        state = checklist(state);
-                    }
-
-                    break;
-
                 case Command.ToggleEnvelope:
-                    // The checklist's reason, for the document the checklist is
-                    // derived from. Read on the way in only.
+                    // Browse's reason, for the document a flight's requirements
+                    // are derived from. Read on the way in only.
                     state = Reducer.EnvelopeToggled(state);
 
                     if (state.EnvelopeVisible && envelope is not null)

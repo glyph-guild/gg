@@ -168,7 +168,6 @@ public class TheSignInModalReadsTests
             LiveVisible = true,
             Frozen = true,
             BrowseVisible = true,
-            ChecklistVisible = true,
             EnvelopeVisible = true,
             RepositoriesVisible = true,
             TakeableTree = "/somewhere",

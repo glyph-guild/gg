@@ -121,14 +121,14 @@ public class TheEnvelopeIsReadableTests
         var crowded = new AppState
         {
             EvidenceVisible = true, LiveVisible = true, BrowseVisible = true,
-            ChecklistVisible = true,
+            RepositoriesVisible = true,
         };
 
         var shown = Reducer.EnvelopeToggled(crowded);
 
         await Assert.That(shown.EnvelopeVisible).IsTrue();
-        await Assert.That(shown.ChecklistVisible).IsTrue()
-            .Because("the checklist somebody was comparing this against is still open.");
+        await Assert.That(shown.BrowseVisible).IsTrue()
+            .Because("the pane somebody was comparing this against is still open.");
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(shown, tab)).ToList();
 

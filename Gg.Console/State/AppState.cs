@@ -307,7 +307,6 @@ public enum TabId
     Repositories,
 
     /// <summary>What a flight opened now would need, priced against the fleet.</summary>
-    Checklist,
 
     /// <summary>The envelope in force.</summary>
     Envelope,
@@ -627,28 +626,6 @@ public sealed record AppState
     /// the cursor moves and the refresh key reads it again.
     /// </remarks>
     public FlightAttribution? Attribution { get; init; }
-
-    /// <summary>
-    /// What must hold before the selected flight can start, exactly as
-    /// `gg plan` returned it.
-    /// </summary>
-    /// <remarks>
-    /// <b>Read when the pane is opened, not at boot</b>, because the pane is
-    /// off by default and a request for a pane nobody opened is a request
-    /// nobody wanted. It survives the pane being hidden - somebody who closes
-    /// it and opens it again should not pay for a second read - and
-    /// <see cref="Reducer.Detail"/> drops it when the cursor moves, because it
-    /// names the flight it was read for.
-    /// </remarks>
-    public Checklist? Checklist { get; init; }
-
-    /// <summary>Whether the checklist is open as a tab.</summary>
-    /// <remarks>
-    /// It used to mean "has the region", and turning it on turned three other
-    /// flags off. Only the tab showing is drawn now, so six open at once is
-    /// safe and this means what it says.
-    /// </remarks>
-    public bool ChecklistVisible { get; init; }
 
     /// <summary>
     /// The envelope in force, exactly as `gg envelope show` returned it.

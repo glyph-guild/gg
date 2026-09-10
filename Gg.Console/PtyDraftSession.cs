@@ -154,9 +154,18 @@ public sealed class PtyDraftSession
                 parts[0],
                 [.. parts.Skip(1),
                  "--mcp-config", ServerConfig(_self, tree),
-                 // THE QUALIFIED NAME, from the one declaration that owns all
-                 // three spellings.
-                 "--allowedTools", DocumentTool.Qualified],
+                 // THE QUALIFIED NAMES, from the one declaration each owns.
+                 // Both, and named individually: --allowedTools takes a list,
+                 // and a grant of the `mcp__gg` prefix instead would widen
+                 // what this launch permits every time the platform adds
+                 // another tool to its own server.
+                 //
+                 // GRANTED RATHER THAN LEFT TO PROMPT, for the reading tool as
+                 // much as the writing one. An ungranted tool still appears
+                 // and still asks - and a permission prompt in front of a
+                 // question the agent asked to answer its own uncertainty is
+                 // the friction most likely to make it guess instead.
+                 "--allowedTools", DocumentTool.Qualified, AirspaceContextTool.Qualified],
                 tree,
                 most => HostedBar.Rows(showing, _bar, Body(showing, envelope), most),
                 typed =>

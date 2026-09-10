@@ -186,14 +186,16 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? draftEstate = null,
 
     /// <summary>
-    /// Takes a path from a person and writes it into the configuration.
+    /// Writes the path the airspace field collected into the configuration.
     /// </summary>
     /// <remarks>
-    /// The same shape as <c>configure</c> beside it - a state and a way to
-    /// ask for text - because it is the same act one value smaller, and it
-    /// happens with the terminal free for the same reason.
+    /// <b>No way to ask, unlike <c>configure</c> beside it.</b> The field on
+    /// the tab already collected the text during the session; this runs after
+    /// it, with the terminal free, and reads what the model is carrying. So the
+    /// rule <c>ConsoleScreen</c> states stays true - nothing is written by
+    /// typing into a widget, only collected by one.
     /// </remarks>
-    Func<AppState, Func<string, string>, AppState>? setAirspace = null)
+    Func<AppState, AppState>? setAirspace = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -504,7 +506,7 @@ public sealed class ConsoleLoop(
                             LastEstate =
                                 "This console is not configured to set the airspace.",
                         }
-                        : setAirspace(state, text => editor.Edit(text)),
+                        : setAirspace(Closed(state)),
                     reload,
                     asked: false);
                 break;

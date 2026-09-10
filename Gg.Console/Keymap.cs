@@ -461,6 +461,17 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "leave it flying"),
         ],
 
+        UiMode.AirspacePath =>
+        [
+            // TWO KEYS, AND EVERY OTHER ONE FALLS THROUGH TO THE FIELD. That is
+            // the whole reason this is a mode: a path contains letters, and a
+            // keymap that answered them would make them unreachable.
+            new(KeyStroke.EnterKey, Command.SetAirspacePath, "set it")
+                { Label = "Set" },
+            new(KeyStroke.Esc, Command.CloseModal, "leave it as it is")
+                { Label = "Leave it" },
+        ],
+
         UiMode.ConfirmApply =>
         [
             new(KeyStroke.Char('y'), Command.ApplyEstate, "apply them")
@@ -634,11 +645,28 @@ public static class Keymap
             // ON THE ROW UNDER THE CURSOR, and which row that is depends on
             // which tab has the screen. On the fleet it is this machine's
             // runner, which is where the log and the two actions live.
-            context.Showing == TabId.Runners
-                ? new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
-                    { OffTheHintLine = true }
-                : new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
+            // AND ON THE AIRSPACE TAB THE THING UNDER THE CURSOR IS WHERE THE
+            // AIRSPACE IS, which takes a field rather than a modal. It joins
+            // this expression rather than arriving as its own binding, because
+            // Resolve answers the FIRST match and a second `enter` further down
+            // the list would never be reached.
+            context.Showing switch
+            {
+                TabId.Runners =>
+                    new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
+                        { OffTheHintLine = true },
+
+                // ON THE HINT LINE, unlike its two siblings: they open what the
+                // cursor is already on, which a person tries without being
+                // told, and this one is the only way to answer an unset
+                // airspace.
+                TabId.Envelope =>
+                    new(KeyStroke.EnterKey, Command.FocusAirspacePath,
+                        "say where the airspace is"),
+
+                _ => new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
                     { OffTheHintLine = true },
+            },
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.
@@ -703,13 +731,6 @@ public static class Keymap
                     // letter for the same thing one pane over would be the
                     // drift a single keymap exists to prevent.
                     new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent")
-                        { When = "while the airspace tab is showing" },
-
-                    // `w` FOR WHERE, and it is free: the only other `w` is
-                    // ComposeChoice's "write it myself", which is a different
-                    // mode and cannot shadow this one.
-                    new(KeyStroke.Char('w'), Command.SetAirspacePath,
-                        "say where the airspace is")
                         { When = "while the airspace tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse

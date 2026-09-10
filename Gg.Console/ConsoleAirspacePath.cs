@@ -34,20 +34,17 @@ public static class ConsoleAirspacePath
     /// <param name="path">
     /// The configuration file to write, or null for this machine's own.
     /// </param>
-    /// <param name="current">What is configured now, to seed the editor with.</param>
-    /// <param name="ask">
-    /// How to get text from a person — the editor port, which means this runs
-    /// with the terminal free and nothing typed into a widget.
+    /// <param name="typed">
+    /// What somebody typed into the field on the airspace tab. The field
+    /// collects it during a session and this runs after one, with the terminal
+    /// free — which is what keeps <c>ConsoleScreen</c>'s rule true: nothing is
+    /// written by typing into a widget, only collected by one.
     /// </param>
-    public static string Set(string? path, string? current, Func<string, string> ask)
+    public static string Set(string? path, string? typed)
     {
-        ArgumentNullException.ThrowIfNull(ask);
-
         var at = path ?? ConfigurationFile.DefaultPath();
 
-        // SEEDED WITH WHAT IS THERE, because changing a path means editing it -
-        // and an empty buffer asks somebody to retype a directory they have.
-        var answered = ask(current ?? "").Trim();
+        var answered = (typed ?? "").Trim();
 
         if (answered.Length == 0)
         {

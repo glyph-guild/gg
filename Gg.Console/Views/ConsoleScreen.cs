@@ -37,6 +37,24 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _repositoriesPane;
     private readonly Label _repositories;
     private readonly Label _envelope;
+
+    /// <summary>
+    /// Where the airspace is, and the ONE writable widget in this console.
+    /// </summary>
+    /// <remarks>
+    /// <b>It collects; it does not write.</b> The rule beside the read-only
+    /// field below still holds - a write happens between sessions with the
+    /// terminal provably free - and this is what changed: the text arrives by
+    /// typing, and <c>enter</c> ends the session so the shell can write it.
+    /// <para>
+    /// <b>Unfocusable except in its own mode.</b> A focusable field on this
+    /// tab would eat every single-letter key while it held focus, which is
+    /// the hazard <c>QuietTable</c> was measured into existence by. CanFocus
+    /// is turned on only while <c>UiMode.AirspacePath</c> is open, so the
+    /// tab's own keys cannot be swallowed by a widget nobody asked for.
+    /// </para>
+    /// </remarks>
+    private readonly TextField _airspacePath;
     private readonly FrameView _envelopePane;
     private readonly FrameView _allowancesPane;
     private readonly Label _allowances;
@@ -295,8 +313,33 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(1),
             Visible = false,
         };
-        _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        // ONE ROW SHORTER, so the field below it has somewhere to sit.
+        _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(1), CanFocus = true };
+
+        _airspacePath = new TextField
+        {
+            X = 0,
+            Y = Pos.AnchorEnd(1),
+            Width = Dim.Fill(),
+
+            // OFF BY DEFAULT, AND THAT IS THE GUARD. Focus is granted only
+            // while the mode is open; the rest of the time this cannot take
+            // a keystroke, so p, s, m, j and k keep meaning what the keymap
+            // says they mean.
+            CanFocus = false,
+            TabStop = TabBehavior.NoStop,
+        };
+
+        // ON THE FIELD, NOT ON THE SCREEN. Whether a focused TextField lets
+        // enter and esc bubble to the window is a Terminal.Gui behaviour this
+        // console has been wrong about before - enter arriving as KeyCode 13
+        // matched no binding at all until KeyTranslator was given an arm for
+        // it. So these two are intercepted where they certainly arrive,
+        // which is the same thing the runners table and its button do.
+        _airspacePath.KeyDown += OnAirspacePathKeyDown;
+
         _envelopePane.Add(_envelope);
+        _envelopePane.Add(_airspacePath);
 
         // AND THE SIXTH, which shares the same region as the four above it.
         _allowancesPane = new FrameView
@@ -1121,6 +1164,32 @@ public sealed class ConsoleScreen : Window
     /// key means anything.
     /// </para>
     /// </remarks>
+    /// <summary>The two keys the field does not get to keep.</summary>
+    /// <remarks>
+    /// <b>Read out of the widget here, at the moment it is committed.</b>
+    /// <c>Command</c> is a parameterless enum, so a per-keystroke reduce
+    /// would need it to carry a string - a change to this console's central
+    /// dispatch type for one field. What matters holds either way: the value
+    /// is in the model before the session ends, and the file is written
+    /// after it.
+    /// </remarks>
+    private void OnAirspacePathKeyDown(object? sender, Key key)
+    {
+        if (key == Key.Enter)
+        {
+            State = State with { AirspacePathTyped = _airspacePath.Text };
+            key.Handled = true;
+            Dispatch(Command.SetAirspacePath);
+            return;
+        }
+
+        if (key == Key.Esc)
+        {
+            key.Handled = true;
+            Dispatch(Command.CloseModal);
+        }
+    }
+
     private void OnTableKeyDown(object? sender, Key key)
     {
         if (key != Key.CursorUp
@@ -1347,6 +1416,17 @@ public sealed class ConsoleScreen : Window
         _envelope.Text = PaneText.Envelope(State);
         _allowances.Text = PaneText.ForTab(State, TabId.Allowances);
 
+        // SEEDED FROM THE MODEL WHENEVER THE QUESTION IS NOT OPEN, so
+        // arriving on the tab shows the path that is in force - and NOT
+        // while it is open, because overwriting the field on a once-a-second
+        // render would delete what somebody is typing into it.
+        if (State.Mode != UiMode.AirspacePath)
+        {
+            _airspacePath.Text = State.Estate?.Root ?? "";
+        }
+
+        _airspacePath.CanFocus = State.Mode == UiMode.AirspacePath;
+
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);
         _runners.Text = PaneText.Runners(State);
@@ -1399,7 +1479,10 @@ public sealed class ConsoleScreen : Window
             _syncing = false;
         }
 
-        _modal.Visible = State.Mode != UiMode.Normal;
+        // NOT "anything but Normal", which drew an empty dialog over the
+        // airspace field the moment its mode opened - on top of the one
+        // thing that mode exists to focus.
+        _modal.Visible = Modals.IsDrawn(State.Mode);
 
         // THE FLIGHT NAMES ITSELF UP THERE. Every other mode keeps the title
         // written for it, because a refusal is a refusal whichever one it is;
@@ -1877,9 +1960,18 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Focus()
     {
-        switch (FocusChange.Wanted(State.Mode, State.ActiveTab, _landed, _modal.HasFocus))
+        switch (FocusChange.Wanted(
+            State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus))
         {
             case FocusTarget.LeaveAlone:
+                return;
+
+            case FocusTarget.AirspacePath:
+                // CanFocus WAS SET IN Render, WHICH RUNS FIRST. SetFocus on a
+                // view that cannot take it does nothing at all, so the order of
+                // these two is load-bearing rather than incidental.
+                _airspacePath.SetFocus();
+                _landed = null;
                 return;
 
             case FocusTarget.FlightLog:
@@ -1946,6 +2038,7 @@ public sealed class ConsoleScreen : Window
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;
+            _airspacePath.KeyDown -= OnAirspacePathKeyDown;
 
             // ALL FOUR, and three of them were missed. The file already let go
             // of the key handler and the queue's, so the convention was there

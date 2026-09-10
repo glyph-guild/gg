@@ -33,8 +33,10 @@ public class NoTypeNameReachesTheScreenTests
     [Test]
     public async Task Every_modal_is_titled_in_words()
     {
-        var coded = Enum.GetValues<UiMode>()
-            .Where(mode => mode != UiMode.Normal)
+        // THE MODES DRAWN AS A DIALOG, which is what a title is for. A mode
+        // that owns the keyboard through a field in a pane has no frame to put
+        // one on, and Modals is where that is declared with its reason.
+        var coded = Modals.Drawn
             .Select(mode => (Mode: mode, Title: PaneText.ModalTitle(mode)))
             .Where(t => t.Title.Length == 0 || LooksLikeCode(t.Title))
             .ToList();

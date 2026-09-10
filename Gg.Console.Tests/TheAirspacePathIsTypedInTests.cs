@@ -189,6 +189,42 @@ public class TheAirspacePathIsTypedInTests
     }
 
     [Test]
+    public async Task Every_mode_says_whether_it_draws_a_dialog()
+    {
+        // THE DECLARATION THREE RATCHETS NOW READ. They walked every non-Normal
+        // mode demanding a title, a body arm and focus at the frame, because
+        // every mode but this one is a dialog - so this one drew an empty dialog
+        // over the field it exists to focus, and failed all three at once.
+        // Making the assumption explicit is the fix; this is what stops the next
+        // non-dialog mode discovering it the same way.
+        var undeclared = Enum.GetValues<UiMode>()
+            .Where(m => !Modals.IsDrawn(m) && !Modals.NotDrawn.ContainsKey(m))
+            .ToList();
+
+        await Assert.That(undeclared).IsEmpty()
+            .Because("a mode that is neither drawn nor declared not to be falls through to "
+                   + "whatever the screen does by default, which is how this one drew a "
+                   + "frame over a text field. Found: " + string.Join(", ", undeclared));
+
+        var both = Enum.GetValues<UiMode>()
+            .Where(m => Modals.IsDrawn(m) && Modals.NotDrawn.ContainsKey(m))
+            .ToList();
+
+        await Assert.That(both).IsEmpty()
+            .Because("exactly one of the two, or the reason written beside a mode describes "
+                   + "something other than what the screen does. Found: "
+                   + string.Join(", ", both));
+    }
+
+    [Test]
+    public async Task The_field_s_mode_draws_no_dialog()
+    {
+        await Assert.That(Modals.IsDrawn(UiMode.AirspacePath)).IsFalse()
+            .Because("a dialog would cover the field the mode exists to focus, which is "
+                   + "exactly what it did before Modals existed.");
+    }
+
+    [Test]
     public async Task Nothing_says_press_w_any_more()
     {
         var text = PaneText.Estate(new AppState());

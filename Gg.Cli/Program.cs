@@ -58,11 +58,11 @@ return CliArgs.Parse(args) switch
     // naming the tree would be a second place the estate's location is written
     // down - and the ADR is explicit that the repository is just a repository.
     CliAction.AirspacePull pull => await EmitAsync(
-        pull.Json, c => c.AirspacePullAsync(Directory.GetCurrentDirectory())),
+        pull.Json, c => c.AirspacePullAsync(EstateRoot())),
     CliAction.AirspaceDiff diff => await EmitAsync(
-        diff.Json, c => c.AirspaceDiffAsync(Directory.GetCurrentDirectory())),
+        diff.Json, c => c.AirspaceDiffAsync(EstateRoot())),
     CliAction.AirspaceApply apply => await EmitAsync(
-        apply.Json, c => c.AirspaceApplyAsync(Directory.GetCurrentDirectory())),
+        apply.Json, c => c.AirspaceApplyAsync(EstateRoot())),
     CliAction.AirspaceName declaring => await EmitAsync(
         declaring.Json,
         c => c.DeclareNameAsync(declaring.Role, declaring.Name, declaring.Parent)),
@@ -296,6 +296,29 @@ static Gg.Console.OfferedOnThisMachine? OfferedHere(
 /// the sync a customer keeping envelopes in git will want. Their review
 /// process, our authority.
 /// </remarks>
+/// <summary>
+/// Where the estate's working copy is: the setting, or the current directory.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One resolution for all three verbs.</b> Each used to call
+/// <c>Directory.GetCurrentDirectory()</c> at its own call site, so a change to
+/// two of them would have left each verb working while they disagreed about
+/// which tree they were talking about.
+/// </para>
+/// <para>
+/// <b>The current directory stays as a FALLBACK rather than becoming a
+/// default.</b> Nothing that works today stops working - a verb typed inside
+/// the tree still finds it - and a person who sets the path gets the same
+/// answer wherever they run from, which is the whole reason the console can
+/// have an estate at all.
+/// </para>
+/// </remarks>
+static string EstateRoot() =>
+    Settings.Value("GG_AIRSPACE", InForce.Configuration) is { Length: > 0 } named
+        ? named
+        : Directory.GetCurrentDirectory();
+
 static string ReadEnvelope(string source) =>
     source == "-" ? Console.In.ReadToEnd() : File.ReadAllText(source);
 
@@ -697,6 +720,12 @@ static async Task<int> DoctorAsync(bool json)
     var executor = Settings.Value(
         Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration);
 
+    // NOT EstateRoot(): the doctor reports what is CONFIGURED, and the fallback
+    // to the current directory is what the verbs do rather than something the
+    // machine was set up with. Reporting the fallback as configuration would
+    // tell a person their estate lives wherever they last ran gg from.
+    var airspace = Settings.Value("GG_AIRSPACE", InForce.Configuration);
+
     var role = new MachineRole
     {
         ExecutorBinary = executor,
@@ -714,6 +743,13 @@ static async Task<int> DoctorAsync(bool json)
         DestinationApis = Settings.Value(
             Gg.Runner.Vcs.DestinationConfiguration.ApisVariable, InForce.Configuration),
         PoolEndpoint = Settings.Value("GG_POOL_ENDPOINT", InForce.Configuration),
+
+        // THE SAME RESOLUTION THE VERBS USE, so the doctor cannot report one
+        // tree while pull writes to another. Asked for the repository fact only
+        // when there is a path to ask about - git on a path nobody configured
+        // is a subprocess spent answering a question that has no subject.
+        Airspace = airspace,
+        AirspaceIsRepository = airspace is { Length: > 0 } && Git.IsRepository(airspace),
     };
 
     var report = await new Doctor(

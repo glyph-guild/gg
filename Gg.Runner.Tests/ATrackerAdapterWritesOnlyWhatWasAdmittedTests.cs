@@ -56,6 +56,13 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
 
         public string? Existing { get; set; }
 
+        /// <summary>A field this tracker will not take, or null.</summary>
+        /// <remarks>
+        /// A patch is ONE request for every field in it, so a tracker refusing
+        /// one refuses the lot - which is why the diagnosis has to name it.
+        /// </remarks>
+        public string? Refusing { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -70,8 +77,18 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
                 };
             }
 
-            Wrote.Add($"{request.Method} {where} "
-                    + await request.Content!.ReadAsStringAsync(cancellationToken));
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Wrote.Add($"{request.Method} {where} {body}");
+
+            if (Refusing is { } unwanted
+                && body.Contains(unwanted, StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        $$"""{"message":"TF401326: Field '{{unwanted}}' does not exist."}"""),
+                };
+            }
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -223,6 +240,63 @@ public class ATrackerAdapterWritesOnlyWhatWasAdmittedTests
             .Because("a parent link is not a related link, and treating one as the other "
                    + "would silently drop a proposal a person admitted.");
         await Assert.That(tracker.Wrote.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task It_writes_the_field_edits_the_proposal_named()
+    {
+        // S36.4-03. The edits are the proposal's NAMED members now, which is
+        // what let admission bound them - so this is where the adapter stops
+        // reading three fixed paths out of the opaque detail and writes what
+        // was actually admitted.
+        var tracker = new Recording();
+
+        await Sink(tracker).PerformAsync(
+            [new WorkItemProposal
+            {
+                Operation = WorkItemOperations.Field,
+                Target = "1421",
+                Reason = "the rubric scores this an eight",
+                Fields =
+                [
+                    new WorkItemFieldEdit { Path = "Custom.RiceScore", Value = "8" },
+                    new WorkItemFieldEdit { Path = "Custom.Impact", Value = "high" },
+                ],
+            }],
+            "gg-flight-81");
+
+        var wrote = string.Join(" | ", tracker.Wrote);
+
+        await Assert.That(wrote).Contains("Custom.RiceScore", StringComparison.Ordinal);
+        await Assert.That(wrote).Contains("Custom.Impact", StringComparison.Ordinal);
+        await Assert.That(wrote).Contains("high", StringComparison.Ordinal)
+            .Because("a path written with the wrong value is worse than one not written. "
+                   + "Wrote: " + wrote);
+    }
+
+    [Test]
+    public async Task A_field_the_tracker_refuses_names_the_path_it_refused()
+    {
+        // S36.4-04. A patch is one request for five fields, so a rejection is
+        // all-or-nothing at the tracker - and a flight that reports "nothing
+        // written" without saying WHICH field was the problem sends somebody
+        // to read five field definitions.
+        var tracker = new Recording { Refusing = "Custom.Impact" };
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Sink(tracker).PerformAsync(
+                [new WorkItemProposal
+                {
+                    Operation = WorkItemOperations.Field,
+                    Target = "1421",
+                    Reason = "scored",
+                    Fields = [new WorkItemFieldEdit { Path = "Custom.Impact", Value = "high" }],
+                }],
+                "gg-flight-81"));
+
+        await Assert.That(refused!.Message).Contains("Custom.Impact", StringComparison.Ordinal)
+            .Because("the tracker said which field it would not take, and dropping that on "
+                   + $"the floor is the expensive half. Said: {refused.Message}");
     }
 
     [Test]

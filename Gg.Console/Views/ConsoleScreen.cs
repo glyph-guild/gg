@@ -55,6 +55,15 @@ public sealed class ConsoleScreen : Window
     /// </para>
     /// </remarks>
     private readonly TextField _airspacePath;
+
+    /// <summary>The box the field sits in, so it reads as one.</summary>
+    /// <remarks>
+    /// <b>An unlabelled field on the last row is invisible when it is
+    /// empty</b>, which is exactly the state somebody needs to see it in -
+    /// a machine that has configured no airspace. A frame with a title is
+    /// always something on the screen, whatever it holds.
+    /// </remarks>
+    private readonly FrameView _airspacePathBox;
     private readonly FrameView _envelopePane;
     private readonly FrameView _allowancesPane;
     private readonly Label _allowances;
@@ -313,13 +322,28 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(1),
             Visible = false,
         };
-        // ONE ROW SHORTER, so the field below it has somewhere to sit.
-        _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(1), CanFocus = true };
+        // THREE ROWS SHORTER, which is what the box below it takes: two for
+        // its border and one for the line inside.
+        _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(3), CanFocus = true };
+
+        // ALWAYS ON THE SCREEN WHILE THE TAB IS, and bordered so it is on it
+        // visibly. The path is the question every other key on this tab depends
+        // on, so it is not something to go and find - and an empty unlabelled
+        // field is nothing at all to look at, in exactly the state that needs
+        // looking at.
+        _airspacePathBox = new FrameView
+        {
+            Title = "airspace",
+            X = 0,
+            Y = Pos.AnchorEnd(3),
+            Width = Dim.Fill(),
+            Height = 3,
+        };
 
         _airspacePath = new TextField
         {
             X = 0,
-            Y = Pos.AnchorEnd(1),
+            Y = 0,
             Width = Dim.Fill(),
 
             // OFF BY DEFAULT, AND THAT IS THE GUARD. Focus is granted only
@@ -330,6 +354,8 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.NoStop,
         };
 
+        _airspacePathBox.Add(_airspacePath);
+
         // ON THE FIELD, NOT ON THE SCREEN. Whether a focused TextField lets
         // enter and esc bubble to the window is a Terminal.Gui behaviour this
         // console has been wrong about before - enter arriving as KeyCode 13
@@ -339,7 +365,7 @@ public sealed class ConsoleScreen : Window
         _airspacePath.KeyDown += OnAirspacePathKeyDown;
 
         _envelopePane.Add(_envelope);
-        _envelopePane.Add(_airspacePath);
+        _envelopePane.Add(_airspacePathBox);
 
         // AND THE SIXTH, which shares the same region as the four above it.
         _allowancesPane = new FrameView
@@ -1422,10 +1448,16 @@ public sealed class ConsoleScreen : Window
         // render would delete what somebody is typing into it.
         if (State.Mode != UiMode.AirspacePath)
         {
-            _airspacePath.Text = State.Estate?.Root ?? "";
+            _airspacePath.Text = PaneText.AirspacePath(State);
         }
 
         _airspacePath.CanFocus = State.Mode == UiMode.AirspacePath;
+
+        // THE TITLE CARRIES WHAT THE PATH ALONE CANNOT SAY: that nothing is set,
+        // that git cannot see it, or that this is the moment to type. A box
+        // reading only a path leaves the two states a person acts on looking
+        // identical to the one they do not.
+        _airspacePathBox.Title = PaneText.AirspaceBox(State);
 
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);

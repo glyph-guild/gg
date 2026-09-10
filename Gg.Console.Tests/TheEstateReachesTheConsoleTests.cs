@@ -134,14 +134,14 @@ public class TheEstateReachesTheConsoleTests
     }
 
     [Test]
-    public async Task The_pane_says_which_tree_it_is_talking_about()
+    public async Task The_box_says_which_tree_it_is_talking_about()
     {
-        var text = PaneText.Estate(new AppState { Estate = Estate() });
-
-        await Assert.That(text).Contains("/home/someone/estate", StringComparison.Ordinal)
-            .Because("the verbs fall back to whatever directory gg was run from, so 'which "
-                   + "tree did that write to' is a real question and this is where it is "
-                   + "answered.");
+        // ON THE BOX RATHER THAN IN THE LIST, since the path moved to the field
+        // a person edits. The question is the same one, and it is real: an
+        // unset airspace is refused now rather than guessed at, so the answer
+        // has to be somewhere a person can read it without asking.
+        await Assert.That(PaneText.AirspacePath(new AppState { Estate = Estate() }))
+            .IsEqualTo("/home/someone/estate");
     }
 
     [Test]

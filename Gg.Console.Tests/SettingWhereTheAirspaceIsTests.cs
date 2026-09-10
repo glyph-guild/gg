@@ -38,27 +38,59 @@ public class SettingWhereTheAirspaceIsTests
     };
 
     [Test]
-    public async Task The_top_of_the_tab_says_where_the_airspace_is()
+    public async Task The_box_at_the_bottom_holds_the_path()
     {
-        var text = PaneText.Estate(new AppState { Estate = At("/home/someone/airspace") });
-
-        await Assert.That(text.Split('\n')[0])
-            .Contains("/home/someone/airspace", StringComparison.Ordinal)
-            .Because("the first line is where somebody looks to find out which tree they are "
-                   + "about to write, and it is the question the doctor exists to answer for "
-                   + "the command line.");
+        // MOVED OUT OF THE PANE'S FIRST LINE and into the box, which is the one
+        // a person edits - so it is the one that has to be right, and saying it
+        // twice on one screen would be two things to keep in agreement. The
+        // claim is unchanged: somebody can see which tree they are about to
+        // write, which is the question the doctor answers for the command line.
+        await Assert.That(PaneText.AirspacePath(
+                new AppState { Estate = At("/home/someone/airspace") }))
+            .IsEqualTo("/home/someone/airspace");
     }
 
     [Test]
-    public async Task An_unset_airspace_says_so()
+    public async Task An_unset_airspace_says_so_on_the_box()
     {
-        var text = PaneText.Estate(new AppState { Estate = At(null) });
+        // THE BOX'S TITLE CARRIES WHAT AN EMPTY FIELD CANNOT. An unlabelled
+        // field holding nothing is nothing to look at, in exactly the state
+        // that needs looking at - every key on this tab refuses in it.
+        await Assert.That(PaneText.AirspaceBox(new AppState { Estate = At(null) }))
+            .Contains("not set", StringComparison.OrdinalIgnoreCase);
 
-        await Assert.That(text.Split('\n')[0])
-            .Contains("not set", StringComparison.OrdinalIgnoreCase)
-            .Because("an unset airspace is the state every key on this tab refuses in, so it "
-                   + "is worth the first line rather than a silent path somebody did not "
-                   + "choose.");
+        await Assert.That(PaneText.AirspaceBox(new AppState { Estate = At(null) }))
+            .Contains("enter", StringComparison.OrdinalIgnoreCase)
+            .Because("the box is where it is answered, so the box is where the key is "
+                   + "named.");
+    }
+
+    [Test]
+    public async Task A_path_git_cannot_see_says_so_on_the_box()
+    {
+        var text = PaneText.AirspaceBox(new AppState
+        {
+            Estate = At("/tmp/plain") with { IsRepository = false },
+        });
+
+        await Assert.That(text).Contains("git", StringComparison.OrdinalIgnoreCase)
+            .Because("that is where pull cannot refuse to overwrite an uncommitted edit, "
+                   + "which is the doctor's whole argument for the same check.");
+    }
+
+    [Test]
+    public async Task The_box_says_when_it_holds_the_keyboard()
+    {
+        var text = PaneText.AirspaceBox(new AppState
+        {
+            Mode = UiMode.AirspacePath,
+            Estate = At("/tmp/somewhere"),
+        });
+
+        await Assert.That(text).Contains("esc", StringComparison.OrdinalIgnoreCase)
+            .Because("while the field has the keyboard a person's next keystroke is a "
+                   + "character rather than a command, and the way back out is the one "
+                   + "thing they need told.");
     }
 
     [Test]

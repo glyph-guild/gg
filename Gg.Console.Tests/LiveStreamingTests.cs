@@ -112,8 +112,12 @@ public class LiveStreamingTests
             ("a credential", new Regex(@"CredentialStore|SessionStore|SessionToken|ControlPlaneClient")),
         };
 
-        // ONE EXCEPTION, GRANTED AND WRITTEN DOWN HERE RATHER THAN WHERE IT IS
-        // USED.
+        // TWO EXCEPTIONS, GRANTED AND WRITTEN DOWN HERE RATHER THAN WHERE THEY
+        // ARE USED. Both belong to one field - the airspace path - and both
+        // exist because that field is the one place a person is holding a value
+        // gg would throw away by releasing the terminal to go and get it.
+        //
+        // THE FIRST: THE CLIPBOARD.
         //
         // Reading the clipboard is a child process on every platform this ships
         // to - ConsoleLink says exactly that about its own copy: "Both spawn a
@@ -136,8 +140,30 @@ public class LiveStreamingTests
         // copying a sign-in link - stays the shell's, and that is deliberate,
         // because the thing it copies is a single-use code.
         //
+        // THE SECOND: A DIRECTORY PICKER, AND IT IS THE NARROWER OF THE TWO.
+        //
+        // Terminal.Gui's FileDialog reads directory listings a person walks as
+        // they walk them, which is more than "a local file whose path the
+        // console already holds" - the scope this rule states. It is granted
+        // for the same reason and on the same field: browsing to a directory is
+        // how somebody finds a path they cannot type from memory, and a
+        // terminal-release round trip would discard the half-typed one.
+        //
+        // WHY IT IS THE CHEAPER EXCEPTION, and worth separating from the first:
+        // it spawns nothing and reaches no network. A FileDialog is views and
+        // System.IO, so the scan below still holds over the file that opens it -
+        // which is the opposite of the clipboard's situation, where the spawn
+        // hides one layer down and the scan is the thing being fooled.
+        //
+        // WHY IT IS STILL WRITTEN DOWN. Without it, the next reader infers from
+        // the clipboard paragraph that arbitrary filesystem reads were always
+        // inside the rule, when what the rule allows is one file whose path was
+        // already known. Recording it keeps the boundary where it is: this
+        // reads directories somebody navigates to, it writes nothing, and it
+        // opens no file it finds.
+        //
         // The next feature that wants more argues for its own exception here.
-        // It does not inherit this one.
+        // It does not inherit either of these.
 
         var sessionSources = new[]
         {

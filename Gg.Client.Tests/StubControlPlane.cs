@@ -72,6 +72,31 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public IReadOnlyList<EnvironmentStrategyState> Strategies { get; set; } = [];
 
+    /// <summary>The gated answer a declaration gets, when it rides a flight.</summary>
+    /// <remarks>
+    /// The ordinary case, and it is why this and <see cref="NameLive"/> are
+    /// separate properties rather than one nullable entry: ADR-0016 § 6 makes
+    /// every registration a widening, so 202 is what a real door mostly says,
+    /// and a stub that could only answer 200 would let a verb ship having
+    /// never rendered a gate.
+    /// </remarks>
+    public RegistrationPending? NamePending { get; set; }
+
+    /// <summary>The entry a declaration gets when the name is already there.</summary>
+    public TopologyName? NameLive { get; set; }
+
+    /// <summary>When set, a declaration is refused 400 with this sentence.</summary>
+    public string? NameRefusal { get; set; }
+
+    /// <summary>What the last declaration actually put on the wire.</summary>
+    /// <remarks>
+    /// Kept because the answer does not prove the request: the door's parent
+    /// check treats a blank parent as "no parent", so a verb that dropped it
+    /// would still be told 202 and would have declared a name nothing can
+    /// reach.
+    /// </remarks>
+    public DeclareNameRequest? DeclaredName { get; private set; }
+
     /// <summary>
     /// When set, a takeover claim is refused and this is who holds it.
     /// </summary>
@@ -419,6 +444,34 @@ public sealed class StubControlPlane : IAsyncDisposable
                         },
                     ],
                 });
+                return;
+
+            case "/v1/airspace/names" when context.Request.HttpMethod == "POST":
+                DeclaredName = JsonSerializer.Deserialize<DeclareNameRequest>(
+                    LastBody, JsonSerializerOptions.Web);
+
+                if (NameRefusal is { } nameRefusal)
+                {
+                    await WriteAsync(context, 400, nameRefusal);
+                }
+                else if (NameLive is { } live)
+                {
+                    await WriteJsonAsync(context, 200, live);
+                }
+                else if (NamePending is { } pending)
+                {
+                    await WriteJsonAsync(context, 202, pending);
+                }
+                else
+                {
+                    // NOT A SILENT 200. A stub asked to declare a name with no
+                    // answer configured has been set up wrong, and answering
+                    // success would make the test pass against nothing.
+                    await WriteAsync(
+                        context, 500,
+                        "This stub was asked to declare a name and no answer was configured.");
+                }
+
                 return;
 
             case "/v1/airspace/envelopes":

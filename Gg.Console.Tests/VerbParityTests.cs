@@ -105,11 +105,18 @@ public class VerbParityTests
             // read a local file and nothing else - so the fetch cannot happen
             // during a session at all. It is not the write that stops them,
             // unlike init and set; it is the read.
-            ["ConfigOffered"] = "absent, and the reason is the session rule rather than the "
-                              + "write: fetching an offer is a network call, and a UI session "
-                              + "may read a local file and nothing else. It would have to go "
-                              + "between sessions through ShellCommands.Handled, the way the "
-                              + "$EDITOR handoff does - a real shape, and not this step's.",
+            // REWRITTEN, BECAUSE THE REASON WAS WRONG. It read "absent, and the
+            // reason is the session rule rather than the write: fetching an
+            // offer is a network call, and a UI session may read a local file
+            // and nothing else." The first clause is true and the conclusion is
+            // not: the rule governs a SESSION, and this console has always
+            // fetched between them - at boot, and on the refresh key. I wrote
+            // that sentence and then reasoned from it twice.
+            ["ConfigOffered"] = "reachable: the Environment page names what this control "
+                              + "plane offers, fetched at boot beside every other read. The "
+                              + "page is a summary rather than the document - the values a "
+                              + "control plane proposed would otherwise reach GG_STATE_DUMP "
+                              + "and the diagnostics bundle.",
             ["ConfigAccept"] = "absent, and it is the gap worth naming. An offer's whole "
                              + "safety argument is that a PERSON sees what is being "
                              + "repointed, and the console is where the person is - so this "

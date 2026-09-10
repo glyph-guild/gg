@@ -134,6 +134,57 @@ return CliArgs.Parse(args) switch
 };
 
 /// <summary>
+/// What this tenant's control plane offers this machine, or null.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A summary, never the document.</b> What comes back holds the values a
+/// control plane proposed, and this model is serialized under
+/// <c>GG_STATE_DUMP</c> and handed to the diagnostics bundle - so the page gets
+/// the version, the count, and the two facts that decide what it should say.
+/// </para>
+/// <para>
+/// <b>Nothing here may stop a console opening.</b> Not signed in is the
+/// ordinary first run; a control plane too old has not deployed the route yet;
+/// unreachable is a deploy in progress. A console that refused to draw for any
+/// of those would be unusable exactly when somebody opened it to find out what
+/// was wrong.
+/// </para>
+/// </remarks>
+static Gg.Console.OfferedOnThisMachine? OfferedHere(
+    ControlPlaneClient client, FileSessionStore sessions)
+{
+    if (sessions.Read()?.SessionToken is not { Length: > 0 } token)
+    {
+        return null;
+    }
+
+    try
+    {
+        if (client.OfferedConfigurationAsync(token).GetAwaiter().GetResult() is not { } offered)
+        {
+            return null;
+        }
+
+        return new Gg.Console.OfferedOnThisMachine
+        {
+            Version = offered.Version,
+            Settings = offered.Settings.Count,
+            NeedsAPerson = Gg.Contracts.OfferedConfiguration.NeedsAPerson(offered),
+            AlreadyAccepted = string.Equals(
+                InForce.Configuration?.AcceptedOffer, offered.Version, StringComparison.Ordinal),
+        };
+    }
+    catch (Exception refused) when (refused is NotSignedInException
+                                        or ProtocolTooOldException
+                                        or ControlPlaneTooOldException
+                                        or HttpRequestException)
+    {
+        return null;
+    }
+}
+
+/// <summary>
 /// The envelope text, from a file or from stdin.
 /// </summary>
 /// <remarks>
@@ -752,6 +803,16 @@ static async Task<int> LaunchConsoleAsync()
         // must not, or the fleet's order would depend on the host a test
         // runs on.
         Machine = Environment.MachineName,
+
+        // WHAT THE CONTROL PLANE OFFERS THIS MACHINE, read here for the reason
+        // the settings above it are: one place asks, and the console renders
+        // what it is given.
+        //
+        // BETWEEN SESSIONS, WHICH IS WHERE EVERY OTHER READ IS. A UI session
+        // may read a local file and nothing else - this is boot, before one
+        // exists, on the same path the refresh uses afterwards. I had recorded
+        // the opposite in ProjectionParityTests and reasoned from it twice.
+        Offered = OfferedHere(client, sessions),
     };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor

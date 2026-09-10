@@ -502,7 +502,7 @@ public sealed class FlightCommands(
             {
                 Name = d.Name,
                 Path = d.Path,
-                Direction = Direction(d, estate),
+                Direction = Moves(d, estate).Direction,
             }),
         ]);
 
@@ -548,28 +548,22 @@ public sealed class FlightCommands(
         var tree = AirspaceTree.Read(root);
         var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
 
-        var held = estate.Documents.ToDictionary(d => d.Name, StringComparer.Ordinal);
         var changes = new List<DocumentChange>();
 
         foreach (var document in AirspaceTree.Changed(tree, estate))
         {
-            // DIRECTION, from the comparator the control plane uses. It is the
-            // contract's, so a person is told the same thing the door will
-            // decide - never a second opinion about what tightens.
-            var widening =
-                document.Envelope is { } proposed
-                && held.TryGetValue(document.Name, out var current)
-                && current.Envelope is { } applied
-                    ? EnvelopeDirection.Widening(applied, proposed)
-                    : null;
+            // DIRECTION, FROM THE ONE COMPUTATION APPLY ALSO ORDERS BY. It used
+            // to be computed here and again in Direction, in two forms - and
+            // the two agreed only for the one role both of them handled.
+            var (direction, field, because) = Moves(document, estate);
 
             changes.Add(new DocumentChange
             {
                 Name = document.Name,
                 Path = document.Path,
-                Direction = widening is null ? "tightening" : "widening",
-                Field = widening?.Field,
-                Because = widening?.Because,
+                Direction = direction,
+                Field = field,
+                Because = because,
             });
         }
 
@@ -585,28 +579,106 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
-    /// Which way a document moves, from the contract's own comparator.
+    /// Which way a document moves, and the field that widened when one did.
     /// </summary>
     /// <remarks>
-    /// <b>The same computation the door will run.</b> A second opinion about
-    /// what tightens is the second source of truth about direction slice ten
-    /// refused a permission model for - so this asks the comparator rather than
-    /// deciding, and a document with no predecessor is a tightening because
-    /// genesis constrains nothing that was there before.
+    /// <para>
+    /// <b>One computation, and both callers take it.</b> Diff renders direction
+    /// and apply orders by it, and they used to compute it twice, half a file
+    /// apart, in two spellings - one reaching for <see cref="Changeset"/>'s
+    /// constants and one writing the same two words as literals. Two
+    /// computations of direction is the second source of truth about direction
+    /// that ADR-0016 § 6 refused a permission model for, inside one class.
+    /// </para>
+    /// <para>
+    /// <b>Public so it can be asserted without a session</b>, the same reason
+    /// the executor's prompt and argument list are: what a person is told
+    /// before they commit to an apply is worth a test that does not need a
+    /// control plane to reach it.
+    /// </para>
+    /// <para>
+    /// <b>Every role answers, and the two that could not be shown to tighten
+    /// answer widening.</b> This asks the contract's comparator wherever one
+    /// exists - both overloads, where only the envelope's was ever called - and
+    /// where none does it does not decide, it answers the refusal-shaped
+    /// constant. That is <see cref="EnvelopeDirection"/>'s own rule for a field
+    /// whose operator table declares no order, applied one level up to gg's own
+    /// ignorance: unknown is not neutral, and telling somebody a change only
+    /// constrains is the one answer that is certainly wrong.
+    /// </para>
+    /// <para>
+    /// <b>A strategy is the case with no comparator here at all.</b>
+    /// <c>StrategyDirection</c> is control-plane-side, and its own remark says
+    /// why: <i>"nothing in gg computes or renders a strategy's, so this lives
+    /// beside the one door that asks - and moves into the contract the day a
+    /// second reader exists."</i> This is that second reader, so the exact
+    /// answer wants that move; until it happens gg says it cannot tell rather
+    /// than guessing, and <see cref="DocumentChange.Because"/> is already
+    /// declared as <i>why it could not be shown to tighten</i>.
+    /// </para>
+    /// <para>
+    /// <b>Genesis stays a tightening</b>, unchanged and deliberately: a
+    /// document with no predecessor constrains nothing that was there before,
+    /// and <see cref="EnvelopeDirection"/> holds that a first version has no
+    /// direction at all - whether it needs a gate is the caller's policy.
+    /// Declaring the NAME is the widening, and it is a separate act with a gate
+    /// of its own.
+    /// </para>
     /// </remarks>
-    private static string Direction(TreeDocument document, AirspaceEstate estate)
+    public static (string Direction, string? Field, string? Because) Moves(
+        TreeDocument document, AirspaceEstate estate)
     {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(estate);
+
+        if (document.Strategy is not null)
+        {
+            return estate.Strategies.Any(
+                    s => string.Equals(s.Name, document.Name, StringComparison.Ordinal))
+                ? (Changeset.Widening, null,
+                   "gg holds no comparator for a strategy, so this cannot be shown to "
+                 + "tighten here. The control plane compares it and will apply it directly "
+                 + "if it does - so this orders last and may land without a gate.")
+                : (Changeset.Tightening, null, null);
+        }
+
         var held = estate.Documents.FirstOrDefault(
             d => string.Equals(d.Name, document.Name, StringComparison.Ordinal));
 
-        if (held?.Envelope is not { } applied || document.Envelope is not { } proposed)
+        if (held is null)
         {
-            return Changeset.Tightening;
+            return (Changeset.Tightening, null, null);
         }
 
-        return EnvelopeDirection.Widening(applied, proposed) is null
-            ? Changeset.Tightening
-            : Changeset.Widening;
+        // BOTH OVERLOADS, WHICH IS THE FIX. A narrowing carries obligations and
+        // nothing else, and they compare the same way - removing one is a
+        // widening, because obligations union and the beneficiary owns removal.
+        // The overload has existed as long as the type and this was never the
+        // caller.
+        var widening =
+            (held.Envelope, document.Envelope, held.Narrowing, document.Narrowing) switch
+            {
+                ({ } applied, { } proposed, _, _) => EnvelopeDirection.Widening(applied, proposed),
+                (_, _, { } applied, { } proposed) => EnvelopeDirection.Widening(applied, proposed),
+
+                // THE SHAPES DISAGREE, which is a file that moved between role
+                // directories. The door refuses it outright - a narrowing
+                // cannot ride a work-kind name - so the direction is moot, and
+                // an incomparable pair is not something to call a tightening on
+                // the way to being refused.
+                _ => new EnvelopeWidening
+                {
+                    Field = "role",
+                    Because = $"'{document.Name}' is held as a {held.Role} and the working copy "
+                            + $"has it as a {document.Role}, so the two cannot be compared. "
+                            + "Moving a document between role directories does not change its "
+                            + "role - the name's topology entry decides that.",
+                },
+            };
+
+        return widening is null
+            ? (Changeset.Tightening, null, null)
+            : (Changeset.Widening, widening.Field, widening.Because);
     }
 
     private static NamedEnvelopeApply Body(TreeDocument document) =>

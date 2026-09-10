@@ -490,7 +490,7 @@ public sealed class ConsoleLoop(
                     applyEstate is null
                         ? Closed(state) with
                         {
-                            LastEstate = "This console is not configured to apply the estate.",
+                            LastEstate = "This console is not configured to apply the airspace.",
                         }
                         : applyEstate(Closed(state)),
                     reload,
@@ -506,7 +506,7 @@ public sealed class ConsoleLoop(
                     pullEstate is null
                         ? state with
                         {
-                            LastEstate = "This console is not configured to pull the estate.",
+                            LastEstate = "This console is not configured to pull the airspace.",
                         }
                         : pullEstate(state),
                     reload,

@@ -433,7 +433,7 @@ public static class Keymap
         [
             new(KeyStroke.Char('y'), Command.ApplyEstate, "apply them")
                 { Label = "Apply" },
-            new(KeyStroke.Esc, Command.CloseModal, "leave the estate as it is")
+            new(KeyStroke.Esc, Command.CloseModal, "leave the airspace as it is")
                 { Label = "Leave it" },
         ],
 
@@ -631,7 +631,7 @@ public static class Keymap
                 : [],
             .. context.Showing == TabId.Envelope
                 ? (KeyBinding[])[
-                    new(KeyStroke.Char('p'), Command.PullEstate, "pull the estate")
+                    new(KeyStroke.Char('p'), Command.PullEstate, "pull the airspace")
                         { When = "while the envelope tab is showing" },
 
                     // `s' FOR SUBMIT, which is the control plane's own word for
@@ -640,7 +640,7 @@ public static class Keymap
                     // taking it here would shadow it - a key chosen for its
                     // mnemonic that silently shadows another is worse than one
                     // chosen for being free and said to be.
-                    new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the estate")
+                    new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the airspace")
                         { When = "while the envelope tab is showing" },
 
                     // `m' BECAUSE THIS CONSOLE ALREADY CHOSE THAT LETTER FOR

@@ -78,7 +78,7 @@ public sealed class PtyDraftSession
         Func<IHostTerminal?>? terminal = null,
         SelfInvocation? self = null,
         HostRun? host = null,
-        string bar = "gg · drafting the estate — ask the agent to submit each document it "
+        string bar = "gg · drafting the airspace — ask the agent to submit each document it "
                    + "changes · closing leaves the working copy as it stands",
         Action<string>? say = null,
         Func<EnvelopeState?>? envelope = null)
@@ -119,7 +119,7 @@ public sealed class PtyDraftSession
             // SAID RATHER THAN CREATED. A directory gg made because a draft
             // wanted one is an estate nobody pulled, and the first apply out of
             // it would submit documents against no precondition at all.
-            return $"Nothing was drafted: {tree} is not there. Pull the estate first.";
+            return $"Nothing was drafted: {tree} is not there. Pull the airspace first.";
         }
 
         if (_self is null)

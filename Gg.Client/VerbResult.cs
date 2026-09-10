@@ -2002,7 +2002,7 @@ public static class VerbOutput
 
         if (pulled.Written.Count == 0 && pulled.Removed.Count == 0)
         {
-            text.Append("the working copy already matches the estate\n");
+            text.Append("the working copy already matches the airspace\n");
         }
         else
         {
@@ -2062,7 +2062,7 @@ public static class VerbOutput
 
         if (applied.Applied.Count == 0)
         {
-            text.Append("nothing to apply: the working copy matches the estate\n");
+            text.Append("nothing to apply: the working copy matches the airspace\n");
         }
 
         foreach (var document in applied.Applied)
@@ -2102,7 +2102,7 @@ public static class VerbOutput
 
         if (diff.Changes.Count == 0 && diff.Retiring.Count == 0 && diff.Unreadable.Count == 0)
         {
-            text.Append("no changes: the working copy matches the estate\n");
+            text.Append("no changes: the working copy matches the airspace\n");
         }
 
         foreach (var change in diff.Changes)

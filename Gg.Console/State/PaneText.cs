@@ -1383,7 +1383,7 @@ public static class PaneText
 
         if (changes.Count == 0 && retiring.Count == 0)
         {
-            return "Nothing to apply: the working copy matches the estate.";
+            return "Nothing to apply: the working copy matches the airspace.";
         }
 
         var text = new StringBuilder();

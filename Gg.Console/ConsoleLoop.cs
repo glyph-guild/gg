@@ -97,6 +97,14 @@ public sealed class ConsoleLoop(
     /// </param>
     Func<AppState, Func<string, string>, AppState>? configure = null,
 
+    /// <param name="takeOffered">
+    /// Takes the offer whose version it is handed, and answers with what
+    /// happened. The VERSION rather than the document, so this loop cannot
+    /// apply something other than what the page showed - the same guard
+    /// `gg config accept` carries, reached by a key.
+    /// </param>
+    Func<AppState, string, AppState>? takeOffered = null,
+
     /// <summary>
     /// Opens the verification link in a browser.
     /// </summary>
@@ -434,6 +442,26 @@ public sealed class ConsoleLoop(
                                 "This console is not configured to edit configuration.",
                         }
                         : configure(state, text => editor.Edit(text));
+                    break;
+
+                case Command.TakeOfferedConfiguration:
+                    // ASKED WITH THE VERSION ON THE SCREEN, and not asked at
+                    // all when there is nothing on it: the page already made
+                    // that round trip, and making it again to learn the same
+                    // thing is a call for a question already answered.
+                    state = state.Offered is not { } waiting
+                        ? state with
+                        {
+                            LastConfiguration =
+                                "Nothing is offered to this machine by its control plane.",
+                        }
+                        : takeOffered is null
+                            ? state with
+                            {
+                                LastConfiguration =
+                                    "This console is not configured to take offers.",
+                            }
+                            : takeOffered(Closed(state), waiting.Version);
                     break;
 
                 case Command.OpenSignInUri:

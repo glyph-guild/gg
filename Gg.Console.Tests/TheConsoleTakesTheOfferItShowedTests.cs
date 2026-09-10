@@ -75,7 +75,14 @@ public class TheConsoleTakesTheOfferItShowedTests
         // "pressed and did nothing".
         var loop = new ConsoleLoop(new Presses(Command.TakeOfferedConfiguration), new NoEditor());
 
-        var after = loop.Run(new AppState { Mode = UiMode.Help });
+        // WITH AN OFFER ON THE SCREEN, or this reads the other arm. "Nothing is
+        // offered" comes first and is the better answer when it is true - so a
+        // fixture without one proves nothing about being unwired.
+        var after = loop.Run(new AppState
+        {
+            Mode = UiMode.Help,
+            Offered = new OfferedOnThisMachine { Version = "offer@7", Settings = 1 },
+        });
 
         await Assert.That(after.LastConfiguration).IsNotNull();
         await Assert.That(after.LastConfiguration!).Contains("not configured", StringComparison.Ordinal);

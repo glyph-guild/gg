@@ -117,13 +117,13 @@ public class VerbParityTests
                               + "page is a summary rather than the document - the values a "
                               + "control plane proposed would otherwise reach GG_STATE_DUMP "
                               + "and the diagnostics bundle.",
-            ["ConfigAccept"] = "absent, and it is the gap worth naming. An offer's whole "
-                             + "safety argument is that a PERSON sees what is being "
-                             + "repointed, and the console is where the person is - so this "
-                             + "belongs there more than most. It needs the fetch above AND a "
-                             + "write, so it is two between-session round trips rather than "
-                             + "one, and the command line is the honest home until somebody "
-                             + "builds both.",
+            ["ConfigAccept"] = "reachable: `o` on the Environment page, handled between "
+                             + "sessions like every other write. It takes the version the "
+                             + "page SHOWED, through the same verb the command line runs, so "
+                             + "a control plane that changed its offer in between cannot "
+                             + "have the replacement applied by somebody who never read it. "
+                             + "This entry used to call it a gap and blame two round trips; "
+                             + "the count was right and the conclusion was not.",
 
             // --- reachable from the console today ---
             ["Decide"] = "reachable: approve on a key, reject through $EDITOR.",

@@ -88,6 +88,18 @@ public enum Command
     EditConfiguration,
 
     /// <summary>
+    /// Takes the configuration this tenant's control plane is offering.
+    /// </summary>
+    /// <remarks>
+    /// <b>A handoff for the same reason the edit above it is</b>: it writes
+    /// this machine's configuration file, and a session may not write. It takes
+    /// the version the Environment page SHOWED, so a control plane that changed
+    /// its offer between somebody reading it and pressing the key cannot have
+    /// the replacement applied by a person who never saw it.
+    /// </remarks>
+    TakeOfferedConfiguration,
+
+    /// <summary>
     /// Forgets a credential this tenant holds a reference to.
     /// </summary>
     /// <remarks>
@@ -465,6 +477,11 @@ public static class ShellCommands
         // It opens a child and then writes a file, which is two things a
         // session may not do.
         Command.EditConfiguration,
+
+        // It asks the control plane and then writes a file. The second half is
+        // the one that puts it here; the first is why it cannot be a read the
+        // session does either.
+        Command.TakeOfferedConfiguration,
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,

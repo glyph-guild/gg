@@ -160,11 +160,19 @@ public static class FlightDetails
     /// than a number of rows, because the thing being protected is the log
     /// underneath, and how much of it is left is a proportion.
     /// </remarks>
+    /// <remarks>
+    /// <b>Two thirds, and it was 45%.</b> That protected the log too well: the
+    /// intent is what a person opens this modal to read - it says why the
+    /// flight exists at all - and a long one scrolled inside thirteen rows of
+    /// thirty while the story underneath sat idle. It is still a CAP, so an
+    /// intent that fits under it takes only what it needs and the short-intent
+    /// case this sizing was written for is unchanged.
+    /// </remarks>
     public static int IntentRows(int lines, int room)
     {
         var wanted = Math.Max(3, lines + 2);
 
-        return room <= 0 ? wanted : Math.Min(wanted, Math.Max(3, room * 45 / 100));
+        return room <= 0 ? wanted : Math.Min(wanted, Math.Max(3, room * 2 / 3));
     }
 
     /// <summary>

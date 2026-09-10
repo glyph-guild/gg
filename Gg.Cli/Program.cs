@@ -177,8 +177,23 @@ return CliArgs.Parse(args) switch
 /// console makes already goes.
 /// </para>
 /// </remarks>
-static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessionStore sessions) =>
-    state with
+static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessionStore sessions)
+{
+    // THE FILE AGAIN, BEFORE ANYTHING BELOW READS IT. This function is the one
+    // place the model learns what is on this machine, and two of the facts
+    // below - the settings and the airspace path - come out of a cache that is
+    // right for a verb and wrong for a console: gg is the process that writes
+    // this file, so after the airspace tab set a path, the fold that was meant
+    // to show it folded the copy taken at boot instead. Forgotten first rather
+    // than last, because afterwards would come good on the reload after the one
+    // that mattered.
+    //
+    // ONE READ PER BOOT OR RELOAD, which is what the cache was for: the dozen
+    // readers between them still agree with each other, and the reload it sits
+    // in has already made a network round trip.
+    InForce.Forget();
+
+    return state with
     {
         Settings = ConsoleEnvironment.Read(InForce.Configuration),
 
@@ -246,6 +261,7 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
         // the opposite in ProjectionParityTests and reasoned from it twice.
         Offered = OfferedHere(client, sessions),
     };
+}
 
 /// <summary>
 /// Takes the offer the console showed, and says what happened in one line.

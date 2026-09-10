@@ -181,6 +181,22 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
         // runs on.
         Machine = Environment.MachineName,
 
+        // WHERE THIS MACHINE'S AIRSPACE IS, folded in here for the reason the
+        // machine name above it is: it is a file this machine already has, and
+        // nothing about it is the control plane's to answer. It sat behind the
+        // estate read instead, so the tab could not say where the airspace was
+        // - nor name the key that sets one - until a session, a network and a
+        // tenant's applied envelope had all come good. The reads fill Names and
+        // Working on top of this; the path is true before any of them.
+        Estate = (state.Estate ?? new Gg.Console.EstateOnThisMachine
+        {
+            Names = null,
+        }) with
+        {
+            Root = Airspace(),
+            IsRepository = Airspace() is { } tree && Gg.Client.Git.IsRepository(tree),
+        },
+
         // WHAT THE CONTROL PLANE OFFERS THIS MACHINE, read here for the reason
         // the settings above it are: one place asks, and the console renders
         // what it is given.

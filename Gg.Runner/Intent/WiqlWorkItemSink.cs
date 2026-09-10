@@ -52,8 +52,12 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
 
     private const string TitleField = "System.Title";
     private const string DescriptionField = "System.Description";
-    private const string TypeField = "System.WorkItemType";
-    private const string StateField = "System.State";
+    // `System.WorkItemType` AND `System.State` USED TO LIVE HERE as the two
+    // paths a `field` proposal could reach, beside tags. They are gone rather
+    // than kept: what a field proposal sets is now the paths it NAMED, which a
+    // person permitted on the destination - so a fixed list here would be a
+    // second, narrower answer to a question the menu already answers. Both are
+    // still writable; they are simply written because somebody asked for them.
     private const string TagsField = "System.Tags";
     private const string PriorityField = "Microsoft.VSTS.Common.Priority";
 
@@ -198,9 +202,17 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
                     break;
 
                 case WorkItemOperations.Field:
-                    Add(writer, TypeField, Detail(proposal, "type"));
-                    Add(writer, StateField, Detail(proposal, "state"));
-                    Add(writer, TagsField, Detail(proposal, "tags"));
+                    // THE PROPOSAL'S NAMED EDITS, which is what changed. This
+                    // read three fixed paths out of the opaque detail - fine
+                    // while nothing gated them, and wrong the moment a
+                    // destination's menu did: what a person permitted is a
+                    // path, so what gets written has to be the path that was
+                    // permitted rather than whatever this file knows about.
+                    foreach (var edit in proposal.Fields ?? [])
+                    {
+                        Add(writer, edit.Path, edit.Value);
+                    }
+
                     break;
 
                 case WorkItemOperations.Score:
@@ -222,9 +234,41 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
             body,
             cancellationToken);
 
-        answer.EnsureSuccessStatusCode();
+        await RefusedAsync(answer, proposal, target, cancellationToken);
 
         return new WorkItemWrite(proposal.Operation, target, Where(target), AlreadyDone: false);
+    }
+
+    /// <summary>
+    /// Throws naming what the tracker would not take, or returns.
+    /// </summary>
+    /// <remarks>
+    /// <b>A patch is ONE request for every field in it</b>, so a tracker
+    /// refusing one refuses the lot - and a flight that reported "nothing
+    /// written" without saying which field was the problem would send somebody
+    /// to read five field definitions. The tracker's own sentence is carried
+    /// through rather than summarised, because it names the field and this
+    /// code cannot.
+    /// </remarks>
+    private static async Task RefusedAsync(
+        HttpResponseMessage answer,
+        WorkItemProposal proposal,
+        string target,
+        CancellationToken cancellationToken)
+    {
+        if (answer.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var said = await answer.Content.ReadAsStringAsync(cancellationToken);
+        var paths = string.Join(", ", (proposal.Fields ?? []).Select(f => f.Path));
+
+        throw new InvalidOperationException(
+            $"The tracker refused a '{proposal.Operation}' on work item {target} with "
+          + $"{(int)answer.StatusCode}. It was asked to set: {paths}. Nothing was written - a "
+          + "patch is one request for every field in it, so one field it will not take "
+          + $"refuses the rest. It said: {said}");
     }
 
     /// <summary>Adds a relation, unless the item already has it.</summary>

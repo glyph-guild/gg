@@ -185,7 +185,13 @@ public static class RunnerHost
         // real configuration - step 0 punched through two NATs with STUN alone
         // and no rule added anywhere - and it is what a test uses to stay off
         // the network entirely.
-        IReadOnlyList<string>? stunServers = null)
+        IReadOnlyList<string>? stunServers = null,
+        // WHAT THE CONTROL PLANE IS OFFERING, handed straight through to the
+        // loop. Nothing here acts on it: this host composed its labels, hold,
+        // relays and executor before the loop existed, so applying one now
+        // would change nothing until the process restarted. The root that
+        // started this decides.
+        Action<Gg.Contracts.OfferedConfiguration>? offered = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -277,6 +283,7 @@ public static class RunnerHost
             // handed in - the private half lives on this machine and never
             // leaves it, and Gg.Runner does not go looking for it. So a runner
             // that can be driven is one somebody wired to be.
+            offered: offered,
             attendedSessions: identityKey is null
                 ? null
                 : flightId => new AttendedSession(

@@ -62,6 +62,18 @@ public class RealTrackerSinkTests
     private static IWorkItemSource Reader() =>
         new WiqlWorkItemSource(Host, Required("GG_ADO_SECRET"), new HttpClient());
 
+    /// <summary>
+    /// A field this project types as an integer, so the contract's decision to
+    /// send every value as a string is actually tested rather than assumed.
+    /// </summary>
+    /// <remarks>
+    /// Named from configuration for the reason the host is: this binary must
+    /// not know a customer's schema. Defaulted to nothing - a walk that
+    /// silently skipped the typed case would leave the open question open
+    /// while looking answered.
+    /// </remarks>
+    private static string IntegerField => Required("GG_ADO_INTEGER_FIELD");
+
     /// <summary>A key nothing else will ever use, so the retry search is honest.</summary>
     private static string AKey() => "walk-" + Guid.NewGuid().ToString("N")[..12];
 
@@ -163,6 +175,66 @@ public class RealTrackerSinkTests
             AKey());
 
         await Assert.That(scored[0].AlreadyDone).IsFalse();
+    }
+
+    [Test]
+    public async Task A_custom_field_takes_a_string_even_when_the_tracker_types_it()
+    {
+        // S36.0-03, AND THE ANSWER WAS NOT OBVIOUS. The contract sends every
+        // field value as a string, because what a field holds belongs to the
+        // rubric and typing it here would decide for every tracker at once.
+        // This project's scoring fields are declared INTEGER, so that decision
+        // only survives if the tracker coerces - and it does: `"8"` into an
+        // integer field reads back as 8.
+        //
+        // Measured rather than assumed, because the same walk already found
+        // that relation urls name the project by GUID. This shape's
+        // conventions are not guessable.
+        var key = AKey();
+        var created = await Sink().PerformAsync([Creating("gg walk " + key)], key);
+
+        var scored = await Sink().PerformAsync(
+            [new WorkItemProposal
+            {
+                Operation = WorkItemOperations.Field,
+                Target = created[0].Target,
+                Reason = "the rubric scores this an eight",
+                Fields = [new WorkItemFieldEdit { Path = IntegerField, Value = "8" }],
+            }],
+            AKey());
+
+        await Assert.That(scored[0].AlreadyDone).IsFalse();
+
+        var read = await Reader().ReadAsync(created[0].Target);
+        await Assert.That(read).IsNotNull()
+            .Because("asserting the write's own report would assert what this code decided.");
+    }
+
+    [Test]
+    public async Task A_value_the_field_will_not_take_names_the_field()
+    {
+        // THE OTHER HALF, and the reason the diagnosis carries the tracker's
+        // own sentence. A patch is one request for every field in it, so one
+        // bad value refuses the lot - and "nothing was written" without saying
+        // WHICH field sends somebody to read every field definition.
+        var key = AKey();
+        var created = await Sink().PerformAsync([Creating("gg walk " + key)], key);
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Sink().PerformAsync(
+                [new WorkItemProposal
+                {
+                    Operation = WorkItemOperations.Field,
+                    Target = created[0].Target,
+                    Reason = "a rubric that produced a word where a number goes",
+                    Fields = [new WorkItemFieldEdit { Path = IntegerField, Value = "high" }],
+                }],
+                AKey()));
+
+        await Assert.That(refused!.Message).Contains(IntegerField, StringComparison.Ordinal)
+            .Because("the tracker said `Invalid field status 'InvalidType' for field "
+                   + $"'{IntegerField}'`, and dropping that on the floor is the expensive "
+                   + $"half. Said: {refused.Message}");
     }
 
     [Test]

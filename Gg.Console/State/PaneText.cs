@@ -453,8 +453,98 @@ public static class PaneText
             return "not read - press e to read the envelope in force";
         }
 
-        return Clean(Gg.Client.VerbOutput.ToText(
-            new Gg.Client.VerbResult.EnvelopeShown(applied)), lines: true);
+        // THE DOCUMENTS FIRST, THEN THE ANSWER THEY COMPOSE TO. A person on
+        // this pane is either reading what governs or looking for where to
+        // change it, and the second question is the one the pane could not
+        // answer at all - so it goes where somebody arriving will see it,
+        // above a rendering that can run to a screenful.
+        return Estate(state)
+             + "\n"
+             + Clean(Gg.Client.VerbOutput.ToText(
+                 new Gg.Client.VerbResult.EnvelopeShown(applied)), lines: true);
+    }
+
+    /// <summary>
+    /// The documents the tenant has, and what the working copy says about them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Joined here and nowhere else.</b> The names and the working-copy
+    /// changes arrive as two verb results and are matched by name at the
+    /// render, so nothing in the console decides which document is in sync or
+    /// which way a changed one moves - the diff already answered both, from the
+    /// comparator the door itself runs.
+    /// </para>
+    /// <para>
+    /// <b>Three absences, and they are three different sentences.</b> Nothing
+    /// read is a key to press. A topology with no working copy is a verb to
+    /// run. A working copy that would not read is a diagnosis. An empty pane
+    /// would be all three at once, which is the failure the envelope's own
+    /// no-envelope line already exists to avoid.
+    /// </para>
+    /// </remarks>
+    public static string Estate(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Estate is not { } estate)
+        {
+            return "documents: not read - press e to read them";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine(estate.Root is { Length: > 0 } root
+            ? $"documents ({Clean(root)}{(estate.IsRepository ? "" : ", not a git tree")})"
+            : "documents (no working copy configured - gg config set airspace <path>)");
+
+        if (estate.Diagnosis is { Length: > 0 } wrong)
+        {
+            text.AppendLine("  " + Clean(wrong));
+        }
+
+        var changed = estate.Working?.Changes ?? [];
+
+        foreach (var name in estate.Names?.Names ?? [])
+        {
+            var change = changed.FirstOrDefault(
+                c => string.Equals(c.Name, name.Name, StringComparison.Ordinal));
+
+            // THE FIELD RIDES THE DIRECTION, because "something widened" sends
+            // a person reading a whole document to find out what - and the diff
+            // already knows.
+            var said = change is null
+                ? ""
+                : change.Field is { Length: > 0 } field
+                    ? $"  {change.Direction} ({Clean(field)})"
+                    : $"  {change.Direction}";
+
+            text.AppendLine($"  {Clean(name.Role),-10} {Clean(name.Name)}{said}");
+        }
+
+        // ONE OF THESE STOPS EVERY APPLY, so it is named rather than counted:
+        // applying the rest would land part of a changeset somebody meant as a
+        // whole, and a person told only that something is wrong has to go and
+        // find which file.
+        foreach (var path in estate.Working?.Unreadable ?? [])
+        {
+            text.AppendLine($"  unreadable {Clean(path)} - this stops every apply");
+        }
+
+        // AN INTENT, NOT AN ACT. There is no delete verb: retiring a name is
+        // applying a terminal version of it, gated like any other change.
+        foreach (var name in estate.Working?.Retiring ?? [])
+        {
+            text.AppendLine($"  {Clean(name)} is missing from the tree - retiring a name is "
+                          + "its own gated change");
+        }
+
+        if (estate.Working is null && estate.Diagnosis is null)
+        {
+            text.AppendLine("  nothing is pulled here yet - gg airspace pull renders them");
+        }
+
+        return text.ToString();
     }
 
     /// <summary>

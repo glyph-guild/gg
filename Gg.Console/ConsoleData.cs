@@ -340,6 +340,34 @@ public sealed class ConsoleData(
     public Task<VerbResult> EnvelopeAsync(CancellationToken cancellationToken = default) =>
         _envelopes.ShowAsync(cancellationToken);
 
+    /// <summary>
+    /// `gg airspace show` - every name this tenant has, and its role.
+    /// </summary>
+    /// <remarks>
+    /// <b>The topology, not the repositories.</b> Two different reads have been
+    /// called "airspace" in this codebase and they answer different questions:
+    /// this one is which documents govern, and <see cref="RepositoriesAsync"/>
+    /// is what a flight may be opened against.
+    /// </remarks>
+    public Task<VerbResult> TopologyAsync(CancellationToken cancellationToken = default) =>
+        _commands.AirspaceAsync(cancellationToken);
+
+    /// <summary>
+    /// `gg airspace diff` - what the working copy would change, and which way.
+    /// </summary>
+    /// <remarks>
+    /// <b>The read half of a verb whose write half stays out.</b> Pull writes
+    /// files and apply submits them; both are out of the console by declaration.
+    /// Diff writes nothing - it reads the tree and asks the control plane what
+    /// it holds - and it is the only place direction is computed, from the
+    /// comparator the door itself runs. A pane that decided for itself which
+    /// way a document moved would be the second opinion ADR-0016 § 6 refused a
+    /// permission model for.
+    /// </remarks>
+    public Task<VerbResult> EstateDiffAsync(
+        string root, CancellationToken cancellationToken = default) =>
+        _commands.AirspaceDiffAsync(root, cancellationToken);
+
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);

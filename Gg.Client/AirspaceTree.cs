@@ -472,6 +472,42 @@ public sealed record EstateApplied
     public required IReadOnlyList<string> Retiring { get; init; }
 }
 
+/// <summary>What declaring a name came to.</summary>
+/// <remarks>
+/// <b>One record for both answers, the way <see cref="AppliedDocument"/> already
+/// folds a gated apply into the same shape as a landed one.</b> A declaration is
+/// a widening by construction (ADR-0016 § 6), so the gated arm is the ordinary
+/// one - and two record types for "it landed" and "it is waiting" would be two
+/// things to render and two ways to ask which happened.
+/// </remarks>
+public sealed record NameDeclared
+{
+    public required string Name { get; init; }
+
+    /// <summary>One of the declarable roles: work-kind, narrowing or strategy.</summary>
+    public required string Role { get; init; }
+
+    /// <summary>The name this one sits under, as it was declared.</summary>
+    public required string Parent { get; init; }
+
+    /// <summary>Who declared it, when the name is live here now.</summary>
+    /// <remarks>
+    /// Null while a declaration is riding a flight, because nobody has yet:
+    /// the attribution is minted when the gate opens, and filling it with the
+    /// asker would name somebody who has not decided anything.
+    /// </remarks>
+    public string? DeclaredBy { get; init; }
+
+    /// <summary>The flight the declaration rides, when it diverted.</summary>
+    public string? Flight { get; init; }
+
+    /// <summary>Who the gate awaits, when it diverted.</summary>
+    public string? Awaiting { get; init; }
+
+    /// <summary>What the registration widens, when it diverted.</summary>
+    public string? Widens { get; init; }
+}
+
 /// <summary>One document's change, in lines and direction.</summary>
 public sealed record DocumentChange
 {

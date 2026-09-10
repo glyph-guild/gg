@@ -145,6 +145,19 @@ public abstract record CliAction
     /// <summary>What the working copy would change, per document.</summary>
     public sealed record AirspaceDiff(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Declares a name in the topology, so a document can reach it.</summary>
+    /// <remarks>
+    /// <b>The parent is defaulted here rather than at the door.</b> A blank
+    /// parent is legal on the wire and means "under nothing", which the control
+    /// plane's own refusal for a missing parent calls unreachable by
+    /// construction - so gg picks root, which is in every tenant's topology by
+    /// synthesis and is therefore the one default that is always valid. It is
+    /// visible in the usage line, which is where a default a person can
+    /// override belongs.
+    /// </remarks>
+    public sealed record AirspaceName(
+        string Role, string Name, string Parent, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -360,7 +373,12 @@ public static class CliArgs
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
-        "gg airspace show|pull|diff|apply  the repositories this tenant has registered",
+        // WAS "the repositories this tenant has registered", which describes
+        // neither `show` (the topology - envelope names and their roles) nor
+        // the working-copy verbs beside it. Repositories are a different read
+        // and the console is its only caller.
+        "gg airspace show|pull|diff|apply  the estate: its names, and its working copy",
+        "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
         "gg envelope apply <file>|-     write them back",
@@ -529,7 +547,16 @@ public static class CliArgs
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
             ["airspace", "apply"] => new CliAction.AirspaceApply(json),
             ["airspace", "diff"] => new CliAction.AirspaceDiff(json),
-            ["airspace", ..] => Unknown("gg airspace takes show, pull, diff or apply."),
+            ["airspace", "name", var role, var named, "--under", var parent] =>
+                new CliAction.AirspaceName(role, named, parent, json),
+            ["airspace", "name", var role, var named] =>
+                new CliAction.AirspaceName(role, named, Gg.Contracts.Roles.Root, json),
+            ["airspace", "name", ..] => Unknown(
+                "gg airspace name takes a role and a name, in that order - "
+              + "gg airspace name narrowing pci. The role is one of work-kind, narrowing or "
+              + "strategy, and --under names the parent when it is not root."),
+            ["airspace", ..] => Unknown(
+                "gg airspace takes show, pull, diff, apply or name."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),

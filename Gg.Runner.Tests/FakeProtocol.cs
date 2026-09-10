@@ -185,8 +185,17 @@ internal sealed class FakeProtocol : IRunnerProtocol
         {
             NextHeartbeatSeconds = HeartbeatSeconds,
             Introductions = waiting,
+            Offered = Offered,
         });
     }
+
+    /// <summary>What this control plane offers, or null for nothing.</summary>
+    /// <remarks>
+    /// Carried on every beat rather than dequeued like an introduction, because
+    /// that is what a real one does: an offer is a standing document, not a
+    /// message that is taken once.
+    /// </remarks>
+    internal OfferedConfiguration? Offered { get; set; }
 
     /// <summary>Whether the control plane has finished evaluating this flight.</summary>
     internal bool Settles { get; set; } = true;

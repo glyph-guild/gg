@@ -1582,7 +1582,36 @@ static async Task<int> RunnerUpAsync()
             // host candidates work between machines that can already reach each
             // other - and TURN is S34.Q-04, still open.
             stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
-            Settings.Value(Gg.Runner.StunConfiguration.Variable, inForce)));
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, inForce)),
+            // A NEW OFFER ENDS THIS PROCESS SO THE NEXT ONE TAKES IT. Nothing
+            // is applied here: everything above was composed already, and the
+            // startup path is the one place an offer lands. Stopping is how
+            // that path gets run again.
+            //
+            // ONLY IF A RESTART WOULD ACTUALLY WRITE SOMETHING, which is the
+            // guard against an infinite restart loop: a runner that stopped for
+            // ANY offer would meet a directed one it may never take, exit,
+            // boot, meet it again and exit for ever. Decide is asked the same
+            // question the next startup will ask, so "worth restarting for" and
+            // "would be taken" cannot come apart.
+            //
+            // The loop only reports on an IDLE beat, so this never ends a
+            // process holding somebody's flight.
+            offered: carried =>
+            {
+                if (OfferedAtStartup.Decide(
+                        carried, inForce, Gg.Local.ConfigurationFile.DefaultPath()).Write is null)
+                {
+                    return;
+                }
+
+                Console.Error.WriteLine(
+                    $"gg: offered configuration {carried.Version} is not what this runner is "
+                  + "running on, and nothing is applied to a running loop. Stopping so the "
+                  + "next start takes it.");
+
+                stopping.Cancel();
+            });
     }
     finally
     {

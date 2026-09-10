@@ -235,7 +235,16 @@ public sealed class RunnerLoop(
     // for both means every turn of the beat advances a test's clock by a
     // heartbeat interval while the flight it is beside has not moved - which
     // expires the lease the beat exists to keep alive. Null is the real one.
-    Func<TimeSpan, CancellationToken, Task>? beatPace = null)
+    Func<TimeSpan, CancellationToken, Task>? beatPace = null,
+    // WHAT THE CONTROL PLANE IS OFFERING, handed on rather than acted on. This
+    // loop never applies configuration and is not going to: labels, hold,
+    // relays and executor were read once before it was built, so a file written
+    // here would change nothing until the process restarted - and making them
+    // mutable instead would let a flight begin under one configuration and land
+    // under another. The root decides what to do; the next startup applies.
+    //
+    // LAST and defaulted, for the reason beatPace above it is.
+    Action<Gg.Contracts.OfferedConfiguration>? offered = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -361,6 +370,16 @@ public sealed class RunnerLoop(
             if (session is not null && beat.Introductions is { Count: > 0 } waiting)
             {
                 await session.AnswerAllAsync(runnerId, waiting, _protocol, cancellationToken);
+            }
+
+            // ONLY WHILE IDLE, and the omission is the point. This beats
+            // beside a held flight too, and reporting then would invite a
+            // caller to end a process halfway through somebody's work - where
+            // the runner's whole bargain is that a lease it holds is finished
+            // or explicitly released.
+            if (session is null && beat.Offered is { } carried)
+            {
+                offered?.Invoke(carried);
             }
 
             // A SERVED BEAT CLEARS IT, so an hour of health does not inherit a

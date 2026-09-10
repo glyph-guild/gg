@@ -111,6 +111,40 @@ public partial class TheRunnerRootAppliesBeforeItComposesTests
                    + "meets during a deploy.");
     }
 
+    [Test]
+    public async Task Stopping_for_an_offer_is_guarded_by_whether_a_restart_would_take_it()
+    {
+        // THE RESTART LOOP, and it is the one failure here that never settles.
+        // A runner that stopped for ANY offer would meet a directed one it may
+        // never take, exit, boot, meet it again, and exit for ever - on every
+        // machine in the fleet at once, the moment somebody offers a key that
+        // needs a person.
+        //
+        // Asking Decide is what makes "worth restarting for" the same question
+        // as "would be taken", answered by one function rather than by two that
+        // agree today.
+        var body = RunnerUp();
+
+        // ANCHORED ON THE HANDLER, not on the first cancel in the method: the
+        // Ctrl-C handler cancels the same source hundreds of lines earlier, and
+        // a scan that found that one would read the startup try/catch and
+        // report this guard missing while it was there.
+        var handler = body.IndexOf("offered: carried =>", StringComparison.Ordinal);
+
+        await Assert.That(handler).IsGreaterThan(-1)
+            .Because("nothing is wired to notice an offer, so a fleet takes one only when "
+                   + "something else happens to restart it.");
+
+        var stop = body.IndexOf("stopping.Cancel()", handler, StringComparison.Ordinal);
+
+        await Assert.That(stop).IsGreaterThan(-1)
+            .Because("the handler notices and never acts, so nothing restarts.");
+
+        await Assert.That(body[handler..stop]).Contains(".Write is null", StringComparison.Ordinal)
+            .Because("the stop has to be conditional on a restart actually writing something, "
+                   + "or a directed offer nobody can take restarts this machine for ever.");
+    }
+
     [GeneratedRegex(@"InForce\.Configuration")]
     private static partial Regex Memo();
 }

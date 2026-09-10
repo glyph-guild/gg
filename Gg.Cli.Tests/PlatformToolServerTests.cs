@@ -288,7 +288,7 @@ public class PlatformToolServerTests
     }
 
     [Test]
-    public async Task It_declares_five_tools_and_a_sixth_has_to_argue_for_itself()
+    public async Task It_declares_six_tools_and_a_seventh_has_to_argue_for_itself()
     {
         // TWO NOW, AND THE OLD REASON WAS THE WRONG ONE. This asserted one tool
         // because "a second on this server would be granted by the same move" -
@@ -366,20 +366,53 @@ public class PlatformToolServerTests
         // agent can DECIDE - which is the same property that made the fourth
         // affordable, said about a write rather than a record.
         //
-        // A SIXTH still has to make its own argument. None of these five is it.
+        // THE SIXTH, AND IT IS THE FIRST THAT ONLY ANSWERS. Every tool above
+        // records something a person or a runner later acts on. describe_-
+        // airspace reads the working copy the session was already handed and
+        // says how the documents in it are read: it writes nothing, decides
+        // nothing, and reaches nothing the session did not already have.
+        //
+        // WHY IT HAD TO EXIST AT ALL. A drafting session hands an agent a
+        // directory and a tool and tells it nothing else - no prompt, by
+        // design, because the person drives; no CLAUDE.md in a customer tree,
+        // because gg has no business writing one there. So the rules that
+        // decide whether a document applies or waits at a gate were reachable
+        // from nowhere: not from the files, which cannot state the rule that a
+        // narrowing has no member for removal, and not from this repository,
+        // which is not where the agent is standing. An agent that cannot learn
+        // the rules writes documents a person has to correct, which is the
+        // cost this was weighed against.
+        //
+        // WHY A TOOL RATHER THAN THE SERVER'S `instructions`, which reach a
+        // model with no call: instructions belong to the SERVER, and this one
+        // also serves nomination, decision and triage flights that want no
+        // envelope doctrine at all. A tool costs nothing until it is called,
+        // its call is in the transcript so whether the rules were read is
+        // observable, and only a call can answer about THIS tenant - which
+        // documents exist and what one of them looks like.
+        //
+        // AND IT IS INERT WHERE IT DOES NOT BELONG, by the same mechanism the
+        // fifth uses: no working copy, no answer. The root is written into
+        // this server's environment only by a drafting launch, so on a fleet
+        // flight the tool is declared and refuses - which is what keeps
+        // "what can an injected agent reach through this server" the same
+        // answer it was.
+        //
+        // A SEVENTH still has to make its own argument. None of these six is it.
         var answers = await ExchangeAsync(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
 
         var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(5)
-            .Because("one channel, five tools. A sixth is a decision somebody has to argue "
-                   + "for, in this comment, where the last three were argued for.");
+        await Assert.That(tools.GetArrayLength()).IsEqualTo(6)
+            .Because("one channel, six tools. A seventh is a decision somebody has to argue "
+                   + "for, in this comment, where the last four were argued for.");
 
         var listed = tools.EnumerateArray()
             .Select(t => t.GetProperty("name").GetString()!).ToList();
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
-                    WorkItemProposalTool.Name, DocumentTool.Name })
+                    WorkItemProposalTool.Name, DocumentTool.Name,
+                    AirspaceContextTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));
 

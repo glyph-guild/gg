@@ -399,7 +399,16 @@ public static class PlatformToolServer
               + "that may wait for an approver. The document is checked before it is "
               + "written: if it does not read as the role you named, nothing is written and "
               + "you are told why, so fix it and call again. Calling it again replaces what "
-              + "you wrote.");
+              + "you wrote. "
+                // THE POINTER, HERE BECAUSE THIS IS THE ONE THAT IS READ.
+                // The tool list reaches the model before its first token, and
+                // this is the description an agent reads when it decides to
+                // write a document - which is exactly when not knowing the
+                // rules costs something. An instruction anywhere else is one
+                // it has to already be looking for.
+              + $"BEFORE YOU DRAFT, call {AirspaceContextTool.Name}: these documents have "
+              + "rules you cannot see from the file, and it shows you one that already "
+              + "exists.");
 
             writer.WriteStartObject("inputSchema");
             writer.WriteString("type", "object");
@@ -435,6 +444,38 @@ public static class PlatformToolServer
             writer.WriteStringValue(DocumentTool.NameArgument);
             writer.WriteStringValue(DocumentTool.DocumentArgument);
             writer.WriteEndArray();
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
+            // THE SIXTH TOOL, AND THE ONLY ONE THAT ANSWERS RATHER THAN ACTS.
+            // The argument for it is that a drafting session hands an agent a
+            // directory and a tool and tells it nothing: no prompt, no
+            // CLAUDE.md in the tree, and no example of a role the tenant has
+            // no document for. What it needs to know is not in the working
+            // copy and not in this repository either.
+            //
+            // A TOOL RATHER THAN THE SERVER'S `instructions`, which reach a
+            // model with no call at all: instructions are the SERVER's, and
+            // this one also serves nomination, decision and triage flights
+            // that want no envelope doctrine. A tool costs nothing until it is
+            // called, the call is in the transcript so reading the rules is
+            // observable rather than assumed, and only a call can answer about
+            // THIS tenant.
+            writer.WriteStartObject();
+            writer.WriteString("name", AirspaceContextTool.Name);
+            writer.WriteString("description",
+                "Read how this tenant's envelope documents work before you draft one. It "
+              + "answers with the rules a document is read by - which you cannot work out "
+              + "from the files - plus what this working copy holds and one existing "
+              + "document in full. It changes nothing and takes no arguments. Call it "
+              + "first: the rules decide whether what you write applies straight away or "
+              + "waits for a person to approve it.");
+
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteEndObject();
             writer.WriteEndObject();
 
             writer.WriteEndObject();
@@ -599,6 +640,11 @@ public static class PlatformToolServer
         if (string.Equals(called, DocumentTool.Name, StringComparison.Ordinal))
         {
             return Drafted(id, arguments, documentRoot);
+        }
+
+        if (string.Equals(called, AirspaceContextTool.Name, StringComparison.Ordinal))
+        {
+            return Described(id, documentRoot);
         }
 
         if (string.Equals(called, WorkItemProposalTool.Name, StringComparison.Ordinal))
@@ -877,6 +923,196 @@ public static class PlatformToolServer
     /// colleague's work.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Says how this tenant's documents are read, and what its tree holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>EVERY CLAIM HERE IS SOURCED FROM THE TYPE THAT ENFORCES IT.</b> The
+    /// one-key rule is <c>EnvelopeNarrowing</c>'s shape, whose own remark is
+    /// <i>"What this layer adds. Never what it changes - there is no such
+    /// member."</i>; the direction rules are
+    /// <c>EnvelopeDirection.Obligations</c>, whose comment says additions
+    /// tighten and that a changed body is <i>"a DIFFERENT gate, not a tighter
+    /// one"</i>; and <c>based-on:</c> being a precondition rather than
+    /// provenance is <c>EnvelopeYaml</c>'s. A second wording of any of them
+    /// here would be a second thing to keep in agreement, and the one that
+    /// drifts is the one nobody reads.
+    /// </para>
+    /// <para>
+    /// <b>The roles and their paths are computed, not typed.</b>
+    /// <c>Roles.All</c> and <c>AirspaceNames.PathFor</c> answer both, so a role
+    /// added to the vocabulary appears here without anybody remembering to add
+    /// it - and one with nowhere to live in the tree says so rather than being
+    /// quietly listed.
+    /// </para>
+    /// <para>
+    /// <b>An empty tree is answered, not refused.</b> The rules are true
+    /// whether or not anything has been pulled, and the one situation where an
+    /// agent certainly does not know them is the one where nothing is there to
+    /// read. Refusing would leave it with the doctrine nowhere and a directory
+    /// it cannot interpret.
+    /// </para>
+    /// <para>
+    /// <b>No working copy IS refused, though</b>, for the reason
+    /// <c>Drafted</c> refuses: the root is set only for a drafting launch, so
+    /// its absence means this is a flight that never asked, and
+    /// <c>TheProposalToolActsOnNothingTests</c> states why what an agent can
+    /// reach through this server is the whole question.
+    /// </para>
+    /// </remarks>
+    private static string Described(JsonElement id, string? documentRoot)
+    {
+        if (string.IsNullOrEmpty(documentRoot))
+        {
+            return Content(id, isError: true,
+                "Refused: this session has no airspace working copy, so there is nothing "
+              + "to describe. This tool is for a drafting session.");
+        }
+
+        var said = new StringBuilder();
+
+        said.AppendLine(
+            "HOW THIS TENANT'S ENVELOPE DOCUMENTS WORK, and what its working copy holds.");
+        said.AppendLine();
+        said.AppendLine(
+            "WHAT THESE FILES ARE. A rendering of the stream, not the record. Nothing you "
+          + "write here applies anything: a person reads the change and decides whether to "
+          + "submit it, and submitting opens a flight that may wait for an approver.");
+        said.AppendLine();
+
+        // FROM THE VOCABULARY AND THE PATH RULE, so a role added to either
+        // shows up here without anybody remembering this file exists.
+        said.AppendLine(
+            "THE ROLES. A document's role decides which rules it is read by, and the role "
+          + "comes from WHERE THE FILE SITS rather than from what the document looks like - "
+          + "so a complete envelope saved as a narrowing is refused rather than guessed "
+          + "past.");
+
+        foreach (var role in Gg.Contracts.Roles.All)
+        {
+            string at;
+            try
+            {
+                at = $"{Gg.Client.AirspaceTree.Directory}/"
+                   + Gg.Contracts.AirspaceNames.PathFor(role, "<name>");
+            }
+            catch (ArgumentException)
+            {
+                // A ROLE WITH NOWHERE TO LIVE says so rather than being listed
+                // as though a document could be written for it.
+                at = "(no place in the rendered tree)";
+            }
+
+            said.AppendLine($"  {role,-10} {at}");
+        }
+
+        said.AppendLine();
+        said.AppendLine(
+            "A NARROWING HAS ONE KEY: `obligations`. There is no member for changing or "
+          + "removing what a layer above declared - that is enforced by the document's "
+          + "shape, not by a check. At least one obligation is required.");
+        said.AppendLine();
+        said.AppendLine(
+            "WHAT YOU WRITE DECIDES WHETHER IT LANDS. Adding an obligation TIGHTENS: it "
+          + "applies and mints a version. Removing one WIDENS, because obligations union - "
+          + "adding constrains anyone, and the beneficiary owns removal. Changing an "
+          + "obligation's body WIDENS too: a changed body is a different gate, not a "
+          + "tighter one. A widening is not a failure and not a refusal; it opens a flight "
+          + "that waits for an approver.");
+        said.AppendLine();
+        said.AppendLine(
+            "LEAVE OUT `based-on:`. It is a precondition the applier states, honoured at "
+          + "apply and then gone - not provenance you author. gg writes that line, and "
+          + "keeps the one already in the file when you submit.");
+        said.AppendLine();
+
+        Holdings(said, documentRoot);
+
+        return Content(id, isError: false, said.ToString().TrimEnd());
+    }
+
+    /// <summary>What is in the working copy, and one document in full.</summary>
+    /// <remarks>
+    /// <b>The example is the half no wording can replace.</b> A description can
+    /// say what a narrowing is; only the tree can show one this tenant wrote.
+    /// A narrowing is preferred where there is one, because it is the role
+    /// somebody is most often drafting and the one whose shape is least like
+    /// the root document beside it.
+    /// </remarks>
+    private static void Holdings(StringBuilder said, string documentRoot)
+    {
+        Gg.Client.TreeRead tree;
+        try
+        {
+            tree = Gg.Client.AirspaceTree.Read(documentRoot);
+        }
+        catch (Exception unreadable) when (
+            unreadable is IOException or UnauthorizedAccessException)
+        {
+            // SAID, NOT THROWN, for the reason every refusal here is: a throw
+            // kills the server and takes the agent's other tools with it.
+            said.AppendLine($"THE WORKING COPY could not be read ({unreadable.Message}).");
+            return;
+        }
+
+        if (!tree.Present || tree.Documents.Count == 0)
+        {
+            said.AppendLine(
+                "THIS WORKING COPY HOLDS NOTHING YET. Nothing has been pulled into it, so "
+              + "there are no documents to read and no example to follow. A pull renders "
+              + "the tenant's airspace here; everything above is true either way.");
+            return;
+        }
+
+        said.AppendLine($"WHAT THIS WORKING COPY HOLDS ({tree.Documents.Count}):");
+
+        foreach (var document in tree.Documents)
+        {
+            var basis = document.BasedOn is { Length: > 0 } version
+                ? $"  based on {version}"
+                : "  never applied";
+
+            said.AppendLine($"  {document.Role,-10} {document.Name,-24} {document.Path}{basis}");
+        }
+
+        foreach (var broken in tree.Unreadable)
+        {
+            // NAMED, because one unreadable file refuses the whole apply - so
+            // an agent drafting beside it should know before it spends a turn.
+            said.AppendLine($"  UNREADABLE {broken.Path}");
+        }
+
+        var example = tree.Documents
+            .FirstOrDefault(d => string.Equals(
+                d.Role, Gg.Contracts.Roles.Narrowing, StringComparison.Ordinal))
+            ?? tree.Documents[0];
+
+        string text;
+        try
+        {
+            text = File.ReadAllText(Path.Combine(
+                documentRoot, Path.Combine(example.Path.Split('/'))));
+        }
+        catch (Exception unreadable) when (
+            unreadable is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        // CAPPED, because a tenant floor can be long and an example that fills
+        // the context is worse than a shorter one. Said when it happens, so
+        // nobody reads a truncated document as a complete one.
+        const int Most = 4000;
+        var shown = text.Length > Most ? text[..Most] + "\n... (truncated)" : text;
+
+        said.AppendLine();
+        said.AppendLine($"ONE OF THEM IN FULL, {example.Path} - the form to follow, except "
+                      + "for the based-on line, which is gg's:");
+        said.AppendLine();
+        said.AppendLine(shown.TrimEnd());
+    }
+
     private static string Drafted(JsonElement id, JsonElement arguments, string? documentRoot)
     {
         if (string.IsNullOrEmpty(documentRoot))

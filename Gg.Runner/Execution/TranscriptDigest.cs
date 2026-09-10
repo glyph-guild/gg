@@ -769,6 +769,13 @@ public static class TranscriptDigest
                      && detail.ValueKind != JsonValueKind.Null
                 ? detail.Clone()
                 : null,
+            // AND THE FIELDS, which are the half a menu is applied to. Read
+            // here rather than left in the detail for the reason the contract
+            // gives: admission admits on what it can see, and this is where a
+            // transcript becomes something it can see. Absent stays absent so
+            // the contract can tell a field proposal that set nothing from one
+            // that is not a field proposal at all.
+            Fields = Edits(input),
         };
 
         // THE CONTRACT DECIDES, not this. One definition of a whole proposal,
@@ -831,6 +838,42 @@ public static class TranscriptDigest
                 ? Bound(repository, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false)
                 : null,
         }));
+    }
+
+    /// <summary>
+    /// The field edits a call carried, or null where it carried none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not completed and not defaulted.</b> An entry missing a path or a
+    /// value is carried through as the empty string and refused by the
+    /// contract, the same way an absent operation is - because this extractor
+    /// may not invent the half of a change somebody did not ask for.
+    /// </remarks>
+    private static IReadOnlyList<Gg.Contracts.WorkItemFieldEdit>? Edits(JsonElement input)
+    {
+        if (!input.TryGetProperty("fields", out var fields)
+            || fields.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var edits = new List<Gg.Contracts.WorkItemFieldEdit>();
+
+        foreach (var field in fields.EnumerateArray())
+        {
+            if (field.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            edits.Add(new Gg.Contracts.WorkItemFieldEdit
+            {
+                Path = Argument(field, "path") ?? "",
+                Value = Argument(field, "value") ?? "",
+            });
+        }
+
+        return edits.Count > 0 ? edits : null;
     }
 
     /// <summary>Records that a call came back, and came back without an error.</summary>

@@ -1297,7 +1297,8 @@ public static class ProtocolSurface
                 ["workKind", "reason", "note", "environment", "repository"],
             [typeof(LoopQuestion)] = ["question"],
             [typeof(WorkItemProposal)] =
-                ["operation", "reason", "target", "score", "detail"],
+                ["operation", "reason", "target", "score", "detail", "fields"],
+            [typeof(WorkItemFieldEdit)] = ["path", "value"],
             [typeof(LoopAttended)] =
                 ["loopId", "rung", "binary", "binaryVersion", "budgetSeconds", "heldSeconds",
                  "unmeasured", "settingsCleared"],

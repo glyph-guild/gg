@@ -132,7 +132,16 @@ public class SliceTwelveGuardTests
     /// extractor and admission both read. The count below is unchanged, which
     /// is what this guard is for.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.28.0";
+    /// <para>
+    /// <b>And to 0.29.0 — slice thirty-six, and a MEMBER rather than a kind.</b>
+    /// <c>WorkItemProposal</c> gains <c>fields</c>, the paths a proposal would
+    /// set, because a destination's menu bounds them and admission admits on
+    /// what it can SEE. Left in the opaque detail the check would have fallen
+    /// to the runner, which is not an authority. The count below is unchanged:
+    /// this is the shape 0.23.0 records for <c>flight.nomination</c>, a fact
+    /// type growing a member, and not a fourteenth kind.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.29.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

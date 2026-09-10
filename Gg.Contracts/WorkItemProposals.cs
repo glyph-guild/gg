@@ -134,6 +134,51 @@ public static class WorkItemProposalLimits
 }
 
 /// <summary>
+/// One field an agent proposes be set, and what to.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A named pair rather than a dictionary entry.</b> A wire type somebody
+/// audits is a list of things with names; a map is a shape whose keys nobody
+/// declared - and the keys here are the whole question a destination's menu
+/// answers, so they are the last thing that should be implicit.
+/// </para>
+/// <para>
+/// <b>The path is the tracker's own spelling and this contract does not parse
+/// it.</b> Whether <c>Custom.RiceScore</c> exists, what type it takes and who
+/// may write it are the tracker's answers; what this side owes is that the
+/// path an agent asked for is the path a person permitted, which is a
+/// comparison and not an interpretation.
+/// </para>
+/// <para>
+/// <b>The value is a string, on the score's reasoning.</b> What a field holds
+/// belongs to the rubric and the tracker, and typing it here would decide for
+/// every field of every tracker in a place nobody consults while writing one.
+/// </para>
+/// </remarks>
+[PinnedId("b4e07a19-52dc-4f38-9a6e-1d83c5f2074b")]
+public sealed record WorkItemFieldEdit
+{
+    /// <summary>The field's reference path, as the tracker spells it.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>What to set it to.</summary>
+    public required string Value { get; init; }
+
+    /// <summary>The most a path may be.</summary>
+    /// <remarks>A reference path is an identifier, not a sentence.</remarks>
+    public const int MaxPath = 256;
+
+    /// <summary>The most a value may be.</summary>
+    /// <remarks>
+    /// Larger than a path and far smaller than the detail: a field a person
+    /// reads in a work item's form is a value, and a document belongs in the
+    /// item's description rather than in one of its fields.
+    /// </remarks>
+    public const int MaxValue = 2048;
+}
+
+/// <summary>
 /// A change an agent proposes be made to a work item, and why.
 /// </summary>
 /// <remarks>
@@ -247,6 +292,36 @@ public sealed record WorkItemProposal
     /// </remarks>
     public JsonElement? Detail { get; init; }
 
+    /// <summary>
+    /// The fields this proposal would set, when its operation is
+    /// <see cref="WorkItemOperations.Field"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>NAMED, because admission admits on what it can see.</b> The adapter
+    /// reads a title and a state out of <see cref="Detail"/>, which is a
+    /// convention between it and the skill and is fine for something nobody
+    /// gates. These are gated: the destination carries a menu of the paths it
+    /// permits, and a menu can only be applied to something the control plane
+    /// can read. In the detail they would be checked by the runner, and the
+    /// runner is not an authority.
+    /// </para>
+    /// <para>
+    /// <b>On <c>field</c> and nothing else.</b> A link that carried field edits
+    /// would be a proposal whose operation and whose content disagree - held
+    /// against a menu while performing something else - so the pairing is
+    /// validated rather than assumed.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<WorkItemFieldEdit>? Fields { get; init; }
+
+    /// <summary>The most fields one proposal may set.</summary>
+    /// <remarks>
+    /// A scoring pass fills a form, and a form has a form's worth of fields.
+    /// Past this an agent is rewriting an item rather than scoring one.
+    /// </remarks>
+    public const int MaxFields = 32;
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(WorkItemProposal proposal)
     {
@@ -327,6 +402,45 @@ public sealed record WorkItemProposal
             }
         }
 
+        var setting = string.Equals(
+            proposal.Operation, WorkItemOperations.Field, StringComparison.Ordinal);
+
+        if (proposal.Fields is { } edits)
+        {
+            if (!setting)
+            {
+                return $"A '{proposal.Operation}' proposal carries field edits, and only "
+                     + $"'{WorkItemOperations.Field}' sets fields. The operation says what "
+                     + "happens and the edits say what changes; a proposal where those "
+                     + "disagree means whatever its reader believes.";
+            }
+
+            if (edits.Count == 0)
+            {
+                return $"A '{WorkItemOperations.Field}' proposal names no field to set. Leave "
+                     + "the list out rather than sending an empty one - absent says this is "
+                     + "not a field proposal, and empty says one was attempted and produced "
+                     + "nothing.";
+            }
+
+            if (edits.Count > MaxFields)
+            {
+                return $"A proposal sets at most {MaxFields} fields and this one sets "
+                     + $"{edits.Count}. Past that it is rewriting an item rather than "
+                     + "scoring one.";
+            }
+
+            if (Bad(edits) is { } badEdit)
+            {
+                return badEdit;
+            }
+        }
+        else if (setting)
+        {
+            return $"A '{WorkItemOperations.Field}' proposal says an item should change "
+                 + "without saying how. Name the fields it would set.";
+        }
+
         // THE ONE MEASUREMENT TAKEN OF SOMETHING NOBODY HERE READS. Its shape
         // stays the agent's; its size does not.
         if (proposal.Detail is { } detail)
@@ -343,6 +457,48 @@ public sealed record WorkItemProposal
                 return $"A proposal's detail is at most {WorkItemProposalLimits.MaxDetail} "
                      + $"characters and this one is {written}. Nothing reads it, which is "
                      + "why it is bounded: the facts of one flight travel in one batch.";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The diagnosis for the first bad edit, or null.</summary>
+    /// <remarks>
+    /// <b>A blank VALUE is refused and it is the subtle one.</b> An empty
+    /// string reads to a tracker as clearing the field, and clearing is a
+    /// change nobody proposed - so it is a different act wearing the same
+    /// shape, which is exactly what a bound is for.
+    /// </remarks>
+    private static string? Bad(IReadOnlyList<WorkItemFieldEdit> edits)
+    {
+        foreach (var edit in edits)
+        {
+            if (string.IsNullOrWhiteSpace(edit.Path))
+            {
+                return "A field edit names no path. A path that names nothing matches no "
+                     + "menu entry and reaches no field.";
+            }
+
+            if (edit.Path.Length > WorkItemFieldEdit.MaxPath)
+            {
+                return $"A field path is at most {WorkItemFieldEdit.MaxPath} characters and "
+                     + $"this one is {edit.Path.Length}. It is a reference path, not a "
+                     + "sentence.";
+            }
+
+            if (string.IsNullOrWhiteSpace(edit.Value))
+            {
+                return $"The edit to '{edit.Path}' has a blank value. An empty string reads "
+                     + "to a tracker as CLEARING the field, and clearing is a change nobody "
+                     + "proposed - leave the edit out instead.";
+            }
+
+            if (edit.Value.Length > WorkItemFieldEdit.MaxValue)
+            {
+                return $"The edit to '{edit.Path}' is {edit.Value.Length} characters and a "
+                     + $"field value is at most {WorkItemFieldEdit.MaxValue}. A document "
+                     + "belongs in the item's description rather than one of its fields.";
             }
         }
 

@@ -55,8 +55,15 @@ public class AProposalCarriesItsOwnDetailTests
     [Test]
     public async Task One_member_is_opaque_and_only_one()
     {
+        // OPAQUE MEANS UNREADABLE HERE, NOT MERELY NOT-A-STRING. This asked
+        // for every non-string member and that proxy held exactly as long as
+        // the fact had one - `Fields` is structured, and it is NAMED, which is
+        // the opposite of what this row is about: admission reads it. What
+        // makes a member opaque is that nothing in this contract can say what
+        // is inside, and JsonElement is how that is spelled.
         var opaque = typeof(WorkItemProposal).GetProperties()
-            .Where(p => p.PropertyType != typeof(string))
+            .Where(p => p.PropertyType == typeof(JsonElement)
+                     || p.PropertyType == typeof(JsonElement?))
             .Select(p => p.Name)
             .ToList();
 
@@ -65,6 +72,21 @@ public class AProposalCarriesItsOwnDetailTests
                    + "condition can be written over. A second opaque member would make "
                    + "'what is open-ended in this record' a question you answer by reading "
                    + "types. Found: " + string.Join(", ", opaque));
+
+        // AND THE REST ARE READABLE, which is the half the old proxy was
+        // actually testing. Every other member is a string or a list of a
+        // declared type - nothing else arrives as a shape this contract cannot
+        // describe.
+        var unreadable = typeof(WorkItemProposal).GetProperties()
+            .Where(p => p.PropertyType != typeof(string))
+            .Where(p => p.PropertyType != typeof(JsonElement?))
+            .Where(p => p.PropertyType != typeof(IReadOnlyList<WorkItemFieldEdit>))
+            .Select(p => p.Name)
+            .ToList();
+
+        await Assert.That(unreadable).IsEmpty()
+            .Because("a member whose type this contract cannot describe is a second opaque "
+                   + "one wearing a different spelling. Found: " + string.Join(", ", unreadable));
     }
 
     [Test]

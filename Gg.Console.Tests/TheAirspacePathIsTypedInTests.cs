@@ -318,6 +318,83 @@ public class TheAirspacePathIsTypedInTests
     }
 
     [Test]
+    public async Task The_clipboard_is_one_keystroke_while_editing()
+    {
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Control('v'),
+                new KeymapContext(UiMode.AirspacePath, TabId.Envelope)))
+            .IsEqualTo(Command.AirspacePathFromClipboard);
+
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Control('v'), new KeymapContext(UiMode.Normal, TabId.Envelope)))
+            .IsNull()
+            .Because("outside the field it would paste into something nobody is looking at.");
+    }
+
+    [Test]
+    public async Task The_box_names_both_ways_of_filling_it()
+    {
+        var text = PaneText.AirspaceBox(new AppState
+        {
+            Mode = UiMode.AirspacePath,
+            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+        });
+
+        await Assert.That(text).Contains("ctrl-v", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(text).Contains("ctrl-d", StringComparison.OrdinalIgnoreCase)
+            .Because("neither combination is something anybody guesses, and a path is most "
+                   + "often either on the clipboard or the directory you are standing in.");
+    }
+
+    [Test]
+    public async Task The_two_widget_commands_are_declared_and_reachable()
+    {
+        // A THIRD CATEGORY, DECLARED. Every command the keymap can produce was
+        // either the shell's or the reducer's, and a command that was neither
+        // was a key doing nothing - which is what ShellHandledTests exists to
+        // catch, and it caught these. They are neither: what they change is the
+        // widget's in-progress text, which the model cannot hold because
+        // Command is a parameterless enum.
+        foreach (var command in (Command[])
+                 [Command.AirspacePathFromCwd, Command.AirspacePathFromClipboard])
+        {
+            await Assert.That(ShellCommands.OnTheWidget.ContainsKey(command)).IsTrue()
+                .Because($"{command} is performed on a widget, and a category nobody declared "
+                       + "is indistinguishable from a key that does nothing.");
+
+            await Assert.That(ShellCommands.Handled).DoesNotContain(command);
+        }
+    }
+
+    [Test]
+    public async Task Reading_the_clipboard_is_a_stated_exception_to_the_session_rule()
+    {
+        // THE RULE IS THAT A UI SESSION MAY READ A LOCAL FILE AND NOTHING ELSE,
+        // and every clipboard on this machine's platforms is a child process -
+        // ConsoleLink says so in as many words: "Both spawn a child, which is
+        // why neither is a session's."
+        //
+        // So this is an exception, granted deliberately, and it is recorded
+        // where the rule is ENFORCED rather than only where it is used. The
+        // hazard otherwise is precise: the spawn happens inside Terminal.Gui,
+        // so a scan looking for Process.Start in this console's own files finds
+        // nothing and passes while the behaviour is exactly what it forbids.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Gg.sln")))
+        {
+            root = root.Parent;
+        }
+
+        var guard = File.ReadAllText(Path.Combine(
+            root!.FullName, "Gg.Console.Tests", "LiveStreamingTests.cs"));
+
+        await Assert.That(guard).Contains("Clipboard", StringComparison.Ordinal)
+            .Because("an exception the guard has not been told about is one that reads as "
+                   + "compliance. If the clipboard is allowed in a session, the test that "
+                   + "polices what a session may reach is where that is written down.");
+    }
+
+    [Test]
     public async Task Every_mode_says_whether_it_draws_a_dialog()
     {
         // THE DECLARATION THREE RATCHETS NOW READ. They walked every non-Normal

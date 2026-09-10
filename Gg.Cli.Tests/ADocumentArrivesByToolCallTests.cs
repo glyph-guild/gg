@@ -46,7 +46,7 @@ public class ADocumentArrivesByToolCallTests
 
         return output.ToString()
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(JsonDocument.Parse)
+            .Select(line => JsonDocument.Parse(line))
             .ToList();
     }
 

@@ -288,7 +288,7 @@ public class PlatformToolServerTests
     }
 
     [Test]
-    public async Task It_declares_four_tools_and_a_fifth_has_to_argue_for_itself()
+    public async Task It_declares_five_tools_and_a_sixth_has_to_argue_for_itself()
     {
         // TWO NOW, AND THE OLD REASON WAS THE WRONG ONE. This asserted one tool
         // because "a second on this server would be granted by the same move" -
@@ -339,20 +339,47 @@ public class PlatformToolServerTests
         // can reach and it is not one more thing an injected agent can DO,
         // which is the property that made a fourth affordable at all.
         //
-        // A FIFTH still has to make its own argument. None of these four is it.
+        // FIVE NOW, AND HERE IS THE ARGUMENT THE COUNT ASKED FOR.
+        // `submit_document` is the drafting half of `submit_intent`, and it
+        // exists for the same reason: a hosted agent produces no transcript, so
+        // an interactive session has no other way to hand a value back. It is
+        // granted on the fourth distinct terms - by the launch that asked for a
+        // draft, like the intent, and never on a fleet launch.
+        //
+        // What makes it affordable is NOT that it cannot act, because it does:
+        // it is the second tool that writes a file. The argument is narrower and
+        // has to be stated as narrowly. The console's own launch does not pass
+        // `--strict-mcp-config`, and `--allowedTools` does not remove a built-in
+        // Write - so an agent in a drafting session can already put a file in
+        // that working copy, and this tool takes away nothing it had. What the
+        // tool buys is that the document is VALIDATED before it lands, that its
+        // path is computed from a name rather than chosen, and that the
+        // `based-on:` precondition survives - which a hand-written file would
+        // silently clear, turning the next apply into a blind overwrite of
+        // somebody else's amendment.
+        //
+        // And it still applies nothing. A draft in a working copy is exactly as
+        // authoritative as a person typing into it, which is to say not at all:
+        // the stream is the record, and one flight per document with a gate is
+        // what makes a change effective. So the fifth tool is one more thing an
+        // injected agent can reach, and it is not one more thing an injected
+        // agent can DECIDE - which is the same property that made the fourth
+        // affordable, said about a write rather than a record.
+        //
+        // A SIXTH still has to make its own argument. None of these five is it.
         var answers = await ExchangeAsync(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
 
         var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(4)
-            .Because("one channel, four tools. A fifth is a decision somebody has to argue "
-                   + "for, in this comment, where the last two were argued for.");
+        await Assert.That(tools.GetArrayLength()).IsEqualTo(5)
+            .Because("one channel, five tools. A sixth is a decision somebody has to argue "
+                   + "for, in this comment, where the last three were argued for.");
 
         var listed = tools.EnumerateArray()
             .Select(t => t.GetProperty("name").GetString()!).ToList();
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
-                    WorkItemProposalTool.Name })
+                    WorkItemProposalTool.Name, DocumentTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));
 

@@ -649,7 +649,14 @@ public static class Keymap
                     // letter for the same thing one pane over would be the
                     // drift a single keymap exists to prevent.
                     new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent")
-                        { When = "while the envelope tab is showing" }]
+                        { When = "while the airspace tab is showing" },
+
+                    // `w` FOR WHERE, and it is free: the only other `w` is
+                    // ComposeChoice's "write it myself", which is a different
+                    // mode and cannot shadow this one.
+                    new(KeyStroke.Char('w'), Command.SetAirspacePath,
+                        "say where the airspace is")
+                        { When = "while the airspace tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")

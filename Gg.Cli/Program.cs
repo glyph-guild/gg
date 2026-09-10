@@ -314,6 +314,34 @@ static Gg.Console.OfferedOnThisMachine? OfferedHere(
 /// have an estate at all.
 /// </para>
 /// </remarks>
+/// <summary>
+/// Where this machine's airspace is, or null when nobody has said.
+/// </summary>
+/// <remarks>
+/// <b>NOT <see cref="EstateRoot"/>, and the difference is a defect this
+/// closes.</b> That one falls back to the process's current directory,
+/// which is right for a verb somebody typed in a tree they chose and wrong
+/// for a console launched from wherever they happened to be: `p` wrote an
+/// airspace/ tree into the launch directory, and because that is usually
+/// not a git tree the dirty-tree refusal could not fire, so pull simply
+/// wrote. An unset airspace has to read as unset - and `w` is how a person
+/// answers it without leaving.
+/// </remarks>
+static string? Airspace() =>
+    Settings.Value("GG_AIRSPACE", InForce.Configuration) is { Length: > 0 } named
+        ? named
+        : null;
+
+/// <summary>What to say when there is no airspace to act on.</summary>
+/// <remarks>
+/// <b>It names the key, because the console is where this is answered now.</b>
+/// A refusal that only reported the state would be the dead end the current-
+/// directory fallback was papering over - and the fallback is what wrote a tree
+/// into somebody's launch directory.
+/// </remarks>
+static string NoAirspace(string act) =>
+    $"No airspace is configured, so there is nothing to {act}. Press w to say where it is.";
+
 static string EstateRoot() =>
     Settings.Value("GG_AIRSPACE", InForce.Configuration) is { Length: > 0 } named
         ? named
@@ -1264,32 +1292,42 @@ static async Task<int> LaunchConsoleAsync()
         // key for the second half would be a key nobody knew to press. The
         // estate read is second so a failing topology cannot cost the envelope.
         envelope: current => ConsoleEstate.Read(
-            data, EstateRoot(), ConsoleEnvelope.Read(data, current)),
+            data, Airspace(), ConsoleEnvelope.Read(data, current)),
 
         // THE SAME ROOT THE VERBS AND THE PANE USE, so a person cannot be shown
         // one tree and have another written. The pull's own reload follows in
         // the loop, because the pane describes the tree this just rewrote.
         pullEstate: current => current with
         {
-            LastEstate = ConsolePull.Pulled(
-                () => data.PullEstateAsync(EstateRoot()).GetAwaiter().GetResult()),
+            LastEstate = Airspace() is { } pullInto
+                ? ConsolePull.Pulled(
+                    () => data.PullEstateAsync(pullInto).GetAwaiter().GetResult())
+                : NoAirspace("pull"),
         },
 
         applyEstate: current => current with
         {
-            LastEstate = ConsoleApply.Applied(
-                () => data.ApplyEstateAsync(EstateRoot()).GetAwaiter().GetResult()),
+            LastEstate = Airspace() is { } applyFrom
+                ? ConsoleApply.Applied(
+                    () => data.ApplyEstateAsync(applyFrom).GetAwaiter().GetResult())
+                : NoAirspace("apply"),
         },
 
         // THE SAME AGENT COMMAND AND THE SAME ENVELOPE THE COMPOSER GETS, so a
         // person who told gg which agent to run told it once, and the panel
         // shows the rules a document is being drafted toward.
+        setAirspace: (current, ask) => current with
+        {
+            LastEstate = Gg.Console.ConsoleAirspacePath.Set(
+                path: null, current: Airspace(), ask: ask),
+        },
+
         draftEstate: current => current with
         {
             LastEstate = new Gg.Console.PtyDraftSession(
                 Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
                 envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
-                .Draft(Settings.Value("GG_AIRSPACE", InForce.Configuration)),
+                .Draft(Airspace()),
         },
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))
         .Run(initial);

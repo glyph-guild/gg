@@ -63,6 +63,9 @@ return CliArgs.Parse(args) switch
         diff.Json, c => c.AirspaceDiffAsync(Directory.GetCurrentDirectory())),
     CliAction.AirspaceApply apply => await EmitAsync(
         apply.Json, c => c.AirspaceApplyAsync(Directory.GetCurrentDirectory())),
+    CliAction.AirspaceName declaring => await EmitAsync(
+        declaring.Json,
+        c => c.DeclareNameAsync(declaring.Role, declaring.Name, declaring.Parent)),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
     CliAction.RunnerRepin repin =>
         await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),

@@ -244,6 +244,17 @@ public class VerbParityTests
             ["AirspaceApply"] = "applies a governance document from a file. Same reason.",
             ["AirspaceDiff"] = "compares a working copy against the estate; needs the working "
                              + "copy the console does not have. Same reason.",
+
+            // NOT THE SAME REASON, AND THAT IS THE POINT. The three above are
+            // absent because their subject is a working copy the console does
+            // not have; this one takes no file and no directory, only a role
+            // and a name, so that argument does not cover it. It is absent
+            // because there is no estate surface to put it on yet - the
+            // console's new-document action is this verb followed by a pull -
+            // which is an order of work rather than a property of the verb.
+            ["AirspaceName"] = "declares a topology name; takes no file, so the working-copy "
+                             + "reason above does not apply. Absent until the estate pane "
+                             + "exists, which is where it belongs.",
             ["EnvelopeApply"] = "applies a governance document from a file. Same reason - and "
                               + "the READ is in scope, in step 4, which is the distinction.",
             ["EnvelopeValidate"] = "validates a file. Same reason.",

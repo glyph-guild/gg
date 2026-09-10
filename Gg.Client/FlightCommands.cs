@@ -427,6 +427,47 @@ public sealed class FlightCommands(
             await _client.ListRepositoriesAsync(Session(), cancellationToken));
 
     /// <summary>
+    /// Declares a name in the topology, so a document can be applied to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The step nothing in gg could take.</b> Applying a document to a name
+    /// the topology does not hold is refused, and the refusal names the door
+    /// this verb finally knocks on. Without it a person could edit every
+    /// document they already had and could not make a new one.
+    /// </para>
+    /// <para>
+    /// <b>The parent is required and defaults to root at the parse, never
+    /// here.</b> A blank parent is accepted by the door and means "under
+    /// nothing", which its own refusal for a missing parent calls unreachable
+    /// by construction - so the default belongs where somebody can see it in
+    /// the usage, not in a fallback halfway down a client.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> DeclareNameAsync(
+        string role,
+        string name,
+        string parent,
+        CancellationToken cancellationToken = default)
+    {
+        var (live, pending) = await _client.DeclareNameAsync(
+            Session(),
+            new DeclareNameRequest { Name = name, Role = role, Parent = parent },
+            cancellationToken);
+
+        return new VerbResult.NameDeclared(new NameDeclared
+        {
+            Name = name,
+            Role = role,
+            Parent = parent,
+            DeclaredBy = live?.DeclaredBy,
+            Flight = pending?.Flight,
+            Awaiting = pending?.Awaiting,
+            Widens = pending?.Widens,
+        });
+    }
+
+    /// <summary>
     /// Renders the whole estate into the working copy, or refuses a dirty tree.
     /// </summary>
     /// <remarks>

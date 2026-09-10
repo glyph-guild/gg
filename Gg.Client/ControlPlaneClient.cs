@@ -65,6 +65,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(EnvironmentChart))]
 [JsonSerializable(typeof(DeclareNameRequest))]
 [JsonSerializable(typeof(TopologyName))]
+[JsonSerializable(typeof(RegistrationPending))]
 [JsonSerializable(typeof(EnvelopeTopology))]
 [JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(MemberCredentialRedemption))]
@@ -486,6 +487,65 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// pin. It is stated by the applier rather than required of them: a
     /// hand-written document has no version it was based on.
     /// </remarks>
+    /// <summary>
+    /// Declares a name in the topology, so a document can be applied to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two success codes, and both are answers rather than one being a
+    /// consolation.</b> A 202 carries the flight the declaration rides and who
+    /// decides; a 200 carries the entry, and means the name was already there.
+    /// ADR-0016 § 6 makes a registration a widening unconditionally - reach
+    /// that did not exist a moment ago has no prior version to sit below - so
+    /// the 202 is the ordinary path and the 200 is the narrow one.
+    /// </para>
+    /// <para>
+    /// <b>The refusals are the useful part of this door</b> - reserved,
+    /// malformed, an unknown role, a parent that does not exist - and each is
+    /// composed at the control plane naming the value. They come through
+    /// unchanged, because rewording them would be a second opinion about what
+    /// is wrong with a name.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// The entry when the name is live, or null with <paramref name="pending"/>
+    /// set when it rode a flight. Exactly one of the two.
+    /// </returns>
+    public async Task<(TopologyName? Live, RegistrationPending? Pending)> DeclareNameAsync(
+        string sessionToken,
+        DeclareNameRequest body,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/airspace/names", sessionToken);
+        request.Content = JsonContent.Create(body, ProtocolJsonContext.Default.DeclareNameRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        // 202 IS READ BY ITS CODE, not by which member came back non-null. The
+        // two bodies are different types and a reader that tried the entry
+        // first would deserialize a pending answer into a shape with none of
+        // its fields set and report a name as live.
+        if (response.StatusCode == HttpStatusCode.Accepted)
+        {
+            return (null, await response.Content.ReadFromJsonAsync(
+                ProtocolJsonContext.Default.RegistrationPending, cancellationToken)
+                ?? throw new InvalidOperationException("Control plane acknowledged nothing."));
+        }
+
+        return (await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.TopologyName, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing."), null);
+    }
+
     public async Task<EnvelopeApplied> ApplyNamedAsync(
         string sessionToken,
         string name,

@@ -177,6 +177,9 @@ public class ProjectionParityTests
             ["AirspacePulled"] = "writes a working copy. Same.",
             ["AirspaceApplied"] = "applies a document from a file. Same.",
             ["AirspaceDiffed"] = "compares against a working copy the console has not. Same.",
+            ["NameDeclared"] = "the answer to declaring a topology name. Not a working-copy "
+                             + "result like the three above - it needs no tree - so it is "
+                             + "absent only until the estate pane it belongs on exists.",
 
             // --- and one that is correct as it stands ---
             ["Bundle"] = "built FROM the state rather than into it, so there is nothing to "

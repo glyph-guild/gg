@@ -214,6 +214,16 @@ public class ConsoleDataTests
             "AirspaceDiffAsync",
             "AirspaceApplyAsync",
 
+            // DECLARING A NAME IS NOT ONE OF THOSE THREE. It takes a role and a
+            // name and no path at all, so "the console has no working copy" -
+            // the reason the three above are exempt - says nothing about it. It
+            // is exempt for a different and weaker reason: there is nothing in
+            // the console to declare a name FROM. Applying a document to a name
+            // is what makes one worth having, and that pane does not exist, so
+            // wiring the declaration first would be a key that creates
+            // something a person cannot then see or use.
+            "DeclareNameAsync",
+
             // Editing an envelope is the write half of that read, and it cannot come
             // first: you do not edit what you cannot see. When the pane exists this
             // is $EDITOR seeded with the canonical text and applied back - the same

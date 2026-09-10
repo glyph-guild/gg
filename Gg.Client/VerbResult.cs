@@ -94,6 +94,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.AirspaceApplied;
     }
 
+    /// <summary>What declaring a name came to: an entry, or a gate.</summary>
+    public sealed record NameDeclared(Gg.Client.NameDeclared Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.NameDeclared;
+    }
+
     /// <summary>What the working copy would change.</summary>
     public sealed record AirspaceDiffed(EstateDiff Value) : VerbResult
     {
@@ -312,6 +318,8 @@ public static class VerbResultKinds
     public const string AirspaceApplied = "airspace-applied";
 
     public const string AirspaceDiffed = "airspace-diffed";
+
+    public const string NameDeclared = "name-declared";
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
@@ -357,6 +365,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(TreeWritten))]
 [JsonSerializable(typeof(EstateApplied))]
+[JsonSerializable(typeof(NameDeclared))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
@@ -442,6 +451,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EstateApplied),
         VerbResult.AirspaceDiffed r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EstateDiff),
+        VerbResult.NameDeclared r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameDeclared),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
@@ -558,6 +569,7 @@ public static class VerbOutput
         VerbResult.AirspacePulled r => PulledText(r.Value),
         VerbResult.AirspaceApplied r => AppliedText(r.Value),
         VerbResult.AirspaceDiffed r => DiffText(r.Value),
+        VerbResult.NameDeclared r => NameDeclaredText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
@@ -2020,6 +2032,30 @@ public static class VerbOutput
     }
 
     /// <summary>What an apply did, as a person reads it.</summary>
+    /// <summary>What declaring a name came to, as a person reads it.</summary>
+    /// <remarks>
+    /// <b>The gated line says what to do next, because the name is not usable
+    /// yet.</b> A declaration that rode a flight looks like success and is not
+    /// finished - applying a document to the name now is refused - so the
+    /// sentence names the flight, who decides, and that the wait is the point
+    /// rather than a delay.
+    /// </remarks>
+    private static string NameDeclaredText(NameDeclared declared)
+    {
+        if (declared.Flight is { Length: > 0 } flight)
+        {
+            return $"{declared.Name}: declaring a {declared.Role} widens {declared.Widens} - "
+                 + $"flight {flight} awaits {declared.Awaiting}. The name is not in the "
+                 + "topology until that gate opens, so a document applied to it now is "
+                 + "refused.\n";
+        }
+
+        return declared.DeclaredBy is { Length: > 0 } who
+            ? $"{declared.Name}: already declared as a {declared.Role}, by {who}. Nothing "
+            + "rode a flight.\n"
+            : $"{declared.Name}: declared as a {declared.Role} under {declared.Parent}.\n";
+    }
+
     private static string AppliedText(EstateApplied applied)
     {
         var text = new StringBuilder();

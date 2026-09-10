@@ -192,7 +192,7 @@ public class AppStateJsonTests
             .Because("the queue is what a person is here for.");
         await Assert.That(fresh.LiveVisible).IsFalse()
             .Because("the live view is a trust artifact meant to decay; on by default is the opposite.");
-        await Assert.That(fresh.EvidenceVisible).IsFalse()
+        await Assert.That(fresh.RepositoriesVisible).IsFalse()
             .Because("evidence is on demand.");
         await Assert.That(fresh.Mode).IsEqualTo(UiMode.Normal);
         await Assert.That(fresh.Frozen).IsFalse();

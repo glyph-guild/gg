@@ -135,11 +135,12 @@ public sealed class AutoRefresh(
     /// <remarks>
     /// The live pane is a local file with a tick of its own and the browser is
     /// a child process this console already owns; neither is a thing to go and
-    /// ask the control plane about. The evidence pane renders a flight the
-    /// queue already carries.
+    /// ask the control plane about. Evidence used to be named here for the same
+    /// kind of reason and is not a tab any more - it is a tab of the flight
+    /// modal now, which this does not refresh.
     /// </remarks>
     private static bool Reads(TabId tab) =>
-        tab is not (TabId.Live or TabId.Browse or TabId.Evidence);
+        tab is not (TabId.Live or TabId.Browse);
 
     private static AppState Folded(AppState state, Task<Func<AppState, AppState>> finished)
     {

@@ -176,7 +176,7 @@ public class WhatThisTenantCanFlyAgainstTests
         // off, because four views shared one region; a view takes the whole
         // screen now, so what it asserts is that exactly one of the four DRAWS.
         var state = Reducer.RepositoriesToggled(
-            new AppState { BrowseVisible = true, EvidenceVisible = true, LiveVisible = true });
+            new AppState { BrowseVisible = true, LiveVisible = true });
 
         await Assert.That(state.RepositoriesVisible).IsTrue();
         await Assert.That(state.BrowseVisible).IsTrue()

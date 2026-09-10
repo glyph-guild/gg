@@ -213,7 +213,7 @@ public class KeymapTests
             .IsEqualTo("live");
         await Assert.That(Toggle(new(UiMode.Normal, TabId.Live), Command.ToggleLive))
             .IsEqualTo("close live");
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Evidence), Command.ToggleLive))
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Repositories), Command.ToggleLive))
             .IsEqualTo("live")
             .Because("the live tab is still there behind this one, and l goes to it.");
 

@@ -110,7 +110,6 @@ public static class PaneText
             TabId.Queue => string.Join("\n", QueueRows(state)),
             TabId.Flights => Flights(state),
             TabId.Runners => Runners(state),
-            TabId.Evidence => Evidence(state),
             TabId.Live => Live(state),
             TabId.Browse => Browse(state),
             TabId.Repositories => Repositories(state),
@@ -679,14 +678,17 @@ public static class PaneText
         {
             // SAID, not blank. A pane with nothing in it reads as one that failed to load.
             //
-            // ON THE SELECTION, NOT ON THE FLIGHT. The question this sentence
-            // answers is "has anybody selected anything", and Flight answers
-            // "did that row's detail load" - two questions that were the same
-            // only while nothing assigned Flight at all. They are different
-            // now: the reducer leaves Flight null for a row it loaded nothing
-            // for, deliberately, so keying on it would tell somebody with a row
-            // highlighted that they had selected nothing.
-            return state.Selected is null
+            // ON THE FLIGHT THIS MODAL IS SHOWING, which is Detailed and not
+            // Selected. Those are two different cursors: Selected is the QUEUE's
+            // row and is null whenever the queue is empty, while the modal titles
+            // itself from the FLIGHTS list. Keyed on Selected, this said "No
+            // flight selected" under a title naming a flight for every reader
+            // whose queue was empty - which is what a healthy tenant looks like.
+            //
+            // The two sentences are about different subjects and that is why the
+            // wrong one is worse than a blank: the first is about the CONSOLE,
+            // the second about the FLIGHT.
+            return Detailed(state) is null
                 ? "No flight selected."
                 : "Nothing is waiting on you for this flight.";
         }

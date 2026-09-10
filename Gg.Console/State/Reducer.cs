@@ -148,7 +148,6 @@ public static class Reducer
             // read; the tick starts it and folds what comes back, which is what
             // stops the console tearing the terminal down to do it.
             Command.Refresh => state with { Refresh = state.Refresh with { Wanted = true } },
-            Command.ToggleEvidence => Toggled(state, TabId.Evidence),
             // WHOLLY HERE, because showing the fleet reads nothing - it is in
             // the model from the boot. Its four neighbours are the shell's
             // because opening them fetches something.
@@ -211,7 +210,6 @@ public static class Reducer
     private static AppState Showing(AppState state, TabId tab, bool open) => state with
     {
         ActiveTab = open ? tab : TabId.Queue,
-        EvidenceVisible = tab == TabId.Evidence ? open : state.EvidenceVisible,
         LiveVisible = tab == TabId.Live ? open : state.LiveVisible,
         BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
         RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,

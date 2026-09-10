@@ -133,7 +133,7 @@ public class HelpSaysWhatTheEnvironmentDecidesTests
         // walks the OPEN TABS now and there is nowhere to go from a console
         // with nothing open - Tabs_never_lands_on_a_view_nobody_opened says so
         // deliberately - so the anchor opens one and asserts the move.
-        var opened = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        var opened = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
 
         var moved = Reducer.Reduce(opened, Command.FocusNextPane);
 

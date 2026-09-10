@@ -134,6 +134,51 @@ return CliArgs.Parse(args) switch
 };
 
 /// <summary>
+/// Takes the offer the console showed, and says what happened in one line.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Fetched again rather than carried.</b> The model holds a summary, not
+/// the document — deliberately, because the values a control plane proposed
+/// would otherwise be dumped and bundled. So this asks once more and hands the
+/// answer to the same verb the command line runs, which refuses anything but
+/// the version it was told.
+/// </para>
+/// <para>
+/// <b>Every refusal is a sentence, because there is no exit code here.</b> A
+/// console has a status line and no shell: an exception reaching the loop
+/// would tear the screen down over a control plane being briefly unreachable.
+/// </para>
+/// </remarks>
+static string TakeOffered(ControlPlaneClient client, FileSessionStore sessions, string version)
+{
+    if (sessions.Read()?.SessionToken is not { Length: > 0 } token)
+    {
+        return "Not signed in, so nothing was taken.";
+    }
+
+    try
+    {
+        var offered = client.OfferedConfigurationAsync(token).GetAwaiter().GetResult();
+        var taken = ConfigCommands.Accept(offered, version);
+
+        return VerbOutput.ToText(taken).Trim();
+    }
+    catch (Gg.Client.ConfigurationRefused refused)
+    {
+        return refused.Message;
+    }
+    catch (Exception unreachable) when (unreachable is ProtocolTooOldException
+                                            or ControlPlaneTooOldException
+                                            or NotSignedInException
+                                            or HttpRequestException
+                                            or IOException)
+    {
+        return "Nothing was taken: " + unreachable.Message;
+    }
+}
+
+/// <summary>
 /// What this tenant's control plane offers this machine, or null.
 /// </summary>
 /// <remarks>
@@ -1070,6 +1115,16 @@ static async Task<int> LaunchConsoleAsync()
         configure: (current, ask) => current with
         {
             LastConfiguration = Gg.Console.ConsoleConfiguration.Edited(path: null, ask),
+        },
+
+        // TAKING WHAT THE PAGE SHOWED, through the same command line `gg config
+        // accept` runs. The version is the console's, read off the model; the
+        // fetch is fresh, and ConfigCommands.Accept refuses if the control
+        // plane has changed its offer since - so a person cannot be given
+        // something they did not read, whichever surface they used.
+        takeOffered: (current, version) => current with
+        {
+            LastConfiguration = TakeOffered(client, sessions, version),
         },
         // THE VERIFICATION LINK, opened or copied. gg owns the terminal it is
         // drawn in, so it can be neither clicked nor selected - and reading a

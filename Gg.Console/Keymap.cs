@@ -308,6 +308,18 @@ public static class Keymap
                 Label = "Edit file",
             },
 
+            // THE OFFER THE ENVIRONMENT PAGE NAMES. One letter, safe here for
+            // the reason `e` above it is: the modal owns the keyboard while it
+            // is open, so a letter that means something else in Normal mode
+            // cannot reach through.
+            new(KeyStroke.Char('o'), Command.TakeOfferedConfiguration, "take what is offered")
+            {
+                // LABELLED, because the all-or-nothing rule means it must be:
+                // an unlabelled answer takes this page's buttons away
+                // entirely rather than adding one that does nothing.
+                Label = "Take offer",
+            },
+
             new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment")
             {
                 // NOT "Keys" OR "Environment", EITHER OF WHICH IS WRONG HALF

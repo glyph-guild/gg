@@ -1,0 +1,4 @@
+{
+  "control-plane": "https://CHANGEME.example",
+  "accept-offered": true
+}

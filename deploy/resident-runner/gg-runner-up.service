@@ -1,0 +1,71 @@
+# A resident runner: one machine that takes flights, as a service rather than a
+# terminal somebody left open.
+#
+# THIS FILE EXISTS BECAUSE THE ONE IT REPLACES DID NOT. The unit running the
+# fleet lived only at /etc/systemd/system/gg-runner-up.service on one VM, and
+# its Environment= lines were the only copy of that machine's configuration -
+# so a rebuilt host lost the control plane, the labels, the executor and the
+# relays together, and nothing anywhere would have said what they had been.
+#
+# Committing it as it stood was rejected once, and rightly: it would have
+# enshrined the Environment= lines the configuration work exists to remove.
+# What changed is that most of them no longer belong here. This host takes its
+# relays and its labels from what the control plane offers; what stays is the
+# two things that cannot arrive any other way.
+#
+# It does NOT start until a person has signed in on this machine. `gg runner
+# up` refuses without a session - "Registering a runner is a person's action" -
+# and a resident host is provisioned once by a person.
+[Unit]
+Description=Good Grief resident runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=gg
+
+# WHICH CONTROL PLANE, and it is here rather than in the seed file because a
+# unit is what an operator edits when they move a host between environments.
+# It cannot be offered: nothing can tell you where the control plane is except
+# the control plane.
+#
+# Left unset, gg falls back to http://localhost:5199 - the right default on a
+# laptop, and on a server it means the machine answers to itself while looking
+# configured.
+Environment=GG_CONTROL_PLANE=https://CHANGEME.example
+
+# WHAT IS DELIBERATELY NOT HERE, and it is most of what used to be.
+#
+# GG_STUN_SERVERS and GG_RUNNER_LABELS are the unwatched tier: this runner asks
+# the control plane for them at startup and writes them into its own file. An
+# Environment= line for either would BEAT that file - the environment always
+# wins - so the fleet's configuration would quietly go back to living on this
+# host while the feature appeared to work. AResidentRunnerShipsItsOwnUnitTests
+# holds that absence, because an absence nothing checks is one somebody
+# helpfully fills in.
+#
+# GG_EXECUTOR_BINARY is not offerable at all - a control plane naming a program
+# a machine executes is not configuration - so it belongs in the seed file
+# beside the host's other local truths if this machine needs one.
+
+# AN ABSOLUTE PATH THE RUNNER CANNOT WRITE, the same property the pool host's
+# unit is written for: /usr/local/bin/gg is a root-owned symlink to a root-owned
+# /usr/local/lib/gg/gg, and this service runs as User=gg. A shim under that
+# user's home would let the process the OS holds apart from the console replace
+# what the OS starts.
+ExecStart=/usr/local/bin/gg runner up
+
+# ALWAYS, NOT on-failure, AND THE DIFFERENCE IS LOAD-BEARING. This runner ends
+# its own process when the control plane offers configuration it does not have:
+# nothing is applied to a running loop, because labels, hold, relays and
+# executor were read once before the loop was built, so the next START is what
+# takes an offer. That exit is clean - code zero - and under on-failure, which
+# is what the pool-host unit beside this one uses, systemd would treat it as a
+# job well done and the machine would simply stop.
+#
+# It only ever exits that way while IDLE. A runner holding a lease finishes it.
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

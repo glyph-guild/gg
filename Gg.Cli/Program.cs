@@ -1280,6 +1280,17 @@ static async Task<int> LaunchConsoleAsync()
             LastEstate = ConsoleApply.Applied(
                 () => data.ApplyEstateAsync(EstateRoot()).GetAwaiter().GetResult()),
         },
+
+        // THE SAME AGENT COMMAND AND THE SAME ENVELOPE THE COMPOSER GETS, so a
+        // person who told gg which agent to run told it once, and the panel
+        // shows the rules a document is being drafted toward.
+        draftEstate: current => current with
+        {
+            LastEstate = new Gg.Console.PtyDraftSession(
+                Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
+                envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
+                .Draft(Settings.Value("GG_AIRSPACE", InForce.Configuration)),
+        },
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))
         .Run(initial);
 

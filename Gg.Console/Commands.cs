@@ -119,6 +119,17 @@ public enum Command
     /// </remarks>
     ApplyEstate,
 
+    /// <summary>
+    /// Hand the terminal to an agent, in the estate's working copy.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same shape as composing a flight's intent, one document over.</b>
+    /// A pty gg owns, a bar gg keeps, and a value back only by tool call. It
+    /// applies nothing: a draft in a working copy is exactly as authoritative
+    /// as a person typing into it, which is to say not at all.
+    /// </remarks>
+    DraftEstate,
+
     /// <summary>Hand the configuration file to $EDITOR.</summary>
     /// <remarks>
     /// <b>A handoff, because nothing in this console is written by typing.</b>
@@ -518,6 +529,7 @@ public static class ShellCommands
         Command.EditConfiguration,
         Command.PullEstate,
         Command.ApplyEstate,
+        Command.DraftEstate,
 
         // It asks the control plane and then writes a file. The second half is
         // the one that puts it here; the first is why it cannot be a read the

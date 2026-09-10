@@ -173,7 +173,17 @@ public sealed class ConsoleLoop(
     /// The composition root's, for the same reason as its neighbour, and with
     /// a heavier act behind it: this one opens flights.
     /// </remarks>
-    Func<AppState, AppState>? applyEstate = null)
+    Func<AppState, AppState>? applyEstate = null,
+
+    /// <summary>
+    /// Hands the terminal to an agent in the estate's working copy.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, for the reason every child here is: it starts
+    /// this binary again to serve its own tools, and a console that could name
+    /// that invocation would be a console that can act as a runner.
+    /// </remarks>
+    Func<AppState, AppState>? draftEstate = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -453,7 +463,25 @@ public sealed class ConsoleLoop(
                         : groundFlight(Closed(state), () => editor.Edit(""));
                     break;
 
-                case Command.ApplyEstate:
+                case Command.DraftEstate:
+                // AND THEN RE-READ, because whatever the agent submitted is a
+                // file now and the documents column is the only thing that will
+                // say which. The session does not report that itself: a count
+                // guessed there would be a second answer to what the diff is
+                // about to compute.
+                state = Reloaded(
+                    draftEstate is null
+                        ? state with
+                        {
+                            LastEstate =
+                                "This console is not configured to draft with an agent.",
+                        }
+                        : draftEstate(state),
+                    reload,
+                    asked: false);
+                break;
+
+            case Command.ApplyEstate:
                 // CLOSED FIRST, THEN APPLIED, THEN RE-READ. The question is
                 // answered however it went, the estate is submitted with the
                 // terminal free, and the pane is re-read because every version

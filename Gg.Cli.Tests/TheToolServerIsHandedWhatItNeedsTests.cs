@@ -52,6 +52,7 @@ public partial class TheToolServerIsHandedWhatItNeedsTests
     [
         (nameof(IntentTool.PathVariable), "where a composed intent is recorded"),
         (nameof(DocumentTool.RootVariable), "the working copy a drafted document lands in"),
+        (nameof(AirspaceContextTool.EnvelopeVariable), "the rules in force for this tenant"),
     ];
 
     [Test]

@@ -48,12 +48,12 @@ public class TheAgentIsToldHowEnvelopesWorkTests
     private const string Tool = "describe_airspace";
 
     private static async Task<IReadOnlyList<JsonDocument>> RecordingAsync(
-        string? documentRoot, params string[] lines)
+        string? documentRoot, string? inForce, params string[] lines)
     {
         var output = new StringWriter();
         await PlatformToolServer.RunAsync(
             new StringReader(string.Join('\n', lines)), output,
-            intentPath: null, documentRoot: documentRoot);
+            intentPath: null, documentRoot: documentRoot, inForce: inForce);
 
         return output.ToString()
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -86,7 +86,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
     [Test]
     public async Task The_server_offers_it()
     {
-        var answers = await RecordingAsync(null, Listing());
+        var answers = await RecordingAsync(null, null, Listing());
 
         var names = answers[0].RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray()
@@ -105,7 +105,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         // the agent's first token, so submit_document's description is where a
         // pointer to this one has to live - an instruction anywhere else is one
         // the agent has to already be looking for.
-        var answers = await RecordingAsync(null, Listing());
+        var answers = await RecordingAsync(null, null, Listing());
 
         var submit = answers[0].RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray()
@@ -126,7 +126,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         // is only ever set for a drafting launch, and TheProposalToolActsOn-
         // NothingTests states why what an injected agent can reach through this
         // server is the whole question.
-        var answers = await RecordingAsync(null, Call());
+        var answers = await RecordingAsync(null, null, Call());
 
         await Assert.That(Failed(answers[0])).IsTrue()
             .Because("no working copy means no drafting session, and answering anyway "
@@ -139,9 +139,9 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         var tree = Somewhere();
         try
         {
-            var said = Said((await RecordingAsync(tree.FullName, Call()))[0]);
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
 
-            await Assert.That(Failed((await RecordingAsync(tree.FullName, Call()))[0])).IsFalse()
+            await Assert.That(Failed((await RecordingAsync(tree.FullName, null, Call()))[0])).IsFalse()
                 .Because("the doctrine is true whether or not anything has been pulled, and "
                        + "refusing would leave an agent with no way to learn the rules in "
                        + "the one situation where it certainly does not know them.");
@@ -162,7 +162,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         var tree = Somewhere();
         try
         {
-            var said = Said((await RecordingAsync(tree.FullName, Call()))[0]);
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
 
             foreach (var role in Roles.All)
             {
@@ -189,7 +189,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         var tree = Somewhere();
         try
         {
-            var said = Said((await RecordingAsync(tree.FullName, Call()))[0]);
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
 
             await Assert.That(said).Contains("obligations", StringComparison.OrdinalIgnoreCase)
                 .Because("a narrowing has exactly one key and an agent that does not know "
@@ -214,6 +214,72 @@ public class TheAgentIsToldHowEnvelopesWorkTests
     }
 
     [Test]
+    public async Task The_rules_in_force_reach_the_agent_when_the_session_has_them()
+    {
+        // THE READ ALREADY HAPPENS AND THE AGENT NEVER SEES IT. PtyDraftSession
+        // fetches the composed envelope before the child starts - "READ ONCE,
+        // BEFORE THE CHILD HAS THE SCREEN" - and renders it into gg's own
+        // panel for the PERSON to toggle. The agent is drafting a document
+        // that will be composed into exactly that, and cannot see it.
+        //
+        // HANDED, NOT FETCHED. The server holds no control-plane client and
+        // must go on holding none; this is the same arrangement the working
+        // copy arrives by, one variable over.
+        var tree = Somewhere();
+        try
+        {
+            var said = Said((await RecordingAsync(
+                tree.FullName,
+                "in force: v7, last changed 2026-09-10 by an-owner\n\n"
+                + "context:\n  scope: \"payments/**\"\n"
+                + "obligations:\n  pci-review:\n    check: human\n"
+                + "    # layer: narrowing, pci\n",
+                Call()))[0]);
+
+            await Assert.That(said).Contains("in force: v7", StringComparison.Ordinal)
+                .Because("a document is drafted AGAINST the rules it will be composed into, "
+                       + "and which version those are is the difference between advice and "
+                       + "a precondition. Said: " + said);
+
+            await Assert.That(said).Contains("pci-review", StringComparison.Ordinal)
+                .Because("the composed obligations are what a new narrowing has to sit "
+                       + "beside without duplicating. Said: " + said);
+
+            await Assert.That(said).Contains("# layer:", StringComparison.Ordinal)
+                .Because("RenderComposed annotates each obligation with the layer that "
+                       + "declared it, which is the one thing a composed view can say that "
+                       + "the documents separately cannot - and it had no caller anywhere "
+                       + "in either repository until now. Said: " + said);
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Not_having_them_is_said_rather_than_left_to_look_like_none()
+    {
+        // SILENCE WOULD READ AS "THERE ARE NO RULES", which is the one wrong
+        // conclusion available here. A console with no reachable control plane
+        // starts a drafting session anyway - deliberately, since the working
+        // copy is local - so this is an ordinary state, not a fault.
+        var tree = Somewhere();
+        try
+        {
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
+
+            await Assert.That(said).Contains("in force", StringComparison.OrdinalIgnoreCase)
+                .Because("an agent told nothing about the rules in force will assume the "
+                       + "documents in front of it are all there is. Said: " + said);
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
+    [Test]
     public async Task A_tree_with_documents_is_described_and_one_is_shown()
     {
         var tree = Somewhere();
@@ -225,7 +291,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
                 "based-on: pci@v2\nobligations:\n  pci-review:\n    check: human\n"
               + "    approver: an-auditor\n");
 
-            var said = Said((await RecordingAsync(tree.FullName, Call()))[0]);
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
 
             await Assert.That(said).Contains("pci", StringComparison.Ordinal)
                 .Because("the answer is about THIS tenant or it is an essay. Said: " + said);

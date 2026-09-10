@@ -27,12 +27,12 @@ public class TabsTakeTheWholeScreenTests
     [Test]
     public async Task Opening_a_view_makes_it_the_tab_that_is_showing()
     {
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Evidence)
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories)
             .Because("a key that opens a view and leaves the queue on screen is a key that "
                    + "did nothing a person can see.");
-        await Assert.That(state.EvidenceVisible).IsTrue();
+        await Assert.That(state.RepositoriesVisible).IsTrue();
     }
 
     [Test]
@@ -40,10 +40,10 @@ public class TabsTakeTheWholeScreenTests
     {
         // THE WHOLE POINT. Under one shared region this was impossible, and the
         // reducer enforced it by clearing the other flags.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
         state = Reducer.Reduce(state, Command.ToggleLive);
 
-        await Assert.That(state.EvidenceVisible).IsTrue()
+        await Assert.That(state.RepositoriesVisible).IsTrue()
             .Because("opening the live view is not a reason to throw away the evidence "
                    + "somebody was reading beside it.");
         await Assert.That(state.LiveVisible).IsTrue();
@@ -57,7 +57,7 @@ public class TabsTakeTheWholeScreenTests
         // "Takes over all the panes", as the invariant the view is built from
         // rather than as a sentence in a comment. Six panes drawn over one
         // region is what this replaces.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
         state = Reducer.Reduce(state, Command.ToggleLive);
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
@@ -87,19 +87,24 @@ public class TabsTakeTheWholeScreenTests
     {
         // AMENDED WHEN EVERY TAB WENT ON THE BAR. It walked the OPEN tabs, so
         // this pressed tab four times and expected to come back round; it walks
-        // all eight now, in the order the enum declares them, which is the
+        // all of them now, in the order the enum declares them, which is the
         // order of the bar. ReducerTests.TabWalksEveryTabAndComesBackRound is
         // the full circuit; this is the order.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        //
+        // AMENDED AGAIN when evidence stopped being a tab: this used to start
+        // there and step to live. Live is still the anchor, and browse is
+        // still what follows it - the pair that made this test worth having is
+        // intact, one tab earlier.
+        var state = Reducer.Reduce(new AppState(), Command.ToggleLive);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Evidence);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Live);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Live)
-            .Because("live is the tab after evidence on the bar.");
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse)
+            .Because("browse is the tab after live on the bar.");
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories);
     }
 
     [Test]
@@ -130,10 +135,10 @@ public class TabsTakeTheWholeScreenTests
     [Test]
     public async Task A_views_own_key_closes_it_and_the_queue_comes_back()
     {
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
-        state = Reducer.Reduce(state, Command.ToggleEvidence);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
+        state = Reducer.Reduce(state, Command.ToggleRepositories);
 
-        await Assert.That(state.EvidenceVisible).IsFalse();
+        await Assert.That(state.RepositoriesVisible).IsFalse();
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Queue)
             .Because("closing the tab a person is looking at has to leave them somewhere, and "
                    + "the queue is the one view that is always open.");
@@ -145,12 +150,12 @@ public class TabsTakeTheWholeScreenTests
         // The key means "show me this", and only means "close it" when it is
         // already what you are looking at. Pressing `v` while reading the live
         // view should not silently discard the evidence tab.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
         state = Reducer.Reduce(state, Command.ToggleLive);
-        state = Reducer.Reduce(state, Command.ToggleEvidence);
+        state = Reducer.Reduce(state, Command.ToggleRepositories);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Evidence);
-        await Assert.That(state.EvidenceVisible).IsTrue()
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories);
+        await Assert.That(state.RepositoriesVisible).IsTrue()
             .Because("it was open and somebody asked for it, so it is showing rather than "
                    + "gone.");
         await Assert.That(state.LiveVisible).IsTrue()
@@ -160,7 +165,7 @@ public class TabsTakeTheWholeScreenTests
     [Test]
     public async Task The_bar_marks_the_one_showing_and_names_the_rest()
     {
-        var state = Reducer.Reduce(new AppState(), Command.ToggleEvidence);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
         state = Reducer.Reduce(state, Command.ToggleLive);
 
         // WAS ABOUT A STRING IN THE TITLE, which is what the bar used to be.

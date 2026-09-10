@@ -8,18 +8,19 @@ namespace Gg.Console.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It chose between its two sentences on the wrong field.</b>
-/// <c>state.Flight is null</c> asks <i>did this row's detail load</i>, and the
-/// question the sentence answers is <i>has anybody selected anything</i>. While
-/// nothing assigned <c>Flight</c> those were the same, so the pane told a person
-/// who had selected a flight that no flight was selected.
+/// <b>It has chosen on the wrong field TWICE, and the second time is why
+/// these now read the flights list.</b> First it asked <c>state.Flight is
+/// null</c> - <i>did this row's detail load</i> - to answer <i>has anybody
+/// selected anything</i>. Then it asked <c>state.Selected</c>, the QUEUE's
+/// cursor, after the pane had become a tab of the flight modal - and the modal
+/// titles itself from <c>PaneText.Detailed</c>, the FLIGHTS list. So it said
+/// "No flight selected" under a title naming a flight, for everybody whose
+/// queue was empty, which is what a healthy tenant looks like.
 /// </para>
 /// <para>
-/// <b>Step 2 makes them different rather than fixing them.</b> A row whose
-/// detail did not load now has a selection and no flight - the case the reducer
-/// makes deliberately, because showing the previous row's flight under this
-/// row's name is worse. On that row the old condition says "No flight
-/// selected", which is the same wrong sentence for a new reason.
+/// <b>The subject is whatever the title is about, and that is the rule.</b> A
+/// pane and the title above it that answer "which flight is this" from
+/// different cursors will disagree, and the reader believes the title.
 /// </para>
 /// <para>
 /// <b>Rule 5: three nothings, three sentences.</b> Not loaded, loaded and
@@ -65,11 +66,12 @@ public class EvidenceSaysWhichNothingTests
     [Test]
     public async Task With_a_flight_selected_it_does_not_claim_otherwise()
     {
-        // THE PLAN'S HEADLINE, reachable for the first time. Until the queue
-        // could fill this could not be staged at all.
+        // THE FLIGHT THE MODAL IS SHOWING, which is the flights list. The queue
+        // is deliberately EMPTY here: that is the ordinary state, and keying on
+        // it is the bug this class was reopened for.
         var state = new AppState
         {
-            Queue = [Row("a", 1)],
+            Flights = new FlightList { Flights = [Flight("a", 1)] },
             Flight = Flight("a", 1),
         };
 
@@ -84,11 +86,17 @@ public class EvidenceSaysWhichNothingTests
     [Test]
     public async Task A_selected_row_whose_detail_did_not_load_is_still_a_selection()
     {
-        // THE NEW CASE, and the reason keying on Flight is wrong rather than
-        // merely coincidental. The reducer leaves Flight null when nothing was
-        // loaded for a row - deliberately - so a pane asking "is Flight null"
-        // gives the no-selection sentence to somebody with a row highlighted.
-        var state = new AppState { Queue = [Row("a", 1)], Flight = null };
+        // STILL TRUE, AND NOW FOR A SECOND REASON. The reducer leaves Flight
+        // null when nothing was loaded for a row - deliberately - so a pane
+        // asking "is Flight null" gives the no-selection sentence to somebody
+        // looking at a flight. Detailed reads the LIST rather than that
+        // per-row detail, so it is right about this without having to know.
+        var state = new AppState
+        {
+            Flights = new FlightList { Flights = [Flight("a", 1)] },
+            Queue = [Row("a", 1)],
+            Flight = null,
+        };
 
         await Assert.That(PaneText.Evidence(state)).DoesNotContain("No flight selected")
             .Because("the row is selected; its detail is what is missing, and those are "

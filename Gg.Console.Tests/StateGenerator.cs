@@ -46,7 +46,7 @@ internal static class StateGenerator
             Flight = random.Next(2) == 0 ? null : NextSummary(random),
             FlightLog = random.Next(2) == 0 ? null : NextLog(random),
             Runners = random.Next(2) == 0 ? null : NextRunners(random),
-            EvidenceVisible = random.Next(2) == 0,
+            RepositoriesVisible = random.Next(2) == 0,
             LiveVisible = random.Next(2) == 0,
             Frozen = random.Next(2) == 0,
             Live = live,

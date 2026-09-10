@@ -322,8 +322,6 @@ public enum TabId
     /// </remarks>
     Runners,
 
-    /// <summary>The digest, rendered. On demand.</summary>
-    Evidence,
 
     /// <summary>The runner's normalised output. Off by default.</summary>
     Live,
@@ -714,9 +712,6 @@ public sealed record AppState
     /// </remarks>
     public CredentialList? Credentials { get; init; }
 
-    /// <summary>Evidence is on demand.</summary>
-    public bool EvidenceVisible { get; init; }
-
     /// <summary>
     /// The live view is OFF by default, and that is a decision rather than a
     /// convenience.
@@ -790,9 +785,9 @@ public sealed record AppState
     /// </remarks>
     /// <summary>Whether the browse pane has the region.</summary>
     /// <remarks>
-    /// One region, one pane: turning this on turns <see cref="EvidenceVisible"/>
-    /// and <see cref="LiveVisible"/> off, because two visible flags over one
-    /// region is two panes drawn on top of each other.
+    /// One region, one pane: turning this on turns <see cref="LiveVisible"/>
+    /// off, because two visible flags over one region is two panes drawn on
+    /// top of each other.
     /// </remarks>
     /// <summary>Which row of the work list is picked.</summary>
     /// <remarks>

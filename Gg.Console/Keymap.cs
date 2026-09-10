@@ -598,8 +598,6 @@ public static class Keymap
             // claim - see Tabs.KeyFor.
             new(KeyStroke.Char('u'), Command.ToggleRunners,
                 Closes(context, TabId.Runners, "runners")) { OffTheHintLine = true },
-            new(KeyStroke.Char('v'), Command.ToggleEvidence,
-                Closes(context, TabId.Evidence, "evidence")) { OffTheHintLine = true },
             // WHAT A SECOND PRESS WILL DO, and under tabs that is "close" only
             // while you are looking at it. A key that said "hide" for an open
             // tab you had switched away from would advertise a close that does

@@ -28,12 +28,10 @@ public sealed class ConsoleScreen : Window
     private readonly IApplication _app;
     private readonly ListView _queue;
     private readonly Label _flight;
-    private readonly Label _evidence;
     private readonly Label _live;
     private readonly Label _browse;
     private readonly FrameView _queuePane;
     private readonly FrameView _flightPane;
-    private readonly FrameView _evidencePane;
     private readonly FrameView _livePane;
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
@@ -251,21 +249,6 @@ public sealed class ConsoleScreen : Window
         };
         _flight = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _flightPane.Add(_flight);
-
-        // FULL SCREEN, LIKE EVERY OTHER TAB. It used to take the top half of
-        // the right-hand side with live or browse underneath it, which is why
-        // the model had to keep six flags from colliding.
-        _evidencePane = new FrameView
-        {
-            Title = "Evidence",
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            Visible = false,
-        };
-        _evidence = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _evidencePane.Add(_evidence);
 
         _livePane = new FrameView
         {
@@ -675,7 +658,6 @@ public sealed class ConsoleScreen : Window
             // walks the enum - reached it third, and `tab' skipped six tabs.
             // TabGoesLeftToRightTests holds the two orders together now.
             (TabId.Runners, Tabbed(_runnersPane)),
-            (TabId.Evidence, Tabbed(_evidencePane)),
             (TabId.Live, Tabbed(_livePane)),
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
@@ -707,7 +689,7 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
-        Muted(_envelope, _evidence, _live, _flight, _modalBody, _runners,
+        Muted(_envelope, _live, _flight, _modalBody, _runners,
             _flightIntent, _flightLogAbsent);
 
         Add(_bar, _activity, _hints, _modal);
@@ -1283,7 +1265,6 @@ public sealed class ConsoleScreen : Window
         }
 
         _flight.Text = PaneText.Flight(State);
-        _evidence.Text = PaneText.Evidence(State);
 
         // Frozen means the pixels stop moving, so the terminal's own selection
         // can survive being made. Held lines are already kept in the model;
@@ -1899,7 +1880,6 @@ public sealed class ConsoleScreen : Window
         View landing = State.ActiveTab switch
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
-            TabId.Evidence => _evidence,
             TabId.Live => _live,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
             TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,

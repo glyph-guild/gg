@@ -54,7 +54,7 @@ public class ConsoleRefreshTests
     {
         Queue = [Row("a", 1)],
         Principal = "somebody",
-        EvidenceVisible = true,
+        RepositoriesVisible = true,
         SelectedRow = 0,
     };
 
@@ -170,11 +170,11 @@ public class ConsoleRefreshTests
         var answers = new Answers(state => state with { Queue = [Row("a", 1), Row("b", 2)] });
 
         var asked = Reducer.Reduce(
-            Booted() with { SelectedRow = 0, EvidenceVisible = true }, Command.Refresh);
+            Booted() with { SelectedRow = 0, RepositoriesVisible = true }, Command.Refresh);
 
         var final = Refreshed(asked, answers);
 
-        await Assert.That(final.EvidenceVisible).IsTrue()
+        await Assert.That(final.RepositoriesVisible).IsTrue()
             .Because("a pane the person opened stays open across a refresh.");
         await Assert.That(final.Queue.Count).IsEqualTo(2);
     }

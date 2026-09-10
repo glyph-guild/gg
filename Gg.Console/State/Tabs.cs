@@ -52,7 +52,6 @@ public static class Tabs
             // stranded-runner reason, so this tab has an answer from the first
             // frame - even when the answer is "no runners".
             TabId.Runners => true,
-            TabId.Evidence => state.EvidenceVisible,
             TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
@@ -74,7 +73,6 @@ public static class Tabs
     public static KeyStroke? KeyFor(TabId tab) => tab switch
     {
         TabId.Queue or TabId.Flights => null,
-        TabId.Evidence => KeyStroke.Char('v'),
         TabId.Live => KeyStroke.Char('l'),
         TabId.Browse => KeyStroke.Char('b'),
         TabId.Repositories => KeyStroke.Char('r'),
@@ -100,7 +98,6 @@ public static class Tabs
     public static Command? CommandFor(TabId tab) => tab switch
     {
         TabId.Queue or TabId.Flights => null,
-        TabId.Evidence => Command.ToggleEvidence,
         TabId.Live => Command.ToggleLive,
         TabId.Browse => Command.ToggleBrowse,
         TabId.Repositories => Command.ToggleRepositories,
@@ -184,7 +181,6 @@ public static class Tabs
     {
         TabId.Queue => "Queue",
         TabId.Flights => "Flights",
-        TabId.Evidence => "Evidence",
         TabId.Live => "Live",
         TabId.Browse => "Browse",
         TabId.Repositories => "Repositories",

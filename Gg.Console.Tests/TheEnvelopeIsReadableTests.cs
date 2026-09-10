@@ -120,7 +120,7 @@ public class TheEnvelopeIsReadableTests
         // the same claim, one field along.
         var crowded = new AppState
         {
-            EvidenceVisible = true, LiveVisible = true, BrowseVisible = true,
+            LiveVisible = true, BrowseVisible = true,
             RepositoriesVisible = true,
         };
 

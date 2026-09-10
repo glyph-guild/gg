@@ -47,7 +47,6 @@ public enum Command
     SelectNext,
     SelectPrevious,
 
-    ToggleEvidence,
 
     /// <summary>
     /// Moves the flight modal to its other tab.

@@ -36,9 +36,30 @@ public class BrowseIsAKeyAndAPaneTests
     {
         // Bindings is the single source: Resolve looks up in it and Hints
         // renders it, so a key that works and is not advertised cannot happen.
+        //
+        // THIS USED TO READ THE HINT LINE FOR "b ", AND IT WAS PASSING ON THE
+        // WORD "tab". Browse left the line when it became a tab - the test
+        // directly below says so in its own comment - so the substring being
+        // found was "ta[b ]next tab". It went on passing for as long as some
+        // other key's description happened to contain a b and a space, and it
+        // failed the moment `tab next tab` left the line, which is a change
+        // about neither browse nor this assertion.
+        //
+        // SO IT ASKS THE BINDING, WHICH IS WHAT IT WAS ALWAYS ABOUT. Advertised
+        // does not mean "on the line" for a tab key; it means the tab carries
+        // it, and OffTheHintLine is the claim that something else does.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('b'), Normal()))
             .IsEqualTo(Command.ToggleBrowse);
-        await Assert.That(Keymap.Hints(Normal())).Contains("b ");
+
+        var browse = Keymap.Bindings(Normal())
+            .Single(b => b.Command == Command.ToggleBrowse);
+
+        await Assert.That(browse.Description).IsNotEmpty()
+            .Because("the description is what help and the tab both render, so a key with "
+                   + "none is a key with nowhere it is named.");
+
+        await Assert.That(browse.Untaught).IsFalse()
+            .Because("only j and k are in neither place, and browse is not one of them.");
     }
 
     [Test]

@@ -28,10 +28,18 @@ return CliArgs.Parse(args) switch
     // session's intent goes is an argument to it rather than something it goes
     // and finds. Null on every fleet launch, which is almost all of them, and
     // the tool says so out loud rather than failing quietly.
+    // BY NAME, BOTH OF THEM, for EveryPortIsPassedTests' reason one project
+    // over: an optional parameter is one the compiler never asks about, so a
+    // value that is not passed here is a feature that is silently off rather
+    // than a build that fails. documentRoot was the fourth argument and was
+    // never supplied - submit_document refused every call it was ever given,
+    // for as long as it has existed, while its own tests passed a root
+    // directly and stayed green.
     CliAction.RunnerTools => await PlatformToolServer.RunAsync(
         System.Console.In,
         System.Console.Out,
-        Environment.GetEnvironmentVariable(IntentTool.PathVariable)),
+        intentPath: Environment.GetEnvironmentVariable(IntentTool.PathVariable),
+        documentRoot: Environment.GetEnvironmentVariable(DocumentTool.RootVariable)),
     // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.

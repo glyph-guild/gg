@@ -62,6 +62,9 @@ public class ATriageFlightReadsItsSkillFromARepositoryTests
                 Kind = DestinationKinds.WorkItemTracker,
                 Requires = ["looked"],
                 MayPerform = [WorkItemOperations.Field, WorkItemOperations.Score],
+                // OWED SINCE THE FIELD MENU EXISTS: a destination that may set
+                // fields and names none can never act.
+                MayWrite = ["Custom.RiceScore"],
             },
         ],
     };

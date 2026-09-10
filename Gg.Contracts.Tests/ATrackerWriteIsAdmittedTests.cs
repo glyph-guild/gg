@@ -152,6 +152,11 @@ public class ATrackerDestinationSaysWhatItPermitsTests
         Kind = DestinationKinds.WorkItemTracker,
         Requires = ["loop-ran"],
         MayPerform = mayPerform,
+        // OWED WHENEVER `field` IS PERMITTED, and computed rather than fixed so
+        // the cases that permit only `score` still exercise its absence.
+        MayWrite = mayPerform?.Contains(WorkItemOperations.Field, StringComparer.Ordinal) == true
+            ? ["Custom.RiceScore"]
+            : null,
     };
 
     [Test]

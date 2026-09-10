@@ -220,13 +220,22 @@ public class HelpNamesEveryKeyTests
     {
         var hints = Keymap.Hints(new KeymapContext(UiMode.Normal));
 
-        foreach (var gone in (string[])["add credential", "forget credential", "evidence", "browse"])
+        // `d decide` JOINED THIS LIST. A gate is decided from the modal that
+        // put the question on the screen and named the approver, so the line
+        // was advertising the shortcut past a question nobody had read - and it
+        // is in help, on the argument that took the two credential keys off.
+        foreach (var gone in (string[])
+            ["add credential", "forget credential", "evidence", "browse", "d decide"])
         {
             await Assert.That(hints).DoesNotContain(gone, StringComparison.Ordinal)
-                .Because("this is on a tab or in help. The line is one line. Line: " + hints);
+                .Because("this is on a tab, in a modal, or in help. The line is one line. "
+                       + "Line: " + hints);
         }
 
-        foreach (var kept in (string[])["q quit", "d decide", "n new flight", "y fly by hand"])
+        // AND THESE TWO ARE KEPT HERE BECAUSE THIS CONTEXT IS THE QUEUE. Both
+        // act on a flight and both are now scoped to the tabs that list one;
+        // TheHintLineHoldsWhatTheTabCanDoTests is where that scoping is held.
+        foreach (var kept in (string[])["q quit", "n new flight", "y fly by hand"])
         {
             await Assert.That(hints).Contains(kept, StringComparison.Ordinal)
                 .Because("this has nowhere else to be advertised. Line: " + hints);

@@ -235,10 +235,21 @@ public readonly record struct KeyBinding(KeyStroke Key, Command Command, string 
     /// <remarks>
     /// <para>
     /// <b>THE LINE IS ONE LINE, and every slot spent is one a key nobody knows
-    /// could have had.</b> Three kinds of key are off it and each has somewhere
+    /// could have had.</b> Four kinds of key are off it and each has somewhere
     /// else to be found: the six tab keys are printed on their own tabs, the
-    /// two credential keys are in help and used about twice a year, and j and k
-    /// are what the arrows already do.
+    /// two credential keys and the invite are in help and used about twice a
+    /// year, j and k are what the arrows already do, and <c>tab</c> and
+    /// <c>enter</c> are conventions - <c>tab</c> moves focus in every terminal
+    /// program there is, and <c>enter</c> opens the row under the cursor, which
+    /// nobody presses because they were told to.
+    /// </para>
+    /// <para>
+    /// <b>AND A KIND THAT IS SCOPED RATHER THAN HIDDEN.</b> A key that acts on
+    /// a flight is advertised where flights are. It is still bound everywhere
+    /// it was bound - <c>a</c> opens the actions for whatever the cursor is on,
+    /// wherever you press it - but naming it on the airspace tab spends a slot
+    /// teaching somebody about somewhere they are not, and there were six such
+    /// hints on that tab against three that were about the tab itself.
     /// </para>
     /// <para>
     /// <b>Off the LINE, not out of the program.</b> <see cref="Keymap.Resolve"/>
@@ -645,9 +656,26 @@ public static class Keymap
             new(KeyStroke.Char('g'), Command.Refresh,
                 context.Refresh is { Length: > 0 } says ? $"refresh {says}" : "refresh"),
             new(KeyStroke.Char('?'), Command.ToggleHelp, "help"),
-            new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions"),
-            new(KeyStroke.Char('d'), Command.OpenGate, "decide"),
-            new(KeyStroke.TabKey, Command.FocusNextPane, "next tab"),
+            // WHERE THE FLIGHTS ARE. Both tabs that list them, because the
+            // cursor is on a flight in either and this opens what the cursor
+            // is on. Scoped, not hidden: the binding is unchanged and `a`
+            // answers on every tab exactly as it did.
+            new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions")
+                { OffTheHintLine = !OverAFlight(context) },
+
+            // IN HELP, WITH THE CREDENTIAL KEYS. A gate is decided from the
+            // modal that put the question on the screen and named the
+            // approver; the line was advertising the shortcut past a question
+            // nobody had read yet.
+            new(KeyStroke.Char('d'), Command.OpenGate, "decide")
+                { OffTheHintLine = true },
+
+            // A CONVENTION, NOT A FEATURE. Every terminal program moves focus
+            // with tab, and this one prints its six tab keys on the tabs
+            // themselves - so the line was spending a slot to teach the one
+            // key nobody has to be taught.
+            new(KeyStroke.TabKey, Command.FocusNextPane, "next tab")
+                { OffTheHintLine = true },
             // ON THE ROW UNDER THE CURSOR, whichever list has the screen. Not
             // on the hint line: a person presses enter on a row without being
             // told to, and the two lists that answer it are a table and a
@@ -666,13 +694,17 @@ public static class Keymap
                     new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
                         { OffTheHintLine = true },
 
-                // ON THE HINT LINE, unlike its two siblings: they open what the
-                // cursor is already on, which a person tries without being
-                // told, and this one is the only way to answer an unset
-                // airspace.
+                // OFF THE LINE LIKE ITS TWO SIBLINGS, once the field it
+                // focuses became a box that is drawn at all times. It used to
+                // be the only way to learn an unset airspace could be
+                // answered, which is why it was on the line; the box's own
+                // title says "airspace - enter to edit" now, so the line was
+                // the second place saying it - and of two places that say one
+                // thing, the one nobody is looking at is the one that goes
+                // stale.
                 TabId.Envelope =>
                     new(KeyStroke.EnterKey, Command.FocusAirspacePath,
-                        "say where the airspace is"),
+                        "say where the airspace is") { OffTheHintLine = true },
 
                 _ => new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
                     { OffTheHintLine = true },
@@ -810,7 +842,12 @@ public static class Keymap
             // reject. A store you cannot clean is a store people work around.
             new(KeyStroke.Char('x'), Command.ForgetCredential, "forget credential")
                 { OffTheHintLine = true },
-            new(KeyStroke.Char('i'), Command.Invite, "invite"),
+            // WITH THE TWO CREDENTIAL KEYS, AND FOR THEIR REASON. Inviting
+            // somebody happens when a tenant is set up and then about twice a
+            // year, and it was spending a slot of the line every second of
+            // every session.
+            new(KeyStroke.Char('i'), Command.Invite, "invite")
+                { OffTheHintLine = true },
             // `y` because every letter in `fly by hand` is taken: f is freeze
             // and fly-this, l is nothing yet but reads as live, b is browse, h
             // is hand back, a and n and d are taken. A key chosen for its
@@ -819,7 +856,12 @@ public static class Keymap
             // ASKS, LIKE `n` DOES. Flying by hand still needs an intent written,
             // and it is written the same two ways - so the same question, and a
             // person does not have to remember which doors ask.
-            new(KeyStroke.Char('y'), Command.AskHowToFlyByHand, "fly by hand"),
+            // WHERE FLIGHTS ARE, beside `n`, which is the other way to start
+            // one. Scoped for `a`'s reason rather than hidden: a person on the
+            // airspace tab is not starting a flight by hand, and the key still
+            // answers if they do.
+            new(KeyStroke.Char('y'), Command.AskHowToFlyByHand, "fly by hand")
+                { OffTheHintLine = !OverAFlight(context) },
         ],
     };
 
@@ -860,6 +902,20 @@ public static class Keymap
     /// </remarks>
     public static KeyStroke? EscapeHatch(KeymapContext context) =>
         context.Mode == UiMode.Normal ? null : KeyStroke.Esc;
+
+    /// <summary>
+    /// Whether the tab on the screen is a list of flights.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONE PREDICATE FOR THE TWO KEYS THAT ACT ON A FLIGHT</b>, because two
+    /// copies of "which tabs are flights" would be two things to update the day
+    /// a third such tab exists, and the one that is missed is the one nobody is
+    /// looking at. Both tabs, not just the one called Flights: the queue is
+    /// flights needing you, the cursor sits on one in either, and these keys
+    /// open and start what the cursor is on.
+    /// </remarks>
+    private static bool OverAFlight(KeymapContext context) =>
+        context.Showing is TabId.Queue or TabId.Flights;
 
     /// <summary>
     /// The status line, rendered from the bindings that are live.

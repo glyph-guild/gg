@@ -498,19 +498,24 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // BEING EDITED: the way out is the one thing to say, because every
+        // other key is a character now.
         if (state.Mode == UiMode.AirspacePath)
         {
             return "airspace - enter to set it, esc to leave it";
         }
 
+        // FOCUSED AND INERT, which is where the box spends its time. Focus
+        // alone does not tell anybody a field can be typed into, so the key
+        // that starts is named in every one of these.
         if (state.Estate?.Root is not { Length: > 0 })
         {
-            return "airspace - not set, enter to say where it is";
+            return "airspace - not set, enter to edit";
         }
 
         return state.Estate.IsRepository
-            ? "airspace"
-            : "airspace - not a git tree, so pull cannot refuse an overwrite";
+            ? "airspace - enter to edit"
+            : "airspace - not a git tree; enter to edit";
     }
 
     /// <summary>

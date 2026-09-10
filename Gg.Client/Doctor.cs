@@ -50,6 +50,13 @@ public static class DoctorChecks
     /// </remarks>
     public const string Moves = "moves";
 
+    /// <summary>Where the estate's working copy is, and whether it is one.</summary>
+    /// <remarks>
+    /// Not blocking: an unset path is a machine nobody has authored from, which
+    /// is most of them, and the verbs still fall back to the current directory.
+    /// </remarks>
+    public const string Airspace = "airspace";
+
     /// <summary>Where secrets live on this machine, and how they are protected.</summary>
     /// <remarks>
     /// Stated, never judged, and never blocking. A person cannot reason about
@@ -191,6 +198,22 @@ public sealed record MachineRole
 
     /// <summary>The pool endpoint, when this host maintains one.</summary>
     public string? PoolEndpoint { get; init; }
+
+    /// <summary>Where the estate's working copy is, or null when nobody said.</summary>
+    public string? Airspace { get; init; }
+
+    /// <summary>
+    /// Whether that path is inside a git working tree.
+    /// </summary>
+    /// <remarks>
+    /// <b>The fact that makes a silent write visible.</b> <c>Git.Status</c>
+    /// answers empty for a plain directory - deliberately, because ADR-0016
+    /// holds the repository is convenience - so pull's dirty-tree refusal
+    /// cannot fire there and an estate is written with nothing to say about
+    /// it. Read here rather than judged: a working copy is allowed not to be a
+    /// repository, and what a person needs is to know which one they have.
+    /// </remarks>
+    public bool AirspaceIsRepository { get; init; }
 
     /// <summary>A machine configured for nothing in particular.</summary>
     public static MachineRole None { get; } = new();
@@ -537,9 +560,69 @@ public sealed class Doctor(
             };
     }
 
+    /// <summary>Where the estate is written, and whether git can see it.</summary>
+    /// <remarks>
+    /// <b>Three answers, and the middle one is why this check exists.</b> Unset
+    /// is ordinary. Set and a working tree is the arrangement ADR-0016
+    /// describes. Set and NOT a working tree is the state where
+    /// <c>gg airspace pull</c> cannot refuse a dirty tree, because the refusal
+    /// is computed from a git answer that is empty for a plain directory - so
+    /// pull overwrites whatever is there and says nothing. That is worth a line
+    /// before the first pull rather than a discovery after it.
+    /// </remarks>
+    public static DoctorCheck AirspaceCheck(MachineRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+
+        if (role.Airspace is not { Length: > 0 } path)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Airspace,
+                Passed = false,
+                Detail = "no working copy is configured, so gg airspace pull, diff and apply "
+                       + "act on whatever directory you happen to be in",
+                Blocking = false,
+                Fixable = true,
+                Fix = "Run `gg config set airspace <path>` for the directory the estate "
+                    + "renders into, or set GG_AIRSPACE for this shell only. There is no "
+                    + "default because no path is right for every machine, and one here "
+                    + "would be a directory gg wrote an estate into because nobody said "
+                    + "otherwise.",
+            };
+        }
+
+        return role.AirspaceIsRepository
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Airspace,
+                Passed = true,
+                Detail = $"{path}, a git working tree - so pull can refuse to overwrite an "
+                       + "edit nobody committed",
+                Blocking = false,
+                Fixable = false,
+            }
+            : new DoctorCheck
+            {
+                Name = DoctorChecks.Airspace,
+                Passed = false,
+                Detail = $"{path} is configured and is not a git working tree, so pull cannot "
+                       + "refuse to overwrite an uncommitted edit - git is the only thing "
+                       + "that tells one apart from a formatting change, and without it pull "
+                       + "just writes",
+                Blocking = false,
+                Fixable = true,
+                Fix = $"Run `git init` in {path} and commit what pull renders, or point "
+                    + "`gg config set airspace <path>` at the clone you keep. ADR-0016 "
+                    + "leaves the repository optional on purpose - the stream is the record "
+                    + "- so this is a warning rather than a refusal.",
+            };
+    }
+
     private static IReadOnlyList<DoctorCheck> RoleChecks(MachineRole role) =>
     [
         ExecutorCheck(role),
+        AirspaceCheck(role),
 
         role.ForgeHosts is { Length: > 0 } hosts
             ? new DoctorCheck

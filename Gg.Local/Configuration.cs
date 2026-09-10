@@ -123,6 +123,31 @@ public sealed record Configuration
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 
+    /// <summary>
+    /// Where the estate's working copy is, as a path on this machine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The verbs took the current directory and nothing could name one.</b>
+    /// That answers for a verb typed inside the tree and not at all for the
+    /// console, which is launched from wherever somebody happened to be.
+    /// </para>
+    /// <para>
+    /// <b>No default, and a fallback is not one.</b> The verbs still fall back
+    /// to the current directory so nothing that works today stops, but there is
+    /// no path that is right for every machine - a default here would be a
+    /// directory gg wrote an estate into because nobody said otherwise.
+    /// </para>
+    /// <para>
+    /// <b>Not offerable, unlike everything a fleet needs.</b> It names a
+    /// directory on this machine, and a control plane able to move where a
+    /// person's drafts live could move where their next edit lands. It keeps a
+    /// variable, unlike <see cref="AcceptOffered"/>, because a container or a
+    /// CI job has a legitimate reason to set one.
+    /// </para>
+    /// </remarks>
+    public string? Airspace { get; init; }
+
     /// <summary>The version of the last offer accepted here.</summary>
     /// <remarks>
     /// <para>
@@ -223,6 +248,8 @@ public sealed record Configuration
                 Get = c => c.PoolEndpoint, With = (c, v) => c with { PoolEndpoint = v } },
         new() { Variable = "GG_STUN_SERVERS", Key = "stun-servers",
                 Get = c => c.StunServers, With = (c, v) => c with { StunServers = v } },
+        new() { Variable = "GG_AIRSPACE", Key = "airspace",
+                Get = c => c.Airspace, With = (c, v) => c with { Airspace = v } },
     ];
 
     /// <summary>Why this configuration cannot be used, or null when it can.</summary>

@@ -109,6 +109,11 @@ public static class ConsoleEnvironment
            "relay addresses for the connection between a runner and a console. Empty "
          + "is a real answer: host candidates only."),
 
+        Of("GG_AIRSPACE", file, environment,
+           "where the estate's working copy is. Unset means gg airspace pull, diff and "
+         + "apply act on whatever directory you are in, which is why the doctor says "
+         + "so."),
+
         // AND THE FOUR THE FILE CANNOT CARRY, said rather than left out.
         Of("XDG_CONFIG_HOME", file, environment,
            "where the session, the credential store and this configuration live. "

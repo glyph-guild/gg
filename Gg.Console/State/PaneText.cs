@@ -447,20 +447,22 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.Envelope is not { } applied)
-        {
-            return "not read - press e to read the envelope in force";
-        }
-
         // THE DOCUMENTS FIRST, THEN THE ANSWER THEY COMPOSE TO. A person on
         // this pane is either reading what governs or looking for where to
         // change it, and the second question is the one the pane could not
         // answer at all - so it goes where somebody arriving will see it,
         // above a rendering that can run to a screenful.
+        //
+        // AND NEITHER HALF GATES THE OTHER, which it did: an early return on a
+        // null envelope swallowed the whole airspace section, including the key
+        // that answers an unset one - so the tab said nothing about the
+        // airspace on exactly the machines that had not configured it.
         return Estate(state)
              + "\n"
-             + Clean(Gg.Client.VerbOutput.ToText(
-                 new Gg.Client.VerbResult.EnvelopeShown(applied)), lines: true);
+             + (state.Envelope is { } applied
+                 ? Clean(Gg.Client.VerbOutput.ToText(
+                     new Gg.Client.VerbResult.EnvelopeShown(applied)), lines: true)
+                 : "the envelope in force: not read - press e");
     }
 
     /// <summary>
@@ -486,9 +488,13 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // NO ESTATE AT ALL is a state the boot no longer produces - LocalFacts
+        // fills the root before any key is pressed - but a hand-built model
+        // still can, and a pane that threw or blanked on one would be a worse
+        // answer than a line saying what it knows.
         if (state.Estate is not { } estate)
         {
-            return "documents: not read - press e to read them";
+            return "airspace: not set - press w to say where it is";
         }
 
         var text = new StringBuilder();

@@ -1646,6 +1646,13 @@ public static class PaneText
     {
         var text = new StringBuilder();
 
+        // WHAT SOMEBODY ELSE PROPOSES, above the rows it would change. Said
+        // even when the answer is none: a page that mentions offers only while
+        // one is waiting cannot be used to check that none is, which is the
+        // question somebody opens this page to answer.
+        text.AppendLine("  " + Offered(state));
+        text.AppendLine();
+
         if (state.Settings.Count == 0)
         {
             // NOT "nothing is set". The composition root builds this list and a
@@ -1669,6 +1676,38 @@ public static class PaneText
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>One line about what this control plane offers this machine.</summary>
+    /// <remarks>
+    /// <b>Four states and four sentences.</b> Nothing offered; an offer already
+    /// in force; one that repoints something, which is the case the whole tier
+    /// exists for; and one that does not. Only the last two end in a key,
+    /// because asking somebody to take a document they already have is asking
+    /// them to decide twice.
+    /// </remarks>
+    private static string Offered(AppState state)
+    {
+        if (state.Offered is not { } offered)
+        {
+            return "Nothing is offered to this machine by its control plane.";
+        }
+
+        var what = offered.Settings == 1 ? "1 setting" : $"{offered.Settings} settings";
+
+        if (offered.AlreadyAccepted)
+        {
+            return $"Offer {Clean(offered.Version)} ({what}) is already in force here.";
+        }
+
+        // NAMES THE REASON, not just the requirement. "It repoints something"
+        // is why a person is being asked at all, and it is the sentence the
+        // offerable set was argued into existence on.
+        var why = offered.NeedsAPerson
+            ? " It repoints something, so only a person can take it."
+            : "";
+
+        return $"Offer {Clean(offered.Version)} ({what}) is waiting.{why} Press `o' to take it.";
     }
 
     /// <summary>

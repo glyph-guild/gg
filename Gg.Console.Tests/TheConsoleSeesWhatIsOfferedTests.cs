@@ -33,15 +33,16 @@ public class TheConsoleSeesWhatIsOfferedTests
 {
     private static AppState Showing(OfferedOnThisMachine? offered) => new()
     {
-        Modal = UiMode.Help,
+        Mode = UiMode.Help,
         HelpPage = HelpPage.Environment,
         Settings =
         [
-            new EnvironmentSetting
+            new Gg.Local.EnvironmentSetting
             {
                 Name = "GG_CONTROL_PLANE",
                 Value = "https://control.invalid",
-                Why = "from the environment",
+                Why = "which control plane this machine reads",
+                Source = Gg.Local.SettingSources.Environment,
             },
         ],
         Offered = offered,

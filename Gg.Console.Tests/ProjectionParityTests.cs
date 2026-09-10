@@ -97,17 +97,18 @@ public class ProjectionParityTests
                                 + "console's equivalent is step 5, where a bad edit is "
                                 + "refused before it is written.",
 
-            // AND THIS ONE CANNOT REACH THE CONSOLE AT ALL, which is a stronger
-            // statement than the two above. They are answers the console
-            // computes another way; this is an answer only a network call
-            // produces, and a UI session may read a local file and nothing else.
-            // There is no ConsoleData method to give an arm to, and adding one
-            // would be the exception LiveStreamingTests exists to refuse.
-            ["ConfigOffered"] = "not projected, and it is the session rule rather than a "
-                              + "missing wrapper: an offer comes from a control plane, and a "
-                              + "UI session may read a local file and nothing else. Reaching "
-                              + "it means going between sessions, which is the shape "
-                              + "VerbParityTests' ConfigAccept entry describes.",
+            // THIS ENTRY USED TO SAY THE CONSOLE COULD NOT REACH AN OFFER AT
+            // ALL, "because a UI session may read a local file and nothing
+            // else". That rule is about a SESSION. The console fetches at boot
+            // and on refresh, between sessions, which is where this now
+            // happens - so the console does see an offer, and the reason it is
+            // still not PROJECTED is the ordinary one the two entries above
+            // give: it arrives as its own summary rather than as a VerbResult.
+            ["ConfigOffered"] = "not projected: the root reads it at boot and hands the "
+                              + "Environment page a summary, so a projection would be a "
+                              + "second path to one answer - ConfigShown's reason exactly. "
+                              + "A summary rather than the document, because this model is "
+                              + "dumped and bundled.",
 
             ["Gates"] = "step 3: answering a gate has to refetch them, and today the boot's "
                       + "copy is the only one there will ever be.",

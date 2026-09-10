@@ -1041,6 +1041,17 @@ public sealed record AppState
     public string? LastConfiguration { get; init; }
 
     /// <summary>
+    /// What this tenant's control plane offers this machine, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched where every other read is</b> — at boot and on a refresh,
+    /// between sessions. An offer is not a local fact, and it is the only thing
+    /// on the Environment page that is not: a person reading that page is
+    /// comparing what somebody else proposes against the rows above it.
+    /// </remarks>
+    public OfferedOnThisMachine? Offered { get; init; }
+
+    /// <summary>
     /// Where the last invitation link was put.
     /// </summary>
     /// <remarks>

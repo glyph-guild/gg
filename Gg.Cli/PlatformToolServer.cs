@@ -126,10 +126,15 @@ public static class PlatformToolServer
     /// Where a composing session's intent is to be written, or null when this
     /// server is not serving one - which is every fleet launch.
     /// </param>
+    /// <param name="documentRoot">
+    /// The working copy a drafted document lands in, or null when this server
+    /// is not serving a drafting session - which is every fleet launch.
+    /// </param>
     public static async Task<int> RunAsync(
         TextReader input,
         TextWriter output,
         string? intentPath = null,
+        string? documentRoot = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -157,7 +162,7 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath) is { } answer)
+                if (Answer(message.RootElement, intentPath, documentRoot) is { } answer)
                 {
                     await output.WriteLineAsync(answer);
                     await output.FlushAsync(cancellationToken);
@@ -171,7 +176,8 @@ public static class PlatformToolServer
     /// <summary>
     /// The line to write back, or null where the protocol says to write none.
     /// </summary>
-    private static string? Answer(JsonElement message, string? intentPath)
+    private static string? Answer(
+        JsonElement message, string? intentPath, string? documentRoot)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -186,7 +192,7 @@ public static class PlatformToolServer
         {
             "initialize" => Initialized(id, message),
             "tools/list" => Listed(id),
-            "tools/call" => Called(id, message, intentPath),
+            "tools/call" => Called(id, message, intentPath, documentRoot),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -377,6 +383,62 @@ public static class PlatformToolServer
 
             writer.WriteEndObject();
 
+            // THE FIFTH TOOL, and the second that writes a file. Its
+            // description carries more weight than most: an agent handed
+            // something called `submit_document` while looking at a governance
+            // tree will assume calling it puts the document in force, and it
+            // does not - it writes a draft into a working copy that a person
+            // then reads and submits.
+            writer.WriteStartObject();
+            writer.WriteString("name", DocumentTool.Name);
+            writer.WriteString("description",
+                "Hand back an envelope document you have drafted, for one name in this "
+              + "tenant's topology. It is written into the working copy beside the others, "
+              + "where a person reads the change and decides whether to submit it - so this "
+              + "applies nothing and grants nothing, and submitting it later opens a flight "
+              + "that may wait for an approver. The document is checked before it is "
+              + "written: if it does not read as the role you named, nothing is written and "
+              + "you are told why, so fix it and call again. Calling it again replaces what "
+              + "you wrote.");
+
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+
+            writer.WriteStartObject(DocumentTool.RoleArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "What this document is: one of " + string.Join(", ", Gg.Contracts.Roles.All)
+              + ". It decides which rules the document is read by, so naming the wrong one "
+              + "is refused rather than guessed past.");
+            writer.WriteEndObject();
+
+            writer.WriteStartObject(DocumentTool.NameArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Which name in the topology this document is for - the file names in the "
+              + "working copy are these names. Lower case, digits and hyphens; a name that "
+              + "no path can carry is refused.");
+            writer.WriteEndObject();
+
+            writer.WriteStartObject(DocumentTool.DocumentArgument);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "The document itself, as YAML, in the form the working copy already uses. "
+              + "Leave out `based-on:` - that line is a statement about which version of "
+              + "the stream a change was made against, and gg states it rather than you.");
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteStringValue(DocumentTool.RoleArgument);
+            writer.WriteStringValue(DocumentTool.NameArgument);
+            writer.WriteStringValue(DocumentTool.DocumentArgument);
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
             // THE FOURTH TOOL, and the one that most needs its description
             // read. An agent given something called `propose_work_item` while
             // looking at a backlog will assume it changes the backlog - so the
@@ -508,7 +570,8 @@ public static class PlatformToolServer
             writer.WriteEndObject();
         });
 
-    private static string Called(JsonElement id, JsonElement message, string? intentPath)
+    private static string Called(
+        JsonElement id, JsonElement message, string? intentPath, string? documentRoot)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -531,6 +594,11 @@ public static class PlatformToolServer
         if (string.Equals(called, IntentTool.Name, StringComparison.Ordinal))
         {
             return Submitted(id, arguments, intentPath);
+        }
+
+        if (string.Equals(called, DocumentTool.Name, StringComparison.Ordinal))
+        {
+            return Drafted(id, arguments, documentRoot);
         }
 
         if (string.Equals(called, WorkItemProposalTool.Name, StringComparison.Ordinal))
@@ -778,6 +846,189 @@ public static class PlatformToolServer
     /// look like one that chose not to.
     /// </para>
     /// </remarks>
+
+    /// <summary>
+    /// Takes a drafted document, validates it, and writes it into the working
+    /// copy.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Validated before it lands, and the diagnosis is the answer.</b>
+    /// <c>EnvelopeCommands.Validate</c> contacts nothing, so it is safe inside
+    /// a server that is a pure function of the lines it is handed - and its
+    /// refusal is what teaches an agent the schema. Nothing is written when
+    /// nothing parsed: a half-written document is one the next diff reports as
+    /// unreadable and every apply stops on.
+    /// </para>
+    /// <para>
+    /// <b>The path comes from the name, through the table pull renders
+    /// with.</b> So a drafted document sits exactly where a pulled one would,
+    /// and diff compares them without knowing which wrote it. Nothing about the
+    /// layout is the agent's to choose.
+    /// </para>
+    /// <para>
+    /// <b>And the precondition is preserved, never taken from the call.</b>
+    /// A pulled file carries <c>based-on: pci@v4</c>, which is what makes apply
+    /// refuse when somebody else's amendment landed first. ADR-0016 § 4:
+    /// <i>"a precondition about the stream, honored because the applier states
+    /// it"</i> - and the applier is gg, not the agent. A version an agent chose
+    /// is a claim about a stream it cannot have read, and a draft that cleared
+    /// the line would turn the next apply into a blind overwrite of a
+    /// colleague's work.
+    /// </para>
+    /// </remarks>
+    private static string Drafted(JsonElement id, JsonElement arguments, string? documentRoot)
+    {
+        if (string.IsNullOrEmpty(documentRoot))
+        {
+            return Content(id, isError: true,
+                "Refused: this session has no working copy, so there is nowhere for a "
+              + "document to go. Nothing was written. Say what you would have submitted and "
+              + "stop.");
+        }
+
+        var role = Text(arguments, DocumentTool.RoleArgument);
+        var name = Text(arguments, DocumentTool.NameArgument);
+        var document = Text(arguments, DocumentTool.DocumentArgument);
+
+        if (role is null || name is null || document is null)
+        {
+            return Content(id, isError: true,
+                $"Refused: a document needs all three of '{DocumentTool.RoleArgument}', "
+              + $"'{DocumentTool.NameArgument}' and '{DocumentTool.DocumentArgument}'. "
+              + "Nothing was written.");
+        }
+
+        if (Gg.Contracts.AirspaceNames.Invalid(name) is { } malformed)
+        {
+            return Content(id, isError: true, "Refused: " + malformed + " Nothing was written.");
+        }
+
+        // ROOT IGNORES THE NAME, so this has to not. PathFor answers root.yaml
+        // for the root role whatever name it is handed, which would let a
+        // mismatched pair overwrite the tenant floor while naming something
+        // else - the one document whose loss nothing else constrains.
+        if (string.Equals(role, Gg.Contracts.Roles.Root, StringComparison.Ordinal)
+            && !string.Equals(name, Gg.Contracts.Roles.Root, StringComparison.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: the root role has one document and it is called root, not "
+              + $"'{name}'. Nothing was written.");
+        }
+
+        string relative;
+        try
+        {
+            relative = $"{Gg.Client.AirspaceTree.Directory}/"
+                     + Gg.Contracts.AirspaceNames.PathFor(role, name);
+        }
+        catch (ArgumentException)
+        {
+            // THE ROLE DECIDES WHICH RULES A DOCUMENT IS READ BY, so an unknown
+            // one cannot be guessed past - and PathFor throws rather than
+            // inventing a directory, which is the answer this turns into a
+            // sentence.
+            return Content(id, isError: true,
+                $"Refused: '{role}' is not a role a document can be applied to. Nothing was "
+              + "written.");
+        }
+
+        // VALIDATED AGAINST THE PATH, not against the text's shape. Location
+        // first is what refuses a complete envelope submitted as a narrowing -
+        // which is what an agent gets by copying root.yaml to start from.
+        if (Gg.Client.EnvelopeCommands.Validate(document, relative)
+                is Gg.Client.VerbResult.EnvelopeValidated read
+            && read.Value.Diagnosis is { Length: > 0 } wrong)
+        {
+            return Content(id, isError: true,
+                "Refused: " + wrong + " Nothing was written - fix it and submit again.");
+        }
+
+        var at = Path.Combine(documentRoot, Path.Combine(relative.Split('/')));
+
+        try
+        {
+            var beside = Path.GetDirectoryName(at);
+            if (!string.IsNullOrEmpty(beside))
+            {
+                Directory.CreateDirectory(beside);
+            }
+
+            var text = Precondition(at) + WithoutPrecondition(document);
+
+            // The temp name sits in the SAME directory, because a rename across
+            // filesystems is a copy and a copy is not atomic - so a reader
+            // between the two sees a whole document or the old one, never half.
+            var partial = at + ".writing";
+            File.WriteAllText(partial, text);
+            File.Move(partial, at, overwrite: true);
+        }
+        catch (Exception failure) when (
+            failure is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // SAID, NOT THROWN. A throw here kills the server and takes the
+            // agent's other tools with it for the rest of the session, over a
+            // failure that belongs to one call.
+            return Content(id, isError: true,
+                $"Refused: the document could not be written ({failure.Message}). Nothing was "
+              + "written - say what you would have submitted and stop.");
+        }
+
+        return Content(id, isError: false,
+            $"Written to {relative}. This applies nothing: a person reads the change and "
+          + "decides whether to submit it, and submitting it opens a flight that may wait at "
+          + "a gate. Calling this again replaces what you wrote.");
+    }
+
+    /// <summary>
+    /// The <c>based-on:</c> line the working copy already holds, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// Read as the first line, which is where pull writes it and the only place
+    /// it means what it says. Absent for a document nothing has pulled, because
+    /// genesis has no predecessor and inventing one would refuse the first
+    /// apply of a document that never had a version.
+    /// </remarks>
+    private static string Precondition(string at)
+    {
+        try
+        {
+            if (!File.Exists(at))
+            {
+                return "";
+            }
+
+            using var reader = new StreamReader(at);
+            var first = reader.ReadLine();
+
+            return first is not null
+                && first.StartsWith("based-on:", StringComparison.Ordinal)
+                    ? first + "\n"
+                    : "";
+        }
+        catch (Exception unreadable) when (
+            unreadable is IOException or UnauthorizedAccessException)
+        {
+            // A FILE THAT WILL NOT READ LOSES ITS PRECONDITION, which makes the
+            // apply state none and the control plane accept without one. That
+            // is the safe direction only because the write below will fail for
+            // the same reason a moment later.
+            return "";
+        }
+    }
+
+    /// <summary>The document without any precondition the caller sent.</summary>
+    /// <remarks>
+    /// Dropped rather than refused, because an agent that pulled the line
+    /// through from what it read is doing the reasonable thing - it just has no
+    /// standing to state it. What it says about the document is kept; what it
+    /// says about the stream is not.
+    /// </remarks>
+    private static string WithoutPrecondition(string document) =>
+        document.StartsWith("based-on:", StringComparison.Ordinal)
+            ? document[(document.IndexOf('\n', StringComparison.Ordinal) + 1)..]
+            : document;
+
     private static string Submitted(JsonElement id, JsonElement arguments, string? intentPath)
     {
         if (string.IsNullOrEmpty(intentPath))

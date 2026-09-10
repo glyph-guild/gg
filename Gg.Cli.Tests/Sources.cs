@@ -29,6 +29,14 @@ internal static partial class Sources
               + "server has somewhere to record a composed intent. A person setting it "
               + "would be choosing a path gg is about to overwrite.",
 
+            ["GG_DOCUMENT_ROOT"] =
+                "the same shape as GG_INTENT_PATH one tool over: the console writes it "
+              + "into the tool server's own environment so a drafted document has a "
+              + "working copy to land in. Where that copy is IS on the page, as "
+              + "GG_AIRSPACE - this is gg handing the answer to its own child, and a "
+              + "person setting it would be pointing a drafting session at a tree the "
+              + "pane they are looking at does not describe.",
+
             ["GG_MEMBER_NONCE"] =
                 "a pool maintainer writes it into a member container, single use. A "
               + "person cannot mint one and a stale one is refused.",

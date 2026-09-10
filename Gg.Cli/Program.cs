@@ -1265,6 +1265,15 @@ static async Task<int> LaunchConsoleAsync()
         // estate read is second so a failing topology cannot cost the envelope.
         envelope: current => ConsoleEstate.Read(
             data, EstateRoot(), ConsoleEnvelope.Read(data, current)),
+
+        // THE SAME ROOT THE VERBS AND THE PANE USE, so a person cannot be shown
+        // one tree and have another written. The pull's own reload follows in
+        // the loop, because the pane describes the tree this just rewrote.
+        pullEstate: current => current with
+        {
+            LastEstate = ConsolePull.Pulled(
+                () => data.PullEstateAsync(EstateRoot()).GetAwaiter().GetResult()),
+        },
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))
         .Run(initial);
 

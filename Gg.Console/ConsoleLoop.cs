@@ -148,7 +148,23 @@ public sealed class ConsoleLoop(
     /// be a console that can act as a runner.
     /// </para>
     /// </remarks>
-    IEditorSession? compose = null)
+    IEditorSession? compose = null,
+
+    /// <summary>
+    /// Renders the estate into the working copy, and says what that came to.
+    /// </summary>
+    /// <remarks>
+    /// The composition root's, like its neighbours: it resolves where the
+    /// working copy is from a setting this assembly may not read and calls a
+    /// verb that writes files, and a console that could name either would be a
+    /// console that writes a directory from inside a session.
+    /// <para>
+    /// <b>AFTER <c>compose</c>, for the reason <c>compose</c> gives about
+    /// itself.</b> An optional parameter inserted beside the ports rebinds
+    /// every positional call site to a different one.
+    /// </para>
+    /// </remarks>
+    Func<AppState, AppState>? pullEstate = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -428,7 +444,23 @@ public sealed class ConsoleLoop(
                         : groundFlight(Closed(state), () => editor.Edit(""));
                     break;
 
-                case Command.EditConfiguration:
+                case Command.PullEstate:
+                // AND THEN RE-READ, because the pane a person is looking at
+                // describes the tree this just rewrote. Without the reload the
+                // documents column would still show what was true before the
+                // pull, which is the one moment it is guaranteed to be wrong.
+                state = Reloaded(
+                    pullEstate is null
+                        ? state with
+                        {
+                            LastEstate = "This console is not configured to pull the estate.",
+                        }
+                        : pullEstate(state),
+                    reload,
+                    asked: false);
+                break;
+
+            case Command.EditConfiguration:
                     // A CHILD AND THEN A WRITE, which is why this is here and
                     // not in the session that asked for it. The editor is
                     // handed the document as it stands and what comes back is
@@ -723,6 +755,7 @@ public sealed class ConsoleLoop(
         after.LastFlightOpened != before.LastFlightOpened ? after.LastFlightOpened
         : after.LastCredential != before.LastCredential ? after.LastCredential
         : after.LastConfiguration != before.LastConfiguration ? after.LastConfiguration
+        : after.LastEstate != before.LastEstate ? after.LastEstate
         : after.LastInvite != before.LastInvite ? after.LastInvite
         : after.LastDecision != before.LastDecision ? after.LastDecision
         : after.LastTakeover != before.LastTakeover ? after.LastTakeover

@@ -368,6 +368,21 @@ public sealed class ConsoleData(
         string root, CancellationToken cancellationToken = default) =>
         _commands.AirspaceDiffAsync(root, cancellationToken);
 
+    /// <summary>
+    /// `gg airspace pull` - renders the estate into the working copy.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first write on this surface, and it writes only files.</b> Pull
+    /// mints no version and opens no flight: it renders what the stream already
+    /// holds, which is why it can be reached from a console at all while apply
+    /// - one flight, one gate, one attribution per document - stays out for
+    /// now. It refuses a dirty tree rather than merging, so the act a person
+    /// cannot undo is the one git already guards.
+    /// </remarks>
+    public Task<VerbResult> PullEstateAsync(
+        string root, CancellationToken cancellationToken = default) =>
+        _commands.AirspacePullAsync(root, cancellationToken);
+
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);

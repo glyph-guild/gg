@@ -89,6 +89,17 @@ public enum Command
     /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
     ToggleEnvelope,
 
+    /// <summary>
+    /// Render the estate into the working copy.
+    /// </summary>
+    /// <remarks>
+    /// <b>A write, so the shell handles it.</b> Pull overwrites files with
+    /// canonical renderings, and the exception that lets a read run on a task
+    /// outside the UI lifetime is for a read. It is also the one act without
+    /// which the estate pane has no working copy to describe.
+    /// </remarks>
+    PullEstate,
+
     /// <summary>Hand the configuration file to $EDITOR.</summary>
     /// <remarks>
     /// <b>A handoff, because nothing in this console is written by typing.</b>
@@ -486,6 +497,7 @@ public static class ShellCommands
         // It opens a child and then writes a file, which is two things a
         // session may not do.
         Command.EditConfiguration,
+        Command.PullEstate,
 
         // It asks the control plane and then writes a file. The second half is
         // the one that puts it here; the first is why it cannot be a read the

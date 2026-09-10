@@ -1422,11 +1422,69 @@ static async Task<int> RunnerUpAsync()
         },
         DateTimeOffset.UtcNow);
 
-    var labels = (Settings.Value("GG_RUNNER_LABELS", InForce.Configuration) ?? "")
+    // WHAT THE CONTROL PLANE OFFERS, TAKEN BEFORE ANYTHING IS COMPOSED. Every
+    // value below is read once into a local and handed to the loop, so a file
+    // written later in the run changes nothing until the process restarts -
+    // which is exactly why this is here and not on the beat that carries it. A
+    // machine brought up fresh is configured before it claims anything.
+    //
+    // ONE HEARTBEAT, because that is the only way a runner can be handed an
+    // offer: the read a person uses answers a developer session and refuses a
+    // runner credential, deliberately. This beat declares no labels, which
+    // costs nothing - a claim carries its own, and the loop re-declares on
+    // every beat after this one.
+    var inForce = InForce.Configuration;
+
+    try
+    {
+        var beat = await new Gg.Runner.RunnerProtocolClient(
+                new HttpClient { BaseAddress = new Uri(baseAddress) }, registered.RunnerToken)
+            .HeartbeatAsync(registered.RunnerId, [], CancellationToken.None);
+
+        var decided = OfferedAtStartup.Decide(
+            beat.Offered, inForce, Gg.Local.ConfigurationFile.DefaultPath());
+
+        if (decided.Note is { Length: > 0 } note)
+        {
+            // STDERR, and the reader is a log. Nobody is at a runner, so an
+            // offer it could not take reaches an operator here or nowhere.
+            Console.Error.WriteLine($"gg: {note}");
+        }
+
+        if (decided.Write is { } take)
+        {
+            Gg.Local.ConfigurationFile.Write(take);
+            Console.Error.WriteLine(
+                $"gg: took offered configuration {beat.Offered!.Version}, written to "
+              + Gg.Local.ConfigurationFile.DefaultPath());
+        }
+
+        inForce = decided.InForce;
+    }
+    catch (HttpRequestException unreachable)
+    {
+        // AN ENHANCEMENT TO BRING-UP, NOT A DEPENDENCY OF IT. A runner that
+        // refused to start because it could not ask what was offered would turn
+        // one control-plane outage into a fleet that does not come back, which
+        // is far worse than composing from a file one version behind.
+        Console.Error.WriteLine(
+            "gg: could not ask what this control plane offers, so this runner starts on "
+          + $"what is already in force: {unreachable.Message}");
+    }
+    catch (IOException unwritable)
+    {
+        // The same argument one step along: a disk that will not take the file
+        // is a reason to carry on with the old values, not to stay down.
+        Console.Error.WriteLine(
+            "gg: could not write offered configuration, so this runner starts on what is "
+          + $"already in force: {unwritable.Message}");
+    }
+
+    var labels = (Settings.Value("GG_RUNNER_LABELS", inForce) ?? "")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     var holdFor = int.TryParse(
-        Settings.Value("GG_RUNNER_HOLD_SECONDS", InForce.Configuration), out var seconds)
+        Settings.Value("GG_RUNNER_HOLD_SECONDS", inForce), out var seconds)
         ? TimeSpan.FromSeconds(seconds)
         : TimeSpan.FromSeconds(10);
 
@@ -1445,7 +1503,7 @@ static async Task<int> RunnerUpAsync()
     // business. A provider nobody configured is a declared capability gap.
     var workspace = new Gg.Runner.Workspace(
         Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
-            Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot());
+            Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, inForce)), new Gg.Runner.Vcs.WorkingTreeRoot());
 
     // Where this runner may LAND work, which is a second declaration on purpose.
     // A runner configured to read and not to write cannot write - there is no
@@ -1524,7 +1582,7 @@ static async Task<int> RunnerUpAsync()
             // host candidates work between machines that can already reach each
             // other - and TURN is S34.Q-04, still open.
             stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
-            Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)));
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, inForce)));
     }
     finally
     {

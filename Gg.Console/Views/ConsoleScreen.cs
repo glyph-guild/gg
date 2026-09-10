@@ -1259,6 +1259,11 @@ public sealed class ConsoleScreen : Window
                 Paste();
                 key.Handled = true;
                 return;
+
+            case Command.AirspacePathFromDialog:
+                Browse();
+                key.Handled = true;
+                return;
         }
 
         if (key == Key.Esc)
@@ -1266,6 +1271,81 @@ public sealed class ConsoleScreen : Window
             key.Handled = true;
             Dispatch(Command.CloseModal);
         }
+    }
+
+    /// <summary>
+    /// Runs a directory picker and puts what it chose into the airspace field.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A DIRECTORY, NOT A FILE, and that is the whole configuration.</b> An
+    /// airspace is a directory — <c>AirspaceTree.Write</c> renders
+    /// <c>airspace/</c> into it. <c>OpenMode</c> defaults to <c>Mixed</c>, so a
+    /// dialog left alone would let somebody pick a file, the path would be
+    /// stored without complaint, and the next pull would render a tree beside
+    /// that file rather than in a directory anybody meant.
+    /// </para>
+    /// <para>
+    /// <b><c>MustExist</c> stays false, which is what the field beside it
+    /// does.</b> The order a person works in is set-then-pull, and the render
+    /// creates the tree — so a picker that could only name what already
+    /// exists would be narrower than typing, in the one case where typing is
+    /// most tedious.
+    /// </para>
+    /// <para>
+    /// <b>A SECOND EXCEPTION TO THE SESSION RULE, narrower than the
+    /// clipboard's.</b> It reads directory listings a person walks, which is
+    /// more than the local file whose path the console already holds that
+    /// <c>LiveStreamingTests</c> scopes a session's read to. It spawns nothing
+    /// and reaches no network, which is why it is the cheaper of this field's
+    /// two exceptions — and it is recorded in the same place rather than
+    /// left to be inferred from the other one.
+    /// </para>
+    /// <para>
+    /// <b>Cancelled says nothing.</b> Somebody who opened a picker and thought
+    /// better of it has told gg nothing, and a sentence about it would be a
+    /// report on a decision not taken.
+    /// </para>
+    /// </remarks>
+    private void Browse()
+    {
+        using var picker = new FileDialog
+        {
+            Title = "airspace",
+
+            // A DIRECTORY, because that is what an airspace is. The default is
+            // Mixed, which would accept a file.
+            OpenMode = OpenMode.Directory,
+            AllowsMultipleSelection = false,
+
+            // NOT REQUIRED TO EXIST, for the field's own reason: set-then-pull
+            // is the order, and the render is what creates the tree.
+            MustExist = false,
+        };
+
+        // STARTED WHERE THE ANSWER PROBABLY IS - what is configured now, or
+        // failing that the directory gg was launched from. A picker that opens
+        // somewhere else makes a person walk back to where they were already
+        // standing. Empty is left alone, because an empty path is not a
+        // starting point.
+        var start = _airspacePath.Text is { Length: > 0 } showing ? showing : State.Cwd;
+
+        if (start is { Length: > 0 })
+        {
+            picker.Path = start;
+        }
+
+        _app.Run(picker);
+
+        // CANCELLED IS NOT AN ANSWER AND NOT A FAILURE. Canceled is true when
+        // the dialog produced no result; the path is checked as well, because a
+        // dialog that accepted an empty box would otherwise blank the field.
+        if (picker.Canceled || picker.Path is not { Length: > 0 } chosen)
+        {
+            return;
+        }
+
+        _airspacePath.Text = chosen;
     }
 
     /// <summary>

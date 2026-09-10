@@ -173,6 +173,20 @@ public enum Command
     /// </remarks>
     AirspacePathFromClipboard,
 
+    /// <summary>Pick the airspace directory with a file dialog.</summary>
+    /// <remarks>
+    /// <b>A directory picker, not a file one.</b> An airspace is a
+    /// directory, and a dialog left on its default would let somebody choose
+    /// a file - the path would be written and pull would render a tree
+    /// BESIDE it rather than in it.
+    /// <para>
+    /// A second, narrower exception to the session rule: it reads directory
+    /// listings a person walks, which is more than a file whose path the
+    /// console already holds. It spawns nothing, unlike the clipboard.
+    /// </para>
+    /// </remarks>
+    AirspacePathFromDialog,
+
     /// <summary>Hand the configuration file to $EDITOR.</summary>
     /// <remarks>
     /// <b>A handoff, because nothing in this console is written by typing.</b>
@@ -588,6 +602,11 @@ public static class ShellCommands
             [Command.AirspacePathFromClipboard] =
                 "puts the clipboard into the airspace field. A stated exception to the "
               + "session rule, recorded in LiveStreamingTests where that rule is enforced.",
+
+            [Command.AirspacePathFromDialog] =
+                "runs a directory picker and puts its answer in the airspace field. A "
+              + "second, narrower exception - a filesystem read a person walks, with no "
+              + "spawn - recorded in the same place.",
         };
 
     public static IReadOnlySet<Command> Handled { get; } = new HashSet<Command>

@@ -476,6 +476,8 @@ public static class Keymap
                 "use the directory gg was launched from"),
             new(KeyStroke.Control('v'), Command.AirspacePathFromClipboard,
                 "paste the clipboard"),
+            new(KeyStroke.Control('o'), Command.AirspacePathFromDialog,
+                "browse for a directory"),
             new(KeyStroke.Esc, Command.CloseModal, "leave it as it is")
                 { Label = "Leave it" },
         ],

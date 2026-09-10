@@ -502,8 +502,11 @@ public static class PaneText
         // other key is a character now.
         if (state.Mode == UiMode.AirspacePath)
         {
-            return "airspace - enter to set, ctrl-v paste, ctrl-d this directory, "
-                 + "esc to leave";
+            // FOUR KEYS ON ONE BORDER, so each is named in as few words as it
+            // can be: a title that wrapped would take a row from the box it
+            // titles, and the path is what that row is for.
+            return "airspace - enter set · ctrl-o browse · ctrl-v paste · "
+                 + "ctrl-d here · esc leave";
         }
 
         // FOCUSED AND INERT, which is where the box spends its time. Focus

@@ -162,10 +162,16 @@ public class ProjectionParityTests
                         + "the console shows a sentence and not a state. Wired or the "
                         + "sentence is declared to be the whole of it.",
             ["Launched"] = "step 6, on the same footing as Invited.",
-            ["AirspaceTopology"] = "the registered repositories as a tree. Resolved in step "
-                                 + "6 with AirspaceAsync, which returns it: wired to a pane "
-                                 + "or deleted together, because a projection arm for a read "
-                                 + "nothing calls is half a feature twice.",
+            // WAS "the registered repositories as a tree", which was the wrong
+            // read: this one is the TOPOLOGY - envelope names and their roles -
+            // and the repositories are RegisteredRepositories, a different door.
+            // The same conflation was in the family's usage line. It is wired
+            // to a pane now, which is what that entry said would resolve it,
+            // and unwrapped by ConsoleEstate for the reason below rather than
+            // projected.
+            ["AirspaceTopology"] = "the topology: every envelope name and its role. Read by "
+                                 + "ConsoleEstate and unwrapped there, beside the diff it is "
+                                 + "joined with.",
 
             // --- arms that would be wrong, and the reason is the same one ---
             // Each of these is the RESULT OF A WRITE THAT TAKES A FILE, which
@@ -176,7 +182,14 @@ public class ProjectionParityTests
             ["EnvelopeValidated"] = "a validation of a file. Same.",
             ["AirspacePulled"] = "writes a working copy. Same.",
             ["AirspaceApplied"] = "applies a document from a file. Same.",
-            ["AirspaceDiffed"] = "compares against a working copy the console has not. Same.",
+            // WAS "compares against a working copy the console has not", which
+            // stopped being true the moment the console got one. It is read now,
+            // by ConsoleEstate, and unwrapped there rather than projected: a
+            // projection arm maps one result onto one field, and the estate
+            // record joins two results plus two facts about the machine, so a
+            // pair of arms would leave it half-built between them.
+            ["AirspaceDiffed"] = "read by ConsoleEstate and unwrapped there, because the "
+                               + "estate record joins two reads and an arm fills one field.",
             ["NameDeclared"] = "the answer to declaring a topology name. Not a working-copy "
                              + "result like the three above - it needs no tree - so it is "
                              + "absent only until the estate pane it belongs on exists.",

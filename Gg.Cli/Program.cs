@@ -1259,7 +1259,12 @@ static async Task<int> LaunchConsoleAsync()
                 return child?.ExitCode ?? -1;
             }),
         repositories: current => ConsoleRepositories.Read(data, current),
-        envelope: current => ConsoleEnvelope.Read(data, current),
+        // BOTH READS ON THE ONE KEY, because somebody who wants to know what
+        // governs almost always wants to know where to change it, and a second
+        // key for the second half would be a key nobody knew to press. The
+        // estate read is second so a failing topology cannot cost the envelope.
+        envelope: current => ConsoleEstate.Read(
+            data, EstateRoot(), ConsoleEnvelope.Read(data, current)),
         browser: new Gg.Console.ConfiguredWorkBrowser(readers))
         .Run(initial);
 

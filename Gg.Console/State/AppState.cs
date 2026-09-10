@@ -675,6 +675,19 @@ public sealed record AppState
     /// <summary>Whether the envelope is open as a tab.</summary>
     public bool EnvelopeVisible { get; init; }
 
+    /// <summary>
+    /// The documents the envelope was composed from, and what the working copy
+    /// says about them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the envelope rather than inside it</b>, because they answer
+    /// different questions - what governs, and where to change it - and
+    /// because the envelope is a contract type the control plane composed while
+    /// this is two reads joined on this machine. Read on the same key, since
+    /// somebody who wants one almost always wants the other.
+    /// </remarks>
+    public EstateOnThisMachine? Estate { get; init; }
+
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>
     public RunnerList? Runners { get; init; }
 

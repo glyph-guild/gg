@@ -70,8 +70,57 @@ internal static class StateGenerator
             // FROM the dump after every terminal release.
             SignIn = random.Next(3) == 0 ? NextPendingSignIn(random) : null,
             LastSignIn = random.Next(3) == 0 ? NextText(random) : null,
+
+            // THE ESTATE, so the round trip is not vacuous for it. This member
+            // holds two records the verbs produced - a topology and a diff -
+            // and the round trip is the assertion that matters for them: the
+            // context is source-generated, a member shape it was not told about
+            // is refused in the published binary rather than here, and the
+            // console is rebuilt FROM the dump after every terminal release. A
+            // field left null in every draw would let all of that pass unread.
+            Estate = random.Next(3) == 0 ? NextEstate(random) : null,
         };
     }
+
+    private static EstateOnThisMachine NextEstate(Random random) => new()
+    {
+        Root = random.Next(2) == 0 ? null : "/tmp/" + NextId(random),
+        IsRepository = random.Next(2) == 0,
+        Names = new Gg.Contracts.EnvelopeTopology
+        {
+            Names = [.. Enumerable.Range(0, random.Next(0, 4)).Select(_ => NextName(random))],
+        },
+        Working = random.Next(2) == 0 ? null : new Gg.Client.EstateDiff
+        {
+            Changes =
+            [
+                .. Enumerable.Range(0, random.Next(0, 3)).Select(_ => new Gg.Client.DocumentChange
+                {
+                    Name = NextId(random),
+                    Path = "airspace/narrowings/" + NextId(random) + ".yaml",
+                    Direction = random.Next(2) == 0
+                        ? Gg.Client.Changeset.Tightening
+                        : Gg.Client.Changeset.Widening,
+                    Field = random.Next(2) == 0 ? null : NextId(random),
+                    Because = random.Next(2) == 0 ? null : NextText(random),
+                }),
+            ],
+            Retiring = [.. Enumerable.Range(0, random.Next(0, 2)).Select(_ => NextId(random))],
+            Unreadable = [.. Enumerable.Range(0, random.Next(0, 2)).Select(_ => NextId(random))],
+        },
+        Diagnosis = random.Next(3) == 0 ? NextText(random) : null,
+    };
+
+    private static Gg.Contracts.TopologyName NextName(Random random) => new()
+    {
+        Name = NextId(random),
+        Role = random.Next(2) == 0
+            ? Gg.Contracts.Roles.Narrowing
+            : Gg.Contracts.Roles.WorkKind,
+        Parent = "root",
+        DeclaredBy = NextText(random),
+        DeclaredAt = NextInstant(random),
+    };
 
     private static PendingSignIn NextPendingSignIn(Random random) => new()
     {

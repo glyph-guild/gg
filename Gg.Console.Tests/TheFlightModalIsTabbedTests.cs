@@ -52,7 +52,7 @@ public class TheFlightModalIsTabbedTests
     {
         var evidence = Reducer.Reduce(Showing(), Command.NextFlightTab);
 
-        await Assert.That(evidence.FlightTab).IsEqualTo(FlightTab.Evidence);
+        await Assert.That(evidence.FlightTab).IsEqualTo(FlightTab.Gate);
 
         var back = Reducer.Reduce(evidence, Command.NextFlightTab);
 
@@ -64,7 +64,7 @@ public class TheFlightModalIsTabbedTests
     [Test]
     public async Task Reopening_a_flight_starts_on_the_details_again()
     {
-        var onEvidence = Showing() with { FlightTab = FlightTab.Evidence };
+        var onEvidence = Showing() with { FlightTab = FlightTab.Gate };
 
         var reopened = Reducer.Reduce(onEvidence, Command.ShowFlight);
 
@@ -122,7 +122,7 @@ public class TheFlightModalIsTabbedTests
             .Because("the details are a tab, not the body - otherwise the strip has one "
                    + "half of the modal in it and the other half beside it.");
 
-        await Assert.That(screen).Contains("_flightTabs.Add(_flightEvidenceTab)");
+        await Assert.That(screen).Contains("_flightTabs.Add(_flightGateTab)");
 
         await Assert.That(screen)
             .Contains("_flightDetailsTab.Add(_flightIntentPane, _flightFields, _flightLogPane)")
@@ -148,8 +148,8 @@ public class TheFlightModalIsTabbedTests
         // ONE RENDERER. A second copy would agree with this one until somebody
         // edited one of them, and what they would disagree about is what
         // "nothing is waiting" means.
-        var state = Showing() with { FlightTab = FlightTab.Evidence, SelectedRow = 0 };
+        var state = Showing() with { FlightTab = FlightTab.Gate, SelectedRow = 0 };
 
-        await Assert.That(FlightDetails.Evidence(state)).IsEqualTo(PaneText.Evidence(state));
+        await Assert.That(FlightDetails.Gate(state)).IsEqualTo(PaneText.Evidence(state));
     }
 }

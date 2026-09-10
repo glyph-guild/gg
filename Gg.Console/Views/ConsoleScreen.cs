@@ -85,8 +85,8 @@ public sealed class ConsoleScreen : Window
     private readonly View _flightBody;
     private readonly Terminal.Gui.Views.Tabs _flightTabs;
     private readonly View _flightDetailsTab;
-    private readonly View _flightEvidenceTab;
-    private readonly Label _flightEvidence;
+    private readonly View _flightGateTab;
+    private readonly Label _flightGate;
     private readonly FrameView _flightIntentPane;
     private readonly Markdown _flightIntent;
     private readonly View _flightFields;
@@ -514,10 +514,10 @@ public sealed class ConsoleScreen : Window
         };
         _flightDetailsTab.Add(_flightIntentPane, _flightFields, _flightLogPane);
 
-        // A LABEL, LIKE THE PANE IT CAME FROM. Evidence is read rather than
+        // A LABEL, LIKE THE PANE IT CAME FROM. A gate is read rather than
         // picked from, and the renderer it delegates to already produces the
         // whole block as text.
-        _flightEvidence = new Label
+        _flightGate = new Label
         {
             X = 0,
             Y = 0,
@@ -525,15 +525,15 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(),
             CanFocus = true,
         };
-        _flightEvidenceTab = new View
+        _flightGateTab = new View
         {
-            Title = FlightDetails.EvidenceTitle,
+            Title = FlightDetails.GateTitle,
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
-        _flightEvidenceTab.Add(_flightEvidence);
+        _flightGateTab.Add(_flightGate);
 
         // THE SAME WIDGET THE CONSOLE'S OWN BAR USES, one level in. A second
         // way of drawing a row of tabs would be a second set of behaviours for
@@ -547,7 +547,7 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(),
         };
         _flightTabs.Add(_flightDetailsTab);
-        _flightTabs.Add(_flightEvidenceTab);
+        _flightTabs.Add(_flightGateTab);
         _flightTabs.ValueChanged += OnFlightTabChanged;
 
         _flightBody.Add(_flightTabs);
@@ -997,8 +997,8 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        var wanted = ReferenceEquals(chosen, _flightEvidenceTab)
-            ? FlightTab.Evidence
+        var wanted = ReferenceEquals(chosen, _flightGateTab)
+            ? FlightTab.Gate
             : FlightTab.Details;
 
         if (wanted == State.FlightTab)
@@ -1466,7 +1466,7 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void RenderFlight()
     {
-        _flightEvidence.Text = FlightDetails.Evidence(State);
+        _flightGate.Text = FlightDetails.Gate(State);
 
         // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY. Guarded the way the
         // console's own bar is: assigning Value raises ValueChanged, and
@@ -1475,8 +1475,8 @@ public sealed class ConsoleScreen : Window
         _syncing = true;
         try
         {
-            var showing = State.FlightTab is FlightTab.Evidence
-                ? _flightEvidenceTab
+            var showing = State.FlightTab is FlightTab.Gate
+                ? _flightGateTab
                 : _flightDetailsTab;
 
             if (!ReferenceEquals(_flightTabs.Value, showing))

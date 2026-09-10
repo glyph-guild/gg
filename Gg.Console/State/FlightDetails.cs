@@ -42,7 +42,7 @@ public static class FlightDetails
     public const string LogTitle = "Log";
 
     /// <summary>The title over the modal's second tab.</summary>
-    public const string EvidenceTitle = "Evidence";
+    public const string GateTitle = "Gate";
 
     /// <summary>
     /// What a gate is putting to this person about this flight.
@@ -65,7 +65,7 @@ public static class FlightDetails
     /// the answer to appear once there is one to fetch.
     /// </para>
     /// </remarks>
-    public static string Evidence(AppState state)
+    public static string Gate(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 

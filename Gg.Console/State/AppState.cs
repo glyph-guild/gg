@@ -285,8 +285,18 @@ public enum FlightTab
     /// <summary>The intent, the scalars and the log - what the key was pressed for.</summary>
     Details,
 
-    /// <summary>What a gate is putting to this person about this flight.</summary>
-    Evidence,
+    /// <summary>
+    /// The decision waiting on this flight, and the case made for it.
+    /// </summary>
+    /// <remarks>
+    /// Named for the GATE rather than for the evidence, because the gate is
+    /// the thing that is either there or not: an obligation declares what its
+    /// decision requires and may declare nothing, so a gate can open with no
+    /// evidence at all. Naming the tab after the optional half made its empty
+    /// sentence read as "no exhibits were filed" instead of "nothing is
+    /// waiting on you".
+    /// </remarks>
+    Gate,
 }
 
 public enum TabId

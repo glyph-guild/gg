@@ -120,7 +120,51 @@ public static class ConfigurationFile
             Directory.CreateDirectory(directory);
         }
 
-        File.WriteAllText(at, Render(configuration));
+        // REPLACED, NOT REWRITTEN, and a reader is why. File.WriteAllText
+        // truncates the target and then fills it, so anything reading in
+        // between gets a document that is not one - and the reader here is
+        // InForce, which answers a document it cannot parse by warning once and
+        // running the whole process on defaults. A console started at the wrong
+        // instant would not fail; it would quietly forget its control plane.
+        //
+        // ONE WRITER WAS ALREADY ENOUGH FOR THAT. There are two now: a person,
+        // through `gg config set` or $EDITOR, and a runner writing what its
+        // control plane offered at startup.
+        //
+        // BESIDE THE TARGET, because a rename is atomic only within one
+        // filesystem. A temporary under the system temp directory can be on
+        // another, where the move degrades to a copy and the tear comes back -
+        // on exactly the machines whose /tmp is separate, which is most
+        // servers.
+        //
+        // AND IT IS NOT A LOCK. Two writers that each read, change one value
+        // and write still lose one another's change; the last one wins, whole.
+        // What this guarantees is that whatever a reader sees IS a document.
+        var temporary = at + ".writing";
+
+        try
+        {
+            File.WriteAllText(temporary, Render(configuration));
+            File.Move(temporary, at, overwrite: true);
+        }
+        catch
+        {
+            // A HALF-WRITTEN TEMPORARY IS STILL LITTER, in a directory a person
+            // opens. The original is untouched whatever happened - that is what
+            // writing elsewhere first buys - so there is nothing to restore,
+            // only something to clear.
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (IOException)
+            {
+                // The write already failed and this is the tidying. Throwing
+                // here would replace the diagnosis with the cleanup's.
+            }
+
+            throw;
+        }
     }
 
     /// <summary>The configuration as the bytes that go in the file.</summary>

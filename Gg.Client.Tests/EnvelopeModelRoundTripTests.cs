@@ -274,6 +274,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Destination.Id), nameof(Destination.Kind), nameof(Destination.Requires),
             nameof(Destination.PreserveUnadmitted), nameof(Destination.Opens),
             nameof(Destination.MaySelect), nameof(Destination.MayPerform),
+            nameof(Destination.MayWrite),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
             nameof(EnvelopeNarrowing.Obligations),
         ];

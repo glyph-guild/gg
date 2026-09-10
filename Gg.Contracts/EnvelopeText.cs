@@ -194,6 +194,14 @@ public static class EnvelopeText
                 Sequence(text, "may-perform", performable, depth: 2);
             }
 
+            // SAME RULE, FOURTH KNOB. Only a tracker writes fields, so
+            // emitting it elsewhere would put a refused key into every
+            // document anybody has written.
+            if (destination.MayWrite is { } writable)
+            {
+                Sequence(text, "may-write", writable, depth: 2);
+            }
+
             // AND THE SAME AGAIN, one member over. Emitted only when declared,
             // and each set only when IT is declared - writing `environments: []`
             // for a destination that bounded only repositories would say the

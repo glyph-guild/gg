@@ -1316,6 +1316,41 @@ public sealed record Destination
     /// </remarks>
     [Composes(MergeOperators.Intersect)]
     public IReadOnlyList<string>? MayPerform { get; init; }
+
+    /// <summary>
+    /// Which field paths a flight admitted here may set, or null on any kind
+    /// that does not set fields.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Opening <c>field</c> without this would be a widening.</b> An agent
+    /// that can name any field can set <c>System.AreaPath</c> and move work to
+    /// another team - the example this contract already uses for why
+    /// <c>field</c> is separate from <c>update</c>. So the paths are a menu a
+    /// person wrote, refused rather than clamped, on
+    /// <see cref="MayPerform"/>'s terms.
+    /// </para>
+    /// <para>
+    /// <b>An entry may be a path or a trailing-<c>*</c> prefix, and a bare
+    /// <c>*</c> may not.</b> A rubric that is deliberately open-ended scores a
+    /// seventh field tomorrow, and enumerating them is a document edit per
+    /// field. <c>System.*</c> IS permitted: the safety here is that a person
+    /// wrote it into a document whose widening a comparator shows them, not
+    /// that this contract ranks namespaces by how frightening they are -
+    /// <see cref="Opens"/> does not blocklist a work kind either, and a
+    /// forbidden list passes on the third member nobody thought of. A bare
+    /// star is different in kind, because a menu that permits everything is
+    /// not a menu.
+    /// </para>
+    /// <para>
+    /// <b>It bounds WHERE and never WHAT.</b> The value a field is set to
+    /// belongs to the rubric, which is the skill's. A platform that vetted
+    /// scores would be a platform with an opinion about somebody else's
+    /// backlog.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<string>? MayWrite { get; init; }
 }
 
 /// <summary>
@@ -1862,6 +1897,13 @@ public sealed record Envelope
             var writesToATracker = string.Equals(
                 destination.Kind, DestinationKinds.WorkItemTracker, StringComparison.Ordinal);
 
+            if (destination.MayWrite is not null && !writesToATracker)
+            {
+                return $"Destination '{destination.Id}' declares may-write and is a "
+                     + $"'{destination.Kind}'. Only a '{DestinationKinds.WorkItemTracker}' "
+                     + "sets fields, so on this kind the list bounds nothing.";
+            }
+
             if (destination.MayPerform is not null && !writesToATracker)
             {
                 return $"Destination '{destination.Id}' declares may-perform and is a "
@@ -1893,6 +1935,41 @@ public sealed record Envelope
                          + $"'{unknownOperation}', which is not an operation this platform "
                          + "has. Expected one of: "
                          + string.Join(", ", WorkItemOperations.All) + ".";
+                }
+
+                // THE FIELD MENU IS OWED EXACTLY WHEN FIELDS MAY BE SET, both
+                // ways. A destination that may set fields and names none can
+                // never act; one that names paths and may not set fields has a
+                // list that bounds nothing, which is the knob somebody
+                // believes they turned.
+                var setsFields = destination.MayPerform.Contains(
+                    WorkItemOperations.Field, StringComparer.Ordinal);
+
+                if (setsFields && destination.MayWrite is not { Count: > 0 })
+                {
+                    return $"Destination '{destination.Id}' may-perform permits "
+                         + $"'{WorkItemOperations.Field}' and declares no may-write. A "
+                         + "destination that may set fields and names no field can never "
+                         + "act: name the paths a flight admitted here may write, exactly or "
+                         + "as a `prefix.*`.";
+                }
+
+                if (!setsFields && destination.MayWrite is not null)
+                {
+                    return $"Destination '{destination.Id}' declares may-write and its "
+                         + $"may-perform does not permit '{WorkItemOperations.Field}'. "
+                         + "Nothing there sets a field, so the paths bound nothing.";
+                }
+
+                if (destination.MayWrite?.FirstOrDefault(
+                        p => string.IsNullOrWhiteSpace(p)
+                          || string.Equals(p, WorkItemFields.Wildcard, StringComparison.Ordinal))
+                    is { } unbounded)
+                {
+                    return $"Destination '{destination.Id}' may-write names "
+                         + $"'{unbounded}'. A menu that permits every field is not a menu - "
+                         + "name the paths, or a `prefix.*` narrow enough that somebody "
+                         + "reading it knows what it reaches.";
                 }
             }
 

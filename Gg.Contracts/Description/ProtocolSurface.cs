@@ -1324,7 +1324,8 @@ public static class ProtocolSurface
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
             [typeof(Destination)] =
-                ["id", "kind", "requires", "preserveUnadmitted", "opens", "maySelect", "mayPerform"],
+                ["id", "kind", "requires", "preserveUnadmitted", "opens", "maySelect", "mayPerform",
+                 "mayWrite"],
             [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
                 ["context", "obligations", "instructions", "loops", "destinations",

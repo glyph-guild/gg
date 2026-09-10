@@ -138,6 +138,28 @@ public class DirectionCoverageTests
                 Kind = DestinationKinds.WorkItemTracker,
                 Requires = ["in-scope"],
                 MayPerform = mayPerform,
+                MayWrite = mayPerform.Contains(WorkItemOperations.Field, StringComparer.Ordinal)
+                    ? ["Custom.RiceScore"]
+                    : null,
+            },
+        ],
+    };
+
+    /// <summary>A document whose tracker destination permits these field paths.</summary>
+    private static Envelope Writing(IReadOnlyList<string> mayWrite) => Doc() with
+    {
+        Context = new ContextBinding { Scope = EnvelopeScopes.None, Constitution = "1.0.0" },
+        Accepts = [],
+        Produces = [],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "the-backlog",
+                Kind = DestinationKinds.WorkItemTracker,
+                Requires = ["in-scope"],
+                MayPerform = [WorkItemOperations.Field],
+                MayWrite = mayWrite,
             },
         ],
     };
@@ -263,6 +285,14 @@ public class DirectionCoverageTests
         // flight change something on somebody's backlog it could not change
         // before - which is exactly what the bound is for, and so exactly the
         // change a person should be shown.
+        // A MENU OF FIELDS THAT GROWS IS A WIDENING, and unlike every other
+        // arm this one cannot be a set difference: a wildcard makes it a
+        // match, and Except reports a narrowing as a widening.
+        new("Destination.MayWrite", "may-write",
+            Writing(["Custom.RiceScore"]),
+            Writing(["Custom.RiceScore", "Custom.Impact"]),
+            ReverseAlsoWidens: false),
+
         new("Destination.MayPerform", "may-perform",
             Performing([WorkItemOperations.Score]),
             Performing([WorkItemOperations.Score, WorkItemOperations.Field]),

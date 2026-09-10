@@ -505,3 +505,103 @@ public sealed record WorkItemProposal
         return null;
     }
 }
+
+/// <summary>
+/// Whether a field path is on a menu somebody wrote.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>ONE MATCHER, READ BY THREE.</b> Composition intersects two menus, the
+/// direction comparator asks whether one reaches further than another, and
+/// admission asks whether an edit is permitted. All three are the same
+/// question, and three spellings of it is how a field becomes writable and
+/// unadmittable at once — the tool's three-name hazard one member over.
+/// </para>
+/// <para>
+/// <b>A wildcard is why this is a function and not a set operation.</b> Set
+/// difference answers correctly in one direction and backwards in the other:
+/// <c>{Custom.*}</c> minus <c>{Custom.Score}</c> is a widening and right,
+/// while <c>{Custom.Score}</c> minus <c>{Custom.*}</c> is a widening reported
+/// on a NARROWING. A governance rule that cries wolf is one people learn to
+/// approve past, which is worse than not having it.
+/// </para>
+/// <para>
+/// <b>A prefix, not a substring.</b> <c>Custom.*</c> matches
+/// <c>Custom.RiceScore</c> and must not match <c>NotCustom.Thing</c>, which a
+/// naive contains would.
+/// </para>
+/// </remarks>
+public static class WorkItemFields
+{
+    /// <summary>The suffix that makes a menu entry a prefix rather than a path.</summary>
+    public const string Wildcard = "*";
+
+    /// <summary>Whether <paramref name="path"/> is permitted by <paramref name="menu"/>.</summary>
+    public static bool Matches(string path, IReadOnlyList<string> menu)
+    {
+        ArgumentNullException.ThrowIfNull(menu);
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        foreach (var entry in menu)
+        {
+            if (entry.EndsWith(Wildcard, StringComparison.Ordinal))
+            {
+                // THE PREFIX IS WHAT PRECEDES THE STAR, so `Custom.*` permits
+                // `Custom.RiceScore` and refuses `NotCustom.Thing`. An entry
+                // that is only a star never reaches here: Envelope.Validate
+                // refuses it, because a menu permitting everything is not one.
+                if (path.StartsWith(entry[..^Wildcard.Length], StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (string.Equals(entry, path, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="narrower"/> reaches no further than
+    /// <paramref name="wider"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>What "no further" means for a wildcard.</b> An exact path is covered
+    /// when the wider menu matches it. A prefix entry is covered only by an
+    /// equal-or-shorter prefix — <c>Custom.*</c> does not cover
+    /// <c>Custom.Score.*</c>'s parent, and nothing covers a prefix except a
+    /// prefix that contains it, because a path-shaped entry permits exactly
+    /// one field and a prefix permits a family.
+    /// </remarks>
+    public static bool Covers(IReadOnlyList<string> wider, IReadOnlyList<string> narrower)
+    {
+        ArgumentNullException.ThrowIfNull(wider);
+        ArgumentNullException.ThrowIfNull(narrower);
+
+        foreach (var entry in narrower)
+        {
+            var covered = entry.EndsWith(Wildcard, StringComparison.Ordinal)
+                ? wider.Any(w => w.EndsWith(Wildcard, StringComparison.Ordinal)
+                              && entry[..^Wildcard.Length].StartsWith(
+                                     w[..^Wildcard.Length], StringComparison.Ordinal))
+                : Matches(entry, wider);
+
+            if (!covered)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

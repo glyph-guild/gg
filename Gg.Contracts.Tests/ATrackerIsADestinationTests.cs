@@ -100,6 +100,7 @@ public class ATrackerIsADestinationTests
                     // may-perform arrived. Which is the rule working on the
                     // first document that had to obey it.
                     MayPerform = [WorkItemOperations.Field, WorkItemOperations.Score],
+                    MayWrite = ["Custom.RiceScore"],
                 },
             ],
         };

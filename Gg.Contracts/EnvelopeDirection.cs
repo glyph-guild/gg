@@ -422,6 +422,25 @@ public static class EnvelopeDirection
                   + "credential a person registered for a narrower purpose.");
             }
 
+            // AND THE FIELD MENU, WHICH IS NOT A SET DIFFERENCE. Every arm
+            // around this one uses Except, and a wildcard makes that wrong in
+            // one direction: {Custom.Score} except {Custom.*} answers
+            // {Custom.Score} and would report a widening on a NARROWING. A
+            // governance rule that cries wolf is one people learn to approve
+            // past, which is worse than not having it - so this asks the one
+            // matcher, the same function composition and admission ask.
+            if (!WorkItemFields.Covers(was.MayWrite ?? [], now.MayWrite ?? []))
+            {
+                var reached = (now.MayWrite ?? [])
+                    .First(p => !WorkItemFields.Covers(was.MayWrite ?? [], [p]));
+
+                return Widen($"{at}.may-write",
+                    $"field '{reached}' could not be written here before, and may-write "
+                  + "intersects: it can only ever narrow. What is gained is somewhere an "
+                  + "admitted flight may write on somebody's backlog, on a credential a "
+                  + "person registered for a narrower purpose.");
+            }
+
             // AND THE TWO MENUS BESIDE IT, written by hand for the same reason:
             // an operator in the table is not a direction rule, and a set that
             // grows with no arm here is a bound loosening with no approver in

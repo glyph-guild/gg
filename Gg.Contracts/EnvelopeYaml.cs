@@ -677,7 +677,7 @@ public static class EnvelopeYaml
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
         Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select",
-            "may-perform");
+            "may-perform", "may-write");
 
         return new Destination
         {
@@ -706,6 +706,13 @@ public static class EnvelopeYaml
             // it than an empty list this parser invented.
             MayPerform = entry.Body.Entries.TryGetValue("may-perform", out var performable)
                 ? Strings(performable, $"{entry.Body.Path}.may-perform")
+                : null,
+            // AND THE FIELD MENU, on the same terms. Absent stays absent: on a
+            // tracker that permits `field` its absence is refused by Validate
+            // with a sentence, which is a better place to learn it than an
+            // empty list this parser invented.
+            MayWrite = entry.Body.Entries.TryGetValue("may-write", out var writable)
+                ? Strings(writable, $"{entry.Body.Path}.may-write")
                 : null,
             MaySelect = entry.Body.Entries.TryGetValue("may-select", out var selection)
                 ? MapSelection(selection, $"{entry.Body.Path}.may-select")

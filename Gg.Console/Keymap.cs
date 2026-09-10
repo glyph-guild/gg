@@ -459,7 +459,7 @@ public static class Keymap
             //
             // v is what shows evidence one level up, so it is already the
             // console's word for this.
-            new(KeyStroke.Char('v'), Command.NextFlightTab, "evidence"),
+            new(KeyStroke.Char('v'), Command.NextFlightTab, "gate"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
             // THE LOG'S CURSOR, and the entry it lands on is the one that
             // unwraps. Untaught and off the hint line for the reason the queue's

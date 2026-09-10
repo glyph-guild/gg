@@ -43,7 +43,7 @@ public static class Reducer
             Command.NextFlightTab => state with
             {
                 FlightTab = state.FlightTab is FlightTab.Details
-                    ? FlightTab.Evidence
+                    ? FlightTab.Gate
                     : FlightTab.Details,
             },
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),

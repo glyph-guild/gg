@@ -29,7 +29,7 @@ namespace Gg.Console.Tests;
 /// than the flight.
 /// </para>
 /// </remarks>
-public class TheEvidenceTabIsAboutTheModalsFlightTests
+public class TheGateTabIsAboutTheModalsFlightTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 9, 10, 9, 0, 0, TimeSpan.Zero);
 
@@ -37,7 +37,7 @@ public class TheEvidenceTabIsAboutTheModalsFlightTests
     private static AppState AFlightNothingWaitingOn() => new()
     {
         Mode = UiMode.FlightDetail,
-        FlightTab = FlightTab.Evidence,
+        FlightTab = FlightTab.Gate,
         FlightSelected = 0,
 
         // THE WHOLE POINT OF THE FIXTURE. An empty queue is not an unusual
@@ -79,7 +79,7 @@ public class TheEvidenceTabIsAboutTheModalsFlightTests
         await Assert.That(PaneText.Detailed(state)).IsNotNull();
         await Assert.That(FlightDetails.Title(state)).Contains("GG-81");
 
-        await Assert.That(FlightDetails.Evidence(state)).DoesNotContain("No flight selected")
+        await Assert.That(FlightDetails.Gate(state)).DoesNotContain("No flight selected")
             .Because("the title names the flight, so a pane underneath saying nothing is "
                    + "selected is telling a person something false about their console.");
     }
@@ -87,7 +87,7 @@ public class TheEvidenceTabIsAboutTheModalsFlightTests
     [Test]
     public async Task It_says_nothing_is_waiting_on_this_flight_instead()
     {
-        await Assert.That(FlightDetails.Evidence(AFlightNothingWaitingOn()))
+        await Assert.That(FlightDetails.Gate(AFlightNothingWaitingOn()))
             .Contains("Nothing is waiting on you for this flight")
             .Because("that is the true sentence, and it is about the FLIGHT rather than "
                    + "about the console - which is the distinction the wrong one lost.");
@@ -99,9 +99,9 @@ public class TheEvidenceTabIsAboutTheModalsFlightTests
         // THE SENTENCE IS NOT DELETED, only moved off the wrong condition.
         // Reached through the modal with no flights list at all, which is the
         // state a failed boot leaves.
-        var empty = new AppState { Mode = UiMode.FlightDetail, FlightTab = FlightTab.Evidence };
+        var empty = new AppState { Mode = UiMode.FlightDetail, FlightTab = FlightTab.Gate };
 
-        await Assert.That(FlightDetails.Evidence(empty)).Contains("No flight")
+        await Assert.That(FlightDetails.Gate(empty)).Contains("No flight")
             .Because("a modal with nothing behind it still has to say which of the two "
                    + "kinds of nothing this is.");
     }

@@ -346,11 +346,18 @@ public sealed class ConsoleScreen : Window
             Y = 0,
             Width = Dim.Fill(),
 
-            // OFF BY DEFAULT, AND THAT IS THE GUARD. Focus is granted only
-            // while the mode is open; the rest of the time this cannot take
-            // a keystroke, so p, s, m, j and k keep meaning what the keymap
-            // says they mean.
-            CanFocus = false,
+            // FOCUSABLE ALWAYS, AND INERT UNTIL ENTER. Two stages, because
+            // focus and editing are different things: a person arriving on the
+            // tab gets the cursor in the box - which is what makes the path
+            // selectable and copyable, the same reason the read-only fields in
+            // the flight modal are focusable - and the keystrokes stay the
+            // tab's until enter says otherwise.
+            CanFocus = true,
+            ReadOnly = true,
+
+            // NOT IN THE TAB RING. `tab` is the keymap's here and moves between
+            // TABS, so a widget claiming a stop would give that key a second
+            // meaning on one screen.
             TabStop = TabBehavior.NoStop,
         };
 
@@ -1201,6 +1208,31 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void OnAirspacePathKeyDown(object? sender, Key key)
     {
+        // WHILE IT IS NOT BEING EDITED, ITS KEYS ARE THE TAB'S. A focused
+        // TextField consumes printable keys - that is what ate all twenty-one
+        // of them through TableView's type-to-search - so holding focus without
+        // editing means handing every key back to the one keymap rather than
+        // keeping it. Silence here would make `p` insert a character instead of
+        // pulling, and nothing would say so.
+        if (State.Mode != UiMode.AirspacePath)
+        {
+            if (Keymap.Resolve(KeyTranslator.Translate(key), Context()) is { } command)
+            {
+                key.Handled = true;
+                Dispatch(command);
+            }
+            else
+            {
+                // AND ANYTHING THE KEYMAP DOES NOT ANSWER IS SWALLOWED RATHER
+                // THAN TYPED. The field is read-only in this state, so a letter
+                // would be dropped anyway - marking it handled is what stops it
+                // reaching the screen and being resolved a second time.
+                key.Handled = true;
+            }
+
+            return;
+        }
+
         if (key == Key.Enter)
         {
             State = State with { AirspacePathTyped = _airspacePath.Text };
@@ -1451,7 +1483,9 @@ public sealed class ConsoleScreen : Window
             _airspacePath.Text = PaneText.AirspacePath(State);
         }
 
-        _airspacePath.CanFocus = State.Mode == UiMode.AirspacePath;
+        // THE SECOND STAGE, and the only thing that changes between them: the
+        // box is focusable throughout and writable only here.
+        _airspacePath.ReadOnly = State.Mode != UiMode.AirspacePath;
 
         // THE TITLE CARRIES WHAT THE PATH ALONE CANNOT SAY: that nothing is set,
         // that git cannot see it, or that this is the moment to type. A box
@@ -2051,7 +2085,10 @@ public sealed class ConsoleScreen : Window
             // arrow keys do nothing until you press one to get off a button is
             // a tab that reads as broken.
             TabId.Runners => _runnersTable.Visible ? _runnersTable : _runners,
-            TabId.Envelope => _envelope,
+            // THE BOX, NOT THE LABEL ABOVE IT. Landing on the path is what
+            // makes it selectable on arrival and puts enter one keystroke
+            // from editing - and the label has nothing a cursor means.
+            TabId.Envelope => _airspacePath,
 
             // The queue tab is the one with two panes, and the list is the half
             // a person drives - the flight beside it is what the cursor means.

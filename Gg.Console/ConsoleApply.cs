@@ -43,7 +43,7 @@ public static class ConsoleApply
 
             if (applied.Value.Applied.Count == 0 && applied.Value.Retiring.Count == 0)
             {
-                return "Nothing to apply: the working copy matches the estate.";
+                return "Nothing to apply: the working copy matches the airspace.";
             }
 
             var said = new List<string>();

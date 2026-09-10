@@ -64,7 +64,7 @@ public static class ConsoleEstate
                 Estate = new EstateOnThisMachine
                 {
                     Root = root,
-                    Diagnosis = "The estate could not be read: " + failure.Message,
+                    Diagnosis = "The airspace could not be read: " + failure.Message,
                 },
             };
         }

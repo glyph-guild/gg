@@ -65,7 +65,7 @@ public class OneWordForItWhereAPersonReadsItTests
                     continue;
                 }
 
-                foreach (var quoted in Regex.Matches(lines[i], "\"([^\"]*)\""))
+                foreach (var quoted in Regex.Matches(Interpolations(lines[i]), "\"([^\"]*)\""))
                 {
                     found.Add((Path.GetFileName(file), i + 1, ((Match)quoted).Groups[1].Value));
                 }
@@ -73,6 +73,38 @@ public class OneWordForItWhereAPersonReadsItTests
         }
 
         return found;
+    }
+
+
+    /// <summary>The line with the contents of interpolation holes removed.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A hole holds code, not words a person reads</b> — and the first
+    /// version of this scan did not know that, so
+    /// <c>$"documents ({Clean(root)}{(estate.IsRepository ? "" : "…")})"</c>
+    /// read as one quoted span containing the identifier <c>estate</c>. That is
+    /// the false positive that would have made this ratchet demand a rename of
+    /// the internal vocabulary the decision explicitly kept.
+    /// </para>
+    /// <para>
+    /// <b>The trade is a false NEGATIVE, and it is the cheaper one.</b> A
+    /// literal written inside a hole — <c>{(x ? "the estate" : "")}</c> — is
+    /// stripped with the hole and would slip past. That shape is rare and this
+    /// one was in the very first line scanned: a guard nobody can keep green is
+    /// worse than one with a narrow blind spot.
+    /// </para>
+    /// </remarks>
+    private static string Interpolations(string line)
+    {
+        var holes = new Regex(@"\{[^{}]*\}");
+
+        for (var previous = ""; previous != line;)
+        {
+            previous = line;
+            line = holes.Replace(line, "");
+        }
+
+        return line;
     }
 
     [Test]

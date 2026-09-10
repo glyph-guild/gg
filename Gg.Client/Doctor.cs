@@ -584,10 +584,10 @@ public sealed class Doctor(
                        + "act on whatever directory you happen to be in",
                 Blocking = false,
                 Fixable = true,
-                Fix = "Run `gg config set airspace <path>` for the directory the estate "
+                Fix = "Run `gg config set airspace <path>` for the directory the airspace "
                     + "renders into, or set GG_AIRSPACE for this shell only. There is no "
                     + "default because no path is right for every machine, and one here "
-                    + "would be a directory gg wrote an estate into because nobody said "
+                    + "would be a directory gg wrote an airspace into because nobody said "
                     + "otherwise.",
             };
         }

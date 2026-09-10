@@ -377,7 +377,7 @@ public static class CliArgs
         // neither `show` (the topology - envelope names and their roles) nor
         // the working-copy verbs beside it. Repositories are a different read
         // and the console is its only caller.
-        "gg airspace show|pull|diff|apply  the estate: its names, and its working copy",
+        "gg airspace show|pull|diff|apply  its names, and its working copy",
         "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",

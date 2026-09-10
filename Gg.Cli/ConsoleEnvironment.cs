@@ -110,7 +110,7 @@ public static class ConsoleEnvironment
          + "is a real answer: host candidates only."),
 
         Of("GG_AIRSPACE", file, environment,
-           "where the estate's working copy is. Unset means gg airspace pull, diff and "
+           "where the airspace's working copy is. Unset means gg airspace pull, diff and "
          + "apply act on whatever directory you are in, which is why the doctor says "
          + "so."),
 

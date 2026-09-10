@@ -57,7 +57,7 @@ public static class ConsolePull
 
             if (written == 0 && removed == 0)
             {
-                return "The working copy already matches the estate; nothing was written."
+                return "The working copy already matches the airspace; nothing was written."
                      + unwritable;
             }
 
@@ -65,7 +65,7 @@ public static class ConsolePull
             // something was written: a document whose stream ended leaves a
             // file, and somebody who is not told one went will look for it
             // later.
-            return $"Pulled the estate: {written} written, {removed} removed." + unwritable;
+            return $"Pulled the airspace: {written} written, {removed} removed." + unwritable;
         }
         catch (DirtyWorkingCopyException dirty)
         {

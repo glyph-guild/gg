@@ -173,8 +173,11 @@ public class TabsTakeTheWholeScreenTests
         // is which tab that is - and Tabs.Showing is where that is asserted,
         // one test up. What is left here is the titles, which are the model's.
         await Assert.That(Tabs.Title(state, TabId.Live)).Contains("Live", StringComparison.Ordinal);
+        // NAMED FOR WHAT THE VERBS ARE CALLED, not for the enum member. The tab
+        // renders as Airspace because that is the word on the verbs it acts on;
+        // Envelope stays the name of one document, and of the key.
         await Assert.That(Tabs.Title(state, TabId.Envelope))
-            .Contains("Envelope", StringComparison.Ordinal)
+            .Contains("Airspace", StringComparison.Ordinal)
             .Because("every tab is on the bar now, including the views nobody has opened - "
                    + "the bar's job is to say what there is.");
         await Assert.That(Tabs.Showing(state, TabId.Live)).IsTrue();

@@ -238,12 +238,28 @@ public class VerbParityTests
             ["Unknown"] = "not a verb - the parse's own answer for something that is not one.",
 
             // --- absent, and out of scope for this slice, with the reason ---
-            ["AirspacePull"] = "writes a working copy from a path argument; the console has no "
-                             + "file argument and an $EDITOR round trip is a different "
-                             + "interaction. Out of scope, stated.",
-            ["AirspaceApply"] = "applies a governance document from a file. Same reason.",
-            ["AirspaceDiff"] = "compares a working copy against the estate; needs the working "
-                             + "copy the console does not have. Same reason.",
+            // THESE THREE SAID "the console has no working copy" AND IT HAS ONE
+            // NOW. GG_AIRSPACE names it, the Envelope pane describes it, and
+            // `p' renders into it - so the reason had to be rewritten rather
+            // than left standing as a sentence about a state that ended. Two
+            // are reached; the third is not, and for a different reason.
+            ["AirspacePull"] = "reached from the console: `p' on the Envelope tab, through "
+                             + "ConsolePull. Its path comes from GG_AIRSPACE rather than an "
+                             + "argument, which is what made it reachable at all.",
+            ["AirspaceDiff"] = "reached from the console: read on `e' by ConsoleEstate, which "
+                             + "is where the working-copy states in the documents column come "
+                             + "from.",
+
+            // AND APPLY IS STILL ABSENT, on its own argument rather than the
+            // one above. It opens one flight per changed document, each with a
+            // gate and an attribution - so it is not a read that got a pane, it
+            // is a governed act with a divert answer to render and a person to
+            // tell about a gate. Wiring it beside a pull that only writes files
+            // would put the two most different acts in this feature on adjacent
+            // keys.
+            ["AirspaceApply"] = "absent, and next: it opens a flight per changed document and "
+                              + "has a gate and an approver to report, which is a surface of "
+                              + "its own rather than a key beside pull.",
 
             // NOT THE SAME REASON, AND THAT IS THE POINT. The three above are
             // absent because their subject is a working copy the console does

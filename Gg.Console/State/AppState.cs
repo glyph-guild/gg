@@ -1064,6 +1064,16 @@ public sealed record AppState
     /// <summary>What the last configuration edit did, or why it did nothing.</summary>
     public string? LastConfiguration { get; init; }
 
+    /// <summary>What the last pull came to.</summary>
+    /// <remarks>
+    /// <b>Its own slot rather than the configuration's.</b> The activity line
+    /// is derived by comparing these fields and taking whichever moved, so a
+    /// pull written into <see cref="LastConfiguration"/> would report itself as
+    /// a configuration change - and the two are edited from different panes by
+    /// different keys.
+    /// </remarks>
+    public string? LastEstate { get; init; }
+
     /// <summary>
     /// What this tenant's control plane offers this machine, or null.
     /// </summary>

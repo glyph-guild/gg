@@ -623,6 +623,11 @@ public static class Keymap
                     context.Frozen ? "unfreeze" : "freeze to copy")
                     { When = "while the live tab is showing" }]
                 : [],
+            .. context.Showing == TabId.Envelope
+                ? (KeyBinding[])[new(KeyStroke.Char('p'), Command.PullEstate,
+                    "pull the estate")
+                    { When = "while the envelope tab is showing" }]
+                : [],
             .. context.Showing == TabId.Browse
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
                     { When = "while the browse tab is showing" }]

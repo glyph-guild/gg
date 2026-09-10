@@ -204,6 +204,14 @@ public class ConsoleDataTests
             // not have. If the console ever grows an estate pane it renders
             // from the same read this calls - ReadEstateAsync - without needing
             // the tree at all.
+            // NOT EXEMPT ANY MORE IN SPIRIT - the console pulls, on `p', through
+            // ConsoleData.PullEstateAsync. It stays on this list only because
+            // the walk matches by METHOD NAME and the console's is named for
+            // the act rather than the verb. What was written here before -
+            // "a console pane has no working copy, no cwd a person chose" -
+            // stopped being true when GG_AIRSPACE landed, and the sentence it
+            // ended with is now the thing that happened: "If the console ever
+            // grows an estate pane it renders from the same read this calls."
             "AirspacePullAsync",
 
             // THE OTHER TWO HALVES OF THE SAME SUBJECT. Diff compares a working
@@ -211,6 +219,10 @@ public class ConsoleDataTests
             // a directory as their argument and neither has one to take in a
             // console. Same reason as pull, listed separately so that removing
             // one exemption does not silently carry the others.
+            // Diff is read on `e' by ConsoleEstate, as EstateDiffAsync. Apply
+            // is the one still absent, and on its own argument: it opens a
+            // flight per changed document, with a gate and an approver to
+            // report, which is a surface rather than a key.
             "AirspaceDiffAsync",
             "AirspaceApplyAsync",
 

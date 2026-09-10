@@ -86,6 +86,18 @@ public enum UiMode
     /// </remarks>
     ConfirmApply,
 
+    /// <summary>Typing where the airspace is.</summary>
+    /// <remarks>
+    /// <b>A mode, because a field that accepts keystrokes owns the
+    /// keyboard.</b> This console measured that once already - TableView's
+    /// type-to-search ate all twenty-one keys the moment rows arrived, which
+    /// is why QuietTable exists - so an always-focused field on the airspace
+    /// tab would eat p, s, m, j and k. Here the letters are meant for the
+    /// field: `p` inside a path is a character rather than a pull, and the
+    /// only two keys the keymap answers are the two a person needs.
+    /// </remarks>
+    AirspacePath,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a
@@ -1171,6 +1183,24 @@ public sealed record AppState
     /// different keys.
     /// </remarks>
     public string? LastEstate { get; init; }
+
+    /// <summary>
+    /// The path typed into the airspace field, while the question is open.
+    /// </summary>
+    /// <remarks>
+    /// <b>Copied out of the widget once, at <c>enter</c>, and cleared when
+    /// the question closes.</b> The field holds the in-progress text for the
+    /// seconds somebody is typing, because <c>Command</c> is a parameterless
+    /// enum and a per-keystroke reduce would need it to carry a string - a
+    /// change to this console's central dispatch type for one field. What
+    /// matters is upheld either way: the value is in the model before the
+    /// session ends, and the write happens after it.
+    /// <para>
+    /// Cleared on close, or a cancelled edit would be applied by the next
+    /// one.
+    /// </para>
+    /// </remarks>
+    public string? AirspacePathTyped { get; init; }
 
     /// <summary>
     /// What this tenant's control plane offers this machine, or null.

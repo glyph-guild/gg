@@ -140,6 +140,14 @@ public enum Command
     /// with no git to refuse it. A pane that reports a state and offers no
     /// way out of it is a dead end; this is the way out.
     /// </remarks>
+    /// <summary>Open the field that says where the airspace is.</summary>
+    /// <remarks>
+    /// Holds no I/O at all, which is what lets it happen inside a session
+    /// while the write it leads to happens outside one - ComposeChoice's
+    /// property, and the reason a reducer may open a mode.
+    /// </remarks>
+    FocusAirspacePath,
+
     SetAirspacePath,
 
     /// <summary>Hand the configuration file to $EDITOR.</summary>

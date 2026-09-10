@@ -336,8 +336,7 @@ public class ModalButtonTests
 
         var arms = source[from..source.IndexOf("};", from, StringComparison.Ordinal)];
 
-        var unmentioned = Enum.GetValues<UiMode>()
-            .Where(m => m != UiMode.Normal)
+        var unmentioned = Modals.Drawn
             .Where(m => !arms.Contains($"UiMode.{m} =>", StringComparison.Ordinal))
             .ToList();
 

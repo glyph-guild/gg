@@ -106,6 +106,12 @@ public static class Reducer
             Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
             Command.AskToApplyEstate => Modal(state, UiMode.ConfirmApply),
 
+            // SET RATHER THAN TOGGLED, unlike the modals beside it: enter is
+            // also the key that APPLIES inside the field, so a toggle would
+            // make the second press mean two things depending on which side
+            // of the mode it landed.
+            Command.FocusAirspacePath => state with { Mode = UiMode.AirspacePath },
+
             // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
             // it is: the loop sends the decision, the control plane records it, the Engine
             // re-evaluates, and what comes back is what closes this modal. A reducer that
@@ -121,7 +127,15 @@ public static class Reducer
                 // AND THE QUESTION CLOSES WITH THE MODAL. One left open behind a
                 // closed one is a question the next keypress could answer by
                 // accident.
-                : state with { Mode = UiMode.Normal, ComposingFor = ComposingFor.Nothing },
+                // AND WHAT WAS TYPED GOES WITH IT, for the same reason: a path
+                // half-entered and abandoned would be applied by whichever
+                // question opened next.
+                : state with
+                {
+                    Mode = UiMode.Normal,
+                    ComposingFor = ComposingFor.Nothing,
+                    AirspacePathTyped = null,
+                },
 
             // ANSWERING OPENS; IT DOES NOT DECIDE, which is the shape the two
             // gate answers above already have. Both end the session and the loop

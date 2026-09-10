@@ -495,7 +495,7 @@ public static class PaneText
         // answer than a line saying what it knows.
         if (state.Estate is not { } estate)
         {
-            return "airspace: not set - press w to say where it is";
+            return "airspace: not set";
         }
 
         var text = new StringBuilder();
@@ -506,7 +506,7 @@ public static class PaneText
         text.AppendLine(estate.Root is { Length: > 0 } root
             ? $"airspace: {Clean(root)}"
                 + (estate.IsRepository ? "" : "  (not a git tree)")
-            : "airspace: not set - press w to say where it is");
+            : "airspace: not set");
 
         if (estate.Diagnosis is { Length: > 0 } wrong)
         {

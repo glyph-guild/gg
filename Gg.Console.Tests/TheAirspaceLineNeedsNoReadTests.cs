@@ -58,14 +58,18 @@ public class TheAirspaceLineNeedsNoReadTests
     }
 
     [Test]
-    public async Task The_key_that_sets_it_shows_with_no_envelope_read()
+    public async Task The_airspace_section_shows_with_no_envelope_read()
     {
+        // WAS ABOUT `w`, WHICH IS GONE: the path is typed into a field on the
+        // tab now rather than collected through $EDITOR. What the assertion was
+        // always for survives - the airspace section renders whatever the
+        // envelope read did, because the one state that most needs it is the
+        // machine that has configured nothing.
         var text = PaneText.Envelope(new AppState { Envelope = null });
 
-        await Assert.That(text).Contains("w", StringComparison.Ordinal)
-            .Because("`w' is the answer to an unset airspace, and it was rendered only after "
-                   + "a read that an unconfigured machine cannot make - so the one state that "
-                   + "needs the key most was the one state that never showed it.");
+        await Assert.That(text).Contains("airspace", StringComparison.Ordinal)
+            .Because("an unconfigured machine cannot make the read that used to gate this, "
+                   + "so gating it hid the section from exactly the person who needed it.");
     }
 
     [Test]

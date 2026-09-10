@@ -49,9 +49,13 @@ public class FocusReachesIntoTheFlightModalTests
         // point: a modal that grows parts has to say so here, or it keeps
         // taking focus at its frame and the arrows do nothing inside it. The
         // runner modal joined the flight modal in slice thirty-three.
-        foreach (var mode in Enum.GetValues<UiMode>())
+        // AND THE WALK IS OVER THE MODES DRAWN AS A DIALOG, because focus at a
+        // frame is only an answer for a mode that has one. A mode owning the
+        // keyboard through a field in a pane is declared in Modals with its
+        // reason, and its focus target is asserted where the field is.
+        foreach (var mode in Modals.Drawn)
         {
-            if (mode is UiMode.Normal or UiMode.FlightDetail or UiMode.Runner)
+            if (mode is UiMode.FlightDetail or UiMode.Runner)
             {
                 continue;
             }

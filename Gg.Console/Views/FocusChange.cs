@@ -31,6 +31,17 @@ public enum FocusTarget
     /// </remarks>
     FlightLog,
 
+    /// <summary>
+    /// The airspace path field, which is not a modal and still owns the
+    /// keyboard.
+    /// </summary>
+    /// <remarks>
+    /// A field that accepts keystrokes has to hold the focus for as long as
+    /// somebody is typing into it, and it sits inside a tab rather than in a
+    /// dialog - so it is neither <see cref="Modal"/> nor <see cref="Tab"/>.
+    /// </remarks>
+    AirspacePath,
+
     /// <summary>The tab on screen, wherever that tab says focus lands.</summary>
     Tab,
 }
@@ -65,9 +76,24 @@ public static class FocusChange
     /// re-asserting that every second would move a cursor inside it exactly as
     /// it moved one behind it.
     /// </param>
+    /// <param name="pathHasFocus">
+    /// Whether the airspace field already holds it. The same argument as its
+    /// neighbour and a sharper case: re-asserting focus on a field somebody is
+    /// typing into puts the cursor back at the start of the line, once a
+    /// second, while they type.
+    /// </param>
     public static FocusTarget Wanted(
-        UiMode mode, TabId showing, TabId? landed, bool modalHasFocus) => (mode, landed) switch
+        UiMode mode,
+        TabId showing,
+        TabId? landed,
+        bool modalHasFocus,
+        bool pathHasFocus = false) => (mode, landed) switch
     {
+        // THE FIELD FIRST, because it is not a modal and the arms below would
+        // hand it to one that is not on screen.
+        (UiMode.AirspacePath, _) when pathHasFocus => FocusTarget.LeaveAlone,
+        (UiMode.AirspacePath, _) => FocusTarget.AirspacePath,
+
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 
         // WHICH WIDGET, for the two modals that are made of several. The rest

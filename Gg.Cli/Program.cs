@@ -1365,10 +1365,10 @@ static async Task<int> LaunchConsoleAsync()
         // THE SAME AGENT COMMAND AND THE SAME ENVELOPE THE COMPOSER GETS, so a
         // person who told gg which agent to run told it once, and the panel
         // shows the rules a document is being drafted toward.
-        setAirspace: (current, ask) => current with
+        setAirspace: current => current with
         {
             LastEstate = Gg.Console.ConsoleAirspacePath.Set(
-                path: null, current: Airspace(), ask: ask),
+                path: null, typed: current.AirspacePathTyped),
         },
 
         draftEstate: current => current with

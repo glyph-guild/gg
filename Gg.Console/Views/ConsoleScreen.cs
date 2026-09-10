@@ -1241,11 +1241,101 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
+        // PERFORMED HERE RATHER THAN DISPATCHED, because what these change is
+        // the widget's in-progress text and the model cannot hold that: Command
+        // is a parameterless enum. The keymap still owns the bindings, which is
+        // the split Dispatch describes - the keymap says what a key means, and
+        // this is what happens once something means it. Both are declared in
+        // ShellCommands.OnTheWidget, or they would read as keys that do
+        // nothing.
+        switch (Keymap.Resolve(KeyTranslator.Translate(key), Context()))
+        {
+            case Command.AirspacePathFromCwd:
+                _airspacePath.Text = State.Cwd;
+                key.Handled = true;
+                return;
+
+            case Command.AirspacePathFromClipboard:
+                Paste();
+                key.Handled = true;
+                return;
+        }
+
         if (key == Key.Esc)
         {
             key.Handled = true;
             Dispatch(Command.CloseModal);
         }
+    }
+
+    /// <summary>
+    /// Puts the clipboard into the airspace field, or says why it could not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A STATED EXCEPTION TO THE SESSION RULE.</b> A UI session may read a
+    /// local file and nothing else, and on every platform this ships to a
+    /// clipboard is a child process — <c>ConsoleLink</c> says exactly that
+    /// about its own copy: <i>"Both spawn a child, which is why neither is a
+    /// session's."</i> This one is allowed anyway, deliberately: a path is most
+    /// often already on the clipboard, and a terminal-release round trip in the
+    /// middle of editing one field would throw away what is typed in it.
+    /// <c>LiveStreamingTests</c> records the exception where the rule is
+    /// enforced, so the guard is not quietly satisfied by the spawn happening
+    /// one layer down inside Terminal.Gui.
+    /// </para>
+    /// <para>
+    /// <b>Through the driver, so it is cross-platform once rather than three
+    /// times.</b> <c>IClipboard</c> is what Terminal.Gui already implements per
+    /// platform; rolling a second pbpaste/xclip/PowerShell switch here would be
+    /// a copy of that to keep in agreement, and this console has no business
+    /// knowing which one it is on.
+    /// </para>
+    /// <para>
+    /// <b>A clipboard with nothing in it, and a platform with no clipboard at
+    /// all, are different answers and both are said.</b> Silence is the one
+    /// response that reads as a key that does not work — which is what a person
+    /// concludes about the whole feature, not about their clipboard.
+    /// </para>
+    /// </remarks>
+    private void Paste()
+    {
+        // ABSENT AND UNSUPPORTED ARE THE SAME FACT to a person: there is no
+        // clipboard here. The driver's is nullable, and treating null as
+        // "supported" would be a NullReferenceException in place of a sentence.
+        if (_app.Clipboard is not { IsSupported: true } clipboard)
+        {
+            State = State with
+            {
+                LastEstate = "There is no clipboard gg can read on this platform. "
+                           + "Type the path, or ctrl-d for this directory.",
+            };
+
+            return;
+        }
+
+        // TRY RATHER THAN GET, because the throwing form turns an empty
+        // clipboard and a missing helper into the same exception - and one of
+        // those is a person's mistake while the other is a machine's setup.
+        if (!clipboard.TryGetClipboardData(out var pasted)
+            || pasted is not { Length: > 0 })
+        {
+            State = State with
+            {
+                LastEstate = "The clipboard is empty, so nothing was pasted.",
+            };
+
+            return;
+        }
+
+        // ONE LINE, because a path is one and a clipboard holding a document
+        // would otherwise fill a single-line field with the first of it and
+        // silently drop the rest. Taking the first line says what happened by
+        // showing it.
+        _airspacePath.Text = pasted
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault()
+            ?.Trim() ?? "";
     }
 
     private void OnTableKeyDown(object? sender, Key key)

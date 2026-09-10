@@ -468,6 +468,14 @@ public static class Keymap
             // keymap that answered them would make them unreachable.
             new(KeyStroke.EnterKey, Command.SetAirspacePath, "set it")
                 { Label = "Set" },
+
+            // A CONTROL COMBINATION, BECAUSE EVERY PLAIN LETTER IS THE FIELD'S.
+            // `d` inside a path is a character, so an affordance in this mode
+            // has to be a key a path cannot contain.
+            new(KeyStroke.Control('d'), Command.AirspacePathFromCwd,
+                "use the directory gg was launched from"),
+            new(KeyStroke.Control('v'), Command.AirspacePathFromClipboard,
+                "paste the clipboard"),
             new(KeyStroke.Esc, Command.CloseModal, "leave it as it is")
                 { Label = "Leave it" },
         ],

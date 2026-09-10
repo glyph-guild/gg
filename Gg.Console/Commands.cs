@@ -150,6 +150,29 @@ public enum Command
 
     SetAirspacePath,
 
+    /// <summary>Fill the airspace field with the directory gg was launched from.</summary>
+    /// <remarks>
+    /// <b>Performed on the widget rather than reduced.</b> The field holds
+    /// the in-progress text - Command is a parameterless enum, so the model
+    /// cannot carry a keystroke's worth of it - and the keymap still owns
+    /// the binding, which is the split Dispatch already describes: the
+    /// keymap says what a key MEANS, and this is what happens once
+    /// something means it.
+    /// </remarks>
+    AirspacePathFromCwd,
+
+    /// <summary>Fill the airspace field from the clipboard.</summary>
+    /// <remarks>
+    /// <b>A stated exception to the session rule.</b> A UI session may read
+    /// a local file and nothing else, and every clipboard on the platforms
+    /// this ships to is a child process - which is why <c>ConsoleLink</c>'s
+    /// copy is the shell's. Pasting is granted anyway, because a path is
+    /// most often already on the clipboard and a terminal-release round
+    /// trip in the middle of editing one field would lose what is typed.
+    /// Recorded in <c>LiveStreamingTests</c>, where the rule is enforced.
+    /// </remarks>
+    AirspacePathFromClipboard,
+
     /// <summary>Hand the configuration file to $EDITOR.</summary>
     /// <remarks>
     /// <b>A handoff, because nothing in this console is written by typing.</b>
@@ -530,6 +553,43 @@ public static class ShellCommands
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
+    /// <summary>
+    /// Commands the SCREEN performs on a widget, rather than the shell or the
+    /// reducer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A third category, and it had to be declared rather than exempted.</b>
+    /// Every command a key can resolve was either the shell's or the
+    /// reducer's, because one that is neither is a key advertised on the hint
+    /// line that does nothing when pressed - and that ratchet caught the first
+    /// of these, correctly.
+    /// </para>
+    /// <para>
+    /// <b>What they change is a widget's in-progress text, which the model
+    /// cannot hold</b>: <see cref="Command"/> is a parameterless enum, so a
+    /// keystroke's worth of a half-typed path has nowhere to go through the
+    /// reducer. The keymap still owns the binding, which is the split
+    /// <c>Dispatch</c> already describes - the keymap says what a key MEANS,
+    /// and the screen is what happens once something means it.
+    /// </para>
+    /// <para>
+    /// Kept as data with the reason attached, so a fourth has to be argued
+    /// rather than quietly appended.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyDictionary<Command, string> OnTheWidget { get; } =
+        new Dictionary<Command, string>
+        {
+            [Command.AirspacePathFromCwd] =
+                "puts the directory gg was launched from into the airspace field. The value "
+              + "is in the model; where it lands is the widget's own text.",
+
+            [Command.AirspacePathFromClipboard] =
+                "puts the clipboard into the airspace field. A stated exception to the "
+              + "session rule, recorded in LiveStreamingTests where that rule is enforced.",
+        };
+
     public static IReadOnlySet<Command> Handled { get; } = new HashSet<Command>
     {
         // Always was. Quit returns the model.

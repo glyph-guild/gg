@@ -214,6 +214,12 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
         // own allowances, because that is what the control plane answered.
         FleetAllowancesShown = InForce.Configuration?.FleetAllowances is true,
 
+        // AND WHERE THIS PROCESS WAS LAUNCHED FROM, offered while the
+        // airspace field is being edited: the directory somebody is
+        // standing in is usually the one they mean. Read here rather than
+        // by the screen, for the reason the machine name above it is.
+        Cwd = Directory.GetCurrentDirectory(),
+
         // WHERE THIS MACHINE'S AIRSPACE IS, folded in here for the reason the
         // machine name above it is: it is a file this machine already has, and
         // nothing about it is the control plane's to answer. It sat behind the

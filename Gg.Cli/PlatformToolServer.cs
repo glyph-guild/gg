@@ -100,6 +100,9 @@ public static class PlatformToolServer
     /// <summary>What the flight thinks the item is worth, in the rubric's terms.</summary>
     private const string ScoreArgument = "score";
 
+    /// <summary>Which fields a `field` proposal would set, and to what.</summary>
+    private const string FieldsArgument = "fields";
+
     /// <summary>
     /// The part of a proposal nothing here reads.
     /// </summary>
@@ -439,6 +442,38 @@ public static class PlatformToolServer
               + "short phrase. Required for `score` and left out otherwise.");
             writer.WriteEndObject();
 
+            // THE THIRD SPELLING OF ONE THING, which is why it is declared
+            // here rather than left to the detail: the contract names these
+            // members, the extractor reads them, and this offers them. A
+            // schema that did not would leave an agent unable to make a
+            // `field` proposal the contract accepts - which is exactly what
+            // happened for one commit.
+            writer.WriteStartObject(FieldsArgument);
+            writer.WriteString("type", "array");
+            writer.WriteString("description",
+                "Required for `field` and left out otherwise. Each entry is a field to set: "
+              + "`path` as the tracker spells it, and `value`. A person decided in advance "
+              + "which paths may be written here, so naming one outside that list changes "
+              + "nothing - and leaving a value blank is not how a field is cleared.");
+            writer.WriteStartObject("items");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteStartObject("path");
+            writer.WriteString("type", "string");
+            writer.WriteString("description", "The field's reference path.");
+            writer.WriteEndObject();
+            writer.WriteStartObject("value");
+            writer.WriteString("type", "string");
+            writer.WriteString("description", "What to set it to.");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteStringValue("path");
+            writer.WriteStringValue("value");
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
             writer.WriteStartObject(ReasonArgument);
             writer.WriteString("type", "string");
             writer.WriteString("description",
@@ -618,6 +653,32 @@ public static class PlatformToolServer
               + "recorded.");
         }
 
+        // BUILT HERE AND JUDGED BY THE CONTRACT, like everything else on this
+        // path: one definition of a whole proposal, read by the server before
+        // it answers and by the extractor before it ships.
+        var edits = new List<Gg.Contracts.WorkItemFieldEdit>();
+
+        if (arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty(FieldsArgument, out var fields)
+            && fields.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var field in fields.EnumerateArray())
+            {
+                if (field.ValueKind != JsonValueKind.Object)
+                {
+                    return Content(id, isError: true,
+                        $"Refused: every entry in '{FieldsArgument}' is an object with a "
+                      + "path and a value. Nothing was recorded.");
+                }
+
+                edits.Add(new Gg.Contracts.WorkItemFieldEdit
+                {
+                    Path = Text(field, "path") ?? "",
+                    Value = Text(field, "value") ?? "",
+                });
+            }
+        }
+
         var score = Text(arguments, ScoreArgument);
 
         if (score is null && string.Equals(operation, Gg.Contracts.WorkItemOperations.Score, StringComparison.Ordinal))
@@ -664,6 +725,27 @@ public static class PlatformToolServer
                   + $"{Gg.Contracts.WorkItemProposalLimits.MaxDetail} characters and this one is "
                   + $"{written}. Nothing was recorded.");
             }
+        }
+
+        // ONE DEFINITION OF A WHOLE PROPOSAL, and this is where the server
+        // reads it rather than growing a second. The checks above are the ones
+        // whose wording an agent can act on directly; everything the CONTRACT
+        // says about shape - a field proposal that sets nothing, an edit with
+        // a blank value, edits on an operation that does not set fields - is
+        // answered by the contract, so the server and the extractor cannot
+        // come to different conclusions about the same call.
+        var proposed = new Gg.Contracts.WorkItemProposal
+        {
+            Operation = operation,
+            Reason = reason,
+            Target = target,
+            Score = score,
+            Fields = edits.Count > 0 ? edits : null,
+        };
+
+        if (Gg.Contracts.WorkItemProposal.Validate(proposed) is { } refused)
+        {
+            return Content(id, isError: true, $"Refused: {refused} Nothing was recorded.");
         }
 
         // ECHOED IN CANONICAL FORM AND SAYING WHAT DID NOT HAPPEN. The

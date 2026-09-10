@@ -59,8 +59,24 @@ public class ProposalExtractionTests
         return call + "\n" + result;
     }
 
+    /// <summary>
+    /// One call's arguments, with the fields a `field` proposal must carry.
+    /// </summary>
+    /// <remarks>
+    /// <b>A field proposal that sets nothing is refused by the contract</b>, so
+    /// these carry an edit - which is the rule arriving in this file rather
+    /// than a convenience. It bit here first: every `field` case in this suite
+    /// was written before the fields member existed and threw the moment it
+    /// did, which is the contract reaching a caller that had been getting away
+    /// with half a proposal.
+    /// </remarks>
     private static string Argue(string operation, string target, string reason) =>
-        $$"""{"operation":"{{operation}}","target":"{{target}}","reason":"{{reason}}"}""";
+        string.Equals(operation, WorkItemOperations.Field, StringComparison.Ordinal)
+            ? $$"""
+              {"operation":"{{operation}}","target":"{{target}}","reason":"{{reason}}",
+               "fields":[{"path":"System.State","value":"Active"}]}
+              """.ReplaceLineEndings(" ")
+            : $$"""{"operation":"{{operation}}","target":"{{target}}","reason":"{{reason}}"}""";
 
     [Test]
     public async Task Every_answered_call_is_a_proposal_and_they_keep_their_order()

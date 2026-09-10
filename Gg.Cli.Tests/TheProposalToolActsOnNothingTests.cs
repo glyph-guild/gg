@@ -80,8 +80,18 @@ public class TheProposalToolActsOnNothingTests
     {
         foreach (var operation in WorkItemOperations.All)
         {
-            var arguments =
-                """{"operation":"OP","target":"1421","score":"P1","reason":"the repro is attached"}"""
+            // A `field` CALL NOW CARRIES ITS EDITS, because the contract refuses
+            // a field proposal that sets nothing - the same shape as a score
+            // with no score, one operation over. The gamut this test is about
+            // is which OPERATIONS are accepted, and a whole call of each is
+            // what asks that question.
+            var arguments = string.Equals(
+                operation, WorkItemOperations.Field, StringComparison.Ordinal)
+                ? """
+                  {"operation":"field","target":"1421","reason":"the repro is attached",
+                   "fields":[{"path":"System.State","value":"Active"}]}
+                  """
+                : """{"operation":"OP","target":"1421","score":"P1","reason":"the repro is attached"}"""
                     .Replace("OP", operation, StringComparison.Ordinal);
 
             var answers = await RecordingAsync(intentPath: null, Propose(arguments));

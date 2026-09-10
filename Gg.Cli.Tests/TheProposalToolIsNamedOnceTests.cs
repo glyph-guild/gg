@@ -107,6 +107,41 @@ public class TheProposalToolIsNamedOnceTests
     }
 
     [Test]
+    public async Task An_agent_is_offered_every_argument_the_contract_requires()
+    {
+        // FOUND BY A POISON, and the poison was checking something else. The
+        // contract began refusing a `field` proposal that sets nothing, and
+        // for one commit the tool had no way to offer the fields - so an agent
+        // could make a call the platform would always refuse. Nothing failed:
+        // the extraction suite caught it indirectly and this suite, which is
+        // about the tool's shape, said nothing at all.
+        //
+        // The rule is the one this file opens with, one argument over. Three
+        // things must agree - the contract's members, this schema, and the
+        // extractor - and a schema missing an argument the contract REQUIRES
+        // is the disagreement that cannot be seen from either end alone.
+        var schema = (await DeclaredAsync(WorkItemProposalTool.Name)).GetProperty("inputSchema");
+        var offered = schema.GetProperty("properties").EnumerateObject()
+            .Select(p => p.Name)
+            .ToList();
+
+        await Assert.That(offered).Contains("fields")
+            .Because("a `field` proposal must name what it sets, and an argument an agent is "
+                   + "not offered is one nothing will ever produce. Offered: "
+                   + string.Join(", ", offered));
+
+        var entry = schema.GetProperty("properties").GetProperty("fields")
+            .GetProperty("items").GetProperty("properties").EnumerateObject()
+            .Select(p => p.Name)
+            .ToList();
+
+        await Assert.That(entry).IsEquivalentTo(new[] { "path", "value" })
+            .Because("the same two members the contract declares on a field edit, because a "
+                   + "third spelling is how one of them stops agreeing. Found: "
+                   + string.Join(", ", entry));
+    }
+
+    [Test]
     public async Task The_operations_it_offers_are_the_contracts_and_not_a_second_list()
     {
         var schema = (await DeclaredAsync(WorkItemProposalTool.Name)).GetProperty("inputSchema");

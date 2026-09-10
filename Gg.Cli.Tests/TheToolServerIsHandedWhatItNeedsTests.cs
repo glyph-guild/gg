@@ -121,11 +121,24 @@ public partial class TheToolServerIsHandedWhatItNeedsTests
 
         var open = source.IndexOf('(', at);
         var close = source.IndexOf(')', open);
-        var list = source[(open + 1)..close];
+
+        // COMMENTS OUT FIRST. A parameter carrying a reason above it is the
+        // house style, and a comma inside that prose splits into something
+        // that reads like a parameter name - this walk reported `RUN`, out of
+        // "HOW THE VERB IS RUN, injected so...". A scan that invents its own
+        // subject fails on writing rather than on wiring, which is the one
+        // way a guard like this wastes somebody's afternoon.
+        var list = string.Join('\n', source[(open + 1)..close]
+            .Split('\n')
+            .Select(line => line.IndexOf("//", StringComparison.Ordinal) is var slashes
+                            && slashes >= 0
+                ? line[..slashes]
+                : line));
 
         return [.. list
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(one => one.Split('=', 2)[0].Trim().Split(' ').Last())
+            .Where(name => name.Length > 0)
             .Where(name => name is not ("input" or "output" or "cancellationToken"))];
     }
 

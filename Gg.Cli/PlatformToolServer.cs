@@ -135,6 +135,13 @@ public static class PlatformToolServer
         TextWriter output,
         string? intentPath = null,
         string? documentRoot = null,
+        // HOW THE VERB IS RUN, injected so this server can be asked what it
+        // does with an exit code without a control plane to produce one.
+        // Defaulted to the real child, and named at the composition root
+        // because TheToolServerIsHandedWhatItNeedsTests holds every parameter
+        // here to being supplied - a default is what documentRoot took for its
+        // whole life while the tool that needed it refused every call.
+        RunPull? pull = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -162,7 +169,8 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath, documentRoot) is { } answer)
+                if (Answer(message.RootElement, intentPath, documentRoot, pull)
+                        is { } answer)
                 {
                     await output.WriteLineAsync(answer);
                     await output.FlushAsync(cancellationToken);
@@ -177,7 +185,7 @@ public static class PlatformToolServer
     /// The line to write back, or null where the protocol says to write none.
     /// </summary>
     private static string? Answer(
-        JsonElement message, string? intentPath, string? documentRoot)
+        JsonElement message, string? intentPath, string? documentRoot, RunPull? pull)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -192,7 +200,7 @@ public static class PlatformToolServer
         {
             "initialize" => Initialized(id, message),
             "tools/list" => Listed(id),
-            "tools/call" => Called(id, message, intentPath, documentRoot),
+            "tools/call" => Called(id, message, intentPath, documentRoot, pull),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -480,6 +488,38 @@ public static class PlatformToolServer
 
             writer.WriteEndObject();
 
+            // THE SEVENTH TOOL, and the only one that starts a process.
+            // Everything it does, the agent could already do: a drafting
+            // session is attended, --allowedTools auto-approves rather than
+            // restricts, and gg is on the path - so `gg airspace pull` is one
+            // guessed command line away today. What this adds is the working
+            // copy forced rather than inferred, and gg's own refusals relayed
+            // as themselves.
+            writer.WriteStartObject();
+            writer.WriteString("name", AirspacePullTool.Name);
+            writer.WriteString("description",
+                "Render this tenant's airspace into the working copy, so the documents here "
+              + "are what the control plane currently holds. Call it when "
+              + $"{AirspaceContextTool.Name} says nothing has been pulled, or when a "
+              + "document you need is missing. It takes no arguments and writes only this "
+              + "session's working copy. "
+                // THE REFUSAL BEFORE IT IS HIT. An agent that reads a refusal
+                // as a failure retries it or works around it - the failure
+                // propose_work_item's wording was written against - and this
+                // one WILL be hit, because drafting is what makes the copy
+                // dirty.
+              + "It refuses if the working copy has uncommitted changes, which protects "
+              + "anything you have already drafted: that is an ordinary answer, not a "
+              + "failure to route around. Pull before you draft, not after.");
+
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
             // THE FOURTH TOOL, and the one that most needs its description
             // read. An agent given something called `propose_work_item` while
             // looking at a backlog will assume it changes the backlog - so the
@@ -612,7 +652,8 @@ public static class PlatformToolServer
         });
 
     private static string Called(
-        JsonElement id, JsonElement message, string? intentPath, string? documentRoot)
+        JsonElement id, JsonElement message, string? intentPath, string? documentRoot,
+        RunPull? pull)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -645,6 +686,11 @@ public static class PlatformToolServer
         if (string.Equals(called, AirspaceContextTool.Name, StringComparison.Ordinal))
         {
             return Described(id, documentRoot);
+        }
+
+        if (string.Equals(called, AirspacePullTool.Name, StringComparison.Ordinal))
+        {
+            return Pulled(id, documentRoot, pull);
         }
 
         if (string.Equals(called, WorkItemProposalTool.Name, StringComparison.Ordinal))
@@ -924,6 +970,63 @@ public static class PlatformToolServer
     /// </para>
     /// </remarks>
     /// <summary>
+    /// Runs the pull verb for this session's working copy, and says what it said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One renderer.</b> What a pull did, and every reason it might refuse,
+    /// is the verb's to say - so this relays its words rather than composing a
+    /// second account of them. A wording here would be a second thing to keep
+    /// in agreement with a verb people also type.
+    /// </para>
+    /// <para>
+    /// <b>A non-zero exit is an error result, and that distinction is the
+    /// point.</b> A pull that did not happen must not read as one that did, or
+    /// the next thing the agent does is draft against a tree it believes is
+    /// fresh - against a <c>based-on:</c> that is behind, which the apply will
+    /// refuse much later and much less clearly.
+    /// </para>
+    /// </remarks>
+    private static string Pulled(JsonElement id, string? documentRoot, RunPull? pull)
+    {
+        if (pull is null)
+        {
+            // SAID, NOT DEFAULTED. A parameter that quietly falls back to the
+            // real child would let this tool work in production while nothing
+            // wired it - which is how submit_document came to refuse every
+            // call for its whole life with every test around it green. An
+            // unconfigured capability says it is unconfigured; that is the
+            // answer the console gives for every port it was not handed.
+            return Content(id, isError: true,
+                "Refused: this server was not given a way to run the pull, so nothing was "
+              + "run. This is a wiring fault in gg rather than anything you did.");
+        }
+
+        if (string.IsNullOrEmpty(documentRoot))
+        {
+            return Content(id, isError: true,
+                "Refused: this session has no airspace working copy, so there is nowhere "
+              + "to pull into. Nothing was run.");
+        }
+
+        var report = pull(documentRoot);
+
+        if (!report.Started)
+        {
+            return Content(id, isError: true,
+                "The pull did not run: " + report.Said + " Nothing was written.");
+        }
+
+        var said = report.Said is { Length: > 0 } words
+            ? words
+            : "The pull said nothing.";
+
+        return report.ExitCode == 0
+            ? Content(id, isError: false, said)
+            : Content(id, isError: true, said);
+    }
+
+    /// <summary>
     /// Says how this tenant's documents are read, and what its tree holds.
     /// </summary>
     /// <remarks>
@@ -1060,8 +1163,9 @@ public static class PlatformToolServer
         {
             said.AppendLine(
                 "THIS WORKING COPY HOLDS NOTHING YET. Nothing has been pulled into it, so "
-              + "there are no documents to read and no example to follow. A pull renders "
-              + "the tenant's airspace here; everything above is true either way.");
+              + "there are no documents to read and no example to follow. Call "
+              + $"{AirspacePullTool.Name} to render the tenant's airspace here; everything "
+              + "above is true either way.");
             return;
         }
 

@@ -165,7 +165,8 @@ public sealed class PtyDraftSession
                  // and still asks - and a permission prompt in front of a
                  // question the agent asked to answer its own uncertainty is
                  // the friction most likely to make it guess instead.
-                 "--allowedTools", DocumentTool.Qualified, AirspaceContextTool.Qualified],
+                 "--allowedTools", DocumentTool.Qualified, AirspaceContextTool.Qualified,
+                 AirspacePullTool.Qualified],
                 tree,
                 most => HostedBar.Rows(showing, _bar, Body(showing, envelope), most),
                 typed =>

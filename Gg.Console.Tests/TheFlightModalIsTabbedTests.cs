@@ -80,8 +80,33 @@ public class TheFlightModalIsTabbedTests
         var offered = Keymap.Bindings(new KeymapContext(UiMode.FlightDetail));
 
         await Assert.That(offered.Any(b => b.Command == Command.NextFlightTab)).IsTrue()
-            .Because("a tab nothing reaches is a pane that does not exist. tab cycles the "
-                   + "console's own bar, so it is the key a person will already try.");
+            .Because("a tab nothing reaches is a pane that does not exist.");
+
+        await Assert.That(offered.Any(b => b.Key == KeyStroke.Char('v'))).IsTrue()
+            .Because("v is what shows evidence one level up, so it is already the "
+                   + "console's word for this.");
+    }
+
+    [Test]
+    public async Task Tab_is_left_to_the_focus_it_moves_in_this_modal()
+    {
+        // THE REGRESSION THIS NEARLY WAS. tab cycles the bar in Normal mode, so
+        // it looked like the obvious key here too - and an unresolved key falls
+        // through to Terminal.Gui, which in THIS mode is what moves focus
+        // between the intent, the fields and the log. Those fields are
+        // focusable for exactly one reason: a Label cannot be copied out of and
+        // the flight id is the value most often wanted out of this modal. Bind
+        // tab here and OnScreenKeyDown marks it handled, so the flight id
+        // becomes unreachable to save a keystroke.
+        var offered = Keymap.Bindings(new KeymapContext(UiMode.FlightDetail));
+
+        await Assert.That(offered.Any(b => b.Key == KeyStroke.TabKey)).IsFalse()
+            .Because("it has to fall through to the focus traversal, which is the only way "
+                   + "into the fields.");
+
+        // The anchor: this mode does bind keys, so the absence above is a
+        // decision rather than an empty map.
+        await Assert.That(offered.Any(b => b.Key == KeyStroke.Esc)).IsTrue();
     }
 
     [Test]

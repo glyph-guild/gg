@@ -440,11 +440,18 @@ public static class Keymap
             new(KeyStroke.Char('x'), Command.AskToGround, "ground it"),
             new(KeyStroke.Char('f'), Command.AskToFlyAgain, "fly it again"),
 
-            // tab, BECAUSE IT IS THE KEY SOMEBODY WILL TRY. It cycles the
-            // console's own bar one level up, so the same press moving between
-            // this modal's two tabs is the behaviour already learned rather
-            // than a second convention for the same act.
-            new(KeyStroke.TabKey, Command.NextFlightTab, "evidence"),
+            // v, AND DELIBERATELY NOT tab. tab cycles the bar one level up,
+            // so it was the obvious choice and it is the wrong one: an
+            // unresolved key falls through to Terminal.Gui, and in THIS mode
+            // tab falling through is what moves focus between the intent, the
+            // fields and the log. Those fields are focusable for one reason -
+            // a Label cannot be copied out of and the flight id is the value
+            // most often wanted out of this modal - so binding tab here would
+            // have taken the flight id away to save a keystroke.
+            //
+            // v is what shows evidence one level up, so it is already the
+            // console's word for this.
+            new(KeyStroke.Char('v'), Command.NextFlightTab, "evidence"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
             // THE LOG'S CURSOR, and the entry it lands on is the one that
             // unwraps. Untaught and off the hint line for the reason the queue's

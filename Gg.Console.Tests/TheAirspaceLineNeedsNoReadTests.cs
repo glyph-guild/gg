@@ -50,11 +50,14 @@ public class TheAirspaceLineNeedsNoReadTests
             },
         };
 
-        var text = PaneText.Envelope(state);
+        await Assert.That(PaneText.Envelope(state))
+            .Contains("documents", StringComparison.Ordinal)
+            .Because("a person cannot be shown their documents only on the condition that a "
+                   + "tenant has already applied an envelope.");
 
-        await Assert.That(text).Contains("/home/someone/policy", StringComparison.Ordinal)
-            .Because("a person cannot be told where their airspace is only on the condition "
-                   + "that a tenant has already applied an envelope.");
+        // AND THE PATH NEEDS NO READ AT ALL, being a local fact: it is a pure
+        // function of the model, so it cannot be gated by anything.
+        await Assert.That(PaneText.AirspacePath(state)).IsEqualTo("/home/someone/policy");
     }
 
     [Test]
@@ -65,9 +68,8 @@ public class TheAirspaceLineNeedsNoReadTests
         // always for survives - the airspace section renders whatever the
         // envelope read did, because the one state that most needs it is the
         // machine that has configured nothing.
-        var text = PaneText.Envelope(new AppState { Envelope = null });
-
-        await Assert.That(text).Contains("airspace", StringComparison.Ordinal)
+        await Assert.That(PaneText.Envelope(new AppState { Envelope = null }))
+            .Contains("documents", StringComparison.Ordinal)
             .Because("an unconfigured machine cannot make the read that used to gate this, "
                    + "so gating it hid the section from exactly the person who needed it.");
     }

@@ -466,6 +466,53 @@ public static class PaneText
                  : "the envelope in force: not read - press e");
     }
 
+    /// <summary>What the airspace field holds: the path, or nothing.</summary>
+    /// <remarks>
+    /// <b>Thin on purpose, and it earns its place twice.</b> Views are never
+    /// the source of truth here, so the field's text comes from the model
+    /// through a function rather than being assigned from whatever the widget
+    /// last held. And it keeps the path under test: moving it into a TextField
+    /// took it out of every pure string this pane renders, which quietly
+    /// removed five assertions about a person being able to see which tree they
+    /// are about to write.
+    /// </remarks>
+    public static string AirspacePath(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.Estate?.Root ?? "";
+    }
+
+    /// <summary>
+    /// What the airspace box says above the path inside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three states a person acts on differently, and a path cannot tell
+    /// them apart.</b> Nothing set is a box to type in. A path git cannot see
+    /// is one pull will overwrite without being able to warn, which is the
+    /// doctor's whole argument for that check. And while the field holds the
+    /// keyboard, saying so is what tells somebody their next keystroke is a
+    /// character rather than a command.
+    /// </remarks>
+    public static string AirspaceBox(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Mode == UiMode.AirspacePath)
+        {
+            return "airspace - enter to set it, esc to leave it";
+        }
+
+        if (state.Estate?.Root is not { Length: > 0 })
+        {
+            return "airspace - not set, enter to say where it is";
+        }
+
+        return state.Estate.IsRepository
+            ? "airspace"
+            : "airspace - not a git tree, so pull cannot refuse an overwrite";
+    }
+
     /// <summary>
     /// The documents the tenant has, and what the working copy says about them.
     /// </summary>
@@ -495,18 +542,15 @@ public static class PaneText
         // answer than a line saying what it knows.
         if (state.Estate is not { } estate)
         {
-            return "airspace: not set";
+            return "documents: not read";
         }
 
         var text = new StringBuilder();
 
-        // THE FIRST LINE IS WHERE, because it is the question every other
-        // line depends on: a document is only "edited" relative to a tree,
-        // and a person who cannot see which tree cannot read the rest.
-        text.AppendLine(estate.Root is { Length: > 0 } root
-            ? $"airspace: {Clean(root)}"
-                + (estate.IsRepository ? "" : "  (not a git tree)")
-            : "airspace: not set");
+        // NOT THE PATH, WHICH THE BOX AT THE BOTTOM HOLDS. Saying it twice on
+        // one screen is two things to keep in agreement, and the box is the one
+        // a person edits - so it is the one that has to be right.
+        text.AppendLine("documents");
 
         if (estate.Diagnosis is { Length: > 0 } wrong)
         {

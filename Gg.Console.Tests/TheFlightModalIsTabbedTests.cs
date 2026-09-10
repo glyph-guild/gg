@@ -85,6 +85,39 @@ public class TheFlightModalIsTabbedTests
     }
 
     [Test]
+    public async Task The_modal_body_is_a_tab_strip_with_the_three_regions_inside_one_tab()
+    {
+        // STRUCTURAL, BECAUSE NOTHING HERE CONSTRUCTS A ConsoleScreen. The view
+        // layer in this project is asserted by reading it - LiveStreamingTests'
+        // shape - so what a widget-level test would prove is spelled out as
+        // what the source has to contain.
+        var screen = ConsoleSource.Text("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
+
+        await Assert.That(screen).Contains("_flightTabs.Add(_flightDetailsTab)")
+            .Because("the details are a tab, not the body - otherwise the strip has one "
+                   + "half of the modal in it and the other half beside it.");
+
+        await Assert.That(screen).Contains("_flightTabs.Add(_flightEvidenceTab)");
+
+        await Assert.That(screen)
+            .Contains("_flightDetailsTab.Add(_flightIntentPane, _flightFields, _flightLogPane)")
+            .Because("all three regions move together. A modal whose log stayed outside the "
+                   + "strip would show a flight's log under its evidence tab.");
+
+        // THE SIZING THIS BREAKS IF IT IS FORGOTTEN. The intent measures the
+        // room it shares with the fields and the log; that room is now the TAB,
+        // which is a strip shorter than the body. Measured against the body the
+        // intent takes rows that are not there and the log pays for them.
+        await Assert.That(screen).Contains("_flightDetailsTab.Viewport.Height")
+            .Because("the intent's cap has to measure the container the three regions "
+                   + "actually share, which is no longer the body.");
+
+        await Assert.That(screen).DoesNotContain("_flightBody.Viewport.Height")
+            .Because("that is the pre-tab measure and it now overstates the room by the "
+                   + "height of the strip.");
+    }
+
+    [Test]
     public async Task The_evidence_tab_renders_the_same_evidence_the_pane_did()
     {
         // ONE RENDERER. A second copy would agree with this one until somebody

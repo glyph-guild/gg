@@ -41,6 +41,37 @@ public static class FlightDetails
     /// </remarks>
     public const string LogTitle = "Log";
 
+    /// <summary>The title over the modal's second tab.</summary>
+    public const string EvidenceTitle = "Evidence";
+
+    /// <summary>
+    /// What a gate is putting to this person about this flight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Delegated, not reimplemented.</b> The evidence rendering already
+    /// existed as a pane and it was already about the SELECTED flight - its
+    /// empty sentence says so - so moving it under the flight is a change of
+    /// where it is read, not of what it says. A second renderer here would
+    /// agree with that one until somebody edited one of them, and what they
+    /// would disagree about is what "nothing is waiting" means.
+    /// </para>
+    /// <para>
+    /// <b>It renders its empty sentence for everybody today, and that is not
+    /// this tab's doing.</b> Nothing assigns <c>AppState.Payload</c>: the
+    /// control plane assembles a <c>GateEvidencePayload</c> while deciding
+    /// whether to halt a flight, then discards it, and no endpoint serves one.
+    /// <c>StateAssignmentTests</c> carries the entry. The tab is the place for
+    /// the answer to appear once there is one to fetch.
+    /// </para>
+    /// </remarks>
+    public static string Evidence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return PaneText.Evidence(state);
+    }
+
     /// <summary>What the frame over the intent says.</summary>
     public const string IntentTitle = "Intent";
 

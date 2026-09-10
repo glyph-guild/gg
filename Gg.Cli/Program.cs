@@ -134,6 +134,62 @@ return CliArgs.Parse(args) switch
 };
 
 /// <summary>
+/// What this console reads off the machine it is running on, and from the
+/// offer waiting for it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One function because there are two callers, and there used to be one.</b>
+/// The boot applied these as a <c>with</c> block and the refresh applied
+/// nothing, so each of them was preserved from the state before it - which is
+/// invisible for the machine's name, harmless for the settings, and wrong for
+/// the two that change: a runner registered since boot, and an offer that has
+/// been taken.
+/// </para>
+/// <para>
+/// <b>Every one is a read this process may make between sessions.</b> Three
+/// are local - the environment, a file this machine wrote, its own name - and
+/// the fourth asks the control plane, which is where every other read the
+/// console makes already goes.
+/// </para>
+/// </remarks>
+static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessionStore sessions) =>
+    state with
+    {
+        Settings = ConsoleEnvironment.Read(InForce.Configuration),
+
+        // WHICH RUNNER IN THE FLEET IS THIS MACHINE'S. The id, and only the
+        // id: StoredRunner beside it holds a runner token, and this model is
+        // serialized under GG_STATE_DUMP and handed to the diagnostics
+        // bundle. Read here for the reason the principal is - it is a file
+        // this machine already wrote, not a verb.
+        // THE NAMED SLOT, which is the one `gg runner up` writes. The
+        // unnamed one is `gg runner maintain`'s and keeps its name so an
+        // upgrade does not take a pool host down - reading it here said a
+        // pool host's maintain runner was the one you are sitting at, and
+        // on a laptop said there was no runner at all while one was up.
+        LocalRunnerId = new FileRunnerStore(
+                FileRunnerStore.PathFor(Environment.MachineName)).Read()?.RunnerId,
+
+        // THE SAME NAME A RUNNER REGISTERS AS ITS LABEL, which is what
+        // makes it the join between the fleet and the person reading it.
+        // One place reads what this machine is called; Rows is pure and
+        // must not, or the fleet's order would depend on the host a test
+        // runs on.
+        Machine = Environment.MachineName,
+
+        // WHAT THE CONTROL PLANE OFFERS THIS MACHINE, read here for the reason
+        // the settings above it are: one place asks, and the console renders
+        // what it is given.
+        //
+        // BETWEEN SESSIONS, WHICH IS WHERE EVERY OTHER READ IS. A UI session
+        // may read a local file and nothing else - this is boot, before one
+        // exists, on the same path the refresh uses afterwards. I had recorded
+        // the opposite in ProjectionParityTests and reasoned from it twice.
+        Offered = OfferedHere(client, sessions),
+    };
+
+/// <summary>
 /// Takes the offer the console showed, and says what happened in one line.
 /// </summary>
 /// <remarks>
@@ -815,50 +871,19 @@ static async Task<int> LaunchConsoleAsync()
     // signed in ended with a stack trace instead of the screen built for it.
     var principal = sessions.Read()?.PrincipalDisplay ?? "";
 
-    var initial = ConsoleStart.LoadAsync(data, principal).GetAwaiter().GetResult()
-        // WHAT THIS MACHINE IS CONFIGURED TO DO, read once and handed over.
-        // ExecutorConfiguration states the rule this follows: one place reads
-        // the environment, and nothing downstream reads it again and reaches a
-        // different answer. The console renders what it is given.
-        //
-        // DECLARED, NEVER SWEPT. Walking the process environment would put
-        // whatever else a person exports - cloud keys, tokens - on a screen
-        // they may be sharing and into the state dump. These are the variables
-        // gg itself reads, and every one is named where it is read.
-        with
-    {
-        Settings = ConsoleEnvironment.Read(InForce.Configuration),
-
-        // WHICH RUNNER IN THE FLEET IS THIS MACHINE'S. The id, and only the
-        // id: StoredRunner beside it holds a runner token, and this model is
-        // serialized under GG_STATE_DUMP and handed to the diagnostics
-        // bundle. Read here for the reason the principal is - it is a file
-        // this machine already wrote, not a verb.
-        // THE NAMED SLOT, which is the one `gg runner up` writes. The
-        // unnamed one is `gg runner maintain`'s and keeps its name so an
-        // upgrade does not take a pool host down - reading it here said a
-        // pool host's maintain runner was the one you are sitting at, and
-        // on a laptop said there was no runner at all while one was up.
-        LocalRunnerId = new FileRunnerStore(
-                FileRunnerStore.PathFor(Environment.MachineName)).Read()?.RunnerId,
-
-        // THE SAME NAME A RUNNER REGISTERS AS ITS LABEL, which is what
-        // makes it the join between the fleet and the person reading it.
-        // One place reads what this machine is called; Rows is pure and
-        // must not, or the fleet's order would depend on the host a test
-        // runs on.
-        Machine = Environment.MachineName,
-
-        // WHAT THE CONTROL PLANE OFFERS THIS MACHINE, read here for the reason
-        // the settings above it are: one place asks, and the console renders
-        // what it is given.
-        //
-        // BETWEEN SESSIONS, WHICH IS WHERE EVERY OTHER READ IS. A UI session
-        // may read a local file and nothing else - this is boot, before one
-        // exists, on the same path the refresh uses afterwards. I had recorded
-        // the opposite in ProjectionParityTests and reasoned from it twice.
-        Offered = OfferedHere(client, sessions),
-    };
+    // THE LOCAL FACTS, APPLIED BY ONE FUNCTION SO THE REFRESH APPLIES THEM
+    // TOO. This used to be a `with` block right here, and the reload below
+    // called the same loader and applied none of it - so the settings, this
+    // machine's runner id, its name and what the control plane offers were all
+    // preserved from the state before the refresh. Taking an offer and
+    // reopening help showed the offer that had just been taken.
+    //
+    // ConsoleLoop's own reload writes this argument down one layer in: it takes
+    // the whole model and answers with it rather than naming six fields,
+    // because every field it did not name reset to a default. Same reasoning,
+    // one layer out.
+    var initial = LocalFacts(
+        ConsoleStart.LoadAsync(data, principal).GetAwaiter().GetResult(), client, sessions);
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
     // arguments that only tests ever supplied, so the console's takeover key
@@ -1088,10 +1113,17 @@ static async Task<int> LaunchConsoleAsync()
         // READ AGAIN RATHER THAN CAPTURED, because signing in is a reload and the
         // whole point of that one is that the name changed. Tolerating absence
         // for the boot's reason: this runs with no shell to refuse into either.
-        reload: current => ConsoleStart
-            .LoadAsync(data, sessions.Read()?.PrincipalDisplay ?? "", current)
-            .GetAwaiter()
-            .GetResult(),
+        // THROUGH THE SAME LOCAL FACTS THE BOOT APPLIES. Without this the
+        // refresh answered with the loader's model and kept every local fact
+        // from the state before it - so an offer taken on the key beside this
+        // one went on being advertised until the console was restarted.
+        reload: current => LocalFacts(
+            ConsoleStart
+                .LoadAsync(data, sessions.Read()?.PrincipalDisplay ?? "", current)
+                .GetAwaiter()
+                .GetResult(),
+            client,
+            sessions),
         // THE CHECKLIST IS READ WHEN THE PANE IS OPENED, not at boot: it is off
         // by default, and a request for a pane nobody opened is a request
         // nobody wanted.

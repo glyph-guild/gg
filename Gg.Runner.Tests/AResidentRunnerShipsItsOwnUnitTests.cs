@@ -68,14 +68,32 @@ public class AResidentRunnerShipsItsOwnUnitTests
         // tier: a runner takes them from the control plane, so a unit that
         // pinned them would put the fleet's configuration back on the host and
         // silently win, because the environment beats the file.
-        var unit = Unit();
+        // THE Environment= LINES, not the whole file - and the first run of
+        // this test is why. It searched the text and matched the COMMENT
+        // explaining why these are absent, which would have forced the unit to
+        // drop the one paragraph most likely to stop somebody adding them back.
+        // A guard that punishes the explanation of a rule is a guard that gets
+        // the explanation deleted.
+        var declared = Unit()
+            .Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("Environment=", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(declared).IsNotEmpty()
+            .Because("a unit declaring nothing would satisfy every assertion below it.");
 
         foreach (var offered in (string[])["GG_STUN_SERVERS", "GG_RUNNER_LABELS"])
         {
-            await Assert.That(unit).DoesNotContain(offered, StringComparison.Ordinal)
+            var set = declared.Where(
+                line => line.StartsWith($"Environment={offered}=", StringComparison.Ordinal))
+                .ToList();
+
+            await Assert.That(set).IsEmpty()
                 .Because($"{offered} is offered by the control plane, and an Environment= "
                        + "line for it beats the file this runner just wrote - the fleet's "
-                       + "configuration back on one host, quietly.");
+                       + "configuration back on one host, quietly. Found: "
+                       + string.Join(", ", set));
         }
     }
 

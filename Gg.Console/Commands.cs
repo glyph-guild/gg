@@ -49,6 +49,17 @@ public enum Command
 
     ToggleEvidence,
 
+    /// <summary>
+    /// Moves the flight modal to its other tab.
+    /// </summary>
+    /// <remarks>
+    /// <b>Cycles rather than naming a tab</b>, for the reason the console's own
+    /// bar does: one key that always works beats two that are each wrong half
+    /// the time, and a person who overshoots in a modal with no way back is
+    /// stuck in it.
+    /// </remarks>
+    NextFlightTab,
+
     /// <summary>Attach or detach the live view. Recorded as a fact.</summary>
     ToggleLive,
 

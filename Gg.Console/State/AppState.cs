@@ -261,6 +261,22 @@ public sealed record RefreshState
     public bool Wanted { get; init; }
 }
 
+/// <summary>Which half of the flight modal is showing.</summary>
+/// <remarks>
+/// <b>Two, and the second is why there is an enum at all.</b> A bool would say
+/// "evidence is showing" and read as a visibility flag like the pane ones this
+/// console has been unpicking; this says which of a set has the body, which is
+/// what TabId says one level up and what a third tab would need.
+/// </remarks>
+public enum FlightTab
+{
+    /// <summary>The intent, the scalars and the log - what the key was pressed for.</summary>
+    Details,
+
+    /// <summary>What a gate is putting to this person about this flight.</summary>
+    Evidence,
+}
+
 public enum TabId
 {
     /// <summary>Flights needing me, and the detail of the selected one.</summary>
@@ -547,6 +563,24 @@ public sealed record AppState
     public IReadOnlyList<TenantNotice> Notices { get; init; } = [];
 
     public int SelectedRow { get; init; }
+
+    /// <summary>
+    /// Which tab the flight modal is showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here rather than on the widget</b>, because a UI lifetime is not
+    /// where this console keeps anything: the screen is torn down and rebuilt
+    /// from this record whenever the terminal has to be handed over, and a tab
+    /// the widget alone remembered would go back to the first one every time.
+    /// <para>
+    /// Reset when a flight is OPENED rather than when the modal closes - the
+    /// two differ for somebody who escapes and comes back, and what makes this
+    /// right is that it is about the flight being read rather than a
+    /// preference. Left alone, the next flight opens on the previous one's
+    /// evidence.
+    /// </para>
+    /// </remarks>
+    public FlightTab FlightTab { get; init; }
 
     /// <summary>
     /// The case a gate is putting to this person, exactly as `gg gates` returned it.

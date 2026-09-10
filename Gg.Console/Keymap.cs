@@ -439,6 +439,12 @@ public static class Keymap
         [
             new(KeyStroke.Char('x'), Command.AskToGround, "ground it"),
             new(KeyStroke.Char('f'), Command.AskToFlyAgain, "fly it again"),
+
+            // tab, BECAUSE IT IS THE KEY SOMEBODY WILL TRY. It cycles the
+            // console's own bar one level up, so the same press moving between
+            // this modal's two tabs is the behaviour already learned rather
+            // than a second convention for the same act.
+            new(KeyStroke.TabKey, Command.NextFlightTab, "evidence"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
             // THE LOG'S CURSOR, and the entry it lands on is the one that
             // unwraps. Untaught and off the hint line for the reason the queue's

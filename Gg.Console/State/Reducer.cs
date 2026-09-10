@@ -33,6 +33,18 @@ public static class Reducer
             Command.ShowFlight => Modal(state, UiMode.FlightDetail) with
             {
                 ReadInFlight = true,
+
+                // ON THE DETAILS, because this is a flight being opened rather
+                // than a modal being re-shown. See AppState.FlightTab.
+                FlightTab = FlightTab.Details,
+            },
+
+            // TWO TABS AND ONE KEY, so it has to come back round.
+            Command.NextFlightTab => state with
+            {
+                FlightTab = state.FlightTab is FlightTab.Details
+                    ? FlightTab.Evidence
+                    : FlightTab.Details,
             },
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
 
@@ -456,7 +468,16 @@ public static class Reducer
         // history ended is a place pointing into a history it was never about.
         return PaneText.Detailed(state) is null
             ? state
-            : Modal(state, UiMode.FlightDetail) with { LogSelected = 0 };
+            : Modal(state, UiMode.FlightDetail) with
+            {
+                LogSelected = 0,
+
+                // THE OTHER DOOR INTO THIS MODAL, and it resets for the reason
+                // the one above does. Two openings that disagreed about which
+                // tab you land on would be the worse kind of inconsistency:
+                // invisible until somebody uses both.
+                FlightTab = FlightTab.Details,
+            };
     }
 
     /// <summary>

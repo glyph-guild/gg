@@ -85,6 +85,10 @@ public sealed class ConsoleScreen : Window
     /// already sizes the frame and this decides what is in it.
     /// </remarks>
     private readonly View _flightBody;
+    private readonly Terminal.Gui.Views.Tabs _flightTabs;
+    private readonly View _flightDetailsTab;
+    private readonly View _flightEvidenceTab;
+    private readonly Label _flightEvidence;
     private readonly FrameView _flightIntentPane;
     private readonly Markdown _flightIntent;
     private readonly View _flightFields;
@@ -511,7 +515,59 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
-        _flightBody.Add(_flightIntentPane, _flightFields, _flightLogPane);
+
+        // THE THREE REGIONS BECOME ONE TAB, unchanged. Their layout is
+        // relative to each other rather than to what contains them, so the
+        // container moving down a level costs them nothing - and keeping them
+        // together is the point: "everything the modal used to be" is one tab,
+        // not three that a person has to reassemble.
+        _flightDetailsTab = new View
+        {
+            Title = "Details",
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _flightDetailsTab.Add(_flightIntentPane, _flightFields, _flightLogPane);
+
+        // A LABEL, LIKE THE PANE IT CAME FROM. Evidence is read rather than
+        // picked from, and the renderer it delegates to already produces the
+        // whole block as text.
+        _flightEvidence = new Label
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+        };
+        _flightEvidenceTab = new View
+        {
+            Title = FlightDetails.EvidenceTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _flightEvidenceTab.Add(_flightEvidence);
+
+        // THE SAME WIDGET THE CONSOLE'S OWN BAR USES, one level in. A second
+        // way of drawing a row of tabs would be a second set of behaviours for
+        // one act, and this one already answers arrow keys the way a person
+        // who has used the bar expects.
+        _flightTabs = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+        _flightTabs.Add(_flightDetailsTab);
+        _flightTabs.Add(_flightEvidenceTab);
+        _flightTabs.ValueChanged += OnFlightTabChanged;
+
+        _flightBody.Add(_flightTabs);
 
         // THE RUNNER'S OWN BODY, two regions down one column: what the fleet
         // and the child know, and what the child has said. No intent, because
@@ -585,9 +641,15 @@ public sealed class ConsoleScreen : Window
         // laid-out size and a render happens before the layout does - and here
         // rather than in the initializer, because the body it measures against
         // has to exist first.
+        // AGAINST THE TAB, NOT THE BODY. The intent shares its room with the
+        // fields and the log, and since those three moved inside a tab the
+        // body is a row taller than what they actually get - the tab strip.
+        // Measuring against the body would hand the intent room that is not
+        // there and take the difference out of the log, which is the half that
+        // has already paid for this once.
         _flightIntentPane.Height = Dim.Func(
             _ => FlightDetails.IntentRows(
-                FlightDetails.IntentLines(State), _flightBody.Viewport.Height),
+                FlightDetails.IntentLines(State), _flightDetailsTab.Viewport.Height),
             _flightIntentPane);
 
         _modal.Add(_modalBody, _flightBody, _runnerBody);
@@ -936,6 +998,36 @@ public sealed class ConsoleScreen : Window
     /// bar that changed the model itself would be a second way to do one thing,
     /// and the two would come to disagree.
     /// </remarks>
+    /// <summary>
+    /// A person clicked one of the flight modal's two tabs.
+    /// </summary>
+    /// <remarks>
+    /// <b>Through the command, not around it.</b> Clicking a tab and pressing
+    /// tab are the same act, so the click reduces what the key reduces rather
+    /// than assigning the field - one path, and the model stays the thing that
+    /// decides. Neither tab is a READ, so unlike the bar's handler there is no
+    /// session to end: both halves are already in the state.
+    /// </remarks>
+    private void OnFlightTabChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var wanted = ReferenceEquals(chosen, _flightEvidenceTab)
+            ? FlightTab.Evidence
+            : FlightTab.Details;
+
+        if (wanted == State.FlightTab)
+        {
+            return;
+        }
+
+        State = Reducer.Reduce(State, Command.NextFlightTab);
+        Render();
+    }
+
     private void OnTabChanged(object? sender, ValueChangedEventArgs<View?> args)
     {
         if (_syncing || args.NewValue is not { } chosen)
@@ -1393,6 +1485,29 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void RenderFlight()
     {
+        _flightEvidence.Text = FlightDetails.Evidence(State);
+
+        // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY. Guarded the way the
+        // console's own bar is: assigning Value raises ValueChanged, and
+        // without the flag the assignment answers its own event and reduces a
+        // command for a tab nobody pressed.
+        _syncing = true;
+        try
+        {
+            var showing = State.FlightTab is FlightTab.Evidence
+                ? _flightEvidenceTab
+                : _flightDetailsTab;
+
+            if (!ReferenceEquals(_flightTabs.Value, showing))
+            {
+                _flightTabs.Value = showing;
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
         _flightIntent.Text = FlightDetails.Intent(State);
 
         var fields = FlightDetails.Fields(State);

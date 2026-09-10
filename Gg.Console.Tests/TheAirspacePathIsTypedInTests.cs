@@ -257,6 +257,67 @@ public class TheAirspacePathIsTypedInTests
     }
 
     [Test]
+    public async Task The_current_directory_is_one_keystroke_while_editing()
+    {
+        // A CONTROL COMBINATION, BECAUSE EVERY PLAIN LETTER IS THE FIELD'S.
+        // That is the deal this mode makes - `d` inside a path is a character -
+        // so an affordance in here has to be a key a path cannot contain.
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Control('d'),
+                new KeymapContext(UiMode.AirspacePath, TabId.Envelope)))
+            .IsEqualTo(Command.AirspacePathFromCwd);
+    }
+
+    [Test]
+    public async Task The_current_directory_is_not_offered_outside_the_field()
+    {
+        // OR IT IS A KEY THAT FILLS A FIELD NOBODY IS LOOKING AT. Every other
+        // mode and the tab itself answer nothing for it.
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Control('d'), new KeymapContext(UiMode.Normal, TabId.Envelope)))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task The_box_says_the_current_directory_is_available()
+    {
+        var text = PaneText.AirspaceBox(new AppState
+        {
+            Mode = UiMode.AirspacePath,
+            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+        });
+
+        await Assert.That(text).Contains("ctrl-d", StringComparison.OrdinalIgnoreCase)
+            .Because("a control combination is not something anybody guesses, so the title "
+                   + "that already names enter and esc names this one too.");
+    }
+
+    [Test]
+    public async Task Where_gg_was_launched_from_is_a_local_fact()
+    {
+        // IN THE LOCAL FOLD, beside the machine name and the airspace path, for
+        // their reason: it is process state this machine already has, and
+        // nothing about it is the control plane's to answer. A screen that
+        // read it directly would be a view holding a fact the model does not,
+        // which is what makes a state dump unable to explain what was on the
+        // screen.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Gg.sln")))
+        {
+            root = root.Parent;
+        }
+
+        var source = File.ReadAllText(Path.Combine(root!.FullName, "Gg.Cli", "Program.cs"));
+        var fold = source[source.IndexOf(
+            "static AppState LocalFacts(", StringComparison.Ordinal)..];
+        fold = fold[..fold.IndexOf("\n}", StringComparison.Ordinal)];
+
+        await Assert.That(fold).Contains("Cwd", StringComparison.Ordinal)
+            .Because("boot and refresh both run this fold, so the value is there before the "
+                   + "key that uses it can be pressed.");
+    }
+
+    [Test]
     public async Task Every_mode_says_whether_it_draws_a_dialog()
     {
         // THE DECLARATION THREE RATCHETS NOW READ. They walked every non-Normal

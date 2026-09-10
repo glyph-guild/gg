@@ -288,7 +288,7 @@ public class PlatformToolServerTests
     }
 
     [Test]
-    public async Task It_declares_six_tools_and_a_seventh_has_to_argue_for_itself()
+    public async Task It_declares_seven_tools_and_an_eighth_has_to_argue_for_itself()
     {
         // TWO NOW, AND THE OLD REASON WAS THE WRONG ONE. This asserted one tool
         // because "a second on this server would be granted by the same move" -
@@ -398,21 +398,47 @@ public class PlatformToolServerTests
         // "what can an injected agent reach through this server" the same
         // answer it was.
         //
-        // A SEVENTH still has to make its own argument. None of these six is it.
+        // THE SEVENTH, AND THE ONLY ONE THAT STARTS A PROCESS. That is the
+        // line worth pausing on, because this server's safety argument is that
+        // it is a function of what it is handed. It still is: what it starts
+        // is gg, under a verb, with a root it was given - and the credential
+        // and the network stay in the child, which is the process whose job
+        // they are. SelfInvocation.Under exists to cross exactly this
+        // boundary, and the runner is already spawned across it.
+        //
+        // AND IT GRANTS THE AGENT NOTHING IT DID NOT HAVE. A drafting session
+        // is attended; --allowedTools auto-approves rather than restricts
+        // (--tools is the restricting flag, and the launch does not pass it);
+        // gg is on the path. `gg airspace pull` is one guessed command line
+        // away today. What the tool adds is the working copy FORCED rather
+        // than inferred - the verb falls back to the current directory, which
+        // for this server is wherever the client started it - and gg's own
+        // refusals relayed as themselves.
+        //
+        // WHY IT IS GRANTED RATHER THAN LEFT TO A PROMPT, which is the one
+        // thing that genuinely changes: an auto-approved tool pulls without
+        // asking, and a pull rewrites a working copy from the network.
+        // AirspacePullAsync raises DirtyWorkingCopyException as its FIRST
+        // statement, before it touches the network, so it cannot bury
+        // uncommitted work - including drafts written moments earlier. The
+        // refusal is what makes the grant affordable, and the description says
+        // so before an agent hits it.
+        //
+        // AN EIGHTH still has to make its own argument. None of these seven is it.
         var answers = await ExchangeAsync(
             """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
 
         var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(6)
-            .Because("one channel, six tools. A seventh is a decision somebody has to argue "
-                   + "for, in this comment, where the last four were argued for.");
+        await Assert.That(tools.GetArrayLength()).IsEqualTo(7)
+            .Because("one channel, seven tools. An eighth is a decision somebody has to "
+                   + "argue for, in this comment, where the last five were argued for.");
 
         var listed = tools.EnumerateArray()
             .Select(t => t.GetProperty("name").GetString()!).ToList();
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
                     WorkItemProposalTool.Name, DocumentTool.Name,
-                    AirspaceContextTool.Name })
+                    AirspaceContextTool.Name, AirspacePullTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));
 

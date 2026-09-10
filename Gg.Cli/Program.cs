@@ -39,7 +39,12 @@ return CliArgs.Parse(args) switch
         System.Console.In,
         System.Console.Out,
         intentPath: Environment.GetEnvironmentVariable(IntentTool.PathVariable),
-        documentRoot: Environment.GetEnvironmentVariable(DocumentTool.RootVariable)),
+        documentRoot: Environment.GetEnvironmentVariable(DocumentTool.RootVariable),
+        // THE REAL CHILD, named here and nowhere else. The tool refuses when
+        // it is not given one rather than reaching for a default, so this line
+        // is the whole difference between a pull tool that works and one that
+        // explains it was never wired.
+        pull: AirspacePullChild.Run),
     // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.

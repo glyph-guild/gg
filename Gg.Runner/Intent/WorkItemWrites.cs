@@ -81,3 +81,79 @@ public interface IWorkItemSink
         string idempotencyKey,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Which trackers this runner may WRITE to, and where their apis are.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A second declaration, and that is the point</b> —
+/// <c>DestinationConfiguration</c>'s argument one system over. Reading a
+/// tracker and writing to one are different permissions on different
+/// credentials, so a runner configured to read holds no sink: <i>no
+/// declaration, no write</i> is true at the level of which objects exist,
+/// rather than at the level of a check somebody could delete.
+/// </para>
+/// <para>
+/// <b>Keyed by the destination id an envelope names</b>, because that is what
+/// an admission comes back carrying. Keying by host would make one tracker two
+/// destinations indistinguishable, which is the thing a menu on each of them
+/// exists to keep apart.
+/// </para>
+/// <para>
+/// <b>Absent entirely is ordinary rather than degraded.</b> The same binary
+/// runs on a machine that triages and one that never will, and gg names no
+/// tracker.
+/// </para>
+/// </remarks>
+public static class TrackerConfiguration
+{
+    /// <summary>The variable naming which trackers this runner may write to.</summary>
+    public const string ApisVariable = "GG_TRACKER_APIS";
+
+    /// <summary>The sinks this environment describes, by destination id.</summary>
+    /// <param name="clientFor">The client to speak to a host through.</param>
+    /// <param name="apis">
+    /// The declaration, or null to read <see cref="ApisVariable"/>. Passed by
+    /// tests; the root reads the environment through the one reader.
+    /// </param>
+    /// <param name="secretFor">
+    /// The credential registered for a destination, resolved on this machine.
+    /// </param>
+    /// <remarks>
+    /// <b>A declared api with no credential THROWS.</b> The sink refuses an
+    /// absent credential at construction, and this is where that refusal
+    /// belongs: at start-up, in front of the person configuring the machine,
+    /// rather than at the first admitted write in front of nobody.
+    /// </remarks>
+    public static IReadOnlyDictionary<string, IWorkItemSink> FromEnvironment(
+        Func<string, HttpClient> clientFor,
+        string? apis = null,
+        Func<string, string?>? secretFor = null)
+    {
+        ArgumentNullException.ThrowIfNull(clientFor);
+
+        var declared = apis ?? Environment.GetEnvironmentVariable(ApisVariable) ?? "";
+        var sinks = new Dictionary<string, IWorkItemSink>(StringComparer.Ordinal);
+
+        foreach (var entry in declared.Split(
+                     ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var split = entry.IndexOf('=', StringComparison.Ordinal);
+
+            if (split <= 0 || split == entry.Length - 1)
+            {
+                throw new InvalidOperationException(
+                    $"{ApisVariable} entry '{entry}' is not `destination=uri`. Each entry names "
+                  + "the destination id an envelope declares and the tracker root to write to.");
+            }
+
+            var id = entry[..split];
+            var host = entry[(split + 1)..];
+
+            sinks[id] = new WiqlWorkItemSink(host, secretFor?.Invoke(id), clientFor(host));
+        }
+
+        return sinks;
+    }
+}

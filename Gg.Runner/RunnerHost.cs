@@ -170,6 +170,15 @@ public static class RunnerHost
         IWorkspace workspace,
         CancellationToken cancellationToken,
         IReadOnlyList<Vcs.IDestinationAdapter>? destinations = null,
+
+        /// <summary>Where this runner may write to a tracker, by destination id.</summary>
+        /// <remarks>
+        /// <b>Handed across rather than read here</b>, like the destinations
+        /// above and for the same reason: one place reads the environment, and
+        /// nothing downstream reaches a second answer. Absent is ordinary - a
+        /// runner that never triages holds none.
+        /// </remarks>
+        IReadOnlyDictionary<string, Intent.IWorkItemSink>? trackers = null,
         Execution.IExecutorPort? executor = null,
         IReadOnlyList<Gg.Local.IntentReader>? readers = null,
         IReadOnlyList<Vcs.HostDeclaration>? hosts = null,

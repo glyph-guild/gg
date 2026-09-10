@@ -1659,6 +1659,20 @@ static async Task<int> RunnerUpAsync()
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
         api => new HttpClient { BaseAddress = new Uri(api) });
 
+    // AND WHERE IT MAY WRITE TO A TRACKER, which is a third declaration for
+    // the reason the second one is a second: reading a backlog and changing
+    // one are different permissions on different credentials. A runner told
+    // about no tracker write api holds no sink, so "no destination, no write"
+    // is true because there is no object rather than because a check said so.
+    //
+    // NOTHING BUILT ONE FOR A WHOLE SLICE. WiqlWorkItemSink shipped, was
+    // walked against a real tracker, and was reachable from no product code -
+    // an unbuilt feature that reads as a finished one, which is the shape
+    // S7.4-02 recorded the last time.
+    var trackers = Gg.Runner.Intent.TrackerConfiguration.FromEnvironment(
+        api => new HttpClient(),
+        secretFor: destination => new FileCredentialStore().Read(destination));
+
     // WHICH AGENT THIS MACHINE HAS, and none is a real answer. Until this line
     // existed the runner was handed no executor at all, so `gg runner serve`
     // built a loop that could not invoke anything and no flight in the product
@@ -1889,6 +1903,20 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
 
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
         api => new HttpClient { BaseAddress = new Uri(api) });
+
+    // AND WHERE IT MAY WRITE TO A TRACKER, which is a third declaration for
+    // the reason the second one is a second: reading a backlog and changing
+    // one are different permissions on different credentials. A runner told
+    // about no tracker write api holds no sink, so "no destination, no write"
+    // is true because there is no object rather than because a check said so.
+    //
+    // NOTHING BUILT ONE FOR A WHOLE SLICE. WiqlWorkItemSink shipped, was
+    // walked against a real tracker, and was reachable from no product code -
+    // an unbuilt feature that reads as a finished one, which is the shape
+    // S7.4-02 recorded the last time.
+    var trackers = Gg.Runner.Intent.TrackerConfiguration.FromEnvironment(
+        api => new HttpClient(),
+        secretFor: destination => new FileCredentialStore().Read(destination));
 
     // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
     // process hands one over. The same store `gg credential add` writes; the

@@ -1,0 +1,249 @@
+using System.Text;
+using System.Text.Json;
+using Gg.Contracts;
+using Gg.Local;
+
+namespace Gg.Console;
+
+/// <summary>
+/// Drafts envelope documents with an agent, hosted in a pseudo-terminal gg
+/// owns, in the estate's working copy.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Not an <see cref="IEditorSession"/>, and that is the whole difference
+/// from <see cref="PtyAgentSession"/>.</b> That port is text in, a real child,
+/// text out — which is what made "editor or agent" a choice between two
+/// implementations rather than two launch paths. Nothing comes back as text
+/// here: the tool writes documents into the working copy, so the outcome is on
+/// disk and what this answers is a sentence about the session. Sharing the port
+/// would mean returning a string the caller would try to open a flight with.
+/// </para>
+/// <para>
+/// <b>The agent is never told where the working copy is.</b> The root reaches
+/// the tool server through its own <c>env</c> entry in the MCP config below,
+/// and appears in neither the agent's environment nor its command line — the
+/// same arrangement <c>submit_intent</c> uses for its path, and for the same
+/// reason: the server is the only thing here permitted to know where a document
+/// goes. The agent works in that directory as its cwd, which is how it reads
+/// the documents above the one it is drafting — a narrowing only means anything
+/// against the root and work kind it constrains.
+/// </para>
+/// <para>
+/// <b>Launched with two flags, like the takeover.</b> Deliberately not
+/// <c>--strict-mcp-config</c>: a person is driving this session and keeps their
+/// own servers and settings. The cost is stated rather than hidden — an
+/// operator who has configured a server under the key <c>gg</c> would shadow
+/// this one — and it is why the tool is a validated channel rather than a
+/// sandbox: an agent here could already write that directory with its own
+/// tools, and what the tool adds is that a document is checked before it lands
+/// and its <c>based-on:</c> precondition survives.
+/// </para>
+/// </remarks>
+public sealed class PtyDraftSession
+{
+    private readonly string _agentCommand;
+    private readonly Func<IHostTerminal?> _terminal;
+    private readonly SelfInvocation? _self;
+    private readonly HostRun _host;
+    private readonly string _bar;
+    private readonly Action<string> _say;
+    private readonly Func<EnvelopeState?> _envelope;
+
+    /// <param name="agentCommand">
+    /// The agent, as a command line. Defaults to <c>GG_TAKE_COMMAND</c> and
+    /// then to <c>claude</c> — the same two every other agent session here
+    /// uses, because a person who has told gg which agent to run has told it
+    /// once.
+    /// </param>
+    /// <param name="terminal">
+    /// Where to get a terminal to host on, answering null when there is none.
+    /// </param>
+    /// <param name="self">
+    /// How gg invokes itself to serve its own tools, or null where it cannot
+    /// name its own executable. <see cref="SelfInvocation.Current"/> answers
+    /// null rather than guessing, and a guess here is a tool server that fails
+    /// at startup while the agent has already been told the tool exists.
+    /// </param>
+    /// <param name="host">How to run the child. A test passes one that cannot.</param>
+    /// <param name="bar">The top row, which says what ends the session.</param>
+    /// <param name="say">Where a word to the person goes when this cannot run.</param>
+    /// <param name="envelope">
+    /// The rules in force, for the panel to show. A function rather than a
+    /// value, because the console reads the envelope between sessions and what
+    /// is true when this is constructed is not what is true when somebody asks.
+    /// </param>
+    public PtyDraftSession(
+        string? agentCommand = null,
+        Func<IHostTerminal?>? terminal = null,
+        SelfInvocation? self = null,
+        HostRun? host = null,
+        string bar = "gg · drafting the estate — ask the agent to submit each document it "
+                   + "changes · closing leaves the working copy as it stands",
+        Action<string>? say = null,
+        Func<EnvelopeState?>? envelope = null)
+    {
+        _agentCommand = agentCommand
+            ?? Environment.GetEnvironmentVariable("GG_TAKE_COMMAND")
+            ?? "claude";
+        _terminal = terminal ?? OwnedTerminal.Open;
+        _self = self ?? SelfInvocation.Current;
+        _host = host ?? PtyHost.RunAsync;
+        _bar = bar;
+        _say = say ?? System.Console.WriteLine;
+        _envelope = envelope ?? (() => null);
+    }
+
+    /// <summary>
+    /// Runs the agent in the working copy, and answers with a sentence about
+    /// the session.
+    /// </summary>
+    /// <remarks>
+    /// <b>It does not report what changed, because it does not know.</b> The
+    /// documents the agent submitted are files now, and the diff read that
+    /// follows is what says which — one place computing direction, from the
+    /// comparator the door itself runs. A count guessed here would be a second
+    /// answer to the question the pane is about to render.
+    /// </remarks>
+    /// <param name="root">The estate's working copy, which becomes the cwd.</param>
+    public string Draft(string? root)
+    {
+        if (root is not { Length: > 0 } tree)
+        {
+            return "No working copy is configured, so there is nowhere to draft. "
+                 + "gg config set airspace <path>.";
+        }
+
+        if (!Directory.Exists(tree))
+        {
+            // SAID RATHER THAN CREATED. A directory gg made because a draft
+            // wanted one is an estate nobody pulled, and the first apply out of
+            // it would submit documents against no precondition at all.
+            return $"Nothing was drafted: {tree} is not there. Pull the estate first.";
+        }
+
+        if (_self is null)
+        {
+            return "gg cannot name its own executable here, so it cannot serve the tool an "
+                 + "agent submits a document with. Nothing was drafted.";
+        }
+
+        var terminal = _terminal();
+        if (terminal is null)
+        {
+            // NO FALLBACK, and the asymmetry with an editor is the point. An
+            // editor without a terminal still edits; an agent session without
+            // one is not a degraded session, it is no session.
+            _say("gg cannot draft with an agent here: there is no terminal to host one in.");
+            return "Nothing was drafted: there is no terminal to host an agent in.";
+        }
+
+        // READ ONCE, BEFORE THE CHILD HAS THE SCREEN. The envelope comes off
+        // the control plane, and doing that on the keypress would freeze the
+        // panel for a round trip - a key that appears to do nothing for a
+        // second is a key somebody presses again.
+        var envelope = _envelope();
+        var showing = HostedView.Closed;
+
+        try
+        {
+            var parts = _agentCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            _host(
+                terminal,
+                parts[0],
+                [.. parts.Skip(1),
+                 "--mcp-config", ServerConfig(_self, tree),
+                 // THE QUALIFIED NAME, from the one declaration that owns all
+                 // three spellings.
+                 "--allowedTools", DocumentTool.Qualified],
+                tree,
+                most => HostedBar.Rows(showing, _bar, Body(showing, envelope), most),
+                typed =>
+                {
+                    if (!HostedBar.Takes(showing, typed))
+                    {
+                        return false;
+                    }
+
+                    showing = HostedBar.Next(showing, typed);
+                    return true;
+                },
+                CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (Exception missing) when (
+            missing is DllNotFoundException or EntryPointNotFoundException)
+        {
+            _say("gg could not open its own terminal view: libporta_pty is not installed "
+               + "beside gg, so there is no way to host an agent.");
+            return "Nothing was drafted: libporta_pty is not installed beside gg.";
+        }
+
+        return "The drafting session ended. Anything the agent submitted is in the working "
+             + "copy now, and unapplied.";
+    }
+
+    /// <summary>What the open view has to show.</summary>
+    /// <remarks>
+    /// <b>The envelope is rendered by the same function the console's own pane
+    /// uses.</b> Two renderings of the rules in force would be two things to
+    /// keep in agreement, and the one that drifts is the one nobody is looking
+    /// at.
+    /// </remarks>
+    private static string Body(HostedView showing, EnvelopeState? envelope) => showing switch
+    {
+        HostedView.Envelope => envelope is { } state
+            ? PaneText.Envelope(new AppState { Envelope = state })
+            : "",
+
+        // NOTHING TO SHOW HERE, and it is not the intent view's absence. What a
+        // drafting session produces is files, and gg naming which ones would be
+        // a count it has not read - the diff after the session is what says.
+        _ => "",
+    };
+
+    /// <summary>gg's own tool server, as the flag's JSON.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Written rather than serialized, because this binary publishes
+    /// AOT.</b> Reflection-based serialization of an anonymous type is refused
+    /// at compile time and cannot be source-generated, so the document is
+    /// written directly — which also means every value here is escaped by the
+    /// writer rather than by hand.
+    /// </para>
+    /// <para>
+    /// <b>One environment entry, and it is the whole mechanism.</b> The tool
+    /// server is the only thing in this arrangement permitted to know where a
+    /// document goes, and it learns it here rather than by looking for it.
+    /// </para>
+    /// </remarks>
+    private static string ServerConfig(SelfInvocation self, string root)
+    {
+        using var buffer = new MemoryStream();
+
+        using (var json = new Utf8JsonWriter(buffer))
+        {
+            json.WriteStartObject();
+            json.WriteStartObject("mcpServers");
+            json.WriteStartObject(DocumentTool.Server);
+
+            json.WriteString("command", self.Command);
+            json.WriteStartArray("args");
+            foreach (var argument in self.Arguments)
+            {
+                json.WriteStringValue(argument);
+            }
+            json.WriteEndArray();
+
+            json.WriteStartObject("env");
+            json.WriteString(DocumentTool.RootVariable, root);
+            json.WriteEndObject();
+
+            json.WriteEndObject();
+            json.WriteEndObject();
+            json.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(buffer.ToArray());
+    }
+}

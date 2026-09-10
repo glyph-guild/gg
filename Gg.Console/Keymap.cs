@@ -643,6 +643,14 @@ public static class Keymap
                     // mnemonic that silently shadows another is worse than one
                     // chosen for being free and said to be.
                     new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the estate")
+                        { When = "while the envelope tab is showing" },
+
+                    // `m' BECAUSE THIS CONSOLE ALREADY CHOSE THAT LETTER FOR
+                    // THIS ACT. ComposeChoice settles it: of what was free, `w'
+                    // is "write it myself" and `m' is the model. A different
+                    // letter for the same thing one pane over would be the
+                    // drift a single keymap exists to prevent.
+                    new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent")
                         { When = "while the envelope tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse

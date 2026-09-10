@@ -1202,6 +1202,16 @@ public sealed record AppState
     /// </remarks>
     public string? AirspacePathTyped { get; init; }
 
+    /// <summary>Where gg was launched from.</summary>
+    /// <remarks>
+    /// <b>A local fact, folded in with the machine's name.</b> It is offered
+    /// while the airspace field is being edited, because the directory
+    /// somebody is standing in is usually the one they mean - and it is in
+    /// the model rather than read by the screen, or a state dump could not
+    /// explain what was on it.
+    /// </remarks>
+    public string Cwd { get; init; } = "";
+
     /// <summary>
     /// What this tenant's control plane offers this machine, or null.
     /// </summary>

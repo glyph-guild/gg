@@ -98,16 +98,37 @@ public class ShellHandledTests
         await Assert.That(resolvable).IsNotEmpty()
             .Because("an empty walk passes this by finding nothing to check.");
 
+        // AND A THIRD PLACE, DECLARED. Two commands change a widget's
+        // in-progress text, which the model cannot hold - Command is a
+        // parameterless enum, so a keystroke's worth of a half-typed path has
+        // nowhere to go through the reducer. They are performed by the screen,
+        // and ShellCommands.OnTheWidget is where that is said with the reason.
+        // Accepting them here is not a hole: the next assertion holds each one
+        // to actually being named in the screen, so a declaration cannot stand
+        // in for an implementation.
+        var screen = Source("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
+
         var orphans = resolvable
             .Where(command => !ShellCommands.Handled.Contains(command))
+            .Where(command => !ShellCommands.OnTheWidget.ContainsKey(command))
             .Where(command => !reducer.Contains($"Command.{command}", StringComparison.Ordinal))
             .Select(command => command.ToString())
             .ToList();
 
         await Assert.That(orphans).IsEmpty()
-            .Because("a command bound to a key and handled by neither the shell nor the "
-                   + "reducer is a key that does nothing when pressed, advertised on the hint "
-                   + "line as though it did. Found: " + string.Join(", ", orphans));
+            .Because("a command bound to a key and handled by none of the shell, the reducer "
+                   + "or the screen is a key that does nothing when pressed, advertised on "
+                   + "the hint line as though it did. Found: " + string.Join(", ", orphans));
+
+        var undone = ShellCommands.OnTheWidget.Keys
+            .Where(command => !screen.Contains($"Command.{command}", StringComparison.Ordinal))
+            .Select(command => command.ToString())
+            .ToList();
+
+        await Assert.That(undone).IsEmpty()
+            .Because("declared as the screen's and not named in it, so the declaration is "
+                   + "the only thing that happens when the key is pressed. Found: "
+                   + string.Join(", ", undone));
     }
 
     [Test]

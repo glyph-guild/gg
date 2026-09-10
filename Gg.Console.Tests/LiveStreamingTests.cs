@@ -112,6 +112,33 @@ public class LiveStreamingTests
             ("a credential", new Regex(@"CredentialStore|SessionStore|SessionToken|ControlPlaneClient")),
         };
 
+        // ONE EXCEPTION, GRANTED AND WRITTEN DOWN HERE RATHER THAN WHERE IT IS
+        // USED.
+        //
+        // Reading the clipboard is a child process on every platform this ships
+        // to - ConsoleLink says exactly that about its own copy: "Both spawn a
+        // child, which is why neither is a session's." Pasting into the
+        // airspace field does it during a session anyway, deliberately: a path
+        // is most often already on the clipboard, and a terminal-release round
+        // trip in the middle of editing one field would throw away what is
+        // typed in it.
+        //
+        // WHY IT IS RECORDED IN THIS TEST. The spawn happens inside
+        // Terminal.Gui's IClipboard, so the scan below finds no Process.Start
+        // in this console's own files and passes - which would make the guard
+        // read as compliance while the behaviour is the thing it forbids. An
+        // exception nobody told the guard about is worse than no guard, because
+        // it looks like one.
+        //
+        // WHAT IT IS NOT. It is scoped to a clipboard READ, in one field, by
+        // one key. It grants nothing about the network, nothing about a
+        // credential, and no second spawn: the console's other clipboard use -
+        // copying a sign-in link - stays the shell's, and that is deliberate,
+        // because the thing it copies is a single-use code.
+        //
+        // The next feature that wants more argues for its own exception here.
+        // It does not inherit this one.
+
         var sessionSources = new[]
         {
             Path.Combine(RepoRoot(), "Gg.Console", "TerminalGuiSession.cs"),

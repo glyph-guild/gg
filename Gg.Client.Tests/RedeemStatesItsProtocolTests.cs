@@ -29,6 +29,15 @@ namespace Gg.Client.Tests;
 /// is too old"</i>, on a binary built minutes earlier from the same commit as the
 /// control plane.
 /// </para>
+/// <para>
+/// <b>Except that it was about one call, and a second one was already
+/// wrong.</b> The paragraph above stated the rule and the assertions below
+/// check this method, so <c>CurrentVersionAsync</c> went on building its own
+/// request and sending no headers at all — on the one door a binary below the
+/// floor can reach. The guard the sentence describes is in
+/// <c>EveryRequestSaysWhichGgItIsTests</c>: a client that names these headers
+/// builds its requests in one place.
+/// </para>
 /// </remarks>
 public class RedeemStatesItsProtocolTests
 {

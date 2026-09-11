@@ -63,4 +63,26 @@ public static class AirspaceContextTool
     /// write into another.
     /// </remarks>
     public const string RootVariable = DocumentTool.RootVariable;
+
+    /// <summary>
+    /// The rules in force, rendered, for the session to show an agent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>HANDED, NOT FETCHED, and that is the whole reason it is a variable
+    /// rather than a call.</b> The composed envelope comes off the control
+    /// plane, and the tool server holds no client, no session store and no
+    /// credential — which is what makes it safe to run as a child of a process
+    /// the threat model treats as compromised. The console has already read it
+    /// before the child starts, for its own panel; this hands over what it
+    /// already has.
+    /// </para>
+    /// <para>
+    /// <b>Rendered by the console, because rendering is the contract's job and
+    /// there is one renderer.</b> <c>EnvelopeText.RenderComposed</c> is it, and
+    /// a second wording here would be a second thing to keep in agreement with
+    /// the pane a person is reading beside the agent.
+    /// </para>
+    /// </remarks>
+    public const string EnvelopeVariable = "GG_AIRSPACE_ENVELOPE";
 }

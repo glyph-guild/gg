@@ -223,6 +223,14 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// sign in is exactly the machine most likely to be far behind.
     /// </para>
     /// <para>
+    /// <b>It does say which gg is asking.</b> Anonymous is about the
+    /// credential and not about the version: this is the one request a binary
+    /// below the floor can make, so it is the only place the callers furthest
+    /// behind can be counted at all. It carried nothing until
+    /// <c>EveryRequestSaysWhichGgItIsTests</c>, because the request was built
+    /// by hand rather than through the helper.
+    /// </para>
+    /// <para>
     /// <b>It cannot be refused for being too old.</b> This door declares only
     /// 200, uniquely, because it is the remedy for being below the floor rather
     /// than something the floor governs; <c>ProtocolConformanceTests</c> holds
@@ -233,7 +241,15 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/version");
+            // THE HELPER, AND NOTHING ABOUT THIS CALL IS AN EXCEPTION TO IT.
+            // Its session token is optional, so passing none keeps this door
+            // anonymous exactly as building the request by hand did - and the
+            // three version headers come with it. A request built here is a
+            // second place they can be forgotten, which has now happened
+            // twice: see RedeemStatesItsProtocolTests for the first, where the
+            // omission surfaced as "this gg is too old" about a binary built
+            // minutes earlier.
+            using var request = Request(HttpMethod.Get, "/v1/version");
             using var response = await _httpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)

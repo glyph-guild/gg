@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Gg.Cli;
+using Gg.Local;
 
 namespace Gg.Cli.Tests;
 
@@ -156,7 +157,12 @@ public class ThePersonGetsAFirstMoveTests
         var session = await File.ReadAllTextAsync(Path.Combine(
             root!.FullName, "Gg.Console", "PtyDraftSession.cs"));
 
-        await Assert.That(session).Contains(Prompt, StringComparison.Ordinal)
+        // THROUGH THE DECLARATION, NOT THE LITERAL. This first scanned for
+        // the bare name and failed on a bar that names it correctly - which
+        // would have forced a second spelling of a name whose whole point is
+        // that it has one place. What the bar must contain is a reference to
+        // the type that owns it.
+        await Assert.That(session).Contains(nameof(DraftingPrompt), StringComparison.Ordinal)
             .Because("the bar is the only thing a person reads before they type, so a "
                    + "first move they are not told about is one they never use.");
     }

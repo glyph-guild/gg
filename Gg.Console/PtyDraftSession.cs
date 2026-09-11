@@ -80,8 +80,12 @@ public sealed class PtyDraftSession
         Func<IHostTerminal?>? terminal = null,
         SelfInvocation? self = null,
         HostRun? host = null,
-        string bar = "gg · drafting the airspace — ask the agent to submit each document it "
-                   + "changes · closing leaves the working copy as it stands",
+        // WHAT STARTS IT AND WHAT ENDS IT, in that order, because a person
+        // reads this row before they type anything. A command nobody is told
+        // about is a command nobody has, and this one is the difference
+        // between an empty prompt and a session that opens by reading the
+        // rules.
+        string? bar = null,
         Action<string>? say = null,
         Func<EnvelopeState?>? envelope = null)
     {
@@ -91,7 +95,9 @@ public sealed class PtyDraftSession
         _terminal = terminal ?? OwnedTerminal.Open;
         _self = self ?? SelfInvocation.Current;
         _host = host ?? PtyHost.RunAsync;
-        _bar = bar;
+        _bar = bar ?? $"gg · drafting the airspace — /{DraftingPrompt.Qualified} to start "
+             + "· ask the agent to submit each document it changes · closing leaves the "
+             + "working copy as it stands";
         _say = say ?? System.Console.WriteLine;
         _envelope = envelope ?? (() => null);
     }

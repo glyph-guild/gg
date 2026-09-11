@@ -59,7 +59,7 @@ public class TheWheelReachesTheChildTests
     {
         // 64 is wheel-up in SGR. The person is pointing at real row 9 and the
         // bar is three rows deep, so the child's own row is six.
-        var read = MouseInput.Read(Sgr(64, 40, 9), barRows: 3, footerRow: 0);
+        var read = MouseInput.Read(Sgr(64, 40, 9), barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
         await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<64;40;6M")
@@ -70,7 +70,7 @@ public class TheWheelReachesTheChildTests
     [Test]
     public async Task A_click_below_the_bar_is_translated_the_same_way()
     {
-        var read = MouseInput.Read(Sgr(0, 12, 4), barRows: 1, footerRow: 0);
+        var read = MouseInput.Read(Sgr(0, 12, 4), barRows: 1);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
         await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<0;12;3M");
@@ -81,41 +81,46 @@ public class TheWheelReachesTheChildTests
     {
         // A release is the same report with a lower-case m. Dropping it leaves
         // the child believing the button is still down.
-        var read = MouseInput.Read(Sgr(0, 12, 4, pressed: false), barRows: 1, footerRow: 0);
+        var read = MouseInput.Read(Sgr(0, 12, 4, pressed: false), barRows: 1);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
         await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<0;12;3m");
     }
 
     [Test]
-    public async Task A_click_on_the_footer_opens_the_panel_too()
+    public async Task A_click_on_the_hint_row_opens_the_panel()
     {
         // THE ROW THAT INVITES THE CLICK HAS TO ANSWER IT. It says "click to
-        // open"; forwarding that click to the child would send it to a row
-        // the child does not have, on the strength of gg's own invitation.
-        var read = MouseInput.Read(Sgr(0, 40, 24), barRows: 3, footerRow: 24);
+        // open"; forwarding that click to the child would send it to a row the
+        // child does not have, on the strength of gg's own invitation.
+        //
+        // IT IS THE BAR'S LAST ROW NOW, not the screen's. Every row gg keeps
+        // is at the top, so one number places any click - which is a boundary
+        // fewer to get wrong than the two this had while the hint was along
+        // the bottom.
+        var read = MouseInput.Read(Sgr(0, 40, 3), barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Pressed);
     }
 
     [Test]
-    public async Task The_row_above_the_footer_is_still_the_child_s()
+    public async Task The_row_under_the_bar_is_the_child_s_first()
     {
-        // OFF BY ONE IN THE OTHER DIRECTION, which would take the child's last
-        // row away from it - the row a prompt usually sits on.
-        var read = MouseInput.Read(Sgr(0, 40, 23), barRows: 3, footerRow: 24);
+        // OFF BY ONE IN THE OTHER DIRECTION, which would take a row from the
+        // child at the top of its screen.
+        var read = MouseInput.Read(Sgr(0, 40, 4), barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
-        await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<0;40;20M");
+        await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<0;40;1M");
     }
 
     [Test]
-    public async Task Moving_over_the_footer_is_not_clicking_it_either()
+    public async Task Moving_over_the_hint_row_is_not_clicking_it_either()
     {
-        var read = MouseInput.Read(Sgr(35, 40, 24), barRows: 3, footerRow: 24);
+        var read = MouseInput.Read(Sgr(35, 40, 3), barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Nothing)
-            .Because("the footer is gg's row and hover is not a press, wherever it "
+            .Because("the hint is one of gg's rows and hover is not a press, wherever it "
                    + "happens.");
     }
 
@@ -124,7 +129,7 @@ public class TheWheelReachesTheChildTests
     {
         foreach (var row in (int[])[1, 2, 3])
         {
-            var read = MouseInput.Read(Sgr(0, 5, row), barRows: 3, footerRow: 0);
+            var read = MouseInput.Read(Sgr(0, 5, row), barRows: 3);
 
             await Assert.That(read.Kind).IsEqualTo(MouseReading.Pressed)
                 .Because($"row {row} is gg's, and the panel it opens is what a person is "
@@ -148,7 +153,7 @@ public class TheWheelReachesTheChildTests
         // still not a click.
         foreach (var button in (int[])[32, 33, 34, 35])
         {
-            var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3, footerRow: 0);
+            var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3);
 
             await Assert.That(read.Kind).IsEqualTo(MouseReading.Nothing)
                 .Because($"button {button} has the motion bit set, so the pointer went "
@@ -165,7 +170,7 @@ public class TheWheelReachesTheChildTests
         // clicked.
         foreach (var button in (int[])[4, 8, 16])
         {
-            var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3, footerRow: 0);
+            var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3);
 
             await Assert.That(read.Kind).IsEqualTo(MouseReading.Pressed)
                 .Because($"button {button} is the left button with a modifier held, which "
@@ -179,7 +184,7 @@ public class TheWheelReachesTheChildTests
         // MOTION IS THE CHILD'S BUSINESS WHEREVER THE CHILD IS. It asked for
         // any-event tracking, so dropping motion outside gg's rows would take
         // away the hover highlighting it turned the mode on for.
-        var read = MouseInput.Read(Sgr(35, 5, 9), barRows: 3, footerRow: 0);
+        var read = MouseInput.Read(Sgr(35, 5, 9), barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
         await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<35;5;6M");
@@ -188,7 +193,7 @@ public class TheWheelReachesTheChildTests
     [Test]
     public async Task Releasing_on_the_bar_does_nothing_so_one_click_is_one_toggle()
     {
-        var read = MouseInput.Read(Sgr(0, 5, 2, pressed: false), barRows: 3, footerRow: 0);
+        var read = MouseInput.Read(Sgr(0, 5, 2, pressed: false), barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Nothing)
             .Because("a press and a release are two reports. Acting on both would open the "
@@ -203,10 +208,10 @@ public class TheWheelReachesTheChildTests
         // now, and the wheel is what a person reaches for first - so pointing
         // at gg's rows and turning it is gg's, not a thing to drop and not a
         // thing to hand a child that has no such row.
-        await Assert.That(MouseInput.Read(Sgr(64, 5, 1), barRows: 3, footerRow: 0).Kind)
+        await Assert.That(MouseInput.Read(Sgr(64, 5, 1), barRows: 3).Kind)
             .IsEqualTo(MouseReading.ScrolledUp);
 
-        await Assert.That(MouseInput.Read(Sgr(65, 5, 1), barRows: 3, footerRow: 0).Kind)
+        await Assert.That(MouseInput.Read(Sgr(65, 5, 1), barRows: 3).Kind)
             .IsEqualTo(MouseReading.ScrolledDown)
             .Because("65 is the other direction: the low bit of a wheel button is which "
                    + "way it turned.");
@@ -216,7 +221,7 @@ public class TheWheelReachesTheChildTests
     public async Task Anything_that_is_not_a_mouse_report_is_passed_through_untouched()
     {
         var arrow = Bytes($"{Esc}[A");
-        var read = MouseInput.Read(arrow, barRows: 3, footerRow: 0);
+        var read = MouseInput.Read(arrow, barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
         await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[A")
@@ -230,7 +235,7 @@ public class TheWheelReachesTheChildTests
         // X10: ESC [ M then three bytes, each the value plus 32. Claude asks
         // for SGR, but a child that does not gets the same correctness.
         var report = new byte[] { 0x1b, (byte)'[', (byte)'M', 32, 32 + 10, 32 + 9 };
-        var read = MouseInput.Read(report, barRows: 3, footerRow: 0);
+        var read = MouseInput.Read(report, barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
         await Assert.That(read.Bytes.Span[5]).IsEqualTo((byte)(32 + 6))

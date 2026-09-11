@@ -74,7 +74,8 @@ public static class PtyScreen
         int rows,
         int columns,
         IReadOnlyList<string> panel,
-        string? footer = null)
+        string? footer = null,
+        bool dim = false)
     {
         ArgumentNullException.ThrowIfNull(panel);
 
@@ -128,7 +129,7 @@ public static class PtyScreen
 
             for (var column = 0; column < columns; column++)
             {
-                var style = Sgr(line[column]);
+                var style = Sgr(line[column], dim);
 
                 // ONLY WHEN IT CHANGES. A cell is usually dressed like the one
                 // before it, so emitting per cell multiplies the frame by an
@@ -189,13 +190,20 @@ public static class PtyScreen
     /// as a bold run that never turns off and bleeds through everything after it.
     /// </para>
     /// </remarks>
-    private static string Sgr(BufferCell cell)
+    /// <param name="cell">The cell, as the emulator holds it.</param>
+    /// <param name="dim">
+    /// Whether to render it faint. True while gg's panel is open, so the
+    /// panel reads as something in FRONT of the session rather than as more
+    /// output beside it — and dim rather than a fixed colour, because the
+    /// child's own colours are the whole of what its screen means.
+    /// </param>
+    private static string Sgr(BufferCell cell, bool dim = false)
     {
         var a = cell.Attributes;
         var codes = new List<string> { "0" };
 
         if (a.IsBold()) { codes.Add("1"); }
-        if (a.IsDim()) { codes.Add("2"); }
+        if (dim || a.IsDim()) { codes.Add("2"); }
         if (a.IsItalic()) { codes.Add("3"); }
         if (a.IsUnderline()) { codes.Add("4"); }
         if (a.IsBlink()) { codes.Add("5"); }

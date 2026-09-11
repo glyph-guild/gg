@@ -156,6 +156,13 @@ public sealed class PtyDraftSession
         // host keeps nothing between calls and HostedBar is pure.
         var panel = new HostedPanel(HostedView.Closed, 0);
 
+        // THE GEOMETRY IT WAS LAST PAINTED AT, so a scroll is clamped
+        // against the window it is actually shown in. The panel is asked
+        // on every frame and the keyboard is read after it, so this is
+        // never stale by more than one repaint.
+        var room = 0;
+        var width = 0;
+
         try
         {
             var parts = _agentCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -179,9 +186,15 @@ public sealed class PtyDraftSession
                  "--allowedTools", DocumentTool.Qualified, AirspaceContextTool.Qualified,
                  AirspacePullTool.Qualified],
                 tree,
-                (most, wide) => new HostedRows(
-                    HostedBar.Rows(panel, _bar, Body(panel.Showing, envelope), most, wide),
-                    HostedBar.Footer(panel.Showing, wide)),
+                (most, wide) =>
+                {
+                    room = most;
+                    width = wide;
+
+                    return new HostedRows(
+                        HostedBar.Rows(panel, _bar, Body(panel.Showing, envelope), most, wide),
+                        panel.Showing != HostedView.Closed);
+                },
                 (gesture, typed) =>
                 {
                     if (!HostedBar.Takes(panel, gesture, typed.Span))
@@ -193,7 +206,8 @@ public sealed class PtyDraftSession
                     // rather than emptying the panel - which reads as a view
                     // that failed to load rather than one scrolled too far.
                     panel = HostedBar.Next(
-                        panel, gesture, typed.Span, Body(panel.Showing, envelope));
+                        panel, gesture, typed.Span, Body(panel.Showing, envelope),
+                        room, width);
 
                     return true;
                 },

@@ -101,18 +101,17 @@ public static class MouseInput
     /// </para>
     /// </remarks>
     /// <param name="read">The bytes as the terminal delivered them.</param>
-    /// <param name="barRows">How many rows gg is painting over the child.</param>
-    /// <param name="footerRow">
-    /// The row gg's footer sits on, or zero when there is none. It is the row
-    /// that says "click to open", so it has to be the row that answers.
+    /// <param name="barRows">
+    /// How many rows gg is painting over the child, the hint among them. Every
+    /// row gg keeps is at the top, so one number places any click.
     /// </param>
-    public static MouseRead Read(ReadOnlyMemory<byte> read, int barRows, int footerRow)
+    public static MouseRead Read(ReadOnlyMemory<byte> read, int barRows)
     {
         var bytes = read.Span;
 
         if (Sgr(bytes) is { } sgr)
         {
-            return Decided(read, sgr.Button, sgr.Row, sgr.Pressed, barRows, footerRow, at =>
+            return Decided(read, sgr.Button, sgr.Row, sgr.Pressed, barRows, at =>
             {
                 var moved = Encoding.ASCII.GetBytes(
                     $"{Esc}[<{sgr.Button};{sgr.Column};{at}{(sgr.Pressed ? 'M' : 'm')}");
@@ -123,7 +122,7 @@ public static class MouseInput
 
         if (X10(bytes) is { } x10)
         {
-            return Decided(read, x10.Button, x10.Row, x10.Pressed, barRows, footerRow, at =>
+            return Decided(read, x10.Button, x10.Row, x10.Pressed, barRows, at =>
             {
                 var moved = read.ToArray();
                 moved[5] = (byte)(at + X10Bias);
@@ -142,10 +141,9 @@ public static class MouseInput
         int row,
         bool pressed,
         int barRows,
-        int footerRow,
         Func<int, ReadOnlyMemory<byte>> moved)
     {
-        if (row > barRows && row != footerRow)
+        if (row > barRows)
         {
             return new MouseRead(MouseReading.Forward, moved(row - barRows));
         }

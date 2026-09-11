@@ -364,6 +364,41 @@ public static class AirspaceTree
     }
 
     /// <summary>
+    /// Which of the tree's documents name something the topology does not
+    /// hold.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The topology rather than the estate, because they answer different
+    /// questions.</b> A name absent from the estate's documents may be declared
+    /// and never applied to; one absent from the TOPOLOGY does not exist, and
+    /// only the second refuses an apply.
+    /// </para>
+    /// <para>
+    /// <b>Root is never among them.</b> The topology read synthesises it - "the
+    /// floor is in the answer before anything is declared" - so a tree holding
+    /// <c>root.yaml</c> needs nothing declared for it, and
+    /// <c>root</c> is undeclarable by rule anyway.
+    /// </para>
+    /// <para>
+    /// <b>In the tree's own order</b>, which is by full path ordinally, so the
+    /// refusal lists them the way the pane does.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<TreeDocument> Undeclared(
+        TreeRead tree, Gg.Contracts.EnvelopeTopology topology)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+        ArgumentNullException.ThrowIfNull(topology);
+
+        var exists = topology.Names
+            .Select(n => n.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return [.. tree.Documents.Where(d => !exists.Contains(d.Name))];
+    }
+
+    /// <summary>
     /// Which names the tree no longer holds — the intents to retire.
     /// </summary>
     /// <remarks>
@@ -470,6 +505,29 @@ public sealed record EstateApplied
     /// it.
     /// </remarks>
     public required IReadOnlyList<string> Retiring { get; init; }
+
+    /// <summary>
+    /// Names this apply declared on the way, when it was asked to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A governance act, not bookkeeping, so it is reported.</b> Declaring a
+    /// name widens what a tenant can reach; somebody who ran one keypress and
+    /// now has a name they did not have needs telling, by name.
+    /// </para>
+    /// <para>
+    /// <b>Empty when nobody asked</b>, which is every apply that did not pass
+    /// <c>declareNames</c>. <c>required</c> rather than init-only for the
+    /// reason AbsentCollectionsSurviveTheWireTests gives about the members
+    /// beside it.
+    /// </para>
+    /// <para>
+    /// <b>One of these with a <c>Flight</c> means the name is NOT live</b> - the
+    /// declaration diverted to a gate - so its document is not in
+    /// <see cref="Applied"/> and was never sent.
+    /// </para>
+    /// </remarks>
+    public required IReadOnlyList<NameDeclared> Declared { get; init; }
 }
 
 /// <summary>What declaring a name came to.</summary>

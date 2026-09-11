@@ -575,8 +575,20 @@ public sealed class FlightCommands(
     /// nothing would land a partial changeset somebody believed was whole.
     /// </para>
     /// </remarks>
+    /// <param name="declareNames">
+    /// Whether to declare names the topology does not hold, under
+    /// <c>root</c>, before applying the documents that need them.
+    /// </param>
+    /// <remarks>
+    /// <b>OPT-IN, AND THAT IS A SAFETY PROPERTY.</b> A declared name cannot be
+    /// quietly withdrawn - retirement is a terminal version, always gated - so
+    /// a typo in a filename would mint a permanent name whose removal needs an
+    /// approver. Declaring silently would make the cheapest mistake in the
+    /// system the most expensive to undo. The caller asks, having been shown
+    /// which names and under what parent.
+    /// </remarks>
     public async Task<VerbResult> AirspaceApplyAsync(
-        string root, CancellationToken cancellationToken = default)
+        string root, bool declareNames, CancellationToken cancellationToken = default)
     {
         var tree = AirspaceTree.Read(root);
         if (tree.Unreadable.Count > 0)
@@ -590,6 +602,47 @@ public sealed class FlightCommands(
         }
 
         var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
+
+        // AHEAD OF THE FIRST REQUEST. An envelope applied to an undeclared
+        // name is refused, and the safe order sends tightenings first - so a
+        // new document is usually the first thing tried and took the whole
+        // changeset down with it, one missing name per attempt. The topology
+        // is what tells an undeclared name apart from a declared one nothing
+        // has been applied to yet, which the estate read cannot.
+        var topology = await _client.GetTopologyAsync(Session(), cancellationToken);
+        var declared = new List<NameDeclared>();
+
+        var missing = AirspaceTree.Undeclared(tree, topology);
+
+        if (missing.Count > 0 && !declareNames)
+        {
+            throw new EnvelopeRefusedException(
+                "These documents name things this airspace has not declared, so nothing was "
+              + "applied - a changeset is something somebody meant as a whole:\n"
+              + string.Join('\n', missing.Select(
+                  d => $"  {d.Path}: gg airspace name {d.Role} {d.Name} --under root"))
+              + "\n\nRun apply with --declare-names to declare them under root first, or "
+              + "declare them yourself to put one under something else.");
+        }
+
+        foreach (var document in missing)
+        {
+            // UNDER ROOT, WHICH THE CALLER WAS SHOWN. The tree gives the role
+            // and says nothing about nesting, so anything deeper stays a
+            // deliberate --under.
+            var answer = await DeclareNameAsync(
+                document.Role, document.Name, "root", cancellationToken);
+
+            declared.Add(((VerbResult.NameDeclared)answer).Value);
+        }
+
+        // A DECLARATION THAT GATED LEAVES ITS NAME UNREACHABLE, so its document
+        // waits with it rather than being sent to a door that would refuse it.
+        var waiting = declared
+            .Where(d => d.Flight is { Length: > 0 })
+            .Select(d => d.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
         var applied = new List<AppliedDocument>();
 
         // IN THE SAFE ORDER. Tightenings first, so no intermediate state is
@@ -609,7 +662,8 @@ public sealed class FlightCommands(
 
         var byName = changed.ToDictionary(d => d.Name, StringComparer.Ordinal);
 
-        foreach (var document in ordered.Select(o => byName[o.Name]))
+        foreach (var document in ordered.Select(o => byName[o.Name])
+                     .Where(d => !waiting.Contains(d.Name)))
         {
             var answer = await _client.ApplyNamedAsync(
                 Session(), document.Name, Body(document), document.BasedOn, cancellationToken);
@@ -630,6 +684,7 @@ public sealed class FlightCommands(
         {
             Applied = applied,
             Retiring = AirspaceTree.Retiring(tree, estate),
+            Declared = declared,
         });
     }
 

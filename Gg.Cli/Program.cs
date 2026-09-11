@@ -76,7 +76,7 @@ return CliArgs.Parse(args) switch
     CliAction.AirspaceDiff diff => await EmitAsync(
         diff.Json, c => c.AirspaceDiffAsync(EstateRoot())),
     CliAction.AirspaceApply apply => await EmitAsync(
-        apply.Json, c => c.AirspaceApplyAsync(EstateRoot())),
+        apply.Json, c => c.AirspaceApplyAsync(EstateRoot(), apply.DeclareNames)),
     CliAction.AirspaceName declaring => await EmitAsync(
         declaring.Json,
         c => c.DeclareNameAsync(declaring.Role, declaring.Name, declaring.Parent)),
@@ -1463,7 +1463,12 @@ static async Task<int> LaunchConsoleAsync()
             }
 
             var said = ConsoleApply.Applied(
-                () => data.ApplyEstateAsync(applyFrom).GetAwaiter().GetResult());
+                // DECLARING, BECAUSE THE QUESTION LISTED THEM. PaneText's apply
+                // question names every undeclared name and the parent it would
+                // use, so the `y` that reached this arm was an answer to that
+                // too. Passing false here would make the question a lie.
+                () => data.ApplyEstateAsync(applyFrom, declareNames: true)
+                    .GetAwaiter().GetResult());
 
             return current with
             {

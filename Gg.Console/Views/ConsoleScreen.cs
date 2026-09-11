@@ -1735,27 +1735,32 @@ public sealed class ConsoleScreen : Window
             _runnerNotice.Visible = notice.Length > 0 && _runnersTable.Visible;
             _runnerStart.Visible = notice.Length > 0;
             _runnersTable.Y = _runnerNotice.Visible ? 2 : 0;
+
+            // INSIDE THE FLAG LIKE THE OTHER FOUR, and it was appended below
+            // the finally. Fill raises the table's own ValueChanged, which is
+            // indistinguishable from a click - so out there it dispatched a
+            // cursor move nobody made on every render and called Render again
+            // from inside the render that did it.
+            var tree = AirspaceRows.Tree(State);
+            var absence = PaneText.AirspaceAbsence(State);
+
+            _airspaceAbsent.Text = absence;
+            _airspaceAbsent.Visible = absence.Length > 0;
+
+            Fill(_airspaceTable, null, tree, AirspaceRows.AirspaceColumns,
+                State.AirspaceSelected,
+                r => [r.Document, r.Basis, r.State]);
+
+            // THE TABLE OR THE SENTENCE, never both and never neither. Fill
+            // already hides an empty table; what it cannot know is which of
+            // the three absences this is.
+            _airspaceTable.Visible = absence.Length == 0 && tree.Count > 0;
         }
         finally
         {
             _syncing = false;
         }
         _allowances.Text = PaneText.ForTab(State, TabId.Allowances);
-
-        var tree = AirspaceRows.Tree(State);
-        var absence = PaneText.AirspaceAbsence(State);
-
-        _airspaceAbsent.Text = absence;
-        _airspaceAbsent.Visible = absence.Length > 0;
-
-        Fill(_airspaceTable, null, tree, AirspaceRows.AirspaceColumns,
-            State.AirspaceSelected,
-            r => [r.Document, r.Basis, r.State]);
-
-        // THE TABLE OR THE SENTENCE, never both and never neither. Fill
-        // already hides an empty table; what it cannot know is which of the
-        // three absences this is.
-        _airspaceTable.Visible = absence.Length == 0 && tree.Count > 0;
 
         // SEEDED FROM THE MODEL WHENEVER THE QUESTION IS NOT OPEN, so
         // arriving on the tab shows the path that is in force - and NOT

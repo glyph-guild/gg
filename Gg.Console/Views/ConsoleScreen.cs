@@ -36,7 +36,43 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
     private readonly Label _repositories;
-    private readonly Label _envelope;
+    /// <summary>
+    /// The airspace working copy, as a tree.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE SIXTH TABLE, AND THE LAST LIST-OF-THINGS PANE TO GET ONE.</b>
+    /// This tab rendered a hand-counted ten-column role field and a
+    /// free-width name into a <c>Label</c> — no header, no widths measured
+    /// from the data, no cursor — while the other five went through
+    /// <c>CollectionViews</c>' table factory and <c>Rows.cs</c>.
+    /// </remarks>
+    private readonly TableView _airspaceTable;
+
+    /// <summary>Said instead of the tree, when there is no tree to draw.</summary>
+    /// <remarks>
+    /// A pane's three absences are three sentences — nothing read, nothing
+    /// pulled, nowhere to pull — and none of them is a header over no rows,
+    /// which is <c>Rows.cs</c>'s own rule.
+    /// </remarks>
+    private readonly Label _airspaceAbsent;
+
+    /// <summary>
+    /// The rules in force, in the modal, as lines that scroll.
+    /// </summary>
+    /// <remarks>
+    /// <b>A LIST RATHER THAN A LABEL, for the runner log's reason.</b> A
+    /// composed envelope runs to a screenful and the plain modal body is a
+    /// <c>Label</c> that clips: <c>UiMode.Help</c> is declared a document and
+    /// gets a 92%×88% box, and its content is cut at the edge because nothing
+    /// in this console scrolls a label. <c>TextView</c> is the widget that
+    /// fits and 2.4.17 marks it obsolete, with warnings as errors here.
+    /// </remarks>
+    private readonly ListView _envelopeSaid;
+
+    /// <summary>What is in the list now, so a redraw does not lose the scroll.</summary>
+    private IReadOnlyList<string>? _envelopeSaidShowing;
+
+    private readonly View _envelopeBody;
 
     /// <summary>
     /// Where the airspace is, and the ONE writable widget in this console.
@@ -324,7 +360,14 @@ public sealed class ConsoleScreen : Window
         };
         // THREE ROWS SHORTER, which is what the box below it takes: two for
         // its border and one for the line inside.
-        _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(3), CanFocus = true };
+        _airspaceTable = CollectionViews.Table();
+        _airspaceTable.Height = Dim.Fill(3);
+        _airspaceAbsent = new Label
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(3),
+            CanFocus = true,
+        };
 
         // ALWAYS ON THE SCREEN WHILE THE TAB IS, and bordered so it is on it
         // visibly. The path is the question every other key on this tab depends
@@ -371,7 +414,8 @@ public sealed class ConsoleScreen : Window
         // which is the same thing the runners table and its button do.
         _airspacePath.KeyDown += OnAirspacePathKeyDown;
 
-        _envelopePane.Add(_envelope);
+        _envelopePane.Add(_airspaceTable);
+        _envelopePane.Add(_airspaceAbsent);
         _envelopePane.Add(_airspacePathBox);
 
         // AND THE SIXTH, which shares the same region as the four above it.
@@ -462,6 +506,7 @@ public sealed class ConsoleScreen : Window
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
+        _airspaceTable.ValueChanged += OnRowPointedAt;
         _runnersTable.KeyDown += OnTableKeyDown;
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
@@ -726,7 +771,24 @@ public sealed class ConsoleScreen : Window
                 FlightDetails.IntentLines(State), _flightDetailsTab.Viewport.Height),
             _flightIntentPane);
 
-        _modal.Add(_modalBody, _flightBody, _runnerBody);
+        // THE RULES IN FORCE, in a frame of its own so the list inside it can
+        // take focus - a nested container left as a plain View made the whole
+        // of the runner modal a picture.
+        _envelopeSaid = CollectionViews.List();
+        _envelopeSaid.ViewportChanged += OnEnvelopeResized;
+
+        _envelopeBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _envelopeBody.Add(_envelopeSaid);
+
+        _modal.Add(_modalBody, _flightBody, _runnerBody, _envelopeBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -793,7 +855,7 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
-        Muted(_envelope, _live, _flight, _modalBody, _runners,
+        Muted(_airspaceAbsent, _live, _flight, _modalBody, _runners,
             _flightIntent, _flightLogAbsent);
 
         Add(_bar, _activity, _hints, _modal);
@@ -1672,8 +1734,22 @@ public sealed class ConsoleScreen : Window
         {
             _syncing = false;
         }
-        _envelope.Text = PaneText.Envelope(State);
         _allowances.Text = PaneText.ForTab(State, TabId.Allowances);
+
+        var tree = AirspaceRows.Tree(State);
+        var absence = PaneText.AirspaceAbsence(State);
+
+        _airspaceAbsent.Text = absence;
+        _airspaceAbsent.Visible = absence.Length > 0;
+
+        Fill(_airspaceTable, null, tree, AirspaceRows.AirspaceColumns,
+            State.AirspaceSelected,
+            r => [r.Document, r.Basis, r.State]);
+
+        // THE TABLE OR THE SENTENCE, never both and never neither. Fill
+        // already hides an empty table; what it cannot know is which of the
+        // three absences this is.
+        _airspaceTable.Visible = absence.Length == 0 && tree.Count > 0;
 
         // SEEDED FROM THE MODEL WHENEVER THE QUESTION IS NOT OPEN, so
         // arriving on the tab shows the path that is in force - and NOT
@@ -1762,10 +1838,12 @@ public sealed class ConsoleScreen : Window
         // there is never a frame with both.
         var flight = State.Mode is UiMode.FlightDetail;
         var runner = State.Mode is UiMode.Runner;
+        var rules = State.Mode is UiMode.ReadingEnvelope;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
-        _modalBody.Visible = !flight && !runner;
+        _envelopeBody.Visible = rules;
+        _modalBody.Visible = !flight && !runner && !rules;
 
         if (flight)
         {
@@ -1774,6 +1852,10 @@ public sealed class ConsoleScreen : Window
         else if (runner)
         {
             RenderRunner();
+        }
+        else if (rules)
+        {
+            FillEnvelope();
         }
         else
         {
@@ -2012,6 +2094,35 @@ public sealed class ConsoleScreen : Window
     }
 
     /// <summary>The frame changed width, so the lines have to be broken again.</summary>
+    /// <summary>The rules in force, wrapped to the box they are in.</summary>
+    /// <remarks>
+    /// <b>Only when the lines change</b>, because setting a list's source
+    /// resets where a person had scrolled to and <c>Render</c> runs once a
+    /// second for the countdown.
+    /// </remarks>
+    private void FillEnvelope()
+    {
+        var lines = PaneText.EnvelopeLines(State, _envelopeSaid.Viewport.Width);
+
+        if (_envelopeSaidShowing is not null && _envelopeSaidShowing.SequenceEqual(lines))
+        {
+            return;
+        }
+
+        _envelopeSaidShowing = lines;
+        _envelopeSaid.SetSource(new ObservableCollection<string>(lines));
+    }
+
+    private void OnEnvelopeResized(object? sender, EventArgs args)
+    {
+        if (State.Mode is not UiMode.ReadingEnvelope)
+        {
+            return;
+        }
+
+        FillEnvelope();
+    }
+
     private void OnRunnerLogResized(object? sender, EventArgs args)
     {
         if (State.Mode is not UiMode.Runner)
@@ -2289,7 +2400,11 @@ public sealed class ConsoleScreen : Window
             // THE BOX, NOT THE LABEL ABOVE IT. Landing on the path is what
             // makes it selectable on arrival and puts enter one keystroke
             // from editing - and the label has nothing a cursor means.
-            TabId.Envelope => _airspacePath,
+            // THE TREE, NOT THE BOX BELOW IT. Landing on the path was right
+            // while the pane above it was a label with nothing a cursor
+            // meant. It is a table now, and `enter` still reaches the box
+            // from it.
+            TabId.Envelope => _airspaceTable.Visible ? _airspaceTable : _airspacePath,
 
             // The queue tab is the one with two panes, and the list is the half
             // a person drives - the flight beside it is what the cursor means.
@@ -2309,6 +2424,8 @@ public sealed class ConsoleScreen : Window
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
+            _airspaceTable.ValueChanged -= OnRowPointedAt;
+            _envelopeSaid.ViewportChanged -= OnEnvelopeResized;
 
             // ALL FOUR, and three of them were missed. The file already let go
             // of the key handler and the queue's, so the convention was there

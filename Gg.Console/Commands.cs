@@ -140,6 +140,15 @@ public enum Command
     /// with no git to refuse it. A pane that reports a state and offers no
     /// way out of it is a dead end; this is the way out.
     /// </remarks>
+    /// <summary>Read the rules in force, as a document.</summary>
+    /// <remarks>
+    /// <b>Holds no I/O, so a reducer may open it</b> — the envelope is already
+    /// on the model by the time this can be pressed, read on the same key that
+    /// opens the tab. What it opens is a view of what is already in hand,
+    /// which is why it is neither the shell's nor a read.
+    /// </remarks>
+    ReadEnvelope,
+
     /// <summary>Open the field that says where the airspace is.</summary>
     /// <remarks>
     /// Holds no I/O at all, which is what lets it happen inside a session

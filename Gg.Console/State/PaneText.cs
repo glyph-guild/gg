@@ -113,7 +113,7 @@ public static class PaneText
             TabId.Live => Live(state),
             TabId.Browse => Browse(state),
             TabId.Repositories => Repositories(state),
-            TabId.Envelope => Envelope(state),
+            TabId.Envelope => AirspaceAbsence(state),
             TabId.Allowances => FleetAllowances(state),
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
@@ -541,6 +541,102 @@ public static class PaneText
     /// no-envelope line already exists to avoid.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Why there is no tree to draw, or empty when there is one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THREE ABSENCES, AND THEY ARE THREE DIFFERENT SENTENCES.</b> Nothing
+    /// read at all, nothing pulled into a tree that is there, and nowhere to
+    /// pull because nobody has said where the airspace is — a person acts
+    /// differently on each, and a table with no rows in it says none of them.
+    /// That is <c>Rows.cs</c>'s rule: empty rather than a header over nothing.
+    /// </para>
+    /// <para>
+    /// <b>The diagnosis rides with the sentence rather than replacing it.</b>
+    /// A tree that is on disk and a topology that could not be asked is the
+    /// ordinary state of a machine with no session, and the documents are
+    /// still worth drawing — so a failure to ask says so and the rows stay.
+    /// </para>
+    /// </remarks>
+    public static string AirspaceAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Estate is not { } estate)
+        {
+            return "the airspace: not read - press e";
+        }
+
+        if (estate.Root is not { Length: > 0 })
+        {
+            return "No airspace is configured, so there is no working copy to read. "
+                 + "Press enter to say where it is.";
+        }
+
+        if (estate.Tree is not { Present: true })
+        {
+            return $"Nothing is pulled into {Clean(estate.Root)} yet, so there are no "
+                 + "documents to read. Press p to render the airspace there.";
+        }
+
+        // THE ROWS ARE THE ANSWER FROM HERE ON. Anything still worth saying -
+        // a topology nobody could ask, a working copy that would not compare -
+        // belongs beside them rather than instead of them.
+        return "";
+    }
+
+    /// <summary>
+    /// The rules in force, as the rows a modal that wide will show them in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rendered by the CLI's own renderer, as the pane always was.</b> A
+    /// second layout of one document is two views that drift.
+    /// </para>
+    /// <para>
+    /// <b>Wrapped here, because the modal's body is a list of lines.</b> A
+    /// composed envelope runs to a screenful and nothing in this console
+    /// scrolls a label — so the box it is in scrolls, and a list scrolls by
+    /// rows, which means the wrap has to happen where it can be tested rather
+    /// than in the view.
+    /// </para>
+    /// <para>
+    /// <b>Width zero means do not wrap.</b> The first render happens before
+    /// layout has given the list a viewport, and wrapping to nothing would
+    /// answer one character per row.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> EnvelopeLines(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Envelope is not { } applied)
+        {
+            return
+            [
+                .. Wrapped(
+                    state.Diagnosis is { Length: > 0 } why
+                        ? "The rules in force could not be read: " + Clean(why)
+                        : "The rules in force have not been read yet. Press e to open the "
+                        + "airspace tab, which reads them.",
+                    columns <= 0 ? QuestionColumns : columns)
+                    .Split('\n'),
+            ];
+        }
+
+        var text = Clean(
+            Gg.Client.VerbOutput.ToText(new Gg.Client.VerbResult.EnvelopeShown(applied)),
+            lines: true);
+
+        return
+        [
+            .. text.Split('\n').SelectMany(line => columns <= 0
+                ? (IEnumerable<string>)[line]
+                : Wrapped(line, columns).Split('\n')),
+        ];
+    }
+
     public static string Estate(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1581,6 +1677,7 @@ public static class PaneText
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.ConfirmGround => "Ground this flight?",
         UiMode.ConfirmApply => "Apply the working copy?",
+        UiMode.ReadingEnvelope => "the rules in force",
         UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
@@ -1655,7 +1752,8 @@ public static class PaneText
     /// as something having gone wrong.
     /// </remarks>
     public static bool ModalIsADocument(UiMode mode) =>
-        mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner;
+        mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner
+             or UiMode.ReadingEnvelope;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -1742,6 +1840,13 @@ public static class PaneText
         return state.Mode switch
         {
             UiMode.Help => Help(state),
+
+            // THE LIST IN THE BOX IS WHAT IS DRAWN, and this is the same text
+            // unwrapped. An arm rather than a fall-through because the default
+            // is empty, and a mode that reaches it draws a title over nothing -
+            // which is exactly what the ratchet beside this looks for.
+            UiMode.ReadingEnvelope => string.Join('\n', EnvelopeLines(state, 0)),
+
             UiMode.FlightDetail => FlightDetail(state),
             UiMode.HandFlight => HandFlight(state),
             UiMode.Runner => Runner(state),

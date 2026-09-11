@@ -98,6 +98,20 @@ public enum UiMode
     /// </remarks>
     AirspacePath,
 
+    /// <summary>
+    /// The rules in force, read as a document.
+    /// </summary>
+    /// <remarks>
+    /// <b>A MODAL RATHER THAN THE TAB IT USED TO FILL.</b> The composed
+    /// envelope is a REPORT on the documents, and it sat on the pane those
+    /// documents needed — so the tab answered "what governs this tenant" and
+    /// had no room to answer "what is in my working copy". It is a document
+    /// and it scrolls, which a label cannot: <c>UiMode.Help</c> is declared a
+    /// document and its content is clipped, and nothing in this console
+    /// scrolls a label.
+    /// </remarks>
+    ReadingEnvelope,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a
@@ -723,6 +737,17 @@ public sealed record AppState
     /// out what v3 says.
     /// </remarks>
     public EnvelopeState? Envelope { get; init; }
+
+    /// <summary>
+    /// Which row of the airspace tree the cursor is on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Clamped against the ROWS rather than the documents</b>, for
+    /// <c>PickRunner</c>'s reason one table over: the pane invents rows the
+    /// wire list does not have — a folder is a row and no document — so the
+    /// count the cursor lives inside is the projection's.
+    /// </remarks>
+    public int AirspaceSelected { get; init; }
 
     /// <summary>Whether the envelope is open as a tab.</summary>
     public bool EnvelopeVisible { get; init; }

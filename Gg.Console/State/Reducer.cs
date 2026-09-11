@@ -105,6 +105,7 @@ public static class Reducer
             Command.AskToGround => Modal(state, UiMode.ConfirmGround),
             Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
             Command.AskToApplyEstate => Modal(state, UiMode.ConfirmApply),
+            Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),
 
             // SET RATHER THAN TOGGLED, unlike the modals beside it: enter is
             // also the key that APPLIES inside the field, so a toggle would
@@ -657,6 +658,7 @@ public static class Reducer
                 TabId.Browse => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
                 TabId.Runners => PickRunner(state, state.RunnerSelected + by),
+                TabId.Envelope => PickAirspaceRow(state, state.AirspaceSelected + by),
                 _ => Select(state, state.SelectedRow + by),
             };
 
@@ -697,6 +699,7 @@ public static class Reducer
             TabId.Browse => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
             TabId.Runners => PickRunner(state, row),
+            TabId.Envelope => PickAirspaceRow(state, row),
             _ => Select(state, row),
         };
     }
@@ -736,6 +739,23 @@ public static class Reducer
     /// so clamping to the answer's length would put the cursor one short of the
     /// table a person is looking at.
     /// </remarks>
+    /// <summary>The airspace row the cursor is on, clamped to what is drawn.</summary>
+    /// <remarks>
+    /// <b>Against the projection's count, not the documents'.</b> The tree
+    /// invents a row per folder, so a cursor clamped to the document count
+    /// would stop short of the last file in a nested directory - which is
+    /// PickRunner's reason below, where the console invents a row the fleet
+    /// does not have.
+    /// </remarks>
+    private static AppState PickAirspaceRow(AppState state, int row)
+    {
+        var rows = AirspaceRows.Tree(state).Count;
+
+        return rows == 0
+            ? state
+            : state with { AirspaceSelected = Math.Clamp(row, 0, rows - 1) };
+    }
+
     private static AppState PickRunner(AppState state, int to) => state with
     {
         RunnerSelected = Rows.Runners(state) is { Count: > 0 } rows

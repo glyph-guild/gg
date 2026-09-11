@@ -751,13 +751,24 @@ public static class PaneText
             said.Add("");
         }
 
-        // AN INTENT WITH NOTHING BEHIND IT, and it says so. The retirement
-        // rank is declared and no client method calls a retirement endpoint -
-        // so apply reports these and performs none of them.
-        foreach (var name in working.Retiring)
+        // AN INTENT, AND NOW SOMETHING PERFORMS IT. This said "nothing here
+        // performs it", which was true of the whole program: the retirement
+        // door was in the contract and no client method called it. `x' does,
+        // from this view - so the sentence names the key rather than the
+        // absence.
+        if (working.Retiring.Count > 0)
         {
-            said.Add($"  {Clean(name)} is missing from the tree - retiring a name is its own "
-                   + "gated change, and nothing here performs it.");
+            foreach (var name in working.Retiring)
+            {
+                said.Add($"  {Clean(name)} is missing from the tree, so its name is still in "
+                       + "force with nothing to render.");
+            }
+
+            said.Add("");
+            said.Add("Press x to retire them. Retiring applies a terminal version, which "
+                   + "removes every constraint in a document at once - so each one widens, "
+                   + "opens a flight and waits at a gate, and governs until that gate "
+                   + "opens.");
         }
 
         return Fitted(said, columns);

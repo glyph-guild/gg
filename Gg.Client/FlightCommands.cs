@@ -725,8 +725,21 @@ public sealed class FlightCommands(
         foreach (var document in ordered.Select(o => byName[o.Name])
                      .Where(d => !waiting.Contains(d.Name)))
         {
-            var answer = await _client.ApplyNamedAsync(
-                Session(), document.Name, Body(document), document.BasedOn, cancellationToken);
+            // THE DOOR THE DOCUMENT BELONGS TO. Every document used to go to
+            // the envelope door, which takes an Envelope or a Narrowing - so a
+            // strategy arrived as an empty body and was refused for carrying
+            // no document at all. A working copy with a strategy in it had
+            // never been appliable.
+            //
+            // ONE APPLY EITHER WAY, from the person's side: they changed a file
+            // in their airspace and asked for it to land. Which endpoint that
+            // takes is this method's business.
+            var answer = document.Strategy is { } strategy
+                ? await _client.ApplyStrategyAsync(
+                    Session(), document.Name, strategy, cancellationToken)
+                : await _client.ApplyNamedAsync(
+                    Session(), document.Name, Body(document), document.BasedOn,
+                    cancellationToken);
 
             applied.Add(new AppliedDocument
             {
@@ -897,6 +910,16 @@ public sealed class FlightCommands(
             : (Changeset.Widening, widening.Field, widening.Because);
     }
 
+    /// <summary>
+    /// The envelope door's body: an envelope, or a narrowing.
+    /// </summary>
+    /// <remarks>
+    /// <b>NOT EVERY DOCUMENT HAS ONE.</b> A strategy is a third kind with a
+    /// door of its own, and passing one through here produced a body with both
+    /// members null - which the control plane refused as not carrying a
+    /// document at all. The caller dispatches on
+    /// <see cref="TreeDocument.Strategy"/> before reaching this.
+    /// </remarks>
     private static NamedEnvelopeApply Body(TreeDocument document) =>
         new() { Envelope = document.Envelope, Narrowing = document.Narrowing };
 

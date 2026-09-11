@@ -725,6 +725,23 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
         // and collapsing it into "bad request" would throw that away.
         return Fail(refusal.Message);
     }
+    catch (RunnerNotFoundException refusal)
+    {
+        // "No runner X here. Run gg runners to see this tenant's fleet." That
+        // sentence has existed since retire did and had never reached anybody:
+        // the verb runs through this emitter and its one refusal was not on
+        // the list, which is the third time that has happened here.
+        return Fail(refusal.Message);
+    }
+    catch (AdminRefusedException refused)
+    {
+        // ON THE GRANT ROUTE THE REFUSAL IS THE ANSWER. Success is 204 with no
+        // body, so everything worth reading is a 403, a 404 or a 409 - and the
+        // three are three different instructions. "That is the last
+        // administrator, grant somebody else first" is the whole reply, and it
+        // was arriving as a stack trace with the sentence in the first line.
+        return Fail(refused.Message);
+    }
     catch (ProtocolTooOldException refusal)
     {
         Console.Error.WriteLine(refusal.Message);

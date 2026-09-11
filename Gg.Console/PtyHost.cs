@@ -24,8 +24,21 @@ public delegate Task<int> HostRun(
     IReadOnlyList<string> arguments,
     string workingDirectory,
     HostPanel panel,
-    Func<byte, bool> took,
+    HostTook took,
     CancellationToken cancellationToken);
+
+/// <summary>
+/// Whether gg took this, and the gg-side effect of it if so.
+/// </summary>
+/// <remarks>
+/// <b>THE GESTURE RATHER THAN THE BYTES, because placing it is the host's job
+/// and meaning it is the caller's.</b> Whether a click landed on gg's rows
+/// depends on how tall the bar is, which only the host knows; what a click
+/// MEANS depends on whether the panel is open, which only the caller does.
+/// </remarks>
+/// <param name="gesture">What the person did, once gg knows where.</param>
+/// <param name="typed">The bytes, when they typed.</param>
+public delegate bool HostTook(HostedGesture gesture, ReadOnlyMemory<byte> typed);
 
 /// <summary>
 /// What gg keeps on the screen, given the room it has.
@@ -126,7 +139,7 @@ public static class PtyHost
         IReadOnlyList<string> arguments,
         string workingDirectory,
         HostPanel panel,
-        Func<byte, bool> took,
+        HostTook took,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(panel);
@@ -453,7 +466,7 @@ public static class PtyHost
     private static Task Forward(
         IHostTerminal terminal,
         IPtyConnection pty,
-        Func<byte, bool> took,
+        HostTook took,
         Action changed,
         Func<int> barRows,
         Func<int> footerRow,
@@ -477,17 +490,11 @@ public static class PtyHost
                         var read = keys.Read(typed, 0, typed.Length);
                         if (read > 0)
                         {
-                            // ONE BYTE ON ITS OWN IS A KEYSTROKE; A CHUNK IS A
-                            // PASTE. Offering gg the bytes of a paste would let
-                            // text somebody copied open a panel, and the rest of
-                            // the paste would then be typed into it. A real
-                            // keypress arrives alone, so that is the test - not
-                            // perfect, and the honest bound on what this does.
-                            // A MOUSE REPORT BEFORE ANYTHING ELSE, because
-                            // it is the one input whose meaning depends on
-                            // WHERE it happened. Everything this does not
-                            // recognise comes back unchanged and falls through
-                            // to the paths below.
+                            // A MOUSE REPORT IS PLACED FIRST, because it is
+                            // the one input whose meaning depends on WHERE it
+                            // happened - and placing it is the only part of
+                            // this the host can answer. Anything that is not
+                            // a mouse report comes back unchanged.
                             var mouse = MouseInput.Read(
                                 new ReadOnlyMemory<byte>(typed, 0, read),
                                 barRows(),
@@ -495,46 +502,38 @@ public static class PtyHost
 
                             if (mouse.Kind == MouseReading.Nothing)
                             {
+                                // Pointed at gg's rows in a way that means
+                                // nothing. It is still gg's, so it stops here.
                                 continue;
                             }
 
-                            if (mouse.Kind == MouseReading.Toggle)
+                            var gesture = mouse.Kind switch
                             {
-                                // THE PREFIX KEY, ARRIVING BY MOUSE. Not a
-                                // second way of opening the panel but the same
-                                // one: the click goes through `took` as the
-                                // prefix byte, so a click and a keystroke take
-                                // one path through HostedBar.Next and cannot
-                                // come to disagree about what open means.
-                                if (took(HostedBar.Prefix))
-                                {
-                                    changed();
-                                }
+                                MouseReading.Pressed => HostedGesture.Pressed,
+                                MouseReading.ScrolledUp => HostedGesture.ScrolledUp,
+                                MouseReading.ScrolledDown => HostedGesture.ScrolledDown,
+                                _ => HostedGesture.Typed,
+                            };
 
-                                continue;
-                            }
-
-                            if (!mouse.Bytes.Span.SequenceEqual(typed.AsSpan(0, read)))
+                            // ASKED BEFORE ANYTHING IS FORWARDED, and asked
+                            // with the WHOLE read. This used to be reached
+                            // only for single bytes, so an arrow key - three
+                            // of them - went past an open panel into the
+                            // child, and so did every paste and every click.
+                            // "All of them or one of them, never some of
+                            // them" is the rule, and it can only hold if gg
+                            // is offered everything.
+                            if (took(gesture, mouse.Bytes))
                             {
-                                // MOVED ONTO THE CHILD'S OWN ROW. gg's bar
-                                // sits above it, so the row a person clicked
-                                // is not the row the child has.
-                                pty.WriterStream.Write(mouse.Bytes.Span);
-                                pty.WriterStream.Flush();
-                                continue;
-                            }
-
-                            if (read == 1 && took(typed[0]))
-                            {
-                                // NOT FORWARDED, and repainted at once rather
-                                // than on the next tick: a key that opened a
-                                // panel a quarter of a second later reads as a
-                                // key that did nothing.
+                                // REPAINTED AT ONCE rather than on the next
+                                // tick: a key that opened a panel a quarter of
+                                // a second later reads as a key that did
+                                // nothing.
                                 changed();
                                 continue;
                             }
 
-                            pty.WriterStream.Write(typed, 0, read);
+                            pty.WriterStream.Write(mouse.Bytes.Span);
                             pty.WriterStream.Flush();
                             continue;
                         }

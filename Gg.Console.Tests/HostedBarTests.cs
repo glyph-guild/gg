@@ -35,7 +35,7 @@ public class HostedBarTests
         // keystroke that vanished for a reason they cannot see.
         foreach (var typed in (byte[])[(byte)'e', (byte)'i', 0x1b, 0x03, 0x0d, (byte)'q'])
         {
-            await Assert.That(HostedBar.Takes(HostedView.Closed, typed)).IsFalse()
+            await Assert.That(HostedBar.Takes(Shut(), HostedGesture.Typed, [typed])).IsFalse()
                 .Because($"0x{typed:x2} is the child's while gg is only showing a status row.");
         }
     }
@@ -43,9 +43,9 @@ public class HostedBarTests
     [Test]
     public async Task The_prefix_is_the_one_key_gg_charges_the_child()
     {
-        await Assert.That(HostedBar.Takes(HostedView.Closed, Prefix)).IsTrue();
+        await Assert.That(HostedBar.Takes(Shut(), HostedGesture.Typed, [Prefix])).IsTrue();
 
-        await Assert.That(HostedBar.Next(HostedView.Closed, Prefix))
+        await Assert.That(HostedBar.Next(Shut(), HostedGesture.Typed, [Prefix]).Showing)
             .IsEqualTo(HostedView.Envelope)
             .Because("what a person opens this for is the rules in force - so it opens on "
                    + "them rather than on a menu asking which of two things they meant.");
@@ -59,7 +59,7 @@ public class HostedBarTests
         // `e` sometimes means "show me" and sometimes reaches vim.
         foreach (var typed in (byte[])[(byte)'e', (byte)'i', (byte)'x', 0x1b, 0x0d])
         {
-            await Assert.That(HostedBar.Takes(HostedView.Envelope, typed)).IsTrue()
+            await Assert.That(HostedBar.Takes(Open(), HostedGesture.Typed, [typed])).IsTrue()
                 .Because($"0x{typed:x2} arrived while gg had the keyboard.");
         }
     }
@@ -72,11 +72,15 @@ public class HostedBarTests
         // modal, which is what makes it findable without being learned.
         foreach (var open in (HostedView[])[HostedView.Envelope, HostedView.Intent])
         {
-            await Assert.That(HostedBar.Next(open, 0x1b)).IsEqualTo(HostedView.Closed);
+            await Assert.That(
+                    HostedBar.Next(new HostedPanel(open, 0), HostedGesture.Typed, [0x1b])
+                        .Showing)
+                .IsEqualTo(HostedView.Closed);
         }
 
         var ways = new byte[256].Select((_, b) => (byte)b)
-            .Where(b => HostedBar.Next(HostedView.Envelope, b) == HostedView.Closed)
+            .Where(b => HostedBar.Next(Open(), HostedGesture.Typed, [b]).Showing
+                     == HostedView.Closed)
             .ToList();
 
         await Assert.That(ways).IsEquivalentTo((byte[])[0x1b, Prefix])
@@ -90,10 +94,11 @@ public class HostedBarTests
     {
         // Without leaving and coming back, because comparing what the agent was
         // told against what it produced is the reason both are here.
-        await Assert.That(HostedBar.Next(HostedView.Envelope, (byte)'i'))
+        await Assert.That(HostedBar.Next(Open(), HostedGesture.Typed, [(byte)'i']).Showing)
             .IsEqualTo(HostedView.Intent);
-        await Assert.That(HostedBar.Next(HostedView.Intent, (byte)'e'))
-            .IsEqualTo(HostedView.Envelope);
+        await Assert.That(HostedBar.Next(
+                new HostedPanel(HostedView.Intent, 0), HostedGesture.Typed, [(byte)'e'])
+            .Showing).IsEqualTo(HostedView.Envelope);
     }
 
     [Test]
@@ -107,8 +112,11 @@ public class HostedBarTests
             .Single(b => b.Command == Command.ToggleEnvelope);
 
         await Assert.That(console.Key).IsEqualTo(KeyStroke.Char('e'));
-        await Assert.That(HostedBar.Next(HostedView.Closed, Prefix)).IsEqualTo(HostedView.Envelope);
-        await Assert.That(HostedBar.Next(HostedView.Intent, (byte)'e')).IsEqualTo(HostedView.Envelope);
+        await Assert.That(HostedBar.Next(Shut(), HostedGesture.Typed, [Prefix]).Showing)
+            .IsEqualTo(HostedView.Envelope);
+        await Assert.That(HostedBar.Next(
+                new HostedPanel(HostedView.Intent, 0), HostedGesture.Typed, [(byte)'e'])
+            .Showing).IsEqualTo(HostedView.Envelope);
     }
 
     /// <summary>A terminal nobody has ever had fewer columns than.</summary>
@@ -133,7 +141,7 @@ public class HostedBarTests
                    + "working copy as it stands";
 
         var rows = HostedBar.Rows(
-            HostedView.Closed, status, body: "", most: 12, columns: Narrow);
+            Shut(), status, body: "", most: 12, columns: Narrow);
 
         await Assert.That(rows.Count).IsGreaterThan(1)
             .Because($"the status is {status.Length} characters and the terminal is "
@@ -157,7 +165,7 @@ public class HostedBarTests
                    + "working copy as it stands";
 
         var rows = HostedBar.Rows(
-            HostedView.Closed, status, body: "", most: 12, columns: Narrow);
+            Shut(), status, body: "", most: 12, columns: Narrow);
 
         var back = string.Join(" ", rows.Select(row => row.TrimEnd()));
 
@@ -174,7 +182,7 @@ public class HostedBarTests
         // A bar that took three rows to say four words would be worse than the
         // truncation it replaced.
         var rows = HostedBar.Rows(
-            HostedView.Closed, "gg · composing", body: "", most: 12, columns: Narrow);
+            Shut(), "gg · composing", body: "", most: 12, columns: Narrow);
 
         await Assert.That(rows).Count().IsEqualTo(1);
     }
@@ -189,7 +197,7 @@ public class HostedBarTests
         var status = new string('x', Narrow) + " " + new string('y', 20);
 
         var rows = HostedBar.Rows(
-            HostedView.Envelope, status, body: "one\ntwo\nthree", most: 5, columns: Narrow);
+            Open(), status, body: "one\ntwo\nthree", most: 5, columns: Narrow);
 
         await Assert.That(rows.Count).IsLessThanOrEqualTo(5)
             .Because("the budget is what the caller reserved from the child, and a row "
@@ -443,7 +451,7 @@ public class HostedBarTests
     public async Task Closed_is_one_row_and_it_is_the_status()
     {
         var rows = HostedBar.Rows(
-            HostedView.Closed, "gg · composing", body: "", most: 12, columns: Narrow);
+            Shut(), "gg · composing", body: "", most: 12, columns: Narrow);
 
         await Assert.That(rows).Count().IsEqualTo(1);
         await Assert.That(rows[0]).StartsWith("gg · composing", StringComparison.Ordinal);
@@ -455,7 +463,7 @@ public class HostedBarTests
         // A panel that appeared with no way out named is one somebody quits the
         // whole session to escape.
         var rows = HostedBar.Rows(
-            HostedView.Envelope, "gg · composing", body: "keep the diff small",
+            Open(), "gg · composing", body: "keep the diff small",
             most: 12, columns: Narrow);
 
         await Assert.That(rows.Count).IsGreaterThan(1);
@@ -475,7 +483,7 @@ public class HostedBarTests
 
         foreach (var most in (int[])[1, 2, 5, 12])
         {
-            var rows = HostedBar.Rows(HostedView.Envelope, "gg", many, most, Narrow);
+            var rows = HostedBar.Rows(Open(), "gg", many, most, Narrow);
 
             await Assert.That(rows.Count).IsLessThanOrEqualTo(most)
                 .Because($"it was offered {most} rows and took {rows.Count}.");
@@ -490,7 +498,7 @@ public class HostedBarTests
         // must not do: a person reading four of six instructions has no way to
         // know there were six.
         var six = string.Join("\n", Enumerable.Range(1, 6).Select(i => $"instruction {i}"));
-        var rows = HostedBar.Rows(HostedView.Envelope, "gg", six, most: 4, columns: Narrow);
+        var rows = HostedBar.Rows(Open(), "gg", six, most: 4, columns: Narrow);
 
         await Assert.That(string.Join(" ", rows)).Contains("more", StringComparison.OrdinalIgnoreCase)
             .Because("what is cut has to be counted, or a truncated envelope reads as a "
@@ -502,7 +510,8 @@ public class HostedBarTests
     {
         // An envelope that has not been read and one with no instructions look
         // identical as a blank panel, and the first is a thing to go and fix.
-        var rows = HostedBar.Rows(HostedView.Intent, "gg", body: "", most: 8, columns: Narrow);
+        var rows = HostedBar.Rows(new HostedPanel(HostedView.Intent, 0), "gg", body: "", most: 8,
+            columns: Narrow);
 
         await Assert.That(rows.Count).IsGreaterThan(1);
         await Assert.That(string.Join(" ", rows).Trim()).IsNotEmpty();

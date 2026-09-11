@@ -180,7 +180,7 @@ public sealed class PtyAgentSession : IEditorSession
         // WHAT GG IS SHOWING, for as long as this session. A local, because it
         // belongs to one session and outliving one would mean the next opened
         // on whatever the last person left up.
-        var showing = HostedView.Closed;
+        var panel = new HostedPanel(HostedView.Closed, 0);
 
         // READ ONCE, HERE, BEFORE THE CHILD HAS THE SCREEN. The envelope comes
         // off the control plane, and doing that on the keypress would freeze the
@@ -220,24 +220,29 @@ public sealed class PtyAgentSession : IEditorSession
                     // than a race.
                     (most, wide) => new HostedRows(
                         HostedBar.Rows(
-                            showing,
+                            panel,
                             File.Exists(intent) ? _submitted : _bar,
-                            Body(showing, envelope, intent),
+                            Body(panel.Showing, envelope, intent),
                             most,
                             wide),
-                        HostedBar.Footer(showing, wide)),
+                        HostedBar.Footer(panel.Showing, wide)),
 
                     // AND GG'S ONE KEY. The panel's state lives here rather than
                     // in the host, because the host holds nothing between calls
                     // and a test asserts it does not.
-                    typed =>
+                    (gesture, typed) =>
                     {
-                        if (!HostedBar.Takes(showing, typed))
+                        if (!HostedBar.Takes(panel, gesture, typed.Span))
                         {
                             return false;
                         }
 
-                        showing = HostedBar.Next(showing, typed);
+                        panel = HostedBar.Next(
+                            panel,
+                            gesture,
+                            typed.Span,
+                            Body(panel.Showing, envelope, intent));
+
                         return true;
                     },
                     CancellationToken.None).GetAwaiter().GetResult();

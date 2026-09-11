@@ -9,8 +9,14 @@ public enum MouseReading
     /// <summary>Send them on, as given or as rewritten.</summary>
     Forward,
 
-    /// <summary>gg's own rows were clicked: open or close the panel.</summary>
-    Toggle,
+    /// <summary>A button went down on gg's own rows.</summary>
+    Pressed,
+
+    /// <summary>The wheel turned on gg's own rows, away from the person.</summary>
+    ScrolledUp,
+
+    /// <summary>The wheel turned on gg's own rows, towards them.</summary>
+    ScrolledDown,
 
     /// <summary>gg's rows were pointed at in a way that means nothing.</summary>
     Nothing,
@@ -144,6 +150,16 @@ public static class MouseInput
             return new MouseRead(MouseReading.Forward, moved(row - barRows));
         }
 
+        // THE WHEEL ON GG'S ROWS IS GG'S TO ACT ON, not a thing to drop. The
+        // panel says "… n more" about a body it can now move, and the wheel is
+        // how a person will reach for it first.
+        if (pressed && (button & WheelUp) != 0)
+        {
+            return new MouseRead(
+                (button & 1) == 0 ? MouseReading.ScrolledUp : MouseReading.ScrolledDown,
+                ReadOnlyMemory<byte>.Empty);
+        }
+
         // A PRESS OPENS OR CLOSES; A RELEASE DOES NOTHING. Both arrive for one
         // click, and acting on both would open the panel and shut it again
         // before a finger left the button.
@@ -152,12 +168,8 @@ public static class MouseInput
         // defect: with any-event tracking on, the pointer crossing gg's rows
         // reports continuously and every one of those ends in `M` like a
         // press does.
-        //
-        // AND THE WHEEL IS NOT A CLICK either, so pointing at the bar and
-        // scrolling neither toggles nor reaches the child - which has no such
-        // row to be scrolled at.
-        return pressed && (button & (Motion | WheelUp)) == 0
-            ? new MouseRead(MouseReading.Toggle, read)
+        return pressed && (button & Motion) == 0
+            ? new MouseRead(MouseReading.Pressed, read)
             : new MouseRead(MouseReading.Nothing, ReadOnlyMemory<byte>.Empty);
     }
 

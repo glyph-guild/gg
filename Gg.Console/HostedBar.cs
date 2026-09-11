@@ -39,8 +39,50 @@ public enum HostedView
 /// say what they do, and letters that agree with the console's.
 /// </para>
 /// </remarks>
+/// <summary>What a person did, once gg knows where they did it.</summary>
+/// <remarks>
+/// <b>THE HOST KNOWS GEOMETRY AND THE BAR KNOWS MEANING.</b> Whether a click
+/// landed on gg's rows is a question about how tall the bar is, which only
+/// <c>PtyHost</c> can answer; what a click MEANS is a question about whether
+/// the panel is open, which only this type can. Passing raw bytes would make
+/// each of them answer the other's question.
+/// </remarks>
+public enum HostedGesture
+{
+    /// <summary>Bytes from the keyboard, however many.</summary>
+    Typed,
+
+    /// <summary>A button went down on a row that is gg's.</summary>
+    Pressed,
+
+    /// <summary>The wheel turned on a row that is gg's.</summary>
+    ScrolledUp,
+
+    /// <summary>The wheel turned the other way, on a row that is gg's.</summary>
+    ScrolledDown,
+}
+
+/// <summary>What gg is showing, and how far down it.</summary>
+/// <param name="Showing">Which view, if any, is open.</param>
+/// <param name="Offset">How many lines of the body have scrolled past the top.</param>
+public readonly record struct HostedPanel(HostedView Showing, int Offset);
+
 public static class HostedBar
 {
+    /// <summary>How far one turn of the wheel or one arrow moves the body.</summary>
+    /// <remarks>
+    /// Three for the wheel is what every terminal does; one for a key is what
+    /// an arrow means. A wheel that moved one line would be a wheel somebody
+    /// has to spin, and an arrow that moved three would overshoot the line
+    /// they were reading.
+    /// </remarks>
+    private const int Notch = 3;
+
+    private const int Step = 1;
+
+    /// <summary>How far a page key moves it.</summary>
+    private const int Page = 10;
+
     /// <summary>The one key gg charges the child: <c>ctrl-g</c>.</summary>
     /// <remarks>
     /// <b>Chosen for what it costs rather than for what it stands for.</b> In
@@ -58,41 +100,202 @@ public static class HostedBar
     /// <summary>Escape: the one way out, as it is in every other modal.</summary>
     private const byte Esc = 0x1b;
 
-    /// <summary>Whether gg takes this byte rather than passing it to the child.</summary>
+    /// <summary>Whether gg takes this rather than passing it to the child.</summary>
     /// <remarks>
+    /// <para>
     /// <b>All of them or one of them, never some of them.</b> Closed, gg takes
-    /// only the prefix — every other byte is the child's, and a keystroke that
-    /// vanishes is one a person cannot account for. Open, gg takes everything:
-    /// a panel that passed some keys through would be one where <c>e</c>
-    /// sometimes shows the envelope and sometimes reaches vim.
+    /// the prefix and a press on its own rows — everything else is the
+    /// child's, and a keystroke that vanishes is one a person cannot account
+    /// for. Open, gg takes EVERYTHING: a panel that passed some keys through
+    /// would be one where <c>e</c> sometimes shows the envelope and sometimes
+    /// reaches vim.
+    /// </para>
+    /// <para>
+    /// <b>This was true of the byte and false of the session.</b> The host
+    /// only ever offered single-byte reads, so an arrow key — three bytes —
+    /// went past an open panel into the child, and so did every paste. The
+    /// rule is stated over whole reads now, which is the only shape in which
+    /// it can hold.
+    /// </para>
+    /// <para>
+    /// <b>A REAL KEYPRESS ARRIVES ALONE, and that rule lives here.</b> It is
+    /// about whether the prefix OPENS the panel, not about read lengths in a
+    /// forwarding loop: text somebody copied must not open a panel and then be
+    /// typed into it. Not perfect, and the honest bound on what this does.
+    /// </para>
     /// </remarks>
-    public static bool Takes(HostedView showing, byte typed) =>
-        showing != HostedView.Closed || typed == Prefix;
-
-    /// <summary>What gg shows after this byte.</summary>
-    public static HostedView Next(HostedView showing, byte typed) => showing switch
+    public static bool Takes(HostedPanel panel, HostedGesture gesture, ReadOnlySpan<byte> typed)
     {
-        // OPENS ON THE ENVELOPE rather than on a menu asking which of two
-        // things was meant. What a person opens this for is the rules in force
-        // — whether the agent actually got the instructions is the question they
-        // cannot answer any other way.
-        HostedView.Closed => typed == Prefix ? HostedView.Envelope : HostedView.Closed,
-
-        // The prefix closes what it opened. That is the same key doing the same
-        // thing rather than a second way out, which is why the escape-hatch rule
-        // still holds with two bytes in the answer.
-        _ when typed is Esc or Prefix => HostedView.Closed,
-
-        _ => typed switch
+        if (panel.Showing != HostedView.Closed)
         {
+            return true;
+        }
+
+        return gesture switch
+        {
+            HostedGesture.Pressed => true,
+            HostedGesture.Typed => typed.Length == 1 && typed[0] == Prefix,
+            _ => false,
+        };
+    }
+
+    /// <summary>What gg shows after this.</summary>
+    /// <param name="panel">What it is showing now, and how far down.</param>
+    /// <param name="gesture">What the person did.</param>
+    /// <param name="typed">The bytes, when they typed.</param>
+    /// <param name="body">
+    /// The text being shown, so scrolling can be stopped at its end. Absent
+    /// where the caller has none to hand, which only leaves the bottom
+    /// unclamped.
+    /// </param>
+    /// <param name="most">How many rows the panel may take.</param>
+    public static HostedPanel Next(
+        HostedPanel panel,
+        HostedGesture gesture,
+        ReadOnlySpan<byte> typed,
+        string? body = null,
+        int most = 0)
+    {
+        if (panel.Showing == HostedView.Closed)
+        {
+            // OPENS ON THE ENVELOPE rather than on a menu asking which of two
+            // things was meant. What a person opens this for is the rules in
+            // force — whether the agent actually got the instructions is the
+            // question they cannot answer any other way.
+            return Takes(panel, gesture, typed)
+                ? new HostedPanel(HostedView.Envelope, 0)
+                : panel;
+        }
+
+        // A PRESS CLOSES WHAT A PRESS OPENED, and so does the prefix. The
+        // bottom row says so in both directions, and one gesture doing one
+        // thing is why the escape-hatch rule survives having a mouse.
+        if (gesture == HostedGesture.Pressed)
+        {
+            return new HostedPanel(HostedView.Closed, 0);
+        }
+
+        if (Scrolled(gesture, typed) is { } by)
+        {
+            return panel with { Offset = Bounded(panel.Offset + by, body, most) };
+        }
+
+        if (gesture != HostedGesture.Typed || typed.Length != 1)
+        {
+            // ANYTHING ELSE IS SWALLOWED RATHER THAN ACTED ON. It is taken -
+            // the panel owns the keyboard - and taken is not the same as
+            // meaning something.
+            return panel;
+        }
+
+        return typed[0] switch
+        {
+            Esc or Prefix => new HostedPanel(HostedView.Closed, 0),
+
             // REACHABLE FROM EACH OTHER, without leaving and coming back:
-            // comparing what the agent was told against what it produced is the
-            // reason both are here.
-            (byte)'e' => HostedView.Envelope,
-            (byte)'i' => HostedView.Intent,
-            _ => showing,
-        },
-    };
+            // comparing what the agent was told against what it produced is
+            // the reason both are here. FROM THE TOP, because an offset kept
+            // across a switch opens the other view part way down something
+            // nobody has read the start of.
+            (byte)'e' => new HostedPanel(HostedView.Envelope, 0),
+            (byte)'i' => new HostedPanel(HostedView.Intent, 0),
+            _ => panel,
+        };
+    }
+
+    /// <summary>How far this moves the body, or null when it does not.</summary>
+    /// <remarks>
+    /// <b>The wheel and the keyboard both, because only one of them is always
+    /// there.</b> gg mirrors the child's mouse reporting and never forces it,
+    /// so a session hosting something that never asked for a mouse has no
+    /// wheel — and the panel would then say "… n more" about something
+    /// unreachable.
+    /// </remarks>
+    private static int? Scrolled(HostedGesture gesture, ReadOnlySpan<byte> typed)
+    {
+        if (gesture == HostedGesture.ScrolledDown)
+        {
+            return Notch;
+        }
+
+        if (gesture == HostedGesture.ScrolledUp)
+        {
+            return -Notch;
+        }
+
+        if (gesture != HostedGesture.Typed)
+        {
+            return null;
+        }
+
+        if (typed.Length == 1)
+        {
+            return typed[0] switch
+            {
+                // THE CONSOLE'S OWN LETTERS. Its lists move by j and k, and a
+                // different pair one layer down is a pair to remember.
+                (byte)'j' => Step,
+                (byte)'k' => -Step,
+                _ => null,
+            };
+        }
+
+        // ARROWS AND PAGES, which arrive as escape sequences and are exactly
+        // what used to slip past an open panel into the child.
+        if (typed.Length == 3 && typed[0] == Esc && typed[1] == '[')
+        {
+            return typed[2] switch
+            {
+                (byte)'B' => Step,
+                (byte)'A' => -Step,
+                _ => null,
+            };
+        }
+
+        if (typed.Length == 4 && typed[0] == Esc && typed[1] == '[' && typed[3] == '~')
+        {
+            return typed[2] switch
+            {
+                (byte)'6' => Page,
+                (byte)'5' => -Page,
+                _ => null,
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>An offset the body can actually be read at.</summary>
+    /// <remarks>
+    /// <b>Clamped at both ends.</b> Above the first line there is nothing, and
+    /// past the last the panel empties itself — which reads as a view that
+    /// failed to load rather than as one scrolled too far.
+    /// </remarks>
+    private static int Bounded(int offset, string? body, int most)
+    {
+        if (offset <= 0)
+        {
+            return 0;
+        }
+
+        if (body is not { Length: > 0 } text)
+        {
+            return offset;
+        }
+
+        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+
+        // ONE ROW FOR THE HEADER, and one line of body always left on screen.
+        //
+        // WITHOUT A BUDGET, the floor is the last line rather than a screenful
+        // of it: a caller that knows the body but not how tall the window is
+        // can still stop somebody scrolling into an empty panel, which is the
+        // failure worth preventing. Rows clamps again against what it is
+        // actually showing.
+        var floor = most > 1 ? lines - (most - 1) : lines - 1;
+
+        return Math.Min(offset, Math.Max(floor, 0));
+    }
 
     /// <summary>
     /// The rows gg keeps: the status, and what is open under it.
@@ -117,8 +320,10 @@ public static class HostedBar
     /// there was the one nothing looked after.
     /// </remarks>
     public static IReadOnlyList<string> Rows(
-        HostedView showing, string status, string body, int most, int columns)
+        HostedPanel panel, string status, string body, int most, int columns)
     {
+        var showing = panel.Showing;
+
         if (showing == HostedView.Closed || most <= 1)
         {
             return Wrapped(status, columns, most <= 0 ? 1 : most);
@@ -136,7 +341,15 @@ public static class HostedBar
             columns,
             Math.Max(most - 1, 1)));
 
-        var lines = (body ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var all = (body ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // THE WINDOW THE OFFSET NAMES. Clamped again here rather than trusted,
+        // because the offset is state a caller holds and the body it was
+        // scrolled against can have been replaced since - the envelope is
+        // re-read between sessions and the intent appears when an agent
+        // submits.
+        var from = Math.Clamp(panel.Offset, 0, Math.Max(all.Length - 1, 0));
+        var lines = all[from..];
 
         if (lines.Length == 0)
         {
@@ -159,7 +372,16 @@ public static class HostedBar
             // COUNTED, BECAUSE FOUR INSTRUCTIONS OUT OF SIX READ EXACTLY LIKE
             // FOUR OUT OF FOUR. Silently truncating the rules in force is the
             // one thing this panel must not do.
-            rows.Add($"… {lines.Length - fits} more — make the window taller to read them");
+            //
+            // AND IT SAYS HOW TO SEE THEM, which until the body could scroll
+            // was a taller window or nothing.
+            rows.Add($"… {lines.Length - fits} more — scroll, or make the window taller");
+        }
+        else if (from > 0)
+        {
+            // THE OTHER END. Scrolled to the bottom, nothing else says that
+            // what is on screen is not the whole of it.
+            rows.Add($"… {from} above");
         }
 
         return rows;

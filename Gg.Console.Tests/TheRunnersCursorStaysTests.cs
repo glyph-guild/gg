@@ -117,6 +117,20 @@ public class TheRunnersCursorStaysTests
     /// answer and a way out, and <c>AppState</c> holds what is worth keeping.
     /// So the four are named here and the fifth is named below.
     /// </remarks>
+    /// <summary>
+    /// The tables a tab is driven by, each told where its cursor is.
+    /// </summary>
+    /// <remarks>
+    /// <b>The airspace tree joined them and the list was not the count.</b> It
+    /// passes <c>State.AirspaceSelected</c> and would have passed this ratchet
+    /// on the day it arrived - but a list of four names cannot notice a fifth
+    /// table, which is how it came past two ratchets and broke a third thing
+    /// neither was watching. Named here so both tests below read the same list.
+    /// </remarks>
+    private static readonly string[] Driven =
+        ["_flightsTable", "_browseTable", "_repositoriesTable", "_runnersTable",
+         "_airspaceTable"];
+
     [Test]
     public async Task The_view_is_told_where_the_cursor_is_rather_than_where_it_started()
     {
@@ -125,8 +139,7 @@ public class TheRunnersCursorStaysTests
         // passed a constant would snap back exactly as the runners' did.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
-        foreach (var table in (string[])
-                 ["_flightsTable", "_browseTable", "_repositoriesTable", "_runnersTable"])
+        foreach (var table in Driven)
         {
             var call = Call(screen, $"Fill({table},");
 
@@ -189,6 +202,65 @@ public class TheRunnersCursorStaysTests
         await Assert.That(released).IsEqualTo(wired)
             .Because("and each one is let go when the session is torn down, because the "
                    + "screen is rebuilt from the model on every pass.");
+    }
+
+    /// <summary>
+    /// Every fill happens while the sync flag is held.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A repopulated table raises its own <c>ValueChanged</c>, which is
+    /// also how a click arrives.</b> <see cref="ConsoleScreen"/>'s own
+    /// <c>Fill</c> says so in as many words - <i>"the caller holds the sync
+    /// flag while this runs"</i> - and it is the caller's to hold, because
+    /// <c>Fill</c> is static and the flag is not.
+    /// </para>
+    /// <para>
+    /// <b>So a fill outside the flag is a click nobody made, on every
+    /// render.</b> It reaches <c>Reducer.Pointed</c> as a cursor move, assigns
+    /// the model from inside a draw, and calls <c>Render</c> re-entrantly from
+    /// within <c>Render</c> - once a second, for as long as the tab is open.
+    /// </para>
+    /// <para>
+    /// <b>The airspace tree was filled after the <c>finally</c> that clears
+    /// it.</b> Four fills sat inside the block and the fifth was appended
+    /// below it, which is a placement defect: nothing about the call is wrong
+    /// and there is no wrong argument to find. The table-count ratchet counted
+    /// it and the cursor ratchet did not know its name, so neither could see
+    /// where it sat - hence a ratchet about position rather than about
+    /// arguments.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task Every_fill_happens_while_the_sync_flag_is_held()
+    {
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        var unguarded = new List<string>();
+
+        foreach (var table in Driven)
+        {
+            var at = screen.IndexOf($"Fill({table},", StringComparison.Ordinal);
+
+            await Assert.That(at).IsGreaterThan(-1)
+                .Because($"{table} is a tab's table and is filled from the model.");
+
+            // THE NEAREST ASSIGNMENT BEFORE IT, which is the state of the flag
+            // when the fill runs. Held means the last one set it.
+            var before = screen[..at];
+            var held = before.LastIndexOf("_syncing = true", StringComparison.Ordinal);
+            var cleared = before.LastIndexOf("_syncing = false", StringComparison.Ordinal);
+
+            if (held < cleared)
+            {
+                unguarded.Add(table);
+            }
+        }
+
+        await Assert.That(unguarded).IsEmpty()
+            .Because("a fill outside the flag dispatches a cursor move nobody made, once "
+                   + "per render, and renders again from inside the render that did it. "
+                   + "Unguarded: " + string.Join(", ", unguarded));
     }
 
     /// <summary>

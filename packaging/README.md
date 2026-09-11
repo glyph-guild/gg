@@ -101,6 +101,40 @@ this* rather than *this pipeline did*, and on Linux and macOS it would buy
 nothing without `DOTNET_NUGET_SIGNATURE_VERIFICATION` and trusted signers
 configured on every host. See the plan's open question 2.
 
+## What the binaries have instead, since they have no feed
+
+Everything above is about the package. The tarballs had nothing at all: a
+release asset is bytes on a page, and anybody who can write to the release can
+replace them.
+
+Every asset a release attaches is now **attested to the workflow run that
+produced it** — both tarballs, the pool-host bundle and the `.nupkg`. A person
+checks one with:
+
+```sh
+gh attestation verify gg-linux-x64.tar.gz --repo glyph-guild/gg
+```
+
+**What that proves, exactly:** these bytes came out of this repository's
+publish workflow. Not that they are safe, not that the version is the one you
+want — the same thing trusted publishing proves about the package, extended to
+the artefact that had no such story.
+
+**Why not a `SHA256SUMS` asset**, which is the obvious alternative and reads
+like the standard thing to do. Whoever can replace an asset can replace a sums
+file published beside it, so a digest hosted on the page it describes proves a
+download was not truncated and nothing about where it came from. The
+attestation is signed against the run and held where this repository cannot
+rewrite it. A digest is still the right tool somewhere else — pinned *by a
+consumer*, in provisioning, next to the version it already pins — and that is
+a different change in a different file.
+
+**The install one-liner is unchanged and still pipes into `tar`.** It extracts
+before anything could look at the bytes, which is the honest trade for a
+laptop and the wrong one for a machine that will hold credentials; the release
+notes now print both and say which is which. `gg` itself checks nothing — it
+downloads nothing, so there is nothing for it to check, and that stays true.
+
 ## Asking what is current, without an account
 
 The flat container index answers it anonymously:

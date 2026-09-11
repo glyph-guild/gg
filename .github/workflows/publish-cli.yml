@@ -156,14 +156,28 @@ jobs:
     needs: [pack, binaries]
     runs-on: ubuntu-latest
     permissions:
-      # The only permission needed, and no secret at all - which is the whole
-      # benefit of publishing as a release asset rather than to a registry.
+      # Still no stored secret - the token is the run's own, and the two
+      # additions below are minted rather than kept.
       contents: write
+      # SIGNING FOR PROVENANCE IS A SECOND JOB THAT CAN MINT A TOKEN, and the
+      # pinning rule in the nuget job follows the permission rather than the
+      # job: every action running here can ask for that token, not only the one
+      # that is supposed to. AReleaseAssetProvesWhereItCameFromTests holds
+      # whichever jobs hold it to pinned actions, which is why the download
+      # below is a SHA now and was a tag before.
+      #
+      # `attestations: write` is what lets the run record the result. Without
+      # it the step fails at run time on main, at the one moment a failure
+      # costs a release - and a permissions block REPLACES the default set, so
+      # trimming either line reads like hygiene.
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: incoming
       - name: Attach the tool and the binaries to a public Release
+        id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.pack.outputs.version }}
@@ -188,6 +202,11 @@ jobs:
           # log line below is the only place that says so.
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "$tag already published - VersionPrefix has not moved, so nothing to release."
+            # AS AN OUTPUT, because `exit 0` ends this STEP and not the job -
+            # the attestation step below would otherwise run on every push to
+            # main, signing bytes nobody published and burying the four
+            # signatures that mean something under a hundred that do not.
+            echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -205,6 +224,16 @@ jobs:
 
           Swap \`linux-x64\` for \`osx-arm64\` on an Apple-silicon Mac, and \`.so\` for \`.dylib\`.
 
+          **Check the bytes before you install them.** Every asset here is attested to the workflow run that built it:
+
+          \`\`\`sh
+          curl -fsSLO https://github.com/glyph-guild/gg/releases/download/$tag/gg-linux-x64.tar.gz
+          gh attestation verify gg-linux-x64.tar.gz --repo glyph-guild/gg
+          tar xzf gg-linux-x64.tar.gz
+          \`\`\`
+
+          That is the only proof these binaries carry, and it is worth being precise about what it says: these bytes came out of this repository's publish workflow, rather than from somebody who can write to this page. The one-liner above pipes the download straight into \`tar\`, which extracts before anything could have checked it — fine on a laptop you are experimenting on, not on a machine that will hold credentials.
+
           **Both lines, and the second one is not optional.** \`gg\` loads those libraries from its own directory when it hosts your editor, and it loads them on first use rather than at startup - so a \`gg\` installed without them starts, runs and prints its version exactly as normal, and then quietly opens your editor without the gg bar. It will tell you which file is missing if that happens.
 
           **As a .NET tool**, if you already have the SDK — from nuget.org, so there is nothing to download first:
@@ -218,6 +247,30 @@ jobs:
           Either way the command is \`gg\`.
 
           \`gg\` never replaces its own binary. It will tell you when it is behind and name the command; moving the bytes is \`dotnet\`'s job, or yours."
+
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      # THE ONLY WITNESS THESE BINARIES HAVE. The package is on a feed that
+      # repository-signs what it accepts; the tarballs exist in exactly one
+      # place, and after this step uploads them their bytes are whatever the
+      # page serves. Anybody who can write to a release can replace an asset,
+      # and a checksum file published on the same page would be replaced in the
+      # same motion - so the proof has to be signed against the run and held
+      # where this repository cannot rewrite it.
+      #
+      # THE SUBJECT IS THE UPLOAD GLOB, not a list of names. Attesting some of
+      # what a release carries is worse than attesting none: verification
+      # answers for the file it is handed, so an asset nobody attested fails
+      # exactly as a tampered one does and the person checking learns to stop.
+      #
+      # AFTER THE RELEASE, not before, and gated on it having happened. Most
+      # pushes to main publish nothing; signing on those would say a version
+      # shipped when none did.
+      - name: Say which run produced these bytes
+        if: steps.release.outputs.created == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'incoming/*/*'
 
   # LAST, AND DELIBERATELY SO. `needs: [release]` is not about artefacts - this
   # job downloads its own - it is about order. A GitHub release can be deleted;
@@ -245,13 +298,18 @@ jobs:
       id-token: write
       contents: read
     steps:
-      # EVERY ACTION IN THIS JOB IS PINNED TO A COMMIT, and only in this job.
-      # `id-token: write` is granted to the JOB, not to a step, so any action
-      # running here can mint the OIDC token - not just the one that is supposed
-      # to. A movable tag on any of them means whoever controls that tag chooses
-      # what runs while the right to publish gg is available for the asking.
-      # Elsewhere in this file a tag is fine, because nothing else holds a
-      # credential. ToolPublishingTests holds this job to it.
+      # EVERY ACTION IN THIS JOB IS PINNED TO A COMMIT, as in every job that can
+      # mint a token. `id-token: write` is granted to the JOB, not to a step, so
+      # any action running here can ask for the OIDC token - not just the one
+      # that is supposed to. A movable tag on any of them means whoever controls
+      # that tag chooses what runs while the right to publish gg is available
+      # for the asking.
+      #
+      # The rule follows the permission rather than this job: `release` signs
+      # for provenance and holds the same grant, so it pins too. A job with
+      # neither may use a tag. ToolPublishingTests holds this job to it and
+      # AReleaseAssetProvesWhereItCameFromTests holds whichever others acquire
+      # the grant.
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: tool-package

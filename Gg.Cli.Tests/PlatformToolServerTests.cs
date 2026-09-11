@@ -287,6 +287,127 @@ public class PlatformToolServerTests
         await Assert.That(answers).IsEmpty();
     }
 
+    /// <summary>The tools a server started this way declares.</summary>
+    private static async Task<IReadOnlyList<string>> OfferedAsync(
+        string? intentPath, string? documentRoot)
+    {
+        var output = new StringWriter();
+        await PlatformToolServer.RunAsync(
+            new StringReader("""{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"""),
+            output,
+            intentPath: intentPath,
+            documentRoot: documentRoot);
+
+        using var answer = JsonDocument.Parse(output.ToString().Trim());
+
+        return [.. answer.RootElement.GetProperty("result").GetProperty("tools")
+            .EnumerateArray()
+            .Select(tool => tool.GetProperty("name").GetString()!)
+            .Order(StringComparer.Ordinal)];
+    }
+
+    [Test]
+    public async Task A_session_is_offered_only_the_tools_it_can_use()
+    {
+        // THE DEFECT, AND A PERSON WATCHED IT HAPPEN. A drafting session was
+        // offered all seven tools - the server declares them unconditionally
+        // and refuses at call time, which is right for SAFETY and wrong for
+        // guidance. The agent reached for `submit_intent`, whose description
+        // is "hand back the intent you have composed" and which reads exactly
+        // like the tool you want when you have something to hand back. It was
+        // refused, correctly, and then told the person:
+        //
+        //   "No tool I have applies these documents or opens a flight."
+        //
+        // Which is a WRONG conclusion reached honestly, out of five tools that
+        // do not belong in that session. A turn was spent and a person was
+        // misinformed.
+        //
+        // REFUSING AT CALL TIME IS STILL THE BACKSTOP. This is about what is
+        // OFFERED: a tool a session cannot use is a wrong answer somebody has
+        // to be talked out of.
+        await Assert.That(await OfferedAsync(intentPath: null, documentRoot: "/tmp/tree"))
+            .IsEquivalentTo((string[])
+            [
+                AirspaceContextTool.Name, AirspacePullTool.Name, DocumentTool.Name,
+            ])
+            .Because("a drafting session reads the airspace, pulls it and hands documents "
+                   + "back. It is not a flight: it nominates nothing, asks nobody for a "
+                   + "decision, proposes no work item and composes no intent.");
+    }
+
+    [Test]
+    public async Task Composing_an_intent_is_offered_the_one_tool_that_records_one()
+    {
+        await Assert.That(await OfferedAsync(intentPath: "/tmp/intent", documentRoot: null))
+            .IsEquivalentTo((string[])[IntentTool.Name])
+            .Because("the console's compose path has somewhere to record an intent and "
+                   + "nothing else to do. Offering it the airspace tools would invite a "
+                   + "document into a session with no working copy.");
+    }
+
+    [Test]
+    public async Task A_fleet_flight_is_offered_what_a_flight_needs_and_no_more()
+    {
+        // NO ENVIRONMENT AT ALL is how the runner starts this server -
+        // ClaudeCodeExecutor says so in as many words - so these three are
+        // what is left when nothing is handed over. Which is also the answer
+        // to "what can an injected agent reach through this server": less
+        // than it could yesterday.
+        await Assert.That(await OfferedAsync(intentPath: null, documentRoot: null))
+            .IsEquivalentTo((string[])
+            [
+                HelpTool.Name, NominationTool.Name, WorkItemProposalTool.Name,
+            ])
+            .Because("a flight nominates a work kind, asks a person for a decision it may "
+                   + "not make, and proposes work items. The envelope decides which of "
+                   + "those it is granted; the server should not be offering it two more "
+                   + "that belong to the console.");
+    }
+
+    [Test]
+    public async Task The_document_tool_says_what_it_does_before_what_it_does_not()
+    {
+        // WHY THE AGENT TALKED ITSELF OUT OF IT. The description is accurate
+        // and opens with the disclaimer - "applies nothing and grants
+        // nothing" - which is exactly what an agent scanning for "the tool
+        // that submits my work" reads as "not this one". The honest order is
+        // the act first and the limits after: somebody looking for the door
+        // should find it before they find the sign about what is beyond it.
+        var described = (await DescriptionsAsync())[DocumentTool.Name];
+
+        var act = described.IndexOf("hand back", StringComparison.OrdinalIgnoreCase);
+        var limit = described.IndexOf("applies nothing", StringComparison.OrdinalIgnoreCase);
+
+        await Assert.That(act).IsGreaterThanOrEqualTo(0)
+            .Because("it has to say what it is for. Description: " + described);
+
+        await Assert.That(limit).IsGreaterThan(act)
+            .Because("and say it FIRST. An agent that reads the limit first concludes the "
+                   + "tool is not the one it wants, which is what happened. Description: "
+                   + described);
+    }
+
+    /// <summary>Each declared tool's description, for a drafting session.</summary>
+    private static async Task<IReadOnlyDictionary<string, string>> DescriptionsAsync()
+    {
+        var output = new StringWriter();
+        await PlatformToolServer.RunAsync(
+            new StringReader("""{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"""),
+            output,
+            intentPath: null,
+            documentRoot: "/tmp/tree");
+
+        using var answer = JsonDocument.Parse(output.ToString().Trim());
+
+        return answer.RootElement.GetProperty("result").GetProperty("tools")
+            .EnumerateArray()
+            .ToDictionary(
+                tool => tool.GetProperty("name").GetString()!,
+                tool => tool.GetProperty("description").GetString()!,
+                StringComparer.Ordinal);
+    }
+
     [Test]
     public async Task It_declares_seven_tools_and_an_eighth_has_to_argue_for_itself()
     {

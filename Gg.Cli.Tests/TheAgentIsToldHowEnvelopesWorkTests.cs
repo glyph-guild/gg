@@ -473,6 +473,44 @@ public class TheAgentIsToldHowEnvelopesWorkTests
     }
 
     [Test]
+    public async Task It_says_what_happens_after_the_agent_submits()
+    {
+        // WHAT THE AGENT WENT LOOKING FOR AND DID NOT FIND. Watched in a real
+        // session: it wrote the documents, read the tools, and correctly
+        // worked out that nothing it had would APPLY them - applying is a
+        // person's key in the console. Then, having nothing left to do and no
+        // statement that being done was the answer, it reached for the
+        // nearest remaining act and tried to compose a flight intent.
+        //
+        //   "No tool I have applies these documents or opens a flight - that
+        //    act is a person's. What's left for me is the intent a person
+        //    reads and decides to open a flight from, so I've composed that."
+        //
+        // Every clause of that is true and the conclusion is wrong. An agent
+        // told what it may do and not told where its job ENDS will find
+        // something else to do, which is the shape of most of what goes wrong
+        // with agents. So the handover is stated: submit, say what you
+        // changed, stop.
+        var tree = Somewhere();
+        try
+        {
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
+
+            await Assert.That(said).Contains("stop", StringComparison.OrdinalIgnoreCase)
+                .Because("where the agent's part ends. Without it, an agent that has run "
+                       + "out of permitted acts invents one. Said: " + said);
+
+            await Assert.That(said).Contains(DocumentTool.Name, StringComparison.Ordinal)
+                .Because("and the tool that ends it, named, so the handover is not a "
+                       + "sentence about an act it has to go and find. Said: " + said);
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
+    [Test]
     public async Task It_says_what_an_envelope_is_for_in_words_anybody_reads()
     {
         // THE PART THAT IS NOT A SCHEMA. An agent asked "what does this

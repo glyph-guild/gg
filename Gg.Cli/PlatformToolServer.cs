@@ -1561,9 +1561,11 @@ public static class PlatformToolServer
         said.AppendLine(
             $"  · `{Gg.Contracts.WorkItemOperations.Score}` DOES NOT WRITE A FIELD YOU "
           + "NAME. A score carries a value and no path, so where it lands is the tracker "
-          + $"adapter's to decide - on Azure DevOps it is "
-          + $"`{Gg.Runner.Intent.WiqlWorkItemSink.PriorityField}`. To write a field of "
-          + $"your own you need `{Gg.Contracts.WorkItemOperations.Field}` in may-perform "
+          + "adapter's to decide - a field somebody else chose. AND GG CANNOT TELL YOU "
+          + "WHICH ONE: which tracker a tenant has is configuration this binary "
+          + "deliberately does not know, so anything said here about the field would be a "
+          + "guess about the reader's tracker. To write a field of your own you need "
+          + $"`{Gg.Contracts.WorkItemOperations.Field}` in may-perform "
           + "and the path in may-write. Nothing refuses the other thing: a destination "
           + $"that may only `{Gg.Contracts.WorkItemOperations.Score}` is valid, applies, "
           + "and writes somewhere you did not choose.");

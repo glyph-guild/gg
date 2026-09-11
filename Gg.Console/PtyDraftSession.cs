@@ -155,7 +155,7 @@ public sealed class PtyDraftSession
                 terminal,
                 parts[0],
                 [.. parts.Skip(1),
-                 "--mcp-config", ServerConfig(_self, tree),
+                 "--mcp-config", ServerConfig(_self, tree, Rules(envelope)),
                  // THE QUALIFIED NAMES, from the one declaration each owns.
                  // Both, and named individually: --allowedTools takes a list,
                  // and a grant of the `mcp__gg` prefix instead would widen
@@ -195,6 +195,42 @@ public sealed class PtyDraftSession
              + "copy now, and unapplied.";
     }
 
+    /// <summary>
+    /// The rules in force, as an agent should read them, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE FIRST CALLER RenderComposed HAS EVER HAD.</b> It annotates every
+    /// obligation with the layer that declared it and has sat unused in the
+    /// contract since it was written, while
+    /// <c>instructions-in-the-envelope</c> S30.5-04 asked for exactly that
+    /// view. It is right here and wrong in <c>gg envelope show</c> for the
+    /// reason its own remark gives: the annotation is a REPORT and not
+    /// authorable, so it belongs where somebody reads rather than where
+    /// somebody edits — and an agent about to write a narrowing needs to know
+    /// which layer already carries an obligation it is tempted to repeat.
+    /// </para>
+    /// <para>
+    /// <b>The header is a line about the render, not a second render.</b> The
+    /// version is what makes this a precondition rather than advice — a
+    /// document drafted against v7 is a different claim from one drafted
+    /// against whatever is current — and no renderer emits it, because it is a
+    /// fact about the state rather than about the envelope.
+    /// </para>
+    /// <para>
+    /// <b>Null when the session has none, and that is ordinary.</b> A console
+    /// that cannot reach a control plane still drafts: the working copy is
+    /// local. The tool says so rather than leaving an agent to read silence as
+    /// "there are no rules".
+    /// </para>
+    /// </remarks>
+    private static string? Rules(EnvelopeState? envelope) => envelope is { } state
+        ? $"in force: {state.Version}, last changed "
+        + $"{state.UpdatedAt:yyyy-MM-dd} by {state.UpdatedBy}"
+        + Environment.NewLine + Environment.NewLine
+        + EnvelopeText.RenderComposed(state.Envelope)
+        : null;
+
     /// <summary>What the open view has to show.</summary>
     /// <remarks>
     /// <b>The envelope is rendered by the same function the console's own pane
@@ -229,7 +265,7 @@ public sealed class PtyDraftSession
     /// document goes, and it learns it here rather than by looking for it.
     /// </para>
     /// </remarks>
-    private static string ServerConfig(SelfInvocation self, string root)
+    private static string ServerConfig(SelfInvocation self, string root, string? rules)
     {
         using var buffer = new MemoryStream();
 
@@ -249,6 +285,15 @@ public sealed class PtyDraftSession
 
             json.WriteStartObject("env");
             json.WriteString(DocumentTool.RootVariable, root);
+
+            // OMITTED RATHER THAN EMPTY when there are none. An environment
+            // entry set to "" is a value the server would have to tell apart
+            // from an absent one, and both mean the same thing here.
+            if (rules is { Length: > 0 } composed)
+            {
+                json.WriteString(AirspaceContextTool.EnvelopeVariable, composed);
+            }
+
             json.WriteEndObject();
 
             json.WriteEndObject();

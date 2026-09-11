@@ -142,6 +142,11 @@ public static class PlatformToolServer
         // here to being supplied - a default is what documentRoot took for its
         // whole life while the tool that needed it refused every call.
         RunPull? pull = null,
+        // THE RULES IN FORCE, rendered by whoever started this server. Null
+        // wherever no session read them, which is an ordinary state and not a
+        // fault: a console with no reachable control plane still drafts,
+        // because the working copy is local.
+        string? inForce = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -169,7 +174,7 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath, documentRoot, pull)
+                if (Answer(message.RootElement, intentPath, documentRoot, pull, inForce)
                         is { } answer)
                 {
                     await output.WriteLineAsync(answer);
@@ -185,7 +190,8 @@ public static class PlatformToolServer
     /// The line to write back, or null where the protocol says to write none.
     /// </summary>
     private static string? Answer(
-        JsonElement message, string? intentPath, string? documentRoot, RunPull? pull)
+        JsonElement message, string? intentPath, string? documentRoot, RunPull? pull,
+        string? inForce)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -200,7 +206,7 @@ public static class PlatformToolServer
         {
             "initialize" => Initialized(id, message),
             "tools/list" => Listed(id),
-            "tools/call" => Called(id, message, intentPath, documentRoot, pull),
+            "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -653,7 +659,7 @@ public static class PlatformToolServer
 
     private static string Called(
         JsonElement id, JsonElement message, string? intentPath, string? documentRoot,
-        RunPull? pull)
+        RunPull? pull, string? inForce)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -685,7 +691,7 @@ public static class PlatformToolServer
 
         if (string.Equals(called, AirspaceContextTool.Name, StringComparison.Ordinal))
         {
-            return Described(id, documentRoot);
+            return Described(id, documentRoot, inForce);
         }
 
         if (string.Equals(called, AirspacePullTool.Name, StringComparison.Ordinal))
@@ -1064,7 +1070,7 @@ public static class PlatformToolServer
     /// reach through this server is the whole question.
     /// </para>
     /// </remarks>
-    private static string Described(JsonElement id, string? documentRoot)
+    private static string Described(JsonElement id, string? documentRoot, string? inForce)
     {
         if (string.IsNullOrEmpty(documentRoot))
         {
@@ -1129,6 +1135,31 @@ public static class PlatformToolServer
           + "apply and then gone - not provenance you author. gg writes that line, and "
           + "keeps the one already in the file when you submit.");
         said.AppendLine();
+
+        // THE RULES THEMSELVES, BEFORE THE FILES. A document is drafted
+        // against what it will be composed into, and reading the working copy
+        // first invites an agent to treat the files as the whole picture -
+        // which they are not: a narrowing governs nothing until it is composed
+        // with the root and the work kind above it.
+        if (inForce is { Length: > 0 } rules)
+        {
+            said.AppendLine("THE RULES IN FORCE RIGHT NOW, composed from every layer. Each "
+                          + "obligation carries the layer that declared it:");
+            said.AppendLine();
+            said.AppendLine(rules.TrimEnd());
+            said.AppendLine();
+        }
+        else
+        {
+            // SAID, because silence reads as "there are no rules" - the one
+            // wrong conclusion available. A console that cannot reach a
+            // control plane still drafts, since the working copy is local.
+            said.AppendLine(
+                "THE RULES IN FORCE could not be read for this session, so what follows is "
+              + "this working copy alone. Anything drafted here is still composed against "
+              + "them when it is applied.");
+            said.AppendLine();
+        }
 
         Holdings(said, documentRoot);
 

@@ -37,6 +37,14 @@ internal static partial class Sources
               + "person setting it would be pointing a drafting session at a tree the "
               + "pane they are looking at does not describe.",
 
+            ["GG_AIRSPACE_ENVELOPE"] =
+                "the console renders the rules in force and writes them into the tool "
+              + "server's own environment, so a drafting agent can read what its document "
+              + "will be composed into. It is a RENDERING of state the control plane owns, "
+              + "not a setting: a person putting one here would be telling an agent that "
+              + "rules are in force which are not, and the gate would then refuse a "
+              + "document drafted in good faith against them.",
+
             ["GG_MEMBER_NONCE"] =
                 "a pool maintainer writes it into a member container, single use. A "
               + "person cannot mint one and a stale one is refused.",

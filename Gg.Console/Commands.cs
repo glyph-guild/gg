@@ -169,6 +169,17 @@ public enum Command
     /// </remarks>
     ReadOutcome,
 
+    /// <summary>Put what the open modal is showing on the clipboard.</summary>
+    /// <remarks>
+    /// <b>The shell's, because a clipboard is a child process.</b>
+    /// LiveStreamingTests grants one clipboard exception, scoped to a READ in
+    /// one field by one key, and says a copy stays the shell's. The modal
+    /// comes back by itself afterwards - the screen is rebuilt from AppState
+    /// and Mode is part of it - so the round trip costs a redraw rather than a
+    /// person's place.
+    /// </remarks>
+    CopyModal,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside
@@ -733,6 +744,11 @@ public static class ShellCommands
 
         // Ends a flight, and asks for a sentence before it does.
         Command.GroundFlight,
+
+        // A SECOND CLIPBOARD USE, and the exception the paste holds does not
+        // stretch to it: that one is scoped to a READ, in one field, by one
+        // key. This spawns, so it is the shell's.
+        Command.CopyModal,
 
         // A browser and the clipboard: a child process each.
         Command.OpenSignInUri,

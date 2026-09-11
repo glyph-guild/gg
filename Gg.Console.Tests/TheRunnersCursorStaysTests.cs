@@ -218,8 +218,17 @@ public class TheRunnersCursorStaysTests
     /// <para>
     /// <b>So a fill outside the flag is a click nobody made, on every
     /// render.</b> It reaches <c>Reducer.Pointed</c> as a cursor move, assigns
-    /// the model from inside a draw, and calls <c>Render</c> re-entrantly from
-    /// within <c>Render</c> - once a second, for as long as the tab is open.
+    /// the model from inside a draw, and calls <c>Render</c> again from inside
+    /// the <c>Render</c> that did it - once a second, for as long as the tab
+    /// is open.
+    /// </para>
+    /// <para>
+    /// <b>Worded around a guard, and the guard is right.</b> The obvious word
+    /// for that shape carries a hyphen, and <c>ProviderNeutralityTests</c>
+    /// requires only a NON-LETTER before a provider name - so a hyphen reads
+    /// as a word start and the English word trips it. Widening the lookbehind
+    /// to admit hyphens would let a kebab-case config key hide a real
+    /// reference, which is a worse trade than a sentence written another way.
     /// </para>
     /// <para>
     /// <b>The airspace tree was filled after the <c>finally</c> that clears

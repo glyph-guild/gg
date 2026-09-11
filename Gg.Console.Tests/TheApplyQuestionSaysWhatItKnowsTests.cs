@@ -137,6 +137,81 @@ public class TheApplyQuestionSaysWhatItKnowsTests
                    + "because the rest is part of something somebody meant as a whole.");
     }
 
+    /// <summary>
+    /// The question names every name the apply would declare, and the parent.
+    /// </summary>
+    /// <remarks>
+    /// <b>BECAUSE `y` NOW DECLARES THEM.</b> The console passes
+    /// <c>declareNames: true</c>, which is the right default for a surface
+    /// that can show what it is about to do - and it is only right IF it shows
+    /// it. A declared name cannot be quietly withdrawn (retirement is a
+    /// terminal version and always rides a gate), so a typo in a filename
+    /// would mint a permanent name whose removal needs an approver. The
+    /// question is where somebody catches that, and if it does not list them
+    /// the console is declaring silently.
+    /// <para>
+    /// The parent is said because the tree cannot know it: the directory gives
+    /// the ROLE and says nothing about nesting, so apply uses <c>root</c> and
+    /// anything deeper is a deliberate <c>--under</c>.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task It_names_what_it_would_declare_because_yes_declares_it()
+    {
+        var asking = Asking(Nothing()) with { };
+
+        asking = asking with
+        {
+            Estate = asking.Estate! with
+            {
+                Names = new Gg.Contracts.EnvelopeTopology
+                {
+                    Names =
+                    [
+                        new Gg.Contracts.TopologyName
+                        {
+                            Name = "root",
+                            Role = Gg.Contracts.Roles.Root,
+                            DeclaredBy = "the floor exists; nobody declares it",
+                            DeclaredAt = DateTimeOffset.UnixEpoch,
+                        },
+                    ],
+                },
+            },
+        };
+
+        var said = PaneText.Modal(asking);
+
+        await Assert.That(said).Contains("score-hal", StringComparison.Ordinal)
+            .Because("the name about to be created is the thing to check before saying "
+                   + "yes. Said: " + said);
+
+        await Assert.That(said).Contains("work-kind", StringComparison.Ordinal)
+            .Because("and its role, which is what makes it a different kind of thing.");
+
+        await Assert.That(said).Contains("root", StringComparison.Ordinal)
+            .Because("and the parent, because the tree cannot know it - the directory "
+                   + "gives the role and nothing says how it nests.");
+
+        await Assert.That(said).Contains("declar", StringComparison.OrdinalIgnoreCase)
+            .Because("said as what it is: answering yes declares a name, which is a "
+                   + "governance act and not a side effect of applying a file.");
+    }
+
+    [Test]
+    public async Task With_no_topology_read_it_promises_no_declaring()
+    {
+        // THE TIER RULE AGAIN. With no topology nobody knows which names are
+        // missing, so the question must not list any - and must not imply it
+        // will create things it cannot name.
+        var said = PaneText.Modal(Asking(Nothing()));
+
+        await Assert.That(said).DoesNotContain("declar", StringComparison.OrdinalIgnoreCase)
+            .Because("an unasked topology is not a tenant with no names, and a question "
+                   + "that listed every document as about to be declared would be the "
+                   + "weaker answer dressed as the stronger one. Said: " + said);
+    }
+
     [Test]
     public async Task What_would_actually_happen_is_still_listed_per_document()
     {

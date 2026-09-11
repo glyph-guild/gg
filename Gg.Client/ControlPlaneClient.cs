@@ -41,6 +41,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(AllowanceList))]
+[JsonSerializable(typeof(AllowanceFloor))]
+[JsonSerializable(typeof(AllowanceOverrideRequest))]
 [JsonSerializable(typeof(TelemetryDisclosure))]
 [JsonSerializable(typeof(CredentialRegistrationRequest))]
 [JsonSerializable(typeof(CredentialRegistered))]
@@ -875,6 +877,64 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.AllowanceList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no allowance list.");
+    }
+
+    /// <summary>Sets what an allowance's owners keep back.</summary>
+    /// <remarks>
+    /// <b>204 and nothing back</b>, so a caller that wants to see the effect
+    /// reads the list afterwards. That is one extra round trip and it is worth
+    /// it: the answer a person wants is what the fleet looks like now, not an
+    /// echo of what they typed.
+    /// </remarks>
+    public async Task SetFloorAsync(
+        string sessionToken, string allowance, AllowanceFloor floor,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(allowance);
+        ArgumentNullException.ThrowIfNull(floor);
+
+        using var request = Request(
+            HttpMethod.Put, $"/v1/allowances/{Uri.EscapeDataString(allowance)}/floor",
+            sessionToken);
+        request.Content = JsonContent.Create(floor, ProtocolJsonContext.Default.AllowanceFloor);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Clears a floor. Clearing one nobody set is the asked-for state.</summary>
+    public async Task ClearFloorAsync(
+        string sessionToken, string allowance, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(allowance);
+
+        using var request = Request(
+            HttpMethod.Delete, $"/v1/allowances/{Uri.EscapeDataString(allowance)}/floor",
+            sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Spends a floor somebody else set, for a while, with a reason.</summary>
+    public async Task OverrideFloorAsync(
+        string sessionToken, string allowance, AllowanceOverrideRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(allowance);
+        ArgumentNullException.ThrowIfNull(request);
+
+        using var message = Request(
+            HttpMethod.Post, $"/v1/allowances/{Uri.EscapeDataString(allowance)}/override",
+            sessionToken);
+        message.Content = JsonContent.Create(
+            request, ProtocolJsonContext.Default.AllowanceOverrideRequest);
+
+        using var response = await _httpClient.SendAsync(message, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     /// <summary>Opens a flight. Answers 202: the number is minted afterwards.</summary>

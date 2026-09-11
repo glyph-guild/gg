@@ -113,6 +113,25 @@ public sealed class VerbConsoleActions(
     /// asynchronously, so at the moment this returns nobody knows what it will be
     /// called. Saying so beats printing a blank where a name goes.
     /// </remarks>
+    public string KeepBack(string allowance, double? share)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(allowance);
+
+        try
+        {
+            _data.FloorAsync(allowance, share, share).GetAwaiter().GetResult();
+
+            return share is { } kept
+                ? $"{allowance} keeps {(int)Math.Round(kept * 100)}% of each window back. "
+                + "Fleet work stops there; your own does not."
+                : $"{allowance} keeps nothing back. Fleet work may spend all of it.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return refusal.Message;
+        }
+    }
+
     public string Fly(string intent, string? repository)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);

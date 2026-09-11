@@ -92,6 +92,16 @@ return CliArgs.Parse(args) switch
     // not a fact this disk holds.
     CliAction.Allowances fleet => await EmitAsync(fleet.Json, c => c.AllowancesAsync()),
 
+    // A SHARE AS A PERCENTAGE ON THE WAY IN. The contract carries a fraction
+    // because a fraction has one spelling; a person says "keep a third".
+    CliAction.AllowanceFloor floor => await EmitAsync(floor.Json, c => c.FloorAsync(
+        floor.Name,
+        floor.SessionPercent is { } session ? session / 100.0 : null,
+        floor.WeekPercent is { } week ? week / 100.0 : null)),
+
+    CliAction.AllowanceOverride spend => await EmitAsync(spend.Json, c => c.OverrideFloorAsync(
+        spend.Name, spend.Minutes, spend.Reason)),
+
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),

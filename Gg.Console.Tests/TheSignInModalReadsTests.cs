@@ -197,6 +197,32 @@ public class TheSignInModalReadsTests
                         Label = "a-laptop",
                         State = Gg.Contracts.RunnerStates.Busy,
                         CurrentFlightNumber = "GG-1",
+
+                        // REGISTERED BY THIS PERSON, which is what makes the
+                        // allowance theirs to reserve. Yours is a fact the
+                        // control plane recorded, where Mine is this console's
+                        // own inference about one machine - so both have to be
+                        // true here and they are set from different places.
+                        RegisteredByPrincipalId = "01a078bb-4b97-779b-81ff-554c4ea662c1",
+                    },
+                ],
+            },
+
+            PrincipalId = "01a078bb-4b97-779b-81ff-554c4ea662c1",
+
+            // AND AN ALLOWANCE THAT MACHINE REPORTS. AllowanceIsMine needs a
+            // reported allowance as well as ownership: there is no floor to
+            // set on a machine that spends from nothing anybody named.
+            Allowances = new Gg.Contracts.AllowanceList
+            {
+                Allowances =
+                [
+                    new()
+                    {
+                        Name = "an-allowance",
+                        MeasuredAt = DateTimeOffset.UnixEpoch,
+                        Runners = ["01a078bb-4b97-779b-81ff-554c4ea662c0"],
+                        Windows = [],
                     },
                 ],
             },

@@ -97,6 +97,13 @@ public class VerbParityTests
             // fleet.
             ["Allowances"] = "reachable: the allowance column on the runners pane, built "
                            + "from the same read this verb prints.",
+            ["AllowanceFloor"] = "reachable: `o` on the runners pane offers a share to keep "
+                               + "back, and the write happens between sessions with the "
+                               + "terminal free - like every other write here.",
+            ["AllowanceOverride"] = "not reachable, deliberately: spending somebody else's "
+                                  + "floor needs a duration and a sentence they will read, "
+                                  + "and nothing in this console is written by typing. The "
+                                  + "command line is where a reason gets composed.",
             ["Allowance"] = "not reachable, and not pending: the console's version is the "
                           + "FLEET's allowances, and it now has one. This verb is this "
                           + "machine's own transcripts - a different question with the "

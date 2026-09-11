@@ -206,6 +206,9 @@ internal static class ConsoleDoubles
         /// <summary>Every intent pasted, in order.</summary>
         internal List<string> Pasted { get; } = [];
 
+        /// <summary>Every floor set or cleared, in order.</summary>
+        internal List<(string Allowance, double? Share)> KeptBack { get; } = [];
+
         /// <summary>Every ticket flight, with the repository it named.</summary>
         /// <remarks>
         /// Beside <see cref="Flown"/> rather than widening it: assertions
@@ -237,6 +240,13 @@ internal static class ConsoleDoubles
             return refusing
                 ? "Nothing was decided — the control plane could not be reached."
                 : "decided";
+        }
+
+        /// <summary>Records the share, so a test can assert what was asked for.</summary>
+        public string KeepBack(string allowance, double? share)
+        {
+            KeptBack.Add((allowance, share));
+            return "recorded";
         }
 
         public string Fly(string intent, string? repository)

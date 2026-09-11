@@ -175,6 +175,25 @@ public abstract record CliAction
     /// </remarks>
     public sealed record Allowances(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Sets or clears what an allowance's owners keep back.
+    /// </summary>
+    /// <remarks>
+    /// <b>Percentages on the way in, fractions on the wire.</b> A person says
+    /// "keep a third" as <c>--session 33</c>; the contract carries 0.33,
+    /// because a fraction has one spelling and a percentage has three.
+    /// </remarks>
+    public sealed record AllowanceFloor(
+        // `Name` rather than `Allowance`: CliAction.Allowance is the local
+        // read verb, and a positional parameter of that name collides with the
+        // nested type.
+        string Name, int? SessionPercent, int? WeekPercent, bool Json)
+        : CliAction, IEmitsResult;
+
+    /// <summary>Spends a floor somebody else set, for a while, with a reason.</summary>
+    public sealed record AllowanceOverride(
+        string Name, int Minutes, string Reason, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -408,6 +427,8 @@ public static class CliArgs
         "gg config accept <version>     take the offer you just read, by version",
         "gg allowance                   what the allowance this machine spends from has left",
         "gg allowances                  what every allowance in the fleet has left",
+        "gg allowances floor <name> [--session <pct>] [--week <pct>] | --clear  keep a share back",
+        "gg allowances override <name> --minutes <n> --reason <why>  spend somebody's floor",
         "gg doctor                      check what gg needs to work",
         "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",
@@ -581,6 +602,14 @@ public static class CliArgs
             ["invite"] => new CliAction.Invite(json),
             ["allowance"] => new CliAction.Allowance(json),
             ["allowances"] => new CliAction.Allowances(json),
+
+            // PLURAL FOR THE FLEET, and these write to it. The singular verb
+            // reads this machine's own transcripts and contacts nothing, so
+            // putting a fleet write under it would make one word mean both.
+            ["allowances", "floor", var floorOf, .. var floorArgs] =>
+                Floor(floorOf, floorArgs, json),
+            ["allowances", "override", var spendOf, .. var spendArgs] =>
+                Override(spendOf, spendArgs, json),
             ["doctor"] => new CliAction.Doctor(json),
             ["update"] => new CliAction.Update(json),
             ["bundle"] => new CliAction.Bundle(json),
@@ -915,6 +944,109 @@ public static class CliArgs
     /// Naming what was typed matters: "unknown command" alone makes a typo in a
     /// script something you find by bisecting.
     /// </remarks>
+    /// <summary>
+    /// A floor from percentages, or a refusal naming what went wrong.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>--clear</c> is its own spelling rather than "no options".</b>
+    /// Somebody who typed the command and forgot the share meant to set one,
+    /// and silently clearing their floor is the worst available answer.
+    /// </remarks>
+    private static CliAction Floor(string allowance, string[] rest, bool json)
+    {
+        int? session = null;
+        int? week = null;
+        var clear = false;
+
+        for (var i = 0; i < rest.Length; i++)
+        {
+            switch (rest[i])
+            {
+                case "--clear":
+                    clear = true;
+                    break;
+
+                case "--session" when i + 1 < rest.Length:
+                    if (!int.TryParse(rest[++i], out var s))
+                    {
+                        return Unknown($"'--session' takes a whole percentage, not '{rest[i]}'.");
+                    }
+
+                    session = s;
+                    break;
+
+                case "--week" when i + 1 < rest.Length:
+                    if (!int.TryParse(rest[++i], out var w))
+                    {
+                        return Unknown($"'--week' takes a whole percentage, not '{rest[i]}'.");
+                    }
+
+                    week = w;
+                    break;
+
+                case "--json":
+                    json = true;
+                    break;
+
+                default:
+                    return Unknown($"'{rest[i]}' is not something `gg allowances floor` takes.");
+            }
+        }
+
+        if (clear && (session is not null || week is not null))
+        {
+            return Unknown(
+                "'--clear' and a share are opposite instructions. Pass one or the other.");
+        }
+
+        if (!clear && session is null && week is null)
+        {
+            return Unknown(
+                "Say what to keep back - '--session 33', '--week 25', or both - or '--clear' "
+              + "to keep nothing. An empty floor and a cleared one are the same state, and "
+              + "guessing which you meant would clear a reserve you were setting.");
+        }
+
+        return new CliAction.AllowanceFloor(allowance, session, week, json);
+    }
+
+    private static CliAction Override(string allowance, string[] rest, bool json)
+    {
+        var minutes = 0;
+        var reason = "";
+
+        for (var i = 0; i < rest.Length; i++)
+        {
+            switch (rest[i])
+            {
+                case "--minutes" when i + 1 < rest.Length:
+                    if (!int.TryParse(rest[++i], out minutes))
+                    {
+                        return Unknown($"'--minutes' takes a whole number, not '{rest[i]}'.");
+                    }
+
+                    break;
+
+                case "--reason" when i + 1 < rest.Length:
+                    reason = rest[++i];
+                    break;
+
+                case "--json":
+                    json = true;
+                    break;
+
+                default:
+                    return Unknown($"'{rest[i]}' is not something `gg allowances override` takes.");
+            }
+        }
+
+        return minutes < 1 || string.IsNullOrWhiteSpace(reason)
+            ? Unknown(
+                "An override needs '--minutes' and '--reason'. It spends somebody else's "
+              + "allowance, and they read the reason - so there is no default for either.")
+            : new CliAction.AllowanceOverride(allowance, minutes, reason, json);
+    }
+
     private static CliAction.Unknown Unknown(string problem) =>
         new(problem + Environment.NewLine + Environment.NewLine
           + "usage:" + Environment.NewLine

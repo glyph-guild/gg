@@ -59,7 +59,28 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
     // second, narrower answer to a question the menu already answers. Both are
     // still writable; they are simply written because somebody asked for them.
     private const string TagsField = "System.Tags";
-    private const string PriorityField = "Microsoft.VSTS.Common.Priority";
+    /// <summary>
+    /// Where a <c>score</c> proposal lands on this tracker.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public because something else has to say it, and a copy would go
+    /// stale.</b> A score proposal carries a bare value and no field path —
+    /// there is nothing in the document for a destination to bound — so this
+    /// adapter decides where it goes, once, for every tenant. That is
+    /// invisible from the envelope: <c>may-perform: [score]</c> with no
+    /// <c>may-write</c> is valid, applies, and writes THIS field, so somebody
+    /// who meant a field of their own gets one nothing refused and nothing
+    /// mentioned.
+    /// <para>
+    /// <c>describe_airspace</c> tells a drafting agent so, reading the name
+    /// from here rather than repeating it. Whether the destination should get
+    /// to choose is a question for this adapter and the contract's own remark
+    /// on <c>WorkItemOperations.Score</c>, which says a tracker <i>may</i>
+    /// hold a score in an ordinary field — as though the choice were
+    /// somebody's to make.
+    /// </para>
+    /// </remarks>
+    public const string PriorityField = "Microsoft.VSTS.Common.Priority";
 
     /// <summary>
     /// What a created item is tagged with, so a retry can find it.

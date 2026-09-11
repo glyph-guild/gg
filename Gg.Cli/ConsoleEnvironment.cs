@@ -114,6 +114,16 @@ public static class ConsoleEnvironment
          + "apply act on whatever directory you are in, which is why the doctor says "
          + "so."),
 
+        Of("GG_ALLOWANCE", file, environment,
+           "which allowance this machine spends from - a name its owner chose, never an "
+         + "account. Unset means this machine reports none, because an allowance nobody "
+         + "named is one nobody agreed to lend."),
+
+        Of("GG_ALLOWANCE_LIMITS", file, environment,
+           "the ceilings that allowance is measured against, like "
+         + "session=88000,week=2400000. Nothing on the machine records them, so an unset "
+         + "one means tokens are counted and no percentage is claimed."),
+
         // AND THE FOUR THE FILE CANNOT CARRY, said rather than left out.
         Of("XDG_CONFIG_HOME", file, environment,
            "where the session, the credential store and this configuration live. "

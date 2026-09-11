@@ -1193,10 +1193,7 @@ public static class PlatformToolServer
         }
 
         said.AppendLine();
-        said.AppendLine(
-            "A NARROWING HAS ONE KEY: `obligations`. There is no member for changing or "
-          + "removing what a layer above declared - that is enforced by the document's "
-          + "shape, not by a check. At least one obligation is required.");
+        Vocabulary(said);
         said.AppendLine();
         said.AppendLine(
             "WHAT YOU WRITE DECIDES WHETHER IT LANDS. Adding an obligation TIGHTENS: it "
@@ -1241,6 +1238,176 @@ public static class PlatformToolServer
 
         return Content(id, isError: false, said.ToString().TrimEnd());
     }
+
+    /// <summary>
+    /// What a document can actually say, key by key and value by value.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A KEY NOBODY NAMES IS A KEY NOBODY WRITES.</b> An agent drafting here
+    /// can read the tenant's own documents, which show the keys that tenant
+    /// happens to use — a fraction of the schema — and there is nothing else
+    /// in the working copy to read. The rest of the vocabulary lives in a
+    /// repository the agent is not standing in.
+    /// </para>
+    /// <para>
+    /// <b>EVERY CLOSED LIST IS READ FROM THE CONTRACT, never typed.</b> The
+    /// parser refuses a value outside them, so a list written by hand here
+    /// would eventually tell an agent to write something that cannot be
+    /// applied — and the agent would believe the tool over the refusal. Seven
+    /// of them, and each is the same list the validator checks against.
+    /// </para>
+    /// <para>
+    /// <b>Plain terms, because this is read by something explaining it to
+    /// somebody.</b> The types' own remarks are written for a person editing
+    /// the contract; what is wanted here is what the key DOES on a flight.
+    /// </para>
+    /// </remarks>
+    private static void Vocabulary(StringBuilder said)
+    {
+        said.AppendLine(
+            "WHAT AN ENVELOPE IS, in plain terms. It is this tenant's standing rules for "
+          + "work that agents do. Every unit of work is a FLIGHT; before a flight starts, "
+          + "the documents here are COMPOSED into one envelope that governs it - what it "
+          + "may touch, what it may do, what must be true before it lands, and who has to "
+          + "say yes. An obligation whose check is human becomes a GATE: the flight stops "
+          + "and waits for the named APPROVER. Changing these documents is itself a "
+          + "flight, and a change that gives away reach opens a gate of its own.");
+        said.AppendLine();
+
+        said.AppendLine(
+            "HOW THE LAYERS STACK. `root` is the tenant floor and there is exactly one. A "
+          + "`work-kind` covers one kind of work and applies to flights of that kind. A "
+          + "`narrowing` adds obligations to a slice of the airspace. They compose: a "
+          + "flight is governed by the root plus whichever of the others attach to it, "
+          + "and obligations UNION - every one that attaches must hold. A `strategy` is "
+          + "not part of that stack at all; it describes the machines work runs on.");
+        said.AppendLine();
+
+        said.AppendLine(
+            "A NARROWING HAS ONE KEY: `obligations`. There is no member for changing or "
+          + "removing what a layer above declared - that is enforced by the document's "
+          + "shape, not by a check. At least one obligation is required.");
+        said.AppendLine();
+
+        said.AppendLine("WHAT A ROOT OR A WORK-KIND MAY SAY. Every key, and what it does:");
+        said.AppendLine();
+        said.AppendLine(
+            "  context:            what this envelope is bound to.");
+        said.AppendLine(
+            "    scope:            a glob. Files outside it are out of bounds for every "
+          + "flight this governs.");
+        said.AppendLine(
+            "    constitution:     which version of the platform's own rules this was "
+          + "written against.");
+        said.AppendLine(
+            "  environments:       which environments flights may run against. A list, or "
+          + "one name.");
+        said.AppendLine(
+            "  repositories:       which repositories they may work in. A list, or one "
+          + "name.");
+        said.AppendLine(
+            "  environment: / repository:   the older singular spellings of those two. "
+          + "Read so old documents still parse; do not write them.");
+        said.AppendLine(
+            "  accepts: / produces:   for a work kind, what it takes in and what it hands "
+          + "back.");
+        said.AppendLine(
+            "  instructions:       sentences handed to the agent on every flight this "
+          + "governs. This is how a tenant tells agents how to behave without changing "
+          + "any code.");
+        said.AppendLine(
+            "  obligations:        what must hold. Keyed by name; the name is how a loop "
+          + "or a destination refers to it.");
+        said.AppendLine(
+            $"    check:            {Either(Gg.Contracts.ObligationChecks.All)}. A machine "
+          + "check runs; a human check becomes a gate somebody answers.");
+        said.AppendLine(
+            $"    rule:             for a machine check, which check runs. "
+          + $"{Either(Gg.Contracts.ObligationPredicates.All)}. Required for machine, "
+          + "refused on human.");
+        said.AppendLine(
+            "    approver:         for a human check, who may answer it. Required for "
+          + "human, refused on machine - a gate nobody was named to answer is a flight "
+          + "that waits for ever.");
+        said.AppendLine(
+            "    when:             when this obligation applies at all. Left out, it "
+          + "always does. It is a condition over what the flight actually did, so the "
+          + "obligation finds the work rather than somebody remembering to tag it: "
+          + $"\"{Gg.Contracts.AttachmentConditions.TouchesPrefix}<glob>\" attaches to "
+          + "flights that changed matching files, and "
+          + $"\"{Gg.Contracts.AttachmentConditions.Widens}\" attaches to envelope "
+          + "changes that give away reach.");
+        said.AppendLine(
+            $"    evidence:         what the gate must be shown before anybody can answer "
+          + $"it. Any of: {string.Join(", ", Gg.Contracts.EvidenceItems.All)}. A flight "
+          + "that cannot produce a declared item stops rather than presenting a gate "
+          + "with a hole in it.");
+        said.AppendLine(
+            "  loops:              how the work is actually done. Keyed by name.");
+        said.AppendLine(
+            $"    executor:         which rung runs it. {Either(Gg.Contracts.ExecutorRungs.All)}.");
+        said.AppendLine(
+            "    discharges:       which obligations this loop satisfies by running.");
+        said.AppendLine(
+            $"    moves:            what the agent is permitted to do. Any of: "
+          + $"{string.Join(", ", Gg.Contracts.LoopMoves.All)}.");
+        said.AppendLine(
+            "    budget:           how much the loop gets.");
+        said.AppendLine(
+            "      wall-clock:     a whole number of seconds, minutes or hours - \"20m\".");
+        said.AppendLine(
+            "      attempts:       how many tries, when that is the limit that matters.");
+        said.AppendLine(
+            $"    on-exhaustion:    what happens when the budget runs out. "
+          + $"{Either(Gg.Contracts.ExhaustionPolicies.All)}.");
+        said.AppendLine(
+            "  destinations:       where finished work goes. Keyed by name.");
+        said.AppendLine(
+            $"    kind:             {Either(Gg.Contracts.DestinationKinds.All)}.");
+        said.AppendLine(
+            "    requires:         obligations that must hold before anything lands here.");
+        said.AppendLine(
+            "    opens:            which gates landing here opens.");
+        said.AppendLine(
+            "    may-perform:      what may be done at this destination.");
+        said.AppendLine(
+            "    may-write:        which fields may be written there.");
+        said.AppendLine(
+            "    may-select:       what may be chosen there - `environments:` and "
+          + "`repositories:` under it.");
+        said.AppendLine(
+            "    preserve-unadmitted:   whether work nobody admitted is kept rather than "
+          + "discarded.");
+        said.AppendLine();
+
+        said.AppendLine(
+            "WHAT A STRATEGY SAYS. Not rules about work at all: it describes the machines "
+          + "work runs on, for one environment.");
+        said.AppendLine("  image:            which image a machine is built from.");
+        said.AppendLine("  size:             how big it is.");
+        said.AppendLine("  pool:             which pool it comes from.");
+        said.AppendLine("  pool-max:         how many that pool may hold.");
+        said.AppendLine("  warm:             how many are kept ready.");
+        said.AppendLine("  inventory:        what is available to draw on.");
+        said.AppendLine("  pull-point:       where machines are drawn from.");
+        said.AppendLine("  active-hours:     when they may run.");
+        said.AppendLine("  bounds:           the limits the whole of it sits inside.");
+    }
+
+    /// <summary>A closed list, as "a or b" rather than as a bare enumeration.</summary>
+    /// <remarks>
+    /// From the contract every time. A list typed here would eventually tell an
+    /// agent to write a value the parser refuses — and the agent would believe
+    /// the tool over the refusal, because the tool spoke first.
+    /// </remarks>
+    private static string Either(IReadOnlyList<string> values) =>
+        values.Count switch
+        {
+            0 => "nothing",
+            1 => values[0],
+            _ => string.Join(", ", values.Take(values.Count - 1)) + " or " + values[^1],
+        };
 
     /// <summary>What is in the working copy, and one document in full.</summary>
     /// <remarks>

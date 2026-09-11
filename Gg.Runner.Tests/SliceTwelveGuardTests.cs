@@ -141,7 +141,20 @@ public class SliceTwelveGuardTests
     /// this is the shape 0.23.0 records for <c>flight.nomination</c>, a fact
     /// type growing a member, and not a fourteenth kind.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.29.0";
+    /// <para>
+    /// <b>And to 0.30.0 — MEMBERS again, and on the fact that already reported
+    /// everything else measured.</b> <c>loop.outcome</c> gains four token
+    /// counts, read off the <c>usage</c> block that has been on the executor's
+    /// result record the whole time. <c>ExecutorCapabilities.ReportsTokens</c>
+    /// was deleted at slice twenty because nothing consumed it, and the control
+    /// plane's own <c>LoopBudgetTests</c> has claimed in prose ever since that
+    /// tokens are reported while asserting only attempts. The count below is
+    /// unchanged, which is the thing this guard is for: an allowance READING
+    /// is not a fact and did not become one — it has no flight, so it gets its
+    /// own record and its own prefix, which is the attestation's argument that
+    /// the count guard above was written to defend.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.30.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

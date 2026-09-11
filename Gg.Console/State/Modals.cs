@@ -43,6 +43,7 @@ public static class Modals
         UiMode.ConfirmApply,
         UiMode.GateDecision,
         UiMode.SignIn,
+        UiMode.ReadingEnvelope,
         UiMode.ComposeChoice,
     ];
 

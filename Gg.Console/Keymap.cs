@@ -493,6 +493,14 @@ public static class Keymap
                 { Label = "Leave it" },
         ],
 
+        // READING, NOT ANSWERING, so there is nothing to label and no
+        // button row: Keymap.Buttons wants every non-Esc answer labelled and
+        // gives none otherwise, which is right for a document.
+        UiMode.ReadingEnvelope =>
+        [
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.ConfirmApply =>
         [
             new(KeyStroke.Char('y'), Command.ApplyEstate, "apply them")
@@ -773,6 +781,22 @@ public static class Keymap
                     // letter for the same thing one pane over would be the
                     // drift a single keymap exists to prevent.
                     new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent")
+                        { When = "while the airspace tab is showing" },
+
+                    // `v' FOR THE VIEW, AND ONE LETTER RATHER THAN TWO. The
+                    // changeset wants a key as much as the envelope does, and
+                    // `d' - the obvious one for a diff - is `decide' in
+                    // Normal mode, so a second letter here would spend one of
+                    // the four that are left. This opens a reading modal and
+                    // the letters INSIDE it switch view, which is HostedBar's
+                    // shape and its reason: inside a modal the letters are
+                    // free.
+                    //
+                    // AND A TAB-SCOPED `d' WOULD NEVER HAVE FIRED. Resolve
+                    // answers the FIRST match and Normal mode's `d' is
+                    // declared above this spread, so one added here would be
+                    // unreachable - the trap a red test caught for `enter'.
+                    new(KeyStroke.Char('v'), Command.ReadEnvelope, "read the rules")
                         { When = "while the airspace tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse

@@ -178,9 +178,12 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(5)
-            .Because("five tables, and the count is here so a sixth has to come past this.");
-        await Assert.That(wired).IsEqualTo(4)
+        await Assert.That(built).IsEqualTo(6)
+            .Because("six tables, and the count is here so a seventh has to come past this. "
+                   + "The sixth is the airspace tree, which replaced a Label that rendered "
+                   + "a hand-counted role column - the last list-of-things pane to get a "
+                   + "table.");
+        await Assert.That(wired).IsEqualTo(5)
             .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
                    + $"never learns about. Built {built}, wired {wired}.");
         await Assert.That(released).IsEqualTo(wired)

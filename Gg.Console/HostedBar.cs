@@ -149,12 +149,17 @@ public static class HostedBar
     /// unclamped.
     /// </param>
     /// <param name="most">How many rows the panel may take.</param>
+    /// <param name="columns">
+    /// How wide a row is, because a long line is several rows and how far a
+    /// body scrolls is a question about rows.
+    /// </param>
     public static HostedPanel Next(
         HostedPanel panel,
         HostedGesture gesture,
         ReadOnlySpan<byte> typed,
         string? body = null,
-        int most = 0)
+        int most = 0,
+        int columns = 0)
     {
         if (panel.Showing == HostedView.Closed)
         {
@@ -177,7 +182,7 @@ public static class HostedBar
 
         if (Scrolled(gesture, typed) is { } by)
         {
-            return panel with { Offset = Bounded(panel.Offset + by, body, most) };
+            return panel with { Offset = Bounded(panel.Offset + by, body, most, columns) };
         }
 
         if (gesture != HostedGesture.Typed || typed.Length != 1)
@@ -271,31 +276,39 @@ public static class HostedBar
     /// past the last the panel empties itself — which reads as a view that
     /// failed to load rather than as one scrolled too far.
     /// </remarks>
-    private static int Bounded(int offset, string? body, int most)
+    private static int Bounded(int offset, string? body, int most, int columns)
     {
         if (offset <= 0)
         {
             return 0;
         }
 
-        if (body is not { Length: > 0 } text)
+        if (body is not { Length: > 0 })
         {
             return offset;
         }
 
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
-
-        // ONE ROW FOR THE HEADER, and one line of body always left on screen.
+        // THE LAST LINE COMES TO REST AT THE BOTTOM, not at the top. Clamping
+        // to "one line left" empties the panel as the wheel turns, which is
+        // what it did: a window with room for eight could be scrolled until
+        // one was in it.
         //
-        // WITHOUT A BUDGET, the floor is the last line rather than a screenful
-        // of it: a caller that knows the body but not how tall the window is
-        // can still stop somebody scrolling into an empty panel, which is the
-        // failure worth preventing. Rows clamps again against what it is
-        // actually showing.
-        var floor = most > 1 ? lines - (most - 1) : lines - 1;
+        // COUNTED IN DISPLAY ROWS, because a long line is several and the
+        // render counts them that way. A clamp counting source lines stops
+        // early on exactly the documents worth scrolling.
+        var rows = Displayed(body, columns > 0 ? columns : int.MaxValue).Count;
 
-        return Math.Min(offset, Math.Max(floor, 0));
+        return Math.Min(offset, Math.Max(rows - Room(most), 0));
     }
+
+    /// <summary>How many rows of body a panel of this height shows.</summary>
+    /// <remarks>
+    /// One for the header at least, and one more for whichever of "… above"
+    /// or "… more" is on screen. Approximate on purpose: the header wraps, so
+    /// the exact number is not known until it is rendered — and <c>Rows</c>
+    /// clamps again against what it actually has room for.
+    /// </remarks>
+    private static int Room(int most) => Math.Max(most - 2, 1);
 
     /// <summary>
     /// The rows gg keeps: the status, and what is open under it.
@@ -341,17 +354,12 @@ public static class HostedBar
             columns,
             Math.Max(most - 1, 1)));
 
-        var all = (body ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        // WRAPPED, LIKE THE STATUS ABOVE IT. Handed over whole, a long line is
+        // cut at the terminal's edge by the painter - and the rules in force
+        // are what this panel exists to show.
+        var all = Displayed(body, columns);
 
-        // THE WINDOW THE OFFSET NAMES. Clamped again here rather than trusted,
-        // because the offset is state a caller holds and the body it was
-        // scrolled against can have been replaced since - the envelope is
-        // re-read between sessions and the intent appears when an agent
-        // submits.
-        var from = Math.Clamp(panel.Offset, 0, Math.Max(all.Length - 1, 0));
-        var lines = all[from..];
-
-        if (lines.Length == 0)
+        if (all.Count == 0)
         {
             // SAID RATHER THAN LEFT BLANK. A view with nothing in it and a view
             // that failed to load are the same empty panel, and only one of them
@@ -360,28 +368,55 @@ public static class HostedBar
             return rows;
         }
 
-        // The header is however many rows it took, and one more may be needed
-        // to say what was cut, so the body gets what is left after both.
-        var room = most - rows.Count;
-        var fits = lines.Length <= room ? lines.Length : Math.Max(room - 1, 0);
+        // WHAT IS LEFT AFTER THE HEADER, which wraps and so is not one row.
+        // Nothing left means the header filled the budget: a body row added
+        // here is a row painted over the child.
+        var available = most - rows.Count;
+
+        if (available <= 0)
+        {
+            return rows;
+        }
+
+        // THE MARKER COMES OUT OF THE BUDGET, not on top of it. It is only
+        // needed when something is off screen, which is not known until the
+        // window is chosen - so the room is reserved when the body cannot
+        // fit whole from the top, and given back when it can.
+        var whole = Displayed(body, columns).Count <= available && panel.Offset <= 0;
+        var room = whole ? available : Math.Max(available - 1, 0);
+
+        // THE WINDOW THE OFFSET NAMES, clamped here rather than trusted: the
+        // offset is state a caller holds and the body can have been replaced
+        // since - the envelope is re-read between sessions and the intent
+        // appears when an agent submits.
+        //
+        // CLAMPED SO THE LAST ROWS FILL THE WINDOW rather than leaving one
+        // line in it. Scrolled to the end, what you want is the end on screen,
+        // not the end at the top of an otherwise empty panel.
+        var from = Math.Clamp(panel.Offset, 0, Math.Max(all.Count - room, 0));
+        var lines = all[from..];
+        var fits = Math.Min(lines.Count, room);
 
         rows.AddRange(lines.Take(fits));
 
-        if (fits < lines.Length)
+        // BOTH ENDS, ON ONE ROW. Counted, because four instructions out of six
+        // read exactly like four out of four - and while somebody is moving,
+        // how far they have come is as much of the answer as how much is left.
+        // "n above" used to appear only once nothing was left below, so in the
+        // middle of a long body nothing on screen said anything had gone past
+        // the top. One row rather than two, because every row gg keeps is one
+        // the child does not have.
+        var below = lines.Count - fits;
+
+        if (below > 0 || from > 0)
         {
-            // COUNTED, BECAUSE FOUR INSTRUCTIONS OUT OF SIX READ EXACTLY LIKE
-            // FOUR OUT OF FOUR. Silently truncating the rules in force is the
-            // one thing this panel must not do.
-            //
-            // AND IT SAYS HOW TO SEE THEM, which until the body could scroll
-            // was a taller window or nothing.
-            rows.Add($"… {lines.Length - fits} more — scroll, or make the window taller");
-        }
-        else if (from > 0)
-        {
-            // THE OTHER END. Scrolled to the bottom, nothing else says that
-            // what is on screen is not the whole of it.
-            rows.Add($"… {from} above");
+            rows.Add(string.Join("  ·  ", (string[])
+            [
+                .. from > 0 ? (string[])[$"… {from} above"] : [],
+                .. below > 0
+                    ? (string[])[$"… {below} more — scroll, or make the window taller"]
+                    : [],
+            ]));
         }
 
         return rows;
@@ -406,6 +441,32 @@ public static class HostedBar
     /// </para>
     /// </remarks>
     private static IReadOnlyList<string> Wrapped(string text, int columns, int most)
+    {
+        var rows = WrapOne(text, columns);
+
+        if (rows.Count <= most)
+        {
+            return rows;
+        }
+
+        // SAID RATHER THAN DROPPED, the way the body already does it. A bar
+        // that quietly stopped at the budget would be the defect this method
+        // exists to remove, one layer along.
+        var kept = rows.Take(Math.Max(most - 1, 0)).ToList();
+        kept.Add($"… {rows.Count - kept.Count} more — make the window taller");
+
+        return kept;
+    }
+
+    /// <summary>One line of text, as the rows a terminal that wide can show.</summary>
+    /// <remarks>
+    /// <b>Uncapped, because the body needs every row to count them.</b> How
+    /// far a body can be scrolled is a question about DISPLAY rows rather than
+    /// source lines — a single long line is several rows, and clamping
+    /// against the source count stops the scroll early on exactly the
+    /// documents worth scrolling.
+    /// </remarks>
+    private static List<string> WrapOne(string text, int columns)
     {
         var width = Math.Max(columns, 1);
 
@@ -433,12 +494,22 @@ public static class HostedBar
                 row.Clear();
             }
 
-            // A WORD WIDER THAN THE ROW, which no wrap can help: it goes on
-            // its own row and the painter trims what will not fit. The only
-            // loss left in this function.
+            // A WORD WIDER THAN THE ROW IS BROKEN ACROSS ROWS. It used to
+            // go on one row and be trimmed by the painter, which was a
+            // tolerable escape hatch for a status line and is not one for a
+            // body: an envelope carries globs, paths and conditions that are
+            // one long token, and losing the end of them is losing the part
+            // that says which files.
+            //
+            // Nothing is lost in this function now. Breaking mid-word is
+            // ugly and readable; cutting mid-word is neither.
             if (word.Length > width)
             {
-                rows.Add(word);
+                for (var at = 0; at < word.Length; at += width)
+                {
+                    rows.Add(word[at..Math.Min(at + width, word.Length)]);
+                }
+
                 continue;
             }
 
@@ -450,19 +521,20 @@ public static class HostedBar
             rows.Add(row.ToString());
         }
 
-        if (rows.Count <= most)
-        {
-            return rows;
-        }
-
-        // SAID RATHER THAN DROPPED, the way the body already does it. A bar
-        // that quietly stopped at the budget would be the defect this method
-        // exists to remove, one layer along.
-        var kept = rows.Take(Math.Max(most - 1, 0)).ToList();
-        kept.Add($"… {rows.Count - kept.Count} more — make the window taller");
-
-        return kept;
+        return rows;
     }
+
+    /// <summary>The body as the rows a terminal that wide will show it in.</summary>
+    /// <remarks>
+    /// <b>One place, because the scroll and the render have to agree.</b> If
+    /// the clamp counted source lines and the render counted display rows, the
+    /// end of a wrapped body would be unreachable — which is the shape the
+    /// offset was wrong in.
+    /// </remarks>
+    private static List<string> Displayed(string? body, int columns) =>
+        [.. (body ?? "")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .SelectMany(line => WrapOne(line, columns))];
 
     /// <summary>
     /// The row along the bottom, which is the only thing on screen that is

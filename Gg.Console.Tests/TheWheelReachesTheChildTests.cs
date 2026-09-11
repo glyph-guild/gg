@@ -101,6 +101,59 @@ public class TheWheelReachesTheChildTests
     }
 
     [Test]
+    public async Task Moving_over_the_bar_is_not_clicking_it()
+    {
+        // THE BAR POPPED OPEN ON HOVER, and this is why. Claude asks for 1003,
+        // any-event tracking, so the terminal reports every MOVEMENT of the
+        // pointer and not only its buttons - and a motion report ends in `M`
+        // exactly as a press does. Read as a press, every pixel of travel
+        // across gg's rows toggled the panel.
+        //
+        // The bit is 32. SGR packs the button in the low two bits and then
+        // flags above them: 4 shift, 8 meta, 16 control, 32 MOTION, 64 wheel.
+        // So 35 is "moved with nothing held" - a 3 that is not a button at all
+        // - and 32 is "moved with the left button down", which is a drag and
+        // still not a click.
+        foreach (var button in (int[])[32, 33, 34, 35])
+        {
+            var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3);
+
+            await Assert.That(read.Kind).IsEqualTo(MouseReading.Nothing)
+                .Because($"button {button} has the motion bit set, so the pointer went "
+                       + "over the bar rather than being pressed on it.");
+        }
+    }
+
+    [Test]
+    public async Task A_modifier_held_down_is_still_a_click()
+    {
+        // AND THE OTHER DIRECTION, because the fix is a bit test and the easy
+        // wrong version tests the whole number. 4, 8 and 16 are shift, meta
+        // and control - somebody holding one of those and clicking has still
+        // clicked.
+        foreach (var button in (int[])[4, 8, 16])
+        {
+            var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3);
+
+            await Assert.That(read.Kind).IsEqualTo(MouseReading.Toggle)
+                .Because($"button {button} is the left button with a modifier held, which "
+                       + "is a press.");
+        }
+    }
+
+    [Test]
+    public async Task Moving_below_the_bar_still_reaches_the_child()
+    {
+        // MOTION IS THE CHILD'S BUSINESS WHEREVER THE CHILD IS. It asked for
+        // any-event tracking, so dropping motion outside gg's rows would take
+        // away the hover highlighting it turned the mode on for.
+        var read = MouseInput.Read(Sgr(35, 5, 9), barRows: 3);
+
+        await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
+        await Assert.That(Text(read.Bytes)).IsEqualTo($"{Esc}[<35;5;6M");
+    }
+
+    [Test]
     public async Task Releasing_on_the_bar_does_nothing_so_one_click_is_one_toggle()
     {
         var read = MouseInput.Read(Sgr(0, 5, 2, pressed: false), barRows: 3);

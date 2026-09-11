@@ -104,20 +104,37 @@ public static class HostedBar
     /// How many rows gg may take. Each one costs the child a row, so this is the
     /// caller's budget rather than this type's choice.
     /// </param>
+    /// <param name="columns">
+    /// How wide one row is.
+    /// </param>
+    /// <remarks>
+    /// <b>THE STATUS WRAPS, because the painter cuts and says nothing.</b>
+    /// <c>PtyScreen.Paint</c> writes every row as <c>text[..columns]</c>, so a
+    /// status longer than the terminal is wide used to stop mid-word — the
+    /// drafting session's names three things in 160 characters and an eighty
+    /// column terminal showed the first two thirds of the first. The body has
+    /// been counted and reported since it was written; the row that is ALWAYS
+    /// there was the one nothing looked after.
+    /// </remarks>
     public static IReadOnlyList<string> Rows(
-        HostedView showing, string status, string body, int most)
+        HostedView showing, string status, string body, int most, int columns)
     {
         if (showing == HostedView.Closed || most <= 1)
         {
-            return [status];
+            return Wrapped(status, columns, most <= 0 ? 1 : most);
         }
 
         // THE WAY OUT IS ON THE ROW THAT IS ALWAYS THERE. A panel that appeared
         // with no exit named is one somebody quits the whole session to escape.
-        var rows = new List<string>
-        {
+        //
+        // AND IT WRAPS WITH THE STATUS IT IS PART OF, which is why the body's
+        // budget below is what is left after the header rather than after one
+        // row: a header that grew and a body that did not notice would push
+        // rows past the budget, and the painter drops those onto the child.
+        var rows = new List<string>(Wrapped(
             $"{status}  ·  {Name(showing)}  ·  e envelope · i intent · esc close",
-        };
+            columns,
+            Math.Max(most - 1, 1)));
 
         var lines = (body ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
@@ -130,9 +147,9 @@ public static class HostedBar
             return rows;
         }
 
-        // One row is the header and one may be needed to say what was cut, so
-        // the body gets what is left after both.
-        var room = most - 1;
+        // The header is however many rows it took, and one more may be needed
+        // to say what was cut, so the body gets what is left after both.
+        var room = most - rows.Count;
         var fits = lines.Length <= room ? lines.Length : Math.Max(room - 1, 0);
 
         rows.AddRange(lines.Take(fits));
@@ -146,6 +163,83 @@ public static class HostedBar
         }
 
         return rows;
+    }
+
+    /// <summary>One line of text, as the rows a terminal that wide can show.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>On spaces, never mid-word.</b> A path or a command broken across two
+    /// rows is one nobody can read off the screen and type — and the things
+    /// this bar says are mostly commands.
+    /// </para>
+    /// <para>
+    /// <b>A word longer than the row is cut, because there is nothing else to
+    /// do with it</b> — and it is the only case where anything is lost, which
+    /// is a far narrower claim than the one this replaces.
+    /// </para>
+    /// <para>
+    /// <b>Bounded by the budget.</b> Rows past what the caller reserved are
+    /// painted over the child's own output, so the last row gg keeps says how
+    /// much it could not show rather than running on.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<string> Wrapped(string text, int columns, int most)
+    {
+        var width = Math.Max(columns, 1);
+
+        if ((text ?? "").Length <= width)
+        {
+            return [text ?? ""];
+        }
+
+        var rows = new List<string>();
+        var row = new System.Text.StringBuilder();
+
+        foreach (var word in text!.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var next = row.Length == 0 ? word : $"{row} {word}";
+
+            if (next.Length <= width)
+            {
+                row.Clear().Append(next);
+                continue;
+            }
+
+            if (row.Length > 0)
+            {
+                rows.Add(row.ToString());
+                row.Clear();
+            }
+
+            // A WORD WIDER THAN THE ROW, which no wrap can help: it goes on
+            // its own row and the painter trims what will not fit. The only
+            // loss left in this function.
+            if (word.Length > width)
+            {
+                rows.Add(word);
+                continue;
+            }
+
+            row.Append(word);
+        }
+
+        if (row.Length > 0)
+        {
+            rows.Add(row.ToString());
+        }
+
+        if (rows.Count <= most)
+        {
+            return rows;
+        }
+
+        // SAID RATHER THAN DROPPED, the way the body already does it. A bar
+        // that quietly stopped at the budget would be the defect this method
+        // exists to remove, one layer along.
+        var kept = rows.Take(Math.Max(most - 1, 0)).ToList();
+        kept.Add($"… {rows.Count - kept.Count} more — make the window taller");
+
+        return kept;
     }
 
     private static string Name(HostedView showing) => showing switch

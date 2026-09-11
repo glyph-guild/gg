@@ -193,6 +193,26 @@ public interface IRunnerProtocol
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says what the allowance this machine spends from has left.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own call rather than a field on the beat, and the beat's own
+    /// remark is the reason.</b> A heartbeat is liveness only because a runner
+    /// able to report something about itself can report it while dead — and a
+    /// stale reading still saying <i>plenty left</i> is that hazard with
+    /// somebody's own allowance as the cost. The reading carries its own
+    /// <c>MeasuredAt</c> so the far side can see how old it is.
+    /// </para>
+    /// <para>
+    /// <b>202, and nothing comes back.</b> The write is a command; what the
+    /// control plane made of it is a read of its own.
+    /// </para>
+    /// </remarks>
+    Task ReportAllowanceAsync(
+        string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Asks for work. Two calls rather than one, deliberately.
     /// </summary>
     /// <remarks>

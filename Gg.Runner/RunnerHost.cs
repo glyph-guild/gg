@@ -182,6 +182,15 @@ public static class RunnerHost
         Execution.IExecutorPort? executor = null,
         IReadOnlyList<Gg.Local.IntentReader>? readers = null,
         IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
+
+        /// <summary>What this machine has spent, or null when it names no allowance.</summary>
+        /// <remarks>
+        /// <b>Built by the root and handed across</b>, like the trackers and
+        /// the destinations above it and for the same reason: one place reads
+        /// the environment, so a value in the configuration file and a value
+        /// in a variable cannot reach two different answers.
+        /// </remarks>
+        AllowanceReporter? allowance = null,
         string? flightId = null,
         Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null,
         // THE PRIVATE HALF OF THIS RUNNER'S REGISTERED KEY, or null. It lives on
@@ -294,6 +303,7 @@ public static class RunnerHost
             // leaves it, and Gg.Runner does not go looking for it. So a runner
             // that can be driven is one somebody wired to be.
             offered: offered,
+            allowance: allowance is null ? null : allowance.ReadAsync,
             attendedSessions: identityKey is null
                 ? null
                 : flightId => new AttendedSession(

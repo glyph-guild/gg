@@ -245,7 +245,19 @@ public sealed class RunnerLoop(
     // under another. The root decides what to do; the next startup applies.
     //
     // LAST and defaulted, for the reason beatPace above it is.
-    Action<Gg.Contracts.OfferedConfiguration>? offered = null)
+    Action<Gg.Contracts.OfferedConfiguration>? offered = null,
+    // WHAT THIS MACHINE HAS SPENT, asked on every beat and answering nothing
+    // most times. The cadence belongs to whatever the root wires here, because
+    // what it protects is the WALK across every transcript on the machine
+    // rather than the post.
+    //
+    // Null is a machine that reports no allowance, which is the state of every
+    // machine whose owner has not named one - and naming one is how somebody
+    // agrees to lend it. A default derived from the hostname would put a
+    // machine into a fleet's accounting without anybody saying so.
+    //
+    // LAST and defaulted, for the reason beatPace and offered above it are.
+    Func<DateTimeOffset, Task<Gg.Contracts.AllowanceReading?>>? allowance = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -353,6 +365,38 @@ public sealed class RunnerLoop(
     /// database blip, which is the defect this guard exists to close.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Posts a reading, when the root wired one and it is time for one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A refusal is swallowed, which is the heartbeat guard's argument one
+    /// surface along.</b> The control plane is the authority on liveness and on
+    /// what a machine has spent; a runner that stood itself down because a
+    /// reading was refused would have turned bookkeeping into an availability
+    /// dependency. Nothing downstream of this is load-bearing yet, and when
+    /// something is, the staleness of the last reading is what the far side
+    /// acts on - which it can see, because every reading says when it was
+    /// taken.
+    /// </remarks>
+    private async Task ReportAllowanceAsync(string runnerId, CancellationToken cancellationToken)
+    {
+        if (allowance is null) { return; }
+
+        try
+        {
+            if (await allowance(_clock.UtcNow) is { } reading)
+            {
+                await _protocol.ReportAllowanceAsync(runnerId, reading, cancellationToken);
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
     private async Task<TimeSpan> BeatAsync(
         string runnerId,
         IReadOnlyList<string> labels,
@@ -382,6 +426,18 @@ public sealed class RunnerLoop(
             {
                 offered?.Invoke(carried);
             }
+
+            // WHAT THIS MACHINE HAS SPENT, beside the beat and never inside
+            // it. The heartbeat is liveness only - a runner able to report
+            // something about itself can report it while dead - so this is its
+            // own post carrying its own MeasuredAt, and the far side can see
+            // how old a reading is instead of believing it.
+            //
+            // Reported while holding a flight too, unlike an offer. An offer
+            // invites a caller to end this process; a reading invites nothing,
+            // and the minutes a machine is busy are exactly the minutes its
+            // allowance is moving.
+            await ReportAllowanceAsync(runnerId, cancellationToken);
 
             // A SERVED BEAT CLEARS IT, so an hour of health does not inherit a
             // bad minute's wait.

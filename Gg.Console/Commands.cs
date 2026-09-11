@@ -149,6 +149,16 @@ public enum Command
     /// </remarks>
     ReadEnvelope,
 
+    /// <summary>Read what the working copy would change.</summary>
+    /// <remarks>
+    /// <b>Holds no I/O either.</b> The diff is already on the model — the
+    /// estate read fetches it on the same key that opens the tab — so this
+    /// opens a view of what is in hand. Reached from inside the reading modal
+    /// rather than from a key of its own, which is what keeps it off the four
+    /// Normal-mode letters that are left.
+    /// </remarks>
+    ReadChangeset,
+
     /// <summary>Open the field that says where the airspace is.</summary>
     /// <remarks>
     /// Holds no I/O at all, which is what lets it happen inside a session

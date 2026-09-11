@@ -57,7 +57,8 @@ public sealed class ConsoleScreen : Window
     private readonly Label _airspaceAbsent;
 
     /// <summary>
-    /// The rules in force, in the modal, as lines that scroll.
+    /// What is being read in the modal - the rules in force, or what would
+    /// change - as lines that scroll.
     /// </summary>
     /// <remarks>
     /// <b>A LIST RATHER THAN A LABEL, for the runner log's reason.</b> A
@@ -67,12 +68,12 @@ public sealed class ConsoleScreen : Window
     /// in this console scrolls a label. <c>TextView</c> is the widget that
     /// fits and 2.4.17 marks it obsolete, with warnings as errors here.
     /// </remarks>
-    private readonly ListView _envelopeSaid;
+    private readonly ListView _readingSaid;
 
     /// <summary>What is in the list now, so a redraw does not lose the scroll.</summary>
-    private IReadOnlyList<string>? _envelopeSaidShowing;
+    private IReadOnlyList<string>? _readingSaidShowing;
 
-    private readonly View _envelopeBody;
+    private readonly View _readingBody;
 
     /// <summary>
     /// Where the airspace is, and the ONE writable widget in this console.
@@ -771,13 +772,18 @@ public sealed class ConsoleScreen : Window
                 FlightDetails.IntentLines(State), _flightDetailsTab.Viewport.Height),
             _flightIntentPane);
 
-        // THE RULES IN FORCE, in a frame of its own so the list inside it can
-        // take focus - a nested container left as a plain View made the whole
-        // of the runner modal a picture.
-        _envelopeSaid = CollectionViews.List();
-        _envelopeSaid.ViewportChanged += OnEnvelopeResized;
+        // THE READING MODAL - the rules in force and what would change, which
+        // are ONE list showing whichever is open. Two lists would be two
+        // scroll positions, two wraps and two resize handlers for one box a
+        // person switches views inside with a letter.
+        //
+        // In a frame of its own so the list inside it can take focus - a
+        // nested container left as a plain View made the whole of the runner
+        // modal a picture.
+        _readingSaid = CollectionViews.List();
+        _readingSaid.ViewportChanged += OnReadingResized;
 
-        _envelopeBody = new View
+        _readingBody = new View
         {
             Width = Dim.Fill(),
             Height = Dim.Fill(),
@@ -786,9 +792,9 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
         };
 
-        _envelopeBody.Add(_envelopeSaid);
+        _readingBody.Add(_readingSaid);
 
-        _modal.Add(_modalBody, _flightBody, _runnerBody, _envelopeBody);
+        _modal.Add(_modalBody, _flightBody, _runnerBody, _readingBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -1838,12 +1844,15 @@ public sealed class ConsoleScreen : Window
         // there is never a frame with both.
         var flight = State.Mode is UiMode.FlightDetail;
         var runner = State.Mode is UiMode.Runner;
-        var rules = State.Mode is UiMode.ReadingEnvelope;
+        // EITHER READING VIEW DRAWS THE SAME LIST. Which one it is showing is
+        // PaneText's to answer, and it answers by mode - so this asks only
+        // whether a person is reading.
+        var reading = State.Mode is UiMode.ReadingEnvelope or UiMode.ReadingChangeset;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
-        _envelopeBody.Visible = rules;
-        _modalBody.Visible = !flight && !runner && !rules;
+        _readingBody.Visible = reading;
+        _modalBody.Visible = !flight && !runner && !reading;
 
         if (flight)
         {
@@ -1853,9 +1862,9 @@ public sealed class ConsoleScreen : Window
         {
             RenderRunner();
         }
-        else if (rules)
+        else if (reading)
         {
-            FillEnvelope();
+            FillReading();
         }
         else
         {
@@ -2093,34 +2102,46 @@ public sealed class ConsoleScreen : Window
         _runnerSaid.SetSource(new ObservableCollection<string>(lines));
     }
 
-    /// <summary>The frame changed width, so the lines have to be broken again.</summary>
-    /// <summary>The rules in force, wrapped to the box they are in.</summary>
+    /// <summary>
+    /// Whichever of the two readings is open, wrapped to the box it is in.
+    /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Only when the lines change</b>, because setting a list's source
     /// resets where a person had scrolled to and <c>Render</c> runs once a
     /// second for the countdown.
+    /// </para>
+    /// <para>
+    /// <b>Which also means a view switch scrolls back to the top, and that is
+    /// right.</b> Pressing <c>d</c> is asking a different question; landing
+    /// forty rows into the answer would be the list's old position pretending
+    /// to be a place in the new document.
+    /// </para>
     /// </remarks>
-    private void FillEnvelope()
+    private void FillReading()
     {
-        var lines = PaneText.EnvelopeLines(State, _envelopeSaid.Viewport.Width);
+        var lines = State.Mode is UiMode.ReadingChangeset
+            ? PaneText.ChangesetLines(State, _readingSaid.Viewport.Width)
+            : PaneText.EnvelopeLines(State, _readingSaid.Viewport.Width);
 
-        if (_envelopeSaidShowing is not null && _envelopeSaidShowing.SequenceEqual(lines))
+        if (_readingSaidShowing is not null && _readingSaidShowing.SequenceEqual(lines))
         {
             return;
         }
 
-        _envelopeSaidShowing = lines;
-        _envelopeSaid.SetSource(new ObservableCollection<string>(lines));
+        _readingSaidShowing = lines;
+        _readingSaid.SetSource(new ObservableCollection<string>(lines));
     }
 
-    private void OnEnvelopeResized(object? sender, EventArgs args)
+    /// <summary>The frame changed width, so the lines have to be broken again.</summary>
+    private void OnReadingResized(object? sender, EventArgs args)
     {
-        if (State.Mode is not UiMode.ReadingEnvelope)
+        if (State.Mode is not (UiMode.ReadingEnvelope or UiMode.ReadingChangeset))
         {
             return;
         }
 
-        FillEnvelope();
+        FillReading();
     }
 
     private void OnRunnerLogResized(object? sender, EventArgs args)
@@ -2425,7 +2446,7 @@ public sealed class ConsoleScreen : Window
             _runnersTable.KeyDown -= OnTableKeyDown;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
-            _envelopeSaid.ViewportChanged -= OnEnvelopeResized;
+            _readingSaid.ViewportChanged -= OnReadingResized;
 
             // ALL FOUR, and three of them were missed. The file already let go
             // of the key handler and the queue's, so the convention was there

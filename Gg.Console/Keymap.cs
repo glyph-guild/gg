@@ -493,11 +493,25 @@ public static class Keymap
                 { Label = "Leave it" },
         ],
 
-        // READING, NOT ANSWERING, so there is nothing to label and no
+        // TWO VIEWS, REACHABLE FROM EACH OTHER, which is HostedBar's shape
+        // and its reason: comparing what governs against what you are about to
+        // change is why both are here, and inside a modal the letters are
+        // free. `d' costs nothing here where it would have cost a Normal-mode
+        // letter - and a tab-scoped `d' would never have fired anyway, since
+        // Resolve answers the first match and Normal's is declared earlier.
+        //
+        // READING, NOT ANSWERING, so nothing is labelled and there is no
         // button row: Keymap.Buttons wants every non-Esc answer labelled and
         // gives none otherwise, which is right for a document.
         UiMode.ReadingEnvelope =>
         [
+            new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
+        UiMode.ReadingChangeset =>
+        [
+            new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
@@ -796,7 +810,13 @@ public static class Keymap
                     // answers the FIRST match and Normal mode's `d' is
                     // declared above this spread, so one added here would be
                     // unreachable - the trap a red test caught for `enter'.
-                    new(KeyStroke.Char('v'), Command.ReadEnvelope, "read the rules")
+                    // AND IT SAYS BOTH, because the second view is behind a
+                    // letter nobody can see from out here. "read the rules"
+                    // was the whole of what `v' did and is now half - a
+                    // person wanting to know what applying would change had
+                    // no reason to press it.
+                    new(KeyStroke.Char('v'), Command.ReadEnvelope,
+                            "read the rules or the diff")
                         { When = "while the airspace tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse

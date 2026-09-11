@@ -112,6 +112,25 @@ public enum UiMode
     /// </remarks>
     ReadingEnvelope,
 
+    /// <summary>
+    /// What the working copy would change, in the order apply will run it.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE SECOND VIEW OF ONE MODAL, and a mode rather than a flag because
+    /// <c>AppState.Mode</c> is what describes the screen.</b> It costs no
+    /// Normal-mode letter: <c>d</c> is <c>decide</c> out there and a
+    /// tab-scoped one would never fire, since <c>Keymap.Resolve</c> answers
+    /// the first match — so the switch lives inside the modal, where the
+    /// letters are free.
+    /// <para>
+    /// Reachable from <see cref="ReadingEnvelope"/> and back, because
+    /// comparing what governs against what you are about to change is why
+    /// both are here — <c>HostedBar</c>'s own argument for <c>e</c> and
+    /// <c>i</c>.
+    /// </para>
+    /// </remarks>
+    ReadingChangeset,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a

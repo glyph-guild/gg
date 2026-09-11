@@ -637,6 +637,140 @@ public static class PaneText
         ];
     }
 
+    /// <summary>
+    /// What the working copy would change, as the rows a modal that wide will
+    /// show them in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE DIFF'S OWN ORDER, NEVER RE-SORTED.</b> The diff verb already
+    /// sorted it — tightenings first, so no intermediate state is looser than
+    /// either endpoint (ADR-0016 § 7) — and a view listing changes in one
+    /// order while apply ran them in another would be a review of something
+    /// that never happens. Same reason the apply question gives, and the same
+    /// shape: this is that text with the two things it cannot say added, which
+    /// is why it is a second renderer rather than a copy.
+    /// </para>
+    /// <para>
+    /// <b>And the direction is read, never computed.</b> The diff is the one
+    /// place it is worked out, against the applied version the control plane
+    /// holds. A pane deciding for itself which way a document moved would be a
+    /// second opinion about whether something gates.
+    /// </para>
+    /// <para>
+    /// <b>THREE ABSENCES AND THEY ARE THREE SENTENCES.</b> A working copy that
+    /// matches is an answer; one that could not be compared is a failure with
+    /// a fix, and it says what the rows are showing meanwhile, because they
+    /// are showing something; nothing asked yet is a third. Only one of the
+    /// three is a thing to go and fix, and one line for all three would lose
+    /// exactly that — which is the distinction
+    /// <see cref="AirspaceAbsence"/> already makes for the tab.
+    /// </para>
+    /// <para>
+    /// <b>Width zero means do not wrap</b>, which is the state before layout
+    /// has given the list a viewport — wrapping to nothing would answer one
+    /// character per row.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> ChangesetLines(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var said = new List<string>();
+
+        if (state.Estate?.Working is not { } working)
+        {
+            // WHY THERE IS NOTHING, AND WHAT IS SHOWING INSTEAD. A diagnosis
+            // means somebody asked and was refused; its absence means nobody
+            // has asked yet.
+            said.Add(state.Estate?.Diagnosis is { Length: > 0 } why
+                ? "The working copy could not be compared: " + Clean(why)
+                : "The working copy has not been compared yet - press e, which reads it.");
+
+            said.Add("");
+            said.Add("Until then the rows show what git knows: which documents you have "
+                   + "edited since the pull that wrote them. Which way a change moves - and "
+                   + "so whether applying it lands or waits at a gate - is the control "
+                   + "plane's answer and needs a session.");
+
+            return Fitted(said, columns);
+        }
+
+        if (working.Changes.Count == 0
+            && working.Retiring.Count == 0
+            && working.Unreadable.Count == 0)
+        {
+            // THE APPLY QUESTION'S OWN SENTENCE, word for word, because it is
+            // the same fact and a person reads both.
+            said.Add("Nothing to apply: the working copy matches the airspace.");
+
+            return Fitted(said, columns);
+        }
+
+        if (working.Unreadable.Count > 0)
+        {
+            // FIRST, BECAUSE IT REFUSES EVERYTHING BELOW IT - and the apply
+            // question cannot say this at all: it reads Changes and Retiring
+            // and never Unreadable, so somebody answering yes there is told
+            // what would happen by an apply that is about to throw.
+            said.Add("These stop every apply until they are fixed:");
+
+            foreach (var path in working.Unreadable)
+            {
+                said.Add("  " + Clean(path));
+            }
+
+            said.Add("");
+        }
+
+        if (working.Changes.Count > 0)
+        {
+            said.Add("One flight per document, in the order they will land:");
+            said.Add("");
+
+            foreach (var change in working.Changes)
+            {
+                said.Add($"  {Clean(change.Name)} - {Clean(change.Direction)}"
+                       + (change.Field is { Length: > 0 } field
+                           ? $" ({Clean(field)})"
+                           : ""));
+
+                // THE DOOR'S OWN EXPLANATION, carried on DocumentChange since
+                // it was written and rendered by nothing until now. It is the
+                // difference between being told a document widens and knowing
+                // what to change so it does not.
+                if (change.Because is { Length: > 0 } because)
+                {
+                    said.Add("      " + Clean(because));
+                }
+
+                said.Add(string.Equals(
+                        change.Direction, Gg.Client.Changeset.Widening, StringComparison.Ordinal)
+                    ? "      opens a flight and waits at a gate"
+                    : "      lands");
+            }
+
+            said.Add("");
+        }
+
+        // AN INTENT WITH NOTHING BEHIND IT, and it says so. The retirement
+        // rank is declared and no client method calls a retirement endpoint -
+        // so apply reports these and performs none of them.
+        foreach (var name in working.Retiring)
+        {
+            said.Add($"  {Clean(name)} is missing from the tree - retiring a name is its own "
+                   + "gated change, and nothing here performs it.");
+        }
+
+        return Fitted(said, columns);
+    }
+
+    /// <summary>The same lines, broken to a box that wide.</summary>
+    private static IReadOnlyList<string> Fitted(IReadOnlyList<string> said, int columns) =>
+        columns <= 0
+            ? said
+            : [.. said.SelectMany(line => Wrapped(line, columns).Split('\n'))];
+
     public static string Estate(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1678,6 +1812,7 @@ public static class PaneText
         UiMode.ConfirmGround => "Ground this flight?",
         UiMode.ConfirmApply => "Apply the working copy?",
         UiMode.ReadingEnvelope => "the rules in force",
+        UiMode.ReadingChangeset => "what would change",
         UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
@@ -1753,7 +1888,7 @@ public static class PaneText
     /// </remarks>
     public static bool ModalIsADocument(UiMode mode) =>
         mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner
-             or UiMode.ReadingEnvelope;
+             or UiMode.ReadingEnvelope or UiMode.ReadingChangeset;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -1846,6 +1981,7 @@ public static class PaneText
             // is empty, and a mode that reaches it draws a title over nothing -
             // which is exactly what the ratchet beside this looks for.
             UiMode.ReadingEnvelope => string.Join('\n', EnvelopeLines(state, 0)),
+            UiMode.ReadingChangeset => string.Join('\n', ChangesetLines(state, 0)),
 
             UiMode.FlightDetail => FlightDetail(state),
             UiMode.HandFlight => HandFlight(state),

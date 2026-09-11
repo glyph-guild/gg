@@ -207,6 +207,13 @@ public class ProjectionParityTests
                              + "result like the three above - it needs no tree - so it is "
                              + "absent only until the estate pane it belongs on exists.",
 
+            ["NameRetired"] = "the answer to retiring a topology name, and it is never a "
+                            + "field on the model: it always rides a gate, so there is "
+                            + "nothing to project onto a pane - what it produces is a "
+                            + "FLIGHT, which the queue already shows. ConsoleRetire renders "
+                            + "it into the outcome modal, per name, saying that nothing is "
+                            + "gone until the gate opens.",
+
             // --- and one that is correct as it stands ---
             ["Bundle"] = "built FROM the state rather than into it, so there is nothing to "
                        + "project. S28.2-06 asserts what a bundle contains once the model is "

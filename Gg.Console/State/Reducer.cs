@@ -108,6 +108,7 @@ public static class Reducer
             Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),
             Command.ReadChangeset => Modal(state, UiMode.ReadingChangeset),
             Command.ReadOutcome => Modal(state, UiMode.ReadingOutcome),
+            Command.AskToRetire => Modal(state, UiMode.ConfirmRetire),
 
             // SET RATHER THAN TOGGLED, unlike the modals beside it: enter is
             // also the key that APPLIES inside the field, so a toggle would

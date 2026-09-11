@@ -169,6 +169,22 @@ public enum Command
     /// </remarks>
     ReadOutcome,
 
+    /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
+    /// <remarks>
+    /// Reduced in session - it opens a question and nothing else. `x` inside
+    /// the changeset view, where the names are listed: a deleted document has
+    /// no tree row, so there is nowhere else to put it, and inside a modal the
+    /// letter is free.
+    /// </remarks>
+    AskToRetire,
+
+    /// <summary>Retire them.</summary>
+    /// <remarks>
+    /// <b>A request per name, so it is the loop's.</b> A session may read a
+    /// local file and nothing else.
+    /// </remarks>
+    RetireNames,
+
     /// <summary>Open the field that says where the airspace is.</summary>
     /// <remarks>
     /// Holds no I/O at all, which is what lets it happen inside a session
@@ -697,6 +713,10 @@ public static class ShellCommands
         Command.EditConfiguration,
         Command.PullEstate,
         Command.ApplyEstate,
+
+        // A REQUEST PER NAME, and the one act here that removes
+        // governance rather than adding it.
+        Command.RetireNames,
         Command.DraftEstate,
         Command.SetAirspacePath,
 

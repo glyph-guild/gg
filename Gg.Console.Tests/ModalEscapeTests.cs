@@ -148,6 +148,16 @@ public class ModalEscapeTests
           + "flying anything, so the real decision lands where a person can still change it - "
           + "and abandoning the editor opens nothing either.",
 
+        [UiMode.ConfirmRetire] =
+            "opened by `x' INSIDE the changeset view, which `v' then `d' reach - so it is "
+          + "three keys from a fresh state and this test presses one. It is in a modal on "
+          + "purpose: the names it retires are the ones whose files are gone, so there is no "
+          + "tree row to point at, and `x' is forget-credential in Normal mode with the "
+          + "Envelope tab's spread declared earlier - a tab-scoped one would have shadowed "
+          + "it without saying so. RetiringIsReachableFromTheChangesetTests holds the chain "
+          + "and asserts the Normal-mode binding survives; escapability is covered above, "
+          + "because StateGenerator emits every UiMode.",
+
         [UiMode.ReadingOutcome] =
             "opened BY THE LOOP after an apply returns - Reducer.ApplyAnswered, called with "
           + "the terminal already back - so no key opens it from a fresh state and none "

@@ -118,6 +118,13 @@ return CliArgs.Parse(args) switch
     CliAction.AllowanceOverride spend => await EmitAsync(spend.Json, c => c.OverrideFloorAsync(
         spend.Name, spend.Minutes, spend.Reason)),
 
+    // AND IT ANSWERS WITH WHOAMI. The confirmation worth printing is what the
+    // control plane now says about the caller, which for the first grant in a
+    // tenant - the one a person makes to themselves - is the only way to see
+    // that it took.
+    CliAction.Admin admin => await EmitAsync(admin.Json,
+        c => c.AdminAsync(admin.PrincipalId, admin.Granted)),
+
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),

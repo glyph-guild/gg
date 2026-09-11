@@ -1864,6 +1864,15 @@ public static class VerbOutput
             $"  Expires:    {who.ExpiresAt:u}",
         };
 
+        // ONLY WHEN TRUE. Most people are not administrators, and a line
+        // reading "Administers: no" on every whoami would teach a reader to
+        // skip the one line that matters. Absent is the ordinary answer, which
+        // is also what the contract member's default means.
+        if (who.IsAdmin)
+        {
+            lines.Add("  Administers this tenant, so admin-only surfaces are offered.");
+        }
+
         foreach (var notice in who.Notices)
         {
             lines.Add("");

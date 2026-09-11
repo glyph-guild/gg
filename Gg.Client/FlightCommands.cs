@@ -354,6 +354,34 @@ public sealed class FlightCommands(
     public async Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));
 
+    /// <summary>
+    /// Grants or revokes administration, then answers with who this is.
+    /// </summary>
+    /// <remarks>
+    /// <b>It re-reads whoami rather than echoing.</b> The useful confirmation
+    /// is what the control plane now says about the caller - which is also the
+    /// only way to see a grant you made to YOURSELF take effect.
+    /// </remarks>
+    public async Task<VerbResult> AdminAsync(
+        string principalId, bool granted, CancellationToken cancellationToken = default)
+    {
+        var session = Session();
+
+        await _client.GrantAdminAsync(session, principalId, granted, cancellationToken);
+
+        // AND A LOST CONFIRMATION SAYS NOT TO RETRY. whoami answers null on a
+        // 401, so a session that expires between the grant and the read looks
+        // exactly like a failed verb - and the retry would hit the
+        // first-grant-only rule and be refused, which reads as "you were never
+        // allowed" rather than "you already did it".
+        return new VerbResult.Identity(
+            await _client.WhoAmIAsync(session, cancellationToken)
+            ?? throw new NotSignedInException(
+                "The grant landed, and this session expired before it could be confirmed. "
+              + "Run gg login and then gg whoami. Do not grant again: the first grant in a "
+              + "tenant is the only open one, and a second is refused."));
+    }
+
     /// <summary>What every allowance the fleet spends from has left.</summary>
     /// <remarks>
     /// <b>Not a plural of <c>gg allowance</c>.</b> That verb reads the

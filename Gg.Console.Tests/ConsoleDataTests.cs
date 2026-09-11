@@ -258,6 +258,20 @@ public class ConsoleDataTests
             // not configured to hand flights back", which is asserted deliberately in
             // gg:ConsoleTakeWiringTests rather than left ambiguous.
             "ReturnAsync",
+
+            // GRANTING ADMINISTRATION, and the console is the wrong door for a
+            // reason peculiar to this one. The fleet pane is GATED on the bit
+            // this sets, so the person who most needs the first grant - the one
+            // making a tenant's first administrator, to themselves - is
+            // standing in front of a console that shows them nothing. A key
+            // that appears only once you no longer need it is worse than no
+            // key.
+            //
+            // AND ITS ARGUMENT IS A PRINCIPAL ID, which is composed rather than
+            // picked: nothing in this console is written by typing, the same
+            // reason OverrideFloor is command-line-only. A runners pane offers
+            // machines, and a machine is not a person.
+            "AdminAsync",
         ];
         var expected = verbs.Where(v => !exempt.Contains(v)).ToList();
         var missing = expected.Where(v => !console.Contains(v)).ToList();

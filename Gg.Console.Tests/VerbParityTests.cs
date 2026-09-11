@@ -109,6 +109,17 @@ public class VerbParityTests
                           + "machine's own transcripts - a different question with the "
                           + "same word in it.",
 
+            // AND THE ONE VERB THE CONSOLE MAY NOT OFFER EVEN IN PRINCIPLE.
+            // The fleet pane is gated on the bit this sets, so a person making
+            // a tenant's first administrator is looking at a console that
+            // shows them nothing - the key would appear exactly when it is no
+            // longer needed. Its argument is also a principal id, composed
+            // rather than picked, and nothing here is written by typing.
+            ["Admin"] = "not reachable, deliberately: the console gates its admin surface "
+                      + "on the bit this sets, so the first grant in a tenant can only be "
+                      + "made from somewhere that is not gated. The command line is where "
+                      + "a principal id gets composed.",
+
             // --- the configuration verbs ---
             // READING IS REACHABLE, WRITING IS NOT YET. The Environment page in
             // help shows every setting with the source that answered, which is

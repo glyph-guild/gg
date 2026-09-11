@@ -43,11 +43,12 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheWheelReachesTheChildTests
 {
-    private const string Esc = "";
+    private const string Esc = "\u001b";
 
     private static byte[] Bytes(string text) => Encoding.UTF8.GetBytes(text);
 
-    private static string Text(ReadOnlySpan<byte> bytes) => Encoding.UTF8.GetString(bytes);
+    private static string Text(ReadOnlyMemory<byte> bytes) =>
+        Encoding.UTF8.GetString(bytes.Span);
 
     /// <summary>An SGR report: button, column, row, and pressed or released.</summary>
     private static byte[] Sgr(int button, int column, int row, bool pressed = true) =>
@@ -140,7 +141,7 @@ public class TheWheelReachesTheChildTests
         var read = MouseInput.Read(report, barRows: 3);
 
         await Assert.That(read.Kind).IsEqualTo(MouseReading.Forward);
-        await Assert.That(read.Bytes[5]).IsEqualTo((byte)(32 + 6))
+        await Assert.That(read.Bytes.Span[5]).IsEqualTo((byte)(32 + 6))
             .Because("the row byte carries the same offset the SGR row does.");
     }
 

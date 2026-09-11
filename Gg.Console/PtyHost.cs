@@ -123,6 +123,13 @@ public static class PtyHost
         var (columns, rows) = Fit(
             terminal, panel(Budget(terminal), Width(terminal)).Count);
 
+        // HOW MANY ROWS GG IS COVERING, read by the input loop to work out
+        // whose row a click is on. It changes when the panel opens, when the
+        // window is resized, and now that the bar wraps, when the window is
+        // made narrower - so it is a value the repaint keeps current rather
+        // than one computed once.
+        var barRows = terminal.Rows - rows;
+
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
         var options = new PtyOptions
@@ -140,11 +147,28 @@ public static class PtyHost
         // terminal before gg may have left mouse reporting, focus events or
         // bracketed paste on, and those arrive as escape sequences the child
         // never enabled and cannot interpret.
-        terminal.Paint($"{Esc}[?1000l{Esc}[?1002l{Esc}[?1003l{Esc}[?1004l{Esc}[?2004l");
+        //
+        // THROUGH THE SAME FUNCTION THAT TURNS THEM ON, so one place knows
+        // which modes exist. A list here and a list there is how a mode comes
+        // to be turned on and never turned off again.
+        terminal.Paint(MouseInput.Modes(
+            XTerm.Input.MouseTrackingMode.None,
+            XTerm.Input.MouseEncoding.Default,
+            focus: false,
+            paste: false));
 
         // The alternate screen, so the scrollback a person had before gg started
         // is still there after it ends.
         terminal.Paint($"{Esc}[?1049h{Esc}[2J");
+
+        // WHAT GG HAS TOLD THE TERMINAL ABOUT THE MOUSE, so the mirror below
+        // paints only on a change. Starts as what was just painted off, which
+        // is the truth at this moment.
+        var mirrored = MouseInput.Modes(
+            XTerm.Input.MouseTrackingMode.None,
+            XTerm.Input.MouseEncoding.Default,
+            focus: false,
+            paste: false);
 
         // RAW MODE AFTER THE FIRST PAINT, and the ordering is load-bearing: .NET
         // configures the terminal's termios when the console is first used, so
@@ -182,6 +206,7 @@ public static class PtyHost
             {
                 var kept = panel(Budget(terminal), Width(terminal));
                 var (width, height) = Fit(terminal, kept.Count);
+                barRows = terminal.Rows - height;
 
                 lock (screen)
                 {
@@ -219,7 +244,7 @@ public static class PtyHost
             // FORWARDING STARTS ONCE THERE IS SOMETHING TO REPAINT WITH. It
             // closes over Repaint, and a key arriving before the first frame
             // would paint from an emulator nothing had written to.
-            var typing = Forward(terminal, pty, took, Repaint, stopping.Token);
+            var typing = Forward(terminal, pty, took, Repaint, () => barRows, stopping.Token);
 
             // AND ON A TICK, BECAUSE GG'S OWN ROWS CHANGE WHEN THE CHILD IS
             // SILENT. Repainting only on output ties what gg has to say to the
@@ -284,6 +309,26 @@ public static class PtyHost
                 lock (screen)
                 {
                     emulator.Write(Encoding.UTF8.GetString(buffer, 0, read));
+
+                    // WHAT THE CHILD JUST ASKED THE EMULATOR FOR, PASSED ON.
+                    // Its requests land on the emulator and never on the
+                    // terminal, so a child that turned mouse reporting on was
+                    // asking something nobody heard - which is why the wheel
+                    // did nothing here and works everywhere else.
+                    //
+                    // ONLY WHEN IT CHANGES, because this runs per chunk and a
+                    // child that redraws is a child writing constantly.
+                    var wanted = MouseInput.Modes(
+                        emulator.MouseTrackingMode,
+                        emulator.MouseEncoding,
+                        emulator.SendFocusEvents,
+                        emulator.BracketedPasteMode);
+
+                    if (!string.Equals(wanted, mirrored, StringComparison.Ordinal))
+                    {
+                        mirrored = wanted;
+                        terminal.Paint(wanted);
+                    }
                 }
 
                 // OUTSIDE THE WRITE'S LOCK, because Repaint takes it itself -
@@ -379,6 +424,7 @@ public static class PtyHost
         IPtyConnection pty,
         Func<byte, bool> took,
         Action changed,
+        Func<int> barRows,
         CancellationToken stopping)
     {
         var keys = terminal.Keystrokes;
@@ -405,6 +451,45 @@ public static class PtyHost
                             // the paste would then be typed into it. A real
                             // keypress arrives alone, so that is the test - not
                             // perfect, and the honest bound on what this does.
+                            // A MOUSE REPORT BEFORE ANYTHING ELSE, because
+                            // it is the one input whose meaning depends on
+                            // WHERE it happened. Everything this does not
+                            // recognise comes back unchanged and falls through
+                            // to the paths below.
+                            var mouse = MouseInput.Read(
+                                new ReadOnlyMemory<byte>(typed, 0, read), barRows());
+
+                            if (mouse.Kind == MouseReading.Nothing)
+                            {
+                                continue;
+                            }
+
+                            if (mouse.Kind == MouseReading.Toggle)
+                            {
+                                // THE PREFIX KEY, ARRIVING BY MOUSE. Not a
+                                // second way of opening the panel but the same
+                                // one: the click goes through `took` as the
+                                // prefix byte, so a click and a keystroke take
+                                // one path through HostedBar.Next and cannot
+                                // come to disagree about what open means.
+                                if (took(HostedBar.Prefix))
+                                {
+                                    changed();
+                                }
+
+                                continue;
+                            }
+
+                            if (!mouse.Bytes.Span.SequenceEqual(typed.AsSpan(0, read)))
+                            {
+                                // MOVED ONTO THE CHILD'S OWN ROW. gg's bar
+                                // sits above it, so the row a person clicked
+                                // is not the row the child has.
+                                pty.WriterStream.Write(mouse.Bytes.Span);
+                                pty.WriterStream.Flush();
+                                continue;
+                            }
+
                             if (read == 1 && took(typed[0]))
                             {
                                 // NOT FORWARDED, and repainted at once rather

@@ -433,6 +433,46 @@ public class TheAgentIsToldHowEnvelopesWorkTests
     }
 
     [Test]
+    public async Task Naming_one_tracker_holds_only_while_there_is_one()
+    {
+        // THE PREMISE THE SCORE PARAGRAPH RESTS ON, asserted rather than
+        // hoped. It says where a score lands "on Azure DevOps", which is
+        // honest because WiqlWorkItemSink is the only IWorkItemSink there is.
+        // A second adapter makes that sentence incomplete in the quiet way:
+        // still true about ADO, silent about the other, and nothing on screen
+        // says which tracker the tenant reading it has.
+        //
+        // NO WORDING PREVENTS THAT - the shape of the sentence is fine, it is
+        // the number of adapters that changes underneath it. So the guard is
+        // over the number.
+        var at = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (at is not null && !File.Exists(Path.Combine(at.FullName, "Gg.sln")))
+        {
+            at = at.Parent;
+        }
+
+        var sinks = Directory
+            .EnumerateFiles(Path.Combine(at!.FullName, "Gg.Runner"), "*.cs",
+                SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                       StringComparison.Ordinal)
+                        && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                       StringComparison.Ordinal))
+            .Where(file => File.ReadAllText(file)
+                .Contains(": IWorkItemSink", StringComparison.Ordinal))
+            .Select(Path.GetFileNameWithoutExtension)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        await Assert.That(sinks).IsEquivalentTo((string?[])["WiqlWorkItemSink"])
+            .Because("describe_airspace names Azure DevOps as where a score lands, which "
+                   + "is a whole answer only while ADO is the only tracker gg writes to. A "
+                   + "second sink means that paragraph has to say which adapter a tenant "
+                   + "has, or stop naming one. Found: " + string.Join(", ", sinks));
+    }
+
+    [Test]
     public async Task It_says_what_an_envelope_is_for_in_words_anybody_reads()
     {
         // THE PART THAT IS NOT A SCHEMA. An agent asked "what does this

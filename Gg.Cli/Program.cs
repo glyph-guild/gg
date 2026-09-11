@@ -87,6 +87,11 @@ return CliArgs.Parse(args) switch
     // holds.
     CliAction.Allowance allowance => EmitLocal(allowance.Json, AllowanceNow),
 
+    // AND THE FLEET'S, WHICH IS A ROUND TRIP. The verb above contacts nothing;
+    // this one needs a session, because what every other machine reported is
+    // not a fact this disk holds.
+    CliAction.Allowances fleet => await EmitAsync(fleet.Json, c => c.AllowancesAsync()),
+
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),

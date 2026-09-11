@@ -415,61 +415,36 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         // though the destination chooses. The adapter chose once, for
         // everybody. Until that is a destination's to say, the only place an
         // agent can learn it is here.
+        //
+        // AND IT SAYS SO WITHOUT NAMING THE FIELD, which is the second
+        // assertion and it arrived as a correction. This paragraph named the
+        // forge and quoted the adapter's field path, and
+        // ProviderNeutralityTests failed the build over it - rightly: which
+        // tracker a tenant has is configuration this binary does not know, so
+        // a field name here is a guess about the reader dressed as an answer.
+        // The actionable half survives the removal intact, because it was
+        // never the field name - it is that the field is not yours to pick.
         var tree = Somewhere();
         try
         {
             var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
 
-            await Assert.That(said).Contains(
+            await Assert.That(said).Contains("DOES NOT WRITE A FIELD YOU NAME",
+                    StringComparison.Ordinal)
+                .Because("the silent write is the thing the validator cannot catch, so it "
+                       + "is the thing that has to be said. Said: " + said);
+
+            await Assert.That(said).DoesNotContain(
                     Gg.Runner.Intent.WiqlWorkItemSink.PriorityField, StringComparison.Ordinal)
-                .Because("where a score actually lands, read off the adapter that lands it "
-                       + "rather than typed - a field name copied into prose is one that "
-                       + "goes stale the first time the adapter is changed. Said: " + said);
+                .Because("and it is said without naming the field, READ OFF THE ADAPTER "
+                       + "rather than typed so this cannot go stale or be satisfied by a "
+                       + "paraphrase. A field path here asserts which tracker the reader "
+                       + "has, which gg does not know and must not claim. Said: " + said);
         }
         finally
         {
             tree.Delete(recursive: true);
         }
-    }
-
-    [Test]
-    public async Task Naming_one_tracker_holds_only_while_there_is_one()
-    {
-        // THE PREMISE THE SCORE PARAGRAPH RESTS ON, asserted rather than
-        // hoped. It says where a score lands "on Azure DevOps", which is
-        // honest because WiqlWorkItemSink is the only IWorkItemSink there is.
-        // A second adapter makes that sentence incomplete in the quiet way:
-        // still true about ADO, silent about the other, and nothing on screen
-        // says which tracker the tenant reading it has.
-        //
-        // NO WORDING PREVENTS THAT - the shape of the sentence is fine, it is
-        // the number of adapters that changes underneath it. So the guard is
-        // over the number.
-        var at = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (at is not null && !File.Exists(Path.Combine(at.FullName, "Gg.sln")))
-        {
-            at = at.Parent;
-        }
-
-        var sinks = Directory
-            .EnumerateFiles(Path.Combine(at!.FullName, "Gg.Runner"), "*.cs",
-                SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-                       StringComparison.Ordinal)
-                        && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-                       StringComparison.Ordinal))
-            .Where(file => File.ReadAllText(file)
-                .Contains(": IWorkItemSink", StringComparison.Ordinal))
-            .Select(Path.GetFileNameWithoutExtension)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-
-        await Assert.That(sinks).IsEquivalentTo((string?[])["WiqlWorkItemSink"])
-            .Because("describe_airspace names Azure DevOps as where a score lands, which "
-                   + "is a whole answer only while ADO is the only tracker gg writes to. A "
-                   + "second sink means that paragraph has to say which adapter a tenant "
-                   + "has, or stop naming one. Found: " + string.Join(", ", sinks));
     }
 
     [Test]

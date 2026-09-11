@@ -407,6 +407,19 @@ public sealed class ConsoleData(
         string root, bool declareNames, CancellationToken cancellationToken = default) =>
         _commands.AirspaceApplyAsync(root, declareNames, cancellationToken);
 
+    /// <summary>
+    /// `gg airspace retire` - retires one name, which opens a gate.
+    /// </summary>
+    /// <remarks>
+    /// <b>One name per call, and the caller loops.</b> Each retirement is its
+    /// own flight with its own approver, so a batch verb would be inventing a
+    /// transaction the control plane does not offer - and a partial failure
+    /// would have nothing to report per name.
+    /// </remarks>
+    public Task<VerbResult> RetireNameAsync(
+        string name, CancellationToken cancellationToken = default) =>
+        _commands.RetireNameAsync(name, cancellationToken);
+
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);

@@ -436,6 +436,8 @@ public static class CliArgs
         // the working-copy verbs beside it. Repositories are a different read
         // and the console is its only caller.
         "gg airspace show|pull|diff|apply  its names, and its working copy",
+        "    apply --declare-names        declare names it needs, under root, first",
+        "gg airspace retire <name>      retire a name - always opens a gate",
         "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
@@ -630,7 +632,7 @@ public static class CliArgs
               + "gg airspace name narrowing pci. The role is one of work-kind, narrowing or "
               + "strategy, and --under names the parent when it is not root."),
             ["airspace", ..] => Unknown(
-                "gg airspace takes show, pull, diff, apply or name."),
+                "gg airspace takes show, pull, diff, apply, name or retire."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),

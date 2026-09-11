@@ -1479,6 +1479,25 @@ static async Task<int> LaunchConsoleAsync()
             };
         },
 
+        // THE ONE ACT THAT REMOVES GOVERNANCE, wired by name like the rest. A
+        // request per name, each its own gated flight, so the loop holds it and
+        // the report goes where the apply's does - the outcome modal, because
+        // one line per name does not fit a row.
+        retireNames: current =>
+        {
+            var names = current.Estate?.Working?.Retiring ?? [];
+
+            var said = ConsoleRetire.Retired(
+                name => data.RetireNameAsync(name).GetAwaiter().GetResult(),
+                names);
+
+            return current with
+            {
+                ApplyOutcome = said,
+                LastEstate = ConsoleRetire.Summary(said),
+            };
+        },
+
         // THE SAME AGENT COMMAND AND THE SAME ENVELOPE THE COMPOSER GETS, so a
         // person who told gg which agent to run told it once, and the panel
         // shows the rules a document is being drafted toward.

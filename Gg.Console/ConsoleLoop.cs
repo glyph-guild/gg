@@ -175,6 +175,12 @@ public sealed class ConsoleLoop(
     /// </remarks>
     Func<AppState, AppState>? applyEstate = null,
 
+    /// <param name="retireNames">
+    /// Retires the names the tree no longer holds. A request per name, so it
+    /// belongs here rather than in a session.
+    /// </param>
+    Func<AppState, AppState>? retireNames = null,
+
     /// <summary>
     /// Hands the terminal to an agent in the estate's working copy.
     /// </summary>
@@ -553,6 +559,27 @@ public sealed class ConsoleLoop(
                 //
                 // AFTER THE RELOAD, so the views behind it are already showing
                 // the tree this just changed.
+                state = Reducer.ApplyAnswered(state);
+                break;
+
+            case Command.RetireNames:
+                // CLOSED FIRST, THEN ASKED, THEN RE-READ - the apply's shape,
+                // for the apply's reasons. The question is answered however it
+                // went, the requests happen with the terminal free, and the
+                // changeset behind it has just moved.
+                state = Reloaded(
+                    retireNames is null
+                        ? Closed(state) with
+                        {
+                            LastEstate = "This console is not configured to retire names.",
+                        }
+                        : retireNames(Closed(state)),
+                    reload,
+                    asked: false);
+
+                // AND OVER THE CONSOLE, because one gated flight per name does
+                // not fit a row - and the part that surprises people is that
+                // nothing is gone yet.
                 state = Reducer.ApplyAnswered(state);
                 break;
 

@@ -46,6 +46,7 @@ public static class Modals
         UiMode.ReadingEnvelope,
         UiMode.ReadingChangeset,
         UiMode.ReadingOutcome,
+        UiMode.ConfirmRetire,
         UiMode.ComposeChoice,
     ];
 

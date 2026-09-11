@@ -148,6 +148,18 @@ public enum UiMode
     /// </remarks>
     ReadingOutcome,
 
+    /// <summary>
+    /// The question before retiring the names the tree no longer holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>ASKED, BECAUSE REVERSING IT NEEDS SOMEBODY ELSE.</b> Retiring is a
+    /// terminal version and always rides a gate, so it cannot be undone by
+    /// pressing the key again - a person would have to open another gated
+    /// change and find an approver. It is also the one act in this console
+    /// that removes governance rather than adding it.
+    /// </remarks>
+    ConfirmRetire,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a

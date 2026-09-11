@@ -281,6 +281,13 @@ public class VerbParityTests
             // gate and an attribution, so a single keypress would be a mistype
             // somebody has to explain - `s' opens a question naming the
             // changeset in the order it will land, and `y' inside it applies.
+            ["AirspaceRetire"] = "reached from the console: `x' inside the changeset view "
+                               + "asks, `y' answers. Not a key on the tree row, because the "
+                               + "names it can retire are the ones whose files are GONE - "
+                               + "there is no row to point at - and not a Normal-mode "
+                               + "letter, because `x' is forget-credential there and the "
+                               + "Envelope tab's spread would have shadowed it silently. "
+                               + "RetiringIsReachableFromTheChangesetTests holds both.",
             ["AirspaceApply"] = "reached from the console: `s' on the Envelope tab asks, `y' "
                               + "in the confirmation applies, through ConsoleApply. The only "
                               + "act on that pane that asks, because it is the only one that "

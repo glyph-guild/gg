@@ -764,6 +764,60 @@ public static class PaneText
     }
 
     /// <summary>
+    /// The question before retiring the names the tree no longer holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>IT HAS NO IMMEDIATE FORM, and that is the sentence people need.</b>
+    /// The retirement door has no 200: a document that stops applying removes
+    /// every constraint in it at once, so it is a widening by construction and
+    /// always rides a gate. Somebody who pressed this expecting the name to be
+    /// gone would go looking for something that has not happened - and worse,
+    /// would assume the constraint had stopped attaching when it has not.
+    /// </para>
+    /// <para>
+    /// <b>Every name, because reversing one needs an approver.</b> Retiring is
+    /// performed over the whole set the changeset reports, so the whole set is
+    /// listed: this is the last screen before an act that cannot be taken back
+    /// by pressing the key again.
+    /// </para>
+    /// <para>
+    /// <b>Nothing missing is an answer</b>, which is
+    /// <see cref="ConfirmApply"/>'s own shape - a modal asking about zero
+    /// documents is a keypress that does nothing, twice.
+    /// </para>
+    /// </remarks>
+    private static string ConfirmRetire(AppState state)
+    {
+        var retiring = state.Estate?.Working?.Retiring ?? [];
+
+        if (retiring.Count == 0)
+        {
+            return "Nothing to retire: every name this airspace holds still has a document "
+                 + "in the tree.";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine("Retiring applies a terminal version of each of these:");
+        text.AppendLine();
+
+        foreach (var name in retiring)
+        {
+            text.AppendLine($"  {Clean(name)}");
+        }
+
+        text.AppendLine();
+        text.AppendLine(
+            "Each one removes every constraint in its document at once, so each widens and "
+          + "opens a flight that waits at a gate. NOTHING IS GONE WHEN THIS RETURNS: every "
+          + "name still governs, and flights that start before its gate opens are governed "
+          + "by it. Reversing one afterwards is another gated change and another approver.");
+
+        return text.ToString();
+    }
+
+    /// <summary>
     /// The names answering yes would declare, and under what.
     /// </summary>
     /// <remarks>
@@ -1917,6 +1971,7 @@ public static class PaneText
         UiMode.ConfirmFlight => "This has flown before",
         UiMode.ConfirmGround => "Ground this flight?",
         UiMode.ConfirmApply => "Apply the working copy?",
+        UiMode.ConfirmRetire => "Retire these names?",
         UiMode.ReadingEnvelope => "the rules in force",
         UiMode.ReadingChangeset => "what would change",
         UiMode.ReadingOutcome => "what the apply came to",
@@ -2159,6 +2214,7 @@ public static class PaneText
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
             UiMode.ConfirmApply => ConfirmApply(state),
+            UiMode.ConfirmRetire => ConfirmRetire(state),
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.SignIn => SignIn(state),
             UiMode.GateDecision => GateDecision(state),

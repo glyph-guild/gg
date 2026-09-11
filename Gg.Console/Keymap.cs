@@ -514,7 +514,27 @@ public static class Keymap
         [
             new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
             new(KeyStroke.Char('o'), Command.ReadOutcome, "the last apply"),
+
+            // `x' HERE AND NOWHERE ELSE. The names that can be retired are the
+            // ones whose files are gone, so there is no tree row to put a
+            // cursor on - and `x' is ForgetCredential in Normal mode, with the
+            // Envelope tab's spread declared EARLIER than that global, so a
+            // tab-scoped one would win and take forget-credential away on that
+            // tab without saying so. Inside a modal nothing is shadowed.
+            new(KeyStroke.Char('x'), Command.AskToRetire, "retire what is missing"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
+        // THE ONE ACT HERE THAT REMOVES GOVERNANCE, so it is asked rather than
+        // done - and reversing it would need another gated change and an
+        // approver, which is a stronger reason to ask than any other question
+        // in this console has.
+        UiMode.ConfirmRetire =>
+        [
+            new(KeyStroke.Char('y'), Command.RetireNames, "retire them")
+                { Label = "Retire" },
+            new(KeyStroke.Esc, Command.CloseModal, "leave the names as they are")
+                { Label = "Leave them" },
         ],
 
         // THE VIEW THE MODAL OPENS ITSELF ON. `o' is here too so somebody who

@@ -683,9 +683,7 @@ public static class PaneText
             // WHY THERE IS NOTHING, AND WHAT IS SHOWING INSTEAD. A diagnosis
             // means somebody asked and was refused; its absence means nobody
             // has asked yet.
-            said.Add(state.Estate?.Diagnosis is { Length: > 0 } why
-                ? "The working copy could not be compared: " + Clean(why)
-                : "The working copy has not been compared yet - press e, which reads it.");
+            said.Add(NotCompared(state));
 
             said.Add("");
             said.Add("Until then the rows show what git knows: which documents you have "
@@ -764,6 +762,21 @@ public static class PaneText
 
         return Fitted(said, columns);
     }
+
+    /// <summary>
+    /// Why there is no changeset, in the words both views of it use.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two absences, and a second author for them is how they became
+    /// one.</b> The reading modal kept them apart and the apply question -
+    /// standing right beside it, asking about the same diff - had collapsed
+    /// both into "the working copy matches", which is the one thing neither
+    /// means. One sentence, written once.
+    /// </remarks>
+    private static string NotCompared(AppState state) =>
+        state.Estate?.Diagnosis is { Length: > 0 } why
+            ? "The working copy could not be compared: " + Clean(why)
+            : "The working copy has not been compared yet - press e, which reads it.";
 
     /// <summary>The same lines, broken to a box that wide.</summary>
     private static IReadOnlyList<string> Fitted(IReadOnlyList<string> said, int columns) =>
@@ -1841,15 +1854,58 @@ public static class PaneText
     /// </remarks>
     private static string ConfirmApply(AppState state)
     {
-        var changes = state.Estate?.Working?.Changes ?? [];
-        var retiring = state.Estate?.Working?.Retiring ?? [];
+        // A DIFF NOBODY COULD ASK FOR IS NOT A WORKING COPY THAT MATCHES, and
+        // this read `?? []` and said it was. A null diff - no session, a
+        // refused read, a control plane that is not up - arrived as two empty
+        // lists and got the one sentence that means the opposite: somebody was
+        // told there was nothing to apply about a tree full of documents
+        // nobody had compared, and a yes then came back refused, which is this
+        // console contradicting itself one keypress apart.
+        //
+        // THE OFFER STANDS, because applying without a diff is a real act: the
+        // control plane computes the changeset itself and gates the widenings,
+        // so nothing here depends on the local answer being known. What the
+        // question cannot do is promise an outcome, so it says that instead of
+        // guessing one.
+        if (state.Estate?.Working is not { } working)
+        {
+            return NotCompared(state)
+                 + "\n\nApplying asks the control plane anyway, and reports per document "
+                 + "what became of it.";
+        }
+
+        var changes = working.Changes;
+        var retiring = working.Retiring;
+
+        var text = new StringBuilder();
+
+        // FIRST, BECAUSE IT REFUSES EVERYTHING BELOW IT, and the question
+        // never mentioned it. Apply reads the tree before it sends anything
+        // and throws on one of these rather than landing the rest - so a
+        // question that listed the changes and left this out described an
+        // apply that cannot happen.
+        if (working.Unreadable.Count > 0)
+        {
+            text.AppendLine("These stop every apply until they are fixed:");
+            text.AppendLine();
+
+            foreach (var path in working.Unreadable)
+            {
+                text.AppendLine("  " + Clean(path));
+            }
+
+            text.AppendLine();
+        }
 
         if (changes.Count == 0 && retiring.Count == 0)
         {
-            return "Nothing to apply: the working copy matches the airspace.";
+            // ASKED AND EMPTY, which is the answer the sentence was written
+            // for and the one case that keeps it.
+            return working.Unreadable.Count > 0
+                ? text + "Nothing else would be applied: the rest of the working copy "
+                       + "matches the airspace."
+                : "Nothing to apply: the working copy matches the airspace.";
         }
-
-        var text = new StringBuilder();
 
         text.AppendLine("One flight per document, in this order:");
         text.AppendLine();

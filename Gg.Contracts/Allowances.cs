@@ -235,6 +235,40 @@ public sealed record AllowanceSummary
 
     /// <summary>The runners that say they spend from it.</summary>
     public required IReadOnlyList<string> Runners { get; init; }
+
+    /// <summary>
+    /// The principals whose machines report it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Derived, never declared.</b> A machine is registered by a person, so
+    /// the people behind an allowance are the registrants of the machines
+    /// reporting it. Nobody claims an allowance and nothing has to be
+    /// transferred when a machine changes hands.
+    /// </para>
+    /// <para>
+    /// <b>A set, because lending is a thing several people can do to one
+    /// subscription</b> — and because any of them may set the floor. A single
+    /// owner would make the second person to plug a machine in unable to
+    /// protect the thing they are lending.
+    /// </para>
+    /// <para>
+    /// <b>Absent on a control plane that predates it</b>, which reads as
+    /// nobody's: a console showing "mine" would show none rather than
+    /// everybody's.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> Owners
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>What its owners keep back, or absent when nobody set one.</summary>
+    public AllowanceFloor? Floor { get; init; }
+
+    /// <summary>An administrator spending that floor, or absent.</summary>
+    public AllowanceOverride? Override { get; init; }
 }
 
 /// <summary>Every allowance this tenant's machines have reported.</summary>
@@ -243,4 +277,204 @@ public sealed record AllowanceList
 {
     /// <summary>One per allowance, in no promised order.</summary>
     public required IReadOnlyList<AllowanceSummary> Allowances { get; init; }
+}
+
+/// <summary>
+/// How an allowance decides which machine gets work.
+/// </summary>
+/// <remarks>
+/// <b>Closed, because an unknown strategy falling back to
+/// <see cref="Any"/> is a knob somebody believes they turned.</b> Two values,
+/// and a third is a real decision rather than a line.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class AllowanceTargeting
+{
+    /// <summary>
+    /// Whichever machine asks first. The behaviour before this existed.
+    /// </summary>
+    /// <remarks>
+    /// <b>And the honest name for "random".</b> Dispatch is a pull: a runner
+    /// asks and the matcher hands over whatever is ready, so the machine that
+    /// gets the work is whichever transaction wins a <c>SKIP LOCKED</c> race.
+    /// Declaring a <c>random</c> strategy beside this one would be two names
+    /// for one behaviour.
+    /// </remarks>
+    public const string Any = "any";
+
+    /// <summary>
+    /// The machine whose allowance has the most left gets first refusal.
+    /// </summary>
+    /// <remarks>
+    /// <b>First refusal, not a veto, and the bound is the load-bearing
+    /// part.</b> A pull cannot select, so a higher-spent machine is held back
+    /// for a bounded window and then allowed to claim anyway. Without the
+    /// bound a flight starves whenever the least-spent machine simply is not
+    /// asking - which is most of the time, because a machine only asks when it
+    /// is free.
+    /// </remarks>
+    public const string LeastSpent = "least-spent";
+
+    /// <summary>Every strategy a work kind may name.</summary>
+    public static IReadOnlyList<string> All { get; } = [Any, LeastSpent];
+}
+
+/// <summary>
+/// The share of an allowance its owner keeps for themselves.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A FRACTION, NOT A TOKEN COUNT.</b> The ceiling lives on the machines
+/// that report, and a person setting this means <i>keep a third of it for
+/// me</i> — which stays true when their plan changes and a token count does
+/// not.
+/// </para>
+/// <para>
+/// <b>Per window, and either may be absent.</b> Keeping a third of the week
+/// and nothing of the session is a coherent thing to want: the session refills
+/// in hours and the week does not.
+/// </para>
+/// <para>
+/// <b>A floor with no ceiling to measure against is UNENFORCEABLE, and the
+/// answer is to stop rather than to guess.</b> Nothing on a machine discovers
+/// a subscription's limits, so a person can set a floor on an allowance whose
+/// machines were never told a ceiling. Fleet work then stops on that
+/// allowance, loudly, with the reason readable — because a floor that silently
+/// does not protect is the one outcome a hard stop exists to prevent, and the
+/// fix is one line of configuration.
+/// </para>
+/// </remarks>
+[PinnedId("1ae9b291-056a-4c57-ba77-8d6b1970a5fd")]
+public sealed record AllowanceFloor
+{
+    /// <summary>The share of the session window kept back, or absent.</summary>
+    public double? SessionFraction { get; init; }
+
+    /// <summary>The share of the week kept back, or absent.</summary>
+    public double? WeekFraction { get; init; }
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(AllowanceFloor floor)
+    {
+        ArgumentNullException.ThrowIfNull(floor);
+
+        if (floor.SessionFraction is null && floor.WeekFraction is null)
+        {
+            return "A floor that keeps nothing back is not a floor. DELETE clears one; an "
+                 + "empty body would be a second way to say the same thing, and the two "
+                 + "would drift.";
+        }
+
+        foreach (var (window, share) in
+                 (ReadOnlySpan<(string, double?)>)
+                 [(AllowanceWindows.Session, floor.SessionFraction),
+                  (AllowanceWindows.Week, floor.WeekFraction)])
+        {
+            if (share is not { } kept) { continue; }
+
+            if (kept <= 0)
+            {
+                return $"The {window} floor keeps {kept}, and a floor of nothing or less "
+                     + "is an absent one written down. Leave it out.";
+            }
+
+            if (kept >= 1)
+            {
+                return $"The {window} floor keeps {kept}, which lends nothing at all. Not "
+                     + "naming an allowance already says that, and it says it without "
+                     + "leaving a machine that reads as broken.";
+            }
+        }
+
+        return null;
+    }
+}
+
+/// <summary>
+/// An administrator spending a floor somebody else set.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It expires, always.</b> One with no end is a floor somebody deleted
+/// without saying so — and the person it was taken from would have no moment
+/// at which to expect it back.
+/// </para>
+/// <para>
+/// <b>And it carries a reason, refused when blank.</b> The owner reads this
+/// sentence. A blank one is worse than none, because it looks like an answer.
+/// </para>
+/// </remarks>
+[PinnedId("2821c421-43f9-4aed-a27e-5bcbce0088da")]
+public sealed record AllowanceOverrideRequest
+{
+    /// <summary>How long the floor is spendable for.</summary>
+    public required int Minutes { get; init; }
+
+    /// <summary>Why, for the person whose allowance this is.</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>The longest an override may run.</summary>
+    /// <remarks>
+    /// A day. Long enough for anything urgent, short enough that an override
+    /// nobody revisited stops mattering — which is the failure mode a
+    /// permanent one has.
+    /// </remarks>
+    public const int MaxMinutes = 24 * 60;
+
+    /// <summary>The most a reason may be.</summary>
+    public const int MaxReason = 280;
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(AllowanceOverrideRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Minutes < 1)
+        {
+            return "An override runs for at least a minute. One with no end is a floor "
+                 + "somebody deleted without saying so.";
+        }
+
+        if (request.Minutes > MaxMinutes)
+        {
+            return $"An override runs for at most {MaxMinutes} minutes. A longer one is a "
+                 + "floor nobody will revisit, which is the state this exists to avoid.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return "An override names why. The person whose allowance it spends reads "
+                 + "this, and a blank reason looks like an answer.";
+        }
+
+        if (request.Reason.Length > MaxReason)
+        {
+            return $"A reason is at most {MaxReason} characters. This is the line somebody "
+                 + "reads first, not the place for the argument.";
+        }
+
+        return null;
+    }
+}
+
+/// <summary>
+/// A floor being spent, and by whom, until when.
+/// </summary>
+/// <remarks>
+/// <b>Visible to the owner, which is the whole of the bargain.</b> An override
+/// nobody can see is a floor that silently stopped protecting — the one
+/// outcome the hard stop exists to prevent, arriving through the mechanism
+/// meant to relieve it.
+/// </remarks>
+[PinnedId("d0f853c9-b4fa-4756-81dd-f8649ba191c6")]
+public sealed record AllowanceOverride
+{
+    /// <summary>When it lapses and the floor is a floor again.</summary>
+    public required DateTimeOffset Until { get; init; }
+
+    /// <summary>Who took it, as the control plane derived it.</summary>
+    public required string By { get; init; }
+
+    /// <summary>Why they took it.</summary>
+    public required string Reason { get; init; }
 }

@@ -76,6 +76,19 @@ public interface IRunnerObserver
     void Parked();
 
     /// <summary>
+    /// The allowance this machine spends from is spent.
+    /// </summary>
+    /// <remarks>
+    /// <b>Separate from <see cref="Parked"/> as well as from
+    /// <see cref="Idle"/>.</b> All three take no work and they are three
+    /// different things to do about it: wait, find whoever withheld the
+    /// machine, or wait for a window to roll over. Printing the wrong one is
+    /// how an operator spends an afternoon looking for a person who does not
+    /// exist.
+    /// </remarks>
+    void AllowanceSpent();
+
+    /// <summary>
     /// A flight is ready and its lease cannot be completed yet.
     /// </summary>
     /// <remarks>
@@ -173,6 +186,8 @@ public sealed class SilentObserver : IRunnerObserver
     public void Idle() { }
 
     public void Parked() { }
+
+    public void AllowanceSpent() { }
     public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
     public void Materialized(string slug, string headCommit, long bytes) { }
@@ -637,6 +652,10 @@ public sealed class RunnerLoop(
                     {
                         _observer.Parked();
                     }
+                    else if (claim is ClaimResult.AllowanceSpent)
+                    {
+                        _observer.AllowanceSpent();
+                    }
                     else if (claim is not ClaimResult.Waiting)
                     {
                         _observer.Idle();
@@ -827,7 +846,8 @@ public sealed class RunnerLoop(
             // machine's request spends the whole claim wait learning the same
             // answer. The runner asks again on the next round, exactly as it
             // does for pending.
-            if (latest is ClaimResult.Granted or ClaimResult.Expired or ClaimResult.Parked)
+            if (latest is ClaimResult.Granted or ClaimResult.Expired or ClaimResult.Parked
+                        or ClaimResult.AllowanceSpent)
             {
                 return latest;
             }

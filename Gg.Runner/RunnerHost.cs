@@ -44,6 +44,12 @@ internal sealed class ConsoleObserver : IRunnerObserver
             "parked: a person has withheld this machine from claiming. It keeps "
           + "beating and takes no work until it is unparked.");
 
+    public void AllowanceSpent() =>
+        System.Console.WriteLine(
+            "allowance spent: the subscription this machine spends from is at the floor "
+          + "its owner keeps. Nobody withheld this machine - it takes work again when "
+          + "the window rolls over.");
+
     /// <summary>
     /// Which repositories, because that is the sentence somebody can act on.
     /// </summary>

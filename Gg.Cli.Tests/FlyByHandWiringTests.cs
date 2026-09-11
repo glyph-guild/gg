@@ -174,6 +174,8 @@ public class FlyByHandWiringTests
         public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) => Calls.Add("refused");
         public void Idle() => Calls.Add("idle");
         public void Parked() => Calls.Add("parked");
+
+        public void AllowanceSpent() { }
         public void Waiting(IReadOnlyList<string> repos) => Calls.Add("waiting");
         public void Materialized(string slug, string headCommit, long bytes) =>
             Calls.Add("materialized");

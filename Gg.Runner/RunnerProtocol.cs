@@ -53,6 +53,33 @@ public abstract record ClaimResult
     public sealed record Parked : ClaimResult;
 
     /// <summary>
+    /// The allowance this machine spends from has nothing left to lend.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own answer, for the third time and the same reason.</b>
+    /// <see cref="Nothing"/> is an idle fleet, <see cref="Parked"/> is a
+    /// machine a person withheld, and this is a subscription that is spent.
+    /// Collapsing it into either would print the wrong sentence on the one
+    /// surface somebody reads while wondering why nothing runs: "nothing
+    /// ready" sends them looking for work to do, "parked" sends them looking
+    /// for whoever parked it, and nobody did.
+    /// </para>
+    /// <para>
+    /// <b>It clears itself, unlike parking.</b> A window rolls over in hours
+    /// and the machine works again with nobody touching it — so a runner may
+    /// reasonably ask less often, and it is the control plane's cadence that
+    /// decides, as it is for every other answer.
+    /// </para>
+    /// <para>
+    /// <b>No reason travels with it.</b> The floor and any override are
+    /// members of the ALLOWANCE, read by the surfaces a person looks at; the
+    /// claim wire carries the state alone, exactly as parking does.
+    /// </para>
+    /// </remarks>
+    public sealed record AllowanceSpent : ClaimResult;
+
+    /// <summary>
     /// The request outlived its window. Terminal.
     /// </summary>
     /// <remarks>

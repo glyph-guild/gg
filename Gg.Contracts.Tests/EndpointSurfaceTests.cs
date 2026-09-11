@@ -309,8 +309,22 @@ public class EndpointSurfaceTests
         //
         // /v1/allowances joins GovernedPrefixes, which the closed vocabularies
         // DO hash, so the contract version moves with it.
+        //
+        // Moved for the floor and the override, three routes, all on the
+        // DEVELOPER audience and that is the decision in them. PUT and DELETE
+        // /v1/allowances/{name}/floor are a person's declaration about their
+        // own subscription; POST /v1/allowances/{name}/override is an
+        // administrator spending somebody else's. A machine that could set any
+        // of them could widen its own queue, which is the argument the
+        // reservation and parking routes came in on.
+        //
+        // 403 on all three, and it is the arm that matters: an allowance
+        // somebody else's machines report is not theirs to reserve, and the
+        // override needs the first privilege distinction this protocol has.
+        // No 409 on the DELETE - clearing a floor nobody set is the state the
+        // caller asked for.
         await Assert.That(Fingerprint())
-            .IsEqualTo("78dda8879c51a059604be0e26b5574f96234a210a473ad6c884d17d69d3f1ccd")
+            .IsEqualTo("02e94aa5d93105a94afa9c7728f82c798da19ba61032fa08faede9af496be504")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

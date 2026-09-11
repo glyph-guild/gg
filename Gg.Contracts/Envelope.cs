@@ -1430,6 +1430,31 @@ public sealed record Envelope
         init;
     } = [];
 
+    /// <summary>
+    /// How this work kind picks which machine gets the work, or null for
+    /// <see cref="AllowanceTargeting.Any"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Work-kind-only, because it selects a governance regime.</b> Root-only
+    /// would make one answer serve a triage and an implementation alike, and
+    /// narrowing has no meaning on a choice of two.
+    /// </para>
+    /// <para>
+    /// <b>Null is <see cref="AllowanceTargeting.Any"/> rather than a missing
+    /// answer</b>, which is what every envelope written before this member
+    /// existed already means: whichever machine asks first.
+    /// </para>
+    /// <para>
+    /// <b>It is about ALLOWANCES and not about machines, which is why it lives
+    /// beside them.</b> A strategy that picked a runner by some other property
+    /// would need a second knob; this one exists because a subscription is the
+    /// scarce thing and a machine is not.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public string? Targeting { get; init; }
+
     [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Loop> Loops { get; init; }
 
@@ -1713,6 +1738,19 @@ public sealed record Envelope
         {
             return "context.scope is empty. The obligation reads it, so an envelope without one "
                  + "governs nothing.";
+        }
+
+        // AN UNKNOWN STRATEGY IS A KNOB SOMEBODY BELIEVES THEY TURNED. Falling
+        // back to `any` would leave a document saying one thing and a fleet
+        // doing another, which is the failure every closed vocabulary here
+        // exists to refuse.
+        if (envelope.Targeting is { } strategy
+            && !AllowanceTargeting.All.Contains(strategy, StringComparer.Ordinal))
+        {
+            return $"'{strategy}' is not a targeting strategy this contract declares. "
+                 + $"Declared: {string.Join(", ", AllowanceTargeting.All)}. Omit the line "
+                 + $"for '{AllowanceTargeting.Any}', which is what every envelope written "
+                 + "before it existed already means.";
         }
 
         if (string.IsNullOrWhiteSpace(envelope.Context.Constitution))

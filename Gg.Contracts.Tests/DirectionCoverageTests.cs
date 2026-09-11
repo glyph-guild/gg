@@ -307,6 +307,17 @@ public class DirectionCoverageTests
             Selecting(new DestinationSelection { Environments = ["dev", "production"] }),
             ReverseAlsoWidens: false),
 
+        // TARGETING WIDENS BY GIVING IT UP. `least-spent` holds a
+        // higher-spent machine back so a subscription with more left gets
+        // first refusal; `any` - which is also what an absent line means -
+        // lets whichever machine asks first take the work. Going the second
+        // way removes a protection over somebody's own allowance, and a person
+        // who set a floor should see it coming.
+        new("Envelope.Targeting", "targeting",
+            Doc() with { Targeting = AllowanceTargeting.LeastSpent },
+            Doc() with { Targeting = AllowanceTargeting.Any },
+            ReverseAlsoWidens: false),
+
         new("DestinationSelection.Repositories", "repositories",
             Selecting(new DestinationSelection { Repositories = ["ledger"] }),
             Selecting(new DestinationSelection { Repositories = ["ledger", "payments"] }),

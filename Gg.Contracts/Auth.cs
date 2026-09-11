@@ -206,4 +206,30 @@ public sealed record WhoAmI
         get => field ?? [];
         init;
     } = [];
+
+    /// <summary>
+    /// Whether this person administers the tenant.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ABSENT MEANS NO, and that is the whole safety of adding it.</b> A
+    /// control plane too old to send this omits the member, and the default has
+    /// to be the narrow answer — a bool defaults to false, which is the one
+    /// case where the language's default is also the correct one.
+    /// </para>
+    /// <para>
+    /// <b>It is a hint for a client, never a permission.</b> What a person may
+    /// see is decided by the control plane on every request; this only tells a
+    /// console whether to offer a surface that would otherwise be refused. A
+    /// client that treated it as authority would be checking a claim it was
+    /// handed.
+    /// </para>
+    /// <para>
+    /// <b>The first privilege distinction in this protocol.</b> Until now both
+    /// audiences split machine from person rather than one person from
+    /// another, and every later feature will reach for this bit — so it says
+    /// exactly one thing and is derived, never sent by a caller.
+    /// </para>
+    /// </remarks>
+    public bool IsAdmin { get; init; }
 }

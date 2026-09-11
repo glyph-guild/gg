@@ -7,6 +7,7 @@ using Gg.Contracts.Description;
 namespace Gg.Contracts.Tests;
 
 /// <summary>Source-generated, because Gg.Contracts holds no reflection path.</summary>
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(WhoAmI))]
 internal sealed partial class AdminJson : JsonSerializerContext;
 

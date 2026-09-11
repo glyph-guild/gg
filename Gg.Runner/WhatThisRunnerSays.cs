@@ -156,6 +156,14 @@ public sealed class WhatThisRunnerSays(
         _inner.Parked();
     }
 
+    public void AllowanceSpent()
+    {
+        // NOT "PARKED", and not "idle". A person watching this runner needs to
+        // know there is nothing to do about it and nobody to ask.
+        Doing("allowance spent - waiting for the window to roll over");
+        _inner.AllowanceSpent();
+    }
+
     public void Waiting(IReadOnlyList<string> repositories)
     {
         Doing($"waiting on {repositories.Count} repositor{(repositories.Count == 1 ? "y" : "ies")}");

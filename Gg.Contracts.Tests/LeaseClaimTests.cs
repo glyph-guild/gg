@@ -69,7 +69,14 @@ public class LeaseClaimTests
     public async Task Every_state_a_request_can_reach_is_named()
     {
         await Assert.That(LeaseClaimStates.All).IsEquivalentTo(
-            new[] { "pending", "waiting", "granted", "expired", "parked" });
+            new[] { "pending", "waiting", "granted", "expired", "parked", "allowance-spent" });
+
+        // THE SIXTH STATE, AND THE THIRD TIME ONE ARRIVED FOR THE SAME REASON.
+        // `allowance-spent` is a subscription with nothing left to lend, and
+        // reusing `parked` would have been wrong in a way a person feels: they
+        // would go looking for who parked the machine. Nobody did - it works
+        // again when its window rolls over, with nobody touching it.
+        await Assert.That(LeaseClaimStates.All).Contains(LeaseClaimStates.AllowanceSpent);
 
         // THE FIFTH STATE ARRIVED, and the note below predicted exactly what it
         // would cost: a contract version, and every prior reader halting on it.

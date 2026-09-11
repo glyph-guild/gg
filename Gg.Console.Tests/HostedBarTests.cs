@@ -202,6 +202,180 @@ public class HostedBarTests
         }
     }
 
+    private static HostedPanel Open(int offset = 0) =>
+        new(HostedView.Envelope, offset);
+
+    private static HostedPanel Shut() => new(HostedView.Closed, 0);
+
+    private static byte[] Typed(params byte[] bytes) => bytes;
+
+    /// <summary>Twelve lines, each naming its own number.</summary>
+    private static string Twelve() =>
+        string.Join("\n", Enumerable.Range(1, 12).Select(n => $"line {n}"));
+
+    [Test]
+    public async Task An_open_panel_takes_every_input_there_is()
+    {
+        // THE RULE THIS TYPE ALREADY STATES AND THE HOST DID NOT KEEP: "All of
+        // them or one of them, never some of them." Takes was total over a
+        // BYTE, and PtyHost only ever offered it single-byte reads - so an
+        // arrow key, which is three bytes, went straight past an open panel
+        // and into the child. So did every paste, and so did every mouse
+        // event once the mouse started working.
+        foreach (var typed in (byte[][])[
+            Typed((byte)'x'),
+            Typed(0x1b, (byte)'[', (byte)'A'),
+            Typed((byte)'h', (byte)'e', (byte)'l', (byte)'l', (byte)'o')])
+        {
+            await Assert.That(HostedBar.Takes(Open(), HostedGesture.Typed, typed)).IsTrue()
+                .Because("a panel that passed some keys through would be one where `e` "
+                       + "sometimes shows the envelope and sometimes reaches vim.");
+        }
+
+        foreach (var gesture in (HostedGesture[])[
+            HostedGesture.Pressed, HostedGesture.ScrolledUp, HostedGesture.ScrolledDown])
+        {
+            await Assert.That(HostedBar.Takes(Open(), gesture, [])).IsTrue()
+                .Because($"{gesture} while the panel is open is the panel's, or the child "
+                       + "is being driven from behind something covering it.");
+        }
+    }
+
+    [Test]
+    public async Task A_closed_panel_takes_the_prefix_and_a_press_and_nothing_else()
+    {
+        await Assert.That(HostedBar.Takes(Shut(), HostedGesture.Typed, [HostedBar.Prefix]))
+            .IsTrue();
+
+        await Assert.That(HostedBar.Takes(Shut(), HostedGesture.Pressed, [])).IsTrue()
+            .Because("the bottom row says click to open, so a click has to open it.");
+
+        await Assert.That(HostedBar.Takes(Shut(), HostedGesture.Typed, [(byte)'x'])).IsFalse()
+            .Because("every byte but the prefix is the child's while the panel is shut, "
+                   + "and a keystroke that vanishes is one nobody can account for.");
+
+        await Assert.That(HostedBar.Takes(Shut(), HostedGesture.ScrolledUp, [])).IsFalse()
+            .Because("scrolling with the panel shut is the child being scrolled.");
+    }
+
+    [Test]
+    public async Task A_paste_carrying_the_prefix_does_not_open_it()
+    {
+        // THE HEURISTIC THAT USED TO LIVE IN THE HOST, moved to where the
+        // decision is. Text somebody copied must not open a panel and then be
+        // typed into it - and a real keypress arrives on its own, which is
+        // the whole of the test and the honest bound on it.
+        var pasted = Typed((byte)'a', HostedBar.Prefix, (byte)'b');
+
+        await Assert.That(HostedBar.Takes(Shut(), HostedGesture.Typed, pasted)).IsFalse();
+    }
+
+    [Test]
+    public async Task The_wheel_scrolls_the_panel_rather_than_the_child()
+    {
+        var down = HostedBar.Next(Open(), HostedGesture.ScrolledDown, []);
+
+        await Assert.That(down.Offset).IsGreaterThan(0)
+            .Because("a panel that says there is more and cannot be moved is a panel "
+                   + "telling you about something you cannot read.");
+
+        var back = HostedBar.Next(down, HostedGesture.ScrolledUp, []);
+
+        await Assert.That(back.Offset).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task It_does_not_scroll_above_the_first_line()
+    {
+        var up = HostedBar.Next(Open(), HostedGesture.ScrolledUp, []);
+
+        await Assert.That(up.Offset).IsEqualTo(0)
+            .Because("there is nothing above the first line, and an offset below zero "
+                   + "would take rows off the top of the body.");
+    }
+
+    [Test]
+    public async Task The_arrows_and_j_and_k_move_it_too()
+    {
+        // BY KEY AS WELL AS BY WHEEL, because the wheel only exists while the
+        // child has mouse reporting on - gg mirrors it and never forces it, so
+        // a session hosting something that never asked has no wheel at all.
+        var down = HostedBar.Next(Open(), HostedGesture.Typed, [0x1b, (byte)'[', (byte)'B']);
+        await Assert.That(down.Offset).IsGreaterThan(0).Because("the down arrow.");
+
+        var jays = HostedBar.Next(Open(), HostedGesture.Typed, [(byte)'j']);
+        await Assert.That(jays.Offset).IsGreaterThan(0)
+            .Because("j and k, the letters the console's own lists move by.");
+
+        var back = HostedBar.Next(jays, HostedGesture.Typed, [(byte)'k']);
+        await Assert.That(back.Offset).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Switching_views_starts_at_the_top_again()
+    {
+        var scrolled = HostedBar.Next(Open(offset: 4), HostedGesture.Typed, [(byte)'i']);
+
+        await Assert.That(scrolled.Showing).IsEqualTo(HostedView.Intent);
+        await Assert.That(scrolled.Offset).IsEqualTo(0)
+            .Because("an offset kept across a switch would open the other view part way "
+                   + "down something a person has not read the start of.");
+    }
+
+    [Test]
+    public async Task Closing_forgets_where_it_was()
+    {
+        var shut = HostedBar.Next(Open(offset: 4), HostedGesture.Typed, [0x1b]);
+
+        await Assert.That(shut.Showing).IsEqualTo(HostedView.Closed);
+        await Assert.That(shut.Offset).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task A_press_closes_an_open_panel()
+    {
+        var shut = HostedBar.Next(Open(), HostedGesture.Pressed, []);
+
+        await Assert.That(shut.Showing).IsEqualTo(HostedView.Closed)
+            .Because("the bottom row says click to close while it is open, so a click "
+                   + "closes it - one gesture, both directions, like the prefix key.");
+    }
+
+    [Test]
+    public async Task The_body_shown_is_the_window_the_offset_names()
+    {
+        var rows = HostedBar.Rows(
+            Open(offset: 4), "gg", Twelve(), most: 5, columns: Narrow);
+
+        var shown = string.Join("\n", rows);
+
+        await Assert.That(shown).Contains("line 5", StringComparison.Ordinal)
+            .Because("four lines scrolled past means the fifth is at the top. Shown:\n"
+                   + shown);
+
+        await Assert.That(shown).DoesNotContain("line 4", StringComparison.Ordinal)
+            .Because("and the fourth is above the window. Shown:\n" + shown);
+    }
+
+    [Test]
+    public async Task It_will_not_scroll_past_the_last_line()
+    {
+        // CLAMPED AGAINST THE BODY IT IS SHOWING, or the panel empties itself
+        // and reads as a view that failed to load.
+        var panel = Open();
+
+        for (var turn = 0; turn < 40; turn++)
+        {
+            panel = HostedBar.Next(panel, HostedGesture.ScrolledDown, [], Twelve(), most: 5);
+        }
+
+        var shown = string.Join("\n", HostedBar.Rows(panel, "gg", Twelve(), 5, Narrow));
+
+        await Assert.That(shown).Contains("line 12", StringComparison.Ordinal)
+            .Because("the last line stays on screen however hard it is scrolled. Shown:\n"
+                   + shown);
+    }
+
     [Test]
     public async Task A_closed_panel_says_how_to_open_it_and_where()
     {

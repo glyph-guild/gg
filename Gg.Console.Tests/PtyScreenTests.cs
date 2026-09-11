@@ -403,4 +403,31 @@ public class PtyScreenTests
                        + "all the same.");
         }
     }
+    [Test]
+    public async Task The_child_is_dimmed_while_the_panel_is_open()
+    {
+        // SO THE PANEL IS IN FRONT OF SOMETHING RATHER THAN BESIDE IT. gg's
+        // rows and the child's are both full-brightness text in the same
+        // terminal, so an open panel reads as more output rather than as a
+        // thing covering the session - and a person looking for what the
+        // agent just said has to work out which half is which.
+        //
+        // DIM RATHER THAN A COLOUR, because the child's own colours are the
+        // whole of what its screen means: a fixed grey would throw away the
+        // syntax highlighting and the diff colours that are the reason
+        // somebody is looking at it.
+        var terminal = new XTermTerminal(new TerminalOptions { Cols = 20, Rows = 4 });
+        terminal.Write("hello");
+
+        var open = PtyScreen.Paint(terminal, 4, 20, ["gg"], dim: true);
+        var shut = PtyScreen.Paint(terminal, 4, 20, ["gg"], dim: false);
+
+        await Assert.That(open).Contains("\u001b[0;2", StringComparison.Ordinal)
+            .Because("2 is the dim attribute, and it has to reach the child's cells.");
+
+        await Assert.That(shut).DoesNotContain("\u001b[0;2", StringComparison.Ordinal)
+            .Because("and only while the panel is open - a session that stayed dim would "
+                   + "be one somebody reports as a broken terminal.");
+    }
+
 }

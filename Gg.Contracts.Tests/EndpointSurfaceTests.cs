@@ -323,8 +323,23 @@ public class EndpointSurfaceTests
         // override needs the first privilege distinction this protocol has.
         // No 409 on the DELETE - clearing a floor nobody set is the state the
         // caller asked for.
+        //
+        // Moved for the admin grant, two routes and a new governed prefix.
+        // POST and DELETE /v1/principals/{principalId}/admin, developer
+        // audience - a machine able to grant would hand every runner its
+        // owner's authority, since a runner's principal IS the developer who
+        // registered it.
+        //
+        // THE FIRST GRANT IN A TENANT IS OPEN AND THE HOLE CLOSES ON USE.
+        // Nothing else can produce a first administrator: the bit is set
+        // nowhere else in the product, so without this a tenant could never
+        // reach the surface it gates. 403 once one exists, 409 on revoking the
+        // last, and 404 for a principal the tenant does not have.
+        //
+        // /v1/principals joins GovernedPrefixes, which the closed vocabularies
+        // DO hash, so the contract version moves with it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("02e94aa5d93105a94afa9c7728f82c798da19ba61032fa08faede9af496be504")
+            .IsEqualTo("04696211f145dab67b0115f05ad656ce5b77d39da98635831f62abcabebc8286")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

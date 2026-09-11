@@ -203,10 +203,16 @@ public class ApplyingFromTheConsoleTests
             Retiring = [],
         }));
 
-        await Assert.That(said).Contains("root@v8", StringComparison.Ordinal)
+        // JOINED, BECAUSE THE REPORT IS LINES NOW. What this asserts did not
+        // change; where a person can read it did. One line per document was
+        // always the shape - it used to be joined with "; " into a row that
+        // showed the first eighty columns of it.
+        var whole = string.Join('\n', said);
+
+        await Assert.That(whole).Contains("root@v8", StringComparison.Ordinal)
             .Because("a minted version is the thing a person quotes afterwards.");
-        await Assert.That(said).Contains("GG-58", StringComparison.Ordinal);
-        await Assert.That(said).Contains("an-auditor", StringComparison.Ordinal)
+        await Assert.That(whole).Contains("GG-58", StringComparison.Ordinal);
+        await Assert.That(whole).Contains("an-auditor", StringComparison.Ordinal)
             .Because("a gate with nobody named is a gate a person cannot go and ask about.");
     }
 
@@ -220,9 +226,16 @@ public class ApplyingFromTheConsoleTests
               + "changeset somebody meant as a whole:\n"
               + "  airspace/narrowings/pci.yaml: This does not read as a narrowing."));
 
-        await Assert.That(said).Contains("pci.yaml", StringComparison.Ordinal)
+        var whole = string.Join('\n', said);
+
+        await Assert.That(whole).Contains("pci.yaml", StringComparison.Ordinal)
             .Because("one bad file stops every document, so a person told only that the "
                    + "apply failed has to go and find which.");
-        await Assert.That(said).DoesNotContain("Exception", StringComparison.Ordinal);
+        await Assert.That(whole).DoesNotContain("Exception", StringComparison.Ordinal);
+
+        await Assert.That(said.Count).IsGreaterThan(1)
+            .Because("and the path is on its OWN line rather than run together with the "
+                   + "heading - which is what put it past the right edge of a one-row "
+                   + "slot. Lines: " + said.Count);
     }
 }

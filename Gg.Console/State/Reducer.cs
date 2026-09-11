@@ -107,6 +107,7 @@ public static class Reducer
             Command.AskToApplyEstate => Modal(state, UiMode.ConfirmApply),
             Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),
             Command.ReadChangeset => Modal(state, UiMode.ReadingChangeset),
+            Command.ReadOutcome => Modal(state, UiMode.ReadingOutcome),
 
             // SET RATHER THAN TOGGLED, unlike the modals beside it: enter is
             // also the key that APPLIES inside the field, so a toggle would
@@ -530,6 +531,25 @@ public static class Reducer
         ArgumentNullException.ThrowIfNull(state);
 
         return Modal(state, UiMode.Runner);
+    }
+
+    /// <summary>
+    /// Opens what the apply came to, when it came to anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>HandFlightAnswered's shape and its reason.</b> The loop calls this
+    /// after the apply returns, with the terminal already back: a person who
+    /// pressed `y` is owed the answer, and the row it used to go in is one row.
+    /// An apply with nothing to say opens nothing, or every pass would put a
+    /// box over the console.
+    /// </remarks>
+    public static AppState ApplyAnswered(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.ApplyOutcome is { Count: > 0 }
+            ? Modal(state, UiMode.ReadingOutcome)
+            : state;
     }
 
     public static AppState HandFlightAnswered(AppState state)

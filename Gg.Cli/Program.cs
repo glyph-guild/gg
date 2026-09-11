@@ -1452,12 +1452,24 @@ static async Task<int> LaunchConsoleAsync()
                 : NoAirspace("pull"),
         },
 
-        applyEstate: current => current with
+        // BOTH ENDS OF ONE REPORT. The row gets a summary and the modal gets
+        // the whole thing - and they come from ONE call, because two calls
+        // would be two applies and a summary of a different one.
+        applyEstate: current =>
         {
-            LastEstate = Airspace() is { } applyFrom
-                ? ConsoleApply.Applied(
-                    () => data.ApplyEstateAsync(applyFrom).GetAwaiter().GetResult())
-                : NoAirspace("apply"),
+            if (Airspace() is not { } applyFrom)
+            {
+                return current with { LastEstate = NoAirspace("apply") };
+            }
+
+            var said = ConsoleApply.Applied(
+                () => data.ApplyEstateAsync(applyFrom).GetAwaiter().GetResult());
+
+            return current with
+            {
+                ApplyOutcome = said,
+                LastEstate = ConsoleApply.Summary(said),
+            };
         },
 
         // THE SAME AGENT COMMAND AND THE SAME ENVELOPE THE COMPOSER GETS, so a

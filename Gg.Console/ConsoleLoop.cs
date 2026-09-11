@@ -543,6 +543,17 @@ public sealed class ConsoleLoop(
                         : applyEstate(Closed(state)),
                     reload,
                     asked: false);
+
+                // OVER THE CONSOLE, WITH WHAT IT CAME TO. One line per document
+                // plus a refusal that names paths does not fit the activity
+                // row, and the half that fell off the right edge was the half
+                // somebody acts on - a refused apply naming the very command
+                // that would have fixed it. The hand-flight refusal above was
+                // given a modal for this reason; this is the same reason.
+                //
+                // AFTER THE RELOAD, so the views behind it are already showing
+                // the tree this just changed.
+                state = Reducer.ApplyAnswered(state);
                 break;
 
             case Command.PullEstate:

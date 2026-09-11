@@ -778,6 +778,40 @@ public static class PaneText
             ? "The working copy could not be compared: " + Clean(why)
             : "The working copy has not been compared yet - press e, which reads it.";
 
+    /// <summary>
+    /// What the last apply came to, as the rows a modal that wide will show
+    /// them in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE CONTROL PLANE'S OWN WORDS, PASSED THROUGH.</b> The lines are
+    /// composed by <c>ConsoleApply</c> from what the verb answered - a version
+    /// per document that landed, a flight and an approver per one that
+    /// diverted, and a refusal line for line. Nothing is re-decided here: a
+    /// second opinion about what an apply did is worse than none.
+    /// </para>
+    /// <para>
+    /// <b>It exists because the row could not hold it.</b> This went to the
+    /// activity slot, which is one row, and a refused apply showed "Nothing was
+    /// applied:" with the reason off the right edge - including, in the case
+    /// that prompted this, the exact command that would have fixed it.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> ApplyLines(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.ApplyOutcome is not { Count: > 0 } said)
+        {
+            // A MODAL NOBODY OPENED, which Reducer.ApplyAnswered will not do -
+            // but a hand-built model can, and a title over nothing is a worse
+            // answer than a sentence.
+            return Fitted(["No apply has happened in this console yet."], columns);
+        }
+
+        return Fitted([.. said.Select(line => Clean(line, lines: true))], columns);
+    }
+
     /// <summary>The same lines, broken to a box that wide.</summary>
     private static IReadOnlyList<string> Fitted(IReadOnlyList<string> said, int columns) =>
         columns <= 0
@@ -1826,6 +1860,7 @@ public static class PaneText
         UiMode.ConfirmApply => "Apply the working copy?",
         UiMode.ReadingEnvelope => "the rules in force",
         UiMode.ReadingChangeset => "what would change",
+        UiMode.ReadingOutcome => "what the apply came to",
         UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
@@ -1944,7 +1979,8 @@ public static class PaneText
     /// </remarks>
     public static bool ModalIsADocument(UiMode mode) =>
         mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner
-             or UiMode.ReadingEnvelope or UiMode.ReadingChangeset;
+             or UiMode.ReadingEnvelope or UiMode.ReadingChangeset
+             or UiMode.ReadingOutcome;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -2038,6 +2074,7 @@ public static class PaneText
             // which is exactly what the ratchet beside this looks for.
             UiMode.ReadingEnvelope => string.Join('\n', EnvelopeLines(state, 0)),
             UiMode.ReadingChangeset => string.Join('\n', ChangesetLines(state, 0)),
+            UiMode.ReadingOutcome => string.Join('\n', ApplyLines(state, 0)),
 
             UiMode.FlightDetail => FlightDetail(state),
             UiMode.HandFlight => HandFlight(state),

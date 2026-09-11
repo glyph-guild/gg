@@ -148,6 +148,17 @@ public class ModalEscapeTests
           + "flying anything, so the real decision lands where a person can still change it - "
           + "and abandoning the editor opens nothing either.",
 
+        [UiMode.ReadingOutcome] =
+            "opened BY THE LOOP after an apply returns - Reducer.ApplyAnswered, called with "
+          + "the terminal already back - so no key opens it from a fresh state and none "
+          + "should: a person who just pressed `y` is owed the answer without discovering a "
+          + "second keystroke. It is also reachable by `o` from inside either other reading "
+          + "view, which is two keys deep and this test presses one. "
+          + "TheApplyOutcomeIsReadableTests holds both routes: that the loop's arm opens it "
+          + "when there is an outcome and opens nothing when there is not, and that `o` "
+          + "comes back to it from the diff. Escapability is covered above, because "
+          + "StateGenerator emits every UiMode.",
+
         [UiMode.ReadingChangeset] =
             "opened by `d` inside the reading modal, which `v` opens - so it is two steps "
           + "from a fresh state and this test presses one key. It is two steps ON PURPOSE: "

@@ -1852,7 +1852,8 @@ public sealed class ConsoleScreen : Window
         // EITHER READING VIEW DRAWS THE SAME LIST. Which one it is showing is
         // PaneText's to answer, and it answers by mode - so this asks only
         // whether a person is reading.
-        var reading = State.Mode is UiMode.ReadingEnvelope or UiMode.ReadingChangeset;
+        var reading = State.Mode is UiMode.ReadingEnvelope or UiMode.ReadingChangeset
+                                 or UiMode.ReadingOutcome;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
@@ -2125,9 +2126,12 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void FillReading()
     {
-        var lines = State.Mode is UiMode.ReadingChangeset
-            ? PaneText.ChangesetLines(State, _readingSaid.Viewport.Width)
-            : PaneText.EnvelopeLines(State, _readingSaid.Viewport.Width);
+        var lines = State.Mode switch
+        {
+            UiMode.ReadingChangeset => PaneText.ChangesetLines(State, _readingSaid.Viewport.Width),
+            UiMode.ReadingOutcome => PaneText.ApplyLines(State, _readingSaid.Viewport.Width),
+            _ => PaneText.EnvelopeLines(State, _readingSaid.Viewport.Width),
+        };
 
         if (_readingSaidShowing is not null && _readingSaidShowing.SequenceEqual(lines))
         {
@@ -2141,7 +2145,8 @@ public sealed class ConsoleScreen : Window
     /// <summary>The frame changed width, so the lines have to be broken again.</summary>
     private void OnReadingResized(object? sender, EventArgs args)
     {
-        if (State.Mode is not (UiMode.ReadingEnvelope or UiMode.ReadingChangeset))
+        if (State.Mode is not (UiMode.ReadingEnvelope or UiMode.ReadingChangeset
+                                                      or UiMode.ReadingOutcome))
         {
             return;
         }

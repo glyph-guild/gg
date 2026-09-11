@@ -506,11 +506,24 @@ public static class Keymap
         UiMode.ReadingEnvelope =>
         [
             new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
+            new(KeyStroke.Char('o'), Command.ReadOutcome, "the last apply"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
         UiMode.ReadingChangeset =>
         [
+            new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
+            new(KeyStroke.Char('o'), Command.ReadOutcome, "the last apply"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
+        // THE VIEW THE MODAL OPENS ITSELF ON. `o' is here too so somebody who
+        // stepped away to the diff can come back to what just happened - the
+        // three views answer what happened, what would change, and what
+        // governs, and reading one against another is why they share a box.
+        UiMode.ReadingOutcome =>
+        [
+            new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
             new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],

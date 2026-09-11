@@ -1310,8 +1310,11 @@ public static class PlatformToolServer
             "  environment: / repository:   the older singular spellings of those two. "
           + "Read so old documents still parse; do not write them.");
         said.AppendLine(
-            "  accepts: / produces:   for a work kind, what it takes in and what it hands "
-          + "back.");
+            $"  accepts:            for a work kind, what it takes in. Any of: "
+          + $"{string.Join(", ", Gg.Contracts.SubjectKinds.All)}.");
+        said.AppendLine(
+            $"  produces:           what it hands back. Any of: "
+          + $"{string.Join(", ", Gg.Contracts.FactKinds.All)}.");
         said.AppendLine(
             "  instructions:       sentences handed to the agent on every flight this "
           + "governs. This is how a tenant tells agents how to behave without changing "
@@ -1370,7 +1373,8 @@ public static class PlatformToolServer
         said.AppendLine(
             "    opens:            which gates landing here opens.");
         said.AppendLine(
-            "    may-perform:      what may be done at this destination.");
+            $"    may-perform:      what a flight admitted here may have done. Any of: "
+          + $"{string.Join(", ", Gg.Contracts.WorkItemOperations.All)}.");
         said.AppendLine(
             "    may-write:        which fields may be written there.");
         said.AppendLine(
@@ -1380,6 +1384,8 @@ public static class PlatformToolServer
             "    preserve-unadmitted:   whether work nobody admitted is kept rather than "
           + "discarded.");
         said.AppendLine();
+
+        Destinations(said);
 
         said.AppendLine(
             "WHAT A STRATEGY SAYS. Not rules about work at all: it describes the machines "
@@ -1393,6 +1399,66 @@ public static class PlatformToolServer
         said.AppendLine("  pull-point:       where machines are drawn from.");
         said.AppendLine("  active-hours:     when they may run.");
         said.AppendLine("  bounds:           the limits the whole of it sits inside.");
+    }
+
+    /// <summary>
+    /// The rules BETWEEN a destination's keys, which no key explains alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WRITTEN AGAINST A DOCUMENT AN AGENT ACTUALLY PRODUCED.</b> Each key
+    /// above is glossed correctly and on its own — <i>"may-write: which fields
+    /// may be written there"</i> — and that is exactly what let them be
+    /// combined wrongly: a tracker destination with <c>may-perform: [score]</c>,
+    /// a <c>may-write</c> that bound nothing, and a
+    /// <c>preserve-unadmitted</c> that means nothing off a pull request. True
+    /// glosses and a false composition.
+    /// </para>
+    /// <para>
+    /// <b>Two of those are refused and teach themselves in a turn</b>, since
+    /// <c>submit_document</c> hands back the contract's own diagnosis. They
+    /// are here anyway because a refusal costs a turn and a sentence costs
+    /// nothing.
+    /// </para>
+    /// <para>
+    /// <b>The third is silent, and that is the one this exists for.</b>
+    /// <c>may-perform: [score]</c> with no <c>may-write</c> is valid, applies,
+    /// and writes the tracker's own priority field — a score proposal carries
+    /// a bare value with no path, so the adapter decides and the document
+    /// cannot. Nothing refuses it and nothing says so.
+    /// </para>
+    /// </remarks>
+    private static void Destinations(StringBuilder said)
+    {
+        said.AppendLine(
+            "RULES BETWEEN THOSE KEYS, which none of them says alone. Getting these wrong "
+          + "is the commonest way a destination is written that cannot do what somebody "
+          + "meant:");
+        said.AppendLine();
+        said.AppendLine(
+            $"  · `may-perform` and `may-write` mean something only on a "
+          + $"`{Gg.Contracts.DestinationKinds.WorkItemTracker}`. `preserve-unadmitted` and "
+          + $"`may-select` mean something only on a "
+          + $"`{Gg.Contracts.DestinationKinds.PullRequest}` - there is no branch to "
+          + "preserve work on anywhere else, and declaring one is refused rather than "
+          + "ignored.");
+        said.AppendLine(
+            $"  · A `{Gg.Contracts.DestinationKinds.WorkItemTracker}` must name at least "
+          + "one operation. One that may perform nothing can never act.");
+        said.AppendLine(
+            $"  · `may-write` is the menu for `{Gg.Contracts.WorkItemOperations.Field}` and "
+          + "for nothing else. Both directions are refused: that operation with no paths "
+          + "can never act, and paths without it bound nothing.");
+        said.AppendLine(
+            $"  · `{Gg.Contracts.WorkItemOperations.Score}` DOES NOT WRITE A FIELD YOU "
+          + "NAME. A score carries a value and no path, so where it lands is the tracker "
+          + $"adapter's to decide - on Azure DevOps it is "
+          + $"`{Gg.Runner.Intent.WiqlWorkItemSink.PriorityField}`. To write a field of "
+          + $"your own you need `{Gg.Contracts.WorkItemOperations.Field}` in may-perform "
+          + "and the path in may-write. Nothing refuses the other thing: a destination "
+          + $"that may only `{Gg.Contracts.WorkItemOperations.Score}` is valid, applies, "
+          + "and writes somewhere you did not choose.");
+        said.AppendLine();
     }
 
     /// <summary>A closed list, as "a or b" rather than as a bare enumeration.</summary>

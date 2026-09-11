@@ -140,7 +140,19 @@ public abstract record CliAction
     public sealed record AirspacePull(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>Applies every changed document in the working copy.</summary>
-    public sealed record AirspaceApply(bool Json) : CliAction, IEmitsResult;
+    /// <summary>
+    /// Applies the working copy, optionally declaring the names it needs.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>DeclareNames</c> IS OPT-IN AND THE DEFAULT REFUSES.</b> A declared
+    /// name cannot be quietly withdrawn - retirement is a terminal version and
+    /// always rides a gate - so a typo in a filename would mint a permanent
+    /// name whose removal needs an approver. Without the flag, an apply that
+    /// needs a name it has not got refuses and prints the exact command per
+    /// document, which is the cheap half of the same information.
+    /// </remarks>
+    public sealed record AirspaceApply(bool Json, bool DeclareNames)
+        : CliAction, IEmitsResult;
 
     /// <summary>What the working copy would change, per document.</summary>
     public sealed record AirspaceDiff(bool Json) : CliAction, IEmitsResult;
@@ -517,10 +529,12 @@ public static class CliArgs
         // so it is stripped as a PAIR. An option left in the list is matched as
         // a verb, and `fly`'s arms are list patterns.
         var attended = args.Contains("--attended", StringComparer.Ordinal);
+        var declareNames = args.Contains("--declare-names", StringComparer.Ordinal);
         var runner = Value(args, "--runner");
 
         var rest = Without(
-            args.Where(a => a != "--json" && a != "--all" && a != "--hand" && a != "--attended"),
+            args.Where(a => a != "--json" && a != "--all" && a != "--hand"
+                         && a != "--attended" && a != "--declare-names"),
             "--runner");
 
         // AND REFUSED ON ANYTHING THAT IS NOT `fly`. Stripping it globally would
@@ -585,7 +599,7 @@ public static class CliArgs
             ["runners"] => new CliAction.Runners(json),
             ["airspace", "show"] => new CliAction.AirspaceShow(json),
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
-            ["airspace", "apply"] => new CliAction.AirspaceApply(json),
+            ["airspace", "apply"] => new CliAction.AirspaceApply(json, declareNames),
             ["airspace", "diff"] => new CliAction.AirspaceDiff(json),
             ["airspace", "name", var role, var named, "--under", var parent] =>
                 new CliAction.AirspaceName(role, named, parent, json),

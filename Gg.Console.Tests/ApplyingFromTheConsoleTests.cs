@@ -201,6 +201,7 @@ public class ApplyingFromTheConsoleTests
                 },
             ],
             Retiring = [],
+            Declared = [],
         }));
 
         // JOINED, BECAUSE THE REPORT IS LINES NOW. What this asserts did not

@@ -393,9 +393,19 @@ public sealed class ConsoleData(
     /// multiply when a surface does - which is why this calls the same verb the
     /// command line does rather than reaching the endpoint itself.
     /// </remarks>
+    /// <param name="declareNames">
+    /// Whether to declare names the topology does not hold before applying the
+    /// documents that need them.
+    /// </param>
+    /// <remarks>
+    /// <b>Not defaulted, because the console shows them and then asks.</b> The
+    /// apply question lists every name it would declare and under what parent,
+    /// so a `y` there is an answer to that as well - and a defaulted parameter
+    /// here is how the answer would stop reaching the verb.
+    /// </remarks>
     public Task<VerbResult> ApplyEstateAsync(
-        string root, CancellationToken cancellationToken = default) =>
-        _commands.AirspaceApplyAsync(root, cancellationToken);
+        string root, bool declareNames, CancellationToken cancellationToken = default) =>
+        _commands.AirspaceApplyAsync(root, declareNames, cancellationToken);
 
     /// <summary>`gg runners`.</summary>
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>

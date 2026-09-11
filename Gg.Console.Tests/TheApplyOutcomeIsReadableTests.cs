@@ -96,6 +96,7 @@ public class TheApplyOutcomeIsReadableTests
                 },
             ],
             Retiring = [],
+            Declared = [],
         }));
 
         await Assert.That(said.Count).IsGreaterThanOrEqualTo(2)

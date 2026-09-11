@@ -66,16 +66,57 @@ public class ApplyCanDeclareTheNamesItNeedsTests
 
         Directory.CreateDirectory(Path.Combine(root.FullName, "airspace", "work-kinds"));
 
+        // A WORK KIND THAT ACTUALLY PARSES. The first draft of this fixture
+        // did not, and the apply refused it as an unreadable file before ever
+        // reaching the topology - which is the tree read's own refusal working
+        // correctly and this test measuring the wrong thing. Shaped after a
+        // real one.
+        // A WORK KIND THAT ACTUALLY PARSES, taken from the real tree whose
+        // apply this test is about. The first two drafts did not parse, so the
+        // apply refused them as unreadable files before ever reaching the
+        // topology - the tree read working correctly and this test measuring
+        // the wrong thing.
         File.WriteAllText(
             Path.Combine(root.FullName, "airspace", "work-kinds", "score-hal.yaml"),
             """
             context:
               scope: "**"
               constitution: "1.0.0"
+            environments: dev
+            repositories:
+              - "JDX/JDNext"
+            accepts:
+              - tracker
+              - repository
+            produces:
+              - loop.outcome
+              - loop.digest
+              - loop.question
+              - destination.landed
             obligations:
               hal-in-scope:
                 check: machine
                 rule: no-file-outside-scope
+            loops:
+              score:
+                executor: frontier
+                discharges:
+                  - hal-in-scope
+                moves:
+                  - read
+                  - search
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              agentic-backlog:
+                kind: work-item-tracker
+                may-perform:
+                  - field
+                may-write:
+                  - "Custom.HAL"
+                requires:
+                  - hal-in-scope
             """);
 
         return root;

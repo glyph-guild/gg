@@ -206,13 +206,15 @@ public static class PlatformToolServer
         {
             "initialize" => Initialized(id, message),
             "tools/list" => Listed(id),
+            "prompts/list" => Offered(id),
+            "prompts/get" => Given(id, message),
             "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
             _ => Error(id, -32601,
-                $"'{method}' is not a method this server has. It has initialize, tools/list "
-              + "and tools/call."),
+                $"'{method}' is not a method this server has. It has initialize, tools/list, "
+              + "tools/call, prompts/list and prompts/get."),
         };
     }
 
@@ -235,6 +237,13 @@ public static class PlatformToolServer
             writer.WriteStartObject("capabilities");
             writer.WriteStartObject("tools");
             writer.WriteEndObject();
+
+            // DECLARED OR NEVER ASKED FOR. A client reads this object before
+            // it reads anything else and calls only what it finds here, so a
+            // prompt behind an undeclared capability is one nobody is ever
+            // offered.
+            writer.WriteStartObject("prompts");
+            writer.WriteEndObject();
             writer.WriteEndObject();
 
             writer.WriteStartObject("serverInfo");
@@ -246,6 +255,73 @@ public static class PlatformToolServer
 
             writer.WriteEndObject();
         });
+
+    /// <summary>The first move a person can pick, listed.</summary>
+    /// <remarks>
+    /// <b>One, and a second has to argue for itself</b> — the rule this
+    /// server already applies to its tools, for the same reason: a list a
+    /// person scrolls is a list nobody reads, and the value of an opening move
+    /// is that there is an obvious one.
+    /// </remarks>
+    private static string Offered(JsonElement id) =>
+        Write(writer =>
+        {
+            Envelope(writer, id);
+            writer.WriteStartObject("result");
+            writer.WriteStartArray("prompts");
+
+            writer.WriteStartObject();
+            writer.WriteString("name", DraftingPrompt.Name);
+            writer.WriteString("description", DraftingPrompt.Description);
+            writer.WriteEndObject();
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        });
+
+    /// <summary>The turn a person is about to send, handed back.</summary>
+    /// <remarks>
+    /// <b>One message, and it is the PERSON's.</b> A conversation gg invented
+    /// both halves of would be gg talking to itself, and an assistant turn
+    /// here would put words in the agent's mouth before it had read anything.
+    /// </remarks>
+    private static string Given(JsonElement id, JsonElement message)
+    {
+        var asked = message.TryGetProperty("params", out var parameters)
+            && parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty("name", out var name)
+                ? name.GetString()
+                : null;
+
+        if (!string.Equals(asked, DraftingPrompt.Name, StringComparison.Ordinal))
+        {
+            // REFUSED RATHER THAN GUESSED. Answering an unknown name with the
+            // only prompt there is would make every mistyped command look like
+            // it worked - and a person would then be sending a turn they did
+            // not choose.
+            return Error(id, -32602,
+                $"'{asked}' is not a prompt this server has. It has {DraftingPrompt.Name}.");
+        }
+
+        return Write(writer =>
+        {
+            Envelope(writer, id);
+            writer.WriteStartObject("result");
+            writer.WriteString("description", DraftingPrompt.Description);
+            writer.WriteStartArray("messages");
+
+            writer.WriteStartObject();
+            writer.WriteString("role", "user");
+            writer.WriteStartObject("content");
+            writer.WriteString("type", "text");
+            writer.WriteString("text", DraftingPrompt.Text);
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        });
+    }
 
     private static string Listed(JsonElement id) =>
         Write(writer =>

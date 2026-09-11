@@ -131,6 +131,18 @@ public sealed class StubControlPlane : IAsyncDisposable
         ],
     };
 
+    /// <summary>Every strategy this stub was asked to apply, in order.</summary>
+    /// <remarks>
+    /// Separate from <see cref="AppliedNames"/> ON PURPOSE: a strategy sent to
+    /// the envelope door arrives as an empty body, and a stub that counted both
+    /// in one list could not tell a correct apply from the defect that sent
+    /// every document to one door.
+    /// </remarks>
+    public List<string> AppliedStrategies { get; } = [];
+
+    /// <summary>Whether a strategy apply answers 202 - a gate.</summary>
+    public bool StrategyDiverts { get; set; }
+
     /// <summary>The name this stub was asked to retire.</summary>
     public string? RetiredName { get; private set; }
 
@@ -543,6 +555,30 @@ public sealed class StubControlPlane : IAsyncDisposable
             case "/v1/airspace/strategies":
                 await WriteJsonAsync(context, 200, new StrategyList { Strategies = Strategies });
                 return;
+
+            // A STRATEGY'S OWN DOOR. A prefix arm because the name is in the
+            // path, and after the literal above so the list route keeps its
+            // own match.
+            case var strategy when context.Request.HttpMethod == "PUT"
+                && strategy.StartsWith("/v1/airspace/strategies/", StringComparison.Ordinal):
+            {
+                AppliedStrategies.Add(Uri.UnescapeDataString(
+                    strategy["/v1/airspace/strategies/".Length..]));
+
+                await WriteJsonAsync(
+                    context,
+                    StrategyDiverts ? 202 : 200,
+                    new EnvelopeApplied
+                    {
+                        Version = "dev@v5",
+                        AppliedAt = DateTimeOffset.UnixEpoch,
+                        Changed = !StrategyDiverts,
+                        Flight = StrategyDiverts ? "GG-112" : null,
+                        Awaiting = StrategyDiverts ? "platform-owner" : null,
+                        Widens = StrategyDiverts ? "pool-max" : null,
+                    });
+                return;
+            }
 
             case "/v1/configuration/offered" when !ServesOffers:
                 // NOT SERVED AT ALL, which is what a control plane predating

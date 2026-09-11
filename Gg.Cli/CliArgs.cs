@@ -216,6 +216,15 @@ public abstract record CliAction
     public sealed record AllowanceOverride(
         string Name, int Minutes, string Reason, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Makes somebody an administrator of the tenant, or stops being one.</summary>
+    /// <remarks>
+    /// <b>The word is in the verb, not in a flag.</b> <c>--revoke</c> would
+    /// make granting the default of a verb whose other half takes privilege
+    /// away, and the shorter spelling would be the more dangerous one.
+    /// </remarks>
+    public sealed record Admin(string PrincipalId, bool Granted, bool Json)
+        : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -462,6 +471,10 @@ public static class CliArgs
         "gg login                       sign in on this machine",
         "gg logout                      forget the session here",
         "gg whoami                      who this machine is signed in as",
+        // UNDER WHOAMI, because its argument is a principal id and whoami is
+        // the only place a person can read one.
+        "gg admin grant <principal>     make somebody an administrator of this tenant",
+        "gg admin revoke <principal>    take it back",
         "gg runner up                   take work on this machine",
         "gg runner maintain <pool>      keep a managed pool warm, reset and attested",
         "gg version                     binary, protocol and fact vocabulary",
@@ -646,6 +659,17 @@ public static class CliArgs
                 Floor(floorOf, floorArgs, json),
             ["allowances", "override", var spendOf, .. var spendArgs] =>
                 Override(spendOf, spendArgs, json),
+            // A PRINCIPAL ID, WHICH IS WHAT WHOAMI PRINTS. Not a display name
+            // and not an email: two people may share either, and this changes
+            // what one person may do.
+            ["admin", "grant", var promoted] => new CliAction.Admin(promoted, true, json),
+            ["admin", "revoke", var demoted] => new CliAction.Admin(demoted, false, json),
+            ["admin", ..] => Unknown(
+                "gg admin takes grant or revoke and a principal id - gg admin grant "
+              + "p-7. The id is the one gg whoami prints in brackets, not a display name "
+              + "or an email: two people may share either, and this changes what one "
+              + "person may do."),
+
             ["doctor"] => new CliAction.Doctor(json),
             ["update"] => new CliAction.Update(json),
             ["bundle"] => new CliAction.Bundle(json),

@@ -923,6 +923,28 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Control plane returned no runner list.");
     }
 
+    /// <summary>Makes a principal an administrator of their tenant.</summary>
+    /// <remarks>
+    /// <b>204 and nothing back.</b> The interesting answers are refusals - 403
+    /// once the tenant already has one, 404 for a principal it does not have -
+    /// and they arrive as the status with the server's own sentence.
+    /// </remarks>
+    public async Task GrantAdminAsync(
+        string sessionToken, string principalId, bool granted,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(principalId);
+
+        using var request = Request(
+            granted ? HttpMethod.Post : HttpMethod.Delete,
+            $"/v1/principals/{Uri.EscapeDataString(principalId)}/admin",
+            sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     /// <summary>What each allowance the fleet spends from has left.</summary>
     /// <remarks>
     /// <b>The fleet's, not this machine's.</b> Every machine reports what its

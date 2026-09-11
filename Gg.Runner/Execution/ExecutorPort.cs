@@ -351,6 +351,17 @@ public sealed record ExecutorRun
     public ArtifactReference? Transcript { get; init; }
 
     /// <summary>
+    /// What the run spent, or null where it could not be counted.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is the ordinary answer for an attended session</b>, which hands
+    /// a person the terminal and has no stream to count. Zero would read as a
+    /// loop that cost nothing — <c>AttendedGaps.Turns</c>'s helpful lie in a
+    /// second place.
+    /// </remarks>
+    public SpentTokens? Spent { get; init; }
+
+    /// <summary>
     /// The work kind this loop nominated, or null where it nominated none.
     /// </summary>
     /// <remarks>
@@ -477,6 +488,10 @@ public sealed record ExecutorRun
         Attempts = Attempts,
         DurationMs = DurationMs,
         MovesUsed = MovesUsed,
+        InputTokens = Spent?.Input,
+        OutputTokens = Spent?.Output,
+        CacheReadTokens = Spent?.CacheRead,
+        CacheWriteTokens = Spent?.CacheWrite,
     };
 
     private static string Describe(TimeSpan span) =>

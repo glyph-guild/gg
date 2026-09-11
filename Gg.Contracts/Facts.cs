@@ -329,7 +329,24 @@ public static class FactVocabulary
     /// eleven's step 0). No VALUE moved: per-tool still means what it meant,
     /// none still never crosses from a working runner - a broken bound
     /// releases the lease with the diagnosis instead of shipping anything.
-    public const string Version = "0.29.0";
+    /// 0.30.0 GIVES loop.outcome WHAT IT SPENT: inputTokens, outputTokens,
+    /// cacheReadTokens and cacheWriteTokens. A member add, which is the free
+    /// kind; the ledger entry records the day, which is the part nobody can
+    /// diff. THE COUNTS WERE ALWAYS THERE AND NOTHING READ THEM - the
+    /// executor's result record carries a usage block beside the three fields
+    /// the adapter read, and ReportsTokens was deleted at slice twenty because
+    /// nothing consumed it. The control plane's own LoopBudgetTests has
+    /// asserted in prose since then that tokens are reported, with no test
+    /// behind it. FOUR COUNTS AND NO TOTAL, because the provider's weighting
+    /// of a cache read against an output token is not published and a total
+    /// computed in an adapter would cross as a measurement. NULLABLE, AND
+    /// THAT IS THE LOAD-BEARING PART: an attended session has no stream to
+    /// count and reaches this same fact, so four zeroes would report a loop
+    /// that cost nothing - AttendedGaps.Turns' helpful lie in a second place.
+    /// No gap VALUE is added for it; loop.attended already says the session
+    /// was attended, and a closed vocabulary's values are the expensive kind.
+    /// NO VALUE MOVED and no kind changed.
+    public const string Version = "0.30.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

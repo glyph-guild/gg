@@ -223,6 +223,16 @@ public sealed class ClaudeCodeExecutor(
                 : ExecutorRun.Completed(
                     request.LoopId, result.Reason, result.Attempts, started.Elapsed, moves);
 
+        // WHAT IT SPENT, off the same result record the three answers above
+        // came from. Set here rather than on each of the three factories,
+        // because the spend is a property of the run and not of how it ended -
+        // a crash costs tokens too. A run that exhausted its wall clock never
+        // reaches this line and reports none: there is no result record to
+        // read, and inventing one would be the guess this whole fact refuses.
+        // Nothing is lost by that - AllowanceLedger counts the machine's
+        // transcripts whatever the flight did.
+        outcome = outcome with { Spent = TranscriptTokens.Spent(recorded) };
+
         return await WithTranscriptAsync(outcome, request, transcript, cancellationToken);
     }
 

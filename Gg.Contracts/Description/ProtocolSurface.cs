@@ -1316,7 +1316,8 @@ public static class ProtocolSurface
                 ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion", "resumesFrom",
                  "instructions"],
             [typeof(LoopOutcome)] =
-                ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed"],
+                ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
+                 "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],

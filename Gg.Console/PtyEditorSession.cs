@@ -129,13 +129,17 @@ public sealed class PtyEditorSession : IEditorSession
                     // editor's.
                     (most, wide) => new HostedRows(
                         HostedBar.Rows(
-                            HostedView.Closed, _bar, body: "", most: most, columns: wide),
+                            new HostedPanel(HostedView.Closed, 0),
+                            _bar,
+                            body: "",
+                            most: most,
+                            columns: wide),
                         ""),
                     // AND GG TAKES NO KEY AT ALL HERE. An editor session has
                     // nothing gg could show that the editor is not already
                     // showing, and a key charged for a panel that never opens is
                     // a key taken from vim for nothing.
-                    _ => false,
+                    (_, _) => false,
                     CancellationToken.None).GetAwaiter().GetResult();
             }
             catch (Exception missing) when (

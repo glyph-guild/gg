@@ -95,7 +95,7 @@ public class TheWheelReachesTheChildTests
         // the child does not have, on the strength of gg's own invitation.
         var read = MouseInput.Read(Sgr(0, 40, 24), barRows: 3, footerRow: 24);
 
-        await Assert.That(read.Kind).IsEqualTo(MouseReading.Toggle);
+        await Assert.That(read.Kind).IsEqualTo(MouseReading.Pressed);
     }
 
     [Test]
@@ -126,7 +126,7 @@ public class TheWheelReachesTheChildTests
         {
             var read = MouseInput.Read(Sgr(0, 5, row), barRows: 3, footerRow: 0);
 
-            await Assert.That(read.Kind).IsEqualTo(MouseReading.Toggle)
+            await Assert.That(read.Kind).IsEqualTo(MouseReading.Pressed)
                 .Because($"row {row} is gg's, and the panel it opens is what a person is "
                        + "reaching for when they click a bar that says there is more.");
         }
@@ -167,7 +167,7 @@ public class TheWheelReachesTheChildTests
         {
             var read = MouseInput.Read(Sgr(button, 5, 2), barRows: 3, footerRow: 0);
 
-            await Assert.That(read.Kind).IsEqualTo(MouseReading.Toggle)
+            await Assert.That(read.Kind).IsEqualTo(MouseReading.Pressed)
                 .Because($"button {button} is the left button with a modifier held, which "
                        + "is a press.");
         }
@@ -196,13 +196,20 @@ public class TheWheelReachesTheChildTests
     }
 
     [Test]
-    public async Task The_wheel_over_the_bar_is_swallowed_rather_than_sent_anywhere()
+    public async Task The_wheel_over_the_bar_is_the_bar_s_to_act_on()
     {
-        var read = MouseInput.Read(Sgr(64, 5, 1), barRows: 3, footerRow: 0);
+        // THIS USED TO BE SWALLOWED, and swallowing was right only while the
+        // panel could not move. It says "… n more" about a body that scrolls
+        // now, and the wheel is what a person reaches for first - so pointing
+        // at gg's rows and turning it is gg's, not a thing to drop and not a
+        // thing to hand a child that has no such row.
+        await Assert.That(MouseInput.Read(Sgr(64, 5, 1), barRows: 3, footerRow: 0).Kind)
+            .IsEqualTo(MouseReading.ScrolledUp);
 
-        await Assert.That(read.Kind).IsEqualTo(MouseReading.Nothing)
-            .Because("it is not a click, so it does not toggle - and forwarding it would "
-                   + "hand the child a row above its own first one.");
+        await Assert.That(MouseInput.Read(Sgr(65, 5, 1), barRows: 3, footerRow: 0).Kind)
+            .IsEqualTo(MouseReading.ScrolledDown)
+            .Because("65 is the other direction: the low bit of a wheel button is which "
+                   + "way it turned.");
     }
 
     [Test]

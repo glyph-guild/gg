@@ -68,7 +68,7 @@ public class PtyHostTests
             // AND GG TAKES NOTHING: these are about hosting, and a host that
             // swallowed a key would make every assertion about what the child
             // received depend on which key the test happened to type.
-            took: _ => false,
+            took: (_, _) => false,
             CancellationToken.None);
 
     [Test]
@@ -258,14 +258,14 @@ public class PtyHostTests
             panel: (_, _) => new HostedRows(["gg"], ""),
             // gg claims 'Q' and nothing else, which stands in for a prefix: this
             // test is about what interception DOES, not about which key.
-            took: typed =>
+            took: (_, typed) =>
             {
-                if (typed != (byte)'Q')
+                if (typed.Length != 1 || typed.Span[0] != (byte)'Q')
                 {
                     return false;
                 }
 
-                taken.Add(typed);
+                taken.Add(typed.Span[0]);
                 return true;
             },
             CancellationToken.None);
@@ -310,7 +310,7 @@ public class PtyHostTests
             terminal, "/bin/sh", ["-c", "read line; printf '[%s]' \"$line\""],
             Path.GetTempPath(),
             panel: (_, _) => new HostedRows(["gg"], ""),
-            took: _ => false,
+            took: (_, _) => false,
             CancellationToken.None);
 
         await Assert.That(Until(() => terminal.Painted.Length > 0)).IsTrue();
@@ -340,7 +340,7 @@ public class PtyHostTests
                 offered.Add(most);
                 return new HostedRows(["gg"], "");
             },
-            took: _ => false,
+            took: (_, _) => false,
             CancellationToken.None);
 
         await host;

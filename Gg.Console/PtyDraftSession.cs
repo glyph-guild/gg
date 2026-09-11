@@ -151,7 +151,10 @@ public sealed class PtyDraftSession
         // panel for a round trip - a key that appears to do nothing for a
         // second is a key somebody presses again.
         var envelope = _envelope();
-        var showing = HostedView.Closed;
+
+        // WHAT GG IS SHOWING AND HOW FAR DOWN IT, held here because the
+        // host keeps nothing between calls and HostedBar is pure.
+        var panel = new HostedPanel(HostedView.Closed, 0);
 
         try
         {
@@ -177,16 +180,21 @@ public sealed class PtyDraftSession
                  AirspacePullTool.Qualified],
                 tree,
                 (most, wide) => new HostedRows(
-                    HostedBar.Rows(showing, _bar, Body(showing, envelope), most, wide),
-                    HostedBar.Footer(showing, wide)),
-                typed =>
+                    HostedBar.Rows(panel, _bar, Body(panel.Showing, envelope), most, wide),
+                    HostedBar.Footer(panel.Showing, wide)),
+                (gesture, typed) =>
                 {
-                    if (!HostedBar.Takes(showing, typed))
+                    if (!HostedBar.Takes(panel, gesture, typed.Span))
                     {
                         return false;
                     }
 
-                    showing = HostedBar.Next(showing, typed);
+                    // THE BODY GOES IN, so scrolling stops at its last line
+                    // rather than emptying the panel - which reads as a view
+                    // that failed to load rather than one scrolled too far.
+                    panel = HostedBar.Next(
+                        panel, gesture, typed.Span, Body(panel.Showing, envelope));
+
                     return true;
                 },
                 CancellationToken.None).GetAwaiter().GetResult();

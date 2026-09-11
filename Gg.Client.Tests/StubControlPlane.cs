@@ -98,6 +98,53 @@ public sealed class StubControlPlane : IAsyncDisposable
     public DeclareNameRequest? DeclaredName { get; private set; }
 
     /// <summary>
+    /// Every name declared against this stub, in the order they arrived.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="DeclaredName"/> keeps only the last one</b>, which cannot
+    /// express "two names were declared, parents first". An apply that declares
+    /// what it needs sends more than one.
+    /// </remarks>
+    public List<DeclareNameRequest> DeclaredNames { get; } = [];
+
+    /// <summary>
+    /// Which names the topology holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>Root only by default, which is what the door promises.</b> The
+    /// topology read is "never empty and never 404: root is synthesized by the
+    /// read, so the floor is in the answer before anything is declared" - so a
+    /// stub that answered an empty list would answer something the contract
+    /// says cannot happen.
+    /// </remarks>
+    public EnvelopeTopology Topology { get; set; } = new()
+    {
+        Names =
+        [
+            new TopologyName
+            {
+                Name = "root",
+                Role = Roles.Root,
+                DeclaredBy = "the floor exists; nobody declares it",
+                DeclaredAt = DateTimeOffset.UnixEpoch,
+            },
+        ],
+    };
+
+    /// <summary>What the apply door refuses with, when it refuses.</summary>
+    public string? ApplyRefusal { get; set; }
+
+    /// <summary>Whether an apply answers 202 - a widening that opened a gate.</summary>
+    public bool ApplyDiverts { get; set; }
+
+    /// <summary>Every document this stub was asked to apply, in order.</summary>
+    /// <remarks>
+    /// So a test can assert that an apply refused BEFORE it sent anything -
+    /// which is a different claim from its answer being a refusal.
+    /// </remarks>
+    public List<string> AppliedNames { get; } = [];
+
+    /// <summary>
     /// When set, a takeover claim is refused and this is who holds it.
     /// </summary>
     /// <remarks>
@@ -446,9 +493,18 @@ public sealed class StubControlPlane : IAsyncDisposable
                 });
                 return;
 
+            case "/v1/airspace/topology":
+                await WriteJsonAsync(context, 200, Topology);
+                return;
+
             case "/v1/airspace/names" when context.Request.HttpMethod == "POST":
                 DeclaredName = JsonSerializer.Deserialize<DeclareNameRequest>(
                     LastBody, JsonSerializerOptions.Web);
+
+                if (DeclaredName is { } arrived)
+                {
+                    DeclaredNames.Add(arrived);
+                }
 
                 if (NameRefusal is { } nameRefusal)
                 {
@@ -669,6 +725,49 @@ public sealed class StubControlPlane : IAsyncDisposable
             case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal):
                 await WriteJsonAsync(context, 200, AFlight());
                 return;
+
+            // APPLY BY NAME. A prefix arm rather than a literal, because the
+            // name is in the path - and last, so every literal route above
+            // still wins its own match.
+            case var applying when context.Request.HttpMethod == "PUT"
+                && applying.StartsWith("/v1/airspace/envelopes/", StringComparison.Ordinal):
+            {
+                var applied = Uri.UnescapeDataString(
+                    applying["/v1/airspace/envelopes/".Length..]);
+
+                AppliedNames.Add(applied);
+
+                if (ApplyRefusal is { } applyRefusal)
+                {
+                    await WriteAsync(context, 400, applyRefusal);
+                    return;
+                }
+
+                // 202 IS A WIDENING THAT DIVERTED, and it is a different answer
+                // rather than a flag on the same one: no version is minted and
+                // the name still holds the old one.
+                if (ApplyDiverts)
+                {
+                    await WriteJsonAsync(context, 202, new EnvelopeApplied
+                    {
+                        Version = $"{applied}@v1",
+                        AppliedAt = DateTimeOffset.UnixEpoch,
+                        Changed = false,
+                        Flight = "GG-91",
+                        Awaiting = "platform-owner",
+                        Widens = "obligations",
+                    });
+                    return;
+                }
+
+                await WriteJsonAsync(context, 200, new EnvelopeApplied
+                {
+                    Version = $"{applied}@v2",
+                    AppliedAt = DateTimeOffset.UnixEpoch,
+                    Changed = true,
+                });
+                return;
+            }
 
             default:
                 await WriteAsync(context, 404, "");

@@ -101,9 +101,11 @@ public class PullingFromTheConsoleTests
     [Test]
     public async Task A_dirty_tree_is_refused_by_naming_the_files()
     {
-        var said = ConsolePull.Pulled(
+        var lines = ConsolePull.Pulled(
             () => throw new DirtyWorkingCopyException(
                 ["airspace/root.yaml", "airspace/narrowings/pci.yaml"]));
+
+        var said = string.Join('\n', lines);
 
         await Assert.That(said).Contains("pci.yaml", StringComparison.Ordinal)
             .Because("the files are what a person acts on - commit them or discard them - "
@@ -118,12 +120,14 @@ public class PullingFromTheConsoleTests
         // A WHOLE ESTATE IS DOZENS OF FILES. The activity line is one line, so
         // it says how many and what changed rather than listing a screenful
         // nobody asked for - the pane below already shows the documents.
-        var said = ConsolePull.Pulled(() => new VerbResult.AirspacePulled(new TreeWritten
+        var lines = ConsolePull.Pulled(() => new VerbResult.AirspacePulled(new TreeWritten
         {
             Written = ["airspace/root.yaml", "airspace/narrowings/pci.yaml"],
             Removed = ["airspace/work-kinds/gone.yaml"],
             Unrepresentable = [],
         }));
+
+        var said = string.Join('\n', lines);
 
         await Assert.That(said).Contains("2", StringComparison.Ordinal);
         await Assert.That(said).Contains("1", StringComparison.Ordinal)
@@ -134,12 +138,14 @@ public class PullingFromTheConsoleTests
     [Test]
     public async Task A_name_no_path_can_carry_is_named_rather_than_skipped()
     {
-        var said = ConsolePull.Pulled(() => new VerbResult.AirspacePulled(new TreeWritten
+        var lines = ConsolePull.Pulled(() => new VerbResult.AirspacePulled(new TreeWritten
         {
             Written = [],
             Removed = [],
             Unrepresentable = ["Payments/EU"],
         }));
+
+        var said = string.Join('\n', lines);
 
         await Assert.That(said).Contains("Payments/EU", StringComparison.Ordinal)
             .Because("a name declared before the name rule existed cannot be written back, "

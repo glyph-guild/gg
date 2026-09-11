@@ -619,6 +619,11 @@ public sealed class ConsoleLoop(
                         : pullEstate(state),
                     reload,
                     asked: false);
+
+                // AND OVER THE CONSOLE WHEN IT HAS SOMETHING TO SAY. A pull
+                // that refuses names a document per line, and the row it used
+                // to go in is one row.
+                state = Reducer.ApplyAnswered(state);
                 break;
 
             case Command.EditConfiguration:

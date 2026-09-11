@@ -385,6 +385,76 @@ public class HostedBarTests
     }
 
     [Test]
+    public async Task A_body_line_wider_than_the_terminal_wraps_like_the_status_does()
+    {
+        // THE STATUS WAS TAUGHT TO WRAP AND THE BODY WAS NOT. Every body line
+        // is handed to the painter whole, and the painter cuts at the
+        // terminal's edge - so the rules in force, which is what this panel
+        // exists to show, lose the end of every long line. An envelope's
+        // `when:` and `instructions:` lines are exactly the long ones.
+        var wide = "obligations: " + new string('x', Narrow * 2);
+
+        var rows = HostedBar.Rows(Open(), "gg", wide, most: 12, columns: Narrow);
+
+        foreach (var row in rows)
+        {
+            await Assert.That(row.Length).IsLessThanOrEqualTo(Narrow)
+                .Because("a row wider than the terminal is a row the painter cuts, and "
+                       + "this is the panel that must not truncate silently. Row: " + row);
+        }
+
+        await Assert.That(string.Join("", rows)).Contains(new string('x', Narrow + 10))
+            .Because("wrapped, not cut: the characters past the first screenful are the "
+                   + "whole reason to scroll.");
+    }
+
+    [Test]
+    public async Task Scrolling_stops_with_the_last_line_at_the_bottom()
+    {
+        // NOT AT THE TOP, which is where it stopped. Next clamped against the
+        // line count alone, so a body could be scrolled until ONE line was
+        // left in a window with room for eight - the panel emptying itself as
+        // you turn the wheel, which is what "wonky" looks like.
+        var panel = Open();
+
+        for (var turn = 0; turn < 40; turn++)
+        {
+            panel = HostedBar.Next(
+                panel, HostedGesture.ScrolledDown, [], Twelve(), most: 6, columns: Narrow);
+        }
+
+        var rows = HostedBar.Rows(panel, "gg", Twelve(), most: 6, columns: Narrow);
+        var shown = string.Join("\n", rows);
+
+        await Assert.That(shown).Contains("line 12", StringComparison.Ordinal)
+            .Because("the end of the body is what scrolling to the end should show.");
+
+        await Assert.That(shown).Contains("line 9", StringComparison.Ordinal)
+            .Because("and the window stays full: six rows, one of them the header, so the "
+                   + "last four lines are on screen rather than the last one. Shown:\n"
+                   + shown);
+    }
+
+    [Test]
+    public async Task It_says_how_much_is_above_as_well_as_below()
+    {
+        // BOTH ENDS, AND THE ONE THAT WAS MISSING IS THE ONE YOU NEED WHILE
+        // SCROLLING. "n above" only appeared once nothing was left below, so
+        // in the middle of a long body there was nothing to say where you
+        // were at all.
+        var rows = HostedBar.Rows(
+            Open(offset: 4), "gg", Twelve(), most: 6, columns: Narrow);
+
+        var shown = string.Join("\n", rows);
+
+        await Assert.That(shown).Contains("above", StringComparison.OrdinalIgnoreCase)
+            .Because("four lines have gone past the top. Shown:\n" + shown);
+
+        await Assert.That(shown).Contains("more", StringComparison.OrdinalIgnoreCase)
+            .Because("and there are more below. Shown:\n" + shown);
+    }
+
+    [Test]
     public async Task A_closed_panel_says_how_to_open_it_and_where()
     {
         // THE TOP ROW IS THE SESSION'S AND THE BOTTOM ROW IS GG'S OWN.

@@ -48,6 +48,12 @@ public static class Modals
         UiMode.ReadingOutcome,
         UiMode.ConfirmRetire,
         UiMode.ComposeChoice,
+
+        // ARRIVED ON MAIN WHILE THIS BRANCH WAS OUT, and the ratchet in this
+        // file is what asked. It is ComposeChoice's shape applied to a number -
+        // a few shares and a key each - so it is a question with a title, a
+        // body and labelled answers, which is a dialog.
+        UiMode.FloorChoice,
     ];
 
     /// <summary>

@@ -1429,6 +1429,16 @@ public static class PlatformToolServer
           + "governs. This is how a tenant tells agents how to behave without changing "
           + "any code.");
         said.AppendLine(
+            $"  targeting:          for a work kind, which machine gets the work. "
+          + $"{Either(Gg.Contracts.AllowanceTargeting.All)}. About ALLOWANCES rather than "
+          + "machines: a subscription is the scarce thing and a machine is not. Omitting "
+          + $"it means `{Gg.Contracts.AllowanceTargeting.Any}` - whichever machine asks "
+          + $"first - and `{Gg.Contracts.AllowanceTargeting.LeastSpent}` gives the machine "
+          + "with the most allowance left FIRST REFUSAL rather than a veto: it is held "
+          + "back for a bounded window and then allowed to claim anyway, because a machine "
+          + "only asks when it is free and waiting for the least-spent one would starve "
+          + "the flight.");
+        said.AppendLine(
             "  obligations:        what must hold. Keyed by name; the name is how a loop "
           + "or a destination refers to it.");
         said.AppendLine(

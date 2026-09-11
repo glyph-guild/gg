@@ -27,12 +27,21 @@ namespace Gg.Console;
 /// </remarks>
 public static class ConsolePull
 {
-    /// <summary>What the pull came to, as one line for the activity slot.</summary>
+    /// <summary>
+    /// What the pull came to, in lines, for a modal somebody reads.
+    /// </summary>
+    /// <remarks>
+    /// <b>LINES FOR THE APPLY'S REASON.</b> A pull's ordinary answer is a
+    /// count and fits a row; its REFUSALS do not. It now declines to render
+    /// over unapplied work and names every document, and the dirty refusal
+    /// names every file — both of which ran off the right edge of a one-row
+    /// slot, which is where the remedy lives.
+    /// </remarks>
     /// <param name="pull">
     /// The verb, as a function so this can be asserted without a control plane
     /// — the same reason <c>ConsoleLoop.Opened</c> is public.
     /// </param>
-    public static string Pulled(Func<VerbResult> pull)
+    public static IReadOnlyList<string> Pulled(Func<VerbResult> pull)
     {
         ArgumentNullException.ThrowIfNull(pull);
 
@@ -40,7 +49,7 @@ public static class ConsolePull
         {
             if (pull() is not VerbResult.AirspacePulled pulled)
             {
-                return "Nothing was pulled: the verb answered something other than a pull.";
+                return ["Nothing was pulled: the verb answered something other than a pull."];
             }
 
             var written = pulled.Value.Written.Count;
@@ -57,23 +66,33 @@ public static class ConsolePull
 
             if (written == 0 && removed == 0)
             {
-                return "The working copy already matches the airspace; nothing was written."
-                     + unwritable;
+                return
+                [
+                    "The working copy already matches the airspace; nothing was written."
+                  + unwritable,
+                ];
             }
 
             // REMOVALS ARE SAID EVEN WHEN THERE ARE NONE OF THEM TO SAY, when
             // something was written: a document whose stream ended leaves a
             // file, and somebody who is not told one went will look for it
             // later.
-            return $"Pulled the airspace: {written} written, {removed} removed." + unwritable;
+            return [$"Pulled the airspace: {written} written, {removed} removed." + unwritable];
         }
         catch (DirtyWorkingCopyException dirty)
         {
             // GIT BEHAVING LIKE GIT. The files are what a person acts on -
             // commit them or discard them - and a refusal that said only "the
-            // tree is dirty" would leave them hunting for which.
-            return "Nothing was pulled: these are uncommitted, and pull would overwrite "
-                 + "them - commit or discard first. " + string.Join(", ", dirty.Paths);
+            // tree is dirty" would leave them hunting for which. A file per
+            // line, because that is what a person reads down.
+            return
+            [
+                "Nothing was pulled: these are uncommitted, and pull would overwrite them.",
+                "",
+                .. dirty.Paths.Select(path => "  " + path),
+                "",
+                "Commit or discard them first.",
+            ];
         }
         catch (Exception refused) when (refused is NotSignedInException
                                             or ProtocolTooOldException
@@ -82,7 +101,24 @@ public static class ConsolePull
                                             or IOException
                                             or UnauthorizedAccessException)
         {
-            return "Nothing was pulled: " + refused.Message;
+            return
+            [
+                "Nothing was pulled.",
+                "",
+                .. refused.Message
+                    .ReplaceLineEndings("\n")
+                    .Split('\n')
+                    .Select(line => line.TrimEnd())
+                    .SkipWhile(line => line.Length == 0),
+            ];
         }
     }
+
+    /// <summary>The one line the activity slot gets.</summary>
+    /// <remarks>
+    /// <b>ConsoleApply's, so the two reports are trimmed by one rule.</b> The
+    /// bound it checks against is the narrowest screen this console supports,
+    /// and a second copy of that arithmetic is a second thing to keep true.
+    /// </remarks>
+    public static string Summary(IReadOnlyList<string> lines) => ConsoleApply.Summary(lines);
 }

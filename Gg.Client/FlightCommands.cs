@@ -614,6 +614,41 @@ public sealed class FlightCommands(
         }
 
         var estate = await _client.ReadEstateAsync(Session(), cancellationToken);
+
+        // AND NOT OVER ANYTHING UNAPPLIED. The dirty check above catches an
+        // edit somebody has not committed; it cannot see one they HAVE, and
+        // committing is precisely what this verb's own refusal tells them to
+        // do. So the safety check and the instruction that defeats it shipped
+        // together, and a person who followed the advice exactly lost a
+        // document they had authored and an edit to the floor.
+        //
+        // WHAT PRUNE CANNOT TELL APART. A file the estate does not account for
+        // is either a name somebody retired on purpose or a document they have
+        // not applied yet, and deleting is only right for the first.
+        //
+        // MEASURED IN THE WORLD: a work kind deleted outright and root.yaml
+        // reverted to the applied value, in one pull, silently.
+        var tree = AirspaceTree.Read(root);
+        var unapplied = AirspaceTree.Changed(tree, estate)
+            .Select(d => d.Path)
+            .Concat(AirspaceTree.Retiring(tree, estate)
+                .Select(name => $"{name} (in the airspace, not in the tree)"))
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToList();
+
+        if (unapplied.Count > 0)
+        {
+            // BEFORE ANYTHING IS WRITTEN. Write renders every document and
+            // prunes at the end, so a check inside it would leave a tree half
+            // rendered - the one state nobody can reason about afterwards.
+            throw new EnvelopeRefusedException(
+                "The working copy holds changes nobody has applied, and pulling would "
+              + "render over them:\n"
+              + string.Join('\n', unapplied.Select(p => $"  {p}"))
+              + "\n\nApply them with gg airspace apply, or discard them with git and pull "
+              + "again. Nothing was written.");
+        }
+
         return new VerbResult.AirspacePulled(AirspaceTree.Write(root, estate));
     }
 

@@ -1470,12 +1470,24 @@ static async Task<int> LaunchConsoleAsync()
         // THE SAME ROOT THE VERBS AND THE PANE USE, so a person cannot be shown
         // one tree and have another written. The pull's own reload follows in
         // the loop, because the pane describes the tree this just rewrote.
-        pullEstate: current => current with
+        // BOTH ENDS OF ONE REPORT, like the apply's. A pull's ordinary answer
+        // is a count and fits the row; its refusals name a document per line
+        // and do not.
+        pullEstate: current =>
         {
-            LastEstate = Airspace() is { } pullInto
-                ? ConsolePull.Pulled(
-                    () => data.PullEstateAsync(pullInto).GetAwaiter().GetResult())
-                : NoAirspace("pull"),
+            if (Airspace() is not { } pullInto)
+            {
+                return current with { LastEstate = NoAirspace("pull") };
+            }
+
+            var said = ConsolePull.Pulled(
+                () => data.PullEstateAsync(pullInto).GetAwaiter().GetResult());
+
+            return current with
+            {
+                ApplyOutcome = said,
+                LastEstate = ConsolePull.Summary(said),
+            };
         },
 
         // BOTH ENDS OF ONE REPORT. The row gets a summary and the modal gets

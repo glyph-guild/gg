@@ -148,6 +148,49 @@ public sealed record Configuration
     /// </remarks>
     public string? Airspace { get; init; }
 
+    /// <summary>Which allowance this machine spends from.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A name, and never the thing itself</b> — this file's rule one level
+    /// up, applied to a subscription instead of a credential. What crosses to a
+    /// control plane is the string typed here, not an account id, an email, an
+    /// organisation uuid or a token, and nothing in this project can resolve
+    /// one.
+    /// </para>
+    /// <para>
+    /// <b>Two machines may carry the same name, and that is the feature.</b> A
+    /// laptop and a server signed in to one subscription are one allowance;
+    /// saying so is how their spending is added up rather than counted twice.
+    /// Nothing checks the claim, and nothing could — a control plane that could
+    /// tell two subscriptions apart would be holding something about them.
+    /// </para>
+    /// <para>
+    /// <b>Unset means this machine reports nothing.</b> Not zero, and not a
+    /// name derived from the hostname: an allowance nobody named is one nobody
+    /// has agreed to lend, and inventing an identifier for it would put a
+    /// machine into a fleet's accounting by default.
+    /// </para>
+    /// </remarks>
+    public string? Allowance { get; init; }
+
+    /// <summary>The ceilings that allowance is measured against.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here because nowhere else has them.</b> Nothing on the machine
+    /// records a subscription's limits — a percentage exists only where the
+    /// provider shows it — so the denominator is typed by the person who knows
+    /// which plan they are on. <c>session=88000,week=2400000</c>.
+    /// </para>
+    /// <para>
+    /// <b>Text, parsed by its reader</b>, like every other member: a value from
+    /// the file and a value from the variable reach one parser and one refusal.
+    /// <c>AllowanceLedger</c> drops an entry it cannot read rather than
+    /// refusing the reading, because the token counts are right whether or not
+    /// the ceiling is.
+    /// </para>
+    /// </remarks>
+    public string? AllowanceLimits { get; init; }
+
     /// <summary>The version of the last offer accepted here.</summary>
     /// <remarks>
     /// <para>
@@ -250,6 +293,10 @@ public sealed record Configuration
                 Get = c => c.StunServers, With = (c, v) => c with { StunServers = v } },
         new() { Variable = "GG_AIRSPACE", Key = "airspace",
                 Get = c => c.Airspace, With = (c, v) => c with { Airspace = v } },
+        new() { Variable = "GG_ALLOWANCE", Key = "allowance",
+                Get = c => c.Allowance, With = (c, v) => c with { Allowance = v } },
+        new() { Variable = "GG_ALLOWANCE_LIMITS", Key = "allowance-limits",
+                Get = c => c.AllowanceLimits, With = (c, v) => c with { AllowanceLimits = v } },
     ];
 
     /// <summary>Why this configuration cannot be used, or null when it can.</summary>

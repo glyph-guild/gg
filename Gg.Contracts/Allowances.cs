@@ -24,7 +24,20 @@ public static class AllowanceWindows
     /// <summary>The short rolling one a provider resets most often.</summary>
     public const string Session = "session";
 
-    /// <summary>The long one.</summary>
+    /// <summary>
+    /// The long one — the last seven days, which is probably not the
+    /// provider's week.
+    /// </summary>
+    /// <remarks>
+    /// <b>A known difference, recorded rather than hidden.</b> A subscription's
+    /// weekly limit resets at a fixed time, and nothing on a machine can
+    /// discover when that is; this window is simply the last seven days. So it
+    /// keeps counting spending that a real reset would have cleared, which
+    /// means it reports LESS headroom than there is. That is the safe
+    /// direction: a rule built on it stops fleet work slightly early rather
+    /// than slightly late, and stopping early costs a flight where stopping
+    /// late costs somebody their own allowance.
+    /// </remarks>
     public const string Week = "week";
 
     /// <summary>Every window a reading may name.</summary>

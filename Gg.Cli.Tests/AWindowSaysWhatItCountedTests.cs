@@ -95,6 +95,38 @@ public class AWindowSaysWhatItCountedTests
                    + "disagree about who has headroom.");
     }
 
+    [Test]
+    public async Task The_week_is_rolling_and_the_providers_is_probably_not()
+    {
+        using var transcripts = new TranscriptFolder();
+
+        // SIX DAYS BACK. A provider that resets weekly on a fixed day may have
+        // reset since; a rolling window has not.
+        transcripts.Write(Spent(Now.AddDays(-6),
+            input: 0, output: 1000, cacheRead: 0, cacheWrite: 0));
+
+        var week = AllowanceLedger
+            .Read("mine", transcripts.Root, AllowanceLimits.None, Now)
+            .Windows.Single(w => w.Kind == AllowanceLedger.Week);
+
+        await Assert.That(week.Tokens).IsEqualTo(1000L)
+            .Because("the window is the last seven days and nothing else. This is a "
+                   + "KNOWN difference from how a subscription is metered, recorded "
+                   + "rather than hidden: a provider's weekly limit resets at a fixed "
+                   + "time that nothing on this machine can discover, so a rolling "
+                   + "window keeps counting spending a real reset would have cleared.");
+
+        await Assert.That(week.Since).IsEqualTo(Now - AllowanceLedger.WeekLength)
+            .Because("the window says where it starts, so a reader can see which seven "
+                   + "days these are rather than assuming they are the provider's.");
+
+        // THE DIRECTION OF THE ERROR IS THE POINT, and it is the safe one:
+        // over-counting reports LESS headroom than there is. A floor built on
+        // this will stop fleet work slightly early rather than slightly late,
+        // and stopping early costs a flight while stopping late costs somebody
+        // their own allowance.
+    }
+
     private static string Spent(
         DateTimeOffset at, long input, long output, long cacheRead, long cacheWrite) =>
         System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>

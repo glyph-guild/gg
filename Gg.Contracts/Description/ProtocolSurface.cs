@@ -161,7 +161,12 @@ public static class ProtocolSurface
          // runner to reach the control plane - and for one of its own: a
          // reading is the input to decisions about who gets work, so a route
          // under here that nobody declared could move that without an audit.
-         "/v1/allowances"];
+         "/v1/allowances",
+         // The only surface in this protocol that changes what one PERSON may
+         // do. An undeclared route under it would be an unaudited way to hand
+         // somebody authority - the argument /v1/invitations came in on,
+         // applied to privilege rather than to membership.
+         "/v1/principals"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -1068,6 +1073,37 @@ public static class ProtocolSurface
             Request = typeof(AllowanceReading),
             Statuses = [202, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            // WHO ADMINISTERS THIS TENANT, and the two ways it can be refused
+            // are the design. 403 once the tenant has an administrator,
+            // because only one may grant; 404 for a principal this tenant does
+            // not have, which is not a fact worth confirming.
+            //
+            // THE FIRST GRANT IN A TENANT IS OPEN, deliberately: there is no
+            // other way to produce a first administrator, and the hole closes
+            // the moment it is used. MemberCredentialRedemption is the same
+            // shape of necessity.
+            //
+            // No body: the principal is in the path and the grantor is on the
+            // credential.
+            Method = "POST",
+            Path = "/v1/principals/{principalId}/admin",
+            Audience = Audience.Developer,
+            Statuses = [204, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            // AND 409 FOR THE LAST ONE. A tenant that revoked its own last
+            // administrator would be locked out of the surface the bit exists
+            // for, and the way back would be the bootstrap - a stranger.
+            Method = "DELETE",
+            Path = "/v1/principals/{principalId}/admin",
+            Audience = Audience.Developer,
+            Statuses = [204, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
         },
         new()
         {

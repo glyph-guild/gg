@@ -31,6 +31,36 @@ public static class Tabs
     public static IReadOnlyList<TabId> All { get; } = [.. Enum.GetValues<TabId>()];
 
     /// <summary>
+    /// The tabs this console offers, which is not always every tab.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Until this existed, a bar's whole job was to say what there is</b> —
+    /// and it still is for every tab but one. The fleet's allowances are
+    /// different because what the pane could contain is decided by somebody
+    /// else: the control plane answers with everybody's only for an
+    /// administrator, so drawing the tab for anybody else would promise a
+    /// fleet and show them their own machine.
+    /// </para>
+    /// <para>
+    /// <b>Two gates, and only one is a check.</b> The local file decides
+    /// whether the pane is drawn; the control plane decides what it could
+    /// hold. A local flag that granted visibility would be a client-side
+    /// authorization check, which anybody could edit their way past.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<TabId> Offered(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return
+        [
+            .. All.Where(tab => tab is not TabId.Allowances
+                                || (state.IsAdmin && state.FleetAllowancesShown)),
+        ];
+    }
+
+    /// <summary>
     /// Whether this view holds anything yet.
     /// </summary>
     /// <remarks>
@@ -56,6 +86,10 @@ public static class Tabs
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
             TabId.Envelope => state.EnvelopeVisible,
+            // WHETHER THE LIST HAS ARRIVED, not whether the pane is open. The
+            // boot and the runners refresh both fetch it, so this usually has
+            // an answer before anybody presses the key.
+            TabId.Allowances => state.Allowances is not null,
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
     }
@@ -82,6 +116,12 @@ public static class Tabs
         // shadows another is worse than one chosen for being free and said to be.
         TabId.Runners => KeyStroke.Char('u'),
         TabId.Envelope => KeyStroke.Char('e'),
+
+        // `v`, because the letters that say what this is are all taken: `a` is
+        // actions, `f` is freeze and fly, `l` is live, `s` is the estate's
+        // apply. Of what is left, `v` reads as "view" and `z` reads as
+        // nothing - the same argument ComposeChoice made about its two keys.
+        TabId.Allowances => KeyStroke.Char('v'),
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 
@@ -105,6 +145,7 @@ public static class Tabs
         // nothing: the fleet is already in the model, fetched at boot.
         TabId.Runners => Command.ToggleRunners,
         TabId.Envelope => Command.ToggleEnvelope,
+        TabId.Allowances => Command.ToggleAllowances,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 
@@ -156,7 +197,11 @@ public static class Tabs
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        var open = All;
+        // THE TABS THIS CONSOLE OFFERS, not every tab there is. Walking All
+        // would land `tab` on a pane that is not on the bar - a view a person
+        // cannot see the name of and cannot get back to except by walking past
+        // it again.
+        var open = Offered(state);
         var showing = -1;
         for (var i = 0; i < open.Count; i++)
         {
@@ -192,6 +237,7 @@ public static class Tabs
         // a display name diverging from an enum name costs a line here
         // rather than a rename of the type.
         TabId.Envelope => "Airspace",
+        TabId.Allowances => "Allowances",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 }

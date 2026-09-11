@@ -202,6 +202,18 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
         // runs on.
         Machine = Environment.MachineName,
 
+        // WHETHER THIS MACHINE'S OWN FILE ASKED FOR THE FLEET PANE. Here for
+        // the reason the machine name is: a file this machine already has, and
+        // nothing about it is the control plane's to answer - deliberately, in
+        // this one's case. It carries no variable and no offerable key, so
+        // opening the file is the only way to turn it on.
+        //
+        // AND IT IS NOT A PERMISSION. Whether the pane could hold anything is
+        // AppState.IsAdmin, which comes off whoami - so a person who edits
+        // this to true and is not an administrator gets a pane showing their
+        // own allowances, because that is what the control plane answered.
+        FleetAllowancesShown = InForce.Configuration?.FleetAllowances is true,
+
         // WHERE THIS MACHINE'S AIRSPACE IS, folded in here for the reason the
         // machine name above it is: it is a file this machine already has, and
         // nothing about it is the control plane's to answer. It sat behind the

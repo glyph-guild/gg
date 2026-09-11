@@ -65,6 +65,13 @@ public static class Reducer
             Command.ToggleEnvelope => EnvelopeToggled(state) with { ReadInFlight = true },
             Command.ToggleRepositories => RepositoriesToggled(state) with { ReadInFlight = true },
 
+            // NO READ IN FLIGHT, because the allowances are already in the
+            // model: the runners tab's refresh fetches them, and the boot
+            // does too. Opening this pane is a rendering rather than a round
+            // trip - which is also why it is the one read-backed tab that can
+            // be right on the first frame.
+            Command.ToggleAllowances => Toggled(state, TabId.Allowances),
+
             // ASKS RATHER THAN OPENING. The key used to hand the terminal
             // straight to $EDITOR; there are two ways to compose now and neither
             // is the obvious one. This sets a field and nothing else - the loop
@@ -219,6 +226,7 @@ public static class Reducer
         BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
         RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
+        AllowancesVisible = tab == TabId.Allowances ? open : state.AllowancesVisible,
     };
 
     /// <summary>What a view's own key does to it.</summary>

@@ -92,6 +92,17 @@ public readonly record struct KeymapContext(
     public bool AllowanceIsMine { get; init; }
 
     /// <summary>
+    /// Whether this console offers the fleet's allowances at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both gates, folded into one flag because the keymap has no business
+    /// knowing why.</b> The control plane decides what the pane could hold and
+    /// the local file decides whether it is drawn; what the bindings need is
+    /// the conjunction.
+    /// </remarks>
+    public bool FleetAllowancesOffered { get; init; }
+
+    /// <summary>
     /// Whether the runner the cursor is on is flying something.
     /// </summary>
     /// <remarks>
@@ -169,6 +180,8 @@ public readonly record struct KeymapContext(
             // machines reporting it, which is a fact the control plane
             // recorded - where Mine is an inference from this console's own
             // file about one particular machine.
+            FleetAllowancesOffered = state.IsAdmin && state.FleetAllowancesShown,
+
             AllowanceIsMine = Rows.Selected(state) is { Yours: true }
                               && AllowanceRows.SelectedName(state) is not null,
 
@@ -730,6 +743,25 @@ public static class Keymap
             // and forgetting a credential is a thing a person does when they
             // set the tenant up and then about twice a year, and it was
             // spending two of the line's slots every second of every session.
+            // BOTH GATES, AND THE KEY IS DEAD UNLESS BOTH ARE OPEN. An
+            // advertised key that does nothing is how a person concludes the
+            // console is broken - and this one would be advertising somebody
+            // else's authority.
+            .. context.FleetAllowancesOffered
+                ?
+                [
+                    new KeyBinding(
+                        KeyStroke.Char('v'), Command.ToggleAllowances,
+                        context.Showing == TabId.Allowances
+                            ? "close the fleet's allowances"
+                            : "the fleet's allowances")
+                    {
+                        OffTheHintLine = true,
+                        When = "for an administrator whose file asked for the pane",
+                    },
+                ]
+                : (KeyBinding[])[],
+
             .. context.AllowanceIsMine && context.Showing == TabId.Runners
                 ?
                 [
@@ -941,12 +973,14 @@ public static class Keymap
         // and this product leaves out is a key that resolves in the running
         // console and appears on no page.
         from allowanceIsMine in (bool[])[false, true]
+        from fleetOffered in (bool[])[false, true]
         select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,
             RunnerIsFlying = runnerIsFlying,
             AllowanceIsMine = allowanceIsMine,
+            FleetAllowancesOffered = fleetOffered,
         };
 
     /// <summary>

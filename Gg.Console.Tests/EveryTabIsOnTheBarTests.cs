@@ -44,22 +44,36 @@ public class EveryTabIsOnTheBarTests
         }
     }
 
+    /// <summary>
+    /// A console that offers every tab there is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Offered rather than All, because the bar is conditional now — for
+    /// exactly one tab.</b> The fleet's allowances need an administrator and a
+    /// line in the local file, so a bare console offers every tab but that
+    /// one. The assertions below are about what the bar OFFERS saying its own
+    /// key, so they walk the offered set against a console that offers all of
+    /// it.
+    /// </remarks>
+    private static AppState Offering() =>
+        new() { IsAdmin = true, FleetAllowancesShown = true };
+
     [Test]
     public async Task A_tab_that_has_a_key_says_so_on_the_tab()
     {
         // AND THE KEY IS THE ONE THAT WORKS, read out of the keymap rather than
         // typed here. A label promising a key that does nothing is worse than
         // no label: it teaches a person the console is broken.
-        var bare = new AppState();
+        var bare = Offering();
 
-        foreach (var tab in Tabs.All)
+        foreach (var tab in Tabs.Offered(bare))
         {
             if (Tabs.KeyFor(tab) is not { } key)
             {
                 continue;
             }
 
-            await Assert.That(Keymap.Resolve(key, new KeymapContext(UiMode.Normal)))
+            await Assert.That(Keymap.Resolve(key, KeymapContext.For(bare)))
                 .IsEqualTo(Tabs.CommandFor(tab))
                 .Because($"the bar offers {key.Name} for {tab}, so pressing it has to go there.");
 
@@ -117,7 +131,9 @@ public class EveryTabIsOnTheBarTests
         // What the view needs to know when somebody clicks a tab. Without it
         // the bar would be a second way to change the model, and two ways to
         // change one thing is how they come to disagree.
-        foreach (var tab in Tabs.All)
+        var offering = Offering();
+
+        foreach (var tab in Tabs.Offered(offering))
         {
             var command = Tabs.CommandFor(tab);
 
@@ -129,7 +145,7 @@ public class EveryTabIsOnTheBarTests
             }
 
             await Assert.That(command).IsNotNull();
-            await Assert.That(Keymap.Bindings(new KeymapContext(UiMode.Normal))
+            await Assert.That(Keymap.Bindings(KeymapContext.For(offering))
                     .Any(b => b.Command == command))
                 .IsTrue()
                 .Because($"{tab}'s command is one the keymap issues, so clicking the tab and "

@@ -191,6 +191,34 @@ public sealed record Configuration
     /// </remarks>
     public string? AllowanceLimits { get; init; }
 
+    /// <summary>
+    /// Whether this console draws the fleet's allowances.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Off unless it is here and true, and it is NOT an offerable key</b> —
+    /// <see cref="AcceptOffered"/>'s rule, and its argument transfers: a
+    /// control plane that could set this would be deciding what a person's own
+    /// console shows them about everybody else.
+    /// </para>
+    /// <para>
+    /// <b>And it has no environment variable either</b>, for the same reason
+    /// one member along. A variable is a second way to turn it on, and one a
+    /// container image or a systemd unit could carry without anybody reading
+    /// it. Turning this on means opening the file, which is the deliberate
+    /// amount of friction for showing one person what everybody else is
+    /// spending.
+    /// </para>
+    /// <para>
+    /// <b>It is not a permission.</b> The control plane answers with this
+    /// person's own allowances unless it knows them to be an administrator, so
+    /// this decides whether a pane is DRAWN and nothing about what it could
+    /// hold. A local flag that granted visibility would be a client-side
+    /// authorization check, which anybody could edit their way past.
+    /// </para>
+    /// </remarks>
+    public bool? FleetAllowances { get; init; }
+
     /// <summary>The version of the last offer accepted here.</summary>
     /// <remarks>
     /// <para>

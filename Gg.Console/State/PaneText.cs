@@ -764,6 +764,65 @@ public static class PaneText
     }
 
     /// <summary>
+    /// The names answering yes would declare, and under what.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>SHOWN BECAUSE `y` DOES IT.</b> The console passes
+    /// <c>declareNames: true</c>, which is right for a surface that can show
+    /// what it is about to do and wrong if it does not. A declared name is
+    /// withdrawn only by a terminal version riding a gate, so a typo in a
+    /// filename mints a permanent name that needs an approver to remove -
+    /// making this the cheapest place in the system to catch the most
+    /// expensive mistake in it.
+    /// </para>
+    /// <para>
+    /// <b>The parent is stated, not implied.</b> The tree gives the ROLE - the
+    /// directory decides it - and says nothing about nesting, so apply uses
+    /// <c>root</c> and anything deeper is a deliberate <c>--under</c>. A
+    /// question naming the name and hiding the parent would be showing half of
+    /// an irreversible act.
+    /// </para>
+    /// <para>
+    /// <b>Empty unless the topology has been read</b>, which is
+    /// <c>AirspaceRows</c>' rule and the same one: an unasked topology is not
+    /// a tenant with no names, and listing every document here would be the
+    /// weaker answer dressed as the stronger one.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<string> DeclaresFirst(AppState state)
+    {
+        if (state.Estate?.Names?.Names is not { } topology
+            || state.Estate.Tree is not { Present: true } tree)
+        {
+            return [];
+        }
+
+        var exists = topology.Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
+
+        var missing = tree.Documents
+            .Where(d => !exists.Contains(d.Name))
+            .ToList();
+
+        if (missing.Count == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            "Answering yes DECLARES these names first, under root:",
+            "",
+            .. missing.Select(d => $"  {Clean(d.Name)} ({Clean(d.Role)}, under root)"),
+            "",
+            "A name cannot be withdrawn quietly - retiring one is its own gated change - so "
+          + "check the spelling. To put one under something else, leave this and run "
+          + "gg airspace name <role> <name> --under <parent>.",
+            "",
+        ];
+    }
+
+    /// <summary>
     /// Why there is no changeset, in the words both views of it use.
     /// </summary>
     /// <remarks>
@@ -1909,10 +1968,26 @@ public static class PaneText
                  + "what became of it.";
         }
 
+        var declaring = DeclaresFirst(state);
+
         var changes = working.Changes;
         var retiring = working.Retiring;
 
         var text = new StringBuilder();
+
+        // WHAT ANSWERING YES WOULD CREATE, and it reads before the changes
+        // because it is the part that cannot be undone cheaply. Apply declares
+        // these under root when the console says yes, and a declared name is
+        // withdrawn only by a terminal version riding a gate - so a typo in a
+        // filename becomes a permanent name needing an approver to remove.
+        // This is where somebody catches it.
+        //
+        // ONLY WHEN THE TOPOLOGY HAS BEEN READ, for AirspaceRows' reason: an
+        // unasked topology is not a tenant with no names.
+        foreach (var line in DeclaresFirst(state))
+        {
+            text.AppendLine(line);
+        }
 
         // FIRST, BECAUSE IT REFUSES EVERYTHING BELOW IT, and the question
         // never mentioned it. Apply reads the tree before it sends anything
@@ -1935,8 +2010,9 @@ public static class PaneText
         if (changes.Count == 0 && retiring.Count == 0)
         {
             // ASKED AND EMPTY, which is the answer the sentence was written
-            // for and the one case that keeps it.
-            return working.Unreadable.Count > 0
+            // for and the one case that keeps it - unless there is still a
+            // name to declare, which is its own reason to press yes.
+            return working.Unreadable.Count > 0 || declaring.Count > 0
                 ? text + "Nothing else would be applied: the rest of the working copy "
                        + "matches the airspace."
                 : "Nothing to apply: the working copy matches the airspace.";

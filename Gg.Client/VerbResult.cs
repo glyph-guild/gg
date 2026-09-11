@@ -187,6 +187,19 @@ public abstract record VerbResult
     }
 
     /// <summary>Whether a configuration document is one.</summary>
+    /// <summary>What this machine has spent, read from its own transcripts.</summary>
+    /// <remarks>
+    /// <b>Local, like the configuration results beside it.</b> It contacts
+    /// nothing: the transcripts are on this disk and the ceilings are in this
+    /// machine's own file. It carries the wire record rather than a shape of
+    /// its own so that what a person reads here and what the fleet is told are
+    /// the same document.
+    /// </remarks>
+    public sealed record Allowance(Gg.Contracts.AllowanceReading Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Allowance;
+    }
+
     public sealed record ConfigValidated(ConfigurationValidation Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.ConfigValidated;
@@ -301,6 +314,8 @@ public static class VerbResultKinds
     public const string EnvelopeApplied = "envelope-applied";
     public const string EnvelopeValidated = "envelope-validated";
 
+    public const string Allowance = "allowance";
+
     public const string ConfigShown = "config-shown";
 
     public const string ConfigValidated = "config-validated";
@@ -356,6 +371,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(DecisionReport))]
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
+[JsonSerializable(typeof(Gg.Contracts.AllowanceReading))]
 [JsonSerializable(typeof(ConfigurationView))]
 [JsonSerializable(typeof(ConfigurationValidation))]
 [JsonSerializable(typeof(OfferedView))]
@@ -434,6 +450,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeApplied),
         VerbResult.EnvelopeValidated r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeValidation),
+        VerbResult.Allowance r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.AllowanceReading),
         VerbResult.ConfigShown r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ConfigurationView),
         VerbResult.ConfigValidated r =>
@@ -498,6 +516,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeApplied)), []),
         VerbResultKinds.EnvelopeValidated => new VerbResult.EnvelopeValidated(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeValidation))),
+        VerbResultKinds.Allowance => new VerbResult.Allowance(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.AllowanceReading))),
         VerbResultKinds.ConfigShown => new VerbResult.ConfigShown(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.ConfigurationView))),
         VerbResultKinds.ConfigValidated => new VerbResult.ConfigValidated(Require(
@@ -559,6 +579,7 @@ public static class VerbOutput
         VerbResult.Decided r => DecidedText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
+        VerbResult.Allowance r => AllowanceText(r.Value),
         VerbResult.ConfigShown r => ConfigShownText(r.Value),
         VerbResult.ConfigValidated r => ConfigValidatedText(r.Value),
         VerbResult.ConfigOffered r => ConfigOfferedText(r.Value),
@@ -597,6 +618,37 @@ public static class VerbOutput
         foreach (var note in notes)
         {
             text.AppendLine(note);
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What an allowance has left, one line per window.
+    /// </summary>
+    /// <remarks>
+    /// <b>A window with no ceiling gets no percentage at all.</b> Nothing on a
+    /// machine records a subscription's limits, so an unconfigured one is
+    /// ordinary — and rendering it as 0% would read as plenty left, which is
+    /// the wrong answer that looks like a right one. It names the setting that
+    /// would fix it instead, where somebody meeting the gap is standing.
+    /// </remarks>
+    private static string AllowanceText(Gg.Contracts.AllowanceReading reading)
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"allowance {Clean(reading.Allowance)}, measured {reading.MeasuredAt:u}");
+        text.AppendLine();
+
+        foreach (var window in reading.Windows)
+        {
+            var spent = window.Tokens.ToString("N0", CultureInfo.InvariantCulture);
+
+            text.AppendLine(window.Limit is { } ceiling
+                ? $"  {Clean(window.Kind),-9} {spent,14} of "
+                  + $"{ceiling.ToString("N0", CultureInfo.InvariantCulture),-14} "
+                  + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}%"
+                : $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                  + "(no ceiling; set allowance-limits to see a share)");
         }
 
         return text.ToString().TrimEnd();

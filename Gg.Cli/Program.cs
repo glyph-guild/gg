@@ -81,6 +81,12 @@ return CliArgs.Parse(args) switch
     // question is still real and a person is stopping the attempt.
     CliAction.Ground ground => await EmitAsync(
         ground.Json, c => c.GroundAsync(ground.Reference, ground.Because)),
+    // LOCAL, AND THE ONLY VERB THAT READS ANOTHER TOOL'S FILES. The
+    // transcripts belong to the executor; this walks them for five values and
+    // keeps nothing else, which is the boundary AllowanceLedger states and
+    // holds.
+    CliAction.Allowance allowance => EmitLocal(allowance.Json, AllowanceNow),
+
     CliAction.Doctor doctor => await DoctorAsync(doctor.Json),
     CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
@@ -2067,6 +2073,30 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
         destinations: destinations, trackers: trackers, executor: executor,
         allowance: Allowance());
+}
+
+/// <summary>
+/// This machine's allowance, read now.
+/// </summary>
+/// <remarks>
+/// <b>Refused by name when nothing is configured.</b> An allowance nobody
+/// named is one nobody agreed to lend, so there is no number to invent - and a
+/// refusal that did not say which setting was missing would send somebody
+/// reading their own file to work out which of two lines to add.
+/// </remarks>
+static VerbResult AllowanceNow()
+{
+    var reporter = Allowance()
+        ?? throw new Gg.Client.ConfigurationRefused(
+            "This machine names no allowance, so there is nothing to measure. Set "
+          + "`allowance` to whatever you call the subscription it spends from - it is a "
+          + "name you choose, never an account - and `allowance-limits` to that plan's "
+          + "ceilings, like session=88000,week=2400000.");
+
+    return new VerbResult.Allowance(
+        reporter.ReadAsync(DateTimeOffset.UtcNow).GetAwaiter().GetResult()
+        ?? throw new Gg.Client.ConfigurationRefused(
+            "This machine names an allowance and its transcripts say nothing was spent."));
 }
 
 /// <summary>

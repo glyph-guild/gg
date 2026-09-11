@@ -98,8 +98,16 @@ public sealed class AllowanceReporter(Func<MeasuredAllowance?> measure, TimeSpan
                 .. measured.Windows.Select(w => new AllowanceWindow
                 {
                     Kind = w.Kind,
-                    Tokens = w.Tokens,
                     Since = w.Since,
+
+                    // THE FOUR COUNTS, NOT THE TOTAL. Both sides derive the
+                    // total the same way from the same members, which is what
+                    // stops a machine and a control plane disagreeing about
+                    // how much of a ceiling is gone.
+                    InputTokens = w.InputTokens,
+                    OutputTokens = w.OutputTokens,
+                    CacheReadTokens = w.CacheReadTokens,
+                    CacheWriteTokens = w.CacheWriteTokens,
                     Limit = w.Limit,
                 }),
             ],

@@ -83,6 +83,22 @@ public class VerbParityTests
     internal static readonly IReadOnlyDictionary<string, string> Decided =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            // THE ALLOWANCE, AND THE ABSENCE IS A SEQUENCE RATHER THAN A
+            // DECISION. What the console will show is not this verb's answer:
+            // the verb reads THIS machine's transcripts, and a console shows
+            // the FLEET's allowances through GET /v1/allowances - every
+            // machine's, including ones this laptop cannot see. So the pane is
+            // a different read of a different scope, and it waits on a control
+            // plane that serves that route.
+            //
+            // REMOVE THIS LINE when the pane lands. It should not become an
+            // arm for this result: a console projecting one machine's local
+            // reading would show a person their own laptop and call it the
+            // fleet.
+            ["Allowance"] = "not reachable yet: the console's version is the FLEET's "
+                          + "allowances over the read surface, not this machine's own "
+                          + "transcripts, and it waits on a control plane that serves them.",
+
             // --- the configuration verbs ---
             // READING IS REACHABLE, WRITING IS NOT YET. The Environment page in
             // help shows every setting with the source that answered, which is

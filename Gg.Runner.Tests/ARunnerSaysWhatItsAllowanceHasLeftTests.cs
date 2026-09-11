@@ -35,7 +35,11 @@ public class ARunnerSaysWhatItsAllowanceHasLeftTests
         MeasuredAt = DateTimeOffset.UnixEpoch,
         Windows =
         [
-            new() { Kind = AllowanceWindows.Session, Tokens = 1200, Since = DateTimeOffset.UnixEpoch },
+            new()
+            {
+                Kind = AllowanceWindows.Session, Since = DateTimeOffset.UnixEpoch,
+                InputTokens = 1200, OutputTokens = 0, CacheReadTokens = 0, CacheWriteTokens = 0,
+            },
         ],
     };
 
@@ -165,15 +169,21 @@ public class ARunnerSaysWhatItsAllowanceHasLeftTests
             new()
             {
                 Kind = AllowanceLedger.Session,
-                Tokens = 1200,
                 Since = DateTimeOffset.UnixEpoch,
+                InputTokens = 200,
+                OutputTokens = 1000,
+                CacheReadTokens = 900_000,
+                CacheWriteTokens = 0,
                 Limit = 88000,
             },
             new()
             {
                 Kind = AllowanceLedger.Week,
-                Tokens = 4000,
                 Since = DateTimeOffset.UnixEpoch,
+                InputTokens = 1000,
+                OutputTokens = 3000,
+                CacheReadTokens = 9_000_000,
+                CacheWriteTokens = 0,
                 Limit = 2400000,
             },
         ],

@@ -65,8 +65,11 @@ public class AllowanceIsAVerbTests
                 new()
                 {
                     Kind = AllowanceWindows.Session,
-                    Tokens = 12400,
                     Since = DateTimeOffset.UnixEpoch,
+                    InputTokens = 400,
+                    OutputTokens = 12000,
+                    CacheReadTokens = 5_000_000,
+                    CacheWriteTokens = 0,
                     Limit = 88000,
                 },
             ],
@@ -87,7 +90,12 @@ public class AllowanceIsAVerbTests
             MeasuredAt = DateTimeOffset.UnixEpoch,
             Windows =
             [
-                new() { Kind = AllowanceWindows.Week, Tokens = 4242, Since = DateTimeOffset.UnixEpoch },
+                new()
+                {
+                    Kind = AllowanceWindows.Week, Since = DateTimeOffset.UnixEpoch,
+                    InputTokens = 42, OutputTokens = 4200,
+                    CacheReadTokens = 90_000, CacheWriteTokens = 0,
+                },
             ],
         }));
 

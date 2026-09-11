@@ -122,17 +122,43 @@ public class TheAirspaceIsATreeTests
                    + "states back as a precondition.");
     }
 
+    /// <summary>
+    /// A missing <c>based-on</c> line says nothing about whether the stream
+    /// has seen this document.
+    /// </summary>
+    /// <remarks>
+    /// <b>THIS TEST ASSERTED THE OPPOSITE AND WAS WRONG, which is the whole
+    /// reason it is still here.</b> It read <i>"null based-on is genesis, not
+    /// unchanged"</i> - a premise nothing in the client supports.
+    /// <c>based-on:</c> is written ONLY BY PULL and apply writes nothing to
+    /// disk, so a hand-authored document has no such line before OR after a
+    /// successful apply. A person hit it in a live session: apply correctly
+    /// said there was nothing to do while this row insisted the file had never
+    /// been applied.
+    /// <para>
+    /// Inverted rather than deleted. A test that once encoded a false premise
+    /// is the best possible guard against it coming back, and the sentence a
+    /// reader needs is the one that says which way round it goes.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task A_document_with_no_based_on_line_has_never_been_applied()
+    public async Task A_document_with_no_based_on_line_claims_nothing_about_being_applied()
     {
         var rows = AirspaceRows.Tree(With(documents:
             [new("narrowing", "new-one", "airspace/narrowings/new-one.yaml", null)]));
 
         var row = rows.First(r => r.Document.Contains("new-one", StringComparison.Ordinal));
 
-        await Assert.That(row.State).Contains("never applied", StringComparison.OrdinalIgnoreCase)
-            .Because("null based-on is genesis, not unchanged - and the two are opposite "
-                   + "facts about whether the stream has ever seen it.");
+        await Assert.That(row.State)
+            .DoesNotContain("never applied", StringComparison.OrdinalIgnoreCase)
+            .Because("pull writes based-on and apply does not, so its absence is a fact "
+                   + "about which files pull has rendered - not about what the stream has "
+                   + "seen. Whether a document is applied is the door's answer, and the "
+                   + "diff is where it arrives.");
+
+        await Assert.That(row.Basis).IsEqualTo("")
+            .Because("and the blank column is the honest rendering of it: this file "
+                   + "declares no precondition.");
     }
 
     [Test]

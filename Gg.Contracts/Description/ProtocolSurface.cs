@@ -1080,6 +1080,46 @@ public static class ProtocolSurface
         },
         new()
         {
+            // A PERSON'S DECLARATION ABOUT THEIR OWN SUBSCRIPTION, which is why
+            // it is the developer audience and not the runner's. A machine that
+            // could set this could widen its own queue - the argument the
+            // reservation and parking routes came in on.
+            //
+            // 403 is the arm that matters: an allowance somebody else's
+            // machines report is not theirs to reserve.
+            Method = "PUT",
+            Path = "/v1/allowances/{name}/floor",
+            Audience = Audience.Developer,
+            Request = typeof(AllowanceFloor),
+            Statuses = [204, 400, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            // AND NO 409. Clearing a floor nobody set is the state the caller
+            // asked for - the reason DELETE on a reservation carries none
+            // either.
+            Method = "DELETE",
+            Path = "/v1/allowances/{name}/floor",
+            Audience = Audience.Developer,
+            Statuses = [204, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            // AN ADMINISTRATOR SPENDING A FLOOR SOMEBODY ELSE SET. 403 for
+            // anybody else, and the owner reads what was taken and why on the
+            // allowance itself - an override nobody can see is a floor that
+            // silently stopped protecting.
+            Method = "POST",
+            Path = "/v1/allowances/{name}/override",
+            Audience = Audience.Developer,
+            Request = typeof(AllowanceOverrideRequest),
+            Statuses = [204, 400, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/pools",
             Audience = Audience.Developer,
@@ -1357,7 +1397,11 @@ public static class ProtocolSurface
                 ["kind", "since", "inputTokens", "outputTokens", "cacheReadTokens",
                  "cacheWriteTokens", "limit", "tokens"],
             [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
-            [typeof(AllowanceSummary)] = ["name", "measuredAt", "windows", "runners"],
+            [typeof(AllowanceSummary)] =
+                ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],
+            [typeof(AllowanceFloor)] = ["sessionFraction", "weekFraction"],
+            [typeof(AllowanceOverride)] = ["until", "by", "reason"],
+            [typeof(AllowanceOverrideRequest)] = ["minutes", "reason"],
             [typeof(AllowanceList)] = ["allowances"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
@@ -1372,7 +1416,7 @@ public static class ProtocolSurface
             [typeof(Envelope)] =
                 ["context", "obligations", "instructions", "loops", "destinations",
                  "environments", "repositories", "environment", "repository",
-                 "accepts", "produces"],
+                 "accepts", "produces", "targeting"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed", "widens", "flight", "awaiting"],
@@ -1382,7 +1426,9 @@ public static class ProtocolSurface
                 ["deviceCode", "userCode", "verificationUri", "pollIntervalSeconds", "expiresAt"],
             [typeof(DeviceTokenRequest)] = ["deviceCode"],
             [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
-            [typeof(WhoAmI)] = ["principalId", "principalDisplay", "tenantId", "expiresAt", "notices"],
+            [typeof(WhoAmI)] =
+                ["principalId", "principalDisplay", "tenantId", "expiresAt", "notices",
+                 "isAdmin"],
             // An invitation names nobody: no address, no display, no tenant. The
             // request really is empty, and the empty set is the assertion.
             [typeof(InvitationRequest)] = [],

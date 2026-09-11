@@ -116,6 +116,15 @@ public static class EnvelopeText
             Sequence(text, "produces", produces, depth: 0);
         }
 
+        // HOW THIS KIND PICKS A MACHINE, when it says. Written only when
+        // present, and absence means `any` - which is what every envelope
+        // written before the line existed already meant, so nothing renders
+        // differently for having been re-read.
+        if (envelope.Targeting is { } targeting)
+        {
+            text.AppendLine($"targeting: {targeting}");
+        }
+
         // STANDING GUIDANCE, WRITTEN ONLY WHEN THERE IS SOME. Unlike `accepts`,
         // an empty list means nothing an absence does not: there is no such
         // thing as a document declaring "no instructions on purpose". So empty

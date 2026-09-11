@@ -257,6 +257,12 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
             // and it fired on one built from the same commit.
             LeaseClaimStates.Parked => new ClaimResult.Parked(),
 
+            // AND THE SUBSCRIPTION WITH NOTHING LEFT, answered rather than
+            // halted on for the reason one line up. Parking taught this
+            // lesson the expensive way: the missing branch is what made
+            // parking a runner kill it.
+            LeaseClaimStates.AllowanceSpent => new ClaimResult.AllowanceSpent(),
+
             // HALT ON A STATE THIS BINARY DOES NOT KNOW. The vocabulary is
             // closed precisely so a fifth value is a version move; guessing
             // would make the closure decorative.

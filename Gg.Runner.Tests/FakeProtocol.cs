@@ -411,6 +411,8 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     public void Parked() => Record("parked");
 
+    public void AllowanceSpent() { }
+
     /// <summary>
     /// The repositories, because WHICH one is the whole content of the report.
     /// </summary>

@@ -759,8 +759,33 @@ public static class LeaseClaimStates
     /// </remarks>
     public const string Parked = "parked";
 
+    /// <summary>
+    /// The allowance this machine spends from has nothing left to lend.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own value, and this is the THIRD time that argument has been
+    /// made here.</b> A runner narrowed away inside the matcher answers
+    /// <see cref="Pending"/>, which is what an idle fleet answers;
+    /// <see cref="Waiting"/> was added to split that, then
+    /// <see cref="Parked"/>. Reusing either would be the same silence again.
+    /// </para>
+    /// <para>
+    /// <b>Not <see cref="Parked"/>, which is a person withholding a
+    /// MACHINE.</b> This is a subscription with nothing left: the same machine
+    /// works again when its window rolls over, with nobody touching it. A
+    /// person reading <c>parked</c> would go looking for who parked it.
+    /// </para>
+    /// <para>
+    /// <b>Not terminal.</b> The request is answered and the runner asks again
+    /// later, as it does for <see cref="Pending"/> — and it may want to ask
+    /// less often, because a window is hours rather than seconds.
+    /// </para>
+    /// </remarks>
+    public const string AllowanceSpent = "allowance-spent";
+
     public static IReadOnlyList<string> All { get; } =
-        [Pending, Waiting, Granted, Expired, Parked];
+        [Pending, Waiting, Granted, Expired, Parked, AllowanceSpent];
 }
 
 /// <summary>

@@ -503,8 +503,8 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "context", "environment", "environments", "repository",
-               "repositories", "accepts", "produces", "instructions", "obligations", "loops",
-               "destinations");
+               "repositories", "accepts", "produces", "targeting", "instructions", "obligations",
+               "loops", "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
@@ -534,6 +534,13 @@ public static class EnvelopeYaml
                 : null,
             Produces = root.Entries.TryGetValue("produces", out var produces)
                 ? Strings(produces, "produces")
+                : null,
+            // A SCALAR, AND ABSENT IS NOT EMPTY-STRING. A missing key means
+            // `any`; reading it back as "" would be refused by Validate as an
+            // undeclared strategy, which is the round trip failing on a
+            // document nobody wrote.
+            Targeting = root.Entries.TryGetValue("targeting", out var targeting)
+                ? RequireScalar(targeting, "targeting")
                 : null,
             // PROVENANCE IS NOT READ BACK, because a document does not get to
             // say where it came from - the composer assigns it, exactly as it

@@ -123,6 +123,13 @@ public class DirectedClaimTests
             LeaseClaimStates.Granted,
             LeaseClaimStates.Expired,
             LeaseClaimStates.Parked,
+
+            // AND THE SIXTH, WHICH A DIRECTED CLAIM ALSO REUSES. An allowance
+            // with nothing left to lend stops a hand-flown flight exactly as
+            // it stops a fleet one - the subscription is the scarce thing and
+            // it does not care which path asked. That is the same argument
+            // this file makes about the other five.
+            LeaseClaimStates.AllowanceSpent,
         });
     }
 }

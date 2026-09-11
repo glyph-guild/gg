@@ -172,6 +172,27 @@ public static class EnvelopeDirection
             return produces;
         }
 
+        // GIVING UP `least-spent` IS A WIDENING, and the asymmetry is the
+        // point. Holding a higher-spent machine back is a protection over
+        // somebody's own subscription; letting whichever machine asks first
+        // take the work removes it. Absent means `any`, which is what every
+        // envelope written before the field existed already meant - so
+        // DELETING the line widens exactly as much as changing it does.
+        if (!string.Equals(Targeting(applied), Targeting(proposed), StringComparison.Ordinal)
+            && string.Equals(Targeting(proposed), AllowanceTargeting.Any, StringComparison.Ordinal))
+        {
+            return new EnvelopeWidening
+            {
+                Field = "targeting",
+                Because = $"targeting goes from '{Targeting(applied)}' to "
+                        + $"'{Targeting(proposed)}'. A floor protects a subscription, and "
+                        + "'least-spent' is what spreads work away from one that is nearly "
+                        + "spent; without it whichever machine asks first takes the work, so "
+                        + "an allowance with a floor meets it sooner. The person who set that "
+                        + "floor did not ask for this.",
+            };
+        }
+
         if (Obligations("obligations", applied.Obligations, proposed.Obligations) is { } obligations)
         {
             return obligations;
@@ -187,6 +208,16 @@ public static class EnvelopeDirection
 
         return Destinations(applied.Destinations, proposed.Destinations);
     }
+
+    /// <summary>The strategy in force, with absent read as its default.</summary>
+    /// <remarks>
+    /// Normalised here rather than at each comparison, because the whole point
+    /// of the member being nullable is that an absent line and
+    /// <c>any</c> mean one thing — and a comparison that treated them as two
+    /// would report a widening for deleting a line that changed nothing.
+    /// </remarks>
+    private static string Targeting(Envelope envelope) =>
+        envelope.Targeting ?? AllowanceTargeting.Any;
 
     /// <summary>The narrowing shape carries only obligations, and they compare the same way.</summary>
     public static EnvelopeWidening? Widening(EnvelopeNarrowing applied, EnvelopeNarrowing proposed)

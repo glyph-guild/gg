@@ -35,6 +35,7 @@ public class EnvelopeModelRoundTripTests
         Repositories = ["payments"],
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
+        Targeting = AllowanceTargeting.LeastSpent,
         Obligations =
         [
             new Obligation
@@ -114,6 +115,12 @@ public class EnvelopeModelRoundTripTests
             .Because("1.10 staying 1.10 is the Norway problem this form exists to close.");
         await Assert.That(back.Environments).IsEquivalentTo(original.Environments!);
         await Assert.That(back.Repositories).IsEquivalentTo(original.Repositories!);
+        await Assert.That(back.Targeting).IsEqualTo(original.Targeting)
+            .Because("a strategy that did not survive the text form would be re-read as "
+                   + "absent, and absent means `any` - so editing any other line in the "
+                   + "file would quietly give up least-spent. That is the direction "
+                   + "EnvelopeDirection calls a widening, arriving through a round trip "
+                   + "instead of through a proposal.");
 
         var human = back.Obligations.Single(o => o.Id == "human-look");
         var expected = original.Obligations.Single(o => o.Id == "human-look");
@@ -263,6 +270,7 @@ public class EnvelopeModelRoundTripTests
             // do not appear in the text form is in TheBoundIsASetTests.
             nameof(Envelope.Environment), nameof(Envelope.Repository),
             nameof(Envelope.Accepts), nameof(Envelope.Produces),
+            nameof(Envelope.Targeting),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
             nameof(Envelope.Instructions),
             nameof(ContextBinding.Scope), nameof(ContextBinding.Constitution),

@@ -68,6 +68,8 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void Parked() => _inner.Parked();
 
+    public void AllowanceSpent() => _inner.AllowanceSpent();
+
     public void Waiting(IReadOnlyList<string> repos) => _inner.Waiting(repos);
 
     public void Materialized(string slug, string headCommit, long bytes) =>

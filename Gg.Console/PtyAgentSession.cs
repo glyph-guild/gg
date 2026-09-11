@@ -218,12 +218,14 @@ public sealed class PtyAgentSession : IEditorSession
                     // server writes it by rename, so it is either absent or
                     // whole - which is what makes a stat an honest answer rather
                     // than a race.
-                    (most, wide) => HostedBar.Rows(
-                        showing,
-                        File.Exists(intent) ? _submitted : _bar,
-                        Body(showing, envelope, intent),
-                        most,
-                        wide),
+                    (most, wide) => new HostedRows(
+                        HostedBar.Rows(
+                            showing,
+                            File.Exists(intent) ? _submitted : _bar,
+                            Body(showing, envelope, intent),
+                            most,
+                            wide),
+                        HostedBar.Footer(showing, wide)),
 
                     // AND GG'S ONE KEY. The panel's state lives here rather than
                     // in the host, because the host holds nothing between calls

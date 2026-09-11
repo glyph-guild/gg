@@ -70,7 +70,11 @@ public static class PtyScreen
     /// </para>
     /// </remarks>
     public static string Paint(
-        XTermTerminal terminal, int rows, int columns, IReadOnlyList<string> panel)
+        XTermTerminal terminal,
+        int rows,
+        int columns,
+        IReadOnlyList<string> panel,
+        string? footer = null)
     {
         ArgumentNullException.ThrowIfNull(panel);
 
@@ -148,6 +152,17 @@ public static class PtyScreen
         // and the whole thing looks haunted. Wrapping restored last, because
         // leaving it off outlives this session and changes how the shell behaves
         // afterwards.
+        // GG'S OWN ROW, ALONG THE BOTTOM, painted last so nothing the child
+        // wrote is sitting on top of it. It is the only place that says the
+        // panel exists at all: the top row belongs to the session and talks
+        // about the session.
+        if (footer is { Length: > 0 })
+        {
+            painted.Append($"{Esc}[{rows + firstChildRow};1H{Esc}[7m");
+            painted.Append(footer.Length > columns ? footer[..columns] : footer.PadRight(columns));
+            painted.Append($"{Esc}[0m");
+        }
+
         painted.Append($"{Esc}[{buffer.Y + firstChildRow};{buffer.X + 1}H{Esc}[?25h{Esc}[?7h");
 
         return painted.ToString();

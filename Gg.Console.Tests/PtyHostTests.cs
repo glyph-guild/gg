@@ -64,7 +64,7 @@ public class PtyHostTests
             // both what it says and how many rows it is change while a composing
             // session runs, and these tests are about the frame rather than
             // about what gg chose to put on it.
-            panel: (_, _) => [bar],
+            panel: (_, _) => new HostedRows([bar], ""),
             // AND GG TAKES NOTHING: these are about hosting, and a host that
             // swallowed a key would make every assertion about what the child
             // received depend on which key the test happened to type.
@@ -255,7 +255,7 @@ public class PtyHostTests
         var host = PtyHost.RunAsync(
             terminal, "/bin/sh", ["-c", "read line; printf '[%s]' \"$line\""],
             Path.GetTempPath(),
-            panel: (_, _) => ["gg"],
+            panel: (_, _) => new HostedRows(["gg"], ""),
             // gg claims 'Q' and nothing else, which stands in for a prefix: this
             // test is about what interception DOES, not about which key.
             took: typed =>
@@ -309,7 +309,7 @@ public class PtyHostTests
         var host = PtyHost.RunAsync(
             terminal, "/bin/sh", ["-c", "read line; printf '[%s]' \"$line\""],
             Path.GetTempPath(),
-            panel: (_, _) => ["gg"],
+            panel: (_, _) => new HostedRows(["gg"], ""),
             took: _ => false,
             CancellationToken.None);
 
@@ -338,7 +338,7 @@ public class PtyHostTests
             panel: (most, _) =>
             {
                 offered.Add(most);
-                return ["gg"];
+                return new HostedRows(["gg"], "");
             },
             took: _ => false,
             CancellationToken.None);

@@ -205,7 +205,8 @@ public class HostedBarTests
     [Test]
     public async Task Closed_is_one_row_and_it_is_the_status()
     {
-        var rows = HostedBar.Rows(HostedView.Closed, "gg · composing", body: "", most: 12);
+        var rows = HostedBar.Rows(
+            HostedView.Closed, "gg · composing", body: "", most: 12, columns: Narrow);
 
         await Assert.That(rows).Count().IsEqualTo(1);
         await Assert.That(rows[0]).StartsWith("gg · composing", StringComparison.Ordinal);
@@ -217,7 +218,8 @@ public class HostedBarTests
         // A panel that appeared with no way out named is one somebody quits the
         // whole session to escape.
         var rows = HostedBar.Rows(
-            HostedView.Envelope, "gg · composing", body: "keep the diff small", most: 12);
+            HostedView.Envelope, "gg · composing", body: "keep the diff small",
+            most: 12, columns: Narrow);
 
         await Assert.That(rows.Count).IsGreaterThan(1);
         await Assert.That(rows[0]).Contains("esc", StringComparison.OrdinalIgnoreCase)
@@ -236,7 +238,7 @@ public class HostedBarTests
 
         foreach (var most in (int[])[1, 2, 5, 12])
         {
-            var rows = HostedBar.Rows(HostedView.Envelope, "gg", many, most);
+            var rows = HostedBar.Rows(HostedView.Envelope, "gg", many, most, Narrow);
 
             await Assert.That(rows.Count).IsLessThanOrEqualTo(most)
                 .Because($"it was offered {most} rows and took {rows.Count}.");
@@ -251,7 +253,7 @@ public class HostedBarTests
         // must not do: a person reading four of six instructions has no way to
         // know there were six.
         var six = string.Join("\n", Enumerable.Range(1, 6).Select(i => $"instruction {i}"));
-        var rows = HostedBar.Rows(HostedView.Envelope, "gg", six, most: 4);
+        var rows = HostedBar.Rows(HostedView.Envelope, "gg", six, most: 4, columns: Narrow);
 
         await Assert.That(string.Join(" ", rows)).Contains("more", StringComparison.OrdinalIgnoreCase)
             .Because("what is cut has to be counted, or a truncated envelope reads as a "
@@ -263,7 +265,7 @@ public class HostedBarTests
     {
         // An envelope that has not been read and one with no instructions look
         // identical as a blank panel, and the first is a thing to go and fix.
-        var rows = HostedBar.Rows(HostedView.Intent, "gg", body: "", most: 8);
+        var rows = HostedBar.Rows(HostedView.Intent, "gg", body: "", most: 8, columns: Narrow);
 
         await Assert.That(rows.Count).IsGreaterThan(1);
         await Assert.That(string.Join(" ", rows).Trim()).IsNotEmpty();

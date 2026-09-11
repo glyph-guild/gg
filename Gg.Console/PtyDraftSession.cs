@@ -176,7 +176,8 @@ public sealed class PtyDraftSession
                  "--allowedTools", DocumentTool.Qualified, AirspaceContextTool.Qualified,
                  AirspacePullTool.Qualified],
                 tree,
-                most => HostedBar.Rows(showing, _bar, Body(showing, envelope), most),
+                (most, wide) =>
+                    HostedBar.Rows(showing, _bar, Body(showing, envelope), most, wide),
                 typed =>
                 {
                     if (!HostedBar.Takes(showing, typed))

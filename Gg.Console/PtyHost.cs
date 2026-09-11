@@ -23,9 +23,24 @@ public delegate Task<int> HostRun(
     string command,
     IReadOnlyList<string> arguments,
     string workingDirectory,
-    Func<int, IReadOnlyList<string>> panel,
+    HostPanel panel,
     Func<byte, bool> took,
     CancellationToken cancellationToken);
+
+/// <summary>
+/// What gg keeps on the screen, given the room it has.
+/// </summary>
+/// <remarks>
+/// <b>THE WIDTH IS NOT OPTIONAL AND USED TO BE ABSENT.</b> A panel handed only
+/// a row budget cannot tell whether what it is about to say fits, and the
+/// painter cuts every row at the terminal's edge with nothing said — so a bar
+/// longer than the terminal is wide stopped mid-word, and the drafting
+/// session's did. How many rows a panel needs is a function of both numbers,
+/// and asking for one of them was asking the wrong question.
+/// </remarks>
+/// <param name="rows">How many rows gg may take, at most.</param>
+/// <param name="columns">How wide one row is.</param>
+public delegate IReadOnlyList<string> HostPanel(int rows, int columns);
 
 /// <summary>
 /// Runs a child in a pseudo-terminal gg owns, with a gg bar on the top row, and
@@ -95,14 +110,18 @@ public static class PtyHost
         string command,
         IReadOnlyList<string> arguments,
         string workingDirectory,
-        Func<int, IReadOnlyList<string>> panel,
+        HostPanel panel,
         Func<byte, bool> took,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(panel);
         ArgumentNullException.ThrowIfNull(took);
 
-        var (columns, rows) = Fit(terminal, panel(Budget(terminal)).Count);
+        // THE PANEL IS ASKED AGAINST THE TERMINAL'S OWN WIDTH, not the
+        // child's: gg's rows span the whole screen, and the child's width is
+        // the same number anyway. Fit only ever takes rows away.
+        var (columns, rows) = Fit(
+            terminal, panel(Budget(terminal), Width(terminal)).Count);
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
@@ -161,7 +180,7 @@ public static class PtyHost
             // long as the session and is taken off again below.
             void Repaint()
             {
-                var kept = panel(Budget(terminal));
+                var kept = panel(Budget(terminal), Width(terminal));
                 var (width, height) = Fit(terminal, kept.Count);
 
                 lock (screen)
@@ -324,6 +343,13 @@ public static class PtyHost
     /// </para>
     /// </remarks>
     private static int Budget(IHostTerminal terminal) => Math.Max(terminal.Rows / 2, 2);
+
+    /// <summary>How wide a row gg paints is.</summary>
+    /// <remarks>
+    /// The same floor <see cref="Fit"/> applies, so a panel is never told it
+    /// has more room than the painter will give it.
+    /// </remarks>
+    private static int Width(IHostTerminal terminal) => Math.Max(terminal.Columns, 20);
 
     private static (int Columns, int Rows) Fit(IHostTerminal terminal, int kept) =>
         (Math.Max(terminal.Columns, 20), Math.Max(terminal.Rows - Math.Max(kept, 1), 5));

@@ -40,6 +40,18 @@ public class TheGateTabIsAboutTheModalsFlightTests
         FlightTab = FlightTab.Gate,
         FlightSelected = 0,
 
+        // READ, AND NOTHING ATTACHED - which is what makes "nothing is waiting
+        // on you" TRUE here rather than assumed. It used to be inferred from
+        // an absent evidence payload, a field no production path assigns, so
+        // the pane said it about every flight including one with an open gate.
+        // The sentence survives; what changed is that something now knows it.
+        Attribution = new FlightAttribution
+        {
+            FlightNumber = "GG-81",
+            EnvelopeVersion = "v6",
+            Obligations = [],
+        },
+
         // THE WHOLE POINT OF THE FIXTURE. An empty queue is not an unusual
         // state - it is what a healthy tenant looks like.
         Queue = [],
@@ -90,7 +102,10 @@ public class TheGateTabIsAboutTheModalsFlightTests
         await Assert.That(FlightDetails.Gate(AFlightNothingWaitingOn()))
             .Contains("Nothing is waiting on you for this flight")
             .Because("that is the true sentence, and it is about the FLIGHT rather than "
-                   + "about the console - which is the distinction the wrong one lost.");
+                   + "about the console - which is the distinction the wrong one lost. It "
+                   + "is said from the ATTRIBUTION now: the flight was asked about and "
+                   + "nothing is attached. Read off an absent evidence payload it was a "
+                   + "guess, and it was wrong on a flight with an open gate.");
     }
 
     [Test]

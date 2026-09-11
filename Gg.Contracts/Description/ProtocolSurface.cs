@@ -154,7 +154,14 @@ public static class ProtocolSurface
          // prefix that nobody declared would be an unaudited way to repoint
          // machines - which is the argument /v1/credentials and /v1/invitations
          // came in on, applied to redirection rather than to a credential.
-         "/v1/configuration"];
+         "/v1/configuration",
+         // What a machine has spent, and what a person reads about a fleet's
+         // allowances. Governed for the pools prefix's reason - a
+         // runner-audience route nobody declared is an unaudited way for a
+         // runner to reach the control plane - and for one of its own: a
+         // reading is the input to decisions about who gets work, so a route
+         // under here that nobody declared could move that without an audit.
+         "/v1/allowances"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -1045,6 +1052,34 @@ public static class ProtocolSurface
         },
         new()
         {
+            // WHAT THIS MACHINE HAS SPENT. The attestation's shape one surface
+            // along, and for its reason: a reading has no flight, so the fact
+            // pipeline - lease-welded at four points - cannot carry it. 202
+            // because the write is a command; what the control plane made of
+            // it is the query resource below.
+            //
+            // Deliberately not a field on the heartbeat. That record is
+            // liveness only, because a runner able to report something about
+            // itself can report it while dead, and a stale reading still
+            // saying "plenty left" is that hazard with a cost attached.
+            Method = "POST",
+            Path = "/v1/allowances/readings",
+            Audience = Audience.Runner,
+            Request = typeof(AllowanceReading),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/allowances",
+            Audience = Audience.Developer,
+            Response = typeof(AllowanceList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/pools",
             Audience = Audience.Developer,
@@ -1318,6 +1353,10 @@ public static class ProtocolSurface
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
+            [typeof(AllowanceWindow)] = ["kind", "tokens", "since", "limit"],
+            [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
+            [typeof(AllowanceSummary)] = ["name", "measuredAt", "windows", "runners"],
+            [typeof(AllowanceList)] = ["allowances"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],

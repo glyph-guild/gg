@@ -183,7 +183,7 @@ public class AnAllowanceIsMeasuredFromTranscriptsTests
         });
     }
 
-    private static AllowanceWindow Window(MeasuredAllowance measured, string kind) =>
+    private static MeasuredWindow Window(MeasuredAllowance measured, string kind) =>
         measured.Windows.Single(w => w.Kind == kind);
 
     /// <summary>Every string the reading can carry, however deeply.</summary>

@@ -79,8 +79,18 @@ public class EvidenceSaysWhichNothingTests
             .Because("somebody has selected a flight, and telling them they have not is the "
                    + "pane's own rule inverted - it says something, and what it says is "
                    + "false.");
-        await Assert.That(PaneText.Evidence(state)).Contains("Nothing is waiting on you")
-            .Because("which is the other nothing, and the true one here.");
+
+        // AND THE OTHER NOTHING MOVED, because this one could never know it.
+        // Evidence reads AppState.Payload - the material BEHIND a gate - and
+        // its absence says nothing about whether one is attached. Read as
+        // "nothing is waiting on you", it was wrong on every flight with an
+        // open gate, which is what somebody hit on a real tenant. PaneText.
+        // Holding answers it now, from the attribution, and
+        // TheGateTabIsAboutTheModalsFlightTests holds the sentence there.
+        await Assert.That(PaneText.Evidence(state)).IsEmpty()
+            .Because("an absent payload is not an answer about a gate, so this says "
+                   + "nothing rather than guessing - and what the pane SHOWS is Holding "
+                   + "plus this, which is where the true sentence comes from.");
     }
 
     [Test]

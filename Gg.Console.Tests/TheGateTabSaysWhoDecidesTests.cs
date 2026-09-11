@@ -149,19 +149,22 @@ public class TheGateTabSaysWhoDecidesTests
     }
 
     [Test]
-    public async Task The_modal_offers_the_way_to_answer_and_advertises_it()
+    public async Task It_says_where_the_gate_is_answered_rather_than_naming_a_dead_key()
     {
+        // THE MODAL BINDS NOTHING THAT ACTS ON ITS FLIGHT, deliberately -
+        // EnterOpensWhatTheCursorIsOnTests: "a person reading a log has not
+        // asked to decide anything". So this pane must not tell somebody to
+        // press a key that does not resolve here; it says where the answer
+        // lives instead.
         var state = Showing("GG-88", Gated("GG-88"));
-        var context = KeymapContext.For(state);
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('d'), context))
-            .IsEqualTo(Command.OpenGate)
-            .Because("`a' and `r' live only in GateDecision, and the only way in was a key "
-                   + "deliberately kept off the hint line so nobody answers a question they "
-                   + "have not read. Here they HAVE read it.");
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('d'), KeymapContext.For(state)))
+            .IsNull()
+            .Because("the flight modal owns the keyboard and reading it acts on nothing.");
 
-        await Assert.That(Keymap.Hints(context)).Contains("d ", StringComparison.Ordinal)
-            .Because("and off the line here would be the same dead end one screen further "
-                   + $"in. Line: {Keymap.Hints(context)}");
+        await Assert.That(FlightDetails.Gate(state))
+            .Contains("Queue", StringComparison.Ordinal)
+            .Because("and the pane points at where a gate IS answered, because a person "
+                   + "who has just read one is about to look for how.");
     }
 }

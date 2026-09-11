@@ -69,7 +69,23 @@ public static class FlightDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return PaneText.Evidence(state);
+        // WHAT IS HOLDING IT, FIRST, because that is what somebody opened this
+        // tab to find. It used to answer PaneText.Evidence alone, which reads
+        // AppState.Payload - a field no production path assigns - so the tab
+        // could only ever reach a fallback, and the fallback said "nothing is
+        // waiting on you" about a flight with an open gate. Measured on a real
+        // tenant.
+        //
+        // The evidence follows when there is any, because an obligation and
+        // the material behind it are two halves of one question.
+        var holding = PaneText.Holding(state);
+        var evidence = PaneText.Evidence(state);
+
+        return holding.Length == 0
+            ? evidence
+            : evidence.Length == 0
+                ? holding
+                : holding + "\n\n" + evidence;
     }
 
     /// <summary>What the frame over the intent says.</summary>

@@ -1135,6 +1135,114 @@ public static class PaneText
     /// Empty until the runner computes one. Saying so beats an empty pane,
     /// which reads as evidence that was checked and found to be nothing.
     /// </remarks>
+    /// <summary>
+    /// What is holding the flight this modal is showing, and who may decide it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE ANSWER WAS ALREADY ON THE MODEL AND DREW NOWHERE NEAR HERE.</b>
+    /// <c>ConsoleStart</c> calls the <c>why</c> verb at boot and holds a
+    /// <c>FlightAttribution</c>; it was rendered in the queue's detail pane,
+    /// while the gate tab asked a field nothing fills. A read whose answer
+    /// reaches no surface is a request nobody benefits from.
+    /// </para>
+    /// <para>
+    /// <b>GUARDED BY FLIGHT NUMBER, because these are TWO CURSORS.</b> The why
+    /// is fetched for the QUEUE's selected row; this modal titles itself from
+    /// the flights list. Rendering it unguarded would put one flight's gate
+    /// under another flight's name — the defect this pane was fixed for once
+    /// already, arriving through a different door.
+    /// </para>
+    /// <para>
+    /// <b>Three absences and they are three sentences.</b> Nothing read, read
+    /// for a different flight, and read with nothing attached are different
+    /// facts with different next moves — and only the last of them means
+    /// nothing is waiting.
+    /// </para>
+    /// <para>
+    /// <b>Attached obligations only.</b> One that did not attach is not
+    /// holding anything, and listing it here would make a person read past the
+    /// answer to find it.
+    /// </para>
+    /// </remarks>
+    public static string Holding(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Detailed(state) is not { } flight)
+        {
+            return "";
+        }
+
+        if (state.Attribution is not { } attribution)
+        {
+            return "Why this flight is held has not been read - press g to read it.";
+        }
+
+        // WHOSE ANSWER THIS IS. Said rather than hidden: a person who knows the
+        // console read something for another row can press g here; one shown a
+        // blank pane concludes the feature is broken.
+        if (!string.Equals(
+                attribution.FlightNumber, flight.FlightNumber, StringComparison.Ordinal))
+        {
+            return $"Why a flight is held was last read for "
+                 + $"{Clean(attribution.FlightNumber)}, not this one. Press g to read it "
+                 + "for this flight.";
+        }
+
+        var attached = attribution.Obligations
+            .Where(o => string.Equals(
+                o.Attachment, Gg.Contracts.Attachments.Attached, StringComparison.Ordinal))
+            .Where(o => o.Outcome is null or { Length: 0 })
+            .ToList();
+
+        if (attached.Count == 0)
+        {
+            return attribution.Halt is { Length: > 0 } halt
+                ? Clean(halt)
+                : "Nothing is waiting on you for this flight.";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine(attached.Count == 1
+            ? "One obligation is holding this flight:"
+            : $"{attached.Count} obligations are holding this flight:");
+        text.AppendLine();
+
+        foreach (var obligation in attached)
+        {
+            text.AppendLine($"  {Clean(obligation.ObligationId)}"
+                          + (obligation.Condition is { Length: > 0 } when
+                              ? $"  (when {Clean(when)})"
+                              : ""));
+
+            if (obligation.Because is { Length: > 0 } because)
+            {
+                text.AppendLine($"      {Clean(because, lines: true)}");
+            }
+
+            // WHO MAY ANSWER IT. The commonest reason somebody cannot act on a
+            // gate is that it is not theirs, and the door says so in words
+            // this console does not have to invent.
+            if (obligation.Diagnosis is { Length: > 0 } detail)
+            {
+                text.AppendLine($"      {Clean(detail, lines: true)}");
+            }
+        }
+
+        text.AppendLine();
+
+        // WHERE, NOT WHICH KEY. This modal deliberately binds nothing that acts
+        // on the flight it is about - EnterOpensWhatTheCursorIsOnTests holds
+        // that - so a gate is answered from the queue, where the row is. Naming
+        // a key that does not resolve here would be the advertised-key defect
+        // in reverse.
+        text.AppendLine("Gates are answered from the Queue tab, on the row for this flight.");
+
+        return text.ToString().TrimEnd();
+    }
+
     public static string Evidence(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1153,9 +1261,11 @@ public static class PaneText
             // The two sentences are about different subjects and that is why the
             // wrong one is worse than a blank: the first is about the CONSOLE,
             // the second about the FLIGHT.
-            return Detailed(state) is null
-                ? "No flight selected."
-                : "Nothing is waiting on you for this flight.";
+            // AND NO LONGER "NOTHING IS WAITING", which this could never know:
+            // the payload is the material BEHIND a gate, and its absence says
+            // nothing about whether one is attached. Holding answers that now,
+            // from the attribution, and this says only what it is about.
+            return Detailed(state) is null ? "No flight selected." : "";
         }
 
         var text = new StringBuilder();

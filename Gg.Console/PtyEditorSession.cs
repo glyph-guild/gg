@@ -121,8 +121,16 @@ public sealed class PtyEditorSession : IEditorSession
                     // cut at the terminal edge - the same silent truncation
                     // HostedBar was just taught not to do, in the one place
                     // that had opted out of it.
-                    (most, wide) => HostedBar.Rows(
-                        HostedView.Closed, _bar, body: "", most: most, columns: wide),
+                    //
+                    // AND NO BOTTOM ROW. That row says how to open the panel,
+                    // and this session has none - gg takes no key here at all.
+                    // Advertising a click that does nothing is worse than
+                    // saying nothing, and the row it would cost is the
+                    // editor's.
+                    (most, wide) => new HostedRows(
+                        HostedBar.Rows(
+                            HostedView.Closed, _bar, body: "", most: most, columns: wide),
+                        ""),
                     // AND GG TAKES NO KEY AT ALL HERE. An editor session has
                     // nothing gg could show that the editor is not already
                     // showing, and a key charged for a panel that never opens is

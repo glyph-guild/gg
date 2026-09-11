@@ -40,7 +40,22 @@ public delegate Task<int> HostRun(
 /// </remarks>
 /// <param name="rows">How many rows gg may take, at most.</param>
 /// <param name="columns">How wide one row is.</param>
-public delegate IReadOnlyList<string> HostPanel(int rows, int columns);
+public delegate HostedRows HostPanel(int rows, int columns);
+
+/// <summary>Everything gg keeps of the screen.</summary>
+/// <remarks>
+/// <b>BOTH ENDS IN ONE ANSWER, because only the caller knows the panel's
+/// state.</b> The bottom row says how to open the panel or how to close it,
+/// and the host cannot work out which from the top rows - a closed bar that
+/// wrapped to two rows looks exactly like an open one that did not. Guessing
+/// from the row count is the version of this that is right until somebody
+/// narrows the window.
+/// </remarks>
+/// <param name="Top">The bar, and the panel under it when it is open.</param>
+/// <param name="Bottom">
+/// The row along the bottom, or empty for a session with no panel to open.
+/// </param>
+public readonly record struct HostedRows(IReadOnlyList<string> Top, string Bottom);
 
 /// <summary>
 /// Runs a child in a pseudo-terminal gg owns, with a gg bar on the top row, and
@@ -120,15 +135,15 @@ public static class PtyHost
         // THE PANEL IS ASKED AGAINST THE TERMINAL'S OWN WIDTH, not the
         // child's: gg's rows span the whole screen, and the child's width is
         // the same number anyway. Fit only ever takes rows away.
-        var (columns, rows) = Fit(
-            terminal, panel(Budget(terminal), Width(terminal)).Count);
+        var (columns, rows) = Fit(terminal, panel(Budget(terminal), Width(terminal)));
 
-        // HOW MANY ROWS GG IS COVERING, read by the input loop to work out
-        // whose row a click is on. It changes when the panel opens, when the
-        // window is resized, and now that the bar wraps, when the window is
-        // made narrower - so it is a value the repaint keeps current rather
-        // than one computed once.
-        var barRows = terminal.Rows - rows;
+        // WHICH ROWS ARE GG'S, read by the input loop to work out whose row a
+        // click is on. Both change when the panel opens, when the window is
+        // resized, and - now that the bar wraps - when the window is made
+        // narrower, so the repaint keeps them current rather than computing
+        // them once.
+        var barRows = panel(Budget(terminal), Width(terminal)).Top.Count;
+        var footerRow = terminal.Rows;
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
@@ -205,8 +220,10 @@ public static class PtyHost
             void Repaint()
             {
                 var kept = panel(Budget(terminal), Width(terminal));
-                var (width, height) = Fit(terminal, kept.Count);
-                barRows = terminal.Rows - height;
+                var (width, height) = Fit(terminal, kept);
+
+                barRows = kept.Top.Count;
+                footerRow = kept.Bottom.Length > 0 ? terminal.Rows : 0;
 
                 lock (screen)
                 {
@@ -235,7 +252,8 @@ public static class PtyHost
                         rows = height;
                     }
 
-                    terminal.Paint(PtyScreen.Paint(emulator, rows, columns, kept));
+                    terminal.Paint(PtyScreen.Paint(
+                        emulator, rows, columns, kept.Top, kept.Bottom));
                 }
             }
 
@@ -244,7 +262,8 @@ public static class PtyHost
             // FORWARDING STARTS ONCE THERE IS SOMETHING TO REPAINT WITH. It
             // closes over Repaint, and a key arriving before the first frame
             // would paint from an emulator nothing had written to.
-            var typing = Forward(terminal, pty, took, Repaint, () => barRows, stopping.Token);
+            var typing = Forward(
+                terminal, pty, took, Repaint, () => barRows, () => footerRow, stopping.Token);
 
             // AND ON A TICK, BECAUSE GG'S OWN ROWS CHANGE WHEN THE CHILD IS
             // SILENT. Repainting only on output ties what gg has to say to the
@@ -396,8 +415,20 @@ public static class PtyHost
     /// </remarks>
     private static int Width(IHostTerminal terminal) => Math.Max(terminal.Columns, 20);
 
-    private static (int Columns, int Rows) Fit(IHostTerminal terminal, int kept) =>
-        (Math.Max(terminal.Columns, 20), Math.Max(terminal.Rows - Math.Max(kept, 1), 5));
+    /// <summary>
+    /// The child's size, after gg's rows are taken out of the terminal's.
+    /// </summary>
+    /// <remarks>
+    /// <b>The bottom row counts too, and only when there is one.</b> An editor
+    /// session has no panel to open, so it keeps no bottom row and the child
+    /// gets it - reserving one unconditionally would take a row from a session
+    /// that had nothing to put in it.
+    /// </remarks>
+    private static (int Columns, int Rows) Fit(IHostTerminal terminal, HostedRows kept) =>
+        (Math.Max(terminal.Columns, 20),
+         Math.Max(
+             terminal.Rows - Math.Max(kept.Top.Count, 1) - (kept.Bottom.Length > 0 ? 1 : 0),
+             5));
 
     /// <summary>
     /// Everything the person types, into the child, until the child is gone.
@@ -425,6 +456,7 @@ public static class PtyHost
         Func<byte, bool> took,
         Action changed,
         Func<int> barRows,
+        Func<int> footerRow,
         CancellationToken stopping)
     {
         var keys = terminal.Keystrokes;
@@ -457,7 +489,9 @@ public static class PtyHost
                             // recognise comes back unchanged and falls through
                             // to the paths below.
                             var mouse = MouseInput.Read(
-                                new ReadOnlyMemory<byte>(typed, 0, read), barRows());
+                                new ReadOnlyMemory<byte>(typed, 0, read),
+                                barRows(),
+                                footerRow());
 
                             if (mouse.Kind == MouseReading.Nothing)
                             {

@@ -242,6 +242,54 @@ public static class HostedBar
         return kept;
     }
 
+    /// <summary>
+    /// The row along the bottom, which is the only thing on screen that is
+    /// gg's own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>NOTHING SAID THE PANEL EXISTED.</b> The top row is the SESSION's —
+    /// what to ask the agent, what ends it, where the working copy is — and
+    /// none of that says there is anything to open or that <c>ctrl-g</c> is
+    /// what opens it. The key has been the only way in since the panel was
+    /// written and has never appeared anywhere a person looks; the click that
+    /// now opens it is just as invisible.
+    /// </para>
+    /// <para>
+    /// <b>Centred, and the full width.</b> Centred because this row is gg
+    /// speaking rather than the session or the child, and a hint against the
+    /// left edge reads as part of whatever is above it. Full width because an
+    /// unpadded row lets the child show through beside it, which is the same
+    /// reason every panel row is padded.
+    /// </para>
+    /// <para>
+    /// <b>It stays when the panel opens and only its words change.</b> A row
+    /// that came and went would move every row of the child by one at the
+    /// moment somebody was reading them — and the way out belongs on the row
+    /// that is always there as much as the way in does.
+    /// </para>
+    /// </remarks>
+    public static string Footer(HostedView showing, int columns)
+    {
+        var text = showing == HostedView.Closed
+            ? "click to open or press ctrl-g"
+            : "click or press esc to close";
+
+        var width = Math.Max(columns, 0);
+
+        if (text.Length >= width)
+        {
+            // A WINDOW DRAGGED SMALLER THAN THE WORDS is somebody resizing,
+            // not a state to refuse. The row is still the width of the
+            // terminal, because the padding is what keeps the child out of it.
+            return text.Length > width ? text[..width] : text;
+        }
+
+        var left = (width - text.Length) / 2;
+
+        return text.PadLeft(left + text.Length).PadRight(width);
+    }
+
     private static string Name(HostedView showing) => showing switch
     {
         HostedView.Envelope => "the rules in force",

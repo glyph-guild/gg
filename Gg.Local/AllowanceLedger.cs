@@ -28,8 +28,32 @@ public sealed record MeasuredWindow
     /// <summary>Which window this is — <c>session</c> or <c>week</c>.</summary>
     public required string Kind { get; init; }
 
-    /// <summary>Every token counted inside it, unweighted.</summary>
-    public required long Tokens { get; init; }
+    /// <summary>Fresh input.</summary>
+    public required long InputTokens { get; init; }
+
+    /// <summary>What the model produced, thinking included.</summary>
+    public required long OutputTokens { get; init; }
+
+    /// <summary>Input served from cache. Counted, and NOT in <see cref="Tokens"/>.</summary>
+    public required long CacheReadTokens { get; init; }
+
+    /// <summary>Input written to cache.</summary>
+    public required long CacheWriteTokens { get; init; }
+
+    /// <summary>
+    /// What this window spent, against what a ceiling is set in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Input, output and cache writes — deliberately NOT cache reads.</b>
+    /// Measured over one real week of transcripts, 37,209 assistant messages:
+    /// cache reads were 99.0% of the raw sum, cache writes 0.8%, output 0.2%,
+    /// input 0.0%. So an unweighted total measures how much cached context got
+    /// re-read, which is the cheapest component a provider bills — the first
+    /// version of this reported 757,457% of a plan's ceiling.
+    /// <see cref="CacheReadTokens"/> crosses beside it, so the approximation is
+    /// visible and anybody who learns the real weighting can recompute.
+    /// </remarks>
+    public long Tokens => InputTokens + OutputTokens + CacheWriteTokens;
 
     /// <summary>When the window opened.</summary>
     public required DateTimeOffset Since { get; init; }
@@ -220,21 +244,21 @@ public static class AllowanceLedger
             [Week] = now - WeekLength,
         };
 
-        var counted = new Dictionary<string, long>(StringComparer.Ordinal)
+        var counted = new Dictionary<string, Spend>(StringComparer.Ordinal)
         {
-            [Session] = 0,
-            [Week] = 0,
+            [Session] = new(),
+            [Week] = new(),
         };
 
         var earliest = now - WeekLength;
 
         foreach (var file in Transcripts(transcriptsRoot, earliest))
         {
-            foreach (var (at, tokens) in Spends(file))
+            foreach (var (at, spend) in Spends(file))
             {
                 foreach (var window in counted.Keys.ToArray())
                 {
-                    if (at >= opened[window]) { counted[window] += tokens; }
+                    if (at >= opened[window]) { counted[window] = counted[window].And(spend); }
                 }
             }
         }
@@ -248,7 +272,10 @@ public static class AllowanceLedger
                 .. counted.Select(one => new MeasuredWindow
                 {
                     Kind = one.Key,
-                    Tokens = one.Value,
+                    InputTokens = one.Value.Input,
+                    OutputTokens = one.Value.Output,
+                    CacheReadTokens = one.Value.CacheRead,
+                    CacheWriteTokens = one.Value.CacheWrite,
                     Since = opened[one.Key],
                     Limit = limits.For(one.Key),
                 }),
@@ -299,7 +326,21 @@ public static class AllowanceLedger
     /// The only two values that leave this method. Anything that will not read
     /// is stepped over without a word — see the boundary rule on the class.
     /// </remarks>
-    private static IEnumerable<(DateTimeOffset At, long Tokens)> Spends(string file)
+    /// <summary>Four counts being added up. Never rendered, never crosses.</summary>
+    private readonly record struct Spend(
+        long Input, long Output, long CacheRead, long CacheWrite)
+    {
+        public Spend And(Spend more) => new(
+            Input + more.Input,
+            Output + more.Output,
+            CacheRead + more.CacheRead,
+            CacheWrite + more.CacheWrite);
+
+        public bool IsNothing =>
+            Input is 0 && Output is 0 && CacheRead is 0 && CacheWrite is 0;
+    }
+
+    private static IEnumerable<(DateTimeOffset At, Spend Spent)> Spends(string file)
     {
         IEnumerable<string> lines;
 
@@ -309,13 +350,13 @@ public static class AllowanceLedger
 
         foreach (var line in lines)
         {
-            var spend = Spend(line);
+            var spend = SpendOn(line);
 
             if (spend is { } one) { yield return one; }
         }
     }
 
-    private static (DateTimeOffset At, long Tokens)? Spend(string line)
+    private static (DateTimeOffset At, Spend Spent)? SpendOn(string line)
     {
         if (line.Length is 0) { return null; }
 
@@ -343,12 +384,13 @@ public static class AllowanceLedger
                 return null;
             }
 
-            var tokens = Count(usage, "input_tokens")
-                       + Count(usage, "output_tokens")
-                       + Count(usage, "cache_read_input_tokens")
-                       + Count(usage, "cache_creation_input_tokens");
+            var spent = new Spend(
+                Count(usage, "input_tokens"),
+                Count(usage, "output_tokens"),
+                Count(usage, "cache_read_input_tokens"),
+                Count(usage, "cache_creation_input_tokens"));
 
-            return tokens is 0 ? null : (at, tokens);
+            return spent.IsNothing ? null : (at, spent);
         }
         catch (JsonException)
         {

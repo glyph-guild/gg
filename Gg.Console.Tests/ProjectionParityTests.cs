@@ -100,6 +100,19 @@ public class ProjectionParityTests
                      + "contract stay, and the hand-flight refusal still reads one directly "
                      + "rather than through the model.",
 
+            // THE LOCAL ALLOWANCE READING, and it must never GET an arm. This
+            // result is one machine's own transcripts; what a console shows is
+            // the fleet's allowances, over the read surface, including
+            // machines this one cannot see. Projecting this into the model
+            // would put a person's own laptop on a pane labelled with the
+            // fleet - which is the two-cursor defect this console has already
+            // met once, where a pane and its title answered "which flight"
+            // from different places.
+            ["Allowance"] = "not projected, and not pending an arm: this is one machine's "
+                          + "local reading and the console's pane is the fleet's, over the "
+                          + "read surface. An arm here would draw a laptop and label it a "
+                          + "fleet.",
+
             // THE CONFIGURATION VERBS, and the console's answer to them is not
             // a projection. What a person reads in the console is the
             // Environment page, which is built from ConsoleEnvironment.Read -

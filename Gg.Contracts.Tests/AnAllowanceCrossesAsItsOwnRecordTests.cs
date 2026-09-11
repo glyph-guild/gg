@@ -117,7 +117,8 @@ public class AnAllowanceCrossesAsItsOwnRecordTests
         {
             Windows = [new AllowanceWindow
             {
-                Kind = "fortnight", Tokens = 1, Since = DateTimeOffset.UnixEpoch,
+                Kind = "fortnight", Since = DateTimeOffset.UnixEpoch,
+                InputTokens = 1, OutputTokens = 0, CacheReadTokens = 0, CacheWriteTokens = 0,
             }],
         })).IsNotNull()
             .Because("the only safe answer to an unknown window is to halt. A control "
@@ -141,7 +142,11 @@ public class AnAllowanceCrossesAsItsOwnRecordTests
         MeasuredAt = DateTimeOffset.UnixEpoch,
         Windows =
         [
-            new() { Kind = AllowanceWindows.Session, Tokens = 10, Since = DateTimeOffset.UnixEpoch },
+            new()
+            {
+                Kind = AllowanceWindows.Session, Since = DateTimeOffset.UnixEpoch,
+                InputTokens = 10, OutputTokens = 0, CacheReadTokens = 0, CacheWriteTokens = 0,
+            },
         ],
     };
 }

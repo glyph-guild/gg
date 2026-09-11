@@ -1353,7 +1353,9 @@ public static class ProtocolSurface
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
-            [typeof(AllowanceWindow)] = ["kind", "tokens", "since", "limit"],
+            [typeof(AllowanceWindow)] =
+                ["kind", "since", "inputTokens", "outputTokens", "cacheReadTokens",
+                 "cacheWriteTokens", "limit", "tokens"],
             [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
             [typeof(AllowanceSummary)] = ["name", "measuredAt", "windows", "runners"],
             [typeof(AllowanceList)] = ["allowances"],

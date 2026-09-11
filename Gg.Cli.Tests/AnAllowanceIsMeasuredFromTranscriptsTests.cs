@@ -126,25 +126,6 @@ public class AnAllowanceIsMeasuredFromTranscriptsTests
         await Assert.That(session.Fraction).IsEqualTo(0.25);
     }
 
-    [Test]
-    public async Task A_window_counts_every_kind_of_token_the_record_carries()
-    {
-        using var transcripts = new Transcripts();
-        transcripts.Write(
-            "a-project",
-            Spent(Now.AddMinutes(-1), output: 1, input: 20, cacheRead: 300, cacheWrite: 4000));
-
-        var measured = AllowanceLedger.Read(
-            "mine", transcripts.Root, AllowanceLimits.None, Now);
-
-        await Assert.That(Window(measured, AllowanceLedger.Session).Tokens).IsEqualTo(4321L)
-            .Because("all four counts, unweighted. How Anthropic weighs a cache read "
-                   + "against an output token is not published, so a weighting here "
-                   + "would be a guess wearing a decimal point - and the limit is "
-                   + "calibrated against this same total, so a consistent yardstick is "
-                   + "what the fraction actually needs.");
-    }
-
     /// <summary>One transcript record, in the shape the executor writes.</summary>
     /// <remarks>
     /// Built here rather than copied from a real file, because a real one is

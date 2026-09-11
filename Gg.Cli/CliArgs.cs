@@ -158,6 +158,14 @@ public abstract record CliAction
     public sealed record AirspaceName(
         string Role, string Name, string Parent, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>What the allowance this machine spends from has left.</summary>
+    /// <remarks>
+    /// Local: the transcripts are on this disk and the ceilings are in this
+    /// machine's own configuration, so it contacts nothing and answers on a
+    /// plane.
+    /// </remarks>
+    public sealed record Allowance(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -389,6 +397,7 @@ public static class CliArgs
         "gg config validate <file>|-    check a configuration without applying it",
         "gg config offered              what your control plane offers this machine",
         "gg config accept <version>     take the offer you just read, by version",
+        "gg allowance                   what the allowance this machine spends from has left",
         "gg doctor                      check what gg needs to work",
         "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",
@@ -560,6 +569,7 @@ public static class CliArgs
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),
+            ["allowance"] => new CliAction.Allowance(json),
             ["doctor"] => new CliAction.Doctor(json),
             ["update"] => new CliAction.Update(json),
             ["bundle"] => new CliAction.Bundle(json),

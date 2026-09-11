@@ -181,6 +181,12 @@ public sealed class ConsoleLoop(
     /// </param>
     Func<AppState, AppState>? retireNames = null,
 
+    /// <param name="copyModal">
+    /// Puts what the open modal is showing on the clipboard. A child process on
+    /// every platform, so it is the loop's.
+    /// </param>
+    Func<AppState, AppState>? copyModal = null,
+
     /// <summary>
     /// Hands the terminal to an agent in the estate's working copy.
     /// </summary>
@@ -560,6 +566,22 @@ public sealed class ConsoleLoop(
                 // AFTER THE RELOAD, so the views behind it are already showing
                 // the tree this just changed.
                 state = Reducer.ApplyAnswered(state);
+                break;
+
+            case Command.CopyModal:
+                // THE MODAL STAYS OPEN, and nothing here reopens it: the screen
+                // is rebuilt from the model and Mode is part of the model. That
+                // is the whole reason a copy can afford the terminal-release
+                // round trip when the paste into a half-typed field could not.
+                //
+                // AND NO RELOAD. Copying changed nothing anybody else can see,
+                // so re-reading would be a request nobody asked for.
+                state = copyModal is null
+                    ? state with
+                    {
+                        LastEstate = "This console is not configured to copy.",
+                    }
+                    : copyModal(state);
                 break;
 
             case Command.RetireNames:

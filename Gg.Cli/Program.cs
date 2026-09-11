@@ -1507,6 +1507,30 @@ static async Task<int> LaunchConsoleAsync()
         // request per name, each its own gated flight, so the loop holds it and
         // the report goes where the apply's does - the outcome modal, because
         // one line per name does not fit a row.
+        // WHAT IS ON SCREEN, FROM THE PRODUCER THAT DREW IT. PaneText.Modal
+        // answers the body of whichever modal is open, so this copies the same
+        // words rather than a second rendering that could differ.
+        copyModal: current => Gg.Console.ConsoleClipboard.Copied(
+            current,
+            Gg.Console.PaneText.Modal(current),
+            (info, input) =>
+            {
+                using var child = Process.Start(info);
+
+                if (child is null)
+                {
+                    return -1;
+                }
+
+                if (input is not null)
+                {
+                    child.StandardInput.Write(input);
+                    child.StandardInput.Close();
+                }
+
+                return child.WaitForExit(Gg.Console.ConsoleLink.Grace) ? child.ExitCode : -1;
+            }),
+
         retireNames: current =>
         {
             var names = current.Estate?.Working?.Retiring ?? [];

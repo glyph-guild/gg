@@ -507,6 +507,7 @@ public static class Keymap
         [
             new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
             new(KeyStroke.Char('o'), Command.ReadOutcome, "the last apply"),
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
@@ -522,6 +523,7 @@ public static class Keymap
             // tab-scoped one would win and take forget-credential away on that
             // tab without saying so. Inside a modal nothing is shadowed.
             new(KeyStroke.Char('x'), Command.AskToRetire, "retire what is missing"),
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
@@ -545,6 +547,12 @@ public static class Keymap
         [
             new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
             new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
+
+            // `c' HERE AND NOT OUT THERE. It is add-credential in Normal mode,
+            // and inside a modal the letters are free - the same argument `d',
+            // `o' and `x' make. What is in this one is usually a refusal
+            // somebody has to paste somewhere.
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

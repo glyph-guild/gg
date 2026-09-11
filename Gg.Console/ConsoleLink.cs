@@ -102,6 +102,44 @@ public static class ConsoleLink
         };
     }
 
+    /// <summary>
+    /// Puts text on the clipboard, or answers why it could not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Extracted so there is ONE platform table.</b>
+    /// <see cref="ConsoleClipboard"/> copies a modal's text and this copies a
+    /// sign-in link; a second pbcopy/xclip/clip switch would be a copy of this
+    /// one to keep in agreement. What differs between the two callers is which
+    /// slot the sentence lands in, which is theirs to say.
+    /// </remarks>
+    /// <returns>Null when it went on; the reason otherwise.</returns>
+    public static string? Copied(string text, Func<ProcessStartInfo, string?, int> start)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(start);
+
+        if (Copier() is not { } copier)
+        {
+            return "this platform has no clipboard command gg knows";
+        }
+
+        var info = new ProcessStartInfo(copier.Command)
+        {
+            RedirectStandardInput = true,
+        };
+
+        foreach (var argument in copier.Arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        // THROUGH STANDARD INPUT, not an argument, for the reason the sign-in
+        // link gives: a command line is visible to every process on the
+        // machine. A refusal is not a secret, but the habit is worth keeping
+        // where one method serves both.
+        return Ran(info, text, start) ? null : "the clipboard command refused it";
+    }
+
     private static bool Ran(
         ProcessStartInfo info, string? input, Func<ProcessStartInfo, string?, int> start)
     {

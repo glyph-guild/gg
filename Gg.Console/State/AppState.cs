@@ -131,6 +131,23 @@ public enum UiMode
     /// </remarks>
     ReadingChangeset,
 
+    /// <summary>
+    /// What the last apply came to, one line per document.
+    /// </summary>
+    /// <remarks>
+    /// <b>A MODAL BECAUSE THE ROW LOST THE REMEDY.</b> The apply's outcome went
+    /// to the activity slot, which is one row: a refused apply read "Nothing
+    /// was applied:" and the reason - the whole of what somebody does next -
+    /// ran off the right edge. Measured in the world twice over, on an apply
+    /// refused for an undeclared name.
+    /// <para>
+    /// The third view of the reading modal, and it opens ITSELF, for
+    /// <see cref="HandFlight"/>'s reason: somebody who just pressed `y` is owed
+    /// the answer without discovering a second keystroke.
+    /// </para>
+    /// </remarks>
+    ReadingOutcome,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a
@@ -1167,6 +1184,33 @@ public sealed record AppState
     /// improved by somebody who does not know that.
     /// </remarks>
     public string? HandFlightProblem { get; init; }
+
+    /// <summary>
+    /// What the last apply came to, in the lines a modal shows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Lines rather than a string, because the join was the defect.</b>
+    /// <c>ConsoleApply</c> used to compose one row; the report is per document
+    /// by construction - one flight each - and a refusal names paths a line at
+    /// a time.
+    /// </para>
+    /// <para>
+    /// <b>NOT A DOCUMENT BODY.</b> This type is written to
+    /// <c>GG_STATE_DUMP</c> and handed to the diagnostics bundle, so what
+    /// rides here is what the control plane SAID about an apply - versions,
+    /// flight numbers, approvers, refusals - and never the text of a governance
+    /// document. <see cref="EstateOnThisMachine"/> holds the same line.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, and null is the meaning.</b> No apply has happened in this
+    /// console's life, so there is nothing to open a modal over - which is what
+    /// <c>Reducer.ApplyAnswered</c> reads. An init-only collection would
+    /// deserialise to null on an absent key anyway; here that IS the state, so
+    /// nothing is lost.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? ApplyOutcome { get; init; }
 
     /// <summary>What became of the last flight this console grounded, or null.</summary>
     /// <remarks>

@@ -159,6 +159,16 @@ public enum Command
     /// </remarks>
     ReadChangeset,
 
+    /// <summary>Read what the last apply came to.</summary>
+    /// <remarks>
+    /// <b>No I/O either, and no key in Normal mode.</b> The outcome is already
+    /// on the model - the loop put it there when the apply returned - so this
+    /// opens a view of what is in hand. It is reached from inside the reading
+    /// modal, because the modal opens itself on this view when an apply
+    /// finishes and the letter is only for coming back to it.
+    /// </remarks>
+    ReadOutcome,
+
     /// <summary>Open the field that says where the airspace is.</summary>
     /// <remarks>
     /// Holds no I/O at all, which is what lets it happen inside a session

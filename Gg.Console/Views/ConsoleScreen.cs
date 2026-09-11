@@ -1144,34 +1144,58 @@ public sealed class ConsoleScreen : Window
 
         State = Reducer.Reduce(State, command);
 
-        // AND THE READ IT WANTED, started here because the reducer cannot and
-        // the shell no longer sees this command at all. The modal is already
-        // open by now; what is missing is the part that had to be asked for.
-        if (_reads is not null && ShellCommands.Reads.Contains(command))
-        {
-            // TOLD, NOT POLLED. Terminal.Gui's guidance is that all UI work
-            // happens on the main thread and a background result reaches it
-            // through Invoke - so the read says when it has landed and this
-            // hands the fold back to the thread allowed to draw. The first
-            // version asked every hundred and twenty milliseconds whether it
-            // had finished, which is a timer spinning for something that can
-            // simply say so, and up to that long late when it had.
-            _reads.Start(command, State, () => _app.Invoke(() =>
-            {
-                var advanced = _reads.Advance(State);
-
-                if (ReferenceEquals(advanced, State)
-                    && advanced.ReadInFlight == State.ReadInFlight)
-                {
-                    return;
-                }
-
-                State = advanced;
-                Render();
-            }));
-        }
+        // AND THE READ IT WANTED. One method, because a click arrives here
+        // and a keystroke arrives at Dispatch, and a second copy of this is a
+        // second place for one of them to be forgotten - which is exactly
+        // what happened: this block existed here only, so pressing the key
+        // that fetches the airspace asked nobody anything.
+        Asked(command);
 
         Render();
+    }
+
+    /// <summary>
+    /// Starts the read this command wanted, if it wanted one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE METHOD, TWO CALLERS, and it was one caller for as long as the
+    /// set existed.</b> A command in <see cref="ShellCommands.Reads"/> can
+    /// arrive by a click on the tab bar or by its key, and the key's path did
+    /// not start a read — so <c>ConsoleEstate.Read</c>, the only thing that
+    /// fills the airspace tab's documents, was reachable by neither the shell
+    /// (the command is not the shell's) nor the screen.
+    /// </para>
+    /// <para>
+    /// <b>TOLD, NOT POLLED.</b> Terminal.Gui's guidance is that all UI work
+    /// happens on the main thread and a background result reaches it through
+    /// <c>Invoke</c>, so the read says when it has landed and this hands the
+    /// fold back to the thread allowed to draw. The first version asked every
+    /// hundred and twenty milliseconds whether it had finished, which is a
+    /// timer spinning for something that can simply say so, and up to that
+    /// long late when it had.
+    /// </para>
+    /// </remarks>
+    private void Asked(Command command)
+    {
+        if (_reads is null || !ShellCommands.Reads.Contains(command))
+        {
+            return;
+        }
+
+        _reads.Start(command, State, () => _app.Invoke(() =>
+        {
+            var advanced = _reads.Advance(State);
+
+            if (ReferenceEquals(advanced, State)
+                && advanced.ReadInFlight == State.ReadInFlight)
+            {
+                return;
+            }
+
+            State = advanced;
+            Render();
+        }));
     }
 
     /// <summary>
@@ -1551,6 +1575,13 @@ public sealed class ConsoleScreen : Window
         }
 
         State = Reducer.Reduce(State, command);
+
+        // THE READ A KEY ASKED FOR. Reduced first, so the pane is already
+        // open and saying the read is coming rather than saying there is
+        // nothing - and started here because the reducer cannot and the shell
+        // no longer sees a command in Reads at all.
+        Asked(command);
+
         Render();
     }
 

@@ -72,11 +72,28 @@ public class EveryReadAKeyAsksForIsServedTests
 
         var body = screen[at..screen.IndexOf("\n    private", at + 1, StringComparison.Ordinal)];
 
-        await Assert.That(body).Contains("ShellCommands.Reads", StringComparison.Ordinal)
+        // ASSERTED THROUGH THE METHOD RATHER THAN THE BLOCK. This first
+        // demanded `ShellCommands.Reads` inline in Dispatch, which would have
+        // been satisfied by a SECOND copy of the read-starting block - and two
+        // copies is how one of the two callers came to be missing it in the
+        // first place. What matters is that Dispatch starts a read; where the
+        // Reads check lives is the other assertion below.
+        await Assert.That(body).Contains("Asked(command)", StringComparison.Ordinal)
             .Because("a command in Reads that arrives by key is a read nobody starts. The "
                    + "estate has never reached the airspace tab for this reason, and "
                    + "pressing the key that is supposed to fetch it does nothing at all. "
                    + "Dispatch:\n" + body);
+
+        var asked = screen.IndexOf("private void Asked(", StringComparison.Ordinal);
+
+        await Assert.That(asked).IsGreaterThan(-1)
+            .Because("Dispatch calls something this scan cannot find.");
+
+        await Assert.That(screen[asked..screen.IndexOf(
+                "\n    private", asked + 1, StringComparison.Ordinal)])
+            .Contains("ShellCommands.Reads", StringComparison.Ordinal)
+            .Because("and it is the declaration that decides which commands want one, "
+                   + "rather than a list written here.");
     }
 
     [Test]

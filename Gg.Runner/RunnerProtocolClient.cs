@@ -24,6 +24,7 @@ namespace Gg.Runner;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(RunnerHeartbeat))]
+[JsonSerializable(typeof(AllowanceReading))]
 [JsonSerializable(typeof(HeartbeatAccepted))]
 [JsonSerializable(typeof(RunnerSignalAnswer))]
 [JsonSerializable(typeof(RunnerKeyOffer))]
@@ -139,6 +140,24 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         return await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.HeartbeatAccepted, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no heartbeat interval.");
+    }
+
+    public async Task ReportAllowanceAsync(
+        string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        // THE RUNNER ID IS NOT IN THE PATH, unlike the heartbeat's. The
+        // credential says which runner this is, and a reading is about the
+        // ALLOWANCE rather than about the machine - two machines report one
+        // name, which is the point of naming it.
+        using var request = Request(HttpMethod.Post, "/v1/allowances/readings");
+        request.Content = JsonContent.Create(
+            reading, RunnerJsonContext.Default.AllowanceReading);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<ClaimAcceptance> RequestClaimAsync(

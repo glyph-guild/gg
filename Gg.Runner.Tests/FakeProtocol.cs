@@ -41,6 +41,12 @@ internal sealed class FakeProtocol : IRunnerProtocol
     /// <summary>Every batch of facts the loop shipped, in order.</summary>
     internal List<Gg.Runner.Facts.FilteredFacts> ShippedFacts { get; } = [];
 
+    /// <summary>Every allowance reading this fake was posted, in order.</summary>
+    internal List<AllowanceReading> Readings { get; } = [];
+
+    /// <summary>What the allowance post throws, one per call, before it answers.</summary>
+    internal Queue<Exception> AllowanceThrows { get; } = new();
+
     internal Queue<ClaimResult> Claims { get; } = new();
 
     /// <summary>What the claim throws, one per call, before it answers normally.</summary>
@@ -187,6 +193,18 @@ internal sealed class FakeProtocol : IRunnerProtocol
             Introductions = waiting,
             Offered = Offered,
         });
+    }
+
+    public Task ReportAllowanceAsync(
+        string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("allowance");
+        Record(reading);
+
+        if (AllowanceThrows.Count > 0) { throw AllowanceThrows.Dequeue(); }
+
+        Readings.Add(reading);
+        return Task.CompletedTask;
     }
 
     /// <summary>What this control plane offers, or null for nothing.</summary>

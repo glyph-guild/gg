@@ -1628,6 +1628,12 @@ static async Task<int> HoldAsync(
             secretFor: locator => new FileCredentialStore().Read(locator),
             self: Gg.Local.SelfInvocation.Current),
         flightId: flightId,
+        // A HAND-FLOWN FLIGHT SPENDS THE SAME ALLOWANCE, so it reports one.
+        // The executor above has no stream to count and the fact carries no
+        // tokens for it - but the machine's own ledger reads every transcript
+        // on the disk, including the one a person is sitting in front of, and
+        // that is exactly the spending a reserve exists to protect.
+        allowance: Allowance(),
         // THE ONE READER, HANDED ACROSS. Gg.Runner cannot see Gg.Client - the
         // runner is treated as hostile and the reference graph keeps them
         // apart - so this project, which is the only one that sees both, passes
@@ -1857,6 +1863,7 @@ static async Task<int> RunnerUpAsync()
             new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
             new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
             destinations: destinations, trackers: trackers, executor: executor,
+            allowance: Allowance(),
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine
@@ -2058,8 +2065,22 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), identity.RunnerId, identity.RunnerToken, identity.Labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
-        destinations: destinations, trackers: trackers, executor: executor);
+        destinations: destinations, trackers: trackers, executor: executor,
+        allowance: Allowance());
 }
+
+/// <summary>
+/// What this machine has spent, or nothing when it names no allowance.
+/// </summary>
+/// <remarks>
+/// <b>Through the one reader</b>, like the trackers and the hosts: a value in
+/// the configuration file has to reach this as surely as a variable does, and
+/// reading the environment straight would be the stun-servers defect again.
+/// </remarks>
+static Gg.Runner.AllowanceReporter? Allowance() =>
+    Gg.Runner.AllowanceReporter.For(
+        Settings.Value("GG_ALLOWANCE", InForce.Configuration),
+        Settings.Value("GG_ALLOWANCE_LIMITS", InForce.Configuration));
 
 static async Task<int> RunnerMaintainAsync(string pool)
 {

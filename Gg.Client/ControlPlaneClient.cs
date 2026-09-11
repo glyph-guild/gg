@@ -942,7 +942,53 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        // THE REFUSAL IS THE ANSWER ON THIS ROUTE. Success is 204 and no body,
+        // so everything worth reading arrives as a status with a sentence
+        // beside it - and the three sentences are three different
+        // instructions. EnsureSuccessStatusCode keeps the number and discards
+        // the part a person can act on.
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new AdminRefusedException(
+                await RefusalAsync(response, cancellationToken));
+        }
+    }
+
+    /// <summary>
+    /// The control plane's own sentence, or the status when it sent none.
+    /// </summary>
+    /// <remarks>
+    /// <b>ProblemDetails' <c>detail</c>, which is where <c>Results.Problem</c>
+    /// puts it.</b> A body that is not one - stripped by a proxy, or an older
+    /// control plane answering with nothing - falls back to naming the status,
+    /// because an empty message would be worse than the bare code this
+    /// replaced.
+    /// </remarks>
+    private static async Task<string> RefusalAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        try
+        {
+            using var read = System.Text.Json.JsonDocument.Parse(body);
+
+            if (read.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && read.RootElement.TryGetProperty("detail", out var detail)
+                && detail.GetString() is { Length: > 0 } said)
+            {
+                return said;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Not a problem document. Fall through to the status, which is
+            // still more than nothing.
+        }
+
+        return $"The control plane refused with {(int)response.StatusCode} and said nothing "
+             + "about why.";
     }
 
     /// <summary>What each allowance the fleet spends from has left.</summary>
@@ -1711,6 +1757,18 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         }
     }
 }
+
+/// <summary>
+/// Raised when a grant or revocation was refused, carrying the reason.
+/// </summary>
+/// <remarks>
+/// <b>Its own type, beside the other per-subject refusals.</b> The console and
+/// the command line both render an exception's message, so what matters is that
+/// the message is the control plane's sentence rather than a status code - and a
+/// named type is what lets a caller tell "you may not" from "the network is
+/// down".
+/// </remarks>
+public sealed class AdminRefusedException(string message) : Exception(message);
 
 /// <summary>Raised when the control plane refuses this binary's protocol version.</summary>
 public sealed class ProtocolTooOldException(string message) : Exception(message);

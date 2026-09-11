@@ -288,9 +288,14 @@ public static class Reducer
 
         if (state.Selected is not { } row)
         {
+            // AND THE STORY, which was the field this forgot. Approving the
+            // last waiting decision empties the queue, and the pane beside it
+            // went on describing the flight somebody had just dealt with -
+            // because PaneText.Flight asks whether story AND flight are null,
+            // so one surviving answered for both.
             return state with
             {
-                Flight = null, FlightLog = null, Attribution = null,
+                Flight = null, FlightLog = null, Attribution = null, Story = null,
             };
         }
 
@@ -308,6 +313,18 @@ public static class Reducer
             Attribution = string.Equals(
                 state.Attribution?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
                     ? state.Attribution
+                    : null,
+
+            // AND THE SAME RULE FOR THE SAME REASON. A story is read for the
+            // selected row alone - the line below the attribution's in the
+            // boot - so it is not held per flight either, and the honest
+            // answer for any other row is that it has not been read. It is an
+            // ACCOUNT OF WHAT HAPPENED, which under the wrong name is the
+            // worst kind of wrong: every word of it is true about a flight
+            // nobody is looking at.
+            Story = string.Equals(
+                state.Story?.FlightNumber, row.FlightNumber, StringComparison.Ordinal)
+                    ? state.Story
                     : null,
         };
     }

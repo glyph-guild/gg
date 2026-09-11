@@ -237,6 +237,14 @@ internal sealed class AConsolePlane : HttpMessageHandler
                 ProtocolJsonContext.Default.FlightList),
             "/v1/runners" => JsonSerializer.Serialize(
                 new RunnerList { Runners = [] }, ProtocolJsonContext.Default.RunnerList),
+            // EMPTY, WHICH IS WHAT A FLEET THAT NAMES NO ALLOWANCE REPORTS.
+            // Serving it at all matters: this double answers an unknown route
+            // with `{}` and a 200, which deserializes into a required-property
+            // failure rather than into the "not there" the console is built to
+            // survive.
+            "/v1/allowances" => JsonSerializer.Serialize(
+                new AllowanceList { Allowances = [] },
+                ProtocolJsonContext.Default.AllowanceList),
             "/v1/gates" => JsonSerializer.Serialize(
                 new GateList { Gates = [] }, ProtocolJsonContext.Default.GateList),
             "/v1/credentials" => JsonSerializer.Serialize(

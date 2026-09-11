@@ -95,9 +95,10 @@ public class VerbParityTests
             // arm for this result: a console projecting one machine's local
             // reading would show a person their own laptop and call it the
             // fleet.
-            ["Allowance"] = "not reachable yet: the console's version is the FLEET's "
-                          + "allowances over the read surface, not this machine's own "
-                          + "transcripts, and it waits on a control plane that serves them.",
+            ["Allowance"] = "not reachable, and not pending: the console's version is the "
+                          + "FLEET's allowances, and it now has one. This verb is this "
+                          + "machine's own transcripts - a different question with the "
+                          + "same word in it.",
 
             // --- the configuration verbs ---
             // READING IS REACHABLE, WRITING IS NOT YET. The Environment page in

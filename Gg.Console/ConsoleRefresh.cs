@@ -42,7 +42,7 @@ public static class ConsoleRefresh
             {
                 TabId.Queue or TabId.Flights => await TheFleetAndItsWorkAsync(
                     data, cancellationToken),
-                TabId.Runners => Apply(await data.RunnersAsync(cancellationToken)),
+                TabId.Runners => await TheFleetAndWhatItHasLeftAsync(data, cancellationToken),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
                 _ => Nothing,
@@ -66,6 +66,47 @@ public static class ConsoleRefresh
 
     private static Func<AppState, AppState> Apply(VerbResult result) =>
         state => ConsoleProjection.Apply(state, result);
+
+    /// <summary>
+    /// The fleet, and what each machine's allowance has left.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two reads because they are two questions</b>, joined in the pane
+    /// rather than on the wire: the runners list is per machine and an
+    /// allowance is per subscription, which two machines may share.
+    /// </para>
+    /// <para>
+    /// <b>The allowance read is allowed to fail on its own.</b> A control
+    /// plane one version behind serves no such route, and the pane a person
+    /// opens to see their fleet must not go blank — or worse, report itself
+    /// disconnected — over a column that is extra. The runners read has no
+    /// such indulgence: if THAT fails there is nothing to draw, and the
+    /// caller's diagnosis is the right answer.
+    /// </para>
+    /// </remarks>
+    private static async Task<Func<AppState, AppState>> TheFleetAndWhatItHasLeftAsync(
+        ConsoleData data, CancellationToken cancellationToken)
+    {
+        var fleet = Apply(await data.RunnersAsync(cancellationToken));
+
+        VerbResult? allowances = null;
+
+        try
+        {
+            allowances = await data.AllowancesAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (ProtocolTooOldException)
+        {
+        }
+
+        return allowances is null
+            ? fleet
+            : state => ConsoleProjection.Apply(fleet(state), allowances);
+    }
 
     /// <summary>
     /// The queue and the flights list, which are the same four reads.

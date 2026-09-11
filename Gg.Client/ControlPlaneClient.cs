@@ -40,6 +40,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerRetirementRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerList))]
+[JsonSerializable(typeof(AllowanceList))]
 [JsonSerializable(typeof(TelemetryDisclosure))]
 [JsonSerializable(typeof(CredentialRegistrationRequest))]
 [JsonSerializable(typeof(CredentialRegistered))]
@@ -855,6 +856,25 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no runner list.");
+    }
+
+    /// <summary>What each allowance the fleet spends from has left.</summary>
+    /// <remarks>
+    /// <b>The fleet's, not this machine's.</b> Every machine reports what its
+    /// own transcripts say; this is the sum, per allowance, including machines
+    /// the caller has never seen.
+    /// </remarks>
+    public async Task<AllowanceList> ListAllowancesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/allowances", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.AllowanceList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no allowance list.");
     }
 
     /// <summary>Opens a flight. Answers 202: the number is minted afterwards.</summary>

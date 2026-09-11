@@ -354,6 +354,15 @@ public sealed class FlightCommands(
     public async Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));
 
+    /// <summary>What every allowance the fleet spends from has left.</summary>
+    /// <remarks>
+    /// <b>Not a plural of <c>gg allowance</c>.</b> That verb reads the
+    /// transcripts on the disk it runs on and contacts nothing; this asks the
+    /// control plane what every machine reported.
+    /// </remarks>
+    public async Task<VerbResult> AllowancesAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Allowances(await _client.ListAllowancesAsync(Session(), cancellationToken));
+
     /// <summary>
     /// The checklist: the tenant-level plan, or one flight's when a reference
     /// is given.

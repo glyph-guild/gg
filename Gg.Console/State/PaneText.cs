@@ -928,10 +928,49 @@ public static class PaneText
             // marked is a list somebody has to cross-reference against a
             // command they would have to run in another terminal.
             var work = row.Work is { Length: > 0 } flight ? $"  on {flight}" : "";
-            text.AppendLine($"{row.Here} {row.Runner}  {row.State}{work}");
+            text.AppendLine($"{row.Here} {row.Runner}  {row.State}{work}{Spent(state, row.Id)}");
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What the allowance this runner spends from has left, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only beside the machines that REPORTED it.</b> Two machines share an
+    /// allowance on purpose, so the tempting rendering is once per pane — and
+    /// that is how somebody comes to believe their laptop is spending a
+    /// subscription it has never touched.
+    /// </para>
+    /// <para>
+    /// <b>The session window, because that is the one that decides whether a
+    /// machine can work in the next hour.</b> The week is the one a floor will
+    /// be set against, and it belongs where somebody is deciding rather than
+    /// where they are glancing.
+    /// </para>
+    /// <para>
+    /// <b>No ceiling is said in words.</b> A window rendered as 0% because
+    /// nobody configured a limit reads as plenty left.
+    /// </para>
+    /// </remarks>
+    private static string Spent(AppState state, string runnerId)
+    {
+        if (state.Allowances?.Allowances is not { Count: > 0 } held) { return ""; }
+
+        var mine = held.FirstOrDefault(
+            a => a.Runners.Contains(runnerId, StringComparer.Ordinal));
+
+        if (mine is null) { return ""; }
+
+        var session = mine.Windows.FirstOrDefault(w => w.Kind == AllowanceWindows.Session);
+
+        if (session is null) { return $"  {Clean(mine.Name)}"; }
+
+        return session.Limit is { } ceiling and > 0
+            ? $"  {Clean(mine.Name)} {(int)Math.Floor(session.Tokens * 100.0 / ceiling)}%"
+            : $"  {Clean(mine.Name)} {session.Tokens:N0} spent";
     }
 
     public static string Repositories(AppState state)

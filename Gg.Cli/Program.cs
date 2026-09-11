@@ -258,6 +258,7 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
         // Working on top of this; the path is true before any of them.
         Estate = (state.Estate ?? new Gg.Console.EstateOnThisMachine
         {
+            Uncommitted = [],
             Names = null,
         }) with
         {

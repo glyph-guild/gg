@@ -36,10 +36,110 @@ public static class ConsoleEstate
     /// composition root through the same setting the verbs use, so the pane
     /// cannot name one tree while <c>gg airspace pull</c> writes to another.
     /// </param>
+    /// <summary>
+    /// What this machine can answer on its own: the working copy, walked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>FIRST, AND WHETHER OR NOT ANYBODY CAN BE ASKED ANYTHING.</b> This
+    /// used to happen after the topology and only if it succeeded, under a
+    /// reason that has stopped being true: <i>"without the names there are no
+    /// rows to hang a working-copy state on"</i>. There were none when the
+    /// rows were names the estate holds. The rows are files on disk now, and
+    /// a file does not need permission to exist.
+    /// </para>
+    /// <para>
+    /// <b>Its own function so it can be asserted without a control plane</b>,
+    /// which is also the only way to assert the property that matters: that a
+    /// refused topology leaves the tree in hand.
+    /// </para>
+    /// <para>
+    /// <b>Nothing when nobody has said where.</b> Walking the directory gg
+    /// was launched from on the chance it is an airspace is how <c>p</c> came
+    /// to write a tree into somebody's home with no git to refuse it.
+    /// </para>
+    /// </remarks>
+    public static AppState Local(string? root, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var known = state.Estate ?? Nothing(root);
+
+        if (root is not { Length: > 0 } tree)
+        {
+            return state with { Estate = known with { Root = root, Tree = null } };
+        }
+
+        try
+        {
+            return state with
+            {
+                Estate = known with
+                {
+                    Root = root,
+                    IsRepository = Git.IsRepository(tree),
+                    Tree = Summarised(Gg.Client.AirspaceTree.Read(tree)),
+                    Uncommitted = Gg.Client.AirspaceTree.Dirty(tree),
+                },
+            };
+        }
+        catch (Exception unreadable) when (
+            unreadable is IOException or UnauthorizedAccessException)
+        {
+            // SAID RATHER THAN THROWN, and in the slot the working copy's own
+            // failures use. A directory gg cannot read is a fact about this
+            // machine, which is what this whole function is about.
+            return state with
+            {
+                Estate = known with
+                {
+                    Root = root,
+                    Tree = null,
+                    Diagnosis = "The working copy could not be read: " + unreadable.Message,
+                },
+            };
+        }
+    }
+
+    /// <summary>
+    /// The walk, with the documents themselves left behind.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE LINE THIS TYPE HOLDS, AND IT NEARLY DID NOT.</b>
+    /// <c>TreeDocument</c> carries the parsed envelope, narrowing or strategy,
+    /// and <c>AppState</c> goes into <c>GG_STATE_DUMP</c> and the diagnostics
+    /// bundle — so holding the walk as it comes would ship a tenant's rules in
+    /// a file they send us. Name, role, path and version is what a row needs;
+    /// the rest stays on disk, which is where the pane's reader can go for it.
+    /// </remarks>
+    private static WorkingCopy Summarised(Gg.Client.TreeRead read) => new()
+    {
+        Present = read.Present,
+        Documents =
+        [
+            .. read.Documents.Select(d =>
+                new AirspaceFile(d.Role, d.Name, d.Path, d.BasedOn)),
+        ],
+        Unreadable =
+        [
+            .. read.Unreadable.Select(u => new UnreadableFile(u.Path, u.Diagnosis)),
+        ],
+    };
+
+    /// <summary>An estate nothing has been read into yet.</summary>
+    private static EstateOnThisMachine Nothing(string? root) =>
+        new() { Root = root, Uncommitted = [] };
+
     public static AppState Read(ConsoleData data, string? root, AppState state)
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(state);
+
+        // THE LOCAL WALK FIRST, so everything below is added to it rather than
+        // instead of it. A topology that cannot be asked used to cost the
+        // whole pane; it costs the names and the diff now, which is what it
+        // actually answers.
+        state = Local(root, state);
 
         Gg.Contracts.EnvelopeTopology names;
         try
@@ -59,11 +159,15 @@ public static class ConsoleEstate
             // are no rows to hang a working-copy state on, and a pane listing
             // local edits to documents it cannot name is worse than one saying
             // it could not ask.
+            // THE NAMES AND NOTHING ELSE THEY WOULD HAVE BROUGHT. The walk
+            // above survives, which is the point: a person with a pulled
+            // airspace and no session sees their documents and is told the
+            // estate could not be asked, rather than being shown nothing and
+            // told the same.
             return state with
             {
-                Estate = new EstateOnThisMachine
+                Estate = state.Estate! with
                 {
-                    Root = root,
                     Diagnosis = "The airspace could not be read: " + failure.Message,
                 },
             };
@@ -75,10 +179,8 @@ public static class ConsoleEstate
 
         return state with
         {
-            Estate = new EstateOnThisMachine
+            Estate = state.Estate! with
             {
-                Root = root,
-                IsRepository = root is { Length: > 0 } && Git.IsRepository(root),
                 Names = names,
                 Working = working,
                 Diagnosis = why,

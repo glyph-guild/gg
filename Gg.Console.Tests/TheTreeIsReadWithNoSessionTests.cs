@@ -81,6 +81,13 @@ public class TheTreeIsReadWithNoSessionTests
             await Assert.That(folded.Estate!.Tree!.Documents.Count)
                 .IsEqualTo(read.Documents.Count)
                 .Because("the same walk the verbs use, not a second one.");
+
+            // SUMMARISED, NOT HELD. The walk's own TreeDocument carries the
+            // parsed document; what reaches the state is a name, a role, a
+            // path and a version.
+            await Assert.That(folded.Estate.Tree.Documents.Select(d => d.Path))
+                .IsEquivalentTo(read.Documents.Select(d => d.Path))
+                .Because("every document, by the path the walk found it at.");
         }
         finally
         {

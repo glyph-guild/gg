@@ -32,6 +32,7 @@ public class SettingWhereTheAirspaceIsTests
 {
     private static EstateOnThisMachine At(string? root) => new()
     {
+        Uncommitted = [],
         Root = root,
         IsRepository = root is not null,
         Names = new Gg.Contracts.EnvelopeTopology { Names = [] },

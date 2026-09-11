@@ -45,6 +45,49 @@ public sealed record EstateOnThisMachine
     /// <summary>Whether that path is inside a git working tree.</summary>
     public bool IsRepository { get; init; }
 
+    /// <summary>
+    /// What the working copy holds, or null when nobody has said where it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE ONE MEMBER THAT NEEDS NO SESSION, which is why it is first.</b>
+    /// The names and the diff both come off the control plane; this is a walk
+    /// of a directory. A tab whose rows are files can be drawn on a machine
+    /// with no session, no network and no applied envelope, and until this
+    /// existed it could not.
+    /// </para>
+    /// <para>
+    /// <b>A SUMMARY, AND THE FIRST VERSION OF THIS WAS NOT.</b> It held
+    /// <c>Gg.Client.TreeRead</c>, whose <c>TreeDocument</c> carries the PARSED
+    /// DOCUMENT — so every approver, rule and glob in a tenant's governance
+    /// went into <c>GG_STATE_DUMP</c> and the diagnostics bundle. Not the
+    /// text, and the same information. The assertion written for this rule is
+    /// what caught it. <see cref="WorkingCopy"/> carries a name, a role, a
+    /// path and a version: the same class of fact the topology and the diff
+    /// already carry.
+    /// </para>
+    /// <para>
+    /// <b>Null is "nobody has said where", not "empty".</b> An airspace with
+    /// nothing in it is a <c>TreeRead</c> whose <c>Present</c> is false, which
+    /// is a different sentence again — somebody standing in the wrong
+    /// directory.
+    /// </para>
+    /// </remarks>
+    public WorkingCopy? Tree { get; init; }
+
+    /// <summary>
+    /// The documents git says have changed since the pull that wrote them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The local proxy for "you changed this", and the only one there is
+    /// without a control plane to compare against.</b> It is NOT a direction
+    /// and must not be shown as one: git knows a file moved, and nothing
+    /// local knows whether that tightens or widens. Empty is an answer — a
+    /// clean tree — where null would be indistinguishable from not having
+    /// looked, so it is <c>required</c> rather than left to default.
+    /// </remarks>
+    public required IReadOnlyList<string> Uncommitted { get; init; } = [];
+
     /// <summary>Every name this tenant has, root first.</summary>
     public Gg.Contracts.EnvelopeTopology? Names { get; init; }
 

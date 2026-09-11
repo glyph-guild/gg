@@ -44,6 +44,7 @@ public class TheAirspaceLineNeedsNoReadTests
             Envelope = null,
             Estate = new EstateOnThisMachine
             {
+                Uncommitted = [],
                 Root = "/home/someone/policy",
                 IsRepository = true,
                 Diagnosis = "The airspace could not be read: no control plane.",

@@ -32,7 +32,11 @@ public class AShareIsKeptByAKeypressTests
     private static AppState OnTheRunnersTab(bool ours = true) => new()
     {
         ActiveTab = TabId.Runners,
-        PrincipalId = ours ? "me" : "somebody-else",
+        // ALWAYS ME. `Yours` compares this console's principal with the
+        // runner's registrant, so moving BOTH would have made somebody else's
+        // machine theirs-and-mine at once - which is how the first version of
+        // this fixture asserted nothing.
+        PrincipalId = "me",
         Runners = new RunnerList
         {
             Runners =

@@ -378,6 +378,26 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                // A SHARE KEPT BACK, and it RE-READS for AddCredential's
+                // reason: setting a floor changes what the runners pane draws,
+                // and the one write in this loop that changed a pane and did
+                // not refresh it was the defect recorded one arm down.
+                case Command.KeepATenth:
+                case Command.KeepAQuarter:
+                case Command.KeepAHalf:
+                case Command.KeepNothing:
+                    state = Reloaded(
+                        Closed(state) with
+                        {
+                            LastAllowance = AllowanceRows.SelectedName(state) is not { } named
+                                ? "The machine on this row reports no allowance."
+                                : actions is null
+                                    ? "This console is not configured to set a floor."
+                                    : actions.KeepBack(named, Share(outcome.Exit)),
+                        },
+                        reload);
+                    break;
+
                 case Command.AddCredential:
                     // The value is read by CredentialCommands, inside the action.
                     // Nothing here holds it, which is the point: this record is
@@ -814,6 +834,25 @@ public sealed class ConsoleLoop(
         act is null
             ? state with { LastSignIn = $"This console is not configured to {what}." }
             : act(state, uri);
+
+    /// <summary>
+    /// The share the chosen key means, or null for "keep nothing".
+    /// </summary>
+    /// <remarks>
+    /// <b>The mapping lives here rather than on the command</b>, because the
+    /// commands are a vocabulary the keymap and the shell share and a fraction
+    /// is this arm's business. A fifth share is a command and a case, which is
+    /// the cost of it being a decision rather than a form.
+    /// </remarks>
+    private static double? Share(Command chosen) => chosen switch
+    {
+        Command.KeepATenth => 0.10,
+        Command.KeepAQuarter => 0.25,
+        Command.KeepAHalf => 0.50,
+        Command.KeepNothing => null,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(chosen), chosen, "not a share this loop offers"),
+    };
 
     private static AppState Started(AppState state, Func<AppState, AppState>? start) =>
         start is null

@@ -40,6 +40,19 @@ public interface IConsoleActions
     /// </param>
     string Decide(string flight, string obligation, bool approved, string? reason);
 
+    /// <summary>
+    /// Keeps a share of an allowance back, or clears the floor, and says what
+    /// happened.
+    /// </summary>
+    /// <remarks>
+    /// <b>A fraction of BOTH windows, because the console offers a decision
+    /// rather than a form.</b> Keeping a third of the week and nothing of the
+    /// session is coherent and is what <c>gg allowances floor</c> is for; what
+    /// somebody wants while looking at a fleet is <i>hold some of this back</i>.
+    /// Null clears it.
+    /// </remarks>
+    string KeepBack(string allowance, double? share);
+
     /// <summary>Opens a flight from intent text, and says what happened.</summary>
     /// <param name="repository">
     /// The registered repository this flight is about, or null to let the

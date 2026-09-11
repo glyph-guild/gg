@@ -389,6 +389,34 @@ public enum Command
     /// <remarks><see cref="ComposeInEditor"/>'s, one composer over.</remarks>
     ComposeWithAgent,
 
+    /// <summary>Opens the question of how much of this allowance to keep.</summary>
+    AskToKeepAShare,
+
+    /// <summary>Keep a tenth of each window back.</summary>
+    /// <remarks>
+    /// <b>Both windows, because a console offers a decision rather than a
+    /// form.</b> Keeping a third of the week and nothing of the session is
+    /// coherent and is what the command line is for; what somebody wants while
+    /// looking at a fleet is "hold some of this back".
+    /// </remarks>
+    KeepATenth,
+
+    /// <summary>Keep a quarter of each window back.</summary>
+    KeepAQuarter,
+
+    /// <summary>Keep half of each window back.</summary>
+    KeepAHalf,
+
+    /// <summary>
+    /// Keep nothing back, clearing the floor.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own key rather than escape.</b> Escaping means "I did not mean to
+    /// open this"; keeping nothing is a decision, and collapsing the two would
+    /// let a mistaken keypress clear a reserve.
+    /// </remarks>
+    KeepNothing,
+
     /// <summary>
     /// Register a credential for a repository. The value is prompted for and never
     /// held here.
@@ -522,6 +550,15 @@ public static class ShellCommands
         // session and nothing was ever opened.
         Command.ComposeInEditor,
         Command.ComposeWithAgent,
+
+        // SETTING A FLOOR IS A WRITE, so it happens between sessions with the
+        // terminal provably free - the arrangement every other write here
+        // uses. As a pure reduction it would change the model and never reach
+        // the control plane, which is the defect the two above recorded.
+        Command.KeepATenth,
+        Command.KeepAQuarter,
+        Command.KeepAHalf,
+        Command.KeepNothing,
         Command.AddCredential,
         Command.Invite,
 

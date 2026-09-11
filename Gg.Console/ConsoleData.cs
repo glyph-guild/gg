@@ -405,6 +405,22 @@ public sealed class ConsoleData(
     public Task<VerbResult> AllowancesAsync(CancellationToken cancellationToken = default) =>
         _commands.AllowancesAsync(cancellationToken);
 
+    /// <summary>Sets or clears what an allowance's owners keep back.</summary>
+    /// <remarks>
+    /// <b>It answers with the fleet rather than an echo</b>, which is what
+    /// lets the pane update through the arm it already has.
+    /// </remarks>
+    public Task<VerbResult> FloorAsync(
+        string allowance, double? sessionFraction, double? weekFraction,
+        CancellationToken cancellationToken = default) =>
+        _commands.FloorAsync(allowance, sessionFraction, weekFraction, cancellationToken);
+
+    /// <summary>Spends a floor somebody else set, for a while, with a reason.</summary>
+    public Task<VerbResult> OverrideFloorAsync(
+        string allowance, int minutes, string reason,
+        CancellationToken cancellationToken = default) =>
+        _commands.OverrideFloorAsync(allowance, minutes, reason, cancellationToken);
+
     /// <summary>
     /// What a flight tried and ruled out, for the pane a person reads before
     /// taking it over.

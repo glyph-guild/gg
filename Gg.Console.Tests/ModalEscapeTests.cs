@@ -25,8 +25,14 @@ public class ModalEscapeTests
     /// <summary>Applies a key the way the screen does: resolve, then reduce.</summary>
     private static AppState Press(AppState state, KeyStroke key)
     {
-        var context = new KeymapContext(state.Mode, state.ActiveTab, state.Frozen);
-        var command = Keymap.Resolve(key, context);
+        // THE SAME DERIVATION THE SCREEN USES, which this did not have. It
+        // built a context from three fields by hand, so every flag derived
+        // from the model - whose runner is under the cursor, whether its
+        // allowance is yours - was false here however the model was set up.
+        // That is the third-copy hazard the remark below names, in the line
+        // above it: a modal reachable only through a derived flag read as
+        // unreachable, and the walk could not tell that from a missing key.
+        var command = Keymap.Resolve(key, KeymapContext.For(state));
 
         // THE SAME DECLARATION THE SCREEN READS. This held a third literal copy of
         // the list, which is worth naming: a property proven over 500 generated key
@@ -195,8 +201,46 @@ public class ModalEscapeTests
         // which row that is depends on which tab has the screen. One fixed tab
         // made this a walk over the keys of one pane, which would have called
         // the runner modal unreachable while a key opened it.
+        //
+        // AND WITH A MACHINE AND AN ALLOWANCE THIS PERSON OWNS, for the reason
+        // one paragraph up applied to a second key. `o` is live only on your
+        // own machine's allowance, so a fleet with no runners leaves
+        // FloorChoice unreachable - not because no key opens it, but because
+        // the walk never built the state where that key exists.
         var everywhere = Enum.GetValues<TabId>()
-            .Select(tab => new AppState { Flights = OneFlight(), ActiveTab = tab })
+            .Select(tab => new AppState
+            {
+                Flights = OneFlight(),
+                ActiveTab = tab,
+                PrincipalId = "me",
+                RunnerSelected = 0,
+                Runners = new Gg.Contracts.RunnerList
+                {
+                    Runners =
+                    [
+                        new()
+                        {
+                            RunnerId = "01a078bb-4b97-779b-81ff-554c4ea662c0",
+                            Label = "a-laptop",
+                            State = Gg.Contracts.RunnerStates.Idle,
+                            RegisteredByPrincipalId = "me",
+                        },
+                    ],
+                },
+                Allowances = new Gg.Contracts.AllowanceList
+                {
+                    Allowances =
+                    [
+                        new()
+                        {
+                            Name = "an-allowance",
+                            MeasuredAt = DateTimeOffset.UnixEpoch,
+                            Runners = ["01a078bb-4b97-779b-81ff-554c4ea662c0"],
+                            Windows = [],
+                        },
+                    ],
+                },
+            })
             .ToList();
 
         foreach (var mode in Enum.GetValues<UiMode>()

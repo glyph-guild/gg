@@ -81,6 +81,17 @@ public readonly record struct KeymapContext(
     public bool RunnerIsOurs { get; init; }
 
     /// <summary>
+    /// Whether the selected runner's allowance is one this person may reserve.
+    /// </summary>
+    /// <remarks>
+    /// <b>Owners are the registrants, so "my machine" means "my
+    /// allowance".</b> The control plane refuses anybody else, and offering a
+    /// key that will be refused is worse than not offering it — a person
+    /// presses it and concludes the console is broken.
+    /// </remarks>
+    public bool AllowanceIsMine { get; init; }
+
+    /// <summary>
     /// Whether the runner the cursor is on is flying something.
     /// </summary>
     /// <remarks>
@@ -152,6 +163,14 @@ public readonly record struct KeymapContext(
             // so the hint line and the dispatch cannot disagree about whether
             // the key is live.
             RunnerIsFlying = Rows.Selected(state) is { Work.Length: > 0 },
+
+            // WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM. Yours rather
+            // than Mine: an allowance belongs to the people who registered the
+            // machines reporting it, which is a fact the control plane
+            // recorded - where Mine is an inference from this console's own
+            // file about one particular machine.
+            AllowanceIsMine = Rows.Selected(state) is { Yours: true }
+                              && AllowanceRows.SelectedName(state) is not null,
 
             // WHAT THE REFRESH KEY HAS TO SAY, derived here with everything
             // else the hints are made of, so the line has one author.
@@ -497,6 +516,28 @@ public static class Keymap
         // one keypress earlier. Of what is left - m, o, s, w, z - `w` is "write
         // it myself" and `m` is the model, and both say what they do rather
         // than being the first letter of a word that was taken.
+        // A FEW SHARES AND A KEY EACH. Digits rather than letters, because
+        // there is an order to them and a person reading 1/2/3 does not have
+        // to learn which letter stood for which fraction. `0` is keep
+        // nothing, which sits at the end of the same sequence.
+        UiMode.FloorChoice =>
+        [
+            new(KeyStroke.Char('1'), Command.KeepATenth, "keep a tenth back")
+                { Label = "10%" },
+            new(KeyStroke.Char('2'), Command.KeepAQuarter, "keep a quarter back")
+                { Label = "25%" },
+            new(KeyStroke.Char('3'), Command.KeepAHalf, "keep half back")
+                { Label = "50%" },
+
+            // ITS OWN KEY, not escape. Escaping is "I did not mean to open
+            // this"; keeping nothing is a decision, and one keypress must not
+            // be able to mean both.
+            new(KeyStroke.Char('0'), Command.KeepNothing, "keep nothing back")
+                { Label = "None" },
+
+            new(KeyStroke.Esc, Command.CloseModal, "leave the floor as it is"),
+        ],
+
         UiMode.ComposeChoice =>
         [
             new(KeyStroke.Char('w'), Command.ComposeInEditor, "write it in your editor")
@@ -689,6 +730,17 @@ public static class Keymap
             // and forgetting a credential is a thing a person does when they
             // set the tenant up and then about twice a year, and it was
             // spending two of the line's slots every second of every session.
+            .. context.AllowanceIsMine && context.Showing == TabId.Runners
+                ?
+                [
+                    new KeyBinding(
+                        KeyStroke.Char('o'), Command.AskToKeepAShare, "keep a share back")
+                    {
+                        When = "on your own machine's allowance, on the runners tab",
+                    },
+                ]
+                : (KeyBinding[])[],
+
             new(KeyStroke.Char('c'), Command.AddCredential, "add credential")
                 { OffTheHintLine = true },
             // `x` for forget, because `f` is freeze and fly-this and `r` is
@@ -884,11 +936,17 @@ public static class Keymap
         // defect exactly, one modal over, which is what a catalogue built by
         // enumeration rather than by hand is for.
         from runnerIsFlying in (bool[])[false, true]
+        // AND WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM, for the reason
+        // the three clauses above it each record: a flag the bindings branch on
+        // and this product leaves out is a key that resolves in the running
+        // console and appears on no page.
+        from allowanceIsMine in (bool[])[false, true]
         select new KeymapContext(mode, showing, frozen, takeable, handedBack)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,
             RunnerIsFlying = runnerIsFlying,
+            AllowanceIsMine = allowanceIsMine,
         };
 
     /// <summary>

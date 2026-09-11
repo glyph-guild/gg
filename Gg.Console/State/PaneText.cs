@@ -973,6 +973,43 @@ public static class PaneText
             : $"  {Clean(mine.Name)} {session.Tokens:N0} spent";
     }
 
+    /// <summary>
+    /// The question, naming the allowance it is about.
+    /// </summary>
+    /// <remarks>
+    /// <b>Naming it is the point.</b> Two machines can share one allowance and
+    /// one person can lend several, so "how much to keep?" without the
+    /// subscription is a question nobody can answer safely. It also says what
+    /// the share is OF, because a floor is a fraction of a ceiling somebody
+    /// configured on the machines - not of anything this console knows.
+    /// </remarks>
+    private static string FloorChoice(AppState state)
+    {
+        if (AllowanceRows.SelectedName(state) is not { } allowance)
+        {
+            return "The machine on this row reports no allowance, so there is nothing to "
+                 + "keep back. A machine reports one when its own configuration names one.";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine(
+            $"Keep a share of {Clean(allowance)} back, so fleet work stops before it is "
+          + "gone and your own is still there.");
+        text.AppendLine();
+        text.AppendLine("A share of each window, against the ceiling the machines were");
+        text.AppendLine("configured with. `gg allowances floor` takes any percentage, and");
+        text.AppendLine("the two windows separately.");
+
+        if (Spent(state, Rows.Selected(state)?.Id ?? "") is { Length: > 0 } spent)
+        {
+            text.AppendLine();
+            text.AppendLine($"Now:{spent}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     public static string Repositories(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1403,6 +1440,7 @@ public static class PaneText
         UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
+        UiMode.FloorChoice => "How much to keep back",
         UiMode.ComposeChoice => "How do you want to write this flight?",
         _ => "",
     };
@@ -1570,6 +1608,7 @@ public static class PaneText
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.SignIn => SignIn(state),
             UiMode.GateDecision => GateDecision(state),
+            UiMode.FloorChoice => FloorChoice(state),
             UiMode.ComposeChoice => ComposeChoice(),
             _ => "",
         };

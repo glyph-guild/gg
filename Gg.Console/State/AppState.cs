@@ -137,6 +137,17 @@ public enum UiMode
     /// </para>
     /// </remarks>
     ComposeChoice,
+
+    /// <summary>
+    /// How much of your own allowance to keep back.
+    /// </summary>
+    /// <remarks>
+    /// <b>A few shares and a key each, because nothing here is written by
+    /// typing.</b> <c>ComposeChoice</c>'s shape applied to a number: an
+    /// arbitrary percentage is <c>gg allowances floor</c>'s job, and what a
+    /// console is for is the decision somebody makes while looking at a fleet.
+    /// </remarks>
+    FloorChoice,
 }
 
 /// <summary>Which page of help a person is reading.</summary>
@@ -730,6 +741,16 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public AllowanceList? Allowances { get; init; }
+
+    /// <summary>
+    /// What the last floor change said, or null when nobody has made one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A sentence rather than a flag</b>, like every other <c>Last…</c>
+    /// here: the interesting answers are refusals - somebody else's allowance,
+    /// no ceiling configured - and a bool cannot carry one.
+    /// </remarks>
+    public string? LastAllowance { get; init; }
 
     /// <summary>
     /// The credential references, exactly as `gg credential list` returned them.

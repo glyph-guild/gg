@@ -364,6 +364,57 @@ public sealed class FlightCommands(
         new VerbResult.Allowances(await _client.ListAllowancesAsync(Session(), cancellationToken));
 
     /// <summary>
+    /// Sets or clears a floor, then answers with what the fleet looks like now.
+    /// </summary>
+    /// <remarks>
+    /// <b>It re-reads rather than echoing.</b> The route answers 204, and what
+    /// a person wants back is the fleet as it now stands - which is also what
+    /// lets the console's pane update from the same arm it already has, with
+    /// no result kind of its own.
+    /// </remarks>
+    public async Task<VerbResult> FloorAsync(
+        string allowance, double? sessionFraction, double? weekFraction,
+        CancellationToken cancellationToken = default)
+    {
+        var session = Session();
+
+        if (sessionFraction is null && weekFraction is null)
+        {
+            await _client.ClearFloorAsync(session, allowance, cancellationToken);
+        }
+        else
+        {
+            await _client.SetFloorAsync(
+                session, allowance,
+                new Gg.Contracts.AllowanceFloor
+                {
+                    SessionFraction = sessionFraction,
+                    WeekFraction = weekFraction,
+                },
+                cancellationToken);
+        }
+
+        return new VerbResult.Allowances(
+            await _client.ListAllowancesAsync(session, cancellationToken));
+    }
+
+    /// <summary>Spends a floor somebody else set, then answers with the fleet.</summary>
+    public async Task<VerbResult> OverrideFloorAsync(
+        string allowance, int minutes, string reason,
+        CancellationToken cancellationToken = default)
+    {
+        var session = Session();
+
+        await _client.OverrideFloorAsync(
+            session, allowance,
+            new Gg.Contracts.AllowanceOverrideRequest { Minutes = minutes, Reason = reason },
+            cancellationToken);
+
+        return new VerbResult.Allowances(
+            await _client.ListAllowancesAsync(session, cancellationToken));
+    }
+
+    /// <summary>
     /// The checklist: the tenant-level plan, or one flight's when a reference
     /// is given.
     /// </summary>

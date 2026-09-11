@@ -70,6 +70,11 @@ public static class Reducer
             // is the obvious one. This sets a field and nothing else - the loop
             // reads what it recorded, with the terminal released, and starts
             // whichever child was chosen.
+            // A DECISION, NOT A FORM. The modal owns the keyboard and offers a
+            // few shares; the write itself happens when the session ends,
+            // which is why the keys are shell commands rather than reductions.
+            Command.AskToKeepAShare => Modal(state, UiMode.FloorChoice),
+
             Command.AskHowToCompose => Modal(state, UiMode.ComposeChoice) with
             {
                 ComposingFor = ComposingFor.NewFlight,

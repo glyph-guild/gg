@@ -133,12 +133,19 @@ public static class ConsoleStart
             var identity = OwnFailureAsync(
                 "notices", ct => data.IdentityAsync(ct), partial, cancellationToken);
 
+            // ON ITS OWN FAILURE, like the two above it and for a reason of its
+            // own: a control plane one version behind serves no allowance route
+            // at all, and the console must open against one. What a person
+            // loses is a column; what they would lose otherwise is the fleet.
+            var allowances = OwnFailureAsync(
+                "allowances", ct => data.AllowancesAsync(ct), partial, cancellationToken);
+
             // OBSERVED BEFORE ANY OF THEM IS ALLOWED TO THROW. WhenAll marks all
             // five as observed and then raises the first failure, so a control
             // plane nobody can reach still leaves the catch below with nothing
             // dangling behind it.
             await Task.WhenAll(
-                (Task)listing, fleet, waiting, credentials, identity);
+                (Task)listing, fleet, waiting, credentials, identity, allowances);
 
             var flights = (VerbResult.Flights)await listing;
             var runners = (VerbResult.Runners)await fleet;
@@ -282,6 +289,7 @@ public static class ConsoleStart
             // this is worst.
             loaded = Folded(loaded, await credentials);
             loaded = Folded(loaded, await identity);
+            loaded = Folded(loaded, await allowances);
             loaded = Folded(loaded, await reason);
             loaded = Folded(loaded, await story);
 

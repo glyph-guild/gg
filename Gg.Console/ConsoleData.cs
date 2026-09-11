@@ -401,6 +401,10 @@ public sealed class ConsoleData(
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);
 
+    /// <summary>What every allowance the fleet spends from has left.</summary>
+    public Task<VerbResult> AllowancesAsync(CancellationToken cancellationToken = default) =>
+        _commands.AllowancesAsync(cancellationToken);
+
     /// <summary>
     /// What a flight tried and ruled out, for the pane a person reads before
     /// taking it over.
@@ -480,6 +484,14 @@ public static class ConsoleProjection
             // the queue's rows are derived from.
             VerbResult.Story story => state with { Story = story.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+
+            // THE FLEET'S, NOT THIS MACHINE'S. `gg allowance` reads the
+            // transcripts on the disk it runs on and has no arm here at all,
+            // deliberately: projecting one laptop's local reading into a model
+            // a fleet pane renders from would draw a laptop and label it a
+            // fleet.
+            VerbResult.Allowances allowances =>
+                state with { Allowances = allowances.Value, Diagnosis = null },
             // WHAT THIS TENANT CAN FLY AGAINST. The cursor resets because a
             // list read again may be shorter, and a cursor left past its end
             // would choose a repository that is no longer there.

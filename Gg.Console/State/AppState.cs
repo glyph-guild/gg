@@ -712,6 +712,26 @@ public sealed record AppState
     public RunnerList? Runners { get; init; }
 
     /// <summary>
+    /// What each allowance the fleet spends from has left, or null when
+    /// nothing has answered.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The FLEET's, never this machine's.</b> <c>gg allowance</c> reads the
+    /// transcripts on the disk it runs on; this is what every machine has
+    /// reported, over the read surface, including machines this one has never
+    /// seen. The two are different questions with one word in them, and the
+    /// console only ever asks the second.
+    /// </para>
+    /// <para>
+    /// <b>Null rather than empty when unread</b>, and a control plane one
+    /// version behind answers nothing at all — so the runners pane renders
+    /// without it rather than going blank over a column that is extra.
+    /// </para>
+    /// </remarks>
+    public AllowanceList? Allowances { get; init; }
+
+    /// <summary>
     /// The credential references, exactly as `gg credential list` returned them.
     /// </summary>
     /// <remarks>

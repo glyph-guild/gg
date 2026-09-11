@@ -200,6 +200,20 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Allowance;
     }
 
+    /// <summary>What every allowance the fleet spends from has left.</summary>
+    /// <remarks>
+    /// <b>A different question from <see cref="Allowance"/>, not a plural of
+    /// it.</b> That one is this machine's own transcripts and contacts
+    /// nothing; this is what every machine reported, read back from the
+    /// control plane. The console shows only this one — a pane rendering one
+    /// laptop's local reading under a fleet's heading would be the two-cursor
+    /// defect again.
+    /// </remarks>
+    public sealed record Allowances(Gg.Contracts.AllowanceList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Allowances;
+    }
+
     public sealed record ConfigValidated(ConfigurationValidation Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.ConfigValidated;
@@ -316,6 +330,8 @@ public static class VerbResultKinds
 
     public const string Allowance = "allowance";
 
+    public const string Allowances = "allowances";
+
     public const string ConfigShown = "config-shown";
 
     public const string ConfigValidated = "config-validated";
@@ -372,6 +388,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.EnvelopeApplied))]
 [JsonSerializable(typeof(EnvelopeValidation))]
 [JsonSerializable(typeof(Gg.Contracts.AllowanceReading))]
+[JsonSerializable(typeof(Gg.Contracts.AllowanceList))]
 [JsonSerializable(typeof(ConfigurationView))]
 [JsonSerializable(typeof(ConfigurationValidation))]
 [JsonSerializable(typeof(OfferedView))]
@@ -452,6 +469,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeValidation),
         VerbResult.Allowance r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.AllowanceReading),
+        VerbResult.Allowances r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.AllowanceList),
         VerbResult.ConfigShown r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ConfigurationView),
         VerbResult.ConfigValidated r =>
@@ -518,6 +537,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeValidation))),
         VerbResultKinds.Allowance => new VerbResult.Allowance(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.AllowanceReading))),
+        VerbResultKinds.Allowances => new VerbResult.Allowances(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.AllowanceList))),
         VerbResultKinds.ConfigShown => new VerbResult.ConfigShown(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.ConfigurationView))),
         VerbResultKinds.ConfigValidated => new VerbResult.ConfigValidated(Require(
@@ -580,6 +601,7 @@ public static class VerbOutput
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
         VerbResult.EnvelopeValidated r => EnvelopeValidated(r.Value),
         VerbResult.Allowance r => AllowanceText(r.Value),
+        VerbResult.Allowances r => AllowancesText(r.Value),
         VerbResult.ConfigShown r => ConfigShownText(r.Value),
         VerbResult.ConfigValidated r => ConfigValidatedText(r.Value),
         VerbResult.ConfigOffered r => ConfigOfferedText(r.Value),
@@ -649,6 +671,48 @@ public static class VerbOutput
                   + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}%"
                 : $"  {Clean(window.Kind),-9} {spent,14} tokens   "
                   + "(no ceiling; set allowance-limits to see a share)");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>Every allowance the fleet spends from, and what is left.</summary>
+    /// <remarks>
+    /// <b>The machines are listed under the allowance rather than the other
+    /// way round</b>, because the allowance is what is counted and two
+    /// machines may share one. A list keyed on machines would show the same
+    /// pool twice and invite somebody to add the halves.
+    /// </remarks>
+    private static string AllowancesText(Gg.Contracts.AllowanceList listed)
+    {
+        if (listed.Allowances.Count is 0)
+        {
+            return "No machine in this fleet has reported an allowance. A machine reports "
+                 + "one when its configuration names one - `allowance` - and naming one is "
+                 + "how somebody says they are lending it.";
+        }
+
+        var text = new StringBuilder();
+
+        foreach (var held in listed.Allowances)
+        {
+            text.AppendLine(
+                $"{Clean(held.Name)}  measured {held.MeasuredAt:u}  "
+              + $"{held.Runners.Count} machine{(held.Runners.Count is 1 ? "" : "s")}");
+
+            foreach (var window in held.Windows)
+            {
+                var spent = window.Tokens.ToString("N0", CultureInfo.InvariantCulture);
+
+                text.AppendLine(window.Limit is { } ceiling and > 0
+                    ? $"  {Clean(window.Kind),-9} {spent,14} of "
+                      + $"{ceiling.ToString("N0", CultureInfo.InvariantCulture),-14} "
+                      + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}%"
+                    : $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                      + "(no ceiling; set allowance-limits on the machines that report it)");
+            }
+
+            text.AppendLine();
         }
 
         return text.ToString().TrimEnd();

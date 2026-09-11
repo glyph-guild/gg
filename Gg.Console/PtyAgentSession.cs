@@ -181,6 +181,8 @@ public sealed class PtyAgentSession : IEditorSession
         // belongs to one session and outliving one would mean the next opened
         // on whatever the last person left up.
         var panel = new HostedPanel(HostedView.Closed, 0);
+        var room = 0;
+        var width = 0;
 
         // READ ONCE, HERE, BEFORE THE CHILD HAS THE SCREEN. The envelope comes
         // off the control plane, and doing that on the keypress would freeze the
@@ -218,14 +220,20 @@ public sealed class PtyAgentSession : IEditorSession
                     // server writes it by rename, so it is either absent or
                     // whole - which is what makes a stat an honest answer rather
                     // than a race.
-                    (most, wide) => new HostedRows(
-                        HostedBar.Rows(
-                            panel,
-                            File.Exists(intent) ? _submitted : _bar,
-                            Body(panel.Showing, envelope, intent),
-                            most,
-                            wide),
-                        HostedBar.Footer(panel.Showing, wide)),
+                    (most, wide) =>
+                    {
+                        room = most;
+                        width = wide;
+
+                        return new HostedRows(
+                            HostedBar.Rows(
+                                panel,
+                                File.Exists(intent) ? _submitted : _bar,
+                                Body(panel.Showing, envelope, intent),
+                                most,
+                                wide),
+                            panel.Showing != HostedView.Closed);
+                    },
 
                     // AND GG'S ONE KEY. The panel's state lives here rather than
                     // in the host, because the host holds nothing between calls
@@ -241,7 +249,9 @@ public sealed class PtyAgentSession : IEditorSession
                             panel,
                             gesture,
                             typed.Span,
-                            Body(panel.Showing, envelope, intent));
+                            Body(panel.Showing, envelope, intent),
+                            room,
+                            width);
 
                         return true;
                     },

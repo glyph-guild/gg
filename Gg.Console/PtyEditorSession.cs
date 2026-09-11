@@ -134,7 +134,7 @@ public sealed class PtyEditorSession : IEditorSession
                             body: "",
                             most: most,
                             columns: wide),
-                        ""),
+                        false),
                     // AND GG TAKES NO KEY AT ALL HERE. An editor session has
                     // nothing gg could show that the editor is not already
                     // showing, and a key charged for a panel that never opens is

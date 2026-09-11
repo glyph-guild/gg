@@ -303,12 +303,19 @@ public static class HostedBar
 
     /// <summary>How many rows of body a panel of this height shows.</summary>
     /// <remarks>
-    /// One for the header at least, and one more for whichever of "… above"
-    /// or "… more" is on screen. Approximate on purpose: the header wraps, so
-    /// the exact number is not known until it is rendered — and <c>Rows</c>
-    /// clamps again against what it actually has room for.
+    /// <b>Three rows are not the body's:</b> the header, the hint on the last
+    /// row, and whichever of "… above" or "… more" is on screen. Reserving
+    /// fewer here than <c>Rows</c> reserves makes the clamp stop the scroll
+    /// BEFORE the last line can reach the window, which is the same
+    /// unreachable-end defect as counting source lines, arriving from the
+    /// other direction.
+    /// <para>
+    /// Approximate on purpose: the header wraps, so the exact number is not
+    /// known until it is rendered — and <c>Rows</c> clamps again against what
+    /// it actually has room for.
+    /// </para>
     /// </remarks>
-    private static int Room(int most) => Math.Max(most - 2, 1);
+    private static int Room(int most) => Math.Max(most - 3, 1);
 
     /// <summary>
     /// The rows gg keeps: the status, and what is open under it.
@@ -339,7 +346,18 @@ public static class HostedBar
 
         if (showing == HostedView.Closed || most <= 1)
         {
-            return Wrapped(status, columns, most <= 0 ? 1 : most);
+            // THE STATUS, THEN THE HINT UNDER IT. One row and there is only
+            // room for what the session has to say; two and the last of them
+            // says how to open the panel, against the child, which is where a
+            // person's eye leaves gg's rows.
+            var shut = new List<string>(Wrapped(status, columns, Math.Max(most - 1, 1)));
+
+            if (most > shut.Count)
+            {
+                shut.Add(Footer(showing, columns));
+            }
+
+            return shut;
         }
 
         // THE WAY OUT IS ON THE ROW THAT IS ALWAYS THERE. A panel that appeared
@@ -365,6 +383,12 @@ public static class HostedBar
             // that failed to load are the same empty panel, and only one of them
             // is a thing to go and fix.
             rows.Add(Nothing(showing));
+
+            if (most > rows.Count)
+            {
+                rows.Add(Footer(showing, columns));
+            }
+
             return rows;
         }
 
@@ -378,11 +402,23 @@ public static class HostedBar
             return rows;
         }
 
+        // THE HINT'S ROW COMES OUT FIRST. It is the last row of everything gg
+        // keeps, and taken out after the body was windowed it is a row on top
+        // of the budget rather than inside it - which the ratchet caught: five
+        // offered and six taken, the sixth painted over the child.
+        available -= 1;
+
+        if (available <= 0)
+        {
+            rows.Add(Footer(showing, columns));
+            return rows;
+        }
+
         // THE MARKER COMES OUT OF THE BUDGET, not on top of it. It is only
         // needed when something is off screen, which is not known until the
         // window is chosen - so the room is reserved when the body cannot
         // fit whole from the top, and given back when it can.
-        var whole = Displayed(body, columns).Count <= available && panel.Offset <= 0;
+        var whole = all.Count <= available && panel.Offset <= 0;
         var room = whole ? available : Math.Max(available - 1, 0);
 
         // THE WINDOW THE OFFSET NAMES, clamped here rather than trusted: the
@@ -418,6 +454,8 @@ public static class HostedBar
                     : [],
             ]));
         }
+
+        rows.Add(Footer(showing, columns));
 
         return rows;
     }

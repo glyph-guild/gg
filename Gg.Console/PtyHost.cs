@@ -64,11 +64,16 @@ public delegate HostedRows HostPanel(int rows, int columns);
 /// from the row count is the version of this that is right until somebody
 /// narrows the window.
 /// </remarks>
-/// <param name="Top">The bar, and the panel under it when it is open.</param>
-/// <param name="Bottom">
-/// The row along the bottom, or empty for a session with no panel to open.
+/// <param name="Top">
+/// Everything gg keeps: the status, the panel under it when it is open, and
+/// the hint on the last row.
 /// </param>
-public readonly record struct HostedRows(IReadOnlyList<string> Top, string Bottom);
+/// <param name="Open">
+/// Whether the panel is open, which the host cannot work out from the rows -
+/// a closed bar that wrapped to three looks exactly like an open one that did
+/// not. It decides whether the child is dimmed.
+/// </param>
+public readonly record struct HostedRows(IReadOnlyList<string> Top, bool Open);
 
 /// <summary>
 /// Runs a child in a pseudo-terminal gg owns, with a gg bar on the top row, and
@@ -156,7 +161,6 @@ public static class PtyHost
         // narrower, so the repaint keeps them current rather than computing
         // them once.
         var barRows = panel(Budget(terminal), Width(terminal)).Top.Count;
-        var footerRow = terminal.Rows;
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
@@ -236,7 +240,6 @@ public static class PtyHost
                 var (width, height) = Fit(terminal, kept);
 
                 barRows = kept.Top.Count;
-                footerRow = kept.Bottom.Length > 0 ? terminal.Rows : 0;
 
                 lock (screen)
                 {
@@ -265,8 +268,11 @@ public static class PtyHost
                         rows = height;
                     }
 
+                    // DIMMED WHILE THE PANEL IS OPEN, which the panel says
+                    // by keeping more than the one status row.
                     terminal.Paint(PtyScreen.Paint(
-                        emulator, rows, columns, kept.Top, kept.Bottom));
+                        emulator, rows, columns, kept.Top, footer: null,
+                        dim: kept.Open));
                 }
             }
 
@@ -276,7 +282,7 @@ public static class PtyHost
             // closes over Repaint, and a key arriving before the first frame
             // would paint from an emulator nothing had written to.
             var typing = Forward(
-                terminal, pty, took, Repaint, () => barRows, () => footerRow, stopping.Token);
+                terminal, pty, took, Repaint, () => barRows, stopping.Token);
 
             // AND ON A TICK, BECAUSE GG'S OWN ROWS CHANGE WHEN THE CHILD IS
             // SILENT. Repainting only on output ties what gg has to say to the
@@ -432,16 +438,13 @@ public static class PtyHost
     /// The child's size, after gg's rows are taken out of the terminal's.
     /// </summary>
     /// <remarks>
-    /// <b>The bottom row counts too, and only when there is one.</b> An editor
-    /// session has no panel to open, so it keeps no bottom row and the child
-    /// gets it - reserving one unconditionally would take a row from a session
-    /// that had nothing to put in it.
+    /// <b>Every row gg keeps is at the top now.</b> The hint used to sit along
+    /// the bottom, which put gg on two edges with the child between them - and
+    /// the thing it hints at is the bar.
     /// </remarks>
     private static (int Columns, int Rows) Fit(IHostTerminal terminal, HostedRows kept) =>
         (Math.Max(terminal.Columns, 20),
-         Math.Max(
-             terminal.Rows - Math.Max(kept.Top.Count, 1) - (kept.Bottom.Length > 0 ? 1 : 0),
-             5));
+         Math.Max(terminal.Rows - Math.Max(kept.Top.Count, 1), 5));
 
     /// <summary>
     /// Everything the person types, into the child, until the child is gone.
@@ -469,7 +472,6 @@ public static class PtyHost
         HostTook took,
         Action changed,
         Func<int> barRows,
-        Func<int> footerRow,
         CancellationToken stopping)
     {
         var keys = terminal.Keystrokes;
@@ -496,9 +498,7 @@ public static class PtyHost
                             // this the host can answer. Anything that is not
                             // a mouse report comes back unchanged.
                             var mouse = MouseInput.Read(
-                                new ReadOnlyMemory<byte>(typed, 0, read),
-                                barRows(),
-                                footerRow());
+                                new ReadOnlyMemory<byte>(typed, 0, read), barRows());
 
                             if (mouse.Kind == MouseReading.Nothing)
                             {

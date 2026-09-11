@@ -167,7 +167,10 @@ public class HostedBarTests
         var rows = HostedBar.Rows(
             Shut(), status, body: "", most: 12, columns: Narrow);
 
-        var back = string.Join(" ", rows.Select(row => row.TrimEnd()));
+        // WITHOUT THE HINT, which is gg's own row rather than part of what
+        // the session said. It joined the bar when it moved up from the
+        // bottom of the screen.
+        var back = string.Join(" ", rows.Take(rows.Count - 1).Select(row => row.TrimEnd()));
 
         await Assert.That(back).IsEqualTo(status)
             .Because("every word survives and none is broken across rows: a path or a "
@@ -176,15 +179,21 @@ public class HostedBarTests
     }
 
     [Test]
-    public async Task A_status_that_fits_still_takes_one_row()
+    public async Task A_status_that_fits_takes_one_row_and_the_hint_takes_the_other()
     {
         // THE OTHER DIRECTION, because every row gg keeps costs the child one.
-        // A bar that took three rows to say four words would be worse than the
+        // A bar that took four rows to say four words would be worse than the
         // truncation it replaced.
+        //
+        // TWO, NOT ONE, since the hint joined the bar: the status, and under
+        // it the row that says the panel can be opened. That row used to be
+        // along the bottom of the screen, which put gg on two edges with the
+        // child between them.
         var rows = HostedBar.Rows(
             Shut(), "gg · composing", body: "", most: 12, columns: Narrow);
 
-        await Assert.That(rows).Count().IsEqualTo(1);
+        await Assert.That(rows).Count().IsEqualTo(2);
+        await Assert.That(rows[0]).StartsWith("gg · composing", StringComparison.Ordinal);
     }
 
     [Test]
@@ -429,10 +438,11 @@ public class HostedBarTests
         await Assert.That(shown).Contains("line 12", StringComparison.Ordinal)
             .Because("the end of the body is what scrolling to the end should show.");
 
-        await Assert.That(shown).Contains("line 9", StringComparison.Ordinal)
-            .Because("and the window stays full: six rows, one of them the header, so the "
-                   + "last four lines are on screen rather than the last one. Shown:\n"
-                   + shown);
+        await Assert.That(shown).Contains("line 10", StringComparison.Ordinal)
+            .Because("and the window stays full. Six rows, of which three are gg's - the "
+                   + "header, the marker saying what is above, and the hint on the last "
+                   + "row - so the last THREE lines are on screen rather than the last "
+                   + "one. Shown:\n" + shown);
     }
 
     [Test]
@@ -564,13 +574,14 @@ public class HostedBarTests
     }
 
     [Test]
-    public async Task Closed_is_one_row_and_it_is_the_status()
+    public async Task Closed_is_the_status_and_the_hint_under_it()
     {
         var rows = HostedBar.Rows(
             Shut(), "gg · composing", body: "", most: 12, columns: Narrow);
 
-        await Assert.That(rows).Count().IsEqualTo(1);
+        await Assert.That(rows).Count().IsEqualTo(2);
         await Assert.That(rows[0]).StartsWith("gg · composing", StringComparison.Ordinal);
+        await Assert.That(rows[1]).Contains("ctrl-g", StringComparison.OrdinalIgnoreCase);
     }
 
     [Test]

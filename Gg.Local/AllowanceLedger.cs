@@ -7,6 +7,15 @@ namespace Gg.Local;
 /// What one window of a subscription has been spent on, and out of what.
 /// </summary>
 /// <remarks>
+/// <b>Named apart from the wire type on purpose.</b> <c>Gg.Contracts</c> has
+/// an <c>AllowanceWindow</c> and this project cannot reference it — the
+/// charter one file up: no package reference, no wire type, because a
+/// filesystem convention must not ship in the artifact a customer audits. Two
+/// types with one name in two namespaces is the shape that makes a reader
+/// check which one they are holding, so the measurement is a
+/// <c>MeasuredWindow</c> and the thing that crosses is the window.
+/// </remarks>
+/// <remarks>
 /// <para>
 /// <b>The fraction is absent rather than zero when no limit was configured.</b>
 /// Nothing on a machine reports a subscription's ceiling, so the denominator is
@@ -14,7 +23,7 @@ namespace Gg.Local;
 /// 0% would read as plenty left.
 /// </para>
 /// </remarks>
-public sealed record AllowanceWindow
+public sealed record MeasuredWindow
 {
     /// <summary>Which window this is — <c>session</c> or <c>week</c>.</summary>
     public required string Kind { get; init; }
@@ -52,7 +61,7 @@ public sealed record MeasuredAllowance
     public required DateTimeOffset MeasuredAt { get; init; }
 
     /// <summary>One per window.</summary>
-    public required IReadOnlyList<AllowanceWindow> Windows { get; init; }
+    public required IReadOnlyList<MeasuredWindow> Windows { get; init; }
 }
 
 /// <summary>
@@ -236,7 +245,7 @@ public static class AllowanceLedger
             MeasuredAt = now,
             Windows =
             [
-                .. counted.Select(one => new AllowanceWindow
+                .. counted.Select(one => new MeasuredWindow
                 {
                     Kind = one.Key,
                     Tokens = one.Value,

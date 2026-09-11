@@ -290,8 +290,27 @@ public class EndpointSurfaceTests
         // it. /v1/configuration joins GovernedPrefixes, which the closed
         // vocabularies DO hash - so 0.141.0 records a real surface move rather
         // than this file's usual "loud, and invisible to the version".
+        //
+        // Moved for the allowance surface, two routes, and this one moves the
+        // contract ledger too. POST /v1/allowances/readings is the runner
+        // saying what the subscription it spends from has left - 202, runner
+        // audience, runner header, and no response body, because a write
+        // endpoint answers with refusals and what the control plane made of it
+        // is the read below. GET /v1/allowances is that read.
+        //
+        // ITS OWN PREFIX RATHER THAN A FIELD SOMEWHERE EXISTING, twice over.
+        // Not a fact: the fact plumbing is lease-welded at four points and a
+        // reading has no flight, which is PoolAttestation's argument
+        // unchanged. And not a member on the heartbeat, though the poll is
+        // right there and two other features ride it - that record is liveness
+        // only because a runner able to report something about itself can
+        // report it while dead, and a stale reading still saying "plenty left"
+        // is that hazard with somebody's own allowance as the cost.
+        //
+        // /v1/allowances joins GovernedPrefixes, which the closed vocabularies
+        // DO hash, so the contract version moves with it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("5d9649bb6890efc758bbf1ec15fe1d0dbbaebd5a1e39e8b8f5561b23800027a7")
+            .IsEqualTo("78dda8879c51a059604be0e26b5574f96234a210a473ad6c884d17d69d3f1ccd")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

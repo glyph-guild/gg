@@ -88,6 +88,15 @@ public static class AirspaceRows
 
         var uncommitted = state.Estate.Uncommitted.ToHashSet(StringComparer.Ordinal);
 
+        // THE NAMES THE DOOR SAYS EXIST, or null when nobody has asked. Null
+        // and empty are different facts here and the distinction is the whole
+        // of the tier rule: an unasked topology is not a tenant with no names,
+        // and a row that treated it as one would mark every document
+        // undeclared on a machine with no session.
+        var declared = state.Estate.Names?.Names
+            .Select(n => n.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
         var rows = new List<AirspaceRow>();
         var shown = new HashSet<string>(StringComparer.Ordinal);
 
@@ -133,7 +142,7 @@ public static class AirspaceRows
             rows.Add(new AirspaceRow(
                 indent + leaf,
                 Clean(document.BasedOn ?? ""),
-                Said(document, changed, uncommitted.Contains(path))));
+                Said(document, changed, uncommitted.Contains(path), declared)));
         }
 
         return rows;
@@ -179,9 +188,27 @@ public static class AirspaceRows
     private static string Said(
         AirspaceFile document,
         IReadOnlyDictionary<string, Gg.Client.DocumentChange>? changed,
-        bool uncommitted)
+        bool uncommitted,
+        IReadOnlySet<string>? declared)
     {
         var said = new List<string>();
+
+        // THE ONE ROW THAT REFUSES THE WHOLE APPLY, so it reads first. An
+        // envelope applied to an undeclared name is refused, and apply runs
+        // tightenings before widenings - so a new document is usually the
+        // FIRST one tried and takes the whole changeset down with it. Measured
+        // in the world: two rounds of "apply does nothing" over exactly this,
+        // with the refusal on screen and off the right edge.
+        //
+        // ONLY WHEN THE TOPOLOGY HAS BEEN READ. Whether a name exists is the
+        // door's answer; the absence of an answer is not a no.
+        if (declared is not null && !declared.Contains(document.Name))
+        {
+            // THE COMMAND'S TWO ARGUMENTS, because the row has both and a
+            // person should not have to work out which name a path implies.
+            said.Add($"not declared - gg airspace name {Clean(document.Role)} "
+                   + $"{Clean(document.Name)}");
+        }
 
         if (changed?.TryGetValue(document.Path, out var change) is true)
         {

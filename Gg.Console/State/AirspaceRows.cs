@@ -142,10 +142,26 @@ public static class AirspaceRows
     /// <summary>What is known about one document, weakest claim last.</summary>
     /// <remarks>
     /// <para>
-    /// <b>NEVER APPLIED IS FIRST because it is the strongest.</b> A document
-    /// with no <c>based-on</c> line has never been in the stream, so whether
-    /// it differs from what is applied is not a question: everything about it
-    /// is new.
+    /// <b>NOTHING IS SAID ABOUT WHETHER IT WAS APPLIED, and a claim was
+    /// removed here rather than corrected.</b> This read "never applied" off a
+    /// missing <c>based-on</c> line, and the sentence that stood here -
+    /// <i>"a document with no based-on line has never been in the stream"</i> -
+    /// was simply false. <c>based-on:</c> is written ONLY BY PULL
+    /// (<c>AirspaceTree.Rendered</c>: <i>"THE PRECONDITION IS PULL'S TO
+    /// WRITE"</i>), and apply writes nothing to disk. So a document authored
+    /// by hand or drafted by an agent has no such line, applying it does not
+    /// add one, and the row went on calling it never-applied for as long as
+    /// nobody pulled - while the apply one pane away correctly reported
+    /// nothing to do. It is a PRECONDITION, not provenance (ADR-0016).
+    /// </para>
+    /// <para>
+    /// <b>And there was nothing local to replace it with, which is the whole
+    /// reason it was wrong.</b> Whether a document is applied is the door's
+    /// answer. The diff gives it: one that differs is in <c>Changes</c> with a
+    /// direction, one that matches is in neither, and that absence IS the
+    /// answer. With no diff nothing about it can be known, and
+    /// <c>PaneText.AirspaceAbsence</c> is where that gets said - a row
+    /// inventing an answer is worse than a blank one.
     /// </para>
     /// <para>
     /// <b>Then the direction, when the door has answered.</b> It comes from
@@ -166,11 +182,6 @@ public static class AirspaceRows
         bool uncommitted)
     {
         var said = new List<string>();
-
-        if (document.BasedOn is not { Length: > 0 })
-        {
-            said.Add("never applied");
-        }
 
         if (changed?.TryGetValue(document.Path, out var change) is true)
         {

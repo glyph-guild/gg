@@ -1222,8 +1222,48 @@ static async Task<int> LaunchConsoleAsync()
             // used to end the session for exactly one request, which is a whole
             // screen taken away and given back - AutoRefresh's argument, one
             // keypress over.
-            reads: new Gg.Console.BackgroundReads(
-                (_, current) => Task.Run(() => Gg.Console.ConsoleFlightLog.Patch(data, current)))),
+            //
+            // AND IT ANSWERS THE COMMAND IT IS GIVEN, which it did not. The
+            // port has carried a Command since it was written and this lambda
+            // discarded it, so three commands were served one read: pressing
+            // the key that fetches the airspace ran the flight-log read, which
+            // short-circuits when no flight is open. The airspace tab's
+            // documents were unreachable for that reason and two others.
+            //
+            // EACH ARM ANSWERS WITH A PATCH rather than a model, which is the
+            // port's own rule: a read answering with a whole AppState is a
+            // snapshot taken before the person moved and applied after.
+            reads: new Gg.Console.BackgroundReads((asked, current) => Task.Run(() =>
+                asked switch
+                {
+                    Gg.Console.Command.ToggleEnvelope =>
+                        // BOTH READS, as the one key has always meant: what
+                        // governs, and where to change it. Estate second so a
+                        // failing topology cannot cost the envelope.
+                        (Func<AppState, AppState>)(_ => Gg.Console.ConsoleEstate.Read(
+                            data, Airspace(), Gg.Console.ConsoleEnvelope.Read(data, current))),
+
+                    Gg.Console.Command.ToggleRepositories =>
+                        _ => Gg.Console.ConsoleRepositories.Read(data, current),
+
+                    // THE FLIGHT'S STORY, which is what this port was built
+                    // for - and named rather than defaulted.
+                    Gg.Console.Command.ShowFlight =>
+                        Gg.Console.ConsoleFlightLog.Patch(data, current),
+
+                    // AND A FOURTH THROWS RATHER THAN GUESSING, which is the
+                    // rule this codebase applies wherever a value decides
+                    // what happens: ConsoleLoop throws on an exit command it
+                    // does not know and Changeset.Rank throws on a direction
+                    // it cannot place, because unknown is not neutral. A
+                    // default arm here is precisely how three commands came
+                    // to be served one read - the airspace fetched a flight's
+                    // story and found none.
+                    _ => throw new InvalidOperationException(
+                        $"'{asked}' is in ShellCommands.Reads and this reader has no arm "
+                      + "for it, so a keypress would fetch somebody else's answer. Add "
+                      + "one, or take the command out of Reads."),
+                }))),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of

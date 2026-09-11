@@ -35,21 +35,29 @@ public class ReducerTests
     public async Task TabWalksEveryTabAndComesBackRound()
     {
         // WAS FocusCyclesThroughEveryVisiblePane, and the subject has moved
-        // three times. Tab cycled FOCUS between the panes that happened to be
+        // FOUR times. Tab cycled FOCUS between the panes that happened to be
         // visible; then a view took the whole screen and it walked the open
-        // tabs; and now every tab is on the bar, so it walks all of them. A
+        // tabs; then every tab was on the bar, so it walked all of them; and
+        // now one tab is conditional, so it walks what the console OFFERS. A
         // pane that says what it is waiting for is a better answer than a tab
-        // a person cannot reach.
-        var state = new AppState();
+        // a person cannot reach - and a tab nobody may see is worse than
+        // either, because `tab' would land on a view with no name on the bar.
+        //
+        // BOTH GATES OPEN, so the walk is over every tab there is. The
+        // narrower walk is held by the pane's own tests; what this is about is
+        // that one press moves one tab and the cycle closes.
+        var state = new AppState { IsAdmin = true, FleetAllowancesShown = true };
         var seen = new List<TabId>();
 
-        for (var i = 0; i < Tabs.All.Count; i++)
+        var offered = Tabs.Offered(state);
+
+        for (var i = 0; i < offered.Count; i++)
         {
             state = Reducer.Reduce(state, Command.FocusNextPane);
             seen.Add(state.ActiveTab);
         }
 
-        await Assert.That(seen.Distinct().Count()).IsEqualTo(Tabs.All.Count)
+        await Assert.That(seen.Distinct().Count()).IsEqualTo(offered.Count)
             .Because("one press per tab reaches each one exactly once. Found: "
                    + string.Join(", ", seen));
         await Assert.That(seen[^1]).IsEqualTo(TabId.Queue)

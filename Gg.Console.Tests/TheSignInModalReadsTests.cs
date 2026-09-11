@@ -210,6 +210,12 @@ public class TheSignInModalReadsTests
 
             PrincipalId = "01a078bb-4b97-779b-81ff-554c4ea662c1",
 
+            // AND BOTH GATES ON THE FLEET PANE, which is one flag on the
+            // context and two on the model - the control plane's answer about
+            // this person and the file's answer about this console.
+            IsAdmin = true,
+            FleetAllowancesShown = true,
+
             // AND AN ALLOWANCE THAT MACHINE REPORTS. AllowanceIsMine needs a
             // reported allowance as well as ownership: there is no floor to
             // set on a machine that spends from nothing anybody named.

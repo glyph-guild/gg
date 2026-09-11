@@ -353,10 +353,19 @@ public enum TabId
     /// <summary>What this tenant may fly against.</summary>
     Repositories,
 
-    /// <summary>What a flight opened now would need, priced against the fleet.</summary>
-
     /// <summary>The envelope in force.</summary>
     Envelope,
+
+    /// <summary>
+    /// Every allowance in the fleet, and what each has left.
+    /// </summary>
+    /// <remarks>
+    /// <b>The only tab that is not always on the bar</b>, and both gates are
+    /// needed: the control plane answers with everybody's allowances only for
+    /// an administrator, and the local file decides whether this console draws
+    /// a pane for that answer. See <see cref="Tabs.Offered"/>.
+    /// </remarks>
+    Allowances,
 }
 
 /// <summary>
@@ -741,6 +750,37 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public AllowanceList? Allowances { get; init; }
+
+    /// <summary>
+    /// Whether the control plane says this person administers the tenant.
+    /// </summary>
+    /// <remarks>
+    /// <b>Given, never decided here.</b> It comes off <c>whoami</c> and is a
+    /// hint about what a surface would be allowed to show — every route checks
+    /// the principal itself. A console that treated this as authority would be
+    /// checking a claim it was handed.
+    /// </remarks>
+    public bool IsAdmin { get; init; }
+
+    /// <summary>
+    /// Whether this machine's own file asked for the fleet pane.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a permission, and that is the whole of why there are two
+    /// gates.</b> This decides whether a pane is DRAWN; what it could contain
+    /// is the control plane's answer. A local flag that granted visibility
+    /// would be a client-side authorization check, which anybody could edit
+    /// their way past.
+    /// </remarks>
+    public bool FleetAllowancesShown { get; init; }
+
+    /// <summary>Whether the fleet's allowances pane is showing.</summary>
+    /// <remarks>
+    /// Off by default, like every read-backed pane: opening it is a round trip
+    /// and a person who has not asked for one should not be made to wait for
+    /// it at boot.
+    /// </remarks>
+    public bool AllowancesVisible { get; init; }
 
     /// <summary>
     /// What the last floor change said, or null when nobody has made one.

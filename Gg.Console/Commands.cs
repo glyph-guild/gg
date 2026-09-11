@@ -389,6 +389,9 @@ public enum Command
     /// <remarks><see cref="ComposeInEditor"/>'s, one composer over.</remarks>
     ComposeWithAgent,
 
+    /// <summary>Shows or hides every allowance in the fleet.</summary>
+    ToggleAllowances,
+
     /// <summary>Opens the question of how much of this allowance to keep.</summary>
     AskToKeepAShare,
 

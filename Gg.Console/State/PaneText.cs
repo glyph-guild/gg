@@ -114,6 +114,7 @@ public static class PaneText
             TabId.Browse => Browse(state),
             TabId.Repositories => Repositories(state),
             TabId.Envelope => Envelope(state),
+            TabId.Allowances => FleetAllowances(state),
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
     }
@@ -1008,6 +1009,96 @@ public static class PaneText
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Every allowance the fleet spends from, and who is lending it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What the control plane sent, which for an administrator is the whole
+    /// tenant.</b> This pane does no narrowing of its own: the answer is
+    /// already scoped to what this person may see, and a second filter here
+    /// would be a client deciding an authorization question.
+    /// </para>
+    /// <para>
+    /// <b>Owners, because the question is who to ask.</b> An administrator
+    /// looking at a nearly-spent allowance wants the person, not the machine -
+    /// and the machines are on the runners pane already.
+    /// </para>
+    /// </remarks>
+    private static string FleetAllowances(AppState state)
+    {
+        if (state.Allowances is not { } listed)
+        {
+            return "Nothing has been read yet. This pane asks the control plane what every "
+                 + "allowance in this tenant has left.";
+        }
+
+        if (listed.Allowances.Count is 0)
+        {
+            return "No machine in this tenant reports an allowance. A machine reports one "
+                 + "when its own configuration names one, and naming one is how somebody "
+                 + "says they are lending it.";
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine($"{listed.Allowances.Count} in the fleet");
+        text.AppendLine();
+
+        foreach (var held in listed.Allowances)
+        {
+            var lenders = held.Owners.Count > 0
+                ? string.Join(", ", held.Owners.Select(o => Clean(o)))
+                : "nobody the control plane could name";
+
+            text.AppendLine(
+                $"{Clean(held.Name)}  lent by {lenders}  "
+              + $"{held.Runners.Count} machine{(held.Runners.Count is 1 ? "" : "s")}");
+
+            foreach (var window in held.Windows)
+            {
+                text.AppendLine(window.Limit is { } ceiling and > 0
+                    ? $"  {Clean(window.Kind),-9} "
+                      + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}% spent"
+                    : $"  {Clean(window.Kind),-9} {window.Tokens:N0} tokens, no ceiling set");
+            }
+
+            if (held.Floor is { } floor)
+            {
+                text.AppendLine($"  keeps back{Kept(floor)}");
+            }
+
+            if (held.Override is { } spending)
+            {
+                text.AppendLine(
+                    $"  {Clean(spending.By)} is spending that floor until "
+                  + $"{spending.Until:HH:mm} - {Clean(spending.Reason)}");
+            }
+
+            text.AppendLine();
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>What a floor keeps, per window, in words.</summary>
+    private static string Kept(Gg.Contracts.AllowanceFloor floor)
+    {
+        var kept = new List<string>();
+
+        if (floor.SessionFraction is { } session)
+        {
+            kept.Add($" {(int)Math.Round(session * 100)}% of the session");
+        }
+
+        if (floor.WeekFraction is { } week)
+        {
+            kept.Add($" {(int)Math.Round(week * 100)}% of the week");
+        }
+
+        return kept.Count > 0 ? string.Join(" and", kept) : " nothing";
     }
 
     public static string Repositories(AppState state)

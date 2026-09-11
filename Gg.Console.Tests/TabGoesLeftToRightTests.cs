@@ -47,6 +47,9 @@ public class TabGoesLeftToRightTests
         // SEQUENCE, NOT SET. IsEquivalentTo ignores order by default, which is
         // precisely the property in question - the two lists already hold the
         // same tabs and always did.
+        // AGAINST All RATHER THAN Offered, because this is about the SOURCE:
+        // the list is written once and the bar filters it at run time, so what
+        // has to agree with the enum's order is what is declared.
         await Assert.That(AsDrawn().SequenceEqual(Tabs.All)).IsTrue()
             .Because("`tab' means the next one along, and the only thing that makes that "
                    + $"true is these two agreeing. Drawn: {string.Join(", ", AsDrawn())}. "
@@ -60,7 +63,16 @@ public class TabGoesLeftToRightTests
 
         for (var i = 0; i < drawn.Count; i++)
         {
-            var from = new AppState { ActiveTab = drawn[i] };
+            // A CONSOLE THAT OFFERS EVERY TAB, because `tab' walks the
+            // offered set and one tab is conditional now. Without both gates
+            // open the walk would skip it correctly and this test would be
+            // asserting the bar's order against a bar that is one shorter.
+            var from = new AppState
+            {
+                ActiveTab = drawn[i],
+                IsAdmin = true,
+                FleetAllowancesShown = true,
+            };
             var expected = drawn[(i + 1) % drawn.Count];
 
             await Assert.That(Reducer.Reduce(from, Command.FocusNextPane).ActiveTab)

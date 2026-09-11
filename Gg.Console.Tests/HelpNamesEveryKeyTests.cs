@@ -69,6 +69,7 @@ public class HelpNamesEveryKeyTests
         // written one clause up: a flag counted by the ratchet below and never
         // crossed here is a binding the completeness check cannot see.
         from allowanceIsMine in (bool[])[false, true]
+        from fleetOffered in (bool[])[false, true]
         // TWO OF THE COUNTDOWN, because it is presentation rather than
         // dispatch: nothing branches on it, and a string cannot be crossed
         // exhaustively. Both shapes are here so the description it lands in is
@@ -80,6 +81,7 @@ public class HelpNamesEveryKeyTests
             RunnerIsOurs = ours,
             RunnerIsFlying = flying,
             AllowanceIsMine = allowanceIsMine,
+            FleetAllowancesOffered = fleetOffered,
             Refresh = refresh,
         };
 
@@ -124,7 +126,7 @@ public class HelpNamesEveryKeyTests
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(members.Count).IsEqualTo(10)
+        await Assert.That(members.Count).IsEqualTo(11)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

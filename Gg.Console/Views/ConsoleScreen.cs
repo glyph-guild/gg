@@ -38,6 +38,8 @@ public sealed class ConsoleScreen : Window
     private readonly Label _repositories;
     private readonly Label _envelope;
     private readonly FrameView _envelopePane;
+    private readonly FrameView _allowancesPane;
+    private readonly Label _allowances;
     private readonly Label _flights;
     private readonly FrameView _flightsPane;
 
@@ -295,6 +297,19 @@ public sealed class ConsoleScreen : Window
         };
         _envelope = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _envelopePane.Add(_envelope);
+
+        // AND THE SIXTH, which shares the same region as the four above it.
+        _allowancesPane = new FrameView
+        {
+            Title = "Allowances",
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _allowances = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _allowancesPane.Add(_allowances);
 
         // THE SAME REGION AGAIN. Four panes now share it and never two at
         // once, which RepositoriesToggled enforces rather than the order these
@@ -662,6 +677,12 @@ public sealed class ConsoleScreen : Window
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
+
+            // LAST, WHERE IT IS DECLARED, for the reason written three tabs
+            // up - and the only one of these that may not be on the bar at
+            // all. It is in this list so the source order and Tabs.All agree;
+            // whether it reaches the bar is the loop below.
+            (TabId.Allowances, Tabbed(_allowancesPane)),
         ];
 
         _bar = new Terminal.Gui.Views.Tabs
@@ -672,7 +693,14 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(2),
         };
 
-        foreach (var (tab, pane) in _tabbed)
+        // OFFERED RATHER THAN EVERY TAB, which is new and true of exactly
+        // one: the fleet's allowances need an administrator and a line in this
+        // machine's file. A tab on the bar for anybody else would promise a
+        // fleet and show them their own machine - so it is absent, rather than
+        // present and empty.
+        var offered = Tabs.Offered(State);
+
+        foreach (var (tab, pane) in _tabbed.Where(t => offered.Contains(t.Tab)))
         {
             pane.Title = Tabs.Title(State, tab);
             _bar.Add(pane);
@@ -1317,6 +1345,7 @@ public sealed class ConsoleScreen : Window
             _syncing = false;
         }
         _envelope.Text = PaneText.Envelope(State);
+        _allowances.Text = PaneText.ForTab(State, TabId.Allowances);
 
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);
@@ -1342,7 +1371,9 @@ public sealed class ConsoleScreen : Window
         // rather than asked. Tabs.Showing answers true for exactly one tab -
         // asserted over generated states rather than over pixels - and the sync
         // flag is what stops the assignment answering its own event.
-        foreach (var (tab, pane) in _tabbed)
+        var onTheBar = Tabs.Offered(State);
+
+        foreach (var (tab, pane) in _tabbed.Where(t => onTheBar.Contains(t.Tab)))
         {
             pane.Title = Tabs.Title(State, tab);
         }
@@ -1350,7 +1381,14 @@ public sealed class ConsoleScreen : Window
         _syncing = true;
         try
         {
-            var showing = _tabbed.First(t => Tabs.Showing(State, t.Tab)).Pane;
+            // FIRST OF WHAT IS ON THE BAR. Tabs.Showing answers true for
+            // exactly one tab and Tabs.Next only walks the offered set, so a
+            // tab that is not on the bar cannot be the active one - but
+            // selecting a pane the bar never received would throw, and a
+            // Where here is cheaper than a reader having to know that.
+            var showing = _tabbed
+                .Where(t => onTheBar.Contains(t.Tab))
+                .First(t => Tabs.Showing(State, t.Tab)).Pane;
             if (!ReferenceEquals(_bar.Value, showing))
             {
                 _bar.Value = showing;

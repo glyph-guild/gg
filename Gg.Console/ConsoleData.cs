@@ -541,6 +541,13 @@ public static class ConsoleProjection
                 // row; the id came with it every time and was dropped, so the
                 // console knew who it was and could not say.
                 PrincipalId = identity.Value.PrincipalId,
+
+                // AND WHETHER THEY ADMINISTER THE TENANT, which arrives in the
+                // same answer. A hint about what a surface would be allowed to
+                // show, never a permission: every route checks the principal
+                // itself, and a control plane too old to say sends nothing,
+                // which reads as no.
+                IsAdmin = identity.Value.IsAdmin,
                 Diagnosis = null,
             },
             // References, never secrets. There is nothing in a CredentialList

@@ -530,6 +530,29 @@ public sealed record EstateApplied
     public required IReadOnlyList<NameDeclared> Declared { get; init; }
 }
 
+/// <summary>
+/// What retiring a name came to.
+/// </summary>
+/// <remarks>
+/// <b><see cref="Flight"/> is set on every answer the door can give</b>, which
+/// is the point of having a type for this: retirement has no 200, so a
+/// retirement without a flight is a control plane that changed, not a
+/// retirement that finished.
+/// </remarks>
+public sealed record NameRetired
+{
+    public required string Name { get; init; }
+
+    /// <summary>The version still in force - nothing was minted.</summary>
+    public required string Version { get; init; }
+
+    /// <summary>The flight the retirement rides.</summary>
+    public string? Flight { get; init; }
+
+    /// <summary>Who the gate awaits.</summary>
+    public string? Awaiting { get; init; }
+}
+
 /// <summary>What declaring a name came to.</summary>
 /// <remarks>
 /// <b>One record for both answers, the way <see cref="AppliedDocument"/> already

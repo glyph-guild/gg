@@ -77,6 +77,8 @@ return CliArgs.Parse(args) switch
         diff.Json, c => c.AirspaceDiffAsync(EstateRoot())),
     CliAction.AirspaceApply apply => await EmitAsync(
         apply.Json, c => c.AirspaceApplyAsync(EstateRoot(), apply.DeclareNames)),
+    CliAction.AirspaceRetire retiring => await EmitAsync(
+        retiring.Json, c => c.RetireNameAsync(retiring.Name)),
     CliAction.AirspaceName declaring => await EmitAsync(
         declaring.Json,
         c => c.DeclareNameAsync(declaring.Role, declaring.Name, declaring.Parent)),

@@ -549,6 +549,53 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             ?? throw new InvalidOperationException("Control plane acknowledged nothing."), null);
     }
 
+    /// <summary>
+    /// Retires a name by applying a terminal version of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A VERSION, NOT A DELETION</b> (ADR-0014). Retiring by removing a
+    /// topology entry would be a governance-critical change wearing
+    /// bookkeeping's clothes: the constraint stops attaching and no version
+    /// records that it did.
+    /// </para>
+    /// <para>
+    /// <b>NO 200 EXISTS ON THIS DOOR.</b> A document that stops applying
+    /// removes every constraint in it at once, so it is a widening by
+    /// construction and always rides the gate. The answer is 202 and it names
+    /// the flight and the approver - so the name still governs when this
+    /// returns, which the caller has to say out loud.
+    /// </para>
+    /// <para>
+    /// <b>No body.</b> The name is the whole request, in the path.
+    /// </para>
+    /// </remarks>
+    public async Task<EnvelopeApplied> RetireNamedAsync(
+        string sessionToken,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post,
+            $"/v1/airspace/envelopes/{Uri.EscapeDataString(name)}/retirement",
+            sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
+        {
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
     public async Task<EnvelopeApplied> ApplyNamedAsync(
         string sessionToken,
         string name,

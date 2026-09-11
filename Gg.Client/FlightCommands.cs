@@ -704,6 +704,7 @@ public sealed class FlightCommands(
             .ToHashSet(StringComparer.Ordinal);
 
         var applied = new List<AppliedDocument>();
+        ApplyRefusal? refused = null;
 
         // IN THE SAFE ORDER. Tightenings first, so no intermediate state is
         // looser than either endpoint - the interval between two gates is not
@@ -734,12 +735,42 @@ public sealed class FlightCommands(
             // ONE APPLY EITHER WAY, from the person's side: they changed a file
             // in their airspace and asked for it to land. Which endpoint that
             // takes is this method's business.
-            var answer = document.Strategy is { } strategy
-                ? await _client.ApplyStrategyAsync(
-                    Session(), document.Name, strategy, cancellationToken)
-                : await _client.ApplyNamedAsync(
-                    Session(), document.Name, Body(document), document.BasedOn,
-                    cancellationToken);
+            Gg.Contracts.EnvelopeApplied answer;
+
+            try
+            {
+                answer = document.Strategy is { } strategy
+                    ? await _client.ApplyStrategyAsync(
+                        Session(), document.Name, strategy, cancellationToken)
+                    : await _client.ApplyNamedAsync(
+                        Session(), document.Name, Body(document), document.BasedOn,
+                        cancellationToken);
+            }
+            catch (EnvelopeRefusedException stopped)
+            {
+                // RECORDED AND STOPPED, rather than thrown. A changeset is
+                // something somebody meant as a whole so the rest is not sent -
+                // but letting this propagate discarded every document already
+                // applied and every name already declared, which in one
+                // measured case was a registration flight left waiting on an
+                // approver that the report never mentioned.
+                refused = new ApplyRefusal
+                {
+                    Name = document.Name,
+                    Path = document.Path,
+                    Diagnosis = stopped.Message,
+                    NotTried =
+                    [
+                        .. ordered
+                            .SkipWhile(o => !string.Equals(
+                                o.Name, document.Name, StringComparison.Ordinal))
+                            .Skip(1)
+                            .Select(o => o.Name),
+                    ],
+                };
+
+                break;
+            }
 
             applied.Add(new AppliedDocument
             {
@@ -758,6 +789,7 @@ public sealed class FlightCommands(
             Applied = applied,
             Retiring = AirspaceTree.Retiring(tree, estate),
             Declared = declared,
+            Refused = refused,
         });
     }
 

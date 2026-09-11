@@ -59,12 +59,35 @@ public static class ConsoleApply
                 return ["Nothing was applied: the verb answered something other than an apply."];
             }
 
-            if (applied.Value.Applied.Count == 0 && applied.Value.Retiring.Count == 0)
+            if (applied.Value.Applied.Count == 0
+                && applied.Value.Retiring.Count == 0
+                && applied.Value.Declared.Count == 0
+                && applied.Value.Refused is null)
             {
                 return ["Nothing to apply: the working copy matches the airspace."];
             }
 
             var said = new List<string>();
+
+            // WHAT WAS DECLARED, FIRST, because it is the part that changed the
+            // tenant's shape rather than a document's contents - and because a
+            // declaration that gated is somebody else's decision now. Measured
+            // in the world: a registration flight was left waiting on an
+            // approver and the report never mentioned it, because the verb threw
+            // and took this list with it.
+            foreach (var name in applied.Value.Declared)
+            {
+                said.Add(name.Flight is { Length: > 0 } gate
+                    ? $"{name.Name}: declared as a {name.Role} - flight {gate} awaits "
+                    + $"{name.Awaiting}. The name is NOT reachable until that gate opens, "
+                    + "so its document waits with it."
+                    : $"{name.Name}: declared as a {name.Role} under {name.Parent}");
+            }
+
+            if (applied.Value.Declared.Count > 0 && applied.Value.Applied.Count > 0)
+            {
+                said.Add("");
+            }
 
             foreach (var document in applied.Value.Applied)
             {
@@ -86,6 +109,31 @@ public static class ConsoleApply
             foreach (var name in applied.Value.Retiring)
             {
                 said.Add($"{name} is missing from the tree, which is its own gated change");
+            }
+
+            // AND WHAT STOPPED IT, LAST AND NAMED. A refusal part way through
+            // used to arrive as an exception, which discarded everything above
+            // this - so the report said nothing was applied while a name
+            // registration sat in a queue. The rest is not sent, deliberately;
+            // saying which documents those were is what stops somebody
+            // guessing from the order.
+            if (applied.Value.Refused is { } stopped)
+            {
+                said.Add("");
+                said.Add($"STOPPED at {stopped.Path}:");
+                said.Add("");
+
+                said.AddRange(stopped.Diagnosis
+                    .ReplaceLineEndings("\n")
+                    .Split('\n')
+                    .Select(line => line.TrimEnd()));
+
+                if (stopped.NotTried.Count > 0)
+                {
+                    said.Add("");
+                    said.Add("Not tried, because a changeset is something somebody meant as "
+                           + "a whole: " + string.Join(", ", stopped.NotTried));
+                }
             }
 
             return said;

@@ -528,6 +528,43 @@ public sealed record EstateApplied
     /// </para>
     /// </remarks>
     public required IReadOnlyList<NameDeclared> Declared { get; init; }
+
+    /// <summary>
+    /// The document that stopped the apply, when one did.
+    /// </summary>
+    /// <remarks>
+    /// <b>A STOP IS AN ANSWER, not a lost stack.</b> This used to be an
+    /// exception, so a refusal on the third document discarded what the first
+    /// two did and every name declared on the way - including, measured in the
+    /// world, a registration flight left waiting on an approver that the report
+    /// never mentioned.
+    /// <para>
+    /// Null when nothing was refused. A refusal BEFORE anything is sent still
+    /// throws, because then there is no partial state and an answer full of
+    /// empties would be a worse way to say so.
+    /// </para>
+    /// </remarks>
+    public ApplyRefusal? Refused { get; init; }
+}
+
+/// <summary>Which document stopped an apply, and what the door said.</summary>
+/// <remarks>
+/// <b>The rest was NOT tried</b>, which is deliberate: a changeset is
+/// something somebody meant as a whole, so one refusal stops it rather than
+/// landing the remainder. <see cref="NotTried"/> names what that cost, so
+/// nobody has to work it out from the order.
+/// </remarks>
+public sealed record ApplyRefusal
+{
+    public required string Name { get; init; }
+
+    public required string Path { get; init; }
+
+    /// <summary>The door's own words, carried through unchanged.</summary>
+    public required string Diagnosis { get; init; }
+
+    /// <summary>The documents after it, which were never sent.</summary>
+    public required IReadOnlyList<string> NotTried { get; init; }
 }
 
 /// <summary>

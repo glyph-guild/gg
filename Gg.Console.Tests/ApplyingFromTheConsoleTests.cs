@@ -62,6 +62,7 @@ public class ApplyingFromTheConsoleTests
         ActiveTab = TabId.Envelope,
         Estate = new EstateOnThisMachine
         {
+            Uncommitted = [],
             Root = "/home/someone/estate",
             IsRepository = true,
             Names = new Gg.Contracts.EnvelopeTopology { Names = [] },

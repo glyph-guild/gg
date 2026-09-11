@@ -84,6 +84,7 @@ internal static class StateGenerator
 
     private static EstateOnThisMachine NextEstate(Random random) => new()
     {
+        Uncommitted = [],
         Root = random.Next(2) == 0 ? null : "/tmp/" + NextId(random),
         IsRepository = random.Next(2) == 0,
         Names = new Gg.Contracts.EnvelopeTopology

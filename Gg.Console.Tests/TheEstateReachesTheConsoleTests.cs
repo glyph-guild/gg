@@ -41,6 +41,7 @@ public class TheEstateReachesTheConsoleTests
         IReadOnlyList<string>? retiring = null,
         string? root = "/home/someone/estate") => new()
         {
+            Uncommitted = [],
             Root = root,
             IsRepository = true,
             Names = new EnvelopeTopology

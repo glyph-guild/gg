@@ -199,8 +199,8 @@ public class TheAirspacePathIsTypedInTests
         // against: p, s and m would go into a path.
         foreach (var state in (AppState[])
         [
-            new() { Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" } },
-            new() { Estate = new EstateOnThisMachine { Root = null } },
+            new() { Estate = new EstateOnThisMachine { Uncommitted = [],Root = "/tmp/somewhere" } },
+            new() { Estate = new EstateOnThisMachine { Uncommitted = [],Root = null } },
         ])
         {
             await Assert.That(PaneText.AirspaceBox(state))
@@ -216,7 +216,7 @@ public class TheAirspacePathIsTypedInTests
         var text = PaneText.AirspaceBox(new AppState
         {
             Mode = UiMode.AirspacePath,
-            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+            Estate = new EstateOnThisMachine { Uncommitted = [],Root = "/tmp/somewhere" },
         });
 
         await Assert.That(text).Contains("esc", StringComparison.OrdinalIgnoreCase);
@@ -284,7 +284,7 @@ public class TheAirspacePathIsTypedInTests
         var text = PaneText.AirspaceBox(new AppState
         {
             Mode = UiMode.AirspacePath,
-            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+            Estate = new EstateOnThisMachine { Uncommitted = [],Root = "/tmp/somewhere" },
         });
 
         await Assert.That(text).Contains("ctrl-d", StringComparison.OrdinalIgnoreCase)
@@ -337,7 +337,7 @@ public class TheAirspacePathIsTypedInTests
         var text = PaneText.AirspaceBox(new AppState
         {
             Mode = UiMode.AirspacePath,
-            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+            Estate = new EstateOnThisMachine { Uncommitted = [],Root = "/tmp/somewhere" },
         });
 
         await Assert.That(text).Contains("ctrl-v", StringComparison.OrdinalIgnoreCase);
@@ -414,7 +414,7 @@ public class TheAirspacePathIsTypedInTests
         var text = PaneText.AirspaceBox(new AppState
         {
             Mode = UiMode.AirspacePath,
-            Estate = new EstateOnThisMachine { Root = "/tmp/somewhere" },
+            Estate = new EstateOnThisMachine { Uncommitted = [],Root = "/tmp/somewhere" },
         });
 
         await Assert.That(text).Contains("ctrl-o", StringComparison.OrdinalIgnoreCase)

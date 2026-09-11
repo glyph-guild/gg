@@ -51,45 +51,16 @@ public class APartialApplyReportsWhatItDidTests
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
             new HeldSessionStore(ASession()));
 
-    /// <summary>Two documents, so one can land before the other is refused.</summary>
-    private static DirectoryInfo Tree()
-    {
-        var root = Directory.CreateTempSubdirectory("gg-partial-");
-        var airspace = Path.Combine(root.FullName, "airspace");
-
-        Directory.CreateDirectory(Path.Combine(airspace, "work-kinds"));
-
-        File.WriteAllText(
-            Path.Combine(airspace, "work-kinds", "score-hal.yaml"),
-            """
-            context:
-              scope: "**"
-              constitution: "1.0.0"
-            environments: dev
-            repositories:
-              - "JDX/JDNext"
-            accepts:
-              - tracker
-            produces:
-              - loop.outcome
-            obligations:
-              hal-in-scope:
-                check: machine
-                rule: no-file-outside-scope
-            loops:
-              score:
-                executor: frontier
-                discharges:
-                  - hal-in-scope
-                moves:
-                  - read
-                budget:
-                  wall-clock: "20m"
-                on-exhaustion: handoff-to-human
-            """);
-
-        return root;
-    }
+    /// <summary>
+    /// A working copy holding one work kind, from the shared fixture.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shared rather than written here, because two tests wrote their own
+    /// and neither parsed.</b> The apply refused them as unreadable files
+    /// before reaching anything under test - the tree read working correctly
+    /// while the test measured nothing. See <see cref="AnAirspaceTreeOnDisk"/>.
+    /// </remarks>
+    private static DirectoryInfo Tree() => AnAirspaceTreeOnDisk.WithAWorkKind();
 
     [Test]
     public async Task A_gated_declaration_is_reported_even_when_the_apply_is_refused()

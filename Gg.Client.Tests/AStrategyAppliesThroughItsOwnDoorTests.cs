@@ -49,30 +49,8 @@ public class AStrategyAppliesThroughItsOwnDoorTests
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
             new HeldSessionStore(ASession()));
 
-    /// <summary>A tree holding one strategy, shaped after a real one.</summary>
-    private static DirectoryInfo Tree()
-    {
-        var root = Directory.CreateTempSubdirectory("gg-strategy-");
-
-        Directory.CreateDirectory(Path.Combine(root.FullName, "airspace", "strategies"));
-
-        File.WriteAllText(
-            Path.Combine(root.FullName, "airspace", "strategies", "dev.yaml"),
-            """
-            kind: docker-host
-            environment: dev
-            inventory:
-              pool: gg-pool-dev
-              size: 2
-              warm: 1
-            pull-point: resident-runner
-            image: "127.0.0.1:5000/gg-member@sha256:fa54cda495558afe3a281744a5a05165e6461dfb18b8300a4299798fd2db7254"
-            bounds:
-              pool-max: 2
-            """);
-
-        return root;
-    }
+    /// <summary>A tree holding one strategy, from the shared fixture.</summary>
+    private static DirectoryInfo Tree() => AnAirspaceTreeOnDisk.WithAStrategy();
 
     /// <summary>A topology that already holds the name, so nothing is declared.</summary>
     private static EnvelopeTopology Holding(StubControlPlane stub) => new()

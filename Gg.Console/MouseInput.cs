@@ -58,7 +58,24 @@ public static class MouseInput
     /// <summary>The offset X10 adds to every value so it lands in printable bytes.</summary>
     private const int X10Bias = 32;
 
-    /// <summary>Wheel buttons, which are reported as presses that are not clicks.</summary>
+    /// <summary>
+    /// The flags a button number carries above the button itself.
+    /// </summary>
+    /// <remarks>
+    /// <b>BITS, NOT A RANGE, and reading it as a range is what made the bar
+    /// pop open on hover.</b> The low two bits are the button; above them sit
+    /// 4 shift, 8 meta, 16 control, 32 motion and 64 wheel. So 35 is "the
+    /// pointer moved with nothing held" - a 3 that is not a button at all -
+    /// and the first version of this asked only whether the number was below
+    /// 64, which every motion report is.
+    /// <para>
+    /// Testing the whole number is the other easy mistake, and it swallows
+    /// shift-click: a modifier held down is still a press.
+    /// </para>
+    /// </remarks>
+    private const int Motion = 32;
+
+    /// <summary>Wheel and the buttons above it, which are not clicks either.</summary>
     private const int WheelUp = 64;
 
     /// <summary>
@@ -126,10 +143,15 @@ public static class MouseInput
         // click, and acting on both would open the panel and shut it again
         // before a finger left the button.
         //
-        // AND THE WHEEL IS NOT A CLICK. Buttons at 64 and above are scroll, so
-        // pointing at the bar and scrolling neither toggles nor reaches the
-        // child - which has no such row to be scrolled at.
-        return pressed && button < WheelUp
+        // NOR IS MOVING OVER IT A PRESS, which is the whole of the hover
+        // defect: with any-event tracking on, the pointer crossing gg's rows
+        // reports continuously and every one of those ends in `M` like a
+        // press does.
+        //
+        // AND THE WHEEL IS NOT A CLICK either, so pointing at the bar and
+        // scrolling neither toggles nor reaches the child - which has no such
+        // row to be scrolled at.
+        return pressed && (button & (Motion | WheelUp)) == 0
             ? new MouseRead(MouseReading.Toggle, read)
             : new MouseRead(MouseReading.Nothing, ReadOnlyMemory<byte>.Empty);
     }

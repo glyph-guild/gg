@@ -203,6 +203,69 @@ public class HostedBarTests
     }
 
     [Test]
+    public async Task A_closed_panel_says_how_to_open_it_and_where()
+    {
+        // THE TOP ROW IS THE SESSION'S AND THE BOTTOM ROW IS GG'S OWN.
+        // Everything the bar says while closed is about the session - what to
+        // ask the agent, what ends it - and none of it says that there is a
+        // panel at all, or that ctrl-g is what opens it. A key nobody is told
+        // about is a key nobody has, and the same is true of a click.
+        var footer = HostedBar.Footer(HostedView.Closed, columns: Narrow);
+
+        await Assert.That(footer).Contains("click", StringComparison.OrdinalIgnoreCase)
+            .Because("the mouse now opens it and there is nothing on the screen saying "
+                   + "so. Footer: " + footer);
+
+        await Assert.That(footer).Contains("ctrl-g", StringComparison.OrdinalIgnoreCase)
+            .Because("the key has been the only way in since the panel existed and has "
+                   + "never been written anywhere a person looks. Footer: " + footer);
+    }
+
+    [Test]
+    public async Task An_open_panel_says_how_to_close_it()
+    {
+        // THE ROW STAYS, AND ONLY ITS WORDS CHANGE. A footer that vanished
+        // when the panel opened would move every row of the child by one at
+        // the moment somebody was reading them - and the way out belongs on
+        // the row that is always there as much as the way in does.
+        var footer = HostedBar.Footer(HostedView.Envelope, columns: Narrow);
+
+        await Assert.That(footer).Contains("close", StringComparison.OrdinalIgnoreCase)
+            .Because("Footer: " + footer);
+    }
+
+    [Test]
+    public async Task The_footer_is_centred_and_fills_the_row()
+    {
+        // CENTRED, because it is the one thing on the screen that is gg's
+        // rather than the session's or the child's, and a hint hanging off the
+        // left edge reads as part of whatever is above it.
+        var footer = HostedBar.Footer(HostedView.Closed, columns: Narrow);
+
+        await Assert.That(footer.Length).IsEqualTo(Narrow)
+            .Because("a row that does not fill the width lets the child show through "
+                   + "beside it, which is the defect the panel rows are padded against.");
+
+        var left = footer.Length - footer.TrimStart().Length;
+        var right = footer.Length - footer.TrimEnd().Length;
+
+        await Assert.That(Math.Abs(left - right)).IsLessThanOrEqualTo(1)
+            .Because($"centred within a character. Left {left}, right {right}.");
+    }
+
+    [Test]
+    public async Task A_terminal_too_narrow_for_the_hint_still_gets_a_row()
+    {
+        // NARROWER THAN THE WORDS, which is a window somebody has dragged
+        // small rather than a state to refuse. The row is still the width of
+        // the terminal, because the padding is what stops the child showing
+        // through.
+        var footer = HostedBar.Footer(HostedView.Closed, columns: 12);
+
+        await Assert.That(footer.Length).IsEqualTo(12);
+    }
+
+    [Test]
     public async Task Closed_is_one_row_and_it_is_the_status()
     {
         var rows = HostedBar.Rows(

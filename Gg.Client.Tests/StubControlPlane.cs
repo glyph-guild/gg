@@ -131,6 +131,12 @@ public sealed class StubControlPlane : IAsyncDisposable
         ],
     };
 
+    /// <summary>The name this stub was asked to retire.</summary>
+    public string? RetiredName { get; private set; }
+
+    /// <summary>What the retirement door refuses with, when it refuses.</summary>
+    public string? RetirementRefusal { get; set; }
+
     /// <summary>What the apply door refuses with, when it refuses.</summary>
     public string? ApplyRefusal { get; set; }
 
@@ -725,6 +731,37 @@ public sealed class StubControlPlane : IAsyncDisposable
             case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal):
                 await WriteJsonAsync(context, 200, AFlight());
                 return;
+
+            // RETIREMENT, BEFORE THE APPLY ARM, because its path begins with
+            // the apply's and a prefix match would otherwise swallow it.
+            case var retiring when context.Request.HttpMethod == "POST"
+                && retiring.StartsWith("/v1/airspace/envelopes/", StringComparison.Ordinal)
+                && retiring.EndsWith("/retirement", StringComparison.Ordinal):
+            {
+                RetiredName = Uri.UnescapeDataString(
+                    retiring["/v1/airspace/envelopes/".Length..^"/retirement".Length]);
+
+                if (RetirementRefusal is { } retirementRefusal)
+                {
+                    await WriteAsync(context, 400, retirementRefusal);
+                    return;
+                }
+
+                // 202 AND ONLY 202. The contract lists no 200 for this door: a
+                // retirement is a widening by construction and always rides
+                // the gate, so a stub that answered 200 would be a fixture the
+                // real surface cannot produce.
+                await WriteJsonAsync(context, 202, new EnvelopeApplied
+                {
+                    Version = $"{RetiredName}@v3",
+                    AppliedAt = DateTimeOffset.UnixEpoch,
+                    Changed = false,
+                    Flight = "GG-104",
+                    Awaiting = "platform-owner",
+                    Widens = "every constraint in it",
+                });
+                return;
+            }
 
             // APPLY BY NAME. A prefix arm rather than a literal, because the
             // name is in the path - and last, so every literal route above

@@ -151,6 +151,16 @@ public abstract record CliAction
     /// needs a name it has not got refuses and prints the exact command per
     /// document, which is the cheap half of the same information.
     /// </remarks>
+    /// <summary>
+    /// Retires a name, which always opens a gate.
+    /// </summary>
+    /// <remarks>
+    /// <b>The name alone.</b> The topology already knows its role, so asking
+    /// for one would be a second place to get it wrong - and the door takes
+    /// the name in the path and no body at all.
+    /// </remarks>
+    public sealed record AirspaceRetire(string Name, bool Json) : CliAction, IEmitsResult;
+
     public sealed record AirspaceApply(bool Json, bool DeclareNames)
         : CliAction, IEmitsResult;
 
@@ -601,6 +611,16 @@ public static class CliArgs
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
             ["airspace", "apply"] => new CliAction.AirspaceApply(json, declareNames),
             ["airspace", "diff"] => new CliAction.AirspaceDiff(json),
+            // RETIRE TAKES A NAME, NOT A ROLE. The topology knows which role a
+            // name has; asking for it again would be a second place to get it
+            // wrong, and the door takes the name alone.
+            ["airspace", "retire", var retiring] =>
+                new CliAction.AirspaceRetire(retiring, json),
+            ["airspace", "retire", ..] => Unknown(
+                "gg airspace retire takes one name - gg airspace retire score-hall. "
+              + "Retiring removes every constraint in a document at once, so it always "
+              + "opens a flight and waits for whoever the document names."),
+
             ["airspace", "name", var role, var named, "--under", var parent] =>
                 new CliAction.AirspaceName(role, named, parent, json),
             ["airspace", "name", var role, var named] =>

@@ -100,6 +100,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.NameDeclared;
     }
 
+    /// <summary>What retiring a name came to: always a gate.</summary>
+    public sealed record NameRetired(Gg.Client.NameRetired Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.NameRetired;
+    }
+
     /// <summary>What the working copy would change.</summary>
     public sealed record AirspaceDiffed(EstateDiff Value) : VerbResult
     {
@@ -351,6 +357,8 @@ public static class VerbResultKinds
     public const string AirspaceDiffed = "airspace-diffed";
 
     public const string NameDeclared = "name-declared";
+
+    public const string NameRetired = "name-retired";
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
@@ -399,6 +407,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(TreeWritten))]
 [JsonSerializable(typeof(EstateApplied))]
 [JsonSerializable(typeof(NameDeclared))]
+[JsonSerializable(typeof(NameRetired))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
@@ -490,6 +499,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EstateDiff),
         VerbResult.NameDeclared r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameDeclared),
+        VerbResult.NameRetired r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameRetired),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
@@ -613,6 +624,7 @@ public static class VerbOutput
         VerbResult.AirspaceApplied r => AppliedText(r.Value),
         VerbResult.AirspaceDiffed r => DiffText(r.Value),
         VerbResult.NameDeclared r => NameDeclaredText(r.Value),
+        VerbResult.NameRetired r => NameRetiredText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
@@ -2171,6 +2183,26 @@ public static class VerbOutput
             + "rode a flight.\n"
             : $"{declared.Name}: declared as a {declared.Role} under {declared.Parent}.\n";
     }
+
+    /// <summary>
+    /// What retiring came to, and it has NOT happened yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>The gate is the whole sentence.</b> There is no 200 on this door, so
+    /// a person who ran the verb and walked away would otherwise believe the
+    /// name was gone. It governs until somebody decides, and every flight that
+    /// starts before then is governed by it.
+    /// </remarks>
+    private static string NameRetiredText(NameRetired retired) =>
+        retired.Flight is { Length: > 0 } flight
+            ? $"{retired.Name}: retiring it removes every constraint in it at once, so it "
+            + $"widens - flight {flight} awaits {retired.Awaiting}. The name STILL GOVERNS "
+            + "until that gate opens, and flights that start before then are governed by "
+            + $"it. In force: {retired.Version}.\n"
+            // NOT REACHABLE THROUGH THE DOOR, which has no 200 - and said
+            // rather than thrown, because a control plane that grew one should
+            // report what it did instead of crashing a verb.
+            : $"{retired.Name}: retired, with no gate. In force: {retired.Version}.\n";
 
     private static string AppliedText(EstateApplied applied)
     {

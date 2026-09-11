@@ -528,6 +528,38 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
+    /// Retires a name, which always opens a gate.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one act that could remove anything, and gg could not do it.</b>
+    /// The door has been in the contract with a response type and a status
+    /// list; no client method called it, so a name once declared was
+    /// permanent. That is what made a mistyped filename expensive and what
+    /// made apply's declaring an opt-in.
+    /// </para>
+    /// <para>
+    /// <b>It is never done when this returns.</b> The door has no 200: a
+    /// document that stops applying removes every constraint in it at once, so
+    /// it is a widening by construction and rides a gate. The name still
+    /// governs until somebody decides, and <c>VerbOutput</c> says so.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> RetireNameAsync(
+        string name, CancellationToken cancellationToken = default)
+    {
+        var answer = await _client.RetireNamedAsync(Session(), name, cancellationToken);
+
+        return new VerbResult.NameRetired(new NameRetired
+        {
+            Name = name,
+            Version = answer.Version,
+            Flight = answer.Flight,
+            Awaiting = answer.Awaiting,
+        });
+    }
+
+    /// <summary>
     /// Renders the whole estate into the working copy, or refuses a dirty tree.
     /// </summary>
     /// <remarks>

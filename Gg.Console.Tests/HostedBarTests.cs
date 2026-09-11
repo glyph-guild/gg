@@ -111,6 +111,97 @@ public class HostedBarTests
         await Assert.That(HostedBar.Next(HostedView.Intent, (byte)'e')).IsEqualTo(HostedView.Envelope);
     }
 
+    /// <summary>A terminal nobody has ever had fewer columns than.</summary>
+    private const int Narrow = 80;
+
+    [Test]
+    public async Task A_status_wider_than_the_terminal_takes_the_rows_it_needs()
+    {
+        // THE DEFECT, AND IT IS SILENT. PtyScreen.Paint writes each row as
+        // `text[..columns]` - a hard cut with nothing said - so a bar longer
+        // than the terminal is wide simply stops. The drafting session's bar
+        // is 160 characters and names three things; at eighty columns a person
+        // reads the first two thirds of the first one and has no way to know
+        // there was more.
+        //
+        // This file already knows the argument, for the BODY: "COUNTED,
+        // BECAUSE FOUR INSTRUCTIONS OUT OF SIX READ EXACTLY LIKE FOUR OUT OF
+        // FOUR." The status row was never given the same treatment, and it is
+        // the row that is always there.
+        var status = "gg · drafting the airspace — /mcp__gg__start_drafting to start · ask "
+                   + "the agent to submit each document it changes · closing leaves the "
+                   + "working copy as it stands";
+
+        var rows = HostedBar.Rows(
+            HostedView.Closed, status, body: "", most: 12, columns: Narrow);
+
+        await Assert.That(rows.Count).IsGreaterThan(1)
+            .Because($"the status is {status.Length} characters and the terminal is "
+                   + $"{Narrow}. One row can only hold the first {Narrow} of them.");
+
+        foreach (var row in rows)
+        {
+            await Assert.That(row.Length).IsLessThanOrEqualTo(Narrow)
+                .Because("a row wider than the terminal is a row the painter cuts, which "
+                       + "is the thing this is fixing. Row: " + row);
+        }
+    }
+
+    [Test]
+    public async Task Nothing_the_bar_says_is_lost_on_the_way()
+    {
+        // WRAPPED, NOT CUT, and the difference is every word after the first
+        // eighty characters.
+        var status = "gg · drafting the airspace — /mcp__gg__start_drafting to start · ask "
+                   + "the agent to submit each document it changes · closing leaves the "
+                   + "working copy as it stands";
+
+        var rows = HostedBar.Rows(
+            HostedView.Closed, status, body: "", most: 12, columns: Narrow);
+
+        var back = string.Join(" ", rows.Select(row => row.TrimEnd()));
+
+        await Assert.That(back).IsEqualTo(status)
+            .Because("every word survives and none is broken across rows: a path or a "
+                   + "command split down the middle is one somebody cannot type. Got:\n"
+                   + back);
+    }
+
+    [Test]
+    public async Task A_status_that_fits_still_takes_one_row()
+    {
+        // THE OTHER DIRECTION, because every row gg keeps costs the child one.
+        // A bar that took three rows to say four words would be worse than the
+        // truncation it replaced.
+        var rows = HostedBar.Rows(
+            HostedView.Closed, "gg · composing", body: "", most: 12, columns: Narrow);
+
+        await Assert.That(rows).Count().IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task The_open_header_wraps_too_and_the_body_gets_what_is_left()
+    {
+        // THE HEADER GROWS BY WHAT THE STATUS GREW BY, since it is the status
+        // plus the way out. If the body were still handed `most - 1` rows it
+        // would overrun the budget by exactly the wrapping, and the rows past
+        // the end are the ones the painter drops.
+        var status = new string('x', Narrow) + " " + new string('y', 20);
+
+        var rows = HostedBar.Rows(
+            HostedView.Envelope, status, body: "one\ntwo\nthree", most: 5, columns: Narrow);
+
+        await Assert.That(rows.Count).IsLessThanOrEqualTo(5)
+            .Because("the budget is what the caller reserved from the child, and a row "
+                   + "past it is painted over the child's own output.");
+
+        foreach (var row in rows)
+        {
+            await Assert.That(row.Length).IsLessThanOrEqualTo(Narrow)
+                .Because("including the header. Row: " + row);
+        }
+    }
+
     [Test]
     public async Task Closed_is_one_row_and_it_is_the_status()
     {

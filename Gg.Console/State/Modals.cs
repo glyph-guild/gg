@@ -44,6 +44,7 @@ public static class Modals
         UiMode.GateDecision,
         UiMode.SignIn,
         UiMode.ReadingEnvelope,
+        UiMode.ReadingChangeset,
         UiMode.ComposeChoice,
     ];
 

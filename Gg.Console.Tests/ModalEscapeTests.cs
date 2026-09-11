@@ -148,6 +148,17 @@ public class ModalEscapeTests
           + "flying anything, so the real decision lands where a person can still change it - "
           + "and abandoning the editor opens nothing either.",
 
+        [UiMode.ReadingChangeset] =
+            "opened by `d` inside the reading modal, which `v` opens - so it is two steps "
+          + "from a fresh state and this test presses one key. It is two steps ON PURPOSE: "
+          + "`d` is `decide` in Normal mode and a tab-scoped one would never fire, because "
+          + "Keymap.Resolve answers the first match and Normal's is declared earlier - so a "
+          + "second key for the second view would have had to spend one of the four letters "
+          + "left, and inside a modal the letters are free. "
+          + "TheChangesetIsReadableTests.The_two_views_are_reachable_from_each_other holds "
+          + "the chain in both directions, and escapability is covered above, because "
+          + "StateGenerator emits every UiMode.",
+
         [UiMode.HandFlight] =
             "opened by ConsoleLoop's FlyByHand arm, and only when nothing was created. "
           + "Whether it opens depends on a read the loop makes with the terminal released - "

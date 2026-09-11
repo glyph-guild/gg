@@ -95,6 +95,8 @@ public class VerbParityTests
             // arm for this result: a console projecting one machine's local
             // reading would show a person their own laptop and call it the
             // fleet.
+            ["Allowances"] = "reachable: the allowance column on the runners pane, built "
+                           + "from the same read this verb prints.",
             ["Allowance"] = "not reachable, and not pending: the console's version is the "
                           + "FLEET's allowances, and it now has one. This verb is this "
                           + "machine's own transcripts - a different question with the "

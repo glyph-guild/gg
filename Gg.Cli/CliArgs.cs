@@ -166,6 +166,15 @@ public abstract record CliAction
     /// </remarks>
     public sealed record Allowance(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>What every allowance the fleet spends from has left.</summary>
+    /// <remarks>
+    /// <b>Plural, and a different question from <see cref="Allowance"/>.</b>
+    /// That one reads this machine's transcripts and contacts nothing; this
+    /// asks the control plane what every machine reported, including machines
+    /// this one has never seen.
+    /// </remarks>
+    public sealed record Allowances(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Every runner's advertised labels, each with its disposition.</summary>
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
@@ -398,6 +407,7 @@ public static class CliArgs
         "gg config offered              what your control plane offers this machine",
         "gg config accept <version>     take the offer you just read, by version",
         "gg allowance                   what the allowance this machine spends from has left",
+        "gg allowances                  what every allowance in the fleet has left",
         "gg doctor                      check what gg needs to work",
         "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",
@@ -570,6 +580,7 @@ public static class CliArgs
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),
             ["allowance"] => new CliAction.Allowance(json),
+            ["allowances"] => new CliAction.Allowances(json),
             ["doctor"] => new CliAction.Doctor(json),
             ["update"] => new CliAction.Update(json),
             ["bundle"] => new CliAction.Bundle(json),

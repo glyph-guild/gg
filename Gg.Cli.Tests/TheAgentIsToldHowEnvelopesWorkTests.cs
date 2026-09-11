@@ -335,6 +335,15 @@ public class TheAgentIsToldHowEnvelopesWorkTests
                 ("on-exhaustion", ExhaustionPolicies.All),
                 ("kind", DestinationKinds.All),
                 ("evidence", EvidenceItems.All),
+
+                // THREE MORE, AND EVERY ONE OF THEM IS A LIST AN AGENT WAS
+                // GUESSING AT. `may-perform` decides what a flight may do to
+                // a tracker item; `accepts` and `produces` are what a work
+                // kind takes and hands back. All three are closed and all
+                // three were glossed without their values.
+                ("may-perform", WorkItemOperations.All),
+                ("accepts", SubjectKinds.All),
+                ("produces", FactKinds.All),
             };
 
             foreach (var (key, values) in vocabularies)
@@ -346,6 +355,76 @@ public class TheAgentIsToldHowEnvelopesWorkTests
                                + "told guesses, is refused, and guesses again.");
                 }
             }
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task The_rules_between_destination_keys_are_stated_not_left_to_be_inferred()
+    {
+        // A REAL DOCUMENT A DRAFTING AGENT PRODUCED, and three of its five
+        // problems trace back to this tool. The keys are each glossed
+        // correctly and alone - "may-write: which fields may be written
+        // there" - which is exactly what let them be combined wrongly:
+        //
+        //   destinations:
+        //     backlog:
+        //       kind: work-item-tracker
+        //       may-perform: [score]
+        //       may-write: ["Custom.HAL"]
+        //       preserve-unadmitted: true
+        //
+        // Two of those are refused by the validator and self-correct in a
+        // turn, which is the safety net working. The rules are still cheaper
+        // said than discovered.
+        var tree = Somewhere();
+        try
+        {
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
+
+            await Assert.That(said).Contains(DestinationKinds.PullRequest, StringComparison.Ordinal)
+                .Because("preserve-unadmitted and may-select mean something on ONE kind of "
+                       + "destination, and a key that silently does nothing elsewhere is a "
+                       + "permission somebody believes they granted.");
+
+            await Assert.That(said).Contains(WorkItemOperations.Field, StringComparison.Ordinal)
+                .Because("may-write is the menu for the `field` operation and is refused "
+                       + "without it, in both directions. Said: " + said);
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task The_one_thing_the_validator_cannot_catch_is_said()
+    {
+        // SILENT, AND THE REASON THIS TEST EXISTS. `may-perform: [score]` with
+        // no may-write is VALID: it passes validation, applies, and then the
+        // tracker adapter writes the item's priority field, because a score
+        // proposal carries a bare value with no field path for a destination
+        // to bound. A tenant who declared `score` meaning Custom.HAL gets a
+        // document nothing refuses and a write nobody asked for.
+        //
+        // The contract half-promises otherwise - WorkItemOperations.Score
+        // says "a tracker may hold it in an ordinary field", which reads as
+        // though the destination chooses. The adapter chose once, for
+        // everybody. Until that is a destination's to say, the only place an
+        // agent can learn it is here.
+        var tree = Somewhere();
+        try
+        {
+            var said = Said((await RecordingAsync(tree.FullName, null, Call()))[0]);
+
+            await Assert.That(said).Contains(
+                    Gg.Runner.Intent.WiqlWorkItemSink.PriorityField, StringComparison.Ordinal)
+                .Because("where a score actually lands, read off the adapter that lands it "
+                       + "rather than typed - a field name copied into prose is one that "
+                       + "goes stale the first time the adapter is changed. Said: " + said);
         }
         finally
         {

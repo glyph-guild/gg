@@ -101,13 +101,24 @@ public class PlatformToolServerTests
     }
 
     [Test]
-    public async Task The_intent_tool_is_declared_beside_the_other_two()
+    public async Task The_intent_tool_is_declared_where_an_intent_can_be_recorded()
     {
-        // Declared always, granted never by default: the server's own note says
-        // the grant is decided in the launch's allow-list rather than by varying
-        // tools/list, because a list that varied by envelope would be a second
-        // place the same rule lives.
-        var answers = await RecordingAsync(intentPath: null,
+        // THE OLD RULE WAS "DECLARED ALWAYS, GRANTED NEVER BY DEFAULT", and
+        // its argument was good: a list that varied BY ENVELOPE would put the
+        // grant rule in two places, one of them invisible to the person who
+        // wrote the envelope.
+        //
+        // THAT ARGUMENT STILL HOLDS AND THIS IS NOT IT. The list varies by
+        // what the session was HANDED, which is not a permission: submit_intent
+        // with no path has nowhere to record an intent, so it is not a tool
+        // withheld but a tool that cannot act. The envelope still decides what
+        // a flight may DO, through the launch's allow-list, exactly as before.
+        //
+        // What changed the answer was watching an agent be offered four tools
+        // its session could not use, reach for the one whose description read
+        // most like what it wanted, and tell the person "no tool I have
+        // applies these documents".
+        var answers = await RecordingAsync(intentPath: "/tmp/intent",
             """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
 
         var declared = answers[0].RootElement
@@ -409,7 +420,7 @@ public class PlatformToolServerTests
     }
 
     [Test]
-    public async Task It_declares_seven_tools_and_an_eighth_has_to_argue_for_itself()
+    public async Task Seven_tools_across_three_shapes_and_an_eighth_has_to_argue()
     {
         // TWO NOW, AND THE OLD REASON WAS THE WRONG ONE. This asserted one tool
         // because "a second on this server would be granted by the same move" -
@@ -545,17 +556,23 @@ public class PlatformToolServerTests
         // refusal is what makes the grant affordable, and the description says
         // so before an agent hits it.
         //
+        // COUNTED ACROSS THE THREE SHAPES, because no session is offered all
+        // seven any more: a tool a session cannot use is a wrong answer
+        // somebody has to be talked out of, and one was. The total is still
+        // what an eighth has to argue against - the argument is about adding a
+        // tool to this server, not about which session sees it.
         // AN EIGHTH still has to make its own argument. None of these seven is it.
-        var answers = await ExchangeAsync(
-            """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
+        var listed = (await OfferedAsync(intentPath: null, documentRoot: "/tmp/tree"))
+            .Concat(await OfferedAsync(intentPath: "/tmp/intent", documentRoot: null))
+            .Concat(await OfferedAsync(intentPath: null, documentRoot: null))
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
-        var tools = answers[0].RootElement.GetProperty("result").GetProperty("tools");
-        await Assert.That(tools.GetArrayLength()).IsEqualTo(7)
+        await Assert.That(listed.Count).IsEqualTo(7)
             .Because("one channel, seven tools. An eighth is a decision somebody has to "
-                   + "argue for, in this comment, where the last five were argued for.");
-
-        var listed = tools.EnumerateArray()
-            .Select(t => t.GetProperty("name").GetString()!).ToList();
+                   + "argue for, in this comment, where the last five were argued for. "
+                   + "And each appears in exactly one shape, or a session is being offered "
+                   + "something it cannot do. Found: " + string.Join(", ", listed));
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
                     WorkItemProposalTool.Name, DocumentTool.Name,
@@ -563,8 +580,14 @@ public class PlatformToolServerTests
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));
 
-        var tool = tools[0];
-        await Assert.That(tool.GetProperty("name").GetString()).IsEqualTo(NominationTool.Name);
+        // AND THE NOMINATION'S SCHEMA, read from the shape that offers it -
+        // a flight, which is the only session it means anything in.
+        var answers = await ExchangeAsync(
+            """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
+
+        var tool = answers[0].RootElement.GetProperty("result").GetProperty("tools")
+            .EnumerateArray()
+            .Single(t => t.GetProperty("name").GetString() == NominationTool.Name);
 
         var properties = tool.GetProperty("inputSchema").GetProperty("properties");
         await Assert.That(properties.TryGetProperty("work_kind", out _)).IsTrue();

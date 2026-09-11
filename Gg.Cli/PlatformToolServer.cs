@@ -205,7 +205,7 @@ public static class PlatformToolServer
         return method switch
         {
             "initialize" => Initialized(id, message),
-            "tools/list" => Listed(id),
+            "tools/list" => Listed(id, intentPath, documentRoot),
             "prompts/list" => Offered(id),
             "prompts/get" => Given(id, message),
             "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce),
@@ -323,415 +323,507 @@ public static class PlatformToolServer
         });
     }
 
-    private static string Listed(JsonElement id) =>
+    /// <summary>
+    /// What a session started this way may actually do.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>OFFERING A TOOL A SESSION CANNOT USE IS A WRONG ANSWER SOMEBODY HAS
+    /// TO BE TALKED OUT OF.</b> Every tool used to be declared and refused at
+    /// call time, which is right for safety and wrong for guidance. A drafting
+    /// agent was shown all seven, reached for <c>submit_intent</c> — whose
+    /// description reads exactly like the tool you want when you have
+    /// something to hand back — was refused, and told the person <i>"no tool I
+    /// have applies these documents"</i>. Every clause of that was true and
+    /// the conclusion was wrong.
+    /// </para>
+    /// <para>
+    /// <b>The three shapes are already distinct in what they are HANDED, so
+    /// they are distinct in what they offer.</b> A working copy means
+    /// drafting; a path for an intent means composing one; neither means a
+    /// fleet flight, which is how the runner starts this server —
+    /// <c>ClaudeCodeExecutor</c> says <i>"it takes no environment at all"</i>.
+    /// </para>
+    /// <para>
+    /// <b>The call-time refusals stay.</b> They are the backstop and this is
+    /// the signpost: a client that calls something undeclared still gets an
+    /// answer it can read rather than a dead socket. And it narrows what an
+    /// injected agent on a flight can reach, which is the question
+    /// <c>TheProposalToolActsOnNothingTests</c> asks of this server.
+    /// </para>
+    /// </remarks>
+    private static string Listed(JsonElement id, string? intentPath, string? documentRoot) =>
         Write(writer =>
         {
             Envelope(writer, id);
             writer.WriteStartObject("result");
             writer.WriteStartArray("tools");
-            writer.WriteStartObject();
 
-            writer.WriteString("name", NominationTool.Name);
-
-            // THE PROMPT AN AGENT ACTUALLY READS. It says to call once, that
-            // declining is a real answer, and that nominating grants nothing -
-            // because an agent that thinks it has opened a flight stops
-            // waiting for one, and an agent that thinks it must choose will
-            // choose from an item that does not say.
-            writer.WriteString("description",
-                "Nominate the kind of work this item needs. Call it once with the kind you "
-              + "choose and the reason, then stop and say what you nominated and why. "
-              + "Nominating grants nothing and opens nothing: a person decides whether the "
-              + "kind you name is one this work may become. If the item does not say enough "
-              + "to choose, do NOT call this - say which question you could not answer and "
-              + "stop. Declining is a real answer and it is not a failure.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-
-            writer.WriteStartObject("properties");
-            writer.WriteStartObject(WorkKindArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description", "One of the work kinds you were offered.");
-            writer.WriteEndObject();
-            writer.WriteStartObject(ReasonArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "Why this kind and not the others, in your own words.");
-            writer.WriteEndObject();
-            // WRITTEN FOR THE SHAPE REAL NOTES TOOK. Three measured triage runs
-            // each wrote a warning not to start coding, the evidence found, and
-            // what to confirm with the reporter - so the description asks for
-            // that rather than for a summary of the item, which the next agent
-            // can already read for itself.
-            // OFFERED HERE BECAUSE THE MENU IS IN THE PROMPT. Both are bounded
-            // by the destination's may-select, which the prompt now lists - an
-            // argument offered with no menu would be a field to guess at under
-            // a rule that refuses rather than clamps.
-            writer.WriteStartObject(EnvironmentArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "Optional. One of the environments you were offered. Leave it out if the "
-              + "work item does not say, or if none of them fits - naming one outside the "
-              + "list opens nothing.");
-            writer.WriteEndObject();
-            writer.WriteStartObject(RepositoryArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "Optional. One of the repositories you were offered, on the same terms.");
-            writer.WriteEndObject();
-            writer.WriteStartObject(NoteArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "Optional. What you would tell whoever picks this up - what you found that "
-              + "the item does not say, and what to check before starting. It is shown to "
-              + "them as your words and grants nothing; leave it out if you have nothing to "
-              + "add.");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-
-            writer.WriteStartArray("required");
-            writer.WriteStringValue(WorkKindArgument);
-            writer.WriteStringValue(ReasonArgument);
-            writer.WriteEndArray();
-
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-
-            // THE SECOND TOOL, and its description is the part that decides
-            // whether it is ever used. An agent is otherwise being told to
-            // complete a task by a system it cannot see, so it has to be told
-            // in as many words that stopping to ask is a real answer - and
-            // that it must not do a different piece of work instead, which is
-            // the second-best-looking thing a stuck agent can do.
-            writer.WriteStartObject();
-            writer.WriteString("name", HelpTool.Name);
-            writer.WriteString("description",
-                "Ask for a decision you are not allowed to make: a question only a person "
-              + "can answer, or two ways forward with nothing in the tree to choose between "
-              + "them. Call it once with the question, then stop and say what you did and "
-              + "what you were left with. Asking is not failing. Do not guess, and do not do "
-              + "a different piece of work instead. This grants nothing and changes nothing: "
-              + "a person reads the question and answers it, and the work comes back to you "
-              + "with their answer.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-            writer.WriteStartObject(QuestionArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "What you need decided, in your own words. Say what you were doing, what the "
-              + "choices are, and what you could not tell from the work itself.");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            writer.WriteStartArray("required");
-            writer.WriteStringValue(QuestionArgument);
-            writer.WriteEndArray();
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-
-            // THE THIRD TOOL. Declared on every launch and granted on almost
-            // none, which is the arrangement the note at the top of this file
-            // argues for: the grant is decided in the launch's allow-list, so a
-            // tools/list that varied by envelope would be a second place the
-            // same rule lives.
-            //
-            // The description has to say the two things a composing agent
-            // cannot work out for itself - that submitting is the END of its
-            // job, and that submitting opens nothing. An agent that thinks it
-            // has opened a flight stops waiting for one; an agent that does not
-            // know it has finished keeps going and rewrites what it already
-            // handed over.
-            writer.WriteStartObject();
-            writer.WriteString("name", IntentTool.Name);
-            writer.WriteString("description",
-                "Hand back the intent you have composed: the words that say what work should "
-              + "happen, as somebody would have written them. Call it once when you and the "
-              + "person you are working with are happy with it, then stop and say that you "
-              + "submitted it. This opens nothing and grants nothing - a person reads what "
-              + "you wrote and decides whether a flight is opened from it. Calling it again "
-              + "replaces what you sent, so correcting yourself is fine; leaving without "
-              + "calling it submits nothing at all.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-            writer.WriteStartObject(IntentTool.IntentArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "The intent itself, in the words it should be recorded in. Not a summary of "
-              + "your conversation and not a report on what you did - the thing a person "
-              + "would have typed if they had written it themselves.");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            writer.WriteStartArray("required");
-            writer.WriteStringValue(IntentTool.IntentArgument);
-            writer.WriteEndArray();
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-
-            // THE FIFTH TOOL, and the second that writes a file. Its
-            // description carries more weight than most: an agent handed
-            // something called `submit_document` while looking at a governance
-            // tree will assume calling it puts the document in force, and it
-            // does not - it writes a draft into a working copy that a person
-            // then reads and submits.
-            writer.WriteStartObject();
-            writer.WriteString("name", DocumentTool.Name);
-            writer.WriteString("description",
-                "Hand back an envelope document you have drafted, for one name in this "
-              + "tenant's topology. It is written into the working copy beside the others, "
-              + "where a person reads the change and decides whether to submit it - so this "
-              + "applies nothing and grants nothing, and submitting it later opens a flight "
-              + "that may wait for an approver. The document is checked before it is "
-              + "written: if it does not read as the role you named, nothing is written and "
-              + "you are told why, so fix it and call again. Calling it again replaces what "
-              + "you wrote. "
-                // THE POINTER, HERE BECAUSE THIS IS THE ONE THAT IS READ.
-                // The tool list reaches the model before its first token, and
-                // this is the description an agent reads when it decides to
-                // write a document - which is exactly when not knowing the
-                // rules costs something. An instruction anywhere else is one
-                // it has to already be looking for.
-              + $"BEFORE YOU DRAFT, call {AirspaceContextTool.Name}: these documents have "
-              + "rules you cannot see from the file, and it shows you one that already "
-              + "exists.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-
-            writer.WriteStartObject(DocumentTool.RoleArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "What this document is: one of " + string.Join(", ", Gg.Contracts.Roles.All)
-              + ". It decides which rules the document is read by, so naming the wrong one "
-              + "is refused rather than guessed past.");
-            writer.WriteEndObject();
-
-            writer.WriteStartObject(DocumentTool.NameArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "Which name in the topology this document is for - the file names in the "
-              + "working copy are these names. Lower case, digits and hyphens; a name that "
-              + "no path can carry is refused.");
-            writer.WriteEndObject();
-
-            writer.WriteStartObject(DocumentTool.DocumentArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "The document itself, as YAML, in the form the working copy already uses. "
-              + "Leave out `based-on:` - that line is a statement about which version of "
-              + "the stream a change was made against, and gg states it rather than you.");
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-            writer.WriteStartArray("required");
-            writer.WriteStringValue(DocumentTool.RoleArgument);
-            writer.WriteStringValue(DocumentTool.NameArgument);
-            writer.WriteStringValue(DocumentTool.DocumentArgument);
-            writer.WriteEndArray();
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-
-            // THE SIXTH TOOL, AND THE ONLY ONE THAT ANSWERS RATHER THAN ACTS.
-            // The argument for it is that a drafting session hands an agent a
-            // directory and a tool and tells it nothing: no prompt, no
-            // CLAUDE.md in the tree, and no example of a role the tenant has
-            // no document for. What it needs to know is not in the working
-            // copy and not in this repository either.
-            //
-            // A TOOL RATHER THAN THE SERVER'S `instructions`, which reach a
-            // model with no call at all: instructions are the SERVER's, and
-            // this one also serves nomination, decision and triage flights
-            // that want no envelope doctrine. A tool costs nothing until it is
-            // called, the call is in the transcript so reading the rules is
-            // observable rather than assumed, and only a call can answer about
-            // THIS tenant.
-            writer.WriteStartObject();
-            writer.WriteString("name", AirspaceContextTool.Name);
-            writer.WriteString("description",
-                "Read how this tenant's envelope documents work before you draft one. It "
-              + "answers with the rules a document is read by - which you cannot work out "
-              + "from the files - plus what this working copy holds and one existing "
-              + "document in full. It changes nothing and takes no arguments. Call it "
-              + "first: the rules decide whether what you write applies straight away or "
-              + "waits for a person to approve it.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-
-            // THE SEVENTH TOOL, and the only one that starts a process.
-            // Everything it does, the agent could already do: a drafting
-            // session is attended, --allowedTools auto-approves rather than
-            // restricts, and gg is on the path - so `gg airspace pull` is one
-            // guessed command line away today. What this adds is the working
-            // copy forced rather than inferred, and gg's own refusals relayed
-            // as themselves.
-            writer.WriteStartObject();
-            writer.WriteString("name", AirspacePullTool.Name);
-            writer.WriteString("description",
-                "Render this tenant's airspace into the working copy, so the documents here "
-              + "are what the control plane currently holds. Call it when "
-              + $"{AirspaceContextTool.Name} says nothing has been pulled, or when a "
-              + "document you need is missing. It takes no arguments and writes only this "
-              + "session's working copy. "
-                // THE REFUSAL BEFORE IT IS HIT. An agent that reads a refusal
-                // as a failure retries it or works around it - the failure
-                // propose_work_item's wording was written against - and this
-                // one WILL be hit, because drafting is what makes the copy
-                // dirty.
-              + "It refuses if the working copy has uncommitted changes, which protects "
-              + "anything you have already drafted: that is an ordinary answer, not a "
-              + "failure to route around. Pull before you draft, not after.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-
-            // THE FOURTH TOOL, and the one that most needs its description
-            // read. An agent given something called `propose_work_item` while
-            // looking at a backlog will assume it changes the backlog - so the
-            // description says three things it cannot work out for itself, and
-            // the receipt says the first of them again on every call.
-            //
-            //   - proposing changes nothing in the tracker,
-            //   - declining to propose is a real answer,
-            //   - and a refusal is an ordinary outcome, not a wall to route
-            //     around by doing the work some other way.
-            //
-            // The third is the one this feature adds to the nomination's
-            // wording. A nomination is refused or it is not, and the flight is
-            // over either way; a triage proposes a dozen things and expects
-            // some of them back, and an agent that reads a refusal as a failure
-            // will either retry it or stop.
-            writer.WriteStartObject();
-            writer.WriteString("name", WorkItemProposalTool.Name);
-            writer.WriteString("description",
-                "Propose a change to a work item: create one, update its text, set a field, "
-              + "link it to another, or score it. Call it once for each change you are "
-              + "proposing, then stop and say what you proposed and why. Proposing changes "
-              + "nothing in the tracker and grants nothing - a person decides which of your "
-              + "proposals are performed, and the platform performs the ones they admit. "
-              + "Some of what you propose may be refused; that is an ordinary answer and not "
-              + "a failure, so do not retry a refused proposal and do not look for another "
-              + "way to make the change. If an item does not say enough to propose anything, "
-              + "do NOT call this - say which question you could not answer. Declining is a "
-              + "real answer.");
-
-            writer.WriteStartObject("inputSchema");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-
-            // THE MENU IS THE CONTRACT'S, not a list typed here. The extractor
-            // checks what came back against the same one and the control plane
-            // writes conditions over it, so a second spelling would make an
-            // operation proposable and unadmittable at once.
-            writer.WriteStartObject(OperationArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "What you are proposing be done to the item.");
-            writer.WriteStartArray("enum");
-            foreach (var operation in Gg.Contracts.WorkItemOperations.All)
+            if (!string.IsNullOrEmpty(documentRoot))
             {
-                writer.WriteStringValue(operation);
+                // DRAFTING. Read the airspace, render it, hand a document
+                // back. It is not a flight: it nominates nothing, asks nobody
+                // for a decision, proposes no work item and composes no
+                // intent.
+                Context(writer);
+                Pull(writer);
+                Document(writer);
+            }
+            else if (!string.IsNullOrEmpty(intentPath))
+            {
+                // COMPOSING AN INTENT, which has somewhere to record one and
+                // nothing else to do.
+                Intent(writer);
+            }
+            else
+            {
+                // A FLEET FLIGHT. The envelope decides which of these a loop
+                // is granted; this server's job is not to offer it two more
+                // that belong to the console.
+                Nomination(writer);
+                Decision(writer);
+                Proposal(writer);
             }
 
             writer.WriteEndArray();
             writer.WriteEndObject();
-
-            writer.WriteStartObject(TargetArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "The id of the work item, as the tracker gave it to you. Leave it out only "
-              + "for `create`, where the item does not exist yet.");
-            writer.WriteEndObject();
-
-            writer.WriteStartObject(ScoreArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "The score, in whatever terms your rubric asks for - a level, a number, a "
-              + "short phrase. Required for `score` and left out otherwise.");
-            writer.WriteEndObject();
-
-            // THE THIRD SPELLING OF ONE THING, which is why it is declared
-            // here rather than left to the detail: the contract names these
-            // members, the extractor reads them, and this offers them. A
-            // schema that did not would leave an agent unable to make a
-            // `field` proposal the contract accepts - which is exactly what
-            // happened for one commit.
-            writer.WriteStartObject(FieldsArgument);
-            writer.WriteString("type", "array");
-            writer.WriteString("description",
-                "Required for `field` and left out otherwise. Each entry is a field to set: "
-              + "`path` as the tracker spells it, and `value`. A person decided in advance "
-              + "which paths may be written here, so naming one outside that list changes "
-              + "nothing - and leaving a value blank is not how a field is cleared.");
-            writer.WriteStartObject("items");
-            writer.WriteString("type", "object");
-            writer.WriteStartObject("properties");
-            writer.WriteStartObject("path");
-            writer.WriteString("type", "string");
-            writer.WriteString("description", "The field's reference path.");
-            writer.WriteEndObject();
-            writer.WriteStartObject("value");
-            writer.WriteString("type", "string");
-            writer.WriteString("description", "What to set it to.");
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            writer.WriteStartArray("required");
-            writer.WriteStringValue("path");
-            writer.WriteStringValue("value");
-            writer.WriteEndArray();
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-
-            writer.WriteStartObject(ReasonArgument);
-            writer.WriteString("type", "string");
-            writer.WriteString("description",
-                "Why you are proposing this, in your own words. It is what the person "
-              + "deciding reads, so say what you found rather than what you did.");
-            writer.WriteEndObject();
-
-            // NO `properties` UNDER IT, and that absence is the declaration. A
-            // shape here would be this week deciding what a reader in six
-            // months may ask, which is the one thing this member exists to
-            // avoid.
-            writer.WriteStartObject(DetailArgument);
-            writer.WriteString("type", "object");
-            writer.WriteString("description",
-                "Optional. Anything else about this proposal that somebody re-reading it "
-              + "later would want - the rubric you scored against, what you considered and "
-              + "ruled out, what you were unsure of. Nothing reads it now; it is kept whole "
-              + "for whoever does.");
-            writer.WriteEndObject();
-
-            writer.WriteEndObject();
-
-            writer.WriteStartArray("required");
-            writer.WriteStringValue(OperationArgument);
-            writer.WriteStringValue(ReasonArgument);
-            writer.WriteEndArray();
-
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-
-            writer.WriteEndArray();
-            writer.WriteEndObject();
         });
+
+
+    /// <summary>Declares <c>NominationTool</c>.</summary>
+    private static void Nomination(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+
+        writer.WriteString("name", NominationTool.Name);
+
+        // THE PROMPT AN AGENT ACTUALLY READS. It says to call once, that
+        // declining is a real answer, and that nominating grants nothing -
+        // because an agent that thinks it has opened a flight stops
+        // waiting for one, and an agent that thinks it must choose will
+        // choose from an item that does not say.
+        writer.WriteString("description",
+            "Nominate the kind of work this item needs. Call it once with the kind you "
+          + "choose and the reason, then stop and say what you nominated and why. "
+          + "Nominating grants nothing and opens nothing: a person decides whether the "
+          + "kind you name is one this work may become. If the item does not say enough "
+          + "to choose, do NOT call this - say which question you could not answer and "
+          + "stop. Declining is a real answer and it is not a failure.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+
+        writer.WriteStartObject("properties");
+        writer.WriteStartObject(WorkKindArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "One of the work kinds you were offered.");
+        writer.WriteEndObject();
+        writer.WriteStartObject(ReasonArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Why this kind and not the others, in your own words.");
+        writer.WriteEndObject();
+        // WRITTEN FOR THE SHAPE REAL NOTES TOOK. Three measured triage runs
+        // each wrote a warning not to start coding, the evidence found, and
+        // what to confirm with the reporter - so the description asks for
+        // that rather than for a summary of the item, which the next agent
+        // can already read for itself.
+        // OFFERED HERE BECAUSE THE MENU IS IN THE PROMPT. Both are bounded
+        // by the destination's may-select, which the prompt now lists - an
+        // argument offered with no menu would be a field to guess at under
+        // a rule that refuses rather than clamps.
+        writer.WriteStartObject(EnvironmentArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional. One of the environments you were offered. Leave it out if the "
+          + "work item does not say, or if none of them fits - naming one outside the "
+          + "list opens nothing.");
+        writer.WriteEndObject();
+        writer.WriteStartObject(RepositoryArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional. One of the repositories you were offered, on the same terms.");
+        writer.WriteEndObject();
+        writer.WriteStartObject(NoteArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional. What you would tell whoever picks this up - what you found that "
+          + "the item does not say, and what to check before starting. It is shown to "
+          + "them as your words and grants nothing; leave it out if you have nothing to "
+          + "add.");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(WorkKindArgument);
+        writer.WriteStringValue(ReasonArgument);
+        writer.WriteEndArray();
+
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+
+        // THE SECOND TOOL, and its description is the part that decides
+        // whether it is ever used. An agent is otherwise being told to
+        // complete a task by a system it cannot see, so it has to be told
+        // in as many words that stopping to ask is a real answer - and
+        // that it must not do a different piece of work instead, which is
+        // the second-best-looking thing a stuck agent can do.
+    }
+
+    /// <summary>Declares <c>HelpTool</c>.</summary>
+    private static void Decision(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", HelpTool.Name);
+        writer.WriteString("description",
+            "Ask for a decision you are not allowed to make: a question only a person "
+          + "can answer, or two ways forward with nothing in the tree to choose between "
+          + "them. Call it once with the question, then stop and say what you did and "
+          + "what you were left with. Asking is not failing. Do not guess, and do not do "
+          + "a different piece of work instead. This grants nothing and changes nothing: "
+          + "a person reads the question and answers it, and the work comes back to you "
+          + "with their answer.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteStartObject(QuestionArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "What you need decided, in your own words. Say what you were doing, what the "
+          + "choices are, and what you could not tell from the work itself.");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(QuestionArgument);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        // THE THIRD TOOL. Declared on every launch and granted on almost
+        // none, which is the arrangement the note at the top of this file
+        // argues for: the grant is decided in the launch's allow-list, so a
+        // tools/list that varied by envelope would be a second place the
+        // same rule lives.
+        //
+        // The description has to say the two things a composing agent
+        // cannot work out for itself - that submitting is the END of its
+        // job, and that submitting opens nothing. An agent that thinks it
+        // has opened a flight stops waiting for one; an agent that does not
+        // know it has finished keeps going and rewrites what it already
+        // handed over.
+    }
+
+    /// <summary>Declares <c>IntentTool</c>.</summary>
+    private static void Intent(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", IntentTool.Name);
+        writer.WriteString("description",
+            "Hand back the intent you have composed: the words that say what work should "
+          + "happen, as somebody would have written them. Call it once when you and the "
+          + "person you are working with are happy with it, then stop and say that you "
+          + "submitted it. This opens nothing and grants nothing - a person reads what "
+          + "you wrote and decides whether a flight is opened from it. Calling it again "
+          + "replaces what you sent, so correcting yourself is fine; leaving without "
+          + "calling it submits nothing at all.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteStartObject(IntentTool.IntentArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "The intent itself, in the words it should be recorded in. Not a summary of "
+          + "your conversation and not a report on what you did - the thing a person "
+          + "would have typed if they had written it themselves.");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(IntentTool.IntentArgument);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        // THE FIFTH TOOL, and the second that writes a file. Its
+        // description carries more weight than most: an agent handed
+        // something called `submit_document` while looking at a governance
+        // tree will assume calling it puts the document in force, and it
+        // does not - it writes a draft into a working copy that a person
+        // then reads and submits.
+    }
+
+    /// <summary>Declares <c>DocumentTool</c>.</summary>
+    private static void Document(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", DocumentTool.Name);
+        writer.WriteString("description",
+            "Hand back an envelope document you have drafted, for one name in this "
+          + "tenant's topology. It is written into the working copy beside the others, "
+          + "where a person reads the change and decides whether to submit it - so this "
+          + "applies nothing and grants nothing, and submitting it later opens a flight "
+          + "that may wait for an approver. The document is checked before it is "
+          + "written: if it does not read as the role you named, nothing is written and "
+          + "you are told why, so fix it and call again. Calling it again replaces what "
+          + "you wrote. "
+            // THE POINTER, HERE BECAUSE THIS IS THE ONE THAT IS READ.
+            // The tool list reaches the model before its first token, and
+            // this is the description an agent reads when it decides to
+            // write a document - which is exactly when not knowing the
+            // rules costs something. An instruction anywhere else is one
+            // it has to already be looking for.
+          + $"BEFORE YOU DRAFT, call {AirspaceContextTool.Name}: these documents have "
+          + "rules you cannot see from the file, and it shows you one that already "
+          + "exists.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+
+        writer.WriteStartObject(DocumentTool.RoleArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "What this document is: one of " + string.Join(", ", Gg.Contracts.Roles.All)
+          + ". It decides which rules the document is read by, so naming the wrong one "
+          + "is refused rather than guessed past.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(DocumentTool.NameArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Which name in the topology this document is for - the file names in the "
+          + "working copy are these names. Lower case, digits and hyphens; a name that "
+          + "no path can carry is refused.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(DocumentTool.DocumentArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "The document itself, as YAML, in the form the working copy already uses. "
+          + "Leave out `based-on:` - that line is a statement about which version of "
+          + "the stream a change was made against, and gg states it rather than you.");
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(DocumentTool.RoleArgument);
+        writer.WriteStringValue(DocumentTool.NameArgument);
+        writer.WriteStringValue(DocumentTool.DocumentArgument);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        // THE SIXTH TOOL, AND THE ONLY ONE THAT ANSWERS RATHER THAN ACTS.
+        // The argument for it is that a drafting session hands an agent a
+        // directory and a tool and tells it nothing: no prompt, no
+        // CLAUDE.md in the tree, and no example of a role the tenant has
+        // no document for. What it needs to know is not in the working
+        // copy and not in this repository either.
+        //
+        // A TOOL RATHER THAN THE SERVER'S `instructions`, which reach a
+        // model with no call at all: instructions are the SERVER's, and
+        // this one also serves nomination, decision and triage flights
+        // that want no envelope doctrine. A tool costs nothing until it is
+        // called, the call is in the transcript so reading the rules is
+        // observable rather than assumed, and only a call can answer about
+        // THIS tenant.
+    }
+
+    /// <summary>Declares <c>AirspaceContextTool</c>.</summary>
+    private static void Context(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", AirspaceContextTool.Name);
+        writer.WriteString("description",
+            "Read how this tenant's envelope documents work before you draft one. It "
+          + "answers with the rules a document is read by - which you cannot work out "
+          + "from the files - plus what this working copy holds and one existing "
+          + "document in full. It changes nothing and takes no arguments. Call it "
+          + "first: the rules decide whether what you write applies straight away or "
+          + "waits for a person to approve it.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        // THE SEVENTH TOOL, and the only one that starts a process.
+        // Everything it does, the agent could already do: a drafting
+        // session is attended, --allowedTools auto-approves rather than
+        // restricts, and gg is on the path - so `gg airspace pull` is one
+        // guessed command line away today. What this adds is the working
+        // copy forced rather than inferred, and gg's own refusals relayed
+        // as themselves.
+    }
+
+    /// <summary>Declares <c>AirspacePullTool</c>.</summary>
+    private static void Pull(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", AirspacePullTool.Name);
+        writer.WriteString("description",
+            "Render this tenant's airspace into the working copy, so the documents here "
+          + "are what the control plane currently holds. Call it when "
+          + $"{AirspaceContextTool.Name} says nothing has been pulled, or when a "
+          + "document you need is missing. It takes no arguments and writes only this "
+          + "session's working copy. "
+            // THE REFUSAL BEFORE IT IS HIT. An agent that reads a refusal
+            // as a failure retries it or works around it - the failure
+            // propose_work_item's wording was written against - and this
+            // one WILL be hit, because drafting is what makes the copy
+            // dirty.
+          + "It refuses if the working copy has uncommitted changes, which protects "
+          + "anything you have already drafted: that is an ordinary answer, not a "
+          + "failure to route around. Pull before you draft, not after.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        // THE FOURTH TOOL, and the one that most needs its description
+        // read. An agent given something called `propose_work_item` while
+        // looking at a backlog will assume it changes the backlog - so the
+        // description says three things it cannot work out for itself, and
+        // the receipt says the first of them again on every call.
+        //
+        //   - proposing changes nothing in the tracker,
+        //   - declining to propose is a real answer,
+        //   - and a refusal is an ordinary outcome, not a wall to route
+        //     around by doing the work some other way.
+        //
+        // The third is the one this feature adds to the nomination's
+        // wording. A nomination is refused or it is not, and the flight is
+        // over either way; a triage proposes a dozen things and expects
+        // some of them back, and an agent that reads a refusal as a failure
+        // will either retry it or stop.
+    }
+
+    /// <summary>Declares <c>WorkItemProposalTool</c>.</summary>
+    private static void Proposal(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", WorkItemProposalTool.Name);
+        writer.WriteString("description",
+            "Propose a change to a work item: create one, update its text, set a field, "
+          + "link it to another, or score it. Call it once for each change you are "
+          + "proposing, then stop and say what you proposed and why. Proposing changes "
+          + "nothing in the tracker and grants nothing - a person decides which of your "
+          + "proposals are performed, and the platform performs the ones they admit. "
+          + "Some of what you propose may be refused; that is an ordinary answer and not "
+          + "a failure, so do not retry a refused proposal and do not look for another "
+          + "way to make the change. If an item does not say enough to propose anything, "
+          + "do NOT call this - say which question you could not answer. Declining is a "
+          + "real answer.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+
+        // THE MENU IS THE CONTRACT'S, not a list typed here. The extractor
+        // checks what came back against the same one and the control plane
+        // writes conditions over it, so a second spelling would make an
+        // operation proposable and unadmittable at once.
+        writer.WriteStartObject(OperationArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "What you are proposing be done to the item.");
+        writer.WriteStartArray("enum");
+        foreach (var operation in Gg.Contracts.WorkItemOperations.All)
+        {
+            writer.WriteStringValue(operation);
+        }
+
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(TargetArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "The id of the work item, as the tracker gave it to you. Leave it out only "
+          + "for `create`, where the item does not exist yet.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(ScoreArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "The score, in whatever terms your rubric asks for - a level, a number, a "
+          + "short phrase. Required for `score` and left out otherwise.");
+        writer.WriteEndObject();
+
+        // THE THIRD SPELLING OF ONE THING, which is why it is declared
+        // here rather than left to the detail: the contract names these
+        // members, the extractor reads them, and this offers them. A
+        // schema that did not would leave an agent unable to make a
+        // `field` proposal the contract accepts - which is exactly what
+        // happened for one commit.
+        writer.WriteStartObject(FieldsArgument);
+        writer.WriteString("type", "array");
+        writer.WriteString("description",
+            "Required for `field` and left out otherwise. Each entry is a field to set: "
+          + "`path` as the tracker spells it, and `value`. A person decided in advance "
+          + "which paths may be written here, so naming one outside that list changes "
+          + "nothing - and leaving a value blank is not how a field is cleared.");
+        writer.WriteStartObject("items");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteStartObject("path");
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "The field's reference path.");
+        writer.WriteEndObject();
+        writer.WriteStartObject("value");
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "What to set it to.");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteStartArray("required");
+        writer.WriteStringValue("path");
+        writer.WriteStringValue("value");
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(ReasonArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Why you are proposing this, in your own words. It is what the person "
+          + "deciding reads, so say what you found rather than what you did.");
+        writer.WriteEndObject();
+
+        // NO `properties` UNDER IT, and that absence is the declaration. A
+        // shape here would be this week deciding what a reader in six
+        // months may ask, which is the one thing this member exists to
+        // avoid.
+        writer.WriteStartObject(DetailArgument);
+        writer.WriteString("type", "object");
+        writer.WriteString("description",
+            "Optional. Anything else about this proposal that somebody re-reading it "
+          + "later would want - the rubric you scored against, what you considered and "
+          + "ruled out, what you were unsure of. Nothing reads it now; it is kept whole "
+          + "for whoever does.");
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(OperationArgument);
+        writer.WriteStringValue(ReasonArgument);
+        writer.WriteEndArray();
+
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
 
     private static string Called(
         JsonElement id, JsonElement message, string? intentPath, string? documentRoot,
@@ -1164,6 +1256,23 @@ public static class PlatformToolServer
             "WHAT THESE FILES ARE. A rendering of the stream, not the record. Nothing you "
           + "write here applies anything: a person reads the change and decides whether to "
           + "submit it, and submitting opens a flight that may wait for an approver.");
+        said.AppendLine();
+
+        // WHERE THE AGENT'S PART ENDS, and it is here because one went looking
+        // for it and did not find it. Having written the documents it worked
+        // out - correctly - that no tool it held would APPLY them, and then,
+        // with nothing left that it was permitted to do and no statement that
+        // being finished was the answer, it reached for the nearest remaining
+        // act and tried to compose a flight intent. Every step of that was
+        // sound. An agent told what it MAY do and not told where to stop will
+        // find something else to do.
+        said.AppendLine(
+            $"WHERE YOUR PART ENDS. Write each document, hand it back with "
+          + $"`{Gg.Local.DocumentTool.Name}`, say what you changed and why, and STOP. You "
+          + "cannot apply anything and there is no tool here that does: a person reads the "
+          + "diff and applies it from the console, and that is the whole of the next step. "
+          + "Do not open a flight, compose an intent, or look for another way to make the "
+          + "change land - there isn't one, and not finding one is the correct outcome.");
         said.AppendLine();
 
         // FROM THE VOCABULARY AND THE PATH RULE, so a role added to either

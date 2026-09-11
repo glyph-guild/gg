@@ -103,8 +103,12 @@ public class ADocumentArrivesByToolCallTests
         // qualified name, tools/list declares the bare one, and whatever reads
         // the result looks for the qualified one - and every previous
         // disagreement was silent in the worst direction.
+        // LISTED AGAINST A DRAFTING SESSION, which is the only shape this
+        // tool is offered in - a session with no working copy has nowhere for
+        // a document to go, so offering it there would be a wrong answer
+        // somebody has to be talked out of. One was.
         var declared = (await RecordingAsync(
-                null, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}"""))[0]
+                Somewhere().FullName, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}"""))[0]
             .RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray()
             .Select(t => t.GetProperty("name").GetString())

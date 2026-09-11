@@ -88,7 +88,7 @@ public class TheAgentCanPullTheAirspaceTests
     [Test]
     public async Task The_server_offers_it()
     {
-        var answers = await RecordingAsync(null, null, Listing());
+        var answers = await RecordingAsync("/tmp/tree", null, Listing());
 
         var names = answers[0].RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray()
@@ -102,7 +102,7 @@ public class TheAgentCanPullTheAirspaceTests
     [Test]
     public async Task Its_description_says_a_dirty_tree_is_refused()
     {
-        var described = Declared(await RecordingAsync(null, null, Listing()), Tool)
+        var described = Declared(await RecordingAsync("/tmp/tree", null, Listing()), Tool)
             .GetProperty("description").GetString() ?? "";
 
         await Assert.That(described).Contains("uncommitted", StringComparison.OrdinalIgnoreCase)

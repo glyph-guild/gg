@@ -87,7 +87,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
     [Test]
     public async Task The_server_offers_it()
     {
-        var answers = await RecordingAsync(null, null, Listing());
+        var answers = await RecordingAsync("/tmp/tree", null, Listing());
 
         var names = answers[0].RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray()
@@ -106,7 +106,7 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         // the agent's first token, so submit_document's description is where a
         // pointer to this one has to live - an instruction anywhere else is one
         // the agent has to already be looking for.
-        var answers = await RecordingAsync(null, null, Listing());
+        var answers = await RecordingAsync("/tmp/tree", null, Listing());
 
         var submit = answers[0].RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray()

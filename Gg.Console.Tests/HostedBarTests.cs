@@ -474,6 +474,52 @@ public class HostedBarTests
     }
 
     [Test]
+    public async Task The_hint_is_the_last_row_of_the_bar_at_the_top()
+    {
+        // ALL OF GG'S ROWS IN ONE PLACE. The hint was along the bottom of the
+        // screen, which put gg on two edges with the child between them - and
+        // the thing it is a hint ABOUT is at the top. A person reading the bar
+        // had to look somewhere else to find out it could be opened.
+        var rows = HostedBar.Rows(Shut(), "gg · drafting", body: "", most: 12,
+            columns: Narrow);
+
+        await Assert.That(rows.Count).IsGreaterThan(1)
+            .Because("the status and then the hint under it.");
+
+        await Assert.That(rows[^1]).Contains("ctrl-g", StringComparison.OrdinalIgnoreCase)
+            .Because("the hint is the LAST row of the bar, against the child, which is "
+                   + "where a person's eye leaves gg's rows. Rows:\n"
+                   + string.Join("\n", rows));
+
+        await Assert.That(rows[0]).DoesNotContain("ctrl-g", StringComparison.OrdinalIgnoreCase)
+            .Because("and not the first, which is the session's to talk about itself.");
+    }
+
+    [Test]
+    public async Task The_hint_is_inside_the_rows_the_panel_was_offered()
+    {
+        // IT COSTS A ROW OF THE BUDGET NOW, rather than a row of the screen.
+        // A hint that came out of neither would be painted over the child.
+        foreach (var most in (int[])[2, 3, 6, 12])
+        {
+            var rows = HostedBar.Rows(Shut(), "gg", body: "", most: most, columns: Narrow);
+
+            await Assert.That(rows.Count).IsLessThanOrEqualTo(most)
+                .Because($"offered {most} and took {rows.Count}.");
+        }
+    }
+
+    [Test]
+    public async Task An_open_panel_says_how_to_close_it_on_its_last_row_too()
+    {
+        var rows = HostedBar.Rows(Open(), "gg", body: "one\ntwo", most: 8, columns: Narrow);
+
+        await Assert.That(rows[^1]).Contains("close", StringComparison.OrdinalIgnoreCase)
+            .Because("the way out belongs where the way in was. Rows:\n"
+                   + string.Join("\n", rows));
+    }
+
+    [Test]
     public async Task An_open_panel_says_how_to_close_it()
     {
         // THE ROW STAYS, AND ONLY ITS WORDS CHANGE. A footer that vanished

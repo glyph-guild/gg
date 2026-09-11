@@ -189,6 +189,37 @@ public sealed record LoopOutcome
     /// </remarks>
     public required IReadOnlyList<string> MovesUsed { get; init; }
 
+    /// <summary>Fresh input tokens, or null where nothing counted them.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Absent, never zero, and the four below say the same thing.</b> An
+    /// attended session hands a person the terminal, has no stream to count,
+    /// and reaches this fact like any other run; a headless one can end with no
+    /// result record at all. Four zeroes would report both as a loop that cost
+    /// nothing, which is <c>AttendedGaps.Turns</c>'s helpful lie arriving in a
+    /// second place — and the one wrong answer somebody working to a budget
+    /// would not stop to question. No gap VALUE is declared for it:
+    /// <c>LoopAttended</c> already says the session was attended, so a reader
+    /// can tell <i>nobody could measure</i> from <i>nobody did</i>.
+    /// </para>
+    /// <para>
+    /// <b>Four counts and no total</b>, for the reason the whole fact rests on:
+    /// how a provider weighs a cache read against an output token is not
+    /// published, and a total computed here would be an adapter's guess
+    /// crossing as a measurement.
+    /// </para>
+    /// </remarks>
+    public long? InputTokens { get; init; }
+
+    /// <summary>What the model produced, thinking included. See <see cref="InputTokens"/>.</summary>
+    public long? OutputTokens { get; init; }
+
+    /// <summary>Input served from cache. See <see cref="InputTokens"/>.</summary>
+    public long? CacheReadTokens { get; init; }
+
+    /// <summary>Input written to cache. See <see cref="InputTokens"/>.</summary>
+    public long? CacheWriteTokens { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(LoopOutcome outcome)
     {

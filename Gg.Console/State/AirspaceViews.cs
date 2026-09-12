@@ -37,10 +37,16 @@ public static class AirspaceViews
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>ON DISK ONLY WHEN IT DIFFERS.</b> A file matching what is applied
-    /// makes the first two the same document, and a tab that duplicates its
-    /// neighbour teaches people to stop reading tabs. It appears when there is
-    /// something to compare — which is also the only time somebody is asking.
+    /// <b>ON DISK ALWAYS.</b> This used to appear only when the file differed
+    /// from what is applied, on the argument that a tab duplicating its
+    /// neighbour teaches people to stop reading tabs. In use it did something
+    /// else: it took the FILE away from a tree of file NAMES. Select a
+    /// document that is committed and applied - the ordinary, healthy state -
+    /// and there was no way to look at it.
+    /// <para>
+    /// The duplication was never real either. One of these is what somebody
+    /// wrote, comments and ordering and all; the other is what gg made of it.
+    /// </para>
     /// </para>
     /// <para>
     /// <b>EFFECTIVE ONLY FOR A WORK KIND.</b> Composition is per work kind
@@ -63,26 +69,9 @@ public static class AirspaceViews
             return [];
         }
 
-        var applied = Applied(state, pointed.Name);
-
-        // WHOSE ANSWER "DIFFERS" IS. Not this console's: comparing the raw
-        // file against the canonical rendering would call every pulled
-        // document different, because the renderer normalises what an author
-        // wrote. The diff verb already answers it, git answers the local half,
-        // and a name with nothing applied differs by construction.
-        //
-        // THE SAME RULE THE ROWS FOLLOW. Direction is read and never computed
-        // here, for ADR-0016 § 6's reason, and this is the same question one
-        // step smaller.
-        var differs = applied is null
-            || state.Estate?.Working?.Changes.Any(c =>
-                string.Equals(c.Path, pointed.Path, StringComparison.Ordinal)) is true
-            || state.Estate?.Uncommitted.Contains(pointed.Path, StringComparer.Ordinal)
-                is true;
-
         return
         [
-            .. differs ? (AirspaceView[])[AirspaceView.OnDisk] : [],
+            AirspaceView.OnDisk,
             AirspaceView.Applied,
             .. string.Equals(pointed.Role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal)
                 ? (AirspaceView[])[AirspaceView.Effective]

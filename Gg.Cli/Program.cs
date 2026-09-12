@@ -66,6 +66,11 @@ return CliArgs.Parse(args) switch
     CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
+    CliAction.Environments charted =>
+        await EmitAsync(charted.Json, c => c.EnvironmentsAsync()),
+    CliAction.Strategies strategies =>
+        await EmitAsync(strategies.Json, c => c.StrategiesAsync()),
+    CliAction.Pools pools => await EmitAsync(pools.Json, c => c.PoolsAsync()),
     CliAction.Plan plan => await EmitAsync(plan.Json, c => c.PlanAsync(plan.Flight)),
     CliAction.AirspaceShow airspace =>
         await EmitAsync(airspace.Json, c => c.AirspaceAsync(airspace.Name)),

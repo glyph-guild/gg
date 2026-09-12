@@ -831,6 +831,32 @@ public sealed record AppState
     public RunnerList? Runners { get; init; }
 
     /// <summary>
+    /// The chart: every environment name an envelope may select.
+    /// </summary>
+    /// <remarks>
+    /// <b>The authoritative list, and the only one.</b> A strategy names the
+    /// environment it furnishes and a runner advertises one as a label, so both
+    /// of those mention environments - but neither enumerates them, and a
+    /// charted name nothing furnishes appears in neither.
+    /// </remarks>
+    public EnvironmentChart? Chart { get; init; }
+
+    /// <summary>Every strategy in force: what furnishes each charted name.</summary>
+    public StrategyList? Strategies { get; init; }
+
+    /// <summary>
+    /// Every managed pool's latest attestation, per pool and action.
+    /// </summary>
+    /// <remarks>
+    /// <b>Per POOL, and not per member.</b> An attestation carries a pool and an
+    /// action and no member name, so a pool of four containers verifying every
+    /// five seconds collapses to one row and the last one to attest wins.
+    /// Whatever renders this may say what a pool last reported; it may not say
+    /// what a container is doing.
+    /// </remarks>
+    public PoolLedger? Pools { get; init; }
+
+    /// <summary>
     /// What each allowance the fleet spends from has left, or null when
     /// nothing has answered.
     /// </summary>

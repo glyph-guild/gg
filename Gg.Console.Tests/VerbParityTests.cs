@@ -97,6 +97,24 @@ public class VerbParityTests
             // fleet.
             ["Allowances"] = "reachable: the allowance column on the runners pane, built "
                            + "from the same read this verb prints.",
+            // THE THREE ENVIRONMENT READS. One answer for all three, because
+            // one pane will be built from all three: the chart is the rows,
+            // the strategies say what furnishes each name, and the ledger says
+            // what the pull point last attested about the pools they name.
+            //
+            // THEY REACH THE MODEL AND NO PANE DRAWS THEM YET, which is a
+            // sequence rather than a decision - the shape `Runners` had at step
+            // 2, and worth the same caution: a line that says "next" for longer
+            // than it takes to arrive is how this list got to eleven.
+            ["Environments"] = "reaches the model; no pane yet. One row per charted name is "
+                             + "what the Environments tab is for.",
+            ["Strategies"] = "reaches the model; no pane yet. It is the strategy column "
+                           + "beside each charted name - what furnishes it, inside which "
+                           + "bounds.",
+            ["Pools"] = "reaches the model; no pane yet. It is per POOL rather than per "
+                      + "member, because an attestation carries no member name - so whatever "
+                      + "draws it may say what a pool last reported and never what a "
+                      + "container is doing.",
             ["AllowanceFloor"] = "reachable: `o` on the runners pane offers a share to keep "
                                + "back, and the write happens between sessions with the "
                                + "terminal free - like every other write here.",

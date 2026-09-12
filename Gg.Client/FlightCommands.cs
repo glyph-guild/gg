@@ -354,6 +354,25 @@ public sealed class FlightCommands(
     public async Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));
 
+    /// <summary>The chart: every environment name an envelope may select.</summary>
+    public async Task<VerbResult> EnvironmentsAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Chart(await _client.ChartAsync(Session(), cancellationToken));
+
+    /// <summary>Every managed pool's latest attestation.</summary>
+    public async Task<VerbResult> PoolsAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Pools(await _client.PoolsAsync(Session(), cancellationToken));
+
+    /// <summary>Every strategy in force: what furnishes each charted environment.</summary>
+    /// <remarks>
+    /// <b>The client could already ask and nothing did.</b>
+    /// <c>ListStrategiesAsync</c> has existed since the strategy door shipped
+    /// and was reached only through the estate read, which renders a document's
+    /// text rather than its numbers - so warm, size and the bounds were on the
+    /// wire and on no surface.
+    /// </remarks>
+    public async Task<VerbResult> StrategiesAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Strategies(await _client.ListStrategiesAsync(Session(), cancellationToken));
+
     /// <summary>
     /// Grants or revokes administration, then answers with who this is.
     /// </summary>

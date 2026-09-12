@@ -168,6 +168,42 @@ public static class ConsoleTheme
         };
     }
 
+    /// <summary>
+    /// The row under the cursor, as a block of light.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The plain attribute turned over, rather than a colour somebody
+    /// liked.</b> The text takes the ground and the ground takes the text, so
+    /// the pair is readable by construction on whatever theme is in force -
+    /// which is <see cref="Muted"/>'s argument at the other end of the range,
+    /// and the reason neither of them names a colour.
+    /// </para>
+    /// <para>
+    /// <b>Focus AND HotNormal, because a cursor that vanishes is not a
+    /// cursor.</b> <c>TableView</c> draws the selected row with
+    /// <c>HotNormal</c> once the table no longer holds the keyboard. On a tab
+    /// whose other half can take the keyboard, that is exactly when the row
+    /// matters most: it is the one thing saying what the pane beside it is
+    /// about.
+    /// </para>
+    /// </remarks>
+    public static Scheme Picked()
+    {
+        var grounded = Grounded();
+        var plain = grounded.GetAttributeForRole(VisualRole.Normal);
+
+        var block = new Terminal.Gui.Drawing.Attribute(
+            plain.Background, plain.Foreground, plain.Style);
+
+        return new Scheme(grounded)
+        {
+            Focus = block,
+            HotFocus = block,
+            HotNormal = block,
+        };
+    }
+
     private static Terminal.Gui.Drawing.Attribute OnGround(
         Terminal.Gui.Drawing.Attribute attribute) =>
         attribute.Background == Color.None

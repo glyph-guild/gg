@@ -48,6 +48,14 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly TableView _airspaceTable;
 
+    /// <summary>The border round the tree, so it has an edge like its neighbour.</summary>
+    /// <remarks>
+    /// The document beside it is drawn inside a tab bar with a border of its
+    /// own. A half with an edge next to a half without one reads as one pane
+    /// and some loose text.
+    /// </remarks>
+    private readonly FrameView _airspaceTreePane;
+
     /// <summary>The three views of the selected document, beside the tree.</summary>
     /// <remarks>
     /// <b>ALONG THE BOTTOM, because the window's own tabs run across the top.</b>
@@ -409,9 +417,16 @@ public sealed class ConsoleScreen : Window
         //
         // THREE ROWS SHORTER, which is what the box below it takes: two for
         // its border and one for the line inside.
+        _airspaceTreePane = new FrameView
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Percent(42),
+            Height = Dim.Fill(3),
+        };
+
         _airspaceTable = CollectionViews.Table();
-        _airspaceTable.Width = Dim.Percent(42);
-        _airspaceTable.Height = Dim.Fill(3);
+        _airspaceTreePane.Add(_airspaceTable);
         _airspaceAbsent = new Label
         {
             Width = Dim.Fill(),
@@ -421,7 +436,7 @@ public sealed class ConsoleScreen : Window
 
         _airspaceViews = new Terminal.Gui.Views.Tabs
         {
-            X = Pos.Right(_airspaceTable) + 1,
+            X = Pos.Right(_airspaceTreePane),
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(3),
@@ -466,7 +481,7 @@ public sealed class ConsoleScreen : Window
         // which of the nothings it is, from the same producer the lists use.
         _airspaceNoDocument = new Label
         {
-            X = Pos.Right(_airspaceTable) + 1,
+            X = Pos.Right(_airspaceTreePane),
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(3),
@@ -519,7 +534,7 @@ public sealed class ConsoleScreen : Window
 
         _airspaceViews.ValueChanged += OnAirspaceViewChanged;
 
-        _envelopePane.Add(_airspaceTable);
+        _envelopePane.Add(_airspaceTreePane);
         _envelopePane.Add(_airspaceAbsent);
         _envelopePane.Add(_airspaceViews);
         _envelopePane.Add(_airspaceNoDocument);
@@ -966,6 +981,12 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
+
+        // THE ROW UNDER THE CURSOR, AS A BLOCK. On the tab with two halves the
+        // row is what says which document the pane beside it is about, so it
+        // has to read as a cursor - and has to keep reading as one when the
+        // keyboard crosses to the document.
+        _airspaceTreePane.SetScheme(ConsoleTheme.Picked());
         Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
@@ -1966,12 +1987,13 @@ public sealed class ConsoleScreen : Window
             // already hides an empty table; what it cannot know is which of
             // the three absences this is.
             _airspaceTable.Visible = absence.Length == 0 && tree.Count > 0;
+            _airspaceTreePane.Visible = _airspaceTable.Visible;
 
             // AND THE DOCUMENT BESIDE IT. The bar's membership was reconciled
             // at the top of this block, so what is offered is what it holds;
             // a folder row offers nothing and gets the sentence instead.
             var views = AirspaceViews.Offered(State);
-            var beside = _airspaceTable.Visible;
+            var beside = _airspaceTreePane.Visible;
 
             _airspaceViews.Visible = beside && views.Count > 0;
             _airspaceNoDocument.Visible = beside && views.Count == 0;

@@ -377,6 +377,19 @@ public sealed class ConsoleData(
         _commands.AirspaceAsync(name, cancellationToken);
 
     /// <summary>
+    /// `gg envelope show &lt;work-kind&gt;` - the floor composed with one kind.
+    /// </summary>
+    /// <remarks>
+    /// <b>Called by <c>ConsoleDocument</c> beside the document itself</b>,
+    /// because reading a work kind without what it composes to is half an
+    /// answer - and the half a person was already reading somewhere else and
+    /// mistaking for the whole.
+    /// </remarks>
+    public Task<VerbResult> RulesInForceAsync(
+        string workKind, CancellationToken cancellationToken = default) =>
+        _commands.RulesInForceAsync(workKind, cancellationToken);
+
+    /// <summary>
     /// `gg airspace diff` - what the working copy would change, and which way.
     /// </summary>
     /// <remarks>

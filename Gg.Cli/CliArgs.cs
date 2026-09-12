@@ -291,7 +291,16 @@ public abstract record CliAction
     public sealed record Bundle(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>The tenant's envelope, as canonical text.</summary>
-    public sealed record EnvelopeShow(bool Json) : CliAction, IEmitsResult;
+    /// <summary>
+    /// The floor, or what governs a flight of one work kind.
+    /// </summary>
+    /// <remarks>
+    /// <b>"The rules in force" is not one answer.</b> What governs depends on
+    /// the kind of flight: the floor composed with that kind's document. A
+    /// tenant who applied a work kind and read this without a name found none
+    /// of their own rules in it.
+    /// </remarks>
+    public sealed record EnvelopeShow(bool Json, string? WorkKind) : CliAction, IEmitsResult;
 
     /// <summary>
     /// Why each obligation applied to a flight, or did not.
@@ -721,7 +730,11 @@ public static class CliArgs
               + "it back."),
             ["why"] => Unknown(
                 "gg why needs a flight: gg why GG-42, or gg why GG-42 <obligation>."),
-            ["envelope", "show"] => new CliAction.EnvelopeShow(json),
+            // A WORK KIND NARROWS IT TO WHAT ACTUALLY GOVERNS ONE. Without a
+            // name this is the floor, which is what it always was - and what
+            // somebody reads and mistakes for everything.
+            ["envelope", "show", var kind] => new CliAction.EnvelopeShow(json, kind),
+            ["envelope", "show"] => new CliAction.EnvelopeShow(json, null),
             ["envelope", "apply", var source] => new CliAction.EnvelopeApply(source, json),
             ["strategy", "apply", var name, var source] =>
                 new CliAction.StrategyApply(name, source, json),

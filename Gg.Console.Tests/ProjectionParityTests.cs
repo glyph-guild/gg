@@ -214,6 +214,14 @@ public class ProjectionParityTests
                             + "it into the outcome modal, per name, saying that nothing is "
                             + "gone until the gate opens.",
 
+            ["RulesInForce"] = "the floor composed with one work kind - what actually "
+                             + "governs a flight of that kind. A command-line answer today "
+                             + "(gg envelope show <work-kind>): the console shows the floor "
+                             + "and SAYS it is the floor, naming both routes to the "
+                             + "composed view rather than titling a partial answer as a "
+                             + "whole one. Composing it in the modal is the next increment "
+                             + "and wants a read of its own.",
+
             ["NamedEnvelopeShown"] = "one document read back by name, unwrapped by "
                                    + "ConsoleDocument rather than projected here - "
                                    + "AirspaceDiffed's reason: what lands on the model is "

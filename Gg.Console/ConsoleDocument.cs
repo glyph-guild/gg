@@ -48,15 +48,24 @@ public static class ConsoleDocument
 
         try
         {
-            return data.DocumentAsync(pointed.Name).GetAwaiter().GetResult()
-                is VerbResult.NamedEnvelopeShown shown
-                ? state with
+            if (data.DocumentAsync(pointed.Name).GetAwaiter().GetResult()
+                is VerbResult.NamedEnvelopeShown shown)
+            {
+                return state with
                 {
                     ReadInFlight = false,
                     Document = shown.Value,
-                    Diagnosis = null,
-                }
-                : state with
+
+                    // AND WHAT IT COMPOSES TO, for a work kind. Reading one
+                    // without the floor it merges with is half an answer, and
+                    // the other half is the pane a person was already reading
+                    // and mistaking for the whole.
+                    Governing = Governing(data, shown.Value, out var refused),
+                    Diagnosis = refused,
+                };
+            }
+
+            return state with
                 {
                     ReadInFlight = false,
                     Document = null,
@@ -68,7 +77,7 @@ public static class ConsoleDocument
                               + "through gg airspace show rather than here.",
                 };
         }
-        catch (Exception refused) when (refused is EnvelopeRefusedException
+        catch (Exception failure) when (failure is EnvelopeRefusedException
                                             or NotSignedInException
                                             or ProtocolTooOldException
                                             or HttpRequestException)
@@ -77,8 +86,49 @@ public static class ConsoleDocument
             {
                 ReadInFlight = false,
                 Document = null,
-                Diagnosis = refused.Message,
+                Diagnosis = failure.Message,
             };
+        }
+    }
+
+    /// <summary>
+    /// What a flight of this document's kind is governed by, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONLY A WORK KIND HAS ONE.</b> Composition is per work kind because
+    /// that is what a flight has; a narrowing or a strategy has no such
+    /// question, and asking would be refused rather than answered empty.
+    /// <para>
+    /// A refusal is passed OUT rather than swallowed: layers that will not
+    /// compose mean nothing governs that kind until somebody fixes it, which
+    /// is the most important thing this pane could say.
+    /// </para>
+    /// </remarks>
+    private static Gg.Contracts.Envelope? Governing(
+        ConsoleData data, Gg.Contracts.NamedEnvelopeState document, out string? refused)
+    {
+        refused = null;
+
+        if (!string.Equals(
+                document.Role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        try
+        {
+            return data.RulesInForceAsync(document.Name).GetAwaiter().GetResult()
+                is VerbResult.RulesInForce rules
+                ? rules.Value
+                : null;
+        }
+        catch (Exception failure) when (failure is EnvelopeRefusedException
+                                            or NotSignedInException
+                                            or ProtocolTooOldException
+                                            or HttpRequestException)
+        {
+            refused = failure.Message;
+            return null;
         }
     }
 }

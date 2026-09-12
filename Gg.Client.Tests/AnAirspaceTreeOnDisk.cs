@@ -59,8 +59,12 @@ public static class AnAirspaceTreeOnDisk
           scope: "**"
           constitution: "1.0.0"
         environments: dev
-        repositories:
-          - "JDX/JDNext"
+
+        # NO `repositories', DELIBERATELY. It is root-only: a work kind may
+        # ECHO the governing value and may not move it, and naming any list of
+        # its own - even a subset of the floor's - is a move the composer
+        # refuses. The real document that taught this carried one, and removing
+        # it is what let the apply through.
         accepts:
           - tracker
           - repository

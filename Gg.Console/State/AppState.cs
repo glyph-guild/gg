@@ -1258,6 +1258,23 @@ public sealed record AppState
     /// </remarks>
     public Gg.Contracts.NamedEnvelopeState? Document { get; init; }
 
+    /// <summary>
+    /// What governs a flight of the read document's kind: the floor composed
+    /// with it.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE QUESTION READING A DOCUMENT ACTUALLY ASKS.</b> A work kind on
+    /// its own is half an answer - the floor governs the same flight - and the
+    /// pane that claimed to hold "the rules in force" held only the floor, so
+    /// a tenant could read both surfaces and find their rules in neither.
+    /// <para>
+    /// Null for a narrowing or a strategy, and for a work kind whose layers do
+    /// not compose - which is <see cref="AppState.Diagnosis"/>'s to say,
+    /// because a refusal here means nothing governs that kind at all.
+    /// </para>
+    /// </remarks>
+    public Gg.Contracts.Envelope? Governing { get; init; }
+
     /// <summary>What became of the last flight this console grounded, or null.</summary>
     /// <remarks>
     /// Its own field rather than sharing one, for <c>Said</c>'s reason: each arm

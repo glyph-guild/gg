@@ -498,6 +498,116 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
+    /// What actually governs a flight of one work kind: the floor composed
+    /// with that kind's document.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>"THE RULES IN FORCE" IS NOT ONE ANSWER.</b> <c>gg envelope show</c>
+    /// is the ROOT document, and a tenant reading it after applying a work
+    /// kind finds none of their own rules in a pane that claims to hold all of
+    /// them. What governs depends on the kind of flight.
+    /// </para>
+    /// <para>
+    /// <b>Composed HERE and not a second opinion.</b>
+    /// <c>EnvelopeComposition.Compose</c> is in <c>Gg.Contracts</c>, which both
+    /// repositories build against, so this runs the control plane's own
+    /// computation. Writing a merge in this client would be the second source
+    /// of truth ADR-0016 § 6 refuses — and there is no door to ask instead,
+    /// because the control plane composes per flight as it runs one.
+    /// </para>
+    /// <para>
+    /// <b>A refusal is the answer, not a reason to fall back.</b> A layer that
+    /// moves a field it may not makes the composition refuse; answering with
+    /// the floor would show rules that are NOT in force under a heading saying
+    /// they are.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> RulesInForceAsync(
+        string workKind, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(workKind);
+
+        var session = Session();
+        var topology = await _client.GetTopologyAsync(session, cancellationToken);
+
+        var named = topology.Names.FirstOrDefault(n =>
+            string.Equals(n.Name, workKind, StringComparison.Ordinal));
+
+        if (named is null)
+        {
+            throw new EnvelopeRefusedException(
+                $"No name '{workKind}' is declared in this airspace. Declared: "
+              + string.Join(
+                    ", ", topology.Names.Select(n => n.Name).Order(StringComparer.Ordinal))
+              + ".");
+        }
+
+        if (!string.Equals(named.Role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal))
+        {
+            // PER WORK KIND, BECAUSE THAT IS WHAT A FLIGHT HAS. Asking what
+            // governs a strategy is asking a question with no answer rather
+            // than one whose answer is empty.
+            throw new EnvelopeRefusedException(
+                $"'{workKind}' is a {named.Role}, and the rules in force are composed per "
+              + "work kind - that is what a flight has. Read it with gg airspace show "
+              + $"{workKind}.");
+        }
+
+        var estate = await _client.ReadEstateAsync(session, cancellationToken);
+
+        var layers = new List<Gg.Contracts.EnvelopeLayer>();
+
+        foreach (var document in estate.Documents)
+        {
+            // THE FLOOR AND THIS KIND, and the narrowings that sit under
+            // either. Another work kind's document governs another kind of
+            // flight and would make this composition answer about a flight
+            // nobody asked about.
+            var wanted = string.Equals(
+                    document.Role, Gg.Contracts.Roles.Root, StringComparison.Ordinal)
+                || string.Equals(document.Name, workKind, StringComparison.Ordinal);
+
+            if (!wanted)
+            {
+                continue;
+            }
+
+            layers.Add(new Gg.Contracts.EnvelopeLayer
+            {
+                Role = document.Role,
+                Name = document.Name,
+
+                // THE VERSION EACH LAYER CONTRIBUTES, which the composition
+                // checks: a layer built on a stale one is refused rather than
+                // merged, and that refusal is the whole reason this is the
+                // control plane's computation and not a rendering.
+                Version = document.Version,
+                Parent = topology.Names
+                    .FirstOrDefault(n => string.Equals(
+                        n.Name, document.Name, StringComparison.Ordinal))?.Parent,
+                Document = document.Envelope,
+                Narrowing = document.Narrowing,
+            });
+        }
+
+        var composed = Gg.Contracts.EnvelopeComposition.Compose(layers);
+
+        if (composed.Refused is { Length: > 0 } refused)
+        {
+            throw new EnvelopeRefusedException(
+                $"The rules in force for '{workKind}' cannot be composed, so nothing "
+              + $"governs a flight of this kind until it is fixed:\n  {refused}");
+        }
+
+        return new VerbResult.RulesInForce(
+            workKind,
+            composed.Composed
+                ?? throw new InvalidOperationException(
+                    "The composition neither refused nor answered."));
+    }
+
+    /// <summary>
     /// The topology, or one applied document when a name is given.
     /// </summary>
     /// <remarks>

@@ -1008,6 +1008,13 @@ public sealed class ConsoleScreen : Window
         // undoes - reported as "it switches back to the log after a second".
         _runnerViews.ValueChanged += OnRunnerViewChanged;
 
+        // THEIR OWN HANDLER, NOT OnRowPointedAt. That one routes through
+        // Reducer.Pointed by ACTIVE TAB, and the tab behind this modal is
+        // Runners - so a click in here would change which runner the modal is
+        // about. The flight log is wired to its own for the same reason.
+        _runnerEnvironments.ValueChanged += OnRunnerRowPointedAt;
+        _runnerMembers.ValueChanged += OnRunnerRowPointedAt;
+
         _runnerBody = new View
         {
             Width = Dim.Fill(),
@@ -2749,12 +2756,12 @@ public sealed class ConsoleScreen : Window
 
             Fill(_runnerEnvironments, null,
                 EnvironmentRows.Environments(State), EnvironmentRows.EnvironmentColumns,
-                cursor: 0,
+                State.RunnerEnvironmentSelected,
                 r => [r.Environment, r.Strategy, r.Pool, r.Wants, r.Attested, r.Measured]);
 
             Fill(_runnerMembers, null,
                 EnvironmentRows.Members(State), EnvironmentRows.MemberColumns,
-                cursor: 0,
+                State.RunnerMemberSelected,
                 r => [r.Here, r.Environment, r.Member, r.State, r.Work, r.Heard]);
 
             var nothing = State.RunnerView == RunnerView.Members
@@ -3032,6 +3039,34 @@ public sealed class ConsoleScreen : Window
     /// handed over is <c>LogRow.Entry</c>, so a continuation row means the entry
     /// it continues.
     /// </remarks>
+    /// <summary>
+    /// A person pointed at a row in one of the runner modal's two tables.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own handler, for <see cref="OnLogRowPointedAt"/>'s reason.</b>
+    /// <c>OnRowPointedAt</c> routes through <c>Reducer.Pointed</c> by active
+    /// tab, and the tab behind this modal is Runners — so sharing it would
+    /// move the FLEET's cursor and change which runner the modal is about,
+    /// under somebody reading it.
+    /// </remarks>
+    private void OnRunnerRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
+    {
+        if (_syncing || args.NewValue is not { } selection)
+        {
+            return;
+        }
+
+        var pointed = Reducer.Pointed(State, selection.SelectedCell.Y);
+
+        if (ReferenceEquals(pointed, State))
+        {
+            return;
+        }
+
+        State = pointed;
+        Render();
+    }
+
     private void OnLogRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
     {
         if (_syncing || args.NewValue is not { } selection)
@@ -3249,6 +3284,8 @@ public sealed class ConsoleScreen : Window
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;
             _runnerViews.ValueChanged -= OnRunnerViewChanged;
+            _runnerEnvironments.ValueChanged -= OnRunnerRowPointedAt;
+            _runnerMembers.ValueChanged -= OnRunnerRowPointedAt;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
             _airspaceViews.ValueChanged -= OnAirspaceViewChanged;

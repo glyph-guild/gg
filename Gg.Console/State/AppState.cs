@@ -854,6 +854,18 @@ public sealed record AppState
     /// </remarks>
     public EnvironmentChart? Chart { get; init; }
 
+    /// <summary>Which row the cursor is on in the runner modal's environments view.</summary>
+    /// <remarks>
+    /// <b>ITS OWN, AND NOT SHARED WITH THE MEMBERS VIEW.</b> The two have
+    /// different row counts, so one index carried across a turn of the bar
+    /// would land somewhere nobody chose - and be clamped to a row that means
+    /// something else.
+    /// </remarks>
+    public int RunnerEnvironmentSelected { get; init; }
+
+    /// <summary>Which row the cursor is on in the runner modal's members view.</summary>
+    public int RunnerMemberSelected { get; init; }
+
     /// <summary>Which of the runner modal's three views is showing.</summary>
     /// <remarks>
     /// <b>It stays where it was left, across runners.</b> Somebody comparing

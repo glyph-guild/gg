@@ -761,6 +761,23 @@ public static class Reducer
             return PickLogEntry(state, row);
         }
 
+        // AND THE RUNNER MODAL'S TWO TABLES, before the tab switch below for
+        // the reason that switch is the hazard: the tab behind this modal is
+        // Runners, so falling through would move the FLEET's cursor and change
+        // which runner the modal is about, under somebody reading it.
+        if (state.Mode is UiMode.Runner)
+        {
+            return state.RunnerView switch
+            {
+                RunnerView.Environments => PickRunnerEnvironment(state, row),
+                RunnerView.Members => PickRunnerMember(state, row),
+
+                // THE LOG IS A LIST RATHER THAN A TABLE, so nothing points at a
+                // row in it and there is no cursor to move.
+                _ => state,
+            };
+        }
+
         return state.ActiveTab switch
         {
             TabId.Repositories => PickRepository(state, row),
@@ -851,6 +868,22 @@ public static class Reducer
     };
 
 
+
+    /// <summary>Move the cursor inside the runner modal's environments view.</summary>
+    private static AppState PickRunnerEnvironment(AppState state, int to) => state with
+    {
+        RunnerEnvironmentSelected = EnvironmentRows.Environments(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
+
+    /// <summary>Move the cursor inside the runner modal's members view.</summary>
+    private static AppState PickRunnerMember(AppState state, int to) => state with
+    {
+        RunnerMemberSelected = EnvironmentRows.Members(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
 
     /// <summary>Move the repository cursor, inside the repository list.</summary>
     private static AppState PickRepository(AppState state, int to) => state with

@@ -382,6 +382,27 @@ public sealed class FlightCommands(
               + "tenant is the only open one, and a second is refused."));
     }
 
+    /// <summary>
+    /// Tells the fleet what the subscription this person speaks for has spent.
+    /// </summary>
+    /// <remarks>
+    /// <b>It answers with the fleet, not with an echo.</b> The floor route's
+    /// reason applies unchanged: what somebody wants to see is what the fleet
+    /// looks like now, and that is one extra round trip well spent.
+    /// </remarks>
+    public async Task<VerbResult> ReportAllowanceAsync(
+        Gg.Contracts.AllowanceReading reading, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        var session = Session();
+
+        await _client.ReportMyAllowanceAsync(session, reading, cancellationToken);
+
+        return new VerbResult.Allowances(
+            await _client.ListAllowancesAsync(session, cancellationToken));
+    }
+
     /// <summary>What every allowance the fleet spends from has left.</summary>
     /// <remarks>
     /// <b>Not a plural of <c>gg allowance</c>.</b> That verb reads the

@@ -1107,6 +1107,30 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE SAME READING, ATTESTED BY THE PERSON WHOSE SUBSCRIPTION IT
+            // IS. The route above is a machine reporting itself; this is
+            // somebody reporting the plan they speak for, which needs no
+            // machine at all - and an allowance IS a subscription, so a laptop
+            // that reads its own meter knows something true about it whether
+            // or not it ever takes a flight.
+            //
+            // A SECOND PATH RATHER THAN A SECOND AUDIENCE. Audience is a
+            // closed vocabulary: a combined value would halt every reader that
+            // already has one. The two are different acts in any case.
+            //
+            // AND THE MACHINE'S ROUTE IS UNCHANGED. Widening who may report
+            // does not widen what a machine may do - a runner still acts with
+            // less than the person behind it, which is what its audience is
+            // for.
+            Method = "POST",
+            Path = "/v1/allowances/readings/mine",
+            Audience = Audience.Developer,
+            Request = typeof(AllowanceReading),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/allowances",
             Audience = Audience.Developer,

@@ -100,6 +100,18 @@ public class VerbParityTests
             ["AllowanceFloor"] = "reachable: `o` on the runners pane offers a share to keep "
                                + "back, and the write happens between sessions with the "
                                + "terminal free - like every other write here.",
+            // REACHABLE IN PRINCIPLE AND NOT YET, which is a sequence rather
+            // than a decision. Publishing what this machine measured is a
+            // WRITE, and a write happens between sessions with the terminal
+            // free - the shape `o' on the runners pane already has. What it
+            // waits on is somebody deciding whether a console should publish
+            // silently on a refresh or only when asked, and offering it as a
+            // key is the answer to that question rather than a step toward it.
+            ["AllowanceReport"] = "not reachable yet: publishing a reading is a write, and "
+                                + "whether a console should do it on a refresh or only "
+                                + "when asked is undecided. The command line is explicit "
+                                + "by construction.",
+
             ["AllowanceOverride"] = "not reachable, deliberately: spending somebody else's "
                                   + "floor needs a duration and a sentence they will read, "
                                   + "and nothing in this console is written by typing. The "

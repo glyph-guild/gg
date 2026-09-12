@@ -220,6 +220,15 @@ public abstract record CliAction
         string Name, int? SessionPercent, int? WeekPercent, bool Json)
         : CliAction, IEmitsResult;
 
+    /// <summary>Tells the fleet what this machine's own meter says.</summary>
+    /// <remarks>
+    /// <b>Plural, because it contacts the control plane.</b> The singular
+    /// <c>gg allowance</c> reads this disk and says so; this one publishes
+    /// what it read, which is the act a machine with no runner had no way to
+    /// perform.
+    /// </remarks>
+    public sealed record AllowanceReport(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Spends a floor somebody else set, for a while, with a reason.</summary>
     public sealed record AllowanceOverride(
         string Name, int Minutes, string Reason, bool Json) : CliAction, IEmitsResult;
@@ -477,6 +486,7 @@ public static class CliArgs
         "gg config accept <version>     take the offer you just read, by version",
         "gg allowance                   what the allowance this machine spends from has left",
         "gg allowances                  what every allowance in the fleet has left",
+        "gg allowances report          tell the fleet what this machine's meter says",
         "gg allowances floor <name> [--session <pct>] [--week <pct>] | --clear  keep a share back",
         "gg allowances override <name> --minutes <n> --reason <why>  spend somebody's floor",
         "gg doctor                      check what gg needs to work",
@@ -676,6 +686,11 @@ public static class CliArgs
             // PLURAL FOR THE FLEET, and these write to it. The singular verb
             // reads this machine's own transcripts and contacts nothing, so
             // putting a fleet write under it would make one word mean both.
+            // WITHOUT A RUNNER, which is the point. An allowance is a
+            // subscription and the meter measures the plan, so a machine that
+            // never takes a flight can still say what is left.
+            ["allowances", "report"] => new CliAction.AllowanceReport(json),
+
             ["allowances", "floor", var floorOf, .. var floorArgs] =>
                 Floor(floorOf, floorArgs, json),
             ["allowances", "override", var spendOf, .. var spendArgs] =>

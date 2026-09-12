@@ -287,6 +287,14 @@ public class ConsoleDataTests
             // reason OverrideFloor is command-line-only. A runners pane offers
             // machines, and a machine is not a person.
             "AdminAsync",
+
+            // PUBLISHING THIS MACHINE'S OWN READING. The console reads the
+            // FLEET's allowances, which is a different scope and already
+            // reachable; this is the local measurement going out, and it is a
+            // write whose timing nobody has decided - on every refresh, or
+            // only when a person asks. A key that published silently would
+            // answer that question by accident.
+            "ReportAllowanceAsync",
         ];
         var expected = verbs.Where(v => !exempt.Contains(v)).ToList();
         var missing = expected.Where(v => !console.Contains(v)).ToList();

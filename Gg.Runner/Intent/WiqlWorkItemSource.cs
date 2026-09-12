@@ -35,6 +35,68 @@ namespace Gg.Runner.Intent;
 /// </remarks>
 public sealed class WiqlWorkItemSource : IWorkItemSource
 {
+    /// <summary>
+    /// The body as a document, or a refusal naming the likeliest cause.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THIS SHAPE ANSWERS AN UNAUTHENTICATED READ WITH 200 AND A SIGN-IN
+    /// PAGE</b>, not with 401. So <c>EnsureSuccessStatusCode</c> passes, and
+    /// the first thing to notice is a parse three lines later — by which point
+    /// nothing in the stack remembers a credential was involved. Seen live as
+    /// <i>"'&lt;' is an invalid start of a value. LineNumber: 2"</i> on a
+    /// browse pane, which is true, useless, and points at neither the cause nor
+    /// the fix.
+    /// </para>
+    /// <para>
+    /// <b>The standard is the one the 404 arm already states:</b> <i>"telling
+    /// an agent the item does not exist when the credential expired is the
+    /// worst lie this reader could tell"</i>. A parse error is a quieter
+    /// version of it — it blames the answer's syntax for a missing secret.
+    /// </para>
+    /// <para>
+    /// <b>LIKELIEST, AND SAID AS SUCH.</b> A body that is not JSON is not
+    /// PROOF of a credential problem — a proxy, a maintenance page and a
+    /// misspelled host all land here too. So the sentence names what was asked,
+    /// what came back, and what most often causes it, and leaves the reader to
+    /// tell which. Guessing one cause and asserting it would be the same defect
+    /// wearing a better sentence.
+    /// </para>
+    /// </remarks>
+    private JsonDocument Answered(string body)
+    {
+        try
+        {
+            return JsonDocument.Parse(body);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(
+                $"{_host} answered, and the answer was not data. This shape serves a sign-in "
+              + "page with a success status rather than refusing, so the usual cause is a "
+              + "credential that is missing, expired, or lacks work-item read. It can also be "
+              + "a proxy or a mistyped host - what arrived begins: "
+              + Opening(body));
+        }
+    }
+
+    /// <summary>
+    /// Enough of the body to recognise it, and no more.
+    /// </summary>
+    /// <remarks>
+    /// <b>A sign-in page is the thing being identified, so a glance has to be
+    /// enough</b> — and a whole one in a diagnosis would push everything else
+    /// off a pane. Control characters go because this reaches a terminal.
+    /// </remarks>
+    private static string Opening(string body)
+    {
+        var flattened = new string([.. body
+            .Replace('\n', ' ').Replace('\r', ' ').Replace('\t', ' ')
+            .Where(c => !char.IsControl(c))]).Trim();
+
+        return flattened.Length <= 60 ? flattened : flattened[..60] + "...";
+    }
+
     /// <summary>The revision of the shape this speaks.</summary>
     /// <remarks>
     /// Pinned rather than latest. A tracker that rolls its default forward
@@ -111,8 +173,7 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
 
         answer.EnsureSuccessStatusCode();
 
-        using var body = JsonDocument.Parse(
-            await answer.Content.ReadAsStringAsync(cancellationToken));
+        using var body = Answered(await answer.Content.ReadAsStringAsync(cancellationToken));
         var root = body.RootElement;
         var fields = root.TryGetProperty("fields", out var named) ? named : default;
 
@@ -151,8 +212,7 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             $"{_host}/_apis/wit/wiql?api-version={ApiVersion}", query, cancellationToken);
         queried.EnsureSuccessStatusCode();
 
-        using var ids = JsonDocument.Parse(
-            await queried.Content.ReadAsStringAsync(cancellationToken));
+        using var ids = Answered(await queried.Content.ReadAsStringAsync(cancellationToken));
 
         var matched = ids.RootElement.TryGetProperty("workItems", out var items)
                    && items.ValueKind == JsonValueKind.Array
@@ -180,8 +240,7 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             cancellationToken);
         read.EnsureSuccessStatusCode();
 
-        using var page = JsonDocument.Parse(
-            await read.Content.ReadAsStringAsync(cancellationToken));
+        using var page = Answered(await read.Content.ReadAsStringAsync(cancellationToken));
 
         var answered = page.RootElement.TryGetProperty("value", out var values)
                     && values.ValueKind == JsonValueKind.Array

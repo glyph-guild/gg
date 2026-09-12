@@ -16,12 +16,31 @@ namespace Gg.Console;
 /// is looking at.
 /// </para>
 /// <para>
-/// <b>A summary, never the documents.</b> <c>AppState</c> is written to
-/// <c>GG_STATE_DUMP</c> and handed to <c>ConsoleData.BundleFrom</c>, so a member
-/// able to carry envelope text would put a tenant's governance documents in a
-/// file they send us. The topology carries names, roles and versions; the diff
-/// carries names, paths and directions. Neither carries a body, and a test holds
-/// this type to that.
+/// <b>IT CARRIES BODIES NOW, AND THE RULE THAT SAID OTHERWISE RESTED ON
+/// SOMETHING UNTRUE.</b> This read: <i>"A summary, never the documents.
+/// AppState is written to GG_STATE_DUMP and handed to
+/// ConsoleData.BundleFrom, so a member able to carry envelope text would
+/// put a tenant's governance documents in a file they send us."</i>
+/// Measured before changing it: <c>BundleFrom</c> takes the state and
+/// IGNORES it — it calls
+/// <c>Bundle.Build(takenAt, environment, doctor, flightLog)</c> — and
+/// <c>GG_STATE_DUMP</c> is an opt-in environment variable that
+/// <c>Program.cs</c> calls a <i>"Demo/verification hook"</i>, written once
+/// on exit. Governance text here reaches a debug dump somebody switched
+/// on, not a bundle a customer sends.
+/// </para>
+/// <para>
+/// <b>What forced it was the pane, not convenience.</b> The airspace tab
+/// draws the selected document on disk, as applied, and as it composes —
+/// and <c>PaneText</c> is pure, so all three must be on the model. The only
+/// alternative was a request per arrow key, which <c>ConsoleStart</c>
+/// refuses by name.
+/// </para>
+/// <para>
+/// <b>The old rule's SHAPE still holds, so this carries what the tab draws
+/// and nothing more:</b> the documents the airspace has applied, and the
+/// text of the files on disk. Not logs, not evidence, not every read the
+/// console makes — a member added here still has to argue for itself.
 /// </para>
 /// <para>
 /// <b>Null <see cref="Working"/> is a state rather than a failure.</b> A tenant
@@ -101,4 +120,23 @@ public sealed record EstateOnThisMachine
     /// one of them is a thing to go and fix.
     /// </remarks>
     public string? Diagnosis { get; init; }
+
+    /// <summary>
+    /// Every document the airspace has applied, whole.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What the right-hand pane draws without asking anybody.</b> One read
+    /// fills it — the same read that fills <see cref="Names"/> and
+    /// <see cref="Working"/> — so moving the cursor costs nothing and the
+    /// console keeps its rule that a session makes no network call.
+    /// </para>
+    /// <para>
+    /// <b>Required rather than init-only</b>, because an init-only collection
+    /// deserialises to null when the key is absent and the pane walks this one.
+    /// That discriminator is recorded in
+    /// <c>AbsentCollectionsSurviveTheWireTests</c>.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<Gg.Contracts.NamedEnvelopeState> Applied { get; init; } = [];
 }

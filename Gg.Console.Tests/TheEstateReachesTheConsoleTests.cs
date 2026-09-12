@@ -173,25 +173,60 @@ public class TheEstateReachesTheConsoleTests
                    + "a key to press and the second is a state of the world.");
     }
 
+    /// <summary>
+    /// One member carries documents, and it is the one the pane draws.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THIS ASSERTED THE OPPOSITE, AND THE ARGUMENT UNDER IT WAS NOT
+    /// TRUE.</b> It read: <i>"AppState is serialized to GG_STATE_DUMP and
+    /// handed to the diagnostics bundle, so a member able to carry envelope
+    /// text would put a tenant's governance documents in a file they send
+    /// us."</i> Measured before changing it: <c>ConsoleData.BundleFrom</c>
+    /// takes the state and ignores it, and <c>GG_STATE_DUMP</c> is an opt-in
+    /// variable <c>Program.cs</c> calls a "Demo/verification hook".
+    /// </para>
+    /// <para>
+    /// <b>AND IT WOULD HAVE MISSED WHAT REPLACED IT.</b> The old check looked
+    /// for a property whose type IS a document — it would have passed an
+    /// <c>IReadOnlyList&lt;NamedEnvelopeState&gt;</c> without a word, which is
+    /// exactly the member now added. A guard that cannot see the thing it
+    /// guards against is worse than none, because it reads as cover.
+    /// </para>
+    /// <para>
+    /// <b>So the rule narrowed rather than vanished:</b> documents may ride
+    /// here through <c>Applied</c>, which is what the airspace tab draws, and
+    /// through nothing else. A second member wanting one has to come past this
+    /// and say why.
+    /// </para>
+    /// </remarks>
     [Test]
-    public async Task The_summary_cannot_hold_a_document()
+    public async Task Only_the_pane_s_own_member_carries_documents()
     {
-        // THE BUNDLE ARGUMENT, asserted over the type rather than trusted to a
-        // reviewer. AppState is serialized to GG_STATE_DUMP and handed to the
-        // diagnostics bundle, so a member able to carry envelope text would put
-        // a tenant's governance documents in a file they send us. The topology
-        // and the diff both carry names, roles, versions and paths - never
-        // bodies - which is why they are what this holds.
+        var documents = (Type[])
+            [typeof(Envelope), typeof(EnvelopeNarrowing), typeof(EnvironmentStrategy)];
+
+        // REACHES A DOCUMENT, rather than IS one. A list, a nullable or a
+        // record that holds one all count - the old check saw only the last
+        // step and would have missed every other shape.
+        static bool Reaches(Type type, Type[] documents) =>
+            documents.Contains(type)
+            || (type.IsGenericType
+                && type.GetGenericArguments().Any(a => documents.Contains(a)
+                    || a.GetProperties().Any(p => documents.Contains(p.PropertyType))))
+            || (type.Namespace?.StartsWith("Gg.", StringComparison.Ordinal) is true
+                && type.GetProperties().Any(p => documents.Contains(p.PropertyType)));
+
         var carriers = typeof(EstateOnThisMachine).GetProperties(
                 BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.PropertyType == typeof(Envelope)
-                     || p.PropertyType == typeof(EnvelopeNarrowing)
-                     || p.PropertyType == typeof(EnvironmentStrategy))
+            .Where(p => Reaches(p.PropertyType, documents))
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(carriers).IsEmpty()
-            .Because("a document on this record is a document in the diagnostics bundle. "
-                   + "Found: " + string.Join(", ", carriers));
+        await Assert.That(carriers).IsEquivalentTo((string?[])["Applied"])
+            .Because("the pane draws the selected document three ways and PaneText is pure, "
+                   + "so the bodies ride here - and ONLY there. A request per arrow key was "
+                   + "the alternative, which this console refuses by name. Found: "
+                   + string.Join(", ", carriers));
     }
 }

@@ -86,14 +86,20 @@ public class TheAirspaceKeysWalkEndToEndTests
     private static string Hints(AppState state) => Keymap.Hints(KeymapContext.For(state));
 
     [Test]
-    public async Task Reading_the_rules_the_diff_and_the_last_apply_is_three_keypresses()
+    public async Task Reading_the_rules_the_diff_and_the_last_apply_is_four_keypresses()
     {
         var state = Loaded();
 
-        await Assert.That(Hints(state)).Contains("o ", StringComparison.Ordinal)
+        await Assert.That(Hints(state)).Contains("a ", StringComparison.Ordinal)
             .Because("the way in has to be on the line, or nothing below it is reachable "
-                   + "by anybody who does not already know. `v' turns the pane beside the "
-                   + "tree now; `o' opens what is about the airspace as a whole. Line: "
+                   + "by anybody who does not already know. Line: " + Hints(state));
+
+        (state, _) = Press(state, KeyStroke.Char('a'));
+        await Assert.That(state.Mode).IsEqualTo(UiMode.AirspaceActions);
+
+        await Assert.That(Hints(state)).Contains("o ", StringComparison.Ordinal)
+            .Because("and the next step is on the line too - inside a modal the letters "
+                   + "are free, so the line is the only place anybody learns them. Line: "
                    + Hints(state));
 
         (state, _) = Press(state, KeyStroke.Char('o'));
@@ -123,11 +129,15 @@ public class TheAirspaceKeysWalkEndToEndTests
     {
         var state = Loaded();
 
+        (state, _) = Press(state, KeyStroke.Char('a'));
+
         await Assert.That(Hints(state)).Contains("s ", StringComparison.Ordinal);
 
         (state, var shell) = Press(state, KeyStroke.Char('s'));
 
-        await Assert.That(state.Mode).IsEqualTo(UiMode.ConfirmApply);
+        await Assert.That(state.Mode).IsEqualTo(UiMode.ConfirmApply)
+            .Because("the question replaces the actions modal rather than stacking over "
+                   + "it - one modal at a time, and one way out of it.");
         await Assert.That(shell).IsNull()
             .Because("asking is a mode change and nothing else.");
 
@@ -147,6 +157,7 @@ public class TheAirspaceKeysWalkEndToEndTests
     {
         var state = Loaded();
 
+        (state, _) = Press(state, KeyStroke.Char('a'));
         (state, _) = Press(state, KeyStroke.Char('o'));
         (state, _) = Press(state, KeyStroke.Char('d'));
 
@@ -178,18 +189,33 @@ public class TheAirspaceKeysWalkEndToEndTests
     }
 
     [Test]
-    public async Task Pulling_and_drafting_are_still_one_keypress_each()
+    public async Task Pulling_and_drafting_are_two_keypresses_each()
     {
         // THE NEIGHBOURS, so a letter added to this tab cannot quietly take one
         // of them over. `x` was very nearly put here, where it would have
         // shadowed forget-credential without a word.
+        //
+        // AND THE COUNT WENT FROM ONE TO TWO ON PURPOSE. The tab's line carried
+        // ten keys and truncated mid-sentence, so the four acts on the whole
+        // airspace went behind `a'. Two of them rewrite the working copy, and
+        // a letter that does that from a bare tab is a mistype away from a
+        // rewritten tree - so the second keystroke is worth more than it costs.
         var state = Loaded();
 
-        await Assert.That(Press(state, KeyStroke.Char('p')).Shell)
+        var (inside, opening) = Press(state, KeyStroke.Char('a'));
+
+        await Assert.That(opening).IsNull()
+            .Because("opening the list is a mode change and nothing else.");
+
+        await Assert.That(Press(inside, KeyStroke.Char('p')).Shell)
             .IsEqualTo(Command.PullEstate);
 
-        await Assert.That(Press(state, KeyStroke.Char('m')).Shell)
+        await Assert.That(Press(inside, KeyStroke.Char('m')).Shell)
             .IsEqualTo(Command.DraftEstate);
+
+        await Assert.That(Press(state, KeyStroke.Char('p')).Shell).IsNull()
+            .Because("and neither answers from the tab any more, which is the whole point "
+                   + "of moving them.");
 
         await Assert.That(Press(state, KeyStroke.Char('x')).Shell)
             .IsEqualTo(Command.ForgetCredential)

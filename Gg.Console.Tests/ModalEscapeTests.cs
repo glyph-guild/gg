@@ -284,15 +284,28 @@ public class ModalEscapeTests
             })
             .ToList();
 
+        // TWO KEYS, NOT ONE, because a modal may live behind another. The
+        // airspace tab's four acts collapsed behind `a' when its status line
+        // outgrew the terminal, so `s' opens the apply question from INSIDE
+        // that modal and a one-press walk called it unreachable. The claim
+        // being made is "a person can get here from a console they just
+        // opened", and two keystrokes is still that.
+        var reachable = everywhere
+            .Concat(from loaded in everywhere
+                    from key in KeymapTests.Universe
+                    select Press(loaded, key))
+            .ToList();
+
+        var reached = (from loaded in reachable
+                       from key in KeymapTests.Universe
+                       select Press(loaded, key).Mode)
+            .ToHashSet();
+
         foreach (var mode in Enum.GetValues<UiMode>()
                      .Where(m => m != UiMode.Normal && !OpenedByTheLoop.ContainsKey(m)))
         {
-            var opened = (from loaded in everywhere
-                          from key in KeymapTests.Universe
-                          select Press(loaded, key))
-                .Any(state => state.Mode == mode);
-
-            await Assert.That(opened).IsTrue().Because($"{mode} cannot be opened by any key.");
+            await Assert.That(reached.Contains(mode)).IsTrue()
+                .Because($"{mode} cannot be opened by any two keys.");
         }
     }
 

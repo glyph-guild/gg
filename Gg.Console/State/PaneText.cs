@@ -2314,6 +2314,7 @@ public static class PaneText
     {
         UiMode.Help => "Keys",
         UiMode.FlightActions => "What can be done",
+        UiMode.AirspaceActions => "What can be done to the airspace",
         UiMode.FlightDetail => "This flight",
         UiMode.HandFlight => "Nothing was created",
         UiMode.Runner => "No runner",
@@ -2560,6 +2561,7 @@ public static class PaneText
             UiMode.HandFlight => HandFlight(state),
             UiMode.Runner => Runner(state),
             UiMode.FlightActions => Actions(state),
+            UiMode.AirspaceActions => AirspaceActions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
             UiMode.ConfirmApply => ConfirmApply(state),
@@ -2837,6 +2839,7 @@ public static class PaneText
     {
         UiMode.Help => "While this page is open",
         UiMode.FlightActions => "While the actions list is open",
+        UiMode.AirspaceActions => "While the airspace actions are open",
         UiMode.ConfirmFlight => "When asked whether to open a second flight",
         UiMode.ConfirmGround => "When asked whether to ground a flight",
         UiMode.ConfirmFlyAgain => "When asked whether to fly one again",
@@ -2853,6 +2856,20 @@ public static class PaneText
     /// here and did nothing would be Article XI's failure mode with a border
     /// around it.
     /// </remarks>
+    /// <summary>What can be done to the airspace as a whole.</summary>
+    /// <remarks>
+    /// <b>Each line says what the key DOES</b>, which is the lesson the flight
+    /// actions list records one method down: a menu item naming the
+    /// destination of a journey rather than the step it takes is how somebody
+    /// presses it and believes it failed.
+    /// </remarks>
+    private static string AirspaceActions(AppState state) =>
+        $"  {Clean(AirspacePath(state))}\n\n"
+      + "  p  pull the airspace - render what is applied into the working copy\n"
+      + "  s  apply the airspace - submit each changed document as a flight\n"
+      + "  m  draft with an agent - hand the tree to an agent to edit\n"
+      + "  o  what would change, and what the last apply came to\n";
+
     private static string Actions(AppState state) =>
         state.Selected is not { } row
             ? "  No flight selected."

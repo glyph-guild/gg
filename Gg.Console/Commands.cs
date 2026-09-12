@@ -204,6 +204,15 @@ public enum Command
     /// </remarks>
     NextAirspacePane,
 
+    /// <summary>Open what can be done to the airspace as a whole.</summary>
+    /// <remarks>
+    /// <b>A MODE CHANGE AND NOTHING ELSE</b>, like the flight actions it is
+    /// modelled on. What the four keys inside it do is what they always did;
+    /// this only decides whether they are on the status line or one keystroke
+    /// behind it.
+    /// </remarks>
+    ToggleAirspaceActions,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside

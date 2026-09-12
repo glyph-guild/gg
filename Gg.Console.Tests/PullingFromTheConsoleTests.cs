@@ -39,33 +39,47 @@ public class PullingFromTheConsoleTests
 {
     private static KeymapContext On(TabId tab) => new(UiMode.Normal, tab);
 
-    [Test]
-    public async Task The_key_pulls_while_the_envelope_tab_is_showing()
-    {
-        var command = Keymap.Resolve(KeyStroke.Char('p'), On(TabId.Envelope));
+    /// <summary>
+    /// Inside the airspace actions, which is where this key lives now.
+    /// </summary>
+    /// <remarks>
+    /// <b>It was on the tab and the tab ran out of room.</b> The status line
+    /// carried ten keys and truncated mid-sentence, so the four acts on the
+    /// airspace as a whole went behind <c>a</c> - and inside a modal the
+    /// letters are free, which is what let this one keep its own.
+    /// </remarks>
+    private static KeymapContext Behind() =>
+        new(UiMode.AirspaceActions, TabId.Envelope);
 
-        await Assert.That(command).IsEqualTo(Command.PullEstate);
+    [Test]
+    public async Task The_key_pulls_from_the_airspace_actions()
+    {
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('p'), Behind()))
+            .IsEqualTo(Command.PullEstate);
     }
 
     [Test]
-    public async Task It_does_nothing_on_any_other_tab()
+    public async Task It_does_nothing_outside_the_actions_modal()
     {
-        // THE SCOPE IS THE POINT. This writes a directory, so a key that meant
-        // it from the queue would overwrite a working copy from a screen that
-        // has nothing to do with one.
-        foreach (var tab in Tabs.All.Where(t => t != TabId.Envelope))
+        // THE SCOPE IS THE POINT, and it is narrower than it was. This writes a
+        // directory, so a key that meant it from the queue would overwrite a
+        // working copy from a screen with nothing to do with one - and now not
+        // even from the airspace tab itself, where a mistyped letter was one
+        // keystroke from rewriting the tree.
+        foreach (var tab in Tabs.All)
         {
             await Assert.That(Keymap.Resolve(KeyStroke.Char('p'), On(tab))).IsNull()
-                .Because($"`p' is the envelope tab's, and it resolved on {Tabs.Name(tab)}.");
+                .Because($"`p' is behind the actions modal, and it resolved on "
+                       + $"{Tabs.Name(tab)}.");
         }
     }
 
     [Test]
     public async Task It_is_advertised_where_it_works_and_nowhere_else()
     {
-        await Assert.That(Keymap.Hints(On(TabId.Envelope))).Contains("p ", StringComparison.Ordinal)
+        await Assert.That(Keymap.Hints(Behind())).Contains("p ", StringComparison.Ordinal)
             .Because("the hint line is where a person finds a key that has nowhere else to "
-                   + "live, and this one is live only here.");
+                   + "live, and this one is live only inside that modal.");
 
         await Assert.That(Keymap.Hints(On(TabId.Queue)))
             .DoesNotContain("p pull", StringComparison.Ordinal)

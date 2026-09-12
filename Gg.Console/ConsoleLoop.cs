@@ -524,6 +524,12 @@ public sealed class ConsoleLoop(
                 break;
 
             case Command.DraftEstate:
+                // AND THE QUESTION CLOSES WITH IT. Reachable from the airspace
+                // actions modal now, and a shell command ends the session -
+                // so without this the surviving state carries an open dialog
+                // into the session built over the result.
+                state = Closed(state);
+
                 // AND THEN RE-READ, because whatever the agent submitted is a
                 // file now and the documents column is the only thing that will
                 // say which. The session does not report that itself: a count
@@ -606,6 +612,9 @@ public sealed class ConsoleLoop(
                 break;
 
             case Command.PullEstate:
+                // AND THE QUESTION CLOSES WITH IT, for DraftEstate's reason.
+                state = Closed(state);
+
                 // AND THEN RE-READ, because the pane a person is looking at
                 // describes the tree this just rewrote. Without the reload the
                 // documents column would still show what was true before the

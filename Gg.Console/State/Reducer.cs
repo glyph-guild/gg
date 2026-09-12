@@ -47,6 +47,7 @@ public static class Reducer
                     : FlightTab.Details,
             },
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
+            Command.ToggleAirspaceActions => Modal(state, UiMode.AirspaceActions),
 
             // THE THREE THAT ALSO BLINKED. Each was the shell's so the pane
             // could be filled before it was shown, and the cost was the whole

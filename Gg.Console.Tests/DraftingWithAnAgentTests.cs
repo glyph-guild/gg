@@ -47,11 +47,22 @@ public class DraftingWithAnAgentTests
 
     private static SelfInvocation Ourselves() => new("/usr/local/bin/gg", ["runner", "tools"]);
 
+    /// <summary>
+    /// Inside the airspace actions, which is where this key lives now.
+    /// </summary>
+    /// <remarks>
+    /// <b>It was on the tab and the tab ran out of room.</b> The status line
+    /// carried ten keys and truncated mid-sentence, so the four acts on the
+    /// airspace as a whole went behind <c>a</c> - and inside a modal the
+    /// letters are free, which is what let this one keep its own.
+    /// </remarks>
+    private static KeymapContext Behind() =>
+        new(UiMode.AirspaceActions, TabId.Envelope);
+
     [Test]
-    public async Task The_key_drafts_while_the_envelope_tab_is_showing()
+    public async Task The_key_drafts_from_the_airspace_actions()
     {
-        await Assert.That(Keymap.Resolve(
-                KeyStroke.Char('m'), new KeymapContext(UiMode.Normal, TabId.Envelope)))
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), Behind()))
             .IsEqualTo(Command.DraftEstate);
     }
 

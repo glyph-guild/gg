@@ -445,6 +445,19 @@ public static class Keymap
         // NOTHING BUT THE WAY OUT. Pressing `y' again from inside a refusal
         // would be the second attempt nobody asked for, and every other key
         // here would act on a console the person cannot see.
+        // THE FOUR ACTS ON THE AIRSPACE, each keeping the letter it had on the
+        // status line. Inside a modal the letters are free, which is the whole
+        // reason they could collapse without anybody relearning one.
+        UiMode.AirspaceActions =>
+        [
+            new(KeyStroke.Char('p'), Command.PullEstate, "pull the airspace"),
+            new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the airspace"),
+            new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent"),
+            new(KeyStroke.Char('o'), Command.ReadOutcome,
+                "what would change, and the last apply"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
         // THE TWO THINGS THAT CAN BE DONE TO A RUNNER, and the way out. `r' and
@@ -759,8 +772,22 @@ public static class Keymap
             // cursor is on a flight in either and this opens what the cursor
             // is on. Scoped, not hidden: the binding is unchanged and `a`
             // answers on every tab exactly as it did.
-            new(KeyStroke.Char('a'), Command.ToggleFlightActions, "actions")
-                { OffTheHintLine = !OverAFlight(context) },
+            // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH - the shape
+            // argued for over `f' three arms down, and here it also repairs
+            // something. `a' was bound on EVERY tab and merely hidden from the
+            // line when no flight was under a cursor, which on the airspace tab
+            // is always: it opened a flight modal about no flight.
+            //
+            // AND IT HAS TO BE DECIDED HERE. Resolve answers the FIRST match
+            // and this arm is above the tab spreads, so an `a' added down there
+            // would never fire - the trap a red test caught for `enter'.
+            new(KeyStroke.Char('a'),
+                    context.Showing == TabId.Envelope
+                        ? Command.ToggleAirspaceActions
+                        : Command.ToggleFlightActions,
+                    "actions")
+                { OffTheHintLine = context.Showing != TabId.Envelope
+                                   && !OverAFlight(context) },
 
             // IN HELP, WITH THE CREDENTIAL KEYS. A gate is decided from the
             // modal that put the question on the screen and named the
@@ -852,46 +879,15 @@ public static class Keymap
                     context.Frozen ? "unfreeze" : "freeze to copy")
                     { When = "while the live tab is showing" }]
                 : [],
+            // WHAT IS LEFT ON THE TAB ITSELF: the two keys that move around
+            // what is already on screen. Pull, apply, draft and the outcome
+            // moved behind `a' - see UiMode.AirspaceActions above - because a
+            // line carrying ten keys truncated mid-sentence, and the four that
+            // went are occasional acts on the whole airspace while these two
+            // are pressed constantly.
             .. context.Showing == TabId.Envelope
                 ? (KeyBinding[])[
-                    new(KeyStroke.Char('p'), Command.PullEstate, "pull the airspace")
-                        { When = "while the envelope tab is showing" },
 
-                    // `s' FOR SUBMIT, which is the control plane's own word for
-                    // what this does: each changed document is submitted as an
-                    // amendment flight. `a' is flight actions in Normal and
-                    // taking it here would shadow it - a key chosen for its
-                    // mnemonic that silently shadows another is worse than one
-                    // chosen for being free and said to be.
-                    new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the airspace")
-                        { When = "while the envelope tab is showing" },
-
-                    // `m' BECAUSE THIS CONSOLE ALREADY CHOSE THAT LETTER FOR
-                    // THIS ACT. ComposeChoice settles it: of what was free, `w'
-                    // is "write it myself" and `m' is the model. A different
-                    // letter for the same thing one pane over would be the
-                    // drift a single keymap exists to prevent.
-                    new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent")
-                        { When = "while the airspace tab is showing" },
-
-                    // `v' FOR THE VIEW, AND ONE LETTER RATHER THAN TWO. The
-                    // changeset wants a key as much as the envelope does, and
-                    // `d' - the obvious one for a diff - is `decide' in
-                    // Normal mode, so a second letter here would spend one of
-                    // the four that are left. This opens a reading modal and
-                    // the letters INSIDE it switch view, which is HostedBar's
-                    // shape and its reason: inside a modal the letters are
-                    // free.
-                    //
-                    // AND A TAB-SCOPED `d' WOULD NEVER HAVE FIRED. Resolve
-                    // answers the FIRST match and Normal mode's `d' is
-                    // declared above this spread, so one added here would be
-                    // unreachable - the trap a red test caught for `enter'.
-                    // AND IT SAYS BOTH, because the second view is behind a
-                    // letter nobody can see from out here. "read the rules"
-                    // was the whole of what `v' did and is now half - a
-                    // person wanting to know what applying would change had
-                    // no reason to press it.
                     // `v' TURNS THE PANE, and only over a document. A folder
                     // row has no document to show three ways, and a key that
                     // resolves there and changes nothing on screen is the
@@ -922,11 +918,7 @@ public static class Keymap
                                         : "read the document")
                                 { When = "while the cursor is on a document" },
                         ]
-                        : [],
-
-                    new(KeyStroke.Char('o'), Command.ReadOutcome,
-                            "what would change, and the last apply")
-                        { When = "while the airspace tab is showing" }]
+                        : []]
                 : [],
             .. context.Showing == TabId.Browse
                 ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")

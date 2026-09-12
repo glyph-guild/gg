@@ -9,11 +9,10 @@ namespace Gg.Console.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>WHICH VIEWS A ROW HAS IS THE ROW'S OWN ANSWER.</b> A file matching what
-/// is applied has no on-disk view - there would be nothing to compare it
-/// against. A strategy has no effective one - composition is per work kind,
-/// because that is what a flight has. So an arrow key from a work kind with
-/// local edits to a strategy takes two of the three views away.
+/// <b>WHICH VIEWS A ROW HAS IS THE ROW'S OWN ANSWER.</b> A strategy has no
+/// effective view - what governs a flight is composed per work kind, because
+/// that is what a flight has. So an arrow key from a work kind to a strategy
+/// takes a view away while somebody is looking at it.
 /// </para>
 /// <para>
 /// <b>The pane would then be pointing at a tab that is not on the bar</b> -
@@ -125,10 +124,11 @@ public class TheCursorTakesTheViewWithItTests
             .Because("what governs a flight is composed per work kind, and a strategy is "
                    + "not one.");
 
-        await Assert.That(onTheStrategy.AirspaceView).IsEqualTo(AirspaceView.Applied)
+        await Assert.That(onTheStrategy.AirspaceView).IsEqualTo(AirspaceView.OnDisk)
             .Because("the pane may not be left pointing at a tab this row does not have - "
                    + "that disagreement between a model and a bar is what crashed the "
-                   + "window's tabs.");
+                   + "window's tabs. It lands on the FIRST view the row offers, which is "
+                   + "the file itself: every row has one, and it is the leftmost tab.");
     }
 
     [Test]

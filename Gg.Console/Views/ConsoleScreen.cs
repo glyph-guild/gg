@@ -163,6 +163,19 @@ public sealed class ConsoleScreen : Window
     private readonly Dialog _modal;
     private readonly Label _modalBody;
 
+    /// <summary>The help modal's tabbed body. See the construction for why it is widgets now.</summary>
+    private readonly View _helpBody;
+
+    private readonly Terminal.Gui.Views.Tabs _helpTabs;
+
+    private readonly View _helpKeysTab;
+
+    private readonly View _helpEnvironmentTab;
+
+    private readonly TreeView<HelpNode> _helpKeys;
+
+    private readonly Label _helpEnvironment;
+
     /// <summary>The modal's buttons, rebuilt whenever what it asks changes.</summary>
     /// <remarks>
     /// <b>Rebuilt rather than hidden.</b> Which answers exist depends on the
@@ -692,6 +705,43 @@ public sealed class ConsoleScreen : Window
         };
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
 
+        // THE HELP MODAL'S OWN BODY: a real tab bar, and a real tree under the
+        // Keys page. What changed to make this possible is the model, not the
+        // widget - HelpPage and HelpFolds hold which page is showing and what
+        // is folded, and these follow them the way _bar follows ActiveTab.
+        //
+        // The text bar this replaced was defended on the grounds that a widget
+        // "would put which page is showing inside a widget, where no test can
+        // assert it". True of a widget that OWNS the answer. These do not.
+        _helpTabs = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+
+        _helpKeys = CollectionViews.Tree<HelpNode>();
+        _helpEnvironment = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+
+        _helpKeysTab = new View { Width = Dim.Fill(), Height = Dim.Fill(), Title = "Keys" };
+        _helpKeysTab.Add(_helpKeys);
+
+        _helpEnvironmentTab = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Title = "Environment",
+        };
+        _helpEnvironmentTab.Add(_helpEnvironment);
+
+        _helpTabs.Add(_helpKeysTab);
+        _helpTabs.Add(_helpEnvironmentTab);
+        _helpTabs.ValueChanged += OnHelpPageChanged;
+
+        _helpBody = new View { Width = Dim.Fill(), Height = Dim.Fill(), Visible = false };
+        _helpBody.Add(_helpTabs);
+
         // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
         // as tall as the top third because it is the only part whose length
         // nobody controls; the fields take what they need; the log gets the
@@ -955,7 +1005,7 @@ public sealed class ConsoleScreen : Window
 
         _readingBody.Add(_readingSaid);
 
-        _modal.Add(_modalBody, _flightBody, _runnerBody, _readingBody);
+        _modal.Add(_modalBody, _flightBody, _runnerBody, _readingBody, _helpBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -1462,6 +1512,168 @@ public sealed class ConsoleScreen : Window
         }
 
         State = State with { AirspaceView = picked.View };
+        Render();
+    }
+
+    /// <summary>
+    /// A person picked a help page, which is the same act as pressing tab.
+    /// </summary>
+    /// <remarks>
+    /// <b>Through the model, never around it.</b> The widget reports; the
+    /// state decides; Render puts the widget back where the state says. That is
+    /// what keeps "which page is showing" something a test can assert, which is
+    /// the whole objection the text tab bar was defended on.
+    /// </remarks>
+    /// <summary>
+    /// Puts the help widgets where the model says they are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One direction only.</b> The tab follows <c>HelpPage</c> and the tree
+    /// follows <c>HelpFolds</c>; neither is asked what it thinks. The sync flag
+    /// is what stops the assignment answering its own event, exactly as the
+    /// main tab bar does it.
+    /// </para>
+    /// <para>
+    /// <b>The tree is rebuilt rather than mutated.</b> Its rows come from one
+    /// pure function of the state, so there is no second place where a group
+    /// could exist or a fold could be open - and a rebuilt tree lands on the
+    /// same folds because the folds are not the tree's.
+    /// </para>
+    /// </remarks>
+    private void RenderHelp()
+    {
+        _syncing = true;
+
+        try
+        {
+            var showing = State.HelpPage == HelpPage.Environment
+                ? _helpEnvironmentTab
+                : _helpKeysTab;
+
+            if (!ReferenceEquals(_helpTabs.Value, showing))
+            {
+                _helpTabs.Value = showing;
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        _helpEnvironment.Text = PaneText.HelpEnvironmentText(State);
+
+        var groups = HelpTree.Keys()
+            .Select(group => new HelpNode
+            {
+                Text = group.Heading,
+                Mode = group.Mode,
+                Group = true,
+                Keys =
+                [
+                    .. group.Keys.Select(key => new HelpNode
+                    {
+                        Text = key.When is { Length: > 0 } when
+                            ? $"{key.Name,-8}{key.Description}   ({when})"
+                            : $"{key.Name,-8}{key.Description}",
+                        Mode = group.Mode,
+                        Group = false,
+                    }),
+                ],
+            })
+            .ToList();
+
+        // WHAT THE CURSOR IS OVER, REPORTED BACK. The tree says; the model
+        // holds it; the keymap offers the fold key only where it does
+        // something. Same direction as every other selection here.
+        _helpKeys.SelectionChanged -= OnHelpCursorMoved;
+        _helpKeys.SelectionChanged += OnHelpCursorMoved;
+
+        _helpKeys.ClearObjects();
+        _helpKeys.TreeBuilder = new HelpBranches();
+        _helpKeys.AddObjects(groups);
+
+        foreach (var group in groups)
+        {
+            if (HelpTree.IsOpen(State, group.Mode))
+            {
+                _helpKeys.Expand(group);
+            }
+            else
+            {
+                _helpKeys.Collapse(group);
+            }
+        }
+
+        // GIVE THE TREE A CURSOR, because it opens without one. SelectedObject
+        // is null until something selects, SelectionChanged does not fire for
+        // standing still, and the result was a fold key that worked and was
+        // advertised nowhere until somebody pressed an arrow - worse than a
+        // key that is simply missing.
+        if (_helpKeys.SelectedObject is null && groups.Count > 0)
+        {
+            _helpKeys.SelectedObject = groups[0];
+        }
+
+        var over = _helpKeys.SelectedObject is { Group: true } group_
+            ? group_.Mode
+            : (UiMode?)null;
+
+        if (over != State.HelpFold)
+        {
+            State = State with { HelpFold = over };
+        }
+    }
+
+    /// <summary>
+    /// The help cursor moved, so the model learns what it is over.
+    /// </summary>
+    /// <remarks>
+    /// <b>It renders nothing.</b> A hint line is all that changes, and
+    /// re-rendering the tree from inside its own selection event is how a
+    /// cursor ends up fighting the thing that moved it.
+    /// </remarks>
+    private void OnHelpCursorMoved(object? sender, SelectionChangedEventArgs<HelpNode> args)
+    {
+        var over = args.NewValue is { Group: true } group ? group.Mode : (UiMode?)null;
+
+        if (over == State.HelpFold)
+        {
+            return;
+        }
+
+        State = State with { HelpFold = over };
+        _hints.Text = Keymap.Hints(Context());
+    }
+
+    /// <summary>How the tree finds a group's keys. One answer, from the node.</summary>
+    private sealed class HelpBranches : ITreeBuilder<HelpNode>
+    {
+        public bool SupportsCanExpand => true;
+
+        public bool CanExpand(HelpNode node) => node?.Keys.Count > 0;
+
+        public IEnumerable<HelpNode> GetChildren(HelpNode node) =>
+            node?.Keys ?? (IEnumerable<HelpNode>)[];
+    }
+
+    private void OnHelpPageChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var page = ReferenceEquals(chosen, _helpEnvironmentTab)
+            ? HelpPage.Environment
+            : HelpPage.Keys;
+
+        if (page == State.HelpPage)
+        {
+            return;
+        }
+
+        State = State with { HelpPage = page };
         Render();
     }
 
@@ -2186,10 +2398,18 @@ public sealed class ConsoleScreen : Window
         var reading = State.Mode is UiMode.ReadingEnvelope or UiMode.ReadingChangeset
                                  or UiMode.ReadingOutcome;
 
+        var helping = State.Mode is UiMode.Help;
+
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
         _readingBody.Visible = reading;
-        _modalBody.Visible = !flight && !runner && !reading;
+        _helpBody.Visible = helping;
+        _modalBody.Visible = !flight && !runner && !reading && !helping;
+
+        if (helping)
+        {
+            RenderHelp();
+        }
 
         if (flight)
         {

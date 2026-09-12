@@ -178,10 +178,19 @@ public static class Reducer
             // borrowed rather than taken: Normal mode is unchanged.
             Command.FocusNextPane when state.Mode == UiMode.Help => state with
             {
-                HelpPage = state.HelpPage == HelpPage.Keys
-                    ? HelpPage.Environment
-                    : HelpPage.Keys,
+                // THROUGH THE LIST THE BAR IS DRAWN FROM. Naming the two pages
+                // here is how a third gets added to the enum, drawn on the bar
+                // and never reached by the key - Tabs.Offered's argument, one
+                // modal down.
+                HelpPage = HelpPages.Next(state.HelpPage),
             },
+
+            // NOTHING WHERE THERE IS NOTHING TO FOLD. The cursor is on a key
+            // most of the time, and a key that silently changed something else
+            // is worse than one that does nothing.
+            Command.ToggleFold => state.HelpFold is { } fold
+                ? HelpTree.Toggle(state, fold)
+                : state,
 
             // TAB WALKS THE OPEN TABS. It used to move focus between the panes
             // that happened to be visible, which under one shared region was

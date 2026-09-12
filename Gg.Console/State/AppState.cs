@@ -1171,6 +1171,17 @@ public sealed record AppState
     public IReadOnlyList<string> HelpFolds { get; init; } = [];
 
     /// <summary>
+    /// The key group the help cursor is on, or null when it is on a key.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here so the fold key can be offered only where it does something.</b>
+    /// The tree reports what its cursor is over and the model holds it, which
+    /// is the same direction every other selection travels in this console: the
+    /// widget says, the model decides.
+    /// </remarks>
+    public UiMode? HelpFold { get; init; }
+
+    /// <summary>
     /// The held tree of the selected flight, when there is one.
     /// </summary>
     /// <remarks>

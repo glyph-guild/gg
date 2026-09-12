@@ -52,6 +52,7 @@ public readonly record struct KeyStroke(
 /// </remarks>
 public readonly record struct KeymapContext(
     UiMode Mode,
+
     TabId Showing = TabId.Queue,
     bool Frozen = false,
     bool Takeable = false,
@@ -67,7 +68,17 @@ public readonly record struct KeymapContext(
     /// value, which is what stops it advertising a direction the key does not
     /// take.
     /// </remarks>
-    bool ReadingTheDocument = false)
+    bool ReadingTheDocument = false,
+
+    /// <summary>
+    /// Whether the help cursor is on a key group rather than on a key.
+    /// </summary>
+    /// <remarks>
+    /// <b>Last, because this is a positional record.</b> Adding a parameter
+    /// anywhere else shifts every call site that passes by position, which the
+    /// compiler catches loudly here and would not in a looser language.
+    /// </remarks>
+    bool OverAFold = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -178,7 +189,12 @@ public readonly record struct KeymapContext(
             // AND WHICH HALF OF THE AIRSPACE TAB HAS THE KEYBOARD, for the
             // reason above it: `w' crosses both ways and says which way it is
             // going.
-            state.AirspaceReading)
+            state.AirspaceReading,
+
+            // AND WHETHER THE HELP CURSOR IS ON A GROUP. Derived here with the
+            // other two for their reason: the hint line and the dispatch read
+            // one answer, so a key cannot be advertised where it does nothing.
+            state.HelpFold is not null)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -359,6 +375,18 @@ public static class Keymap
             // knowing which page is showing would mean a new field on
             // KeymapContext and every property test's cross-product doubling
             // for a distinction a person does not feel.
+            // ONLY WHERE THERE IS SOMETHING TO FOLD. The cursor is on a key
+            // most of the time, and a key offered where it does nothing is the
+            // dead key Article XI names - the same reason `v' and `w' on the
+            // airspace tab are conditional on a document.
+            .. context.OverAFold
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char(' '), Command.ToggleFold, "fold or unfold this group")
+                        { When = "while the cursor is on a group" },
+                ]
+                : [],
+
             new(KeyStroke.Char('e'), Command.EditConfiguration, "edit the configuration")
             {
                 // LABELLED, BECAUSE THE ALL-OR-NOTHING RULE MEANS IT MUST BE.
@@ -1235,8 +1263,15 @@ public static class Keymap
         // side and "the tree" from the other, so one of the two would appear
         // on no page - which is the argument the clause above it records.
         from reading in (bool[])[false, true]
+
+        // AND WHETHER THE HELP CURSOR IS ON A GROUP. Crossed here so the fold
+        // key reaches the catalogue, which is what the help page is built
+        // from - a key offered only in one shape and left out of this would be
+        // advertised nowhere.
+        from overAFold in (bool[])[false, true]
         select new KeymapContext(
-            mode, showing, frozen, takeable, handedBack, overADocument, reading)
+            mode, showing, frozen, takeable, handedBack, overADocument, reading,
+            overAFold)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

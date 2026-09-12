@@ -2711,6 +2711,68 @@ public static class PaneText
     /// </remarks>
     public static string HelpEnvironmentText(AppState state) => HelpEnvironment(state);
 
+    /// <summary>
+    /// What this gg is, and what it found when the console opened.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The versions come first, because every finding below is a finding BY
+    /// that binary.</b> Three numbers decide whether the rest can be believed:
+    /// the binary, the protocol it speaks, and the fact vocabulary it evaluates
+    /// against. A runner judging facts against a vocabulary the control plane
+    /// has moved past gives a silently wrong answer - the exact failure a
+    /// health page exists to surface, and one no check can report because the
+    /// thing reporting it is the thing that is wrong.
+    /// </para>
+    /// <para>
+    /// <b>No report is not a clean bill of health.</b> A console that never
+    /// read one, or whose read failed on its own, says so. The empty state must
+    /// never be the reassuring one.
+    /// </para>
+    /// </remarks>
+    public static string HelpDoctorText(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var text = new StringBuilder();
+
+        text.AppendLine($"  gg                {Clean(Gg.Client.GgVersions.Binary)}");
+        text.AppendLine($"  protocol          {Gg.Client.GgVersions.Protocol}");
+        text.AppendLine($"  fact vocabulary   {Clean(Gg.Client.GgVersions.FactVocabulary)}");
+        text.AppendLine();
+
+        if (state.Doctor is not { } report)
+        {
+            text.AppendLine("  This console has not read a health report. It asks when it");
+            text.AppendLine("  opens and again on r; gg doctor answers the same question");
+            text.AppendLine("  from a terminal, which is where a remedy would be typed.");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var check in report.Checks)
+        {
+            // BLOCKING IS MARKED AND ADVISORY IS NOT. One of these stops gg
+            // working and the other does not, and a list that read alike would
+            // send somebody after the wrong one first.
+            var mark = check.Passed
+                ? "ok      "
+                : check.Blocking ? "BLOCKING" : "advisory";
+
+            text.AppendLine($"  {mark}  {Clean(check.Name)}");
+            text.AppendLine($"            {Clean(check.Detail)}");
+
+            if (!check.Passed && check.Fix is { Length: > 0 } fix)
+            {
+                // THE REMEDY IT WAS HANDED. A page that reports a problem and
+                // withholds the fix makes somebody go and run the verb anyway,
+                // which is the page failing at the one thing it is for.
+                text.AppendLine($"            fix: {Clean(fix)}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     private static string HelpEnvironment(AppState state)
     {
         var text = new StringBuilder();

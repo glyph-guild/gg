@@ -190,15 +190,23 @@ public class TheAirspacePaneShowsThreeViewsTests
         string.Join('\n', PaneText.AirspaceDocument(state, 0));
 
     [Test]
-    public async Task Applied_shows_what_the_airspace_holds_with_its_version()
+    public async Task Applied_shows_the_document_and_not_a_caption_over_it()
     {
         var said = Said(Tree(AirspaceView.Applied));
 
-        await Assert.That(said).Contains("score-hal@v1", StringComparison.Ordinal)
-            .Because("the version names this exact document, and it is what an attribution "
-                   + "will say governed a flight.");
-
         await Assert.That(said).Contains("hal-in-scope", StringComparison.Ordinal);
+
+        // NO HEADER. The tab already says which of the three questions this
+        // answers and the row already says which document it is about, so two
+        // lines of caption over every pane say what is on screen twice and
+        // push the document itself down.
+        await Assert.That(said).DoesNotContain("updated", StringComparison.Ordinal)
+            .Because("who last applied it is metadata about the document, not the "
+                   + "document.");
+
+        await Assert.That(said.Split('\n')[0]).IsNotEmpty()
+            .Because("and the pane opens on the document's own first line, with nothing "
+                   + "above it and no blank line under a caption that is gone.");
     }
 
     [Test]
@@ -212,6 +220,11 @@ public class TheAirspacePaneShowsThreeViewsTests
         await Assert.That(said).Contains("in-scope", StringComparison.Ordinal)
             .Because("and the floor's, which is what makes this a composition rather than "
                    + $"the document again. Said:\n{said}");
+
+        await Assert.That(said).DoesNotContain("what governs a flight of kind",
+                StringComparison.Ordinal)
+            .Because("the tab below says `effective' and the row says which kind, so the "
+                   + "sentence spelling both out is the screen reading itself back.");
     }
 
     [Test]
@@ -222,6 +235,11 @@ public class TheAirspacePaneShowsThreeViewsTests
         await Assert.That(said).Contains("# mine", StringComparison.Ordinal)
             .Because("verbatim, comments and all - the point of this view is what is "
                    + "ACTUALLY in the file, not what gg makes of it.");
+
+        await Assert.That(said.Split('\n')[0]).IsEqualTo("# mine")
+            .Because("VERBATIM FROM THE FIRST LINE. A path and a dash over it was the "
+                   + "path already on the row, and it made line one of the file line "
+                   + "three of the pane.");
     }
 
     [Test]

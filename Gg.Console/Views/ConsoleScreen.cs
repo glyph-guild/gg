@@ -176,6 +176,10 @@ public sealed class ConsoleScreen : Window
 
     private readonly Label _helpEnvironment;
 
+    private readonly View _helpDoctorTab;
+
+    private readonly Label _helpDoctor;
+
     /// <summary>The modal's buttons, rebuilt whenever what it asks changes.</summary>
     /// <remarks>
     /// <b>Rebuilt rather than hidden.</b> Which answers exist depends on the
@@ -735,8 +739,13 @@ public sealed class ConsoleScreen : Window
         };
         _helpEnvironmentTab.Add(_helpEnvironment);
 
+        _helpDoctor = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _helpDoctorTab = new View { Width = Dim.Fill(), Height = Dim.Fill(), Title = "Doctor" };
+        _helpDoctorTab.Add(_helpDoctor);
+
         _helpTabs.Add(_helpKeysTab);
         _helpTabs.Add(_helpEnvironmentTab);
+        _helpTabs.Add(_helpDoctorTab);
         _helpTabs.ValueChanged += OnHelpPageChanged;
 
         _helpBody = new View { Width = Dim.Fill(), Height = Dim.Fill(), Visible = false };
@@ -1547,9 +1556,12 @@ public sealed class ConsoleScreen : Window
 
         try
         {
-            var showing = State.HelpPage == HelpPage.Environment
-                ? _helpEnvironmentTab
-                : _helpKeysTab;
+            var showing = State.HelpPage switch
+            {
+                HelpPage.Environment => _helpEnvironmentTab,
+                HelpPage.Doctor => _helpDoctorTab,
+                _ => _helpKeysTab,
+            };
 
             if (!ReferenceEquals(_helpTabs.Value, showing))
             {
@@ -1562,6 +1574,7 @@ public sealed class ConsoleScreen : Window
         }
 
         _helpEnvironment.Text = PaneText.HelpEnvironmentText(State);
+        _helpDoctor.Text = PaneText.HelpDoctorText(State);
 
         var groups = HelpTree.Keys()
             .Select(group => new HelpNode
@@ -1664,9 +1677,9 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        var page = ReferenceEquals(chosen, _helpEnvironmentTab)
-            ? HelpPage.Environment
-            : HelpPage.Keys;
+        var page = ReferenceEquals(chosen, _helpEnvironmentTab) ? HelpPage.Environment
+                 : ReferenceEquals(chosen, _helpDoctorTab) ? HelpPage.Doctor
+                 : HelpPage.Keys;
 
         if (page == State.HelpPage)
         {

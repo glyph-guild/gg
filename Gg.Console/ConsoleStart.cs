@@ -40,6 +40,32 @@ public static class ConsoleStart
     /// merely degraded.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The same own-failure rule, for a read that is not a verb result.
+    /// </summary>
+    /// <remarks>
+    /// <b>Wider than its neighbour, deliberately.</b> The doctor runs a dozen
+    /// checks against a control plane, a filesystem and a git working copy;
+    /// the shapes it can fail in are not the three the verb reads share, and a
+    /// console that would not open because its health check threw is the worst
+    /// possible reading of a health check.
+    /// </remarks>
+    private static async Task<Gg.Client.DoctorReport?> HealthAsync(
+        Func<CancellationToken, Task<Gg.Client.DoctorReport>> doctor,
+        List<string> partial,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await doctor(cancellationToken);
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            partial.Add($"the health check did not run: {failure.Message}");
+            return null;
+        }
+    }
+
     private static async Task<VerbResult?> OwnFailureAsync(
         string what,
         Func<CancellationToken, Task<VerbResult>> read,
@@ -102,11 +128,18 @@ public static class ConsoleStart
     /// list at all - the loader names what it read, which it has to do anyway.
     /// </para>
     /// </remarks>
+    /// <param name="doctor">
+    /// How to ask what this machine's health is, or null for a console that
+    /// does not. Handed in because building a Doctor needs the session and
+    /// credential stores and this project has neither - the composition root
+    /// is where the ambient answers are allowed to be ambient.
+    /// </param>
     public static async Task<AppState> LoadAsync(
         ConsoleData data,
         string principal = "",
         AppState? current = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<CancellationToken, Task<Gg.Client.DoctorReport>>? doctor = null)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -140,12 +173,20 @@ public static class ConsoleStart
             var allowances = OwnFailureAsync(
                 "allowances", ct => data.AllowancesAsync(ct), partial, cancellationToken);
 
+            // AND WHAT THIS MACHINE'S HEALTH IS, on its own failure like the
+            // three above it. A console whose doctor could not run must still
+            // open - the page says it has no report, which is a different fact
+            // from a clean one and is the only honest thing to show.
+            var health = doctor is null
+                ? Task.FromResult<Gg.Client.DoctorReport?>(null)
+                : HealthAsync(doctor, partial, cancellationToken);
+
             // OBSERVED BEFORE ANY OF THEM IS ALLOWED TO THROW. WhenAll marks all
             // five as observed and then raises the first failure, so a control
             // plane nobody can reach still leaves the catch below with nothing
             // dangling behind it.
             await Task.WhenAll(
-                (Task)listing, fleet, waiting, credentials, identity, allowances);
+                (Task)listing, fleet, waiting, credentials, identity, allowances, health);
 
             var flights = (VerbResult.Flights)await listing;
             var runners = (VerbResult.Runners)await fleet;
@@ -290,6 +331,11 @@ public static class ConsoleStart
             loaded = Folded(loaded, await credentials);
             loaded = Folded(loaded, await identity);
             loaded = Folded(loaded, await allowances);
+
+            // AND THE HEALTH REPORT, which is not a VerbResult and so does not
+            // fold through the projection. Null stays null: the page says it
+            // has no report, which is a different fact from a clean one.
+            loaded = loaded with { Doctor = await health };
             loaded = Folded(loaded, await reason);
             loaded = Folded(loaded, await story);
 

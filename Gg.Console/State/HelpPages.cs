@@ -28,13 +28,14 @@ public static class HelpPages
     /// a person did not have to ask for.
     /// </remarks>
     public static IReadOnlyList<HelpPage> All { get; } =
-        [HelpPage.Keys, HelpPage.Environment];
+        [HelpPage.Keys, HelpPage.Environment, HelpPage.Doctor];
 
     /// <summary>What the tab is called.</summary>
     public static string Title(HelpPage page) => page switch
     {
         HelpPage.Keys => "Keys",
         HelpPage.Environment => "Environment",
+        HelpPage.Doctor => "Doctor",
         _ => page.ToString(),
     };
 

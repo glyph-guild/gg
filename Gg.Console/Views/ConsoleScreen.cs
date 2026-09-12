@@ -170,6 +170,9 @@ public sealed class ConsoleScreen : Window
 
     private readonly Label _helpEnvironment;
 
+    /// <summary>The key groups, built once. See RenderHelp for why not every render.</summary>
+    private List<HelpNode>? _helpGroups;
+
     private readonly View _helpDoctorTab;
 
     private readonly Label _helpDoctor;
@@ -1691,14 +1694,6 @@ public sealed class ConsoleScreen : Window
                 _helpTabs.Value = showing;
             }
 
-            // AND THE PANES ARE SHOWN AND HIDDEN HERE, rather than left to the
-            // bar. Assigning Value moved the highlight and not the content -
-            // the modal drew the last tab added whichever one was selected -
-            // so visibility is the model's like everything else, and the bar
-            // draws the header over it.
-            _helpKeysTab.Visible = ReferenceEquals(showing, _helpKeysTab);
-            _helpEnvironmentTab.Visible = ReferenceEquals(showing, _helpEnvironmentTab);
-            _helpDoctorTab.Visible = ReferenceEquals(showing, _helpDoctorTab);
         }
         finally
         {
@@ -1713,7 +1708,17 @@ public sealed class ConsoleScreen : Window
         _helpEnvironment.Text = PaneText.HelpEnvironmentText(State);
         _helpDoctor.Text = PaneText.HelpDoctorText(State);
 
-        var groups = HelpTree.Keys()
+        // BUILT ONCE, NOT EVERY SECOND. Render runs on a one-second timer for
+        // the refresh countdown, and ClearObjects/AddObjects hands the tree a
+        // fresh set of nodes each time - so whatever a person had selected is
+        // no longer in the tree and the cursor springs back to the top. That
+        // is the rule RenderModalButtons already states one method along: do
+        // the work when the thing is different, not when something asked.
+        //
+        // The keys themselves never change at runtime: Keymap.Catalogue() is
+        // static. What changes is which groups are open, and that is expand
+        // and collapse below rather than a rebuild.
+        _helpGroups ??= HelpTree.Keys()
             .Select(group => new HelpNode
             {
                 Text = group.Heading,
@@ -1733,14 +1738,14 @@ public sealed class ConsoleScreen : Window
             })
             .ToList();
 
-        _helpKeys.SelectionChanged -= OnHelpCursorMoved;
-        _helpKeys.SelectionChanged += OnHelpCursorMoved;
+        if (_helpKeys.Objects?.Any() is not true)
+        {
+            _helpKeys.SelectionChanged += OnHelpCursorMoved;
+            _helpKeys.TreeBuilder = new HelpBranches();
+            _helpKeys.AddObjects(_helpGroups);
+        }
 
-        _helpKeys.ClearObjects();
-        _helpKeys.TreeBuilder = new HelpBranches();
-        _helpKeys.AddObjects(groups);
-
-        foreach (var group in groups)
+        foreach (var group in _helpGroups)
         {
             if (HelpTree.IsOpen(State, group.Mode))
             {
@@ -1756,9 +1761,9 @@ public sealed class ConsoleScreen : Window
         // is null until something selects and SelectionChanged does not fire
         // for standing still, so the fold key worked and was advertised nowhere
         // until somebody pressed an arrow - worse than a key that is missing.
-        if (_helpKeys.SelectedObject is null && groups.Count > 0)
+        if (_helpKeys.SelectedObject is null && _helpGroups.Count > 0)
         {
-            _helpKeys.SelectedObject = groups[0];
+            _helpKeys.SelectedObject = _helpGroups[0];
         }
 
         var over = _helpKeys.SelectedObject is { Group: true } group_

@@ -86,6 +86,42 @@ public static class HelpTree
             .Where(group => group.Keys.Count > 0),
     ];
 
+    /// <summary>Whether this group is open right now.</summary>
+    /// <remarks>
+    /// <b>Read from the state, with <see cref="Opens"/> as the answer nobody
+    /// has changed yet.</b> A fold is a person's choice the moment they make
+    /// one, and it has to survive the console rebuilding its views.
+    /// </remarks>
+    public static bool IsOpen(AppState state, UiMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.HelpFolds.Contains(mode.ToString())
+            ? !Opens([], mode)
+            : Opens([], mode);
+    }
+
+    /// <summary>Opens a closed fold, or closes an open one.</summary>
+    /// <remarks>
+    /// <b>What is stored is the DIFFERENCE from the default, not the state.</b>
+    /// So a mode added later opens the way its own rule says rather than the
+    /// way somebody's saved list happened to leave it, and an empty set is a
+    /// person who has not touched anything.
+    /// </remarks>
+    public static AppState Toggle(AppState state, UiMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var name = mode.ToString();
+
+        return state with
+        {
+            HelpFolds = state.HelpFolds.Contains(name)
+                ? [.. state.HelpFolds.Where(f => !string.Equals(f, name, StringComparison.Ordinal))]
+                : [.. state.HelpFolds, name],
+        };
+    }
+
     /// <summary>Whether a group starts open.</summary>
     /// <remarks>
     /// <b>Only the always-available keys.</b> They are the answer to "what can

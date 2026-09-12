@@ -687,13 +687,13 @@ public static class VerbOutput
             // about a finished window and says nothing about this one. Stating
             // a percentage plainly would be a claim about the window a person
             // is actually in.
-            var rolled = window.ResetsAt is { } ended && ended <= reading.MeasuredAt;
+            var rolled = AllowanceShare.RolledOver(window, reading.MeasuredAt);
 
             text.AppendLine(window switch
             {
                 { Reported: { } share } when !rolled =>
                     $"  {Clean(window.Kind),-9} {spent,14} tokens   "
-                  + $"{(int)Math.Floor(share * 100)}% spent"
+                  + $"{AllowanceShare.Percent(share)}% spent"
                   + (window.ResetsAt is { } resets
                         ? $", resets {resets:u}"
 
@@ -759,12 +759,32 @@ public static class VerbOutput
             {
                 var spent = window.Tokens.ToString("N0", CultureInfo.InvariantCulture);
 
-                text.AppendLine(window.Limit is { } ceiling and > 0
-                    ? $"  {Clean(window.Kind),-9} {spent,14} of "
-                      + $"{ceiling.ToString("N0", CultureInfo.InvariantCulture),-14} "
-                      + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}%"
-                    : $"  {Clean(window.Kind),-9} {spent,14} tokens   "
-                      + "(no ceiling; set allowance-limits on the machines that report it)");
+                // THE SAME THREE-WAY CHOICE THE SINGULAR VERB MAKES, through
+                // the one function that makes it. This surface is where the
+                // copies drifted: the meter landed in AllowanceText and not
+                // here, so one reading read as a percentage in a terminal and
+                // as "no ceiling" in the fleet list beside it.
+                text.AppendLine(AllowanceShare.Live(window, held.MeasuredAt) switch
+                {
+                    { } share =>
+                        $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                      + $"{AllowanceShare.Percent(share)}% spent"
+                      + (window.ResetsAt is { } resets ? $", resets {resets:u}" : "")
+                      + (window.ReportedAt is { } asOf ? $" (as of {asOf:u})" : ""),
+
+                    _ when AllowanceShare.RolledOver(window, held.MeasuredAt) =>
+                        $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                      + $"(the meter's window reset {window.ResetsAt:u} and it has not "
+                      + "been asked since)",
+
+                    _ when AllowanceShare.Typed(window) is { } typed =>
+                        $"  {Clean(window.Kind),-9} {spent,14} of "
+                      + $"{window.Limit!.Value.ToString("N0", CultureInfo.InvariantCulture),-14} "
+                      + $"{AllowanceShare.Percent(typed)}%",
+
+                    _ => $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                       + "(no ceiling; set allowance-limits on the machines that report it)",
+                });
             }
 
             text.AppendLine();

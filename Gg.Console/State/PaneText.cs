@@ -1423,9 +1423,15 @@ public static class PaneText
 
         if (session is null) { return $"  {Clean(mine.Name)}"; }
 
-        return session.Limit is { } ceiling and > 0
-            ? $"  {Clean(mine.Name)} {(int)Math.Floor(session.Tokens * 100.0 / ceiling)}%"
-            : $"  {Clean(mine.Name)} {session.Tokens:N0} spent";
+        // THE SAME DECISION IN ONE COLUMN'S WORTH OF ROOM. No reset and no
+        // age here - a column cannot carry them - so a rolled-over share falls
+        // through to the count rather than being restated.
+        return (Gg.Client.AllowanceShare.Live(session, mine.MeasuredAt)
+                ?? Gg.Client.AllowanceShare.Typed(session)) switch
+        {
+            { } share => $"  {Clean(mine.Name)} {Gg.Client.AllowanceShare.Percent(share)}%",
+            _ => $"  {Clean(mine.Name)} {session.Tokens:N0} spent",
+        };
     }
 
     /// <summary>
@@ -1513,10 +1519,26 @@ public static class PaneText
 
             foreach (var window in held.Windows)
             {
-                text.AppendLine(window.Limit is { } ceiling and > 0
-                    ? $"  {Clean(window.Kind),-9} "
-                      + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}% spent"
-                    : $"  {Clean(window.Kind),-9} {window.Tokens:N0} tokens, no ceiling set");
+                // ONE DECISION, FOUR SURFACES. AllowanceShare answers which
+                // kind of share this window has; this pane only chooses how to
+                // fit it in a column.
+                text.AppendLine(Gg.Client.AllowanceShare.Live(window, held.MeasuredAt) switch
+                {
+                    { } share =>
+                        $"  {Clean(window.Kind),-9} "
+                      + $"{Gg.Client.AllowanceShare.Percent(share)}% spent"
+                      + (window.ResetsAt is { } resets ? $", resets {resets:u}" : ""),
+
+                    _ when Gg.Client.AllowanceShare.RolledOver(window, held.MeasuredAt) =>
+                        $"  {Clean(window.Kind),-9} {window.Tokens:N0} tokens, "
+                      + "the meter has not been asked since its window reset",
+
+                    _ when Gg.Client.AllowanceShare.Typed(window) is { } typed =>
+                        $"  {Clean(window.Kind),-9} "
+                      + $"{Gg.Client.AllowanceShare.Percent(typed)}% spent",
+
+                    _ => $"  {Clean(window.Kind),-9} {window.Tokens:N0} tokens, no ceiling set",
+                });
             }
 
             if (held.Floor is { } floor)

@@ -308,6 +308,17 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private TabId? _landed;
 
+    /// <summary>
+    /// Which of the runner modal's views focus was last placed in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="_landedReading"/> and for its reason.</b> Focus is
+    /// moved when the view TURNED rather than whenever the model and the widget
+    /// differ — the second re-places it once a second and drags it out of
+    /// whatever a person had just clicked into.
+    /// </remarks>
+    private RunnerView _landedRunnerView;
+
     /// <summary>Which half of the airspace tab focus was last placed on.</summary>
     /// <remarks>
     /// <b>Beside <see cref="_landed"/> and for its reason.</b> Focus is moved
@@ -2826,7 +2837,7 @@ public sealed class ConsoleScreen : Window
     {
         switch (FocusChange.Wanted(
             State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus,
-            State.AirspaceReading, _landedReading))
+            State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView))
         {
             case FocusTarget.LeaveAlone:
                 return;
@@ -2848,13 +2859,27 @@ public sealed class ConsoleScreen : Window
                 _landed = null;
                 return;
 
-            case FocusTarget.RunnerLog:
-                // THE LIST WHEN IT HAS LINES, THE FRAME WHEN IT HAS NONE - the
-                // flight log's fallback, for its reason: focus is what makes
-                // the arrows move a cursor a person can see, and a runner that
-                // has said nothing has none to move.
-                (_runnerSaid.Visible ? _runnerSaid : (View)_modal).SetFocus();
+            case FocusTarget.RunnerView:
+                // WHICHEVER VIEW IS SHOWING, because the bar follows the
+                // focused pane: a landing that always named the log assigned
+                // Value back to it every render, and the other two views were
+                // reachable for about a second each.
+                //
+                // AND THE WIDGET WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE -
+                // the flight log's fallback, for its reason: focus is what
+                // makes the arrows move a cursor a person can see, and an empty
+                // view has none to move.
+                (State.RunnerView switch
+                {
+                    RunnerView.Environments when _runnerEnvironments.Visible
+                        => _runnerEnvironments,
+                    RunnerView.Members when _runnerMembers.Visible => _runnerMembers,
+                    RunnerView.Log when _runnerSaid.Visible => _runnerSaid,
+                    _ => (View)_modal,
+                }).SetFocus();
+
                 _landed = null;
+                _landedRunnerView = State.RunnerView;
                 return;
 
             case FocusTarget.AirspaceDocument:

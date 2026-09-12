@@ -1,6 +1,11 @@
 using System.Text.Json;
 using Gg.Local;
 
+// THE NEIGHBOUR'S FIXTURES, named rather than copied. A duplicated test
+// opener is what one pty flake turned out to be, and these two are the same
+// shape of thing: a temp tree and a record written into it.
+using Transcripts = Gg.Cli.Tests.AnAllowanceIsMeasuredFromTranscriptsTests.Transcripts;
+
 namespace Gg.Cli.Tests;
 
 /// <summary>
@@ -171,6 +176,53 @@ public class TheMeterIsReadRatherThanGuessedTests
             .Because("another tool owns that file and may change its shape without telling "
                    + "anybody. A reading that threw would take the token counts down with "
                    + "it, and those are right regardless.");
+    }
+
+    [Test]
+    public async Task The_ledger_carries_the_meters_share_beside_its_own_count()
+    {
+        using var meter = new Meter(Cached());
+        using var transcripts = new Transcripts();
+
+        transcripts.Write("a-project", AnAllowanceIsMeasuredFromTranscriptsTests.Spent(Now.AddMinutes(-10), output: 169));
+
+        var read = AllowanceLedger.Read(
+            "kdee-max", transcripts.Root, AllowanceLimits.None, Now, meter.Path);
+
+        var session = read.Windows.Single(w => w.Kind == AllowanceLedger.Session);
+
+        await Assert.That(session.Reported).IsEqualTo(0.09)
+            .Because("this is the number a person asked for, and it arrives without "
+                   + "anybody typing a ceiling.");
+
+        await Assert.That(session.Tokens).IsGreaterThan(0)
+            .Because("the count is still this ledger's own, over its own rolling window.");
+
+        await Assert.That(session.Fraction).IsNull()
+            .Because("Fraction is the share derived from a TYPED ceiling and there is no "
+                   + "ceiling here. Two provenances, and neither may impersonate the "
+                   + "other - a reader has to be able to tell a measured share from a "
+                   + "divided one.");
+    }
+
+    [Test]
+    public async Task A_machine_with_no_meter_reads_exactly_as_it_did_before()
+    {
+        using var meter = new Meter(body: null);
+        using var transcripts = new Transcripts();
+
+        transcripts.Write("a-project", AnAllowanceIsMeasuredFromTranscriptsTests.Spent(Now.AddMinutes(-10), output: 169));
+
+        var read = AllowanceLedger.Read(
+            "kdee-max", transcripts.Root,
+            AllowanceLimits.Read("session=1000,week=9000"), Now, meter.Path);
+
+        var session = read.Windows.Single(w => w.Kind == AllowanceLedger.Session);
+
+        await Assert.That(session.Reported).IsNull();
+        await Assert.That(session.Fraction).IsNotNull()
+            .Because("the typed ceiling still answers where the meter cannot, which is "
+                   + "every machine that is not running this executor.");
     }
 
     [Test]

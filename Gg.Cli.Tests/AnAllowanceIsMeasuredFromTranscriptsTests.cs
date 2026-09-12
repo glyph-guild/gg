@@ -131,7 +131,7 @@ public class AnAllowanceIsMeasuredFromTranscriptsTests
     /// Built here rather than copied from a real file, because a real one is
     /// somebody's work. The members named are the only ones the ledger reads.
     /// </remarks>
-    private static string Spent(
+    internal static string Spent(
         DateTimeOffset at,
         long output,
         long input = 0,
@@ -201,7 +201,7 @@ public class AnAllowanceIsMeasuredFromTranscriptsTests
     }
 
     /// <summary>A transcript directory in the executor's layout.</summary>
-    private sealed class Transcripts : IDisposable
+    internal sealed class Transcripts : IDisposable
     {
         public Transcripts() =>
             Root = Directory.CreateTempSubdirectory("gg-allowance").FullName;

@@ -45,15 +45,25 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
         """;
 
     /// <summary>A tree on disk, with the remote half of the estate given.</summary>
-    private static AppState Tree(EnvelopeTopology? names, string? diagnosis)
+    /// <param name="failed">
+    /// What the read threw, if it ran and threw. <b>Composed the way
+    /// ConsoleEstate composes it</b> - "The airspace could not be read: " and
+    /// then the message - because Diagnosis is a whole sentence and a fixture
+    /// that hands over a fragment tests a shape the console never produces.
+    /// </param>
+    private static AppState Tree(EnvelopeTopology? names, string? failed)
     {
+        var diagnosis = failed is { Length: > 0 }
+            ? "The airspace could not be read: " + failed
+            : "";
+
         var state = new AppState
         {
             ActiveTab = TabId.Envelope,
             Estate = new EstateOnThisMachine
             {
                 Root = "/home/someone/airspace",
-                Diagnosis = diagnosis ?? "",
+                Diagnosis = diagnosis,
                 Names = names,
                 Uncommitted = [],
                 Applied = [],
@@ -102,7 +112,7 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
     public async Task A_read_that_failed_says_so_rather_than_that_nothing_is_applied()
     {
         var said = Said(
-            Tree(names: null, diagnosis: "Connection refused (localhost:5199)"),
+            Tree(names: null, failed: "Connection refused (localhost:5199)"),
             AirspaceView.Applied);
 
         await Assert.That(said).Contains("could not be read", StringComparison.Ordinal)
@@ -131,7 +141,7 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
         // says the same thing twice - and a reader who has to skip a stutter
         // to reach the reason is being told the console is confused.
         var said = Said(
-            Tree(names: null, diagnosis: "The airspace could not be read: Connection refused"),
+            Tree(names: null, failed: "Connection refused (localhost:5199)"),
             AirspaceView.Applied);
 
         var times = said.Split("could not be read").Length - 1;
@@ -144,7 +154,7 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
     public async Task The_effective_view_does_not_compose_out_of_what_it_never_read()
     {
         var said = Said(
-            Tree(names: null, diagnosis: "Connection refused (localhost:5199)"),
+            Tree(names: null, failed: "Connection refused (localhost:5199)"),
             AirspaceView.Effective);
 
         await Assert.That(said).Contains("could not be read", StringComparison.Ordinal)
@@ -161,7 +171,7 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
         // THE SECOND OF THE THREE, and it must survive the fix. A document
         // authored and not yet applied is the ordinary state of one being
         // written, and it is the case the apply key exists for.
-        var said = Said(Tree(Answered(), diagnosis: null), AirspaceView.Applied);
+        var said = Said(Tree(Answered(), failed: null), AirspaceView.Applied);
 
         await Assert.That(said)
             .Contains("Nothing has been applied", StringComparison.Ordinal)
@@ -176,7 +186,7 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
     {
         // NOT THE SAME AS A FAILURE. Nothing has been attempted, so there is
         // no reason to give - and the thing to do is the read, not a fix.
-        var state = Tree(names: null, diagnosis: null);
+        var state = Tree(names: null, failed: null);
 
         var said = Said(state, AirspaceView.Applied);
 

@@ -1051,8 +1051,11 @@ public static class PaneText
     /// </remarks>
     private static IReadOnlyList<string> NotRead(AppState state, AirspaceFile pointed) =>
     [
+        // VERBATIM. Diagnosis is a sentence the estate read composed, not a
+        // fragment to introduce - prefixing it printed "The airspace could not
+        // be read: The airspace could not be read: Connection refused".
         state.Estate?.Diagnosis is { Length: > 0 } why
-            ? "The airspace could not be read: " + Clean(why)
+            ? Clean(why)
             : "The airspace has not been read yet - press e, which reads it.",
         "",
         $"So what is applied to '{Clean(pointed.Name)}' is not known here, and nothing "

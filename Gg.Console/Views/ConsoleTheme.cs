@@ -180,12 +180,13 @@ public static class ConsoleTheme
     /// and the reason neither of them names a colour.
     /// </para>
     /// <para>
-    /// <b>Focus AND HotNormal, because a cursor that vanishes is not a
-    /// cursor.</b> <c>TableView</c> draws the selected row with
-    /// <c>HotNormal</c> once the table no longer holds the keyboard. On a tab
-    /// whose other half can take the keyboard, that is exactly when the row
-    /// matters most: it is the one thing saying what the pane beside it is
-    /// about.
+    /// <b>Focus AND Active, because a cursor that vanishes is not a cursor.</b>
+    /// Read out of <c>TableView</c> rather than guessed: the row it has
+    /// selected is drawn <c>hasFocus ? scheme.Focus : scheme.Active</c>. On a
+    /// tab whose other half can take the keyboard, the unfocused branch is
+    /// exactly when the row matters most - it is the one thing saying what the
+    /// pane beside it is about. <c>HotFocus</c> comes along for the hot-key
+    /// rendering of the same row.
     /// </para>
     /// </remarks>
     public static Scheme Picked()
@@ -200,7 +201,8 @@ public static class ConsoleTheme
         {
             Focus = block,
             HotFocus = block,
-            HotNormal = block,
+            Active = block,
+            HotActive = block,
         };
     }
 

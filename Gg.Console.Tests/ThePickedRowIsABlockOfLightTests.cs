@@ -24,7 +24,15 @@ namespace Gg.Console.Tests;
 /// text. That is the lightest thing the theme already has, and it cannot come
 /// out unreadable because both halves come from one pair.
 /// </para>
+/// <para>
+/// <b>Serialised, like the theme tests beside it.</b> <c>ConsoleTheme.Apply</c>
+/// loads the library's configuration sources once per process behind a flag;
+/// two tests racing it find the theme half-registered and get
+/// <c>KeyNotFoundException: 'Dark'</c> - which reads exactly like a theme that
+/// does not exist.
+/// </para>
 /// </remarks>
+[NotInParallel]
 public class ThePickedRowIsABlockOfLightTests
 {
     [Test]
@@ -73,10 +81,12 @@ public class ThePickedRowIsABlockOfLightTests
 
         var picked = ConsoleTheme.Picked();
 
-        await Assert.That(picked.GetAttributeForRole(VisualRole.HotNormal).Background)
+        // ACTIVE, NOT HotNormal. Read out of TableView rather than guessed:
+        // the selected row is drawn `hasFocus ? scheme.Focus : scheme.Active`.
+        await Assert.That(picked.GetAttributeForRole(VisualRole.Active).Background)
             .IsEqualTo(picked.GetAttributeForRole(VisualRole.Focus).Background)
-            .Because("TableView draws the selected row with HotNormal once the table no "
-                   + "longer holds the keyboard, so both roles have to be the block.");
+            .Because("the table draws its selected row with Active once it no longer holds "
+                   + "the keyboard, so both roles have to be the block.");
     }
 
     [Test]

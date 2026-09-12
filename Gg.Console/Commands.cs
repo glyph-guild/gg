@@ -10,6 +10,17 @@ public enum Command
     ToggleHelp,
 
     /// <summary>
+    /// Opens the key group under the cursor, or closes an open one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A command rather than something the tree does by itself.</b> A fold a
+    /// widget opened would be invisible to the model, and the console rebuilds
+    /// its views from the model every time it hands the terminal to an editor —
+    /// so the fold would spring shut on the way back.
+    /// </remarks>
+    ToggleFold,
+
+    /// <summary>
     /// Everything known about the flight under the cursor.
     /// </summary>
     /// <remarks>

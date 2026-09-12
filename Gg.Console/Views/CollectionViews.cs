@@ -74,6 +74,41 @@ public static class CollectionViews
         protected override bool OnKeyDownNotHandled(Key key) => false;
     }
 
+    /// <summary>
+    /// A tree that does not eat the keys the keymap is waiting for.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="QuietTable"/>'s reason, applied to the other widget that
+    /// navigates.</b> <c>Keymap.Resolve</c> is a pure function of the key, and
+    /// it can only be that if the key reaches it. A tree left to its own
+    /// bindings answers the arrows, space and letters itself, so a person in
+    /// the help modal would find the console's own keys stop working inside it.
+    /// </remarks>
+    private sealed class QuietTree<T> : TreeView<T> where T : class
+    {
+        protected override bool OnKeyDownNotHandled(Key key) => false;
+    }
+
+    /// <summary>A tree with the console's rules on it.</summary>
+    public static TreeView<T> Tree<T>() where T : class
+    {
+        var tree = new QuietTree<T>
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+
+            // TYPE-AHEAD OFF, like the table's CollectionNavigator. A tree that
+            // jumped to a row because somebody pressed `e' would be competing
+            // with the keymap for every letter.
+            AllowLetterBasedNavigation = false,
+        };
+
+        return tree;
+    }
+
     public static TableView Table()
     {
         var table = new QuietTable

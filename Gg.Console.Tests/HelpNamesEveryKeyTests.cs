@@ -81,8 +81,13 @@ public class HelpNamesEveryKeyTests
         // is a binding the completeness check cannot see - the mistake this
         // product has already made twice.
         from overADocument in (bool[])[false, true]
+
+        // AND WHETHER THE HELP CURSOR IS ON A GROUP, which decides whether the
+        // fold key is offered at all.
+        from overAFold in (bool[])[false, true]
         select new KeymapContext(
-            mode, showing, frozen, takeable, handedBack, overADocument)
+            mode, showing, frozen, takeable, handedBack, overADocument,
+            ReadingTheDocument: false, OverAFold: overAFold)
         {
             SignInStarted = started,
             RunnerIsOurs = ours,
@@ -133,7 +138,7 @@ public class HelpNamesEveryKeyTests
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(members.Count).IsEqualTo(13)
+        await Assert.That(members.Count).IsEqualTo(14)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

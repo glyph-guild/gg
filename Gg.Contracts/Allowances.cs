@@ -110,6 +110,44 @@ public sealed record AllowanceWindow
     /// </remarks>
     public long Tokens => InputTokens + OutputTokens + CacheWriteTokens;
 
+    /// <summary>
+    /// What the provider's own meter says this window has spent, 0 to 1.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read from the provider, never divided here — which is why it is not
+    /// a fraction of <see cref="Limit"/>.</b> Nothing on a machine can
+    /// discover a plan's token ceiling, so <see cref="Limit"/> is a number
+    /// somebody typed. This one is the meter's own statement, it needs no
+    /// ceiling, and it is right on a machine where nobody configured one.
+    /// </para>
+    /// <para>
+    /// <b>It describes a DIFFERENT SPAN from the counts beside it, and that is
+    /// the reason it is read rather than back-computed.</b> The meter's window
+    /// is fixed and ends at <see cref="ResetsAt"/>; the counts are summed over
+    /// a rolling window opening at <see cref="Since"/>. Dividing measured
+    /// tokens by a reported percentage would put those two spans over each
+    /// other and produce a ceiling that looks plausible and is not.
+    /// </para>
+    /// <para>
+    /// <b>Absent means the meter said nothing</b>, which is every machine not
+    /// running an executor that keeps one — not nought percent, for the reason
+    /// <see cref="Limit"/> is nullable: a zero reads as a plan nobody has
+    /// touched.
+    /// </para>
+    /// </remarks>
+    public double? Reported { get; init; }
+
+    /// <summary>
+    /// When the meter's own window resets. Absent when it said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried so a reader can tell the two windows apart.</b> A share and
+    /// a token count on one line look like one measurement; this is what says
+    /// they are two, and it is the only thing that does.
+    /// </remarks>
+    public DateTimeOffset? ResetsAt { get; init; }
+
     /// <summary>When the window opened.</summary>
     public required DateTimeOffset Since { get; init; }
 

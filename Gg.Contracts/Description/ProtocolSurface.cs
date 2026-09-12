@@ -1431,7 +1431,11 @@ public static class ProtocolSurface
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
             [typeof(AllowanceWindow)] =
                 ["kind", "since", "inputTokens", "outputTokens", "cacheReadTokens",
-                 "cacheWriteTokens", "limit", "tokens"],
+                 // `reported' is the provider's own share and `resetsAt' the end
+                 // of the window it describes - which is NOT the one `since'
+                 // opens. Both are here rather than derived because nothing on
+                 // either side can compute them from the counts.
+                 "cacheWriteTokens", "limit", "tokens", "reported", "resetsAt"],
             [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
             [typeof(AllowanceSummary)] =
                 ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],

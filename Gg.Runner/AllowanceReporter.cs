@@ -109,6 +109,12 @@ public sealed class AllowanceReporter(Func<MeasuredAllowance?> measure, TimeSpan
                     CacheReadTokens = w.CacheReadTokens,
                     CacheWriteTokens = w.CacheWriteTokens,
                     Limit = w.Limit,
+
+                    // AND WHAT THE PROVIDER SAID, which the control plane
+                    // cannot get any other way: it has no transcripts, no
+                    // meter and no ceiling of its own.
+                    Reported = w.Reported,
+                    ResetsAt = w.ResetsAt,
                 }),
             ],
         });

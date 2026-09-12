@@ -2280,7 +2280,28 @@ public static class VerbOutput
     {
         var text = new StringBuilder();
 
-        if (applied.Applied.Count == 0)
+        // WHAT WAS DECLARED, FIRST. Declaring a name changes the tenant's
+        // shape rather than a document's contents, and one that gated is
+        // somebody else's decision now.
+        foreach (var name in applied.Declared)
+        {
+            text.Append(name.Flight is { Length: > 0 } gate
+                ? $"{name.Name}: declared as a {name.Role} - flight {gate} awaits "
+                + $"{name.Awaiting}. The name is not reachable until that gate opens, so "
+                + "its document waits with it.\n"
+                : $"{name.Name}: declared as a {name.Role} under {name.Parent}\n");
+        }
+
+        // AND "MATCHES" ONLY WHEN IT DOES. This keyed on Applied alone, so an
+        // apply the door REFUSED - which applies nothing by definition - read
+        // as a clean working copy. That was a regression introduced by making
+        // a refusal a recorded answer instead of a thrown exception: the
+        // console learned to render it and this, which is what the terminal
+        // prints, did not.
+        if (applied.Applied.Count == 0
+            && applied.Declared.Count == 0
+            && applied.Retiring.Count == 0
+            && applied.Refused is null)
         {
             text.Append("nothing to apply: the working copy matches the airspace\n");
         }
@@ -2300,6 +2321,20 @@ public static class VerbOutput
             else
             {
                 text.Append($"{document.Name}: nothing changed, still {document.Version}\n");
+            }
+        }
+
+        // AND WHAT STOPPED IT, in the door's own words. The rest was not sent,
+        // deliberately - a changeset is something somebody meant as a whole -
+        // so what was skipped is named rather than left to be inferred from
+        // the safe order.
+        if (applied.Refused is { } refused)
+        {
+            text.Append($"stopped at {refused.Path}: {Clean(refused.Diagnosis, lines: true)}\n");
+
+            if (refused.NotTried.Count > 0)
+            {
+                text.Append("not tried: " + string.Join(", ", refused.NotTried) + "\n");
             }
         }
 

@@ -2660,7 +2660,13 @@ public static class PaneText
             // arrived. A sentence that was true once and wrong ever since is
             // the failure this pane exists to avoid.
             + "  d  decide a gate on this flight\n"
-            + "  v  the evidence behind it\n\n"
+
+            // SAYS WHAT THE KEY DOES, rather than what is behind two of them.
+            // `v' opens the flight; the evidence is its gate tab, one key
+            // further in - and a menu item that names the destination of a
+            // journey rather than the step it takes is how somebody presses it
+            // and believes it failed.
+            + "  v  open the flight - its gate tab shows what is holding it\n\n"
             + "  Taking this flight over is not offered here. It needs the flight's\n"
             + "  working tree, and this console never holds one — the branch is what\n"
             + "  is authoritative. It can be done on the machine that ran the flight.";

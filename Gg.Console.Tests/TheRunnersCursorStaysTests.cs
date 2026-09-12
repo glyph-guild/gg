@@ -129,7 +129,7 @@ public class TheRunnersCursorStaysTests
     /// </remarks>
     private static readonly string[] Driven =
         ["_flightsTable", "_browseTable", "_repositoriesTable", "_runnersTable",
-         "_airspaceTable"];
+         "_airspaceTable", "_environmentsTable"];
 
     [Test]
     public async Task The_view_is_told_where_the_cursor_is_rather_than_where_it_started()
@@ -191,12 +191,14 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(6)
-            .Because("six tables, and the count is here so a seventh has to come past this. "
+        await Assert.That(built).IsEqualTo(7)
+            .Because("seven tables, and the count is here so an eighth has to come past this. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
-                   + "a hand-counted role column - the last list-of-things pane to get a "
-                   + "table.");
-        await Assert.That(wired).IsEqualTo(5)
+                   + "a hand-counted role column; the seventh is the chart, which is the "
+                   + "first table whose rows are a JOIN of three reads rather than one "
+                   + "list - and so the first whose cursor can outlive the thing it "
+                   + "indexes if the joins are let decide how many rows there are.");
+        await Assert.That(wired).IsEqualTo(6)
             .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
                    + $"never learns about. Built {built}, wired {wired}.");
         await Assert.That(released).IsEqualTo(wired)

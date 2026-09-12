@@ -868,6 +868,20 @@ public static class Keymap
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,
                 Closes(context, TabId.Envelope, "envelope")) { OffTheHintLine = true },
+            // `s' BECAUSE OF WHAT IS LEFT - `u' one block up made the same
+            // argument. Normal mode has m, s and z free: `p' is refused by
+            // name, `z' reads as nothing, and `m' is the members tab. `s' is
+            // in the word and it is free.
+            //
+            // IT WAS THE AIRSPACE'S UNTIL AN HOUR AGO, and that is the reason
+            // to say so here. `s' applied the airspace from the Envelope tab
+            // until the four acts moved behind `a'; taking it now is taking a
+            // letter that was in a person's fingers, not one that was never
+            // used. It is still `s' inside that modal, where it means the same
+            // thing it always did.
+            new(KeyStroke.Char('s'), Command.ToggleEnvironments,
+                Closes(context, TabId.Environments, "environments"))
+                { OffTheHintLine = true },
             // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH. This was two
             // booleans with an explicit precedence between them, because live
             // and browse shared a region: both flags on was a state the console

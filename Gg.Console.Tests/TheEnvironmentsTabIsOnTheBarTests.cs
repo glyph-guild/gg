@@ -89,6 +89,29 @@ public class TheEnvironmentsTabIsOnTheBarTests
     }
 
     [Test]
+    public async Task A_read_that_went_and_failed_does_not_say_nobody_asked()
+    {
+        // FOUND BY RUNNING IT. Against a control plane that was not there the
+        // pane said "not read - press s" - on the tab a person had reached BY
+        // pressing s. Never-asked and asked-and-failed are the first two of the
+        // three absences, and the one thing a reader does about them differs:
+        // press the key, or go and find out why the answer never came.
+        var asked = Bare() with
+        {
+            EnvironmentsVisible = true,
+            Diagnosis = "Connection refused",
+        };
+
+        var said = PaneText.ForTab(asked, TabId.Environments);
+
+        await Assert.That(said).DoesNotContain("not read", StringComparison.Ordinal)
+            .Because("the tab is open, which means the request went. Said: " + said);
+
+        await Assert.That(said).Contains("Connection refused", StringComparison.Ordinal)
+            .Because("and what came back instead is the only thing worth saying about it.");
+    }
+
+    [Test]
     public async Task A_charted_name_is_rows_rather_than_a_sentence()
     {
         var state = Bare() with
@@ -144,7 +167,7 @@ public class TheEnvironmentsTabIsOnTheBarTests
             },
         };
 
-        var moved = Reducer.Reduce(state, Command.MoveDown);
+        var moved = Reducer.Reduce(state, Command.SelectNext);
 
         await Assert.That(moved.EnvironmentSelected).IsEqualTo(1);
         await Assert.That(moved.SelectedRow).IsEqualTo(state.SelectedRow)

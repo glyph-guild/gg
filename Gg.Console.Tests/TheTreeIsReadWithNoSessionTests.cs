@@ -27,15 +27,51 @@ namespace Gg.Console.Tests;
 /// worth showing without a network.
 /// </para>
 /// <para>
-/// <b>Still a summary, never the documents.</b> <c>EstateOnThisMachine</c>'s
-/// own rule holds: <c>AppState</c> is written to <c>GG_STATE_DUMP</c> and
-/// handed to the diagnostics bundle, so nothing here may carry a document's
-/// text. Paths, names, roles and versions — the same class of fact the
-/// topology and the diff already carry.
+/// <b>And the text of each file, which this walk now keeps.</b> That is a
+/// change to <c>EstateOnThisMachine</c>'s own rule and it was argued rather
+/// than assumed: the airspace tab draws the selected document on disk, as
+/// applied and as it composes, <c>PaneText</c> is pure, and the only
+/// alternative was a request per arrow key. The rule's old reason — the
+/// diagnostics bundle — turned out not to be true of the code:
+/// <c>BundleFrom</c> ignores the state it is handed.
+/// </para>
+/// <para>
+/// <b>It is still a local read and nothing else.</b> A session may read a
+/// local file whose path the console already holds; this walk is exactly
+/// that, and the network half of the estate stays in <c>Read</c>.
 /// </para>
 /// </remarks>
 public class TheTreeIsReadWithNoSessionTests
 {
+    [Test]
+    public async Task The_walk_keeps_what_each_file_says()
+    {
+        // THE ON-DISK TAB'S CONTENT. It is the one of the pane's three the
+        // console could read for itself at any moment - and PaneText cannot,
+        // being pure, so the walk keeps it.
+        var tree = Somewhere();
+
+        try
+        {
+            var folded = ConsoleEstate.Local(tree.FullName, new AppState());
+
+            var document = folded.Estate!.Tree!.Documents
+                .First(d => d.Path.EndsWith("pci.yaml", StringComparison.Ordinal));
+
+            await Assert.That(document.Text).IsNotNull()
+                .Because("the pane draws what the file says, and a walk that parsed it and "
+                       + "threw the text away would make the tab fetch it again.");
+
+            await Assert.That(document.Text!).Contains("obligations", StringComparison.Ordinal)
+                .Because("verbatim, because the point of an on-disk tab is what is ACTUALLY "
+                       + "there - a re-render would show what gg thinks it means.");
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
     private static DirectoryInfo Somewhere()
     {
         var at = Directory.CreateDirectory(Path.Combine(

@@ -3,8 +3,17 @@ using Gg.Contracts;
 namespace Gg.Client;
 
 /// <summary>
-/// Which kind of share a window has, decided once for every surface.
+/// Which kind of share a window has, for the surfaces that render one.
 /// </summary>
+/// <remarks>
+/// <b>THE DECISION MOVED TO <see cref="AllowanceShares"/>, one package down.</b>
+/// The control plane makes the same call - whether a floor has been reached,
+/// which machine is least spent - and the two repositories cannot reference
+/// each other, so the rule has to live in the artifact they share. What is
+/// left here is the convenience of asking it about an
+/// <see cref="AllowanceWindow"/>, and <see cref="Percent"/>, which is
+/// presentation and belongs on this side.
+/// </remarks>
 /// <remarks>
 /// <para>
 /// <b>Four surfaces render this and each had its own copy of the rule.</b>
@@ -34,7 +43,7 @@ public static class AllowanceShare
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        return window.ResetsAt is { } ended && ended <= asOf;
+        return AllowanceShares.RolledOver(window.ResetsAt, asOf);
     }
 
     /// <summary>
@@ -44,7 +53,7 @@ public static class AllowanceShare
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        return window.Reported is { } share && !RolledOver(window, asOf) ? share : null;
+        return AllowanceShares.Live(window.Reported, window.ResetsAt, asOf);
     }
 
     /// <summary>
@@ -58,9 +67,7 @@ public static class AllowanceShare
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        return window.Limit is { } ceiling and > 0
-            ? window.Tokens / (double)ceiling
-            : null;
+        return AllowanceShares.Typed(window.Tokens, window.Limit);
     }
 
     /// <summary>A share as whole percent, floored — never rounded up.</summary>

@@ -126,8 +126,23 @@ public static class Git
                 return false;
             }
 
-            var stdout = process.StandardOutput.ReadToEnd();
-            var stderr = process.StandardError.ReadToEnd();
+            // BOTH PIPES IN FLIGHT BEFORE ANYTHING WAITS, and that ordering is
+            // the whole of the bound below.
+            //
+            // THIS WAS TWO ReadToEnd() CALLS AND THE TIMEOUT WAS UNREACHABLE.
+            // A synchronous drain blocks until the pipe CLOSES, and a git that
+            // never returns never closes it - so WaitForExit was never reached
+            // and Patience guarded only the gap between git closing its streams
+            // and exiting, which is not the failure anybody has. The comment on
+            // Patience claimed the property the whole time; reading the
+            // airspace froze anyway.
+            //
+            // AND SEQUENTIALLY WAS ITS OWN DEADLOCK. Draining stdout to
+            // completion while the child fills the stderr pipe blocks the
+            // child, which then never closes stdout - neither stream can break
+            // it. Started together, neither can block the other.
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
 
             if (!process.WaitForExit(Patience))
             {
@@ -136,7 +151,13 @@ public static class Git
                 return false;
             }
 
-            output = process.ExitCode == 0 ? stdout : stderr;
+            // THE PROCESS HAS EXITED, so both pipes are closed and both reads
+            // have ended. Asking for the result is what collects it rather than
+            // what waits for it.
+            output = process.ExitCode == 0
+                ? stdout.GetAwaiter().GetResult()
+                : stderr.GetAwaiter().GetResult();
+
             return process.ExitCode == 0;
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)

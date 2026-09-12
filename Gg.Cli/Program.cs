@@ -1290,7 +1290,8 @@ static async Task<int> LaunchConsoleAsync()
                     // THE CHART AND THE TWO JOINS, which are one key's worth of
                     // reading: what is charted, what furnishes each name, and
                     // what each pool last said about itself.
-                    Gg.Console.Command.ToggleEnvironments =>
+                    Gg.Console.Command.ToggleEnvironments
+                        or Gg.Console.Command.ToggleMembers =>
                         _ => Gg.Console.ConsoleEnvironments.Read(data, current),
 
                     // THE FLIGHT'S STORY, which is what this port was built

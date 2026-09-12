@@ -465,6 +465,19 @@ public enum TabId
     Environments,
 
     /// <summary>
+    /// What is running for each charted environment, as far as the fleet can
+    /// see it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the chart, because it is the other half of one question.</b>
+    /// The tab before this one is what is DECLARED - charted names, the
+    /// strategy that furnishes each, what the pool last attested. This is what
+    /// is RUNNING. Two tabs rather than more columns, because the second half
+    /// has a row per runner and the first has a row per name.
+    /// </remarks>
+    Members,
+
+    /// <summary>
     /// Every allowance in the fleet, and what each has left.
     /// </summary>
     /// <remarks>
@@ -880,6 +893,12 @@ public sealed record AppState
     /// at - silently, because nothing throws.
     /// </remarks>
     public int EnvironmentSelected { get; init; }
+
+    /// <summary>Whether the members pane has been opened since this console started.</summary>
+    public bool MembersVisible { get; init; }
+
+    /// <summary>Which member row the cursor is on.</summary>
+    public int MemberSelected { get; init; }
 
     /// <summary>
     /// Every managed pool's latest attestation, per pool and action.

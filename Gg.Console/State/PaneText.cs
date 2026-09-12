@@ -115,6 +115,7 @@ public static class PaneText
             TabId.Repositories => Repositories(state),
             TabId.Envelope => AirspaceAbsence(state),
             TabId.Environments => EnvironmentsAbsence(state),
+            TabId.Members => MembersAbsence(state),
             TabId.Allowances => FleetAllowances(state),
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
@@ -617,6 +618,41 @@ public static class PaneText
                  + "said nothing rather than one with a problem. The chart is what an "
                  + "envelope naming an environment is refused against, so until a name is "
                  + "in it no flight can ask to run anywhere in particular.";
+        }
+
+        // THE ROWS ARE THE ANSWER FROM HERE ON.
+        return "";
+    }
+
+    /// <summary>
+    /// What the Members tab says when it has no rows to say it with.
+    /// </summary>
+    /// <remarks>
+    /// <b>It shares the chart's absences, because it shares the chart.</b> The
+    /// rows are one per charted name at minimum, so no chart means no rows -
+    /// and the two panes must not disagree about why. What differs is the last
+    /// line: this tab says what its rows ARE, because "member" is the word a
+    /// reader will bring the wrong expectation to.
+    /// </remarks>
+    public static string MembersAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Chart is not { } chart)
+        {
+            return state.MembersVisible
+                ? state.Diagnosis is { Length: > 0 } why
+                    ? Clean(why, lines: true)
+                    : "The environment chart could not be read, and nothing said why."
+                : "what is running: not read - press m";
+        }
+
+        if (chart.Environments.Count == 0)
+        {
+            return "Nothing is charted here yet, so there is no environment for anything to "
+                 + "be running in. These rows are the runners that advertise a charted name - "
+                 + "gg cannot see a pool's containers, only the members that came up and "
+                 + "registered.";
         }
 
         // THE ROWS ARE THE ANSWER FROM HERE ON.

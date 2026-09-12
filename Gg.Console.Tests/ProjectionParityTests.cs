@@ -214,6 +214,14 @@ public class ProjectionParityTests
                             + "it into the outcome modal, per name, saying that nothing is "
                             + "gone until the gate opens.",
 
+            ["AirspaceDocuments"] = "every applied document, whole, read in one request "
+                                  + "and unwrapped by ConsoleEstate rather than projected "
+                                  + "here - AirspaceDiffed's reason: the estate record "
+                                  + "joins two reads and a walk of the disk, and an arm "
+                                  + "fills one field. It is what the airspace tab's "
+                                  + "right-hand pane draws for whatever row the cursor is "
+                                  + "on, without asking again.",
+
             ["RulesInForce"] = "the floor composed with one work kind - what actually "
                              + "governs a flight of that kind. A command-line answer today "
                              + "(gg envelope show <work-kind>): the console shows the floor "

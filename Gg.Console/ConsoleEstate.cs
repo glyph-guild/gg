@@ -190,9 +190,47 @@ public static class ConsoleEstate
             {
                 Names = names,
                 Working = working,
+
+                // AND EVERY DOCUMENT, WHOLE, so the pane beside the tree draws
+                // whatever the cursor lands on without asking anybody. One
+                // request for all of them: a fetch per row would be I/O on an
+                // arrow key, which this console does not do.
+                //
+                // KEPT ON A FAILURE. The documents are the previous read's and
+                // are still true of what is applied; emptying the pane because
+                // a later read failed would take away what somebody is looking
+                // at to report that something else went wrong.
+                Applied = Documents(data) ?? state.Estate.Applied,
                 Diagnosis = why,
             },
         };
+    }
+
+    /// <summary>
+    /// Every applied document, or null when the read refused.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is "ask again", not "there are none".</b> An estate with no
+    /// documents is an empty list and a real state - a tenant before their
+    /// first apply - so the two cannot share an answer, and the caller keeps
+    /// what it had rather than blanking the pane over a failure the pane is
+    /// not about.
+    /// </remarks>
+    private static IReadOnlyList<Gg.Contracts.NamedEnvelopeState>? Documents(ConsoleData data)
+    {
+        try
+        {
+            return data.AirspaceDocumentsAsync().GetAwaiter().GetResult()
+                is VerbResult.AirspaceDocuments read
+                ? read.Value.Documents
+                : null;
+        }
+        catch (Exception refused) when (refused is NotSignedInException
+                                            or ProtocolTooOldException
+                                            or HttpRequestException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

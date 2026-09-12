@@ -377,6 +377,18 @@ public sealed class ConsoleData(
         _commands.AirspaceAsync(name, cancellationToken);
 
     /// <summary>
+    /// Every document the airspace holds, whole, in one request.
+    /// </summary>
+    /// <remarks>
+    /// <b>What the airspace tab draws from.</b> One read fills the pane for
+    /// every row, so moving the cursor makes no request - which is the rule a
+    /// per-row fetch would have broken.
+    /// </remarks>
+    public Task<VerbResult> AirspaceDocumentsAsync(
+        CancellationToken cancellationToken = default) =>
+        _commands.AirspaceDocumentsAsync(cancellationToken);
+
+    /// <summary>
     /// `gg envelope show &lt;work-kind&gt;` - the floor composed with one kind.
     /// </summary>
     /// <remarks>

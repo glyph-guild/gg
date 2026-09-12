@@ -225,19 +225,26 @@ public class TheAirspacePaneShowsThreeViewsTests
     }
 
     [Test]
-    public async Task The_on_disk_view_is_offered_only_when_it_differs()
+    public async Task The_on_disk_view_is_always_offered()
     {
+        // THIS RULE WAS THE OPPOSITE AND IT WAS WRONG IN USE. On disk used to
+        // appear only when the file differed from what is applied, on the
+        // argument that a tab duplicating its neighbour teaches people to stop
+        // reading tabs. What it actually did was take the FILE away from a
+        // tree of file names: select root.yaml, committed and applied, and
+        // there was no way to see root.yaml.
+        //
+        // The duplication argument was also weaker than it looked - the two
+        // are never quite the same document. One is what somebody wrote,
+        // comments and ordering and all; the other is what gg made of it.
         var same = Tree(AirspaceView.Applied);
         var edited = Tree(AirspaceView.Applied, uncommitted: true);
 
-        await Assert.That(AirspaceViews.Offered(same)).DoesNotContain(AirspaceView.OnDisk)
-            .Because("a file matching what is applied makes two tabs one document, and a "
-                   + "tab that duplicates its neighbour teaches people to stop reading "
-                   + "tabs.");
+        await Assert.That(AirspaceViews.Offered(same)).Contains(AirspaceView.OnDisk)
+            .Because("the row names a file, so the file is always one of the answers.");
 
         await Assert.That(AirspaceViews.Offered(edited)).Contains(AirspaceView.OnDisk)
-            .Because("and when there IS something to compare, comparing is the whole "
-                   + "reason somebody opened this tab.");
+            .Because("and when it differs, comparing is the whole reason somebody looked.");
     }
 
     [Test]

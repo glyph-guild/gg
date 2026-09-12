@@ -942,6 +942,12 @@ public sealed class ConsoleScreen : Window
             _runnerViews.Add(pane);
         }
 
+        // AND SOMEBODY LISTENS TO IT, which is what the window's own bar has
+        // always had. Arrowing along these headers or clicking one changes
+        // Value, and a bar nobody hears is one whose every move the next render
+        // undoes - reported as "it switches back to the log after a second".
+        _runnerViews.ValueChanged += OnRunnerViewChanged;
+
         _runnerBody = new View
         {
             Width = Dim.Fill(),
@@ -1494,6 +1500,44 @@ public sealed class ConsoleScreen : Window
         }
 
         State = State with { AirspaceView = picked.View };
+        Render();
+    }
+
+    /// <summary>
+    /// A person picked one of the runner modal's views off the bar.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="OnTabChanged"/>'s shape, one bar down, and for its
+    /// reason.</b> Which view is showing is the MODEL's to say — the render
+    /// draws from <c>State.RunnerView</c> — so a bar that moved without telling
+    /// it would be corrected on the next pass and look like a key that did
+    /// nothing. The widget is an input here, not a second source of truth.
+    /// </para>
+    /// <para>
+    /// <b>THE SYNC FLAG IS WHY THIS DOES NOT EAT ITSELF.</b> Render assigns
+    /// <c>Value</c> from the model every pass, and that assignment raises this
+    /// — so without the guard a render would be read as a person choosing
+    /// something, which is the re-entry the window's bar holds the same flag
+    /// for.
+    /// </para>
+    /// </remarks>
+    private void OnRunnerViewChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var picked = _runnerViewTabbed
+            .FirstOrDefault(t => ReferenceEquals(t.Pane, chosen));
+
+        if (picked.Pane is null || picked.View == State.RunnerView)
+        {
+            return;
+        }
+
+        State = State with { RunnerView = picked.View };
         Render();
     }
 
@@ -2975,6 +3019,7 @@ public sealed class ConsoleScreen : Window
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;
+            _runnerViews.ValueChanged -= OnRunnerViewChanged;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
             _airspaceViews.ValueChanged -= OnAirspaceViewChanged;

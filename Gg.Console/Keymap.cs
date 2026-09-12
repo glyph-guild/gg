@@ -876,27 +876,11 @@ public static class Keymap
             // this expression rather than arriving as its own binding, because
             // Resolve answers the FIRST match and a second `enter` further down
             // the list would never be reached.
-            context.Showing switch
-            {
-                TabId.Runners =>
-                    new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
-                        { OffTheHintLine = true },
-
-                // OFF THE LINE LIKE ITS TWO SIBLINGS, once the field it
-                // focuses became a box that is drawn at all times. It used to
-                // be the only way to learn an unset airspace could be
-                // answered, which is why it was on the line; the box's own
-                // title says "airspace - enter to edit" now, so the line was
-                // the second place saying it - and of two places that say one
-                // thing, the one nobody is looking at is the one that goes
-                // stale.
-                TabId.Envelope =>
-                    new(KeyStroke.EnterKey, Command.FocusAirspacePath,
-                        "say where the airspace is") { OffTheHintLine = true },
-
-                _ => new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
-                    { OffTheHintLine = true },
-            },
+            // WHICH ENTER THIS TAB HAS, OR NONE. Spread rather than a switch
+            // expression, because KeyBinding is a value type and "no binding
+            // here" cannot be null - and a harmless placeholder would still be
+            // the answer Resolve returns and the help page advertises.
+            .. Enter(context.Showing),
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.
@@ -1239,6 +1223,44 @@ public static class Keymap
     /// over a struct, and a shape left out shows up as a key missing from the
     /// help page, which is what HelpNamesEveryKeyTests asserts.
     /// </remarks>
+    /// <summary>
+    /// The enter this tab answers, or none at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the row under the cursor, and which row that is depends on which
+    /// tab has the screen.</b> Two tabs list flights, one lists machines, one
+    /// holds the airspace field - and the rest have nothing enter could open,
+    /// so they have no enter. It used to be a fallback arm, which meant Live,
+    /// Browse, Repositories and Allowances all offered "open this flight".
+    /// </remarks>
+    private static KeyBinding[] Enter(TabId showing) => showing switch
+    {
+        TabId.Runners =>
+        [
+            new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
+                { OffTheHintLine = true, When = "on the runners tab" },
+        ],
+
+        // OFF THE LINE LIKE ITS SIBLINGS, once the field it focuses became a
+        // box drawn at all times. It used to be the only way to learn an unset
+        // airspace could be answered; the box's own title says "airspace -
+        // enter to edit" now, and of two places that say one thing, the one
+        // nobody is looking at is the one that goes stale.
+        TabId.Envelope =>
+        [
+            new(KeyStroke.EnterKey, Command.FocusAirspacePath, "say where the airspace is")
+                { OffTheHintLine = true, When = "on the airspace tab" },
+        ],
+
+        TabId.Flights or TabId.Queue =>
+        [
+            new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
+                { OffTheHintLine = true, When = "on the flights and queue tabs" },
+        ],
+
+        _ => [],
+    };
+
     private static IEnumerable<KeymapContext> Shapes(UiMode mode) =>
         // ORDER IS THE PAGE'S ORDER. The plainest shape comes first - the queue
         // tab, nothing frozen, nothing to take - so the keys that always work

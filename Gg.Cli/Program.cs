@@ -67,7 +67,8 @@ return CliArgs.Parse(args) switch
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Plan plan => await EmitAsync(plan.Json, c => c.PlanAsync(plan.Flight)),
-    CliAction.AirspaceShow airspace => await EmitAsync(airspace.Json, c => c.AirspaceAsync()),
+    CliAction.AirspaceShow airspace =>
+        await EmitAsync(airspace.Json, c => c.AirspaceAsync(airspace.Name)),
     // THE WORKING COPY IS WHERE YOU ARE. Nothing configurable, because a flag
     // naming the tree would be a second place the estate's location is written
     // down - and the ADR is explicit that the repository is just a repository.
@@ -1272,6 +1273,13 @@ static async Task<int> LaunchConsoleAsync()
 
                     Gg.Console.Command.ToggleRepositories =>
                         _ => Gg.Console.ConsoleRepositories.Read(data, current),
+
+                    // ONE DOCUMENT, READ BACK. Which one is the cursor's
+                    // answer and ConsoleDocument asks the same projection the
+                    // keymap did, so what is fetched cannot differ from what
+                    // the key offered.
+                    Gg.Console.Command.ReadDocument =>
+                        _ => Gg.Console.ConsoleDocument.Read(data, current),
 
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.

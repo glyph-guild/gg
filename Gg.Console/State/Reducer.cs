@@ -108,6 +108,14 @@ public static class Reducer
             Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),
             Command.ReadChangeset => Modal(state, UiMode.ReadingChangeset),
             Command.ReadOutcome => Modal(state, UiMode.ReadingOutcome),
+
+            // OPENED NOW, FILLED WHEN THE READ LANDS, which is ToggleEnvelope's
+            // shape: the modal says the document is coming rather than the
+            // screen going away while it does.
+            Command.ReadDocument => Modal(state, UiMode.ReadingDocument) with
+            {
+                ReadInFlight = true,
+            },
             Command.AskToRetire => Modal(state, UiMode.ConfirmRetire),
 
             // SET RATHER THAN TOGGLED, unlike the modals beside it: enter is

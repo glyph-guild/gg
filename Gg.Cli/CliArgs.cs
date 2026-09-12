@@ -127,7 +127,15 @@ public abstract record CliAction
     public sealed record Plan(string? Flight, bool Json) : CliAction, IEmitsResult;
 
     /// <summary>gg airspace show: the topology, root first.</summary>
-    public sealed record AirspaceShow(bool Json) : CliAction, IEmitsResult;
+    /// <summary>
+    /// The topology, or one applied document when a name is given.
+    /// </summary>
+    /// <remarks>
+    /// <b>The read-back that did not exist.</b> `gg envelope show` is the root
+    /// document, so a work kind applied successfully could be read by nothing -
+    /// and somebody who applied one concluded twice that it had failed.
+    /// </remarks>
+    public sealed record AirspaceShow(bool Json, string? Name) : CliAction, IEmitsResult;
 
     /// <summary>
     /// Renders the whole estate into the working copy.
@@ -622,7 +630,11 @@ public static class CliArgs
             ["flights", ..] => Unknown(
                 "gg flights takes --all, --json, and --intent <provider>#<id> or a uri."),
             ["runners"] => new CliAction.Runners(json),
-            ["airspace", "show"] => new CliAction.AirspaceShow(json),
+            // A NAME NARROWS IT TO ONE DOCUMENT. Without one this answers the
+            // topology, exactly as it always did - adding the detail must not
+            // take away the list.
+            ["airspace", "show", var named] => new CliAction.AirspaceShow(json, named),
+            ["airspace", "show"] => new CliAction.AirspaceShow(json, null),
             ["airspace", "pull"] => new CliAction.AirspacePull(json),
             ["airspace", "apply"] => new CliAction.AirspaceApply(json, declareNames),
             ["airspace", "diff"] => new CliAction.AirspaceDiff(json),

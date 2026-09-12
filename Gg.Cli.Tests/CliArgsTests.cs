@@ -217,9 +217,9 @@ public class CliArgsTests
     public async Task The_parse_arm_exists_and_names_its_one_subcommand()
     {
         await Assert.That(CliArgs.Parse(["airspace", "show"]))
-            .IsEqualTo(new CliAction.AirspaceShow(false));
+            .IsEqualTo(new CliAction.AirspaceShow(false, null));
         await Assert.That(CliArgs.Parse(["airspace", "show", "--json"]))
-            .IsEqualTo(new CliAction.AirspaceShow(true));
+            .IsEqualTo(new CliAction.AirspaceShow(true, null));
 
         var bare = CliArgs.Parse(["airspace"]) as CliAction.Unknown;
         await Assert.That(bare).IsNotNull();

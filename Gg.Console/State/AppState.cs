@@ -160,6 +160,18 @@ public enum UiMode
     /// </remarks>
     ConfirmRetire,
 
+    /// <summary>
+    /// One document as the airspace holds it, read back by name.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE THING THAT COULD BE APPLIED AND NEVER SHOWN.</b>
+    /// <c>gg envelope show</c> answers the ROOT document, so a work kind that
+    /// applied successfully appeared in nothing - and a person concluded twice
+    /// that their apply had failed. The fourth view of the reading modal, on
+    /// the row the cursor is on.
+    /// </remarks>
+    ReadingDocument,
+
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>
     /// One flight opened by accident is a record somebody has to explain and a
@@ -1223,6 +1235,28 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public IReadOnlyList<string>? ApplyOutcome { get; init; }
+
+    /// <summary>
+    /// The document being read back, as the airspace holds it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A BODY ON THE MODEL, DELIBERATELY, AND EXACTLY ONE.</b>
+    /// <see cref="EstateOnThisMachine"/> refuses to carry document text and
+    /// that rule is untouched: it keeps the estate SUMMARY free of bodies so
+    /// that walking a tree does not drag every document onto the model. This
+    /// holds the one document on screen, which is the same standing
+    /// <see cref="Envelope"/> already has — the reading modal's subject IS a
+    /// body, and a modal that could not hold one could not render one.
+    /// </para>
+    /// <para>
+    /// <b>What that costs is one document in <c>GG_STATE_DUMP</c></b>, which
+    /// is a debug dump rather than the diagnostics bundle — <c>BundleFrom</c>
+    /// takes no state at all. Said out loud here rather than left for somebody
+    /// to find.
+    /// </para>
+    /// </remarks>
+    public Gg.Contracts.NamedEnvelopeState? Document { get; init; }
 
     /// <summary>What became of the last flight this console grounded, or null.</summary>
     /// <remarks>

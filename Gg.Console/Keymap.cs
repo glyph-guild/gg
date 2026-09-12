@@ -55,7 +55,10 @@ public readonly record struct KeymapContext(
     TabId Showing = TabId.Queue,
     bool Frozen = false,
     bool Takeable = false,
-    bool HandedBackable = false)
+    bool HandedBackable = false,
+
+    /// <summary>Whether the airspace cursor is on a document rather than a folder.</summary>
+    bool OverADocument = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -156,7 +159,12 @@ public readonly record struct KeymapContext(
             state.ActiveTab,
             state.Frozen,
             state.TakeableTree is not null,
-            state.TakenOver)
+            state.TakenOver,
+
+            // WHICH `v' MEANS. On a document row it reads that document back;
+            // anywhere else it opens the rules in force. Derived here so the
+            // hint line and the dispatch cannot disagree about which.
+            AirspaceRows.Pointed(state) is not null)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -557,6 +565,18 @@ public static class Keymap
         // stepped away to the diff can come back to what just happened - the
         // three views answer what happened, what would change, and what
         // governs, and reading one against another is why they share a box.
+        // THE DOCUMENT UNDER THE CURSOR, as the airspace holds it. `v' opens
+        // it from the tab and returns to it from the other views, which is one
+        // mnemonic rather than a fourth letter to remember.
+        UiMode.ReadingDocument =>
+        [
+            new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
+            new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
+            new(KeyStroke.Char('o'), Command.ReadOutcome, "the last apply"),
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.ReadingOutcome =>
         [
             new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
@@ -870,8 +890,13 @@ public static class Keymap
                     // was the whole of what `v' did and is now half - a
                     // person wanting to know what applying would change had
                     // no reason to press it.
-                    new(KeyStroke.Char('v'), Command.ReadEnvelope,
-                            "read the rules or the diff")
+                    new(KeyStroke.Char('v'),
+                            context.OverADocument
+                                ? Command.ReadDocument
+                                : Command.ReadEnvelope,
+                            context.OverADocument
+                                ? "read this document as applied"
+                                : "read the rules or the diff")
                         { When = "while the airspace tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse
@@ -1160,7 +1185,13 @@ public static class Keymap
         // console and appears on no page.
         from allowanceIsMine in (bool[])[false, true]
         from fleetOffered in (bool[])[false, true]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
+        // AND WHETHER THE AIRSPACE CURSOR IS ON A DOCUMENT, for the reason the
+        // four clauses above it each record. `v' means two different things
+        // across this flag - read this document back, or read the rules in
+        // force - so one of the two appeared on no page.
+        from overADocument in (bool[])[false, true]
+        select new KeymapContext(
+            mode, showing, frozen, takeable, handedBack, overADocument)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

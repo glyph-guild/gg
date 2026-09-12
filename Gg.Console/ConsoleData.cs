@@ -350,7 +350,31 @@ public sealed class ConsoleData(
     /// is what a flight may be opened against.
     /// </remarks>
     public Task<VerbResult> TopologyAsync(CancellationToken cancellationToken = default) =>
-        _commands.AirspaceAsync(cancellationToken);
+        _commands.AirspaceAsync(cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// `gg airspace show &lt;name&gt;` - one document as the airspace holds it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The read-back the console had no way to do.</b>
+    /// <c>VerbResult.NamedEnvelopeShown</c> is unwrapped by
+    /// <c>ConsoleDocument</c> rather than projected by an arm here, for
+    /// <c>AirspaceDiffed</c>'s reason: what lands on the model is one field
+    /// chosen from the answer, and the failure cases are sentences rather than
+    /// state. <c>VerbResult.StrategyShown</c> reaches the console the same way
+    /// and is said rather than rendered - a strategy is not an envelope and a
+    /// modal that drew it as one would be inventing a shape.
+    /// </remarks>
+    /// <remarks>
+    /// <b>NAMED FOR THE DOCUMENT, NOT THE VERB.</b> NoWrapperIsWithoutACaller
+    /// forbids a <c>ConsoleData.AirspaceAsync</c> outright - that was the
+    /// TOPOLOGY wrapper, parked with no pane to show it - and the rule is
+    /// right. This asks the same verb a different question and has a pane, so
+    /// it takes the name of what it answers.
+    /// </remarks>
+    public Task<VerbResult> DocumentAsync(
+        string name, CancellationToken cancellationToken = default) =>
+        _commands.AirspaceAsync(name, cancellationToken);
 
     /// <summary>
     /// `gg airspace diff` - what the working copy would change, and which way.

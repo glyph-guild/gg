@@ -257,6 +257,75 @@ public static class RunnerDetails
     /// its output here. "It has said nothing yet" over the second reads as a
     /// runner that has gone quiet, which is the opposite of what is true.
     /// </remarks>
+    /// <summary>
+    /// What the environments view says when it has no rows to say it with.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THREE ABSENCES, THREE SENTENCES</b> — the rule
+    /// <c>PaneText.Estate</c> records, and here they are three different acts.
+    /// A chart nobody read wants a refresh. A runner that MAINTAINS a pool
+    /// wants nothing: it furnishes environments rather than running work in
+    /// one. A runner advertising a name nobody charted wants that name
+    /// charted, which is a different job from bringing a machine up.
+    /// </para>
+    /// <para>
+    /// <b>AND THE MAINTAINING ONE NAMES NO POOL.</b> The label's suffix is a
+    /// fact about gg's own packaging — <see cref="Suggestion"/> makes the same
+    /// argument about the same suffix — but WHICH pool is on no wire at all:
+    /// <c>RunnerSummary</c> has no pool, an attestation names a pool without
+    /// naming the runner that made it, and the name lives in a systemd unit's
+    /// argument. On a tenant with one pool a guess would look right, which is
+    /// worse than looking wrong.
+    /// </para>
+    /// </remarks>
+    public static string EnvironmentAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Chart is null)
+        {
+            return "the environment chart: not read - it arrives with the fleet, so this "
+                 + "fills on the next refresh.";
+        }
+
+        if (EnvironmentRows.Environments(state).Count > 0)
+        {
+            // THE ROWS ARE THE ANSWER FROM HERE ON.
+            return "";
+        }
+
+        if (EnvironmentRows.Maintains(state))
+        {
+            return "This runner maintains a pool rather than running work in one: its label "
+                 + "says so, because gg named that unit. Which pool is not something the "
+                 + "control plane reports - a runner sends its labels and nothing else, and "
+                 + "an attestation names a pool without naming the runner that made it.";
+        }
+
+        return "This runner advertises no charted environment, so it can only take work that "
+             + "asks for none. A label it already advertises can be charted, which is what "
+             + "makes it selectable by an envelope.";
+    }
+
+    /// <summary>
+    /// What the members view says when it has no rows to say it with.
+    /// </summary>
+    /// <remarks>
+    /// <b>It shares the environments view's absences, because it shares their
+    /// cause</b> — the peers are found through the environments this runner
+    /// advertises, so no environments means no peers. What it adds is the one
+    /// state of its own: a runner alone in an environment it does advertise.
+    /// That cannot happen, since the runner is in its own list, and saying so
+    /// would be answering a question nobody can ask.
+    /// </remarks>
+    public static string MemberAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return EnvironmentAbsence(state);
+    }
+
     public static string LogAbsence(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

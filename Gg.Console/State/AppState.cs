@@ -444,38 +444,7 @@ public enum TabId
     /// <summary>The envelope in force.</summary>
     Envelope,
 
-    /// <summary>
-    /// Every environment name this tenant has charted, and what furnishes it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Beside the airspace, because that is what governs it.</b> A strategy
-    /// is an airspace document like any other; what this tab adds is the pool
-    /// it manages and what that pool last said about itself, which is a
-    /// different read and a different question - what is DECLARED, against what
-    /// is RUNNING.
-    /// </para>
-    /// <para>
-    /// <b>Always on the bar.</b> An envelope naming an uncharted environment is
-    /// refused pointing at the chart, so the tab has to be findable by somebody
-    /// reading that refusal - which is somebody who has not been here before. A
-    /// tenant that has charted nothing gets a tab that says so.
-    /// </para>
-    /// </remarks>
-    Environments,
 
-    /// <summary>
-    /// What is running for each charted environment, as far as the fleet can
-    /// see it.
-    /// </summary>
-    /// <remarks>
-    /// <b>Beside the chart, because it is the other half of one question.</b>
-    /// The tab before this one is what is DECLARED - charted names, the
-    /// strategy that furnishes each, what the pool last attested. This is what
-    /// is RUNNING. Two tabs rather than more columns, because the second half
-    /// has a row per runner and the first has a row per name.
-    /// </remarks>
-    Members,
 
     /// <summary>
     /// Every allowance in the fleet, and what each has left.
@@ -874,31 +843,19 @@ public sealed record AppState
     /// </remarks>
     public EnvironmentChart? Chart { get; init; }
 
+    /// <summary>Which of the runner modal's three views is showing.</summary>
+    /// <remarks>
+    /// <b>It stays where it was left, across runners.</b> Somebody comparing
+    /// two machines' environments opens one, reads, escapes and opens the next
+    /// - and a view that reset to the log each time would make them press the
+    /// key again every time.
+    /// </remarks>
+    public RunnerView RunnerView { get; init; }
+
     /// <summary>Every strategy in force: what furnishes each charted name.</summary>
     public StrategyList? Strategies { get; init; }
 
-    /// <summary>Whether the chart has been read since this console started.</summary>
-    /// <remarks>
-    /// <b>Not the same question as "is the chart empty".</b> A tenant that has
-    /// charted nothing and a console that has not asked are two different
-    /// facts, and the tab's title carries the second one as the unread mark.
-    /// </remarks>
-    public bool EnvironmentsVisible { get; init; }
 
-    /// <summary>Which charted name the cursor is on.</summary>
-    /// <remarks>
-    /// <b>Its own, and it has to be.</b> <c>Reducer.Moved</c> and
-    /// <c>Reducer.Pointed</c> both fall through to the QUEUE's cursor, so a tab
-    /// without an arm of its own moves a selection on a pane nobody is looking
-    /// at - silently, because nothing throws.
-    /// </remarks>
-    public int EnvironmentSelected { get; init; }
-
-    /// <summary>Whether the members pane has been opened since this console started.</summary>
-    public bool MembersVisible { get; init; }
-
-    /// <summary>Which member row the cursor is on.</summary>
-    public int MemberSelected { get; init; }
 
     /// <summary>
     /// Every managed pool's latest attestation, per pool and action.

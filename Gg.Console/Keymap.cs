@@ -330,6 +330,37 @@ public static class Keymap
     /// key is the one thing that is the same in both, which is exactly the pair
     /// a second copy would let drift.
     /// </remarks>
+    /// <summary>
+    /// The key that turns the runner modal's three views.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declared once, because this modal has two shapes.</b> Ours gets
+    /// restart and shut-down and somebody else's does not, and a binding
+    /// written into both lists is one somebody will later change in one of
+    /// them - which is how a key comes to mean two things on one screen.
+    /// <para>
+    /// <b>`v', the same letter the airspace tab turns its pane with.</b> One
+    /// letter for one act is what a single keymap is for; the two are in
+    /// different modes, so neither shadows the other.
+    /// </para>
+    /// </remarks>
+    private static KeyBinding Turning(bool labelled) =>
+        new(KeyStroke.Char('v'), Command.NextRunnerView, "next view")
+        {
+            // A BUTTON IN ONE OF THE TWO MODALS, AND A KEY IN THE OTHER, which
+            // looks like a wobble and is the all-or-nothing rule working.
+            // Buttons() offers them only when EVERY answer in a mode carries a
+            // label, and ModalButtonTests puts the two shapes of this modal on
+            // opposite sides of its line: ours restarts and shuts down, which
+            // are safe to click; somebody else's stays keys-only.
+            //
+            // SO THIS FOLLOWS THE MODAL RATHER THAN DECIDING FOR IT. Labelled
+            // unconditionally it put buttons on the keys-only shape; unlabelled
+            // it silently took restart and shut-down off the other one. Both
+            // were caught by that ratchet, which is what it is for.
+            Label = labelled ? "Next view" : null,
+        };
+
     private static IReadOnlyList<KeyBinding> Watching(KeymapContext context) =>
         context.RunnerIsFlying
             ?
@@ -496,11 +527,13 @@ public static class Keymap
                     // button that renames the action makes them read as two.
                     Label = "Shut down",
                 },
+                Turning(labelled: true),
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ]
             :
             [
                 .. Watching(context),
+                Turning(labelled: false),
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
 
@@ -868,26 +901,6 @@ public static class Keymap
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,
                 Closes(context, TabId.Envelope, "envelope")) { OffTheHintLine = true },
-            // `s' BECAUSE OF WHAT IS LEFT - `u' one block up made the same
-            // argument. Normal mode has m, s and z free: `p' is refused by
-            // name, `z' reads as nothing, and `m' is the members tab. `s' is
-            // in the word and it is free.
-            //
-            // IT WAS THE AIRSPACE'S UNTIL AN HOUR AGO, and that is the reason
-            // to say so here. `s' applied the airspace from the Envelope tab
-            // until the four acts moved behind `a'; taking it now is taking a
-            // letter that was in a person's fingers, not one that was never
-            // used. It is still `s' inside that modal, where it means the same
-            // thing it always did.
-            new(KeyStroke.Char('s'), Command.ToggleEnvironments,
-                Closes(context, TabId.Environments, "environments"))
-                { OffTheHintLine = true },
-            // `z', BECAUSE `m' IS SPOKEN FOR. ComposeChoice binds it, and its
-            // keys may not be live in the mode it opens from - see Tabs.KeyFor
-            // for the whole of it. Every letter that reads is a tab already.
-            new(KeyStroke.Char('z'), Command.ToggleMembers,
-                Closes(context, TabId.Members, "members"))
-                { OffTheHintLine = true },
             // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH. This was two
             // booleans with an explicit precedence between them, because live
             // and browse shared a region: both flags on was a state the console

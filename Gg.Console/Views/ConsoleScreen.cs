@@ -36,10 +36,6 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
     private readonly Label _repositories;
-    private readonly FrameView _environmentsPane;
-    private readonly Label _environments;
-    private readonly FrameView _membersPane;
-    private readonly Label _members;
     /// <summary>
     /// The airspace working copy, as a tree.
     /// </summary>
@@ -153,8 +149,6 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _flightsTable;
     private readonly TableView _browseTable;
     private readonly TableView _repositoriesTable;
-    private readonly TableView _environmentsTable;
-    private readonly TableView _membersTable;
     private readonly FrameView _runnersPane;
     private readonly Label _runners;
     private readonly Label _runnerNotice;
@@ -196,8 +190,13 @@ public sealed class ConsoleScreen : Window
     private readonly Label _flightLogAbsent;
     private readonly View _runnerBody;
     private readonly View _runnerFields;
-    private readonly FrameView _runnerLogPane;
+    private readonly View _runnerLogPane;
     private readonly ListView _runnerSaid;
+    private readonly Terminal.Gui.Views.Tabs _runnerViews;
+    private readonly (RunnerView View, View Pane)[] _runnerViewTabbed;
+    private readonly TableView _runnerEnvironments;
+    private readonly TableView _runnerMembers;
+    private readonly Label _runnerNothingHere;
     private readonly Label _runnerLogAbsent;
     private IReadOnlyList<FlightField>? _runnerFieldsShowing;
     private IReadOnlyList<string>? _runnerSaidShowing;
@@ -574,34 +573,6 @@ public sealed class ConsoleScreen : Window
         _repositories = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _repositoriesPane.Add(_repositories);
 
-        // WHAT IS CHARTED, AND WHAT FURNISHES IT. The same region as its
-        // neighbours - exactly one tab shows at a time, which Toggled enforces.
-        _environmentsPane = new FrameView
-        {
-            Title = "Environments",
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            Visible = false,
-        };
-        _environments = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _environmentsPane.Add(_environments);
-
-        // AND WHAT IS RUNNING IN THEM, which is the other half of the same
-        // question and a row per runner rather than a row per name.
-        _membersPane = new FrameView
-        {
-            Title = "Members",
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            Visible = false,
-        };
-        _members = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _membersPane.Add(_members);
-
         // THE FLEET, AND THIS MACHINE'S RUNNER FIRST. Already in the model from
         // the boot, so this tab is never waiting on a read.
         _runnersPane = new FrameView
@@ -655,18 +626,12 @@ public sealed class ConsoleScreen : Window
         _browsePane.Add(_browseTable);
         _repositoriesTable = CollectionViews.Table();
         _repositoriesPane.Add(_repositoriesTable);
-        _environmentsTable = CollectionViews.Table();
-        _environmentsPane.Add(_environmentsTable);
-        _membersTable = CollectionViews.Table();
-        _membersPane.Add(_membersTable);
         _runnersTable = CollectionViews.Table();
         _runnersPane.Add(_runnersTable);
 
         _flightsTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
-        _environmentsTable.ValueChanged += OnRowPointedAt;
-        _membersTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
         _airspaceTable.ValueChanged += OnRowPointedAt;
         _runnersTable.KeyDown += OnTableKeyDown;
@@ -872,13 +837,17 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
         };
 
-        _runnerLogPane = new FrameView
+        // NO FRAME AND NO TITLE ANY MORE: the tab along the foot says which
+        // of the three this is, and a bordered box inside a bordered tab is one
+        // border too many. RunnerDetails.LogTitle still names it in the text
+        // rendering, which is the surface that has no tabs.
+        _runnerLogPane = new View
         {
-            Title = RunnerDetails.LogTitle,
             X = 0,
-            Y = Pos.Bottom(_runnerFields),
+            Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(),
+            CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
 
@@ -905,6 +874,63 @@ public sealed class ConsoleScreen : Window
         _runnerLogAbsent = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         _runnerLogPane.Add(_runnerSaid, _runnerLogAbsent);
 
+        // WHAT IT RUNS, AND WHAT RUNS BESIDE IT. Two tables rather than lists:
+        // these have columns, where a runner's output has none.
+        _runnerEnvironments = CollectionViews.Table();
+        _runnerMembers = CollectionViews.Table();
+
+        // ONE LABEL FOR BOTH, because both absences have one cause: the peers
+        // are found THROUGH the environments this runner advertises, so no
+        // environments means no peers and the same sentence explains both.
+        _runnerNothingHere = new Label
+        {
+            X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(),
+        };
+
+        _runnerViewTabbed =
+        [
+            .. RunnerViews.All.Select(view =>
+            {
+                if (view == RunnerView.Log)
+                {
+                    return (View: view, Pane: _runnerLogPane);
+                }
+
+                var pane = new View
+                {
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill(),
+                    CanFocus = true,
+                    TabStop = TabBehavior.NoStop,
+                };
+
+                pane.Add(view == RunnerView.Environments ? _runnerEnvironments : _runnerMembers);
+
+                return (View: view, Pane: (View)pane);
+            }),
+        ];
+
+        _runnerViews = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = Pos.Bottom(_runnerFields),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            TabSide = Side.Bottom,
+
+            // NOT IN THE TAB RING, the airspace bar's reason: `tab' is the
+            // keymap's on this screen, so a widget claiming a stop would give
+            // that key a second meaning. `v' turns this bar, and a click on a
+            // header turns it too.
+            TabStop = TabBehavior.NoStop,
+        };
+
+        foreach (var (view, pane) in _runnerViewTabbed)
+        {
+            pane.Title = RunnerViews.Title(view);
+            _runnerViews.Add(pane);
+        }
+
         _runnerBody = new View
         {
             Width = Dim.Fill(),
@@ -913,7 +939,7 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
-        _runnerBody.Add(_runnerFields, _runnerLogPane);
+        _runnerBody.Add(_runnerFields, _runnerViews);
 
         // THE INTENT IS AS TALL AS WHAT IS IN IT, capped against the room there
         // is. A third of the modal was a box sized for a page around `fix the
@@ -983,11 +1009,6 @@ public sealed class ConsoleScreen : Window
             (TabId.Repositories, Tabbed(_repositoriesPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
 
-            // AFTER THE AIRSPACE, WHERE IT IS DECLARED, and beside it for a
-            // reason a reader can check: a strategy is an airspace document,
-            // and this is what the pool it manages did about it.
-            (TabId.Environments, Tabbed(_environmentsPane)),
-            (TabId.Members, Tabbed(_membersPane)),
 
             // LAST, WHERE IT IS DECLARED, for the reason written three tabs
             // up - and the only one of these that may not be on the bar at
@@ -2002,15 +2023,6 @@ public sealed class ConsoleScreen : Window
                 State.RepositorySelected,
                 r => [r.Chosen, r.Path, r.Name]);
 
-            Fill(_environmentsTable, _environments,
-                EnvironmentRows.Environments(State), EnvironmentRows.EnvironmentColumns,
-                State.EnvironmentSelected,
-                r => [r.Environment, r.Strategy, r.Pool, r.Wants, r.Attested, r.Measured]);
-
-            Fill(_membersTable, _members,
-                EnvironmentRows.Members(State), EnvironmentRows.MemberColumns,
-                State.MemberSelected,
-                r => [r.Environment, r.Member, r.State, r.Work, r.Heard]);
 
             // OFF THE MODEL, like the other three. This passed a literal 0 and
             // a comment saying nothing here is selectable - true of the model
@@ -2106,8 +2118,6 @@ public sealed class ConsoleScreen : Window
 
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);
-        _environments.Text = PaneText.ForTab(State, TabId.Environments);
-        _members.Text = PaneText.ForTab(State, TabId.Members);
         _runners.Text = PaneText.Runners(State);
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
 
@@ -2416,6 +2426,77 @@ public sealed class ConsoleScreen : Window
         if (absence.Length == 0)
         {
             FillRunnerLog();
+        }
+
+        RenderRunnerViews();
+    }
+
+    /// <summary>
+    /// The two views beside the log, and which of the three is showing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sync flag is held for the same reason the tab bar holds it.</b>
+    /// Assigning <c>Value</c> raises <c>ValueChanged</c>, and a table
+    /// repopulated raises its own selection event - so without it a render
+    /// would be read as a person choosing something and reduce from inside
+    /// itself.
+    /// </para>
+    /// <para>
+    /// <b>ONE SENTENCE SERVES BOTH EMPTY VIEWS.</b> The peers are found through
+    /// the environments this runner advertises, so no environments means no
+    /// peers and the cause is the same - and it is moved between the two panes
+    /// rather than written twice.
+    /// </para>
+    /// </remarks>
+    private void RenderRunnerViews()
+    {
+        _syncing = true;
+
+        try
+        {
+            var showing = _runnerViewTabbed
+                .FirstOrDefault(t => t.View == State.RunnerView).Pane;
+
+            if (showing is not null && !ReferenceEquals(_runnerViews.Value, showing))
+            {
+                _runnerViews.Value = showing;
+            }
+
+            Fill(_runnerEnvironments, null,
+                EnvironmentRows.Environments(State), EnvironmentRows.EnvironmentColumns,
+                cursor: 0,
+                r => [r.Environment, r.Strategy, r.Pool, r.Wants, r.Attested, r.Measured]);
+
+            Fill(_runnerMembers, null,
+                EnvironmentRows.Members(State), EnvironmentRows.MemberColumns,
+                cursor: 0,
+                r => [r.Here, r.Environment, r.Member, r.State, r.Work, r.Heard]);
+
+            var nothing = State.RunnerView == RunnerView.Members
+                ? RunnerDetails.MemberAbsence(State)
+                : RunnerDetails.EnvironmentAbsence(State);
+
+            _runnerNothingHere.Text = nothing;
+            _runnerNothingHere.Visible = nothing.Length > 0
+                                      && State.RunnerView != RunnerView.Log;
+
+            var beside = _runnerViewTabbed
+                .FirstOrDefault(t => t.View == State.RunnerView).Pane;
+
+            if (_runnerNothingHere.SuperView is { } was)
+            {
+                was.Remove(_runnerNothingHere);
+            }
+
+            if (_runnerNothingHere.Visible && beside is not null)
+            {
+                beside.Add(_runnerNothingHere);
+            }
+        }
+        finally
+        {
+            _syncing = false;
         }
     }
 
@@ -2824,8 +2905,6 @@ public sealed class ConsoleScreen : Window
             TabId.Live => _live,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
             TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
-            TabId.Environments => _environmentsTable.Visible ? _environmentsTable : _environments,
-            TabId.Members => _membersTable.Visible ? _membersTable : _members,
 
             // THE TABLE, NOT THE BUTTON ABOVE IT. Terminal.Gui would pick the
             // button, because it is the first focusable child - and a tab whose
@@ -2888,8 +2967,6 @@ public sealed class ConsoleScreen : Window
             _flightsTable.ValueChanged -= OnRowPointedAt;
             _browseTable.ValueChanged -= OnRowPointedAt;
             _repositoriesTable.ValueChanged -= OnRowPointedAt;
-            _environmentsTable.ValueChanged -= OnRowPointedAt;
-            _membersTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;
             _flightLog.ValueChanged -= OnLogRowPointedAt;
             _flightLog.ViewportChanged -= OnLogResized;

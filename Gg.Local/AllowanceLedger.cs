@@ -64,6 +64,32 @@ public sealed record MeasuredWindow
     /// <summary>Spent over the ceiling, or absent when there is no ceiling.</summary>
     public double? Fraction =>
         Limit is > 0 ? Tokens / (double)Limit.Value : null;
+
+    /// <summary>
+    /// What the provider's own meter says this window has spent, 0 to 1.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Measured by the provider, not divided here — which is why it is not
+    /// <see cref="Fraction"/>.</b> That one is <see cref="Tokens"/> over a
+    /// ceiling somebody typed, and this is the meter's own statement. Both may
+    /// be present, they will not agree, and the one to believe is this one.
+    /// Collapsing them into a single member would make a screen unable to say
+    /// which kind of number it was showing.
+    /// </para>
+    /// <para>
+    /// <b>And it describes a DIFFERENT SPAN from the tokens beside it.</b> The
+    /// meter's window is fixed and ends at <see cref="ResetsAt"/>; this
+    /// ledger's is rolling and starts at <see cref="Since"/>. That mismatch is
+    /// exactly why the share is read rather than back-computed from the
+    /// counts, and carrying both instants is what stops a reader taking one
+    /// number as a statement about the other's window.
+    /// </para>
+    /// </remarks>
+    public double? Reported { get; init; }
+
+    /// <summary>When the meter's own window resets. Absent when it said nothing.</summary>
+    public DateTimeOffset? ResetsAt { get; init; }
 }
 
 /// <summary>
@@ -228,15 +254,26 @@ public static class AllowanceLedger
             "projects");
 
     /// <summary>Sum what this machine has spent.</summary>
+    /// <param name="meterPath">
+    /// The executor's cached view of the provider's meter, or null for the
+    /// machine's own. A path rather than a flag so a test names its own file
+    /// and no reading here depends on a real home directory.
+    /// </param>
     public static MeasuredAllowance Read(
         string name,
         string transcriptsRoot,
         AllowanceLimits limits,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? meterPath = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(transcriptsRoot);
         ArgumentNullException.ThrowIfNull(limits);
+
+        // WHAT THE PROVIDER SAYS, where this machine can see it. Never fatal:
+        // a machine with no such file reads exactly as it did before, with the
+        // typed ceiling answering if there is one.
+        var metered = AllowanceMeter.Read(meterPath ?? AllowanceMeter.DefaultPath());
 
         var opened = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal)
         {
@@ -278,6 +315,8 @@ public static class AllowanceLedger
                     CacheWriteTokens = one.Value.CacheWrite,
                     Since = opened[one.Key],
                     Limit = limits.For(one.Key),
+                    Reported = metered.Share(one.Key),
+                    ResetsAt = metered.ResetsAt(one.Key),
                 }),
             ],
         };

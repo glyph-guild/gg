@@ -31,7 +31,24 @@ namespace Gg.Console;
 /// What the file says it was rendered from, or null — which means it has never
 /// been applied rather than that it is unchanged.
 /// </param>
-public sealed record AirspaceFile(string Role, string Name, string Path, string? BasedOn);
+public sealed record AirspaceFile(string Role, string Name, string Path, string? BasedOn)
+{
+    /// <summary>
+    /// What the file actually says, for the pane that shows it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The on-disk tab's content, and the only one of the three a session
+    /// could have fetched itself.</b> Reading a local file whose path the
+    /// console already holds is the stated exception to the session rule — but
+    /// <c>PaneText</c> is pure and cannot read one, so the text rides on the
+    /// model like everything else the views draw.
+    /// <para>
+    /// Null when the walk did not keep it, which is not the same as an empty
+    /// file.
+    /// </para>
+    /// </remarks>
+    public string? Text { get; init; }
+}
 
 /// <summary>
 /// A file that sits where a document goes and does not read as one.

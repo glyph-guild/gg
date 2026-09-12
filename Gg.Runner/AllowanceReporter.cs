@@ -115,6 +115,7 @@ public sealed class AllowanceReporter(Func<MeasuredAllowance?> measure, TimeSpan
                     // meter and no ceiling of its own.
                     Reported = w.Reported,
                     ResetsAt = w.ResetsAt,
+                    ReportedAt = w.ReportedAt,
                 }),
             ],
         });

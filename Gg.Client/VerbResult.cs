@@ -681,9 +681,17 @@ public static class VerbOutput
             // same question. Its share is the provider's own and needs no
             // ceiling; the typed ceiling is a guess at a number the provider
             // knows; and the sentence is what is left when there is neither.
+            // A SHARE ABOUT A WINDOW THAT HAS ENDED IS NOT THE CURRENT SHARE.
+            // The meter keeps fixed windows; when one rolls over and the
+            // executor has not asked again, its number is a true statement
+            // about a finished window and says nothing about this one. Stating
+            // a percentage plainly would be a claim about the window a person
+            // is actually in.
+            var rolled = window.ResetsAt is { } ended && ended <= reading.MeasuredAt;
+
             text.AppendLine(window switch
             {
-                { Reported: { } share } =>
+                { Reported: { } share } when !rolled =>
                     $"  {Clean(window.Kind),-9} {spent,14} tokens   "
                   + $"{(int)Math.Floor(share * 100)}% spent"
                   + (window.ResetsAt is { } resets
@@ -692,7 +700,23 @@ public static class VerbOutput
                         // NO RESET, SO SAY NOTHING ABOUT ONE. A share whose
                         // window has no stated end is still the provider's
                         // number and still better than a divided one.
-                        : ""),
+                        : "")
+
+                  // AND HOW OLD IT IS. A share is only as current as the last
+                  // time the executor asked, and the rollover rule above
+                  // cannot catch a weekly number hours out of date against a
+                  // reset days away.
+                  + (window.ReportedAt is { } asOf ? $" (as of {asOf:u})" : ""),
+
+                // THE ROLLED-OVER CASE, AND IT SAYS WHY rather than falling
+                // silent. A machine that has a meter and shows no share would
+                // otherwise look broken; the real reason is that the executor
+                // has not refreshed since the window turned over, which is
+                // something a person can act on.
+                { Reported: not null } =>
+                    $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                  + $"(the meter's window reset {window.ResetsAt:u} and it has not been "
+                  + "asked since, so its share is about the window before this one)",
 
                 { Limit: { } ceiling } =>
                     $"  {Clean(window.Kind),-9} {spent,14} of "

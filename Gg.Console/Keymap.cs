@@ -882,6 +882,12 @@ public static class Keymap
             new(KeyStroke.Char('s'), Command.ToggleEnvironments,
                 Closes(context, TabId.Environments, "environments"))
                 { OffTheHintLine = true },
+            // `z', BECAUSE `m' IS SPOKEN FOR. ComposeChoice binds it, and its
+            // keys may not be live in the mode it opens from - see Tabs.KeyFor
+            // for the whole of it. Every letter that reads is a tab already.
+            new(KeyStroke.Char('z'), Command.ToggleMembers,
+                Closes(context, TabId.Members, "members"))
+                { OffTheHintLine = true },
             // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH. This was two
             // booleans with an explicit precedence between them, because live
             // and browse shared a region: both flags on was a state the console

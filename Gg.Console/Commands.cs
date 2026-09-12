@@ -100,6 +100,18 @@ public enum Command
     ToggleEnvironments,
 
     /// <summary>
+    /// What is running for each charted environment.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same read as <see cref="ToggleEnvironments"/>, and it has to be.</b>
+    /// The rows are keyed on the chart, which is not in the model at boot - so
+    /// a tab that assumed its neighbour had been opened first would be empty
+    /// for anybody who pressed this key first, and empty here reads as
+    /// "nothing is running".
+    /// </remarks>
+    ToggleMembers,
+
+    /// <summary>
     /// Render the estate into the working copy.
     /// </summary>
     /// <remarks>
@@ -665,6 +677,7 @@ public static class ShellCommands
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
         Command.ToggleEnvironments,
+        Command.ToggleMembers,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>

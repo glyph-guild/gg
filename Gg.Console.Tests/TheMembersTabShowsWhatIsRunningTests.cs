@@ -169,10 +169,20 @@ public class TheMembersTabShowsWhatIsRunningTests
     {
         await Assert.That(Tabs.Offered(new AppState())).Contains(TabId.Members);
 
-        await Assert.That(Tabs.KeyFor(TabId.Members)).IsEqualTo(KeyStroke.Char('m'));
+        // `z' RATHER THAN `m', WHICH IS WHERE THIS TEST STARTED. `m' is the
+        // word's own letter and it is spoken for: ComposeChoice binds it, and
+        // ComposeChoiceTests holds a stated rule that its keys may not be live
+        // in the mode it opens from - `n' then `m' are two sets a person is
+        // holding at one moment. Caught by that guard rather than by reading,
+        // which is what it is for.
+        await Assert.That(Tabs.KeyFor(TabId.Members)).IsEqualTo(KeyStroke.Char('z'));
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), new KeymapContext()))
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('z'), new KeymapContext()))
             .IsEqualTo(Tabs.CommandFor(TabId.Members));
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), new KeymapContext())).IsNull()
+            .Because("and `m' stays free in Normal, because the compose choice needs it to "
+                   + "be one keypress later.");
     }
 
     [Test]

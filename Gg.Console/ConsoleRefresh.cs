@@ -45,8 +45,8 @@ public static class ConsoleRefresh
                 TabId.Runners => await TheFleetAndWhatItHasLeftAsync(data, cancellationToken),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
-                TabId.Environments => await TheChartAndWhatFurnishesItAsync(
-                    data, cancellationToken),
+                TabId.Environments or TabId.Members =>
+                    await TheChartAndWhatFurnishesItAsync(data, cancellationToken),
                 _ => Nothing,
             };
         }

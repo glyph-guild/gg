@@ -19,7 +19,7 @@ namespace Gg.Console.Tests;
 /// focus change.</b> Terminal.Gui's <c>Tabs.OnFocusedChanged</c> looks for
 /// whichever tab now has focus and assigns <c>Value</c> to it; that raises
 /// <c>ValueChanged</c>, the screen treats it as a person picking a tab,
-/// reduces and renders re-entrantly — and the focus transition that started it
+/// reduces and renders from inside that — and the focus transition that started it
 /// finds <c>HasFocus</c> moved out from under it:
 /// <i>"FocusChanging was not cancelled and the HasFocus value did not
 /// change."</i>
@@ -27,7 +27,8 @@ namespace Gg.Console.Tests;
 /// <para>
 /// <b>The quieter footprint is the one that was on screen all along.</b>
 /// Pressing <c>v</c> put Allowances on the bar and left <c>ActiveTab</c> at
-/// <c>Queue</c> — the re-entrant handler switching the model back. That was
+/// <c>Queue</c> — the handler running inside the focus change and switching the
+/// model back. That was
 /// visible in a state dump before this was understood, and read as an
 /// unrelated oddity.
 /// </para>

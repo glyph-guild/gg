@@ -299,6 +299,83 @@ public class TheMeterIsReadRatherThanGuessedTests
     }
 
     [Test]
+    public async Task A_share_whose_window_already_reset_is_not_offered_as_the_current_one()
+    {
+        // THE REAL FILE ON THIS MACHINE, on the night this was written: the
+        // meter was fetched at 20:55Z and its five-hour window reset at
+        // 00:10Z, so by 04:08Z the pane was printing "9% spent" about a window
+        // that had ended four hours earlier. The number was not wrong; the
+        // sentence around it was.
+        var text = Gg.Client.VerbOutput.ToText(
+            new Gg.Client.VerbResult.Allowance(new Gg.Contracts.AllowanceReading
+            {
+                Allowance = "kdee-max",
+                MeasuredAt = Now,
+                Windows =
+                [
+                    new()
+                    {
+                        Kind = Gg.Contracts.AllowanceWindows.Session,
+                        Since = Now.AddHours(-5),
+                        InputTokens = 0,
+                        OutputTokens = 21_142,
+                        CacheReadTokens = 0,
+                        CacheWriteTokens = 131_473,
+                        Reported = 0.09,
+                        ResetsAt = Now.AddHours(-4),
+                        ReportedAt = Now.AddHours(-7),
+                    },
+                ],
+            }));
+
+        await Assert.That(text).DoesNotContain("9% spent", StringComparison.Ordinal)
+            .Because("the share is about a window that has ended. What the CURRENT window "
+                   + "has spent is unknown, and a percentage stated plainly is a claim "
+                   + "about it.");
+
+        await Assert.That(text).Contains("reset", StringComparison.OrdinalIgnoreCase)
+            .Because("saying nothing would leave a person wondering why a machine with a "
+                   + "meter shows no share. The reason is actionable - the executor has "
+                   + "not refreshed - and it is one sentence.");
+    }
+
+    [Test]
+    public async Task A_live_share_says_how_old_it_is()
+    {
+        var text = Gg.Client.VerbOutput.ToText(
+            new Gg.Client.VerbResult.Allowance(new Gg.Contracts.AllowanceReading
+            {
+                Allowance = "kdee-max",
+                MeasuredAt = Now,
+                Windows =
+                [
+                    new()
+                    {
+                        Kind = Gg.Contracts.AllowanceWindows.Week,
+                        Since = Now.AddDays(-7),
+                        InputTokens = 0,
+                        OutputTokens = 600_000,
+                        CacheReadTokens = 0,
+                        CacheWriteTokens = 0,
+                        Reported = 0.40,
+
+                        // Still open - a calendar anchor three days out - so
+                        // the share IS about the current window. It is also
+                        // seven hours old, which the rollover rule above
+                        // cannot catch and a reader still needs.
+                        ResetsAt = Now.AddDays(3),
+                        ReportedAt = Now.AddHours(-7),
+                    },
+                ],
+            }));
+
+        await Assert.That(text).Contains("40%", StringComparison.Ordinal);
+        await Assert.That(text).Contains("as of", StringComparison.OrdinalIgnoreCase)
+            .Because("a share is only as current as the last time the executor asked, and "
+                   + "an hours-old number presented bare cannot be told from a live one.");
+    }
+
+    [Test]
     public async Task It_says_when_the_meter_was_fetched_so_staleness_is_visible()
     {
         using var meter = new Meter(Cached());

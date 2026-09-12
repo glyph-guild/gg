@@ -292,9 +292,23 @@ public class VerbParityTests
             ["LaunchConsole"] = "this IS the console. A verb for entering the thing you are "
                               + "already in is not a pane.",
             ["PrintVersion"] = "a line in the help modal is the right shape, not a pane.",
-            ["Doctor"] = "deliberately outside: it is the verb a person reaches for when the "
-                       + "console looks broken, which makes inside the console the worst "
-                       + "place to run it from. The help modal says to run it outside.",
+            // REWRITTEN, because the sentence that was here stopped being true.
+            // It said "deliberately outside: it is the verb a person reaches
+            // for when the console looks broken, which makes inside the console
+            // the worst place to run it from." The console reads a report at
+            // boot now and shows it on the Doctor page - so it IS run inside,
+            // and the old reason would have this list describing a product that
+            // no longer exists.
+            //
+            // What is still true is narrower and structural: the doctor pings
+            // the control plane, and a UI SESSION may not make a network call.
+            // So the report is filled by the boot, beside the six reads already
+            // there, and refreshed by `r'. Running it on demand stays the
+            // command line's, which is also where a remedy would be typed.
+            ["Doctor"] = "reachable as a page, not as a key: the console reads a report at "
+                       + "boot and shows it on the Doctor page, versions first. Running it "
+                       + "on demand is still the command line's, because the doctor makes "
+                       + "network calls and a UI session may not.",
             ["Update"] = "deliberately outside, and for a reason one layer past Doctor's. It "
                        + "prints a command for a person to run in a shell, and the console has "
                        + "no shell - copying a line out of a pane to paste into the terminal "

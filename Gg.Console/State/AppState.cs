@@ -291,6 +291,17 @@ public enum HelpPage
 
     /// <summary>The environment variables, and what each decides.</summary>
     Environment,
+
+    /// <summary>
+    /// What this gg is, and what it found when the console opened.
+    /// </summary>
+    /// <remarks>
+    /// <b>A report, not a remedy.</b> The doctor pings the control plane and a
+    /// UI session may not, so this is filled by the boot alongside the six
+    /// reads already there and refreshed by <c>r</c>. Running it is still the
+    /// command line's.
+    /// </remarks>
+    Doctor,
 }
 
 
@@ -1137,6 +1148,17 @@ public sealed record AppState
     /// widget says, the model decides.
     /// </remarks>
     public UiMode? HelpFold { get; init; }
+
+    /// <summary>
+    /// What the doctor found when this console last looked, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is "nobody has looked", never "nothing is wrong".</b> The two
+    /// are different facts and the page says which - the rule the Settings list
+    /// already follows, where an empty one means a console nobody told rather
+    /// than a machine with nothing set.
+    /// </remarks>
+    public Gg.Client.DoctorReport? Doctor { get; init; }
 
     /// <summary>
     /// The held tree of the selected flight, when there is one.

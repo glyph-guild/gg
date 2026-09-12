@@ -1096,8 +1096,23 @@ static async Task<int> LaunchConsoleAsync()
     // the whole model and answers with it rather than naming six fields,
     // because every field it did not name reset to a default. Same reasoning,
     // one layer out.
+    // HOW THE CONSOLE ASKS ITS OWN HEALTH. Built here because a Doctor needs
+    // the session and credential stores and the resolved address, which is what
+    // a composition root is for - and handed in rather than reached for, so
+    // Gg.Console keeps no file store of its own.
+    Task<DoctorReport> Health(CancellationToken token) =>
+        new Doctor(
+            new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(baseAddress) }),
+            new FileSessionStore(), new FileCredentialStore(), new Uri(baseAddress),
+            addressConfigured: Settings.Resolve("GG_CONTROL_PLANE", InForce.Configuration)
+                .Source != SettingSources.Default,
+            stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.StunConfiguration.Variable)))
+            .RunAsync(cancellationToken: token);
+
     var initial = LocalFacts(
-        ConsoleStart.LoadAsync(data, principal).GetAwaiter().GetResult(), client, sessions);
+        ConsoleStart.LoadAsync(data, principal, doctor: Health).GetAwaiter().GetResult(),
+        client, sessions);
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
     // arguments that only tests ever supplied, so the console's takeover key
@@ -1373,7 +1388,8 @@ static async Task<int> LaunchConsoleAsync()
         // one went on being advertised until the console was restarted.
         reload: current => LocalFacts(
             ConsoleStart
-                .LoadAsync(data, sessions.Read()?.PrincipalDisplay ?? "", current)
+                .LoadAsync(data, sessions.Read()?.PrincipalDisplay ?? "", current,
+                           doctor: Health)
                 .GetAwaiter()
                 .GetResult(),
             client,

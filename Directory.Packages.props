@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <PackageVersion Include="Rocks" Version="10.2.0" />
-    <PackageVersion Include="Terminal.Gui" Version="2.4.17" />
+    <PackageVersion Include="Terminal.Gui" Version="2.5.0" />
 
     <!-- A FORK, AND IT EXISTS TO BE DELETED. Upstream SIPSorcery does not work
          under Native AOT: the SCTP state cookie is reflection-serialised, the

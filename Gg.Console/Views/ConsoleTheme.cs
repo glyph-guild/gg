@@ -50,7 +50,6 @@ public static class ConsoleTheme
     /// <summary>
     /// The configuration the themes come out of, enabled once per process.
     /// </summary>
-    private static bool _loaded;
 
     /// <summary>Whichever theme the library says is in force.</summary>
     /// <remarks>
@@ -86,33 +85,31 @@ public static class ConsoleTheme
     /// happens to be standing in.
     /// </para>
     /// <para>
-    /// <b>AND ON THE OBSOLETE MANAGER, DELIBERATELY.</b> Obsolete warnings are
-    /// errors here and this is the one suppression in the console, because the
-    /// replacement does not do this job in Terminal.Gui 2.4.17:
-    /// <c>TuiConfigurationBuilder</c> loads the library's <c>Themes</c> array
-    /// into its <c>IConfiguration</c> - all seven of them are there - but
-    /// <c>MecThemeManager.ThemeNames</c> reports only <c>Default</c> and
-    /// <c>SwitchTheme("Dark")</c> returns <see langword="false"/> while still
-    /// setting the name, so a console built on it reports the theme it asked for
-    /// and draws the one it did not get. Measured, not assumed. Revisit on the
-    /// next Terminal.Gui bump.
+    /// <b>THE SUPPRESSION AND THE LOADING ARE BOTH GONE, AND THAT IS THE BUMP
+    /// PAYING FOR ITSELF.</b> This used to hold the console's only
+    /// <c>#pragma warning disable CS0618</c> and a note saying why: in
+    /// Terminal.Gui 2.4.17 the replacement did not work -
+    /// <c>MecThemeManager.ThemeNames</c> reported only <c>Default</c> and
+    /// <c>SwitchTheme("Dark")</c> answered <see langword="false"/> while still
+    /// setting the name, so a console built on it reported the theme it asked
+    /// for and drew the one it did not get. That note ended "revisit on the
+    /// next Terminal.Gui bump", and this is it.
+    /// </para>
+    /// <para>
+    /// <b>Measured again on 2.5.0, with no loading call at all:</b>
+    /// <c>GetThemeNames()</c> answers all eight, <c>Dark</c> among them, and
+    /// setting <see cref="ThemeManager.Theme"/> leaves
+    /// <c>GetCurrentThemeName()</c> reading <c>Dark</c>. The library's defaults
+    /// load themselves now, which is why the API that loaded them by hand was
+    /// removed rather than deprecated.
     /// </para>
     /// </remarks>
     public static void Apply()
     {
-#pragma warning disable CS0618
-        if (!_loaded)
-        {
-            ConfigurationManager.Enable(ConfigLocations.LibraryResources);
-            _loaded = true;
-        }
-
         if (ThemeManager.Theme != Dark)
         {
             ThemeManager.Theme = Dark;
-            ConfigurationManager.Apply();
         }
-#pragma warning restore CS0618
     }
 
     /// <summary>

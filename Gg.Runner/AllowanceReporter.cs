@@ -28,10 +28,20 @@ namespace Gg.Runner;
 /// record could obtain one.
 /// </para>
 /// </remarks>
-public sealed class AllowanceReporter(Func<MeasuredAllowance?> measure, TimeSpan cadence)
+public sealed class AllowanceReporter(
+    Func<MeasuredAllowance?> measure,
+    TimeSpan cadence,
+    Func<CancellationToken, Task>? refresh = null)
 {
     private readonly Func<MeasuredAllowance?> _measure = measure;
     private readonly TimeSpan _cadence = cadence;
+
+    /// <summary>Brings the meter up to date first, or null to read what is there.</summary>
+    /// <remarks>
+    /// Optional so a test can exercise the window arithmetic with no process
+    /// anywhere near it, which is the same reason the clock is handed in.
+    /// </remarks>
+    private readonly Func<CancellationToken, Task>? _refresh = refresh;
 
     private DateTimeOffset? _last;
 
@@ -70,26 +80,59 @@ public sealed class AllowanceReporter(Func<MeasuredAllowance?> measure, TimeSpan
                     AllowanceLedger.DefaultRoot(),
                     AllowanceLimits.Read(limits),
                     DateTimeOffset.UtcNow),
-                Cadence);
+                Cadence,
+                // AND ASK THE EXECUTOR FIRST WHEN THE METER IS BEHIND. The
+                // ledger re-reads the cache on every measurement, so a refresh
+                // that lands before it is picked up with no plumbing between
+                // the two - which is why this is a step rather than a value.
+                RefreshAsync);
+
+    /// <summary>
+    /// Brings the meter up to date if it is behind, before anything reads it.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONCE PER ACCOUNT is not decided here.</b> The share belongs to the
+    /// plan, so one machine refreshing answers for every machine spending from
+    /// it — but a machine cannot see what its peers have done, so electing one
+    /// is a claim and a claim is the control plane's. What this does is the
+    /// local half: do not ask when the answer here is already current.
+    /// </remarks>
+    private static Task RefreshAsync(CancellationToken cancellationToken) =>
+        MeterRefresh.EnsureCurrentAsync(
+            AllowanceMeter.Read(AllowanceMeter.DefaultPath()),
+            DateTimeOffset.UtcNow,
+            ct => MeterAsk.RefreshAsync(
+                Environment.GetEnvironmentVariable(
+                    Execution.ExecutorConfiguration.BinaryVariable),
+                ct),
+            cancellationToken: cancellationToken);
 
     /// <summary>The reading to post, or null when it is not time or there is none.</summary>
-    public Task<AllowanceReading?> ReadAsync(DateTimeOffset now)
+    public async Task<AllowanceReading?> ReadAsync(
+        DateTimeOffset now, CancellationToken cancellationToken = default)
     {
         if (_last is { } last && now - last < _cadence)
         {
-            return Task.FromResult<AllowanceReading?>(null);
+            return null;
         }
 
         _last = now;
+
+        // BEFORE THE MEASUREMENT, and only when the cache is behind its own
+        // window. A refresh spawns a process; the reading it feeds is a file.
+        if (_refresh is not null)
+        {
+            await _refresh(cancellationToken);
+        }
 
         var measured = _measure();
 
         if (measured is null)
         {
-            return Task.FromResult<AllowanceReading?>(null);
+            return null;
         }
 
-        return Task.FromResult<AllowanceReading?>(new AllowanceReading
+        return new AllowanceReading
         {
             Allowance = measured.Name,
             MeasuredAt = measured.MeasuredAt,
@@ -118,6 +161,6 @@ public sealed class AllowanceReporter(Func<MeasuredAllowance?> measure, TimeSpan
                     ReportedAt = w.ReportedAt,
                 }),
             ],
-        });
+        };
     }
 }

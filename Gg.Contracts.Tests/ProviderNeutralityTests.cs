@@ -52,6 +52,15 @@ public class ProviderNeutralityTests
     /// still trips, and should: without a dictionary that is indistinguishable
     /// from the real thing.
     /// </para>
+    /// <para>
+    /// <b>A HYPHEN IS NOT A LETTER, so <i>re-entrant</i> trips this.</b> It has
+    /// now done so twice, in comments explaining two different console
+    /// defects. <b>Reword, do not widen.</b> Admitting a hyphen would admit
+    /// every <c>x-entra</c>, <c>my-okta-thing</c> and <c>use-github-token</c>
+    /// this exists to catch, and those are far likelier to be real than an
+    /// English word that happens to be hyphenated at exactly that point.
+    /// "from inside itself" says the same thing and says it more plainly.
+    /// </para>
     /// </remarks>
     private static bool Names(string text, string provider) =>
         Regex.IsMatch(text, $@"(?<![A-Za-z]){Regex.Escape(provider)}", RegexOptions.IgnoreCase);

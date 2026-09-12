@@ -2753,7 +2753,7 @@ public sealed class ConsoleScreen : Window
         // list. Focusing a widget inside a SIBLING tab's pane makes
         // Terminal.Gui's Tabs notice that another tab now has focus, assign
         // Value to it and raise ValueChanged; the screen reads that as a person
-        // picking a tab, reduces and renders re-entrantly, and the focus
+        // picking a tab, reduces and renders from inside that, and the focus
         // transition that started it comes back to find HasFocus moved. It
         // throws: "FocusChanging was not cancelled and the HasFocus value did
         // not change."

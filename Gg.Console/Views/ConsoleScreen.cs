@@ -221,6 +221,18 @@ public sealed class ConsoleScreen : Window
     /// <summary>Each tab's body, in the order the bar shows them.</summary>
     private readonly (TabId Tab, View Pane)[] _tabbed;
 
+    /// <summary>Which tabs the bar is actually holding, in its own order.</summary>
+    /// <remarks>
+    /// <b>RECORDED, BECAUSE THE MODEL IS WHAT DISAGREED WITH IT.</b> The bar
+    /// used to be built once and then asked about every frame through
+    /// <c>Tabs.Offered</c>, which is the model's answer rather than the
+    /// widget's. When the two parted - and they part the moment a tab becomes
+    /// offered mid-session - selecting the pane the model named threw, because
+    /// the bar had never received it. This is the widget's answer, maintained
+    /// by the one method that adds and removes.
+    /// </remarks>
+    private readonly List<TabId> _onTheBar = [];
+
     /// <summary>
     /// True while the view is syncing the bar to the model.
     /// </summary>
@@ -837,18 +849,17 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(2),
         };
 
-        // OFFERED RATHER THAN EVERY TAB, which is new and true of exactly
-        // one: the fleet's allowances need an administrator and a line in this
+        // OFFERED RATHER THAN EVERY TAB, which is true of exactly one: the
+        // fleet's allowances need an administrator and a line in this
         // machine's file. A tab on the bar for anybody else would promise a
         // fleet and show them their own machine - so it is absent, rather than
         // present and empty.
-        var offered = Tabs.Offered(State);
-
-        foreach (var (tab, pane) in _tabbed.Where(t => offered.Contains(t.Tab)))
-        {
-            pane.Title = Tabs.Title(State, tab);
-            _bar.Add(pane);
-        }
+        //
+        // THE SAME METHOD THE FRAME USES, rather than a loop here and a
+        // recomputation there. An empty bar reconciled against the offered set
+        // is a bar being built, so construction is not a special case - and
+        // the special case is exactly what froze the membership before.
+        FollowTheOffered();
 
         _bar.ValueChanged += OnTabChanged;
 
@@ -1180,6 +1191,68 @@ public sealed class ConsoleScreen : Window
 
         State = Reducer.Reduce(State, Command.NextFlightTab);
         Render();
+    }
+
+    /// <summary>
+    /// Makes the bar hold exactly the tabs the model offers, where they are
+    /// declared.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE OFFERED SET CAN GROW WHILE THE CONSOLE IS RUNNING.</b> Whether
+    /// the fleet's allowances are offered depends on whether this person is an
+    /// administrator, and that answer arrives from a read the console lets
+    /// fail - so the terminal opens against an unreachable control plane. A
+    /// later refresh folds a good identity in, the offered set gains a tab,
+    /// and a bar built at construction cannot show it. Terminal.Gui does not
+    /// ignore a selection it cannot honour; it throws.
+    /// </para>
+    /// <para>
+    /// <b>INSERTED WHERE IT IS DECLARED, not appended.</b> The bar's order and
+    /// the order <c>Tabs.Next</c> walks have already been made to agree once,
+    /// after `tab' skipped six tabs; a late arrival landing at the end would
+    /// part them again for whoever turned the flag on.
+    /// </para>
+    /// <para>
+    /// <b>Cheap when nothing moved</b>, which is every frame but the one where
+    /// it matters.
+    /// </para>
+    /// </remarks>
+    private void FollowTheOffered()
+    {
+        var offered = Tabs.Offered(State);
+
+        if (_onTheBar.SequenceEqual(offered))
+        {
+            return;
+        }
+
+        // GONE FIRST, so the indices below are the offered set's own. Removing
+        // the selected tab makes Terminal.Gui choose another and announce it;
+        // the caller holds the sync flag over this, so that announcement is
+        // not mistaken for a person clicking a tab.
+        foreach (var (tab, pane) in _tabbed
+                     .Where(t => _onTheBar.Contains(t.Tab) && !offered.Contains(t.Tab)))
+        {
+            _bar.Remove(pane);
+            _onTheBar.Remove(tab);
+        }
+
+        for (var index = 0; index < offered.Count; index++)
+        {
+            var tab = offered[index];
+
+            if (_onTheBar.Contains(tab))
+            {
+                continue;
+            }
+
+            var pane = _tabbed.First(t => t.Tab == tab).Pane;
+            pane.Title = Tabs.Title(State, tab);
+
+            _bar.InsertTab(index, pane);
+            _onTheBar.Insert(index, tab);
+        }
     }
 
     private void OnTabChanged(object? sender, ValueChangedEventArgs<View?> args)
@@ -1805,25 +1878,31 @@ public sealed class ConsoleScreen : Window
         // rather than asked. Tabs.Showing answers true for exactly one tab -
         // asserted over generated states rather than over pixels - and the sync
         // flag is what stops the assignment answering its own event.
-        var onTheBar = Tabs.Offered(State);
-
-        foreach (var (tab, pane) in _tabbed.Where(t => onTheBar.Contains(t.Tab)))
-        {
-            pane.Title = Tabs.Title(State, tab);
-        }
-
         _syncing = true;
         try
         {
-            // FIRST OF WHAT IS ON THE BAR. Tabs.Showing answers true for
-            // exactly one tab and Tabs.Next only walks the offered set, so a
-            // tab that is not on the bar cannot be the active one - but
-            // selecting a pane the bar never received would throw, and a
-            // Where here is cheaper than a reader having to know that.
+            // WHAT THE BAR HOLDS, BEFORE ANYTHING IS SELECTED OUT OF IT. The
+            // offered set moves - an identity arriving is enough - and a bar
+            // that does not follow it is a bar being asked for a pane it never
+            // received. Inside the flag because removing the selected tab makes
+            // the widget announce a replacement.
+            FollowTheOffered();
+
+            foreach (var (tab, pane) in _tabbed.Where(t => _onTheBar.Contains(t.Tab)))
+            {
+                pane.Title = Tabs.Title(State, tab);
+            }
+
+            // FIRST OF WHAT THE BAR HOLDS, which is the widget's answer and not
+            // the model's. Tabs.Showing answers true for exactly one tab and
+            // Tabs.Next only walks the offered set, so the active tab is on the
+            // bar - and if those two ever part again, this draws the tab it was
+            // already drawing rather than throwing in a person's face.
             var showing = _tabbed
-                .Where(t => onTheBar.Contains(t.Tab))
-                .First(t => Tabs.Showing(State, t.Tab)).Pane;
-            if (!ReferenceEquals(_bar.Value, showing))
+                .Where(t => _onTheBar.Contains(t.Tab))
+                .FirstOrDefault(t => Tabs.Showing(State, t.Tab)).Pane;
+
+            if (showing is not null && !ReferenceEquals(_bar.Value, showing))
             {
                 _bar.Value = showing;
             }

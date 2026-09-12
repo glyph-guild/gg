@@ -295,6 +295,16 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private TabId? _landed;
 
+    /// <summary>Which half of the airspace tab focus was last placed on.</summary>
+    /// <remarks>
+    /// <b>Beside <see cref="_landed"/> and for its reason.</b> Focus is moved
+    /// when the ANSWER changes, not while the answer stands - a decision
+    /// re-asserted once a second drags the keyboard out of whichever half
+    /// somebody just clicked into, and puts a cursor back to the top of a
+    /// document they had scrolled.
+    /// </remarks>
+    private bool _landedReading;
+
     /// <summary>How often the pane looks, when somebody is watching.</summary>
     /// <remarks>
     /// <b>Four times a second is a person's idea of "as it happens" and a
@@ -2649,7 +2659,8 @@ public sealed class ConsoleScreen : Window
     private void Focus()
     {
         switch (FocusChange.Wanted(
-            State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus))
+            State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus,
+            State.AirspaceReading, _landedReading))
         {
             case FocusTarget.LeaveAlone:
                 return;
@@ -2678,6 +2689,20 @@ public sealed class ConsoleScreen : Window
                 // has said nothing has none to move.
                 (_runnerSaid.Visible ? _runnerSaid : (View)_modal).SetFocus();
                 _landed = null;
+                return;
+
+            case FocusTarget.AirspaceDocument:
+                // THE LIST IN WHICHEVER VIEW IS SHOWING, because that is the
+                // one with the lines in it. The other two are behind it and
+                // hold whatever they last drew.
+                if (_viewTabbed.FirstOrDefault(t => t.View == State.AirspaceView).Said
+                    is { } said)
+                {
+                    said.SetFocus();
+                }
+
+                _landed = State.ActiveTab;
+                _landedReading = true;
                 return;
 
             case FocusTarget.Modal:
@@ -2748,6 +2773,7 @@ public sealed class ConsoleScreen : Window
 
         landing.SetFocus();
         _landed = State.ActiveTab;
+        _landedReading = State.AirspaceReading;
     }
 
     protected override void Dispose(bool disposing)

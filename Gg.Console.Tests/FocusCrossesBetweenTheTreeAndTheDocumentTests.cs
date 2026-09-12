@@ -107,10 +107,10 @@ public class FocusCrossesBetweenTheTreeAndTheDocumentTests
 
         var overAFolder = overADocument with { OverADocument = false };
 
-        await Assert.That(Keymap.Resolve(UiMode.Normal, KeyStroke.Char('w'), overADocument))
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('w'), overADocument))
             .IsEqualTo(Command.NextAirspacePane);
 
-        await Assert.That(Keymap.Resolve(UiMode.Normal, KeyStroke.Char('w'), overAFolder))
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('w'), overAFolder))
             .IsNotEqualTo(Command.NextAirspacePane);
     }
 

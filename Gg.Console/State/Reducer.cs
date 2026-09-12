@@ -117,6 +117,14 @@ public static class Reducer
             {
                 AirspaceView = AirspaceViews.Next(state, state.AirspaceView),
             },
+
+            // WHICH HALF THE ARROW KEYS DRIVE. Both are on screen either way;
+            // this is only about the keyboard, which is why it is a flag and
+            // not a mode.
+            Command.NextAirspacePane => state with
+            {
+                AirspaceReading = !state.AirspaceReading,
+            },
             Command.AskToRetire => Modal(state, UiMode.ConfirmRetire),
 
             // SET RATHER THAN TOGGLED, unlike the modals beside it: enter is

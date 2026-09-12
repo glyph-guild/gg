@@ -42,6 +42,18 @@ public enum FocusTarget
     /// </remarks>
     AirspacePath,
 
+    /// <summary>
+    /// The document beside the airspace tree, which is the half a person
+    /// scrolls.
+    /// </summary>
+    /// <remarks>
+    /// The two logs' reason, on a tab rather than in a modal: a pane made of
+    /// two halves has to say WHICH half, and the tab's own landing names the
+    /// tree. Without this the document was reachable by clicking and had
+    /// nothing to hand the keyboard back.
+    /// </remarks>
+    AirspaceDocument,
+
     /// <summary>The tab on screen, wherever that tab says focus lands.</summary>
     Tab,
 }
@@ -82,12 +94,24 @@ public static class FocusChange
     /// typing into puts the cursor back at the start of the line, once a
     /// second, while they type.
     /// </param>
+    /// <param name="readingTheDocument">
+    /// Which half of the airspace tab the model says has the keyboard.
+    /// </param>
+    /// <param name="landedReading">
+    /// Which half it had when focus was last placed. <b>The pair is what makes
+    /// this a CHANGE rather than a standing instruction</b> - the same job
+    /// <paramref name="landed"/> does for the tab. Comparing the model against
+    /// the widget instead would re-assert focus once a second and drag it back
+    /// out of whichever half a person had just clicked into.
+    /// </param>
     public static FocusTarget Wanted(
         UiMode mode,
         TabId showing,
         TabId? landed,
         bool modalHasFocus,
-        bool pathHasFocus = false) => (mode, landed) switch
+        bool pathHasFocus = false,
+        bool readingTheDocument = false,
+        bool landedReading = false) => (mode, landed) switch
     {
         // THE FIELD FIRST, because it is not a modal and the arms below would
         // hand it to one that is not on screen.
@@ -101,7 +125,17 @@ public static class FocusChange
         (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
         (UiMode.Runner, _) => FocusTarget.RunnerLog,
         (not UiMode.Normal, _) => FocusTarget.Modal,
-        (_, { } already) when already == showing => FocusTarget.LeaveAlone,
+
+        // NOTHING MOVED, so nothing is moved. The tab is the one focus was
+        // placed on AND the same half of it still wants the keyboard.
+        (_, { } already) when already == showing && landedReading == readingTheDocument
+            => FocusTarget.LeaveAlone,
+
+        // THE HALF TURNED. Crossing to the document is its own target; crossing
+        // back is the tab's own landing, which already names the tree.
+        _ when readingTheDocument && showing == TabId.Envelope
+            => FocusTarget.AirspaceDocument,
+
         _ => FocusTarget.Tab,
     };
 }

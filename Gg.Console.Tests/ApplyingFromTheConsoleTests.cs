@@ -84,11 +84,22 @@ public class ApplyingFromTheConsoleTests
             Field = field,
         };
 
+    /// <summary>
+    /// Inside the airspace actions, which is where this key lives now.
+    /// </summary>
+    /// <remarks>
+    /// <b>It was on the tab and the tab ran out of room.</b> The status line
+    /// carried ten keys and truncated mid-sentence, so the four acts on the
+    /// airspace as a whole went behind <c>a</c> - and inside a modal the
+    /// letters are free, which is what let this one keep its own.
+    /// </remarks>
+    private static KeymapContext Behind() =>
+        new(UiMode.AirspaceActions, TabId.Envelope);
+
     [Test]
     public async Task The_key_asks_rather_than_applying()
     {
-        var command = Keymap.Resolve(
-            KeyStroke.Char('s'), new KeymapContext(UiMode.Normal, TabId.Envelope));
+        var command = Keymap.Resolve(KeyStroke.Char('s'), Behind());
 
         await Assert.That(command).IsEqualTo(Command.AskToApplyEstate)
             .Because("one keypress that opens a flight per changed document, each taking a "

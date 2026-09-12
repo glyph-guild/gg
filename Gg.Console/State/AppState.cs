@@ -158,6 +158,19 @@ public enum UiMode
     /// change and find an approver. It is also the one act in this console
     /// that removes governance rather than adding it.
     /// </remarks>
+    /// <summary>
+    /// What can be done to the airspace as a whole.
+    /// </summary>
+    /// <remarks>
+    /// <b>FOUR KEYS OFF ONE TAB.</b> Pull, apply, draft and the outcome were
+    /// four letters on the status line beside two more that move the cursor,
+    /// and the line truncated mid-sentence at 170 columns. They are occasional
+    /// acts on the whole airspace rather than ways of looking at one document,
+    /// so they collapse the way flight actions already do - and inside a modal
+    /// the letters are free, which is what lets each keep the letter it had.
+    /// </remarks>
+    AirspaceActions,
+
     ConfirmRetire,
 
 

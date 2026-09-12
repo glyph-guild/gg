@@ -35,13 +35,40 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
     /// <summary>The two tabs that list flights, and the five that do not.</summary>
     private static readonly TabId[] Flights = [TabId.Queue, TabId.Flights];
 
+    /// <summary>
+    /// The tabs with no actions key at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>The airspace tab left this list.</b> `a' is the actions key on every
+    /// tab; on the two that list flights it acts on the flight under the
+    /// cursor, on the airspace tab it opens what can be done to the airspace,
+    /// and on these five it is off the line because there is nothing under a
+    /// cursor for it to act on.
+    /// </remarks>
     private static readonly TabId[] Elsewhere =
-        [TabId.Runners, TabId.Live, TabId.Browse, TabId.Repositories, TabId.Envelope];
+        [TabId.Runners, TabId.Live, TabId.Browse, TabId.Repositories];
 
     [Test]
     public async Task The_airspace_tab_advertises_what_the_airspace_tab_does()
     {
         var line = Keymap.Hints(On(TabId.Envelope));
+
+        // ONE KEY NOW, AND THAT IS THE CHANGE. The three acts plus the outcome
+        // each had a letter here and the line outgrew the terminal; they are
+        // behind `a' and each keeps its own letter inside it.
+        await Assert.That(line).Contains("a actions", StringComparison.Ordinal)
+            .Because("what a person does TO the airspace is the reason this tab has a "
+                   + "line at all, and it is one key. Line: " + line);
+
+        foreach (var act in (string[])
+                 ["pull the airspace", "apply the airspace", "draft with an agent"])
+        {
+            await Assert.That(line).DoesNotContain(act, StringComparison.Ordinal)
+                .Because("and what each one does is said inside the modal, where there is "
+                       + "room for a sentence. Line: " + line);
+        }
+
+        var inside = Keymap.Hints(new KeymapContext(UiMode.AirspaceActions, TabId.Envelope));
 
         foreach (var (key, act) in new[]
         {
@@ -50,9 +77,9 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
             ("m", "draft with an agent"),
         })
         {
-            await Assert.That(line).Contains($"{key} {act}", StringComparison.Ordinal)
-                .Because("the three keys that do something to the airspace are the reason "
-                       + "this tab has a line at all. Line: " + line);
+            await Assert.That(inside).Contains($"{key} {act}", StringComparison.Ordinal)
+                .Because("inside a modal the letters are free, so the line is the ONLY "
+                       + "place somebody learns them. Line: " + inside);
         }
     }
 
@@ -130,6 +157,10 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
         {
             foreach (var (stroke, command) in new (KeyStroke, Command)[]
             {
+                // THE AIRSPACE TAB IS NOT IN EITHER LIST HERE. `a' means the
+                // airspace's actions there rather than a flight's, which is
+                // the one place this key is not the same everywhere - and it
+                // is why that tab left Elsewhere.
                 (KeyStroke.Char('a'), Command.ToggleFlightActions),
                 (KeyStroke.Char('d'), Command.OpenGate),
                 (KeyStroke.Char('i'), Command.Invite),

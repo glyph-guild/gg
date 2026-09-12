@@ -1021,6 +1021,149 @@ public static class PaneText
             columns);
     }
 
+    /// <summary>
+    /// The selected document, answering whichever of the three the pane is on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three different answers about one row.</b> On disk is what somebody
+    /// edits; applied is what landed, with the version that names it; effective
+    /// is the floor composed with it, which is what actually governs a flight.
+    /// Not being able to tell those apart is what made an applied document look
+    /// like it had never landed.
+    /// </para>
+    /// <para>
+    /// <b>Composed here, from the contract's own composer.</b>
+    /// <c>EnvelopeComposition.Compose</c> is in <c>Gg.Contracts</c>, which both
+    /// repositories build against, so this is the control plane's computation
+    /// rather than a second opinion about merge semantics - and it is pure, so
+    /// a pane may run it.
+    /// </para>
+    /// <para>
+    /// <b>Every absence is a sentence.</b> No row, nothing applied to the name,
+    /// a composition that refuses - three different facts with three different
+    /// next moves, and a blank pane for any of them reads as a failure.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> AirspaceDocument(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (AirspaceRows.Pointed(state) is not { } pointed)
+        {
+            return Fitted(["Nothing is selected."], columns);
+        }
+
+        var applied = AirspaceViews.Applied(state, pointed.Name);
+
+        return Fitted(
+            state.AirspaceView switch
+            {
+                AirspaceView.OnDisk =>
+                [
+                    $"{Clean(pointed.Path)} - as it is on disk",
+                    "",
+                    .. Clean(pointed.Text ?? "This file could not be read.", lines: true)
+                        .Split('\n'),
+                ],
+
+                AirspaceView.Effective => Governing(state, pointed, applied),
+
+                _ => applied is null
+                    ?
+                    [
+                        $"Nothing has been applied to '{Clean(pointed.Name)}' yet.",
+                        "",
+                        "The file is here and the airspace holds no document for it. Apply "
+                      + "it with s, or read what is on disk in the tab beside this one.",
+                    ]
+                    :
+                    [
+                        $"{Clean(applied.Name)}   {Clean(applied.Role)}   "
+                      + Clean(applied.Version),
+                        $"updated {applied.UpdatedAt:yyyy-MM-dd HH:mm:ss}Z by "
+                      + Clean(applied.UpdatedBy),
+                        "",
+                        .. Clean(
+                            AirspaceViews.Rendered(applied) ?? "This name holds no body.",
+                            lines: true).Split('\n'),
+                    ],
+            },
+            columns);
+    }
+
+    /// <summary>
+    /// What governs a flight of this row's kind, composed.
+    /// </summary>
+    /// <remarks>
+    /// <b>A refusal is the answer.</b> Layers that will not compose mean
+    /// nothing governs that kind until somebody fixes it, and falling back to
+    /// either document would show rules that are not in force under a heading
+    /// saying they are.
+    /// </remarks>
+    private static IReadOnlyList<string> Governing(
+        AppState state, AirspaceFile pointed, Gg.Contracts.NamedEnvelopeState? applied)
+    {
+        if (!string.Equals(
+                pointed.Role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal))
+        {
+            return
+            [
+                $"'{Clean(pointed.Name)}' is a {Clean(pointed.Role)}. What governs a flight "
+              + "is composed per WORK KIND, because that is what a flight has.",
+            ];
+        }
+
+        if (applied is null)
+        {
+            return
+            [
+                $"Nothing has been applied to '{Clean(pointed.Name)}' yet, so nothing "
+              + "governs a flight of this kind beyond the floor.",
+            ];
+        }
+
+        var layers = new List<Gg.Contracts.EnvelopeLayer>();
+
+        foreach (var document in state.Estate?.Applied ?? [])
+        {
+            if (!string.Equals(document.Role, Gg.Contracts.Roles.Root, StringComparison.Ordinal)
+                && !string.Equals(document.Name, pointed.Name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            layers.Add(new Gg.Contracts.EnvelopeLayer
+            {
+                Role = document.Role,
+                Name = document.Name,
+                Version = document.Version,
+                Parent = state.Estate?.Names?.Names.FirstOrDefault(n =>
+                    string.Equals(n.Name, document.Name, StringComparison.Ordinal))?.Parent,
+                Document = document.Envelope,
+                Narrowing = document.Narrowing,
+            });
+        }
+
+        var composed = Gg.Contracts.EnvelopeComposition.Compose(layers);
+
+        return composed.Composed is { } whole
+            ?
+            [
+                $"what governs a flight of kind {Clean(pointed.Name)}",
+                "",
+                .. Clean(Gg.Contracts.EnvelopeText.RenderComposed(whole), lines: true)
+                    .Split('\n'),
+            ]
+            :
+            [
+                "These rules do not compose, so nothing governs a flight of this kind "
+              + "until it is fixed:",
+                "",
+                Clean(composed.Refused, lines: true),
+            ];
+    }
+
     /// <summary>The same lines, broken to a box that wide.</summary>
     private static IReadOnlyList<string> Fitted(IReadOnlyList<string> said, int columns) =>
         columns <= 0

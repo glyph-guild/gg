@@ -1275,6 +1275,17 @@ public sealed record AppState
     /// </remarks>
     public Gg.Contracts.Envelope? Governing { get; init; }
 
+    /// <summary>
+    /// Which of the three questions the airspace pane is answering.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the model because the views are rebuilt from it.</b> A person who
+    /// switched to the effective view, opened an editor and came back would
+    /// otherwise find the pane reset - and terminal release happens often
+    /// enough here that "which tab was I on" is a real loss.
+    /// </remarks>
+    public AirspaceView AirspaceView { get; init; }
+
     /// <summary>What became of the last flight this console grounded, or null.</summary>
     /// <remarks>
     /// Its own field rather than sharing one, for <c>Said</c>'s reason: each arm

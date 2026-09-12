@@ -30,6 +30,17 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheAirspacePaneShowsThreeViewsTests
 {
+    /// <summary>
+    /// A work kind that parses.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>destinations</c> IS REQUIRED</b> — "an envelope without it governs
+    /// nothing", in the validator's own words. Trimming a fixture past it
+    /// yields a null <c>Envelope</c>, which every consumer then reports as the
+    /// wrong document SHAPE — a true sentence about a symptom, and four
+    /// fixtures in one session were written against it before anybody asked
+    /// <c>gg envelope validate</c>.
+    /// </remarks>
     private const string WorkKind =
         """
         context:
@@ -38,6 +49,10 @@ public class TheAirspacePaneShowsThreeViewsTests
         environments: dev
         accepts:
           - tracker
+          # A SUBJECT WITH A TREE, because context.scope is '**' and a path
+          # bound over subjects that have none selects nothing - which the
+          # validator refuses by name rather than accepting quietly.
+          - repository
         produces:
           - loop.outcome
         obligations:
@@ -54,6 +69,15 @@ public class TheAirspacePaneShowsThreeViewsTests
             budget:
               wall-clock: "20m"
             on-exhaustion: handoff-to-human
+        destinations:
+          agentic-backlog:
+            kind: work-item-tracker
+            may-perform:
+              - field
+            may-write:
+              - "Custom.HAL"
+            requires:
+              - hal-in-scope
         """;
 
     private const string Floor =
@@ -78,9 +102,15 @@ public class TheAirspacePaneShowsThreeViewsTests
             budget:
               wall-clock: "20m"
             on-exhaustion: handoff-to-human
+        destinations:
+          pull-request:
+            kind: pull-request
+            requires:
+              - in-scope
         """;
 
-    private static AppState Tree(AirspaceView view, string? onDisk = null)
+    private static AppState Tree(
+        AirspaceView view, string? onDisk = null, bool uncommitted = false)
     {
         var state = new AppState
         {
@@ -89,7 +119,15 @@ public class TheAirspacePaneShowsThreeViewsTests
             Estate = new EstateOnThisMachine
             {
                 Root = "/home/someone/airspace",
-                Uncommitted = [],
+
+                // WHOSE ANSWER "DIFFERS" IS. The pane does not compare the raw
+                // file against the canonical rendering - that would call every
+                // pulled document different, because the renderer normalises
+                // what an author wrote. It reads git's answer and the diff's,
+                // which is the same rule the rows follow about direction.
+                Uncommitted = uncommitted
+                    ? ["airspace/work-kinds/score-hal.yaml"]
+                    : [],
                 Names = new EnvelopeTopology
                 {
                     Names =
@@ -190,7 +228,7 @@ public class TheAirspacePaneShowsThreeViewsTests
     public async Task The_on_disk_view_is_offered_only_when_it_differs()
     {
         var same = Tree(AirspaceView.Applied);
-        var edited = Tree(AirspaceView.Applied, onDisk: "# edited\ncontext:\n  scope: \"**\"\n");
+        var edited = Tree(AirspaceView.Applied, uncommitted: true);
 
         await Assert.That(AirspaceViews.Offered(same)).DoesNotContain(AirspaceView.OnDisk)
             .Because("a file matching what is applied makes two tabs one document, and a "
@@ -205,7 +243,7 @@ public class TheAirspacePaneShowsThreeViewsTests
     [Test]
     public async Task The_views_are_ordered_the_way_the_work_flows()
     {
-        var edited = Tree(AirspaceView.Applied, onDisk: "# edited\ncontext:\n  scope: \"**\"\n");
+        var edited = Tree(AirspaceView.Applied, uncommitted: true);
 
         await Assert.That(AirspaceViews.Offered(edited))
             .IsEquivalentTo((AirspaceView[])

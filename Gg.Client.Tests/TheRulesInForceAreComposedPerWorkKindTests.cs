@@ -49,6 +49,15 @@ public class TheRulesInForceAreComposedPerWorkKindTests
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
             new HeldSessionStore(ASession()));
 
+    /// <summary>
+    /// A floor, verbatim from a tree the parser accepted.
+    /// </summary>
+    /// <remarks>
+    /// <b>Whole, because a trimmed one does not parse</b> - and a layer whose
+    /// document came back null is refused by the composer as "the wrong
+    /// document shape for the root role", which is the composer working while
+    /// the test measures its own fixture.
+    /// </remarks>
     private const string Root =
         """
         context:
@@ -57,12 +66,17 @@ public class TheRulesInForceAreComposedPerWorkKindTests
         environments: dev
         repositories:
           - "JDX/agile-cortex"
+          - "JDX/JDNext"
         instructions:
-          - "Keep your summary under 120 words."
+          - "Keep your summary under 120 words. An operator reads these in a queue."
         obligations:
           in-scope:
             check: machine
             rule: no-file-outside-scope
+          widen-root:
+            check: human
+            when: "envelope widens"
+            approver: platform-owner
         loops:
           implement:
             executor: frontier
@@ -74,6 +88,11 @@ public class TheRulesInForceAreComposedPerWorkKindTests
             budget:
               wall-clock: "20m"
             on-exhaustion: handoff-to-human
+        destinations:
+          pull-request:
+            kind: pull-request
+            requires:
+              - in-scope
         """;
 
     private static StubControlPlane Holding(StubControlPlane stub)
@@ -93,6 +112,18 @@ public class TheRulesInForceAreComposedPerWorkKindTests
                 {
                     Name = "score-hal",
                     Role = Roles.WorkKind,
+                    Parent = "root",
+                    DeclaredBy = "Kevin Deenanauth",
+                    DeclaredAt = DateTimeOffset.UnixEpoch,
+                },
+
+                // DECLARED, so asking for its rules in force reaches the
+                // wrong-role refusal rather than the no-such-name one. Two
+                // different sentences, and the test is about the first.
+                new TopologyName
+                {
+                    Name = "dev",
+                    Role = Roles.Strategy,
                     Parent = "root",
                     DeclaredBy = "Kevin Deenanauth",
                     DeclaredAt = DateTimeOffset.UnixEpoch,

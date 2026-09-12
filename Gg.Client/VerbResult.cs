@@ -100,6 +100,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.NameDeclared;
     }
 
+    /// <summary>What governs a flight of one work kind, composed.</summary>
+    public sealed record RulesInForce(string WorkKind, Gg.Contracts.Envelope Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RulesInForce;
+    }
+
     /// <summary>One applied document, read back by name.</summary>
     public sealed record NamedEnvelopeShown(Gg.Contracts.NamedEnvelopeState Value) : VerbResult
     {
@@ -374,6 +380,8 @@ public static class VerbResultKinds
 
     public const string NamedEnvelopeShown = "named-envelope-shown";
 
+    public const string RulesInForce = "rules-in-force";
+
     public const string StrategyShown = "strategy-shown";
     public const string RunnerLabels = "runner-labels";
 
@@ -425,6 +433,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(NameDeclared))]
 [JsonSerializable(typeof(NameRetired))]
 [JsonSerializable(typeof(Gg.Contracts.NamedEnvelopeState))]
+[JsonSerializable(typeof(Gg.Contracts.Envelope))]
 [JsonSerializable(typeof(Gg.Contracts.EnvironmentStrategyState))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
@@ -521,6 +530,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameRetired),
         VerbResult.NamedEnvelopeShown r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NamedEnvelopeState),
+        VerbResult.RulesInForce r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Envelope),
         VerbResult.StrategyShown r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentStrategyState),
         VerbResult.RunnerLabels r =>
@@ -648,6 +659,7 @@ public static class VerbOutput
         VerbResult.NameDeclared r => NameDeclaredText(r.Value),
         VerbResult.NameRetired r => NameRetiredText(r.Value),
         VerbResult.NamedEnvelopeShown r => NamedEnvelopeText(r.Value),
+        VerbResult.RulesInForce r => RulesInForceText(r.WorkKind, r.Value),
         VerbResult.StrategyShown r => StrategyShownText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
@@ -2330,6 +2342,20 @@ public static class VerbOutput
     private static string StrategyShownText(Gg.Contracts.EnvironmentStrategyState strategy) =>
         $"# {strategy.Name}   strategy   {strategy.Version}\n\n"
       + Clean(Gg.Contracts.EnvelopeText.Render(strategy.Strategy), lines: true) + "\n";
+
+    /// <summary>
+    /// The composed envelope for one work kind, with its layers marked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered WITH LAYERS, because the point is which document each rule
+    /// came from.</b> A composed envelope read flat answers what governs and
+    /// hides where to change it - and "where do I edit this" is the next
+    /// question every time.
+    /// </remarks>
+    private static string RulesInForceText(string workKind, Gg.Contracts.Envelope composed) =>
+        $"# the rules in force for {Clean(workKind)}\n"
+      + "# the floor composed with this work kind, as evaluation reads it\n\n"
+      + Clean(Gg.Contracts.EnvelopeText.RenderComposed(composed), lines: true) + "\n";
 
     private static string AppliedText(EstateApplied applied)
     {

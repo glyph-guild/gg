@@ -292,6 +292,13 @@ public class VerbParityTests
             // gate and an attribution, so a single keypress would be a mistype
             // somebody has to explain - `s' opens a question naming the
             // changeset in the order it will land, and `y' inside it applies.
+            ["EnvelopeShow"] = "reached from the console: `v' on the airspace tab opens "
+                             + "the reading modal, whose envelope view is this verb's "
+                             + "answer. With a WORK KIND it composes, which the console "
+                             + "does not do yet - the modal says so and names the verb, "
+                             + "because a pane titled for the whole answer while holding "
+                             + "the floor is what sent somebody looking for a bug.",
+
             ["AirspaceRetire"] = "reached from the console: `x' inside the changeset view "
                                + "asks, `y' answers. Not a key on the tree row, because the "
                                + "names it can retire are the ones whose files are GONE - "

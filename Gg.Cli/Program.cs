@@ -130,7 +130,9 @@ return CliArgs.Parse(args) switch
     CliAction.Update update => await UpdateReportAsync(update.Json),
     CliAction.Bundle bundle => await BundleAsync(bundle.Json),
 
-    CliAction.EnvelopeShow show => await EnvelopeAsync(show.Json, c => c.ShowAsync()),
+    CliAction.EnvelopeShow show => show.WorkKind is { Length: > 0 } kind
+        ? await EmitAsync(show.Json, c => c.RulesInForceAsync(kind))
+        : await EnvelopeAsync(show.Json, c => c.ShowAsync()),
     CliAction.EnvelopeApply apply =>
         await EnvelopeAsync(apply.Json, c => c.ApplyAsync(ReadEnvelope(apply.Source))),
     CliAction.StrategyApply strategy =>

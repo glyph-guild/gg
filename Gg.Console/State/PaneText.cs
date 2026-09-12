@@ -629,8 +629,22 @@ public static class PaneText
             Gg.Client.VerbOutput.ToText(new Gg.Client.VerbResult.EnvelopeShown(applied)),
             lines: true);
 
+        // WHAT THIS IS NOT, SAID FIRST. It was titled "the rules in force" and
+        // is the ROOT document - so a tenant who applied a work kind read a
+        // pane claiming to hold every rule and containing none of theirs, and
+        // concluded their document was not governing anything. It is the
+        // floor: true of every flight, and the whole answer for none.
         return
         [
+            .. Fitted(
+                [
+                    "This is the FLOOR - the root document, which governs every flight.",
+                    "What governs one KIND of flight is this composed with that kind's own "
+                  + "document: press v on a work kind's row to read it, or run "
+                  + "gg envelope show <work-kind> for the two composed.",
+                    "",
+                ],
+                columns),
             .. text.Split('\n').SelectMany(line => columns <= 0
                 ? (IEnumerable<string>)[line]
                 : Wrapped(line, columns).Split('\n')),
@@ -984,6 +998,25 @@ public static class PaneText
                 .. (body is null
                     ? (IEnumerable<string>)["This name holds no document body."]
                     : Clean(body, lines: true).Split('\n')),
+
+                // AND WHAT ACTUALLY GOVERNS A FLIGHT OF THIS KIND. The
+                // document alone is half the answer - the floor governs the
+                // same flight - and the other half is the pane somebody was
+                // reading elsewhere and taking for the whole.
+                .. (state.Governing is { } governing
+                    ? (IEnumerable<string>)
+                    [
+                        "",
+                        $"── what governs a flight of kind {Clean(document.Name)} ──",
+                        "",
+                        .. Clean(
+                            Gg.Contracts.EnvelopeText.RenderComposed(governing),
+                            lines: true).Split('\n'),
+                    ]
+                    : state.Diagnosis is { Length: > 0 } broken
+                        ? ["", "These rules do not compose, so nothing governs a flight of "
+                             + "this kind until it is fixed:", "", Clean(broken, lines: true)]
+                        : []),
             ],
             columns);
     }
@@ -2167,7 +2200,7 @@ public static class PaneText
         UiMode.ConfirmGround => "Ground this flight?",
         UiMode.ConfirmApply => "Apply the working copy?",
         UiMode.ConfirmRetire => "Retire these names?",
-        UiMode.ReadingEnvelope => "the rules in force",
+        UiMode.ReadingEnvelope => "the floor - what governs every flight",
         UiMode.ReadingChangeset => "what would change",
         UiMode.ReadingOutcome => "what the apply came to",
         UiMode.ReadingDocument => "this document, as applied",

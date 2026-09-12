@@ -1687,9 +1687,20 @@ public static class VerbOutput
             var meaning = charted.Meaning is { Length: > 0 } predicate
                 ? "  " + Clean(predicate)
                 : "";
-            text.AppendLine(
-                $"{Clean(charted.Name),-24}{Clean(charted.Disposition),-10}"
-              + $"{Clean(charted.ChartedBy),-20}{charted.ChartedAt:u}{meaning}");
+
+            // PADDED AND THEN SEPARATED, because padding alone is not a
+            // column. A display name longer than its width runs straight into
+            // the next value - seen live as
+            // "Kevin Deenanauth (self-approved)2026-09-02 20:29:32Z", which
+            // reads as one field and is two. The two spaces are what a wide
+            // value overflows INTO rather than through.
+            text.AppendLine(string.Join("  ",
+            [
+                Clean(charted.Name).PadRight(22),
+                Clean(charted.Disposition).PadRight(8),
+                Clean(charted.ChartedBy).PadRight(18),
+                $"{charted.ChartedAt:u}{meaning}",
+            ]));
         }
 
         return text.ToString().TrimEnd();

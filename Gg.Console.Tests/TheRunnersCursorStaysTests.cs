@@ -198,13 +198,18 @@ public class TheRunnersCursorStaysTests
                    + "MODAL's - what a runner runs, and what runs beside it - and they are "
                    + "the first tables in this console that no tab drives.");
 
-        // AND THE GAP BETWEEN THESE TWO NUMBERS IS NOW THREE, WHICH USED TO BE
-        // A BUG SIGNAL. It was one - the flight log, wired to its own handler -
-        // and "built but not subscribed" meant a table whose cursor the model
-        // never learns about. The runner modal's two are deliberately not
-        // subscribed: they carry no cursor at all. Nothing in the model records
-        // a position in them, nothing acts on a row, and OnRowPointedAt would
-        // move the cursor of whatever TAB is behind the modal.
+        // AND THE GAP BETWEEN THESE TWO NUMBERS IS THREE, ALL OF WHICH ARE
+        // WIRED TO A HANDLER OF THEIR OWN. "Built but not subscribed to THIS
+        // one" is not the bug signal; "built and subscribed to nothing" is.
+        //
+        // THE SENTENCE THAT STOOD HERE SAID THEY CARRY NO CURSOR AT ALL, AND
+        // THAT WAS THE DEFECT. It was written in the same commit that filled
+        // them with a literal 0, and a person selecting the second member
+        // watched it snap back to the first on the next render - which is word
+        // for word what this class's own remark says about the runners table.
+        // The reason they cannot share OnRowPointedAt is real: it routes by
+        // ACTIVE TAB, and the tab behind that modal is Runners. The conclusion
+        // drawn from it was not.
         await Assert.That(wired).IsEqualTo(5)
             .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
                    + $"never learns about. Built {built}, wired {wired}.");

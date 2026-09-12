@@ -40,6 +40,10 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerRetirementRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerList))]
+// NEW HERE, and its absence was the restriction showing through: a person
+// could never post a reading, so this context never needed to write one. The
+// runner's own context has had it since the reading shipped.
+[JsonSerializable(typeof(AllowanceReading))]
 [JsonSerializable(typeof(AllowanceList))]
 [JsonSerializable(typeof(AllowanceFloor))]
 [JsonSerializable(typeof(AllowanceOverrideRequest))]
@@ -1008,6 +1012,32 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.AllowanceList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no allowance list.");
+    }
+
+    /// <summary>
+    /// Reports what the subscription this person speaks for has spent.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same document a runner posts, on the person's own credential.</b>
+    /// An allowance is a subscription, and a machine reading its own meter
+    /// learns something about the PLAN rather than about itself - so a laptop
+    /// that never takes a flight can still say what is left. 202 and nothing
+    /// back, like the machine's route.
+    /// </remarks>
+    public async Task ReportMyAllowanceAsync(
+        string sessionToken, AllowanceReading reading,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        using var request = Request(
+            HttpMethod.Post, "/v1/allowances/readings/mine", sessionToken);
+        request.Content = JsonContent.Create(
+            reading, ProtocolJsonContext.Default.AllowanceReading);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     /// <summary>Sets what an allowance's owners keep back.</summary>

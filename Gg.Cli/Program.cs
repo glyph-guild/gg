@@ -111,6 +111,12 @@ return CliArgs.Parse(args) switch
 
     // A SHARE AS A PERCENTAGE ON THE WAY IN. The contract carries a fraction
     // because a fraction has one spelling; a person says "keep a third".
+    // MEASURED HERE, PUBLISHED THERE. The reading is built by the same local
+    // reader `gg allowance` uses, so the two verbs cannot disagree about what
+    // this machine spent - one prints it and this one says it out loud.
+    CliAction.AllowanceReport report => await EmitAsync(
+        report.Json, c => c.ReportAllowanceAsync(AllowanceReadingNow())),
+
     CliAction.AllowanceFloor floor => await EmitAsync(floor.Json, c => c.FloorAsync(
         floor.Name,
         floor.SessionPercent is { } session ? session / 100.0 : null,
@@ -2310,6 +2316,10 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
 /// refusal that did not say which setting was missing would send somebody
 /// reading their own file to work out which of two lines to add.
 /// </remarks>
+/// <summary>This machine's reading, for the verb that publishes it.</summary>
+static Gg.Contracts.AllowanceReading AllowanceReadingNow() =>
+    ((VerbResult.Allowance)AllowanceNow()).Value;
+
 static VerbResult AllowanceNow()
 {
     var reporter = Allowance()

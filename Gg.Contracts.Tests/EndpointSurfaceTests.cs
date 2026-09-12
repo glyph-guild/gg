@@ -338,8 +338,18 @@ public class EndpointSurfaceTests
         //
         // /v1/principals joins GovernedPrefixes, which the closed vocabularies
         // DO hash, so the contract version moves with it.
+        // Moved for POST /v1/allowances/readings/mine - the same reading,
+        // attested by the person whose subscription it is rather than by a
+        // machine. Developer audience, its own path because Audience is a
+        // closed vocabulary and a combined value would halt every reader that
+        // has one. The machine's route is unchanged.
+        //
+        // THE WIRE SURFACE DOES NOT MOVE for this: it is a new endpoint under
+        // an EXISTING governed prefix, and prefixes are hashed there while
+        // endpoints are not. The package version moves anyway, because the
+        // control plane cannot serve a route it cannot see declared.
         await Assert.That(Fingerprint())
-            .IsEqualTo("04696211f145dab67b0115f05ad656ce5b77d39da98635831f62abcabebc8286")
+            .IsEqualTo("9392c09e7da34370d6786d5c7da292727c2a78b3321791ad0722468a8b191981")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

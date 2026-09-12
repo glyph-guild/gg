@@ -109,12 +109,13 @@ public static class Reducer
             Command.ReadChangeset => Modal(state, UiMode.ReadingChangeset),
             Command.ReadOutcome => Modal(state, UiMode.ReadingOutcome),
 
-            // OPENED NOW, FILLED WHEN THE READ LANDS, which is ToggleEnvelope's
-            // shape: the modal says the document is coming rather than the
-            // screen going away while it does.
-            Command.ReadDocument => Modal(state, UiMode.ReadingDocument) with
+            // TURNING A PAGE OVER WHAT IS ALREADY HELD. AirspaceViews answers
+            // which views this row has, so a view that stopped being offered -
+            // the on-disk one, once its document is applied - cannot be landed
+            // on by a cursor that was already there.
+            Command.NextAirspaceView => state with
             {
-                ReadInFlight = true,
+                AirspaceView = AirspaceViews.Next(state, state.AirspaceView),
             },
             Command.AskToRetire => Modal(state, UiMode.ConfirmRetire),
 

@@ -565,18 +565,6 @@ public static class Keymap
         // stepped away to the diff can come back to what just happened - the
         // three views answer what happened, what would change, and what
         // governs, and reading one against another is why they share a box.
-        // THE DOCUMENT UNDER THE CURSOR, as the airspace holds it. `v' opens
-        // it from the tab and returns to it from the other views, which is one
-        // mnemonic rather than a fourth letter to remember.
-        UiMode.ReadingDocument =>
-        [
-            new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
-            new(KeyStroke.Char('e'), Command.ReadEnvelope, "the rules in force"),
-            new(KeyStroke.Char('o'), Command.ReadOutcome, "the last apply"),
-            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
-            new(KeyStroke.Esc, Command.CloseModal, "close"),
-        ],
-
         UiMode.ReadingOutcome =>
         [
             new(KeyStroke.Char('d'), Command.ReadChangeset, "what would change"),
@@ -890,13 +878,25 @@ public static class Keymap
                     // was the whole of what `v' did and is now half - a
                     // person wanting to know what applying would change had
                     // no reason to press it.
-                    new(KeyStroke.Char('v'),
-                            context.OverADocument
-                                ? Command.ReadDocument
-                                : Command.ReadEnvelope,
-                            context.OverADocument
-                                ? "read this document as applied"
-                                : "read the rules or the diff")
+                    // `v' TURNS THE PANE, and only over a document. A folder
+                    // row has no document to show three ways, and a key that
+                    // resolves there and changes nothing on screen is the
+                    // dead-key shape Article XI names.
+                    //
+                    // WHAT IT NO LONGER DOES is open a modal. The pane beside
+                    // the tree shows the document now, so the modal kept only
+                    // what is about the airspace as a whole - and that is `o'
+                    // below.
+                    .. context.OverADocument
+                        ? (KeyBinding[])
+                        [
+                            new(KeyStroke.Char('v'), Command.NextAirspaceView, "next view")
+                                { When = "while the cursor is on a document" },
+                        ]
+                        : [],
+
+                    new(KeyStroke.Char('o'), Command.ReadOutcome,
+                            "what would change, and the last apply")
                         { When = "while the airspace tab is showing" }]
                 : [],
             .. context.Showing == TabId.Browse

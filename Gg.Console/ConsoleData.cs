@@ -353,30 +353,6 @@ public sealed class ConsoleData(
         _commands.AirspaceAsync(cancellationToken: cancellationToken);
 
     /// <summary>
-    /// `gg airspace show &lt;name&gt;` - one document as the airspace holds it.
-    /// </summary>
-    /// <remarks>
-    /// <b>The read-back the console had no way to do.</b>
-    /// <c>VerbResult.NamedEnvelopeShown</c> is unwrapped by
-    /// <c>ConsoleDocument</c> rather than projected by an arm here, for
-    /// <c>AirspaceDiffed</c>'s reason: what lands on the model is one field
-    /// chosen from the answer, and the failure cases are sentences rather than
-    /// state. <c>VerbResult.StrategyShown</c> reaches the console the same way
-    /// and is said rather than rendered - a strategy is not an envelope and a
-    /// modal that drew it as one would be inventing a shape.
-    /// </remarks>
-    /// <remarks>
-    /// <b>NAMED FOR THE DOCUMENT, NOT THE VERB.</b> NoWrapperIsWithoutACaller
-    /// forbids a <c>ConsoleData.AirspaceAsync</c> outright - that was the
-    /// TOPOLOGY wrapper, parked with no pane to show it - and the rule is
-    /// right. This asks the same verb a different question and has a pane, so
-    /// it takes the name of what it answers.
-    /// </remarks>
-    public Task<VerbResult> DocumentAsync(
-        string name, CancellationToken cancellationToken = default) =>
-        _commands.AirspaceAsync(name, cancellationToken);
-
-    /// <summary>
     /// Every document the airspace holds, whole, in one request.
     /// </summary>
     /// <remarks>
@@ -387,19 +363,6 @@ public sealed class ConsoleData(
     public Task<VerbResult> AirspaceDocumentsAsync(
         CancellationToken cancellationToken = default) =>
         _commands.AirspaceDocumentsAsync(cancellationToken);
-
-    /// <summary>
-    /// `gg envelope show &lt;work-kind&gt;` - the floor composed with one kind.
-    /// </summary>
-    /// <remarks>
-    /// <b>Called by <c>ConsoleDocument</c> beside the document itself</b>,
-    /// because reading a work kind without what it composes to is half an
-    /// answer - and the half a person was already reading somewhere else and
-    /// mistaking for the whole.
-    /// </remarks>
-    public Task<VerbResult> RulesInForceAsync(
-        string workKind, CancellationToken cancellationToken = default) =>
-        _commands.RulesInForceAsync(workKind, cancellationToken);
 
     /// <summary>
     /// `gg airspace diff` - what the working copy would change, and which way.

@@ -951,77 +951,6 @@ public static class PaneText
     }
 
     /// <summary>
-    /// One document as the airspace holds it, in the rows a modal will show.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Rendered by the contract's own renderer</b>, which is what a pull
-    /// writes files with - so what is read back here is what would land on
-    /// disk, rather than a second layout of one document that could drift from
-    /// it.
-    /// </para>
-    /// <para>
-    /// <b>The version is in the header because it is the point.</b> A document
-    /// you can read but cannot name is one you cannot quote in an argument
-    /// about what governed a flight.
-    /// </para>
-    /// </remarks>
-    public static IReadOnlyList<string> DocumentLines(AppState state, int columns)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        if (state.Document is not { } document)
-        {
-            return Fitted(
-                [
-                    state.Diagnosis is { Length: > 0 } why
-                        ? Clean(why)
-                        : state.ReadInFlight
-                            ? "Reading it back…"
-                            : "No document has been read back yet.",
-                ],
-                columns);
-        }
-
-        var body = document.Narrowing is { } narrowing
-            ? Gg.Contracts.EnvelopeText.Render(narrowing)
-            : document.Envelope is { } envelope
-                ? Gg.Contracts.EnvelopeText.Render(envelope)
-                : null;
-
-        return Fitted(
-            [
-                $"{Clean(document.Name)}   {Clean(document.Role)}   {Clean(document.Version)}",
-                $"updated {document.UpdatedAt:yyyy-MM-dd HH:mm:ss}Z by "
-                    + Clean(document.UpdatedBy),
-                "",
-                .. (body is null
-                    ? (IEnumerable<string>)["This name holds no document body."]
-                    : Clean(body, lines: true).Split('\n')),
-
-                // AND WHAT ACTUALLY GOVERNS A FLIGHT OF THIS KIND. The
-                // document alone is half the answer - the floor governs the
-                // same flight - and the other half is the pane somebody was
-                // reading elsewhere and taking for the whole.
-                .. (state.Governing is { } governing
-                    ? (IEnumerable<string>)
-                    [
-                        "",
-                        $"── what governs a flight of kind {Clean(document.Name)} ──",
-                        "",
-                        .. Clean(
-                            Gg.Contracts.EnvelopeText.RenderComposed(governing),
-                            lines: true).Split('\n'),
-                    ]
-                    : state.Diagnosis is { Length: > 0 } broken
-                        ? ["", "These rules do not compose, so nothing governs a flight of "
-                             + "this kind until it is fixed:", "", Clean(broken, lines: true)]
-                        : []),
-            ],
-            columns);
-    }
-
-    /// <summary>
     /// The selected document, answering whichever of the three the pane is on.
     /// </summary>
     /// <remarks>
@@ -2346,7 +2275,6 @@ public static class PaneText
         UiMode.ReadingEnvelope => "the floor - what governs every flight",
         UiMode.ReadingChangeset => "what would change",
         UiMode.ReadingOutcome => "what the apply came to",
-        UiMode.ReadingDocument => "this document, as applied",
         UiMode.ConfirmFlyAgain => "Fly this again?",
         UiMode.GateDecision => "Waiting on you",
         UiMode.SignIn => "Nobody is signed in",
@@ -2483,7 +2411,7 @@ public static class PaneText
     public static bool ModalIsADocument(UiMode mode) =>
         mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner
              or UiMode.ReadingEnvelope or UiMode.ReadingChangeset
-             or UiMode.ReadingOutcome or UiMode.ReadingDocument;
+             or UiMode.ReadingOutcome;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -2578,7 +2506,6 @@ public static class PaneText
             UiMode.ReadingEnvelope => string.Join('\n', EnvelopeLines(state, 0)),
             UiMode.ReadingChangeset => string.Join('\n', ChangesetLines(state, 0)),
             UiMode.ReadingOutcome => string.Join('\n', ApplyLines(state, 0)),
-            UiMode.ReadingDocument => string.Join('\n', DocumentLines(state, 0)),
 
             UiMode.FlightDetail => FlightDetail(state),
             UiMode.HandFlight => HandFlight(state),

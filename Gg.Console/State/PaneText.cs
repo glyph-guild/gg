@@ -2701,6 +2701,16 @@ public static class PaneText
     /// usually the one that is not set.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The Environment page's text, for the widget that now holds it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same renderer the modal used when it was one string.</b> The page
+    /// moved into a tab; what it says did not, and a second copy of it would be
+    /// the drift this file keeps finding.
+    /// </remarks>
+    public static string HelpEnvironmentText(AppState state) => HelpEnvironment(state);
+
     private static string HelpEnvironment(AppState state)
     {
         var text = new StringBuilder();

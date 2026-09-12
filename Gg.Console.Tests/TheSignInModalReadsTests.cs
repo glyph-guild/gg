@@ -260,6 +260,9 @@ public class TheSignInModalReadsTests
             // argument as the cursor above: a flag the derivation does not
             // read is a hint line that can advertise the wrong direction.
             AirspaceReading = true,
+
+            // ON A GROUP, so the fold key's flag is exercised like the rest.
+            HelpFold = UiMode.Help,
         };
 
         var context = KeymapContext.For(state);

@@ -397,8 +397,22 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "leave it alone"),
         ],
 
+        // A MENU, SO ITS ITEMS RESOLVE. This bound nothing but esc while its
+        // body listed two things a person could do - so somebody with two
+        // gates waiting opened the modal that exists to say what can be done,
+        // read both, pressed both, and got nothing. Article XI inside one
+        // screen, and worse than the usual form: they did not guess the key,
+        // they were told it.
+        //
+        // THIS IS NOT A READING MODAL. FlightDetail deliberately binds nothing
+        // that acts on its flight, because a person reading a log has not
+        // asked to decide anything. This one's whole subject is what CAN be
+        // done, so binding what it offers is its purpose rather than a
+        // violation of that rule.
         UiMode.FlightActions =>
         [
+            new(KeyStroke.Char('d'), Command.OpenGate, "decide a gate on this flight"),
+            new(KeyStroke.Char('v'), Command.ShowFlight, "open the flight"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

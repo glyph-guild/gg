@@ -309,7 +309,12 @@ public static class RunnerHost
             // leaves it, and Gg.Runner does not go looking for it. So a runner
             // that can be driven is one somebody wired to be.
             offered: offered,
-            allowance: allowance is null ? null : allowance.ReadAsync,
+            // THE CANCELLATION TOKEN IS THE LOOP'S, and it matters now that a
+            // reading may spawn a process: a runner told to stop must not sit
+            // out a refresh's patience.
+            allowance: allowance is null
+                ? null
+                : now => allowance.ReadAsync(now, stopping.Token),
             attendedSessions: identityKey is null
                 ? null
                 : flightId => new AttendedSession(

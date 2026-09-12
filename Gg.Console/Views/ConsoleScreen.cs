@@ -2695,6 +2695,19 @@ public sealed class ConsoleScreen : Window
         // have rows, because focus is what makes the arrow keys move a cursor a
         // person can see, and the label beside each is only on screen when there
         // is nothing to point at.
+        //
+        // EXHAUSTIVE, AND THAT IS THE POINT. This had a `_ => _queue` default,
+        // so Allowances - the one tab added since - landed on the QUEUE tab's
+        // list. Focusing a widget inside a SIBLING tab's pane makes
+        // Terminal.Gui's Tabs notice that another tab now has focus, assign
+        // Value to it and raise ValueChanged; the screen reads that as a person
+        // picking a tab, reduces and renders re-entrantly, and the focus
+        // transition that started it comes back to find HasFocus moved. It
+        // throws: "FocusChanging was not cancelled and the HasFocus value did
+        // not change."
+        //
+        // A default ANSWERED that question, so a new tab could never fail to
+        // compile and never fail a test. Without one the compiler asks.
         View landing = State.ActiveTab switch
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
@@ -2716,9 +2729,21 @@ public sealed class ConsoleScreen : Window
             // from it.
             TabId.Envelope => _airspaceTable.Visible ? _airspaceTable : _airspacePath,
 
+            // ITS OWN LABEL, which is the whole of that pane. There is nothing
+            // to point at on it - it is read rather than driven - so this is
+            // about being INSIDE the right pane rather than about a cursor.
+            TabId.Allowances => _allowances,
+
             // The queue tab is the one with two panes, and the list is the half
             // a person drives - the flight beside it is what the cursor means.
-            _ => _queue,
+            TabId.Queue => _queue,
+
+            // REFUSES RATHER THAN ANSWERING. C# needs an arm for values the
+            // enum does not name, so this cannot be deleted - and it must not
+            // name a widget, or it is the default that hid this bug. Every
+            // other TabId switch in this console ends the same way.
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(State.ActiveTab), State.ActiveTab, "unknown tab"),
         };
 
         landing.SetFocus();

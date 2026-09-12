@@ -75,8 +75,15 @@ public class EveryTabSaysWhereFocusLandsTests
 
         landing = landing[..landing.IndexOf("landing.SetFocus()", StringComparison.Ordinal)];
 
-        await Assert.That(landing).DoesNotContain("_ =>", StringComparison.Ordinal)
-            .Because("an exhaustive switch makes the compiler ask the question a default "
-                   + "answers wrongly and silently.");
+        await Assert.That(landing).DoesNotContain("_ => _", StringComparison.Ordinal)
+            .Because("a default that names a WIDGET is the defect: it gives a tab added "
+                   + "later an answer written for a different one.");
+
+        // C# WILL NOT LET THE ARM GO. An enum switch must cover values the enum
+        // does not name, so the arm cannot simply be deleted - it has to
+        // REFUSE, which is what every other TabId switch in this console does
+        // and what makes the compiler ask about a real tab.
+        await Assert.That(landing).Contains("_ => throw", StringComparison.Ordinal)
+            .Because("the only default allowed here is one that refuses.");
     }
 }

@@ -226,6 +226,79 @@ public class TheMeterIsReadRatherThanGuessedTests
     }
 
     [Test]
+    public async Task The_pane_shows_the_meters_share_and_says_it_is_the_meters()
+    {
+        var text = Gg.Client.VerbOutput.ToText(
+            new Gg.Client.VerbResult.Allowance(new Gg.Contracts.AllowanceReading
+            {
+                Allowance = "kdee-max",
+                MeasuredAt = Now,
+                Windows =
+                [
+                    new()
+                    {
+                        Kind = Gg.Contracts.AllowanceWindows.Session,
+                        Since = Now.AddHours(-5),
+                        InputTokens = 124,
+                        OutputTokens = 21_142,
+                        CacheReadTokens = 1_349_033,
+                        CacheWriteTokens = 131_473,
+                        Reported = 0.09,
+                        ResetsAt = new DateTimeOffset(2026, 9, 12, 5, 10, 0, TimeSpan.Zero),
+                    },
+                ],
+            }));
+
+        await Assert.That(text).Contains("9%", StringComparison.Ordinal)
+            .Because("this is the number somebody asked for, and no ceiling was typed to "
+                   + "get it.");
+
+        await Assert.That(text).DoesNotContain("no ceiling", StringComparison.Ordinal)
+            .Because("that sentence asks a person to configure a denominator, and the "
+                   + "whole point is that one is no longer needed here.");
+
+        await Assert.That(text).Contains("resets", StringComparison.OrdinalIgnoreCase)
+            .Because("the share describes the METER's window, which ends at an instant "
+                   + "and is not the rolling one the tokens beside it were counted over. "
+                   + "A share with no reset invites exactly that conflation.");
+    }
+
+    [Test]
+    public async Task Where_both_exist_the_meter_wins_because_the_other_is_a_guess()
+    {
+        var text = Gg.Client.VerbOutput.ToText(
+            new Gg.Client.VerbResult.Allowance(new Gg.Contracts.AllowanceReading
+            {
+                Allowance = "kdee-max",
+                MeasuredAt = Now,
+                Windows =
+                [
+                    new()
+                    {
+                        Kind = Gg.Contracts.AllowanceWindows.Week,
+                        Since = Now.AddDays(-7),
+                        InputTokens = 0,
+                        OutputTokens = 600_000,
+                        CacheReadTokens = 0,
+                        CacheWriteTokens = 0,
+
+                        // A typed ceiling that would say 25%, and a meter that
+                        // says 40%. They disagree because they measure
+                        // different spans, and the provider's is the one that
+                        // decides whether work stops.
+                        Limit = 2_400_000,
+                        Reported = 0.40,
+                    },
+                ],
+            }));
+
+        await Assert.That(text).Contains("40%", StringComparison.Ordinal);
+        await Assert.That(text).DoesNotContain("25%", StringComparison.Ordinal)
+            .Because("a typed ceiling is somebody's guess at a number the provider knows. "
+                   + "Showing both would ask a person to arbitrate between them.");
+    }
+
+    [Test]
     public async Task It_says_when_the_meter_was_fetched_so_staleness_is_visible()
     {
         using var meter = new Meter(Cached());

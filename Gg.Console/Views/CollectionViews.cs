@@ -86,7 +86,78 @@ public static class CollectionViews
     /// </remarks>
     private sealed class QuietTree<T> : TreeView<T> where T : class
     {
+        /// <summary>
+        /// Keeps the keys that move its own cursor, and gives back the rest.
+        /// </summary>
+        /// <remarks>
+        /// <b>A flat "handle nothing" took the arrows away with everything
+        /// else, and a tree nobody can move is a list.</b> <c>QuietTable</c>
+        /// can say that because a TableView navigates through key BINDINGS,
+        /// which are matched before this is reached; a TreeView arrives here
+        /// for its arrows, so refusing everything refuses those too.
+        /// </remarks>
+        protected override bool OnKeyDownNotHandled(Key key) =>
+            key == Key.CursorUp || key == Key.CursorDown
+                || key == Key.CursorLeft || key == Key.CursorRight
+                ? base.OnKeyDownNotHandled(key)
+                : false;
+    }
+
+    /// <summary>
+    /// A label that scrolls under the keyboard without answering for it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Focusable, because focus has to stay inside the tab that is
+    /// showing.</b> A Dialog hands focus to its first focusable child, and when
+    /// that child is in a SIBLING tab's pane the Tabs notices, re-selects that
+    /// tab and raises ValueChanged - which the screen reads as a person picking
+    /// it. So every page takes the keyboard, and every page gives the keys
+    /// back.
+    /// </remarks>
+    private sealed class QuietLabel : Label
+    {
         protected override bool OnKeyDownNotHandled(Key key) => false;
+    }
+
+    /// <summary>A read-only page that holds focus and no keys.</summary>
+    public static Label Page() =>
+        new QuietLabel { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+
+    /// <summary>
+    /// A tab bar that renders a choice and never makes one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The keymap owns tab, and a Tabs answers it by default.</b> Focus in
+    /// the help modal is inside a tab's pane, so an unhandled key bubbles up
+    /// THROUGH the bar - and the bar advanced its own selection, then let the
+    /// keymap advance it again, so one press moved two pages and the next
+    /// pressed against the end and did nothing.
+    /// </remarks>
+    private sealed class QuietTabs : Terminal.Gui.Views.Tabs
+    {
+        protected override bool OnKeyDownNotHandled(Key key) => false;
+
+    }
+
+    /// <summary>A tab bar the model drives.</summary>
+    /// <remarks>
+    /// Its bindings are cleared as well as its fallback handling: a binding is
+    /// matched before <c>OnKeyDownNotHandled</c> is ever reached, so the
+    /// override alone would not stop it answering the key.
+    /// </remarks>
+    public static Terminal.Gui.Views.Tabs Bar()
+    {
+        var bar = new QuietTabs
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+
+        bar.KeyBindings.Clear();
+
+        return bar;
     }
 
     /// <summary>A tree with the console's rules on it.</summary>

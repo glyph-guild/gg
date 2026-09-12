@@ -694,18 +694,18 @@ public sealed class ConsoleScreen : Window
         // The text bar this replaced was defended on the grounds that a widget
         // "would put which page is showing inside a widget, where no test can
         // assert it". True of a widget that OWNS the answer. These do not.
-        _helpTabs = new Terminal.Gui.Views.Tabs
-        {
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(),
-        };
+        _helpTabs = CollectionViews.Bar();
 
         _helpKeys = CollectionViews.Tree<HelpNode>();
-        _helpEnvironment = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _helpEnvironment = CollectionViews.Page();
 
-        _helpKeysTab = new View { Width = Dim.Fill(), Height = Dim.Fill(), Title = "Keys" };
+        _helpKeysTab = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Title = "Keys",
+            CanFocus = true,
+        };
         _helpKeysTab.Add(_helpKeys);
 
         _helpEnvironmentTab = new View
@@ -713,11 +713,18 @@ public sealed class ConsoleScreen : Window
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             Title = "Environment",
+            CanFocus = true,
         };
         _helpEnvironmentTab.Add(_helpEnvironment);
 
-        _helpDoctor = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _helpDoctorTab = new View { Width = Dim.Fill(), Height = Dim.Fill(), Title = "Doctor" };
+        _helpDoctor = CollectionViews.Page();
+        _helpDoctorTab = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Title = "Doctor",
+            CanFocus = true,
+        };
         _helpDoctorTab.Add(_helpDoctor);
 
         _helpTabs.Add(_helpKeysTab);
@@ -725,7 +732,18 @@ public sealed class ConsoleScreen : Window
         _helpTabs.Add(_helpDoctorTab);
         _helpTabs.ValueChanged += OnHelpPageChanged;
 
-        _helpBody = new View { Width = Dim.Fill(), Height = Dim.Fill(), Visible = false };
+        // CanFocus, WHICH A PLAIN View IS NOT. Nothing inside a view that
+        // cannot take focus can take it either, so the tree never got the
+        // keyboard and its arrows moved nothing - and SetFocus on a view that
+        // cannot take it does nothing at all, silently, which is why this
+        // looked like an arrow-key problem rather than a container one.
+        _helpBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+        };
         _helpBody.Add(_helpTabs);
 
         // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
@@ -1672,11 +1690,25 @@ public sealed class ConsoleScreen : Window
             {
                 _helpTabs.Value = showing;
             }
+
+            // AND THE PANES ARE SHOWN AND HIDDEN HERE, rather than left to the
+            // bar. Assigning Value moved the highlight and not the content -
+            // the modal drew the last tab added whichever one was selected -
+            // so visibility is the model's like everything else, and the bar
+            // draws the header over it.
+            _helpKeysTab.Visible = ReferenceEquals(showing, _helpKeysTab);
+            _helpEnvironmentTab.Visible = ReferenceEquals(showing, _helpEnvironmentTab);
+            _helpDoctorTab.Visible = ReferenceEquals(showing, _helpDoctorTab);
         }
         finally
         {
             _syncing = false;
         }
+
+        // THE TITLE SAYS WHICH PAGE, because it used to say "Keys" whichever
+        // one was showing - a constant from when the modal had one page, and a
+        // label that names the wrong thing is worse than none.
+        _modal.Title = $"Help — {HelpPages.Title(State.HelpPage)}";
 
         _helpEnvironment.Text = PaneText.HelpEnvironmentText(State);
         _helpDoctor.Text = PaneText.HelpDoctorText(State);
@@ -1738,6 +1770,23 @@ public sealed class ConsoleScreen : Window
             State = State with { HelpFold = over };
         }
     }
+
+    /// <summary>Puts the keyboard on the page a person is reading.</summary>
+    /// <remarks>
+    /// <b>Without this the modal has no cursor at all</b> - arrows do nothing,
+    /// because a Dialog's focus sits on the dialog and every page is a subview
+    /// of a tab. Each page is quiet, so the keys it does not use still reach
+    /// the keymap.
+    /// </remarks>
+    private void FocusPage() => Showing().SetFocus();
+
+    /// <summary>The content of the help page that is showing.</summary>
+    private View Showing() => State.HelpPage switch
+    {
+        HelpPage.Environment => _helpEnvironment,
+        HelpPage.Doctor => _helpDoctor,
+        _ => _helpKeys,
+    };
 
     /// <summary>How the tree finds a group's keys. One answer, from the node.</summary>
     private sealed class HelpBranches : ITreeBuilder<HelpNode>
@@ -3206,6 +3255,35 @@ public sealed class ConsoleScreen : Window
 
             case FocusTarget.Modal:
                 _modal.SetFocus();
+
+                // AND INTO THE PAGE, because a Dialog stops at itself and the
+                // arrows then move nothing. The page that is showing is the
+                // only one visible, so this cannot land in a hidden tab.
+                if (State.Mode is UiMode.Help)
+                {
+                    FocusPage();
+                }
+
+                // AND INSIDE THE HELP MODAL, ON THE PAGE RATHER THAN ON THE
+                // BAR. A Dialog gives focus to its first focusable child, which
+                // since the help modal grew a tab bar is the BAR - so the bar
+                // took the keyboard, answered tab itself, and `tab turns the
+                // page' stopped being true. The bar is a renderer here: the
+                // model says which page shows and Render puts it there.
+                //
+                // The page's own content is the right place for the keyboard
+                // anyway: it is what the arrows should move, and the tree is
+                // quiet, so tab bubbles past it to the keymap - which is the
+                // only thing that decides what tab means.
+                // ONLY THE TREE, and only because it has a cursor to move.
+                // The other two pages are read, not navigated, and focusing a
+                // plain Label was the bug this replaced: Terminal.Gui advances
+                // focus on tab for any focusable view that does not say
+                // otherwise, so tab stopped turning the page the moment a
+                // person reached Environment or Doctor. The tree says
+                // otherwise - it is quiet, like the tables - so tab bubbles
+                // past it to the keymap, which is the only thing that decides
+                // what tab means.
 
                 // FORGOTTEN WHILE THE MODAL HAS IT, which is what makes closing
                 // one a change. The tab does not move while a modal is open, so

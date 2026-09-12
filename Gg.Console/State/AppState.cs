@@ -1108,6 +1108,26 @@ public sealed record AppState
     public HelpPage HelpPage { get; init; } = HelpPage.Keys;
 
     /// <summary>
+    /// Which key groups a person has folded away from their default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The DIFFERENCE from the default, not the state itself.</b> So a mode
+    /// added later opens the way its own rule says rather than the way an old
+    /// saved list happened to leave it, and an empty set means nobody has
+    /// touched anything — which is the ordinary case and the one worth being
+    /// cheap.
+    /// </para>
+    /// <para>
+    /// <b>Strings rather than the enum, because this is serialized.</b>
+    /// <c>AppStateJsonContext</c> writes the whole model to disk and reads it
+    /// back; a value that vanished from the enum would refuse the whole file
+    /// rather than the one fold nobody can open any more.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> HelpFolds { get; init; } = [];
+
+    /// <summary>
     /// The held tree of the selected flight, when there is one.
     /// </summary>
     /// <remarks>

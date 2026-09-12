@@ -986,7 +986,12 @@ public sealed class ConsoleScreen : Window
         // row is what says which document the pane beside it is about, so it
         // has to read as a cursor - and has to keep reading as one when the
         // keyboard crosses to the document.
-        _airspaceTreePane.SetScheme(ConsoleTheme.Picked());
+        // ON THE TABLE, NOT ON THE FRAME AROUND IT. Measured: setting it on the
+        // frame left every row drawn in the window's plain attribute - the
+        // table takes its scheme from somewhere other than its immediate
+        // parent, and the block is about the ROW rather than the border
+        // anyway.
+        _airspaceTable.SetScheme(ConsoleTheme.Picked());
         Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 

@@ -56,7 +56,6 @@ public class ModalButtonTests
             (new(UiMode.Help), true, "turns the help page over"),
             (new(UiMode.SignIn), true, "starts a sign-in"),
             (new(UiMode.SignIn) { SignInStarted = true }, true, "reaches the browser"),
-            (new(UiMode.Runner) { RunnerIsOurs = true }, true, "restarts or stops our runner"),
 
             // DECIDING. Approving a gate is attributed to whoever approved it,
             // grounding a flight ends work that is running, and confirming a
@@ -77,6 +76,25 @@ public class ModalButtonTests
             // bound at all, so there is nothing to put on a button - the same
             // guard, reached through a different door.
             (new(UiMode.Runner) { RunnerIsOurs = false }, false, "is somebody else's runner"),
+
+            // AND OURS JOINED IT, WHICH MOVED A ROW ACROSS THIS TABLE. It read
+            // "restarts or stops our runner" on the clickable side, on the
+            // argument that both are undone by doing them again or by doing
+            // nothing. THAT ARGUMENT IS UNTOUCHED - what changed is the room.
+            //
+            // The runner modal's foot is a TAB BAR now, and a button row under
+            // a bar somebody can already click is two clickable things in one
+            // place; `Next view' was a button that did exactly what clicking a
+            // tab header does. Removing them also ends a difference nobody
+            // asked for: the modal looked one way over our runner and another
+            // over somebody else's.
+            //
+            // A ROW MOVED RATHER THAN DELETED, because the sentence that has to
+            // be argued with first is the one that says what this modal is -
+            // and "it used to have buttons and here is why it stopped" is more
+            // of that sentence than silence would be.
+            (new(UiMode.Runner) { RunnerIsOurs = true }, false, "restarts or stops our runner, "
+                                                             + "under a bar you can click"),
         };
 
         foreach (var (context, wanted, why) in offers)

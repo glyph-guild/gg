@@ -498,6 +498,22 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
+    /// Every document the airspace holds, whole, in one request.
+    /// </summary>
+    /// <remarks>
+    /// <b>For a surface that draws whatever the cursor is on.</b>
+    /// <see cref="AirspaceAsync(string?, CancellationToken)"/> answers one
+    /// document by name and would be a request per row; this is the read that
+    /// already fetches all of them, given a verb. Strategies come with the
+    /// envelopes because they are rows in the same tree - that they arrive
+    /// through a second door is the wire's business.
+    /// </remarks>
+    public async Task<VerbResult> AirspaceDocumentsAsync(
+        CancellationToken cancellationToken = default) =>
+        new VerbResult.AirspaceDocuments(
+            await _client.ReadEstateAsync(Session(), cancellationToken));
+
+    /// <summary>
     /// What actually governs a flight of one work kind: the floor composed
     /// with that kind's document.
     /// </summary>

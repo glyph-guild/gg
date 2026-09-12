@@ -100,6 +100,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.NameDeclared;
     }
 
+    /// <summary>Every document the airspace holds, whole.</summary>
+    public sealed record AirspaceDocuments(AirspaceEstate Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.AirspaceDocuments;
+    }
+
     /// <summary>What governs a flight of one work kind, composed.</summary>
     public sealed record RulesInForce(string WorkKind, Gg.Contracts.Envelope Value) : VerbResult
     {
@@ -382,6 +388,8 @@ public static class VerbResultKinds
 
     public const string RulesInForce = "rules-in-force";
 
+    public const string AirspaceDocuments = "airspace-documents";
+
     public const string StrategyShown = "strategy-shown";
     public const string RunnerLabels = "runner-labels";
 
@@ -434,6 +442,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(NameRetired))]
 [JsonSerializable(typeof(Gg.Contracts.NamedEnvelopeState))]
 [JsonSerializable(typeof(Gg.Contracts.Envelope))]
+[JsonSerializable(typeof(AirspaceEstate))]
 [JsonSerializable(typeof(Gg.Contracts.EnvironmentStrategyState))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
@@ -532,6 +541,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NamedEnvelopeState),
         VerbResult.RulesInForce r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Envelope),
+        VerbResult.AirspaceDocuments r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.AirspaceEstate),
         VerbResult.StrategyShown r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentStrategyState),
         VerbResult.RunnerLabels r =>
@@ -660,6 +671,7 @@ public static class VerbOutput
         VerbResult.NameRetired r => NameRetiredText(r.Value),
         VerbResult.NamedEnvelopeShown r => NamedEnvelopeText(r.Value),
         VerbResult.RulesInForce r => RulesInForceText(r.WorkKind, r.Value),
+        VerbResult.AirspaceDocuments r => DocumentsText(r.Value),
         VerbResult.StrategyShown r => StrategyShownText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
@@ -2356,6 +2368,38 @@ public static class VerbOutput
         $"# the rules in force for {Clean(workKind)}\n"
       + "# the floor composed with this work kind, as evaluation reads it\n\n"
       + Clean(Gg.Contracts.EnvelopeText.RenderComposed(composed), lines: true) + "\n";
+
+    /// <summary>
+    /// Every document the airspace holds, one line each.
+    /// </summary>
+    /// <remarks>
+    /// <b>A listing rather than a dump.</b> Whole documents are what the
+    /// CONSOLE wants from this verb; at a terminal, printing every body would
+    /// bury the question this answers - which names hold something, and at
+    /// what version. One name reads back in full with
+    /// <c>gg airspace show &lt;name&gt;</c>.
+    /// </remarks>
+    private static string DocumentsText(AirspaceEstate estate)
+    {
+        var text = new StringBuilder();
+
+        foreach (var document in estate.Documents)
+        {
+            text.Append(
+                $"{Clean(document.Name),-24}{Clean(document.Role),-12}"
+              + $"{Clean(document.Version)}\n");
+        }
+
+        foreach (var strategy in estate.Strategies)
+        {
+            text.Append(
+                $"{Clean(strategy.Name),-24}{"strategy",-12}{Clean(strategy.Version)}\n");
+        }
+
+        return text.Length == 0
+            ? "nothing has been applied to any name in this airspace\n"
+            : text.ToString();
+    }
 
     private static string AppliedText(EstateApplied applied)
     {

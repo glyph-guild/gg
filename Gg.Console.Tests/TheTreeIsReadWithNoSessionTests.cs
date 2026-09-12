@@ -209,23 +209,42 @@ public class TheTreeIsReadWithNoSessionTests
     }
 
     [Test]
-    public async Task The_tree_carries_no_document_text()
+    public async Task The_tree_carries_the_text_the_pane_draws()
     {
-        // THE RULE THAT DOES NOT BEND. AppState goes into GG_STATE_DUMP and
-        // the diagnostics bundle, so a member able to hold envelope text would
-        // put a tenant's governance documents in a file they send us.
+        // THIS ASSERTED THE OPPOSITE AND CALLED IT "THE RULE THAT DOES NOT
+        // BEND". It bent, deliberately, and the reason it gave was not true of
+        // the code: "AppState goes into GG_STATE_DUMP and the diagnostics
+        // bundle, so a member able to hold envelope text would put a tenant's
+        // governance documents in a file they send us." ConsoleData.BundleFrom
+        // takes the state and IGNORES it, and GG_STATE_DUMP is an opt-in
+        // variable Program.cs calls a "Demo/verification hook".
+        //
+        // WHAT MADE IT BEND was the airspace tab: it draws the selected
+        // document on disk, as applied and as it composes, PaneText is pure,
+        // and the alternative was a request per arrow key - which this console
+        // refuses by name. Raised with the owner rather than worked around.
+        //
+        // INVERTED RATHER THAN DELETED. A test that encoded the old rule is
+        // the best guard against somebody restoring it by halves, and this is
+        // the third place the same sentence was written down - which is its
+        // own finding about prose rules.
         var tree = Somewhere();
         try
         {
             var folded = ConsoleEstate.Local(tree.FullName, new AppState());
             var dumped = AppStateJson.Serialize(folded);
 
-            await Assert.That(dumped).DoesNotContain("an-auditor", StringComparison.Ordinal)
-                .Because("that is an approver inside a document body. Paths, names, roles "
-                       + "and versions are the class of fact this may carry; text is not.");
+            await Assert.That(dumped).Contains("no-file-outside-scope", StringComparison.Ordinal)
+                .Because("the pane draws what the file says, so the text rides on the model "
+                       + "and through the dump with it. That is the cost this change "
+                       + "accepted, with its eyes open.");
 
-            await Assert.That(dumped).DoesNotContain("no-file-outside-scope", StringComparison.Ordinal)
-                .Because("and so is a rule.");
+            var document = folded.Estate!.Tree!.Documents
+                .First(d => d.Path.EndsWith("pci.yaml", StringComparison.Ordinal));
+
+            await Assert.That(document.Text).IsNotNull()
+                .Because("and it is held where the pane looks for it rather than anywhere "
+                       + "else on the model.");
         }
         finally
         {

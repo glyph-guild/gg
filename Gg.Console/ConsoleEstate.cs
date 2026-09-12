@@ -78,7 +78,7 @@ public static class ConsoleEstate
                 {
                     Root = root,
                     IsRepository = Git.IsRepository(tree),
-                    Tree = Summarised(Gg.Client.AirspaceTree.Read(tree)),
+                    Tree = Summarised(tree, Gg.Client.AirspaceTree.Read(tree)),
                     Uncommitted = Gg.Client.AirspaceTree.Dirty(tree),
                 },
             };
@@ -112,13 +112,20 @@ public static class ConsoleEstate
     /// a file they send us. Name, role, path and version is what a row needs;
     /// the rest stays on disk, which is where the pane's reader can go for it.
     /// </remarks>
-    private static WorkingCopy Summarised(Gg.Client.TreeRead read) => new()
+    private static WorkingCopy Summarised(string root, Gg.Client.TreeRead read) => new()
     {
         Present = read.Present,
         Documents =
         [
             .. read.Documents.Select(d =>
-                new AirspaceFile(d.Role, d.Name, d.Path, d.BasedOn)),
+                new AirspaceFile(d.Role, d.Name, d.Path, d.BasedOn)
+                {
+                    // VERBATIM, because the point of the on-disk tab is what
+                    // is ACTUALLY in the file. Re-rendering the parsed model
+                    // would show what gg thinks it means, which is what the
+                    // applied tab beside it already answers.
+                    Text = Said(root, d.Path),
+                }),
         ],
         Unreadable =
         [
@@ -186,6 +193,30 @@ public static class ConsoleEstate
                 Diagnosis = why,
             },
         };
+    }
+
+    /// <summary>
+    /// What one file says, or null when it cannot be read.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is not an empty file.</b> A file the walk parsed and then could
+    /// not re-read is a race or a permission change, and a pane drawing an
+    /// empty document for it would report a state that does not exist. The
+    /// walk has already established the path is one gg wrote, so this is the
+    /// local read a session is allowed - and the ONLY read in this function.
+    /// </remarks>
+    private static string? Said(string root, string path)
+    {
+        try
+        {
+            return File.ReadAllText(
+                Path.Combine(root, Path.Combine(path.Split('/'))));
+        }
+        catch (Exception unreadable) when (
+            unreadable is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

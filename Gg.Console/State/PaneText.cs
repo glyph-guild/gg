@@ -973,6 +973,18 @@ public static class PaneText
     /// a composition that refuses - three different facts with three different
     /// next moves, and a blank pane for any of them reads as a failure.
     /// </para>
+    /// <para>
+    /// <b>No caption over any of them.</b> Which question a pane answers is on
+    /// the tab below it and which document it is about is on the row under the
+    /// cursor, so a header naming either is the screen reading itself back -
+    /// and two lines of it pushed line one of a file down to line three.
+    /// <para>
+    /// The applied version and who applied it went with the caption, and they
+    /// were the one thing in it said nowhere else. If a version is wanted back
+    /// it belongs on the tab or the row, where a fact about a document lives -
+    /// not on top of the document.
+    /// </para>
+    /// </para>
     /// </remarks>
     public static IReadOnlyList<string> AirspaceDocument(AppState state, int columns)
     {
@@ -1002,10 +1014,12 @@ public static class PaneText
         return Fitted(
             state.AirspaceView switch
             {
+                // NO CAPTION. The tab along the bottom says which question
+                // this answers and the row under the cursor says which
+                // document, so a line naming both is the screen reading itself
+                // back - and it made line one of a file line three of a pane.
                 AirspaceView.OnDisk =>
                 [
-                    $"{Clean(pointed.Path)} - as it is on disk",
-                    "",
                     .. Clean(pointed.Text ?? "This file could not be read.", lines: true)
                         .Split('\n'),
                 ],
@@ -1022,11 +1036,6 @@ public static class PaneText
                     ]
                     :
                     [
-                        $"{Clean(applied.Name)}   {Clean(applied.Role)}   "
-                      + Clean(applied.Version),
-                        $"updated {applied.UpdatedAt:yyyy-MM-dd HH:mm:ss}Z by "
-                      + Clean(applied.UpdatedBy),
-                        "",
                         .. Clean(
                             AirspaceViews.Rendered(applied) ?? "This name holds no body.",
                             lines: true).Split('\n'),
@@ -1121,8 +1130,6 @@ public static class PaneText
         return composed.Composed is { } whole
             ?
             [
-                $"what governs a flight of kind {Clean(pointed.Name)}",
-                "",
                 .. Clean(Gg.Contracts.EnvelopeText.RenderComposed(whole), lines: true)
                     .Split('\n'),
             ]

@@ -84,6 +84,66 @@ public class WiqlWorkItemSourceTests
         }}
         """;
 
+    /// <summary>A sign-in page, served with 200, which is what this shape does.</summary>
+    private static HttpResponseMessage SignInPage() =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                "<!DOCTYPE html>\n<html><head><title>Sign In</title></head></html>",
+                Encoding.UTF8,
+                "text/html"),
+        };
+
+    [Test]
+    public async Task A_sign_in_page_is_reported_as_a_credential_rather_than_as_json()
+    {
+        // FOUND BY RUNNING IT, against a real tracker with no credential
+        // registered. This shape answers an unauthenticated read with 200 AND
+        // AN HTML SIGN-IN PAGE rather than 401 - so EnsureSuccessStatusCode
+        // passes, the parse explodes, and the pane said:
+        //
+        //     '<' is an invalid start of a value. LineNumber: 2 | BytePositionInLine: 0.
+        //
+        // Which is true, useless, and points at neither the cause nor the fix.
+        var (source, _) = SourceThatAnswers(_ => SignInPage());
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await source.ReadAsync("26"));
+
+        await Assert.That(refused!.Message).Contains("credential", StringComparison.Ordinal)
+            .Because("a person reading this has to learn WHICH thing is missing. Said: "
+                   + refused.Message);
+
+        await Assert.That(refused!.Message).Contains(Host, StringComparison.Ordinal)
+            .Because("and which tracker answered that way, because a machine can be "
+                   + "configured for more than one. Said: " + refused.Message);
+    }
+
+    [Test]
+    public async Task A_sign_in_page_is_reported_the_same_way_when_browsing()
+    {
+        // BOTH DOORS, because browse is how somebody meets this first: the
+        // pane is opened by a key, and a reader that only explained itself on
+        // the single-item path would leave the common case saying nothing.
+        var (source, _) = SourceThatAnswers(_ => SignInPage());
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await source.BrowseAsync(cursor: null, limit: 20));
+
+        await Assert.That(refused!.Message).Contains("credential", StringComparison.Ordinal);
+    }
+
+    [Test]
+    public async Task A_real_answer_is_still_parsed()
+    {
+        // THE OTHER HALF, so the guard cannot be satisfied by refusing
+        // everything: a body that IS json still reads.
+        var (source, _) = SourceThatAnswers(_ => Json(OneItem));
+
+        var read = await source.ReadAsync("26");
+        await Assert.That(read).IsNotNull();
+    }
+
     [Test]
     public async Task It_reads_one_item_from_the_path_the_shape_names()
     {

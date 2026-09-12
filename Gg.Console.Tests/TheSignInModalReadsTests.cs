@@ -254,6 +254,12 @@ public class TheSignInModalReadsTests
             // projection working, and worth pinning here because it is the
             // difference between this flag being derived and being guessed.
             AirspaceSelected = 1,
+
+            // AND THE KEYBOARD IN THE DOCUMENT, which is what makes `w' say
+            // "back to the tree" rather than "read the document". Same
+            // argument as the cursor above: a flag the derivation does not
+            // read is a hint line that can advertise the wrong direction.
+            AirspaceReading = true,
         };
 
         var context = KeymapContext.For(state);

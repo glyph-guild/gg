@@ -58,7 +58,16 @@ public readonly record struct KeymapContext(
     bool HandedBackable = false,
 
     /// <summary>Whether the airspace cursor is on a document rather than a folder.</summary>
-    bool OverADocument = false)
+    bool OverADocument = false,
+
+    /// <summary>Whether the keyboard is in the document rather than the tree.</summary>
+    /// <remarks>
+    /// One key crosses both ways, so what it is ABOUT to do depends on where
+    /// the keyboard is now - and the hint line is generated from this same
+    /// value, which is what stops it advertising a direction the key does not
+    /// take.
+    /// </remarks>
+    bool ReadingTheDocument = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -164,7 +173,12 @@ public readonly record struct KeymapContext(
             // WHICH `v' MEANS. On a document row it reads that document back;
             // anywhere else it opens the rules in force. Derived here so the
             // hint line and the dispatch cannot disagree about which.
-            AirspaceRows.Pointed(state) is not null)
+            AirspaceRows.Pointed(state) is not null,
+
+            // AND WHICH HALF OF THE AIRSPACE TAB HAS THE KEYBOARD, for the
+            // reason above it: `w' crosses both ways and says which way it is
+            // going.
+            state.AirspaceReading)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -895,6 +909,21 @@ public static class Keymap
                         ]
                         : [],
 
+                    // `w' CROSSES, and only over a document. The pane beside a
+                    // folder row is a sentence rather than something to
+                    // scroll, so the keyboard would go somewhere a person
+                    // cannot see it go - which is Article XI's dead key.
+                    .. context.OverADocument
+                        ? (KeyBinding[])
+                        [
+                            new(KeyStroke.Char('w'), Command.NextAirspacePane,
+                                    context.ReadingTheDocument
+                                        ? "back to the tree"
+                                        : "read the document")
+                                { When = "while the cursor is on a document" },
+                        ]
+                        : [],
+
                     new(KeyStroke.Char('o'), Command.ReadOutcome,
                             "what would change, and the last apply")
                         { When = "while the airspace tab is showing" }]
@@ -1190,8 +1219,12 @@ public static class Keymap
         // across this flag - read this document back, or read the rules in
         // force - so one of the two appeared on no page.
         from overADocument in (bool[])[false, true]
+        // AND WHICH HALF HOLDS THE KEYBOARD. `w' says "the document" from one
+        // side and "the tree" from the other, so one of the two would appear
+        // on no page - which is the argument the clause above it records.
+        from reading in (bool[])[false, true]
         select new KeymapContext(
-            mode, showing, frozen, takeable, handedBack, overADocument)
+            mode, showing, frozen, takeable, handedBack, overADocument, reading)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

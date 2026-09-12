@@ -1226,6 +1226,19 @@ public sealed record AppState
     public IReadOnlyList<string>? ApplyOutcome { get; init; }
 
     /// <summary>
+    /// Whether the keyboard is in the airspace document rather than the tree.
+    /// </summary>
+    /// <remarks>
+    /// <b>Which half has the keyboard is the model's, not the view's.</b> The
+    /// document beside the tree is long enough to scroll - a composed envelope
+    /// is longer than any box - so it has to be able to hold the arrow keys,
+    /// and the tree has to be able to take them back. Recording it here is what
+    /// lets <c>FocusChange</c> decide it as a pure function, which is how every
+    /// other focus decision in this console is checkable at all.
+    /// </remarks>
+    public bool AirspaceReading { get; init; }
+
+    /// <summary>
     /// Which of the three questions the airspace pane is answering.
     /// </summary>
     /// <remarks>

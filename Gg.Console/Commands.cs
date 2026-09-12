@@ -192,6 +192,18 @@ public enum Command
     /// </remarks>
     NextAirspaceView,
 
+    /// <summary>
+    /// Move the keyboard between the airspace tree and the document beside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>NO I/O, and no new pane either</b> - both halves are already on
+    /// screen. This says which one the arrow keys drive: the tree, where they
+    /// walk documents, or the document, where they scroll it. Without it the
+    /// right-hand pane was a one-way door, reachable by clicking and with
+    /// nothing to bring the keyboard back.
+    /// </remarks>
+    NextAirspacePane,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside

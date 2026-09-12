@@ -90,6 +90,9 @@ public sealed record MeasuredWindow
 
     /// <summary>When the meter's own window resets. Absent when it said nothing.</summary>
     public DateTimeOffset? ResetsAt { get; init; }
+
+    /// <summary>When the meter was last asked. Absent when it said nothing.</summary>
+    public DateTimeOffset? ReportedAt { get; init; }
 }
 
 /// <summary>
@@ -317,6 +320,7 @@ public static class AllowanceLedger
                     Limit = limits.For(one.Key),
                     Reported = metered.Share(one.Key),
                     ResetsAt = metered.ResetsAt(one.Key),
+                    ReportedAt = metered.FetchedAt,
                 }),
             ],
         };

@@ -148,6 +148,18 @@ public sealed record AllowanceWindow
     /// </remarks>
     public DateTimeOffset? ResetsAt { get; init; }
 
+    /// <summary>
+    /// When the meter was last asked. Absent when it said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>A share is only as current as the last time the executor asked</b>,
+    /// and nothing else on this record says so. <see cref="ResetsAt"/> catches
+    /// the unambiguous case — a window that has already ended — but a weekly
+    /// number can be hours old against a reset three days out, and an
+    /// hours-old share presented bare cannot be told from a live one.
+    /// </remarks>
+    public DateTimeOffset? ReportedAt { get; init; }
+
     /// <summary>When the window opened.</summary>
     public required DateTimeOffset Since { get; init; }
 

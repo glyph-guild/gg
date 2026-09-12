@@ -1435,7 +1435,7 @@ public static class ProtocolSurface
                  // of the window it describes - which is NOT the one `since'
                  // opens. Both are here rather than derived because nothing on
                  // either side can compute them from the counts.
-                 "cacheWriteTokens", "limit", "tokens", "reported", "resetsAt"],
+                 "cacheWriteTokens", "limit", "tokens", "reported", "resetsAt", "reportedAt"],
             [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
             [typeof(AllowanceSummary)] =
                 ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],

@@ -64,6 +64,35 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Runners;
     }
 
+    /// <summary>The tenant's chart: every environment name an envelope may select.</summary>
+    /// <remarks>
+    /// <b>The registry the "uncharted" refusal points at.</b> An envelope naming
+    /// an environment nobody charted is refused with the fix in the refusal -
+    /// chart it - and until this existed the one tool that reads the refusal
+    /// could not read the registry.
+    /// </remarks>
+    public sealed record Chart(EnvironmentChart Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Chart;
+    }
+
+    /// <summary>Every managed pool's latest attestation, per pool and action.</summary>
+    public sealed record Pools(PoolLedger Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Pools;
+    }
+
+    /// <summary>Every strategy in force: what furnishes each charted environment.</summary>
+    /// <remarks>
+    /// <b>Beside <see cref="StrategyShown"/> rather than instead of it.</b> That
+    /// one is a document a person asked for by name; this is the list, which is
+    /// the only way to find out which names have one.
+    /// </remarks>
+    public sealed record Strategies(StrategyList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Strategies;
+    }
+
     public sealed record Invited(InvitationIssued Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Invited;
@@ -346,6 +375,9 @@ public static class VerbResultKinds
     public const string Log = "log";
     public const string Story = "story";
     public const string Runners = "runners";
+    public const string Chart = "environment-chart";
+    public const string Pools = "pools";
+    public const string Strategies = "strategies";
     public const string Invited = "invited";
     public const string Diagnosis = "diagnosis";
     public const string Credentials = "credentials";
@@ -444,6 +476,9 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.Envelope))]
 [JsonSerializable(typeof(AirspaceEstate))]
 [JsonSerializable(typeof(Gg.Contracts.EnvironmentStrategyState))]
+[JsonSerializable(typeof(Gg.Contracts.StrategyList))]
+[JsonSerializable(typeof(Gg.Contracts.EnvironmentChart))]
+[JsonSerializable(typeof(Gg.Contracts.PoolLedger))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
@@ -547,6 +582,12 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentStrategyState),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
+        VerbResult.Chart r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentChart),
+        VerbResult.Pools r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PoolLedger),
+        VerbResult.Strategies r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.StrategyList),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -674,6 +715,9 @@ public static class VerbOutput
         VerbResult.AirspaceDocuments r => DocumentsText(r.Value),
         VerbResult.StrategyShown r => StrategyShownText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
+        VerbResult.Chart r => ChartText(r.Value),
+        VerbResult.Pools r => PoolsText(r.Value),
+        VerbResult.Strategies r => StrategiesText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -1619,6 +1663,103 @@ public static class VerbOutput
         {
             text.AppendLine($"  {entry.At:u}  {Clean(entry.Kind),-16}  {Clean(entry.Detail)}");
         }
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>The chart, one row per charted name.</summary>
+    /// <remarks>
+    /// <b>The disposition is a column rather than a footnote.</b> It travels
+    /// with the name everywhere the name does, so that a stated claim can never
+    /// be read as a measurement by losing its qualifier in transit - and a
+    /// listing is exactly where that loss would happen.
+    /// </remarks>
+    private static string ChartText(EnvironmentChart chart)
+    {
+        if (chart.Environments.Count == 0)
+        {
+            return "Nothing is charted. An envelope naming an environment is refused until "
+                 + "one is, because the chart is what it is refused against.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var charted in chart.Environments.OrderBy(e => e.Name, StringComparer.Ordinal))
+        {
+            var meaning = charted.Meaning is { Length: > 0 } predicate
+                ? "  " + Clean(predicate)
+                : "";
+            text.AppendLine(
+                $"{Clean(charted.Name),-24}{Clean(charted.Disposition),-10}"
+              + $"{Clean(charted.ChartedBy),-20}{charted.ChartedAt:u}{meaning}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>The ledger, one row per pool and action.</summary>
+    /// <remarks>
+    /// <b>It cannot name a member, and does not pretend to.</b> An attestation
+    /// carries a pool and an action and no member, so this is the latest word
+    /// about a POOL - the failing member's name survives only inside the
+    /// diagnosis, which is why the diagnosis is printed in full rather than
+    /// summarised.
+    /// </remarks>
+    private static string PoolsText(PoolLedger ledger)
+    {
+        if (ledger.Pools.Count == 0)
+        {
+            return "No pool has attested. That is a tenant managing no pools, or a pull point "
+                 + "that has not come up - gg strategies tells the two apart.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var status in ledger.Pools
+                     .OrderBy(p => p.Pool, StringComparer.Ordinal)
+                     .ThenBy(p => p.Action, StringComparer.Ordinal))
+        {
+            text.AppendLine(
+                $"{Clean(status.Pool),-24}{Clean(status.Action),-10}"
+              + $"{Clean(status.Outcome),-10}{status.MeasuredAt:u}");
+
+            if (status.Diagnosis is { Length: > 0 } why)
+            {
+                text.AppendLine($"  {Clean(why)}");
+            }
+
+            // UNPROVED IS NOT PROVEN-BROKEN, AND IT IS NOT NOTHING EITHER. No
+            // outward act is decided toward a pool whose scope bound was not
+            // proved this session, so a person reading a pool that will not
+            // refresh needs to see that this is why.
+            if (status.ScopeProbedAt is null)
+            {
+                text.AppendLine(
+                    "  scope unproved: no outward act is decided toward this pool until the "
+                  + "resident runner is refused a reach outside its own inventory.");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>Every strategy in force, one row each.</summary>
+    private static string StrategiesText(StrategyList list)
+    {
+        if (list.Strategies.Count == 0)
+        {
+            return "No strategy is in force. Nothing furnishes an environment, so a flight "
+                 + "selecting one waits until a runner advertises it.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var state in list.Strategies.OrderBy(s => s.Name, StringComparer.Ordinal))
+        {
+            var strategy = state.Strategy;
+            text.AppendLine(
+                $"{Clean(state.Name),-24}{Clean(state.Version),-8}"
+              + $"{Clean(strategy.Environment),-24}{Clean(strategy.Inventory.Pool),-24}"
+              + $"warm {strategy.Inventory.Warm} of {strategy.Inventory.Size}"
+              + $"  max {strategy.Bounds.PoolMax}");
+        }
+
         return text.ToString().TrimEnd();
     }
 

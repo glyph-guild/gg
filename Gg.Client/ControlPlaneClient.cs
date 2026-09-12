@@ -75,6 +75,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RegistrationPending))]
 [JsonSerializable(typeof(EnvelopeTopology))]
 [JsonSerializable(typeof(RegisteredRepositories))]
+[JsonSerializable(typeof(PoolLedger))]
 [JsonSerializable(typeof(MemberCredentialRedemption))]
 [JsonSerializable(typeof(MemberCredentialIssued))]
 [JsonSerializable(typeof(OfferedConfiguration))]
@@ -925,6 +926,48 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no runner list.");
+    }
+
+    /// <summary>
+    /// The tenant's chart: every environment name an envelope may select.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never 404 and never null.</b> A tenant that has charted nothing
+    /// answers 200 with an empty list, which the endpoint declares in as many
+    /// words: charting nothing is a tenant that is set up and has said nothing,
+    /// and that is a different fact from a tenant that does not exist.
+    /// </remarks>
+    public async Task<EnvironmentChart> ChartAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/environments", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+                   ProtocolJsonContext.Default.EnvironmentChart, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no environment chart.");
+    }
+
+    /// <summary>Every managed pool's latest attestation, per pool and action.</summary>
+    /// <remarks>
+    /// <b>An empty ledger is a state rather than an error</b>, and it is two of
+    /// them: a tenant managing no pools is the null strategy, and a pool that
+    /// has not come up has attested nothing. The endpoint declares 200 for
+    /// both, and what tells them apart is whether a strategy is in force.
+    /// </remarks>
+    public async Task<PoolLedger> PoolsAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/pools", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+                   ProtocolJsonContext.Default.PoolLedger, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no pool ledger.");
     }
 
     /// <summary>Makes a principal an administrator of their tenant.</summary>

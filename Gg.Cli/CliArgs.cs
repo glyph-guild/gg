@@ -114,6 +114,26 @@ public abstract record CliAction
 
     public sealed record Runners(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>The chart: every environment name an envelope may select.</summary>
+    /// <remarks>
+    /// <b>The refusal has been pointing here since the chart shipped.</b> An
+    /// envelope naming an uncharted environment is refused saying to chart it
+    /// first, and until this verb existed the tool that printed the refusal
+    /// could not show what was already charted.
+    /// </remarks>
+    public sealed record Environments(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Every managed pool's latest attestation.</summary>
+    /// <remarks>
+    /// <b>Named by the contract rather than chosen here.</b> PoolLedger's own
+    /// remark calls it "what gg pools renders" - a verb declared in the wire
+    /// protocol and never written.
+    /// </remarks>
+    public sealed record Pools(bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>Every strategy in force: what furnishes each charted environment.</summary>
+    public sealed record Strategies(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>
     /// The checklist: the tenant-level plan, or one flight's when a reference
     /// is given.
@@ -476,6 +496,9 @@ public static class CliArgs
         "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
+        "gg environments                every environment name an envelope may select",
+        "gg strategies                  what furnishes each of them, and inside which bounds",
+        "gg pools                       what each managed pool last attested, and when",
         "gg envelope apply <file>|-     write them back",
         "gg envelope validate <file>|-  check a file without sending it anywhere",
         "gg config show                 every setting, and where its value came from",
@@ -649,6 +672,9 @@ public static class CliArgs
             ["flights", ..] => Unknown(
                 "gg flights takes --all, --json, and --intent <provider>#<id> or a uri."),
             ["runners"] => new CliAction.Runners(json),
+            ["environments"] => new CliAction.Environments(json),
+            ["pools"] => new CliAction.Pools(json),
+            ["strategies"] => new CliAction.Strategies(json),
             // A NAME NARROWS IT TO ONE DOCUMENT. Without one this answers the
             // topology, exactly as it always did - adding the detail must not
             // take away the list.

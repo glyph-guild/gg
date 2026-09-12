@@ -436,6 +436,18 @@ public sealed class ConsoleData(
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);
 
+    /// <summary>`gg environments` - the chart.</summary>
+    public Task<VerbResult> EnvironmentsAsync(CancellationToken cancellationToken = default) =>
+        _commands.EnvironmentsAsync(cancellationToken);
+
+    /// <summary>`gg strategies` - what furnishes each charted name.</summary>
+    public Task<VerbResult> StrategiesAsync(CancellationToken cancellationToken = default) =>
+        _commands.StrategiesAsync(cancellationToken);
+
+    /// <summary>`gg pools` - what each managed pool last attested.</summary>
+    public Task<VerbResult> PoolsAsync(CancellationToken cancellationToken = default) =>
+        _commands.PoolsAsync(cancellationToken);
+
     /// <summary>What every allowance the fleet spends from has left.</summary>
     public Task<VerbResult> AllowancesAsync(CancellationToken cancellationToken = default) =>
         _commands.AllowancesAsync(cancellationToken);
@@ -535,6 +547,17 @@ public static class ConsoleProjection
             // the queue's rows are derived from.
             VerbResult.Story story => state with { Story = story.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+
+            // THE THREE THAT ANSWER "WHAT ENVIRONMENTS DO I HAVE". The chart is
+            // the list; the strategies say what furnishes each; the ledger says
+            // what the pull point last attested about the pools they name. Kept
+            // apart rather than joined here for the reason EstateOnThisMachine
+            // keeps its two apart: joining them is a projection, and a
+            // projection belongs where it can be tested without a terminal.
+            VerbResult.Chart chart => state with { Chart = chart.Value, Diagnosis = null },
+            VerbResult.Strategies strategies =>
+                state with { Strategies = strategies.Value, Diagnosis = null },
+            VerbResult.Pools pools => state with { Pools = pools.Value, Diagnosis = null },
 
             // THE FLEET'S, NOT THIS MACHINE'S. `gg allowance` reads the
             // transcripts on the disk it runs on and has no arm here at all,

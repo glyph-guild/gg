@@ -52,7 +52,23 @@ public static class ConsoleStart
         }
         catch (Exception failure) when (failure is Gg.Client.NotSignedInException
                                             or Gg.Client.ProtocolTooOldException
-                                            or HttpRequestException)
+                                            or HttpRequestException
+
+                                            // AN ANSWER THAT IS NOT THE ONE
+                                            // DECLARED, which is a shape the
+                                            // other three do not cover: a 200
+                                            // carrying a body that will not
+                                            // deserialize. GET /v1/pools was
+                                            // declared for slices with nothing
+                                            // calling it, so a control plane
+                                            // that never implemented it is the
+                                            // ordinary case rather than the
+                                            // exotic one - and before this it
+                                            // took the whole boot down over a
+                                            // column. Found by the boot's own
+                                            // tests, whose stub answers every
+                                            // route it does not know.
+                                            or System.Text.Json.JsonException)
         {
             partial.Add($"{what} did not load: {failure.Message}");
             return null;
@@ -140,12 +156,32 @@ public static class ConsoleStart
             var allowances = OwnFailureAsync(
                 "allowances", ct => data.AllowancesAsync(ct), partial, cancellationToken);
 
+            // WHAT A RUNNER RUNS, on their own failure for the allowances'
+            // reason. The runner modal's two views are keyed on the chart and
+            // joined through the strategies to the ledger, and a person reaches
+            // that modal by pressing two keys from a console that has just
+            // opened - so waiting for the next refresh would mean the view says
+            // "not read" exactly when it is first looked at.
+            //
+            // THREE READS AND THREE FAILURES. GET /v1/pools in particular has
+            // been declared for slices with nothing calling it, so a control
+            // plane that never implemented it answers outside the endpoint's
+            // declared statuses. What that costs is a column.
+            var chart = OwnFailureAsync(
+                "the environment chart", ct => data.EnvironmentsAsync(ct),
+                partial, cancellationToken);
+            var strategies = OwnFailureAsync(
+                "strategies", ct => data.StrategiesAsync(ct), partial, cancellationToken);
+            var pools = OwnFailureAsync(
+                "pools", ct => data.PoolsAsync(ct), partial, cancellationToken);
+
             // OBSERVED BEFORE ANY OF THEM IS ALLOWED TO THROW. WhenAll marks all
             // five as observed and then raises the first failure, so a control
             // plane nobody can reach still leaves the catch below with nothing
             // dangling behind it.
             await Task.WhenAll(
-                (Task)listing, fleet, waiting, credentials, identity, allowances);
+                (Task)listing, fleet, waiting, credentials, identity, allowances,
+                chart, strategies, pools);
 
             var flights = (VerbResult.Flights)await listing;
             var runners = (VerbResult.Runners)await fleet;
@@ -290,6 +326,9 @@ public static class ConsoleStart
             loaded = Folded(loaded, await credentials);
             loaded = Folded(loaded, await identity);
             loaded = Folded(loaded, await allowances);
+            loaded = Folded(loaded, await chart);
+            loaded = Folded(loaded, await strategies);
+            loaded = Folded(loaded, await pools);
             loaded = Folded(loaded, await reason);
             loaded = Folded(loaded, await story);
 

@@ -52,8 +52,7 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
     /// not to have. A tab belongs in one of these two on the day it arrives.
     /// </remarks>
     private static readonly TabId[] Elsewhere =
-        [TabId.Runners, TabId.Live, TabId.Browse, TabId.Repositories, TabId.Environments,
-         TabId.Members];
+        [TabId.Runners, TabId.Live, TabId.Browse, TabId.Repositories];
 
     [Test]
     public async Task The_airspace_tab_advertises_what_the_airspace_tab_does()

@@ -86,8 +86,6 @@ public static class Tabs
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
             TabId.Envelope => state.EnvelopeVisible,
-            TabId.Environments => state.EnvironmentsVisible,
-            TabId.Members => state.MembersVisible,
             // WHETHER THE LIST HAS ARRIVED, not whether the pane is open. The
             // boot and the runners refresh both fetch it, so this usually has
             // an answer before anybody presses the key.
@@ -119,27 +117,6 @@ public static class Tabs
         TabId.Runners => KeyStroke.Char('u'),
         TabId.Envelope => KeyStroke.Char('e'),
 
-        // `s' BECAUSE OF WHAT IS LEFT, which is the argument `u' came in on
-        // one line up. Normal mode has m, s and z free: `p' is refused by
-        // name - nothing may answer the key the checklist had - `m' is the
-        // members tab beside this one, and `z' reads as nothing, which the
-        // allowances line below already says. `s' is in the word, it is
-        // free, and it is said to be.
-        TabId.Environments => KeyStroke.Char('s'),
-
-        // `z', WHICH READS AS NOTHING, AND IT IS THE LAST LETTER LEFT.
-        // `m' was the obvious one and it is spoken for: ComposeChoice binds
-        // it, and a stated rule says that modal's keys must not be live in
-        // the mode it opens FROM - `n' then `m' are two sets a person holds
-        // in their head at one moment. `p' is refused by name, and every
-        // letter that reads is a tab already.
-        //
-        // SAID RATHER THAN SHRUGGED AT. The allowances line below calls `z'
-        // unreadable and it was right; a key chosen for being free and
-        // declared to be is still better than one that silently shadows
-        // another, which is the argument `u' came in on.
-        TabId.Members => KeyStroke.Char('z'),
-
         // `v`, because the letters that say what this is are all taken: `a` is
         // actions, `f` is freeze and fly, `l` is live, `s` is the estate's
         // apply. Of what is left, `v` reads as "view" and `z` reads as
@@ -168,8 +145,6 @@ public static class Tabs
         // nothing: the fleet is already in the model, fetched at boot.
         TabId.Runners => Command.ToggleRunners,
         TabId.Envelope => Command.ToggleEnvelope,
-        TabId.Environments => Command.ToggleEnvironments,
-        TabId.Members => Command.ToggleMembers,
         TabId.Allowances => Command.ToggleAllowances,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
@@ -262,8 +237,6 @@ public static class Tabs
         // a display name diverging from an enum name costs a line here
         // rather than a rename of the type.
         TabId.Envelope => "Airspace",
-        TabId.Environments => "Environments",
-        TabId.Members => "Members",
         TabId.Allowances => "Allowances",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };

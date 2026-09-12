@@ -129,7 +129,7 @@ public class TheRunnersCursorStaysTests
     /// </remarks>
     private static readonly string[] Driven =
         ["_flightsTable", "_browseTable", "_repositoriesTable", "_runnersTable",
-         "_airspaceTable", "_environmentsTable", "_membersTable"];
+         "_airspaceTable"];
 
     [Test]
     public async Task The_view_is_told_where_the_cursor_is_rather_than_where_it_started()
@@ -194,11 +194,18 @@ public class TheRunnersCursorStaysTests
         await Assert.That(built).IsEqualTo(8)
             .Because("eight tables, and the count is here so a ninth has to come past this. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
-                   + "a hand-counted role column; the seventh is the chart, which is the "
-                   + "first table whose rows are a JOIN of three reads rather than one "
-                   + "list - and so the first whose cursor can outlive the thing it "
-                   + "indexes if the joins are let decide how many rows there are.");
-        await Assert.That(wired).IsEqualTo(7)
+                   + "a hand-counted role column. The seventh and eighth are the RUNNER "
+                   + "MODAL's - what a runner runs, and what runs beside it - and they are "
+                   + "the first tables in this console that no tab drives.");
+
+        // AND THE GAP BETWEEN THESE TWO NUMBERS IS NOW THREE, WHICH USED TO BE
+        // A BUG SIGNAL. It was one - the flight log, wired to its own handler -
+        // and "built but not subscribed" meant a table whose cursor the model
+        // never learns about. The runner modal's two are deliberately not
+        // subscribed: they carry no cursor at all. Nothing in the model records
+        // a position in them, nothing acts on a row, and OnRowPointedAt would
+        // move the cursor of whatever TAB is behind the modal.
+        await Assert.That(wired).IsEqualTo(5)
             .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
                    + $"never learns about. Built {built}, wired {wired}.");
         await Assert.That(released).IsEqualTo(wired)

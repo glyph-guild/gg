@@ -88,28 +88,7 @@ public enum Command
     /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
     ToggleEnvelope,
 
-    /// <summary>
-    /// Every environment name this tenant has charted, and what furnishes it.
-    /// </summary>
-    /// <remarks>
-    /// <b>A read, and three of them.</b> The chart is the list, the strategies
-    /// say what furnishes each name, and the ledger says what each pool last
-    /// reported. None is in the model at boot, so a tab that asked for nothing
-    /// would be permanently empty.
-    /// </remarks>
-    ToggleEnvironments,
 
-    /// <summary>
-    /// What is running for each charted environment.
-    /// </summary>
-    /// <remarks>
-    /// <b>The same read as <see cref="ToggleEnvironments"/>, and it has to be.</b>
-    /// The rows are keyed on the chart, which is not in the model at boot - so
-    /// a tab that assumed its neighbour had been opened first would be empty
-    /// for anybody who pressed this key first, and empty here reads as
-    /// "nothing is running".
-    /// </remarks>
-    ToggleMembers,
 
     /// <summary>
     /// Render the estate into the working copy.
@@ -214,6 +193,15 @@ public enum Command
     /// request on an arrow key, which this console does not make.
     /// </remarks>
     NextAirspaceView,
+
+    /// <summary>Turn the runner modal to its next view.</summary>
+    /// <remarks>
+    /// <b>`v' here too, and deliberately the same letter.</b> It turns the pane
+    /// beside a tree on the airspace tab and the pane under the fields here;
+    /// one letter for one act is what a single keymap is for, and the two are
+    /// in different modes so neither shadows the other.
+    /// </remarks>
+    NextRunnerView,
 
     /// <summary>
     /// Move the keyboard between the airspace tree and the document beside it.
@@ -676,8 +664,6 @@ public static class ShellCommands
         // reason written out, and they were right.
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
-        Command.ToggleEnvironments,
-        Command.ToggleMembers,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>

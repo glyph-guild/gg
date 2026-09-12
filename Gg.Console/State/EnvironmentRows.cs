@@ -3,7 +3,7 @@ using Gg.Contracts;
 namespace Gg.Console;
 
 /// <summary>
-/// One charted environment, and what is known about what furnishes it.
+/// One charted environment the runner under the cursor can claim work for.
 /// </summary>
 /// <remarks>
 /// <b>A record per row, for <c>Rows.cs</c>'s reason</b> — the values stay
@@ -25,14 +25,16 @@ public sealed record EnvironmentRow(
     string Measured);
 
 /// <summary>
-/// What is running for one charted environment, as far as the fleet can see.
+/// One runner that furnishes the same environment as the one under the cursor.
 /// </summary>
-/// <param name="Environment">The charted name this row is about.</param>
-/// <param name="Member">The runner's own label, or empty when nothing advertises the name.</param>
-/// <param name="State">idle, busy or offline - or why there is no runner at all.</param>
+/// <param name="Here">A mark on the runner whose modal this is, or empty.</param>
+/// <param name="Environment">The charted name they share.</param>
+/// <param name="Member">The runner's own label.</param>
+/// <param name="State">idle, busy or offline, and whether it is parked.</param>
 /// <param name="Work">The flight it is holding, when it holds one.</param>
-/// <param name="Heard">When it last beat, or empty.</param>
+/// <param name="Heard">When it last beat, or never.</param>
 public sealed record MemberRow(
+    string Here,
     string Environment,
     string Member,
     string State,
@@ -40,31 +42,29 @@ public sealed record MemberRow(
     string Heard);
 
 /// <summary>
-/// The chart, joined with the strategies that furnish it and the pools'
-/// latest word about themselves.
+/// What the runner under the cursor runs, and what else runs it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>THE CHART IS THE LIST, and nothing else is.</b> A strategy names the
-/// environment it furnishes and a runner advertises one as a label, so both
-/// mention environments — but neither enumerates them, and a charted name
-/// nothing furnishes appears in neither. A pane built from the strategies
-/// would show a tenant a shorter list than the one their envelopes are refused
-/// against, which is the list that matters: an envelope naming an uncharted
-/// environment is refused pointing at the chart.
+/// <b>EVERYTHING HERE IS SCOPED TO ONE RUNNER.</b> A tenant-wide list of
+/// environments answers "what does this tenant have"; the question somebody has
+/// with a runner open is "what does THIS machine run, and what else runs it".
+/// These were two tabs on the bar first, which answered the other question.
+/// </para>
+/// <para>
+/// <b>TWO WAYS A RUNNER IS ASSOCIATED, AND ONLY ONE IS ON THE WIRE.</b> The
+/// labels a runner ADVERTISES cross on every heartbeat, so the charted names it
+/// can claim work for are knowable exactly. A resident runner MAINTAINS a pool
+/// and nothing says which: <see cref="RunnerSummary"/> has no pool, an
+/// attestation names a pool without naming the runner that made it, and the
+/// pool's name lives in a systemd unit's argument. See <see cref="Maintains"/>.
 /// </para>
 /// <para>
 /// <b>NOTHING HERE IS MEASURED, and no column may imply it was.</b>
 /// <see cref="EnvironmentRow.Wants"/> is two numbers off a document somebody
 /// wrote. <see cref="EnvironmentRow.Attested"/> is the pull point's own word
 /// about a POOL — not about a container, because an attestation carries no
-/// member name. How many containers are actually running is on neither, so
-/// nothing here says.
-/// </para>
-/// <para>
-/// <b>PURE, AND THE ORDER IS THE ORDER A CURSOR INDEXES</b> — <c>Rows.cs</c>'s
-/// rule. Ordinal by name, so a chart read twice puts the same name under the
-/// same cursor.
+/// member name.
 /// </para>
 /// </remarks>
 public static class EnvironmentRows
@@ -72,26 +72,74 @@ public static class EnvironmentRows
     public static IReadOnlyList<string> EnvironmentColumns { get; } =
         ["environment", "strategy", "pool", "wants", "attested", "measured"];
 
+    public static IReadOnlyList<string> MemberColumns { get; } =
+        ["", "environment", "member", "state", "working on", "last heard"];
+
+    /// <summary>The mark on the runner whose modal this is.</summary>
+    private const string Mark = "→";
+
     /// <summary>
-    /// The charted name the cursor is on, or null when there is no chart.
+    /// The label a runner advertises to be matched for an environment.
     /// </summary>
     /// <remarks>
-    /// The NAME rather than the row, because what a pane says more about is
-    /// keyed on the name in all three reads - and the row's own first cell has
-    /// the disposition folded into it, so it is a label rather than a key.
+    /// <b>THE CONTROL PLANE'S SPELLING, READ HERE RATHER THAN OWNED.</b>
+    /// <see cref="AdvertisedLabel"/> documents the shape — <i>"the label as
+    /// matched, e.g. environment=aspire-payments"</i> — and a checklist's
+    /// <c>requiredLabels</c> carry it; gg composes neither, so there is no
+    /// constant to import and this is the one place the convention is written
+    /// down on this side.
+    /// <para>
+    /// <b>Exact, because both ways of being loose are wrong.</b> Matching the
+    /// bare name would count <c>region=staging</c> as a runner for
+    /// <c>staging</c>. Matching a prefix nobody uses would count nothing — and
+    /// count it silently, which reads as "bring up a machine you already have"
+    /// when one is already up.
+    /// </para>
     /// </remarks>
-    public static string? Pointed(AppState state)
+    private const string AdvertisedAs = "environment=";
+
+    /// <summary>
+    /// The suffix a resident runner's label carries.
+    /// </summary>
+    /// <remarks>
+    /// <b>A fact about gg's own packaging rather than a guess about a host</b> —
+    /// which is the argument <c>RunnerDetails.Suggestion</c> already makes about
+    /// this same suffix: <c>&lt;machine&gt;:maintain</c> is run by the unit gg
+    /// ships in <c>deploy/pool-host</c>, so gg chose the name.
+    /// </remarks>
+    private const string Maintainer = ":maintain";
+
+    /// <summary>
+    /// The fleet's word about the runner under the cursor, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>The summary rather than the row</b>, because the row's labels are
+    /// already joined into one display string and what these joins need is the
+    /// list. A runner this console just started has a synthesised row and no
+    /// summary at all, which is null here and right: nothing has heard from it.
+    /// </remarks>
+    public static RunnerSummary? Runner(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        var charted = Charted(state);
-
-        return state.EnvironmentSelected >= 0 && state.EnvironmentSelected < charted.Count
-            ? charted[state.EnvironmentSelected].Name
-            : null;
+        return Rows.Selected(state) is not { } row
+            ? null
+            : state.Runners?.Runners.FirstOrDefault(
+                r => string.Equals(r.RunnerId, row.Id, StringComparison.Ordinal));
     }
 
-    /// <summary>Every charted name, in the order the rows are drawn.</summary>
+    /// <summary>
+    /// Whether this runner's label says it keeps a pool warm.
+    /// </summary>
+    /// <remarks>
+    /// <b>It says THAT and never WHICH.</b> Nothing on the wire connects a
+    /// runner to a pool, so naming one here would be a guess — and on a tenant
+    /// with one pool it would look right, which is worse than looking wrong.
+    /// </remarks>
+    public static bool Maintains(AppState state) =>
+        Runner(state)?.Label.EndsWith(Maintainer, StringComparison.Ordinal) is true;
+
+    /// <summary>Every charted name, in the order rows are drawn.</summary>
     public static IReadOnlyList<EnvironmentCharted> Charted(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -138,12 +186,73 @@ public static class EnvironmentRows
               && string.Equals(p.Action, PoolActions.Verify, StringComparison.Ordinal));
     }
 
-    /// <summary>One row per charted name, whether or not anything furnishes it.</summary>
+    /// <summary>The charted names this runner advertises, in chart order.</summary>
+    private static IReadOnlyList<EnvironmentCharted> Advertised(AppState state) =>
+        Runner(state) is not { } runner
+            ? []
+            : [.. Charted(state).Where(
+                charted => runner.Labels.Any(
+                    l => string.Equals(
+                        l.Name, AdvertisedAs + charted.Name, StringComparison.Ordinal)))];
+
+    /// <summary>One row per charted environment this runner can claim work for.</summary>
     public static IReadOnlyList<EnvironmentRow> Environments(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return [.. Charted(state).Select(charted => Row(state, charted))];
+        return [.. Advertised(state).Select(charted => Row(state, charted))];
+    }
+
+    /// <summary>
+    /// Every runner that advertises an environment this one does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The runner itself is in the list, marked.</b> A list of peers that
+    /// leaves you out is one you have to hold your place in; one that includes
+    /// you without saying so is one you have to count.
+    /// </para>
+    /// <para>
+    /// <b>RUNNERS, NOT CONTAINERS.</b> gg cannot enumerate a pool:
+    /// <c>IPoolAdapter</c> is the only thing that talks to a container runtime,
+    /// it lives in <c>Gg.Runner</c> behind a proxy on the pool host's loopback,
+    /// and this project does not reference it. A member that redeemed its nonce
+    /// is a runner like any other; one created and never redeemed appears
+    /// nowhere here — which is exactly the "counted as warm forever" failure
+    /// the contract warns about, so nothing in these rows may be read as a
+    /// count of what exists.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<MemberRow> Members(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var mine = Runner(state);
+        var fleet = state.Runners?.Runners ?? [];
+
+        return
+        [
+            .. Advertised(state).SelectMany(charted => fleet
+                .Where(r => r.Labels.Any(
+                    l => string.Equals(
+                        l.Name, AdvertisedAs + charted.Name, StringComparison.Ordinal)))
+                .OrderBy(r => r.Label, StringComparer.Ordinal)
+                .Select(r => new MemberRow(
+                    Here: mine is not null
+                       && string.Equals(r.RunnerId, mine.RunnerId, StringComparison.Ordinal)
+                        ? Mark
+                        : "",
+                    Environment: charted.Name,
+                    Member: r.Label,
+
+                    // BOTH FACTS OR NEITHER, which is Rows.Runners' rule one
+                    // pane over: a runner can be parked AND busy, and a column
+                    // printing only the state shows a machine somebody
+                    // deliberately withheld as idle.
+                    State: r.ParkedAt is null ? r.State : $"{r.State} · parked",
+                    Work: r.CurrentFlightNumber ?? "",
+                    Heard: r.LastHeartbeatAt is { } at ? at.ToString("u") : "never"))),
+        ];
     }
 
     private static EnvironmentRow Row(AppState state, EnvironmentCharted charted)
@@ -159,120 +268,16 @@ public static class EnvironmentRows
 
             // TWO DECLARED NUMBERS, SAID AS ONE. How many the strategy keeps
             // ready and how many the pool may hold are both authored, and the
-            // pair is what a person checks a pool against - "wants 2 of 4" is
-            // the sentence, and the column is named for the half that makes it
-            // a declaration rather than a count.
+            // column is named for the half that makes it a declaration rather
+            // than a count.
             Wants: inventory is null ? "" : $"{inventory.Warm} of {inventory.Size}",
             Attested: attested?.Outcome ?? "",
 
             // ABSOLUTE, like the fleet's last-heard beside it. Nothing on the
             // model carries a clock, so an age would have to be computed in the
-            // view - and the two panes would then disagree about what "now" is.
+            // view - and two panes would then disagree about what "now" is.
             Measured: attested is { } status ? status.MeasuredAt.ToString("u") : "");
     }
-
-    public static IReadOnlyList<string> MemberColumns { get; } =
-        ["environment", "member", "state", "working on", "last heard"];
-
-    /// <summary>
-    /// The label a runner advertises to be matched for an environment.
-    /// </summary>
-    /// <remarks>
-    /// <b>THE CONTROL PLANE'S SPELLING, READ HERE RATHER THAN OWNED.</b>
-    /// <c>AdvertisedLabel</c> documents the shape — <i>"the label as matched,
-    /// e.g. environment=aspire-payments"</i> — and a checklist's
-    /// <c>requiredLabels</c> carry it; gg composes neither, so there is no
-    /// constant to import and this is the one place the convention is written
-    /// down on this side.
-    /// <para>
-    /// <b>Exact, because both ways of being loose are wrong.</b> Matching the
-    /// bare name would count <c>region=staging</c> as a runner for
-    /// <c>staging</c>. Matching a prefix nobody uses would count nothing — and
-    /// count it silently, which reads as "bring up a machine you already
-    /// have" when one is already up.
-    /// </para>
-    /// </remarks>
-    private const string AdvertisedAs = "environment=";
-
-    /// <summary>
-    /// One row per runner furnishing a charted name, and one for each name
-    /// nothing furnishes.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>RUNNERS, NOT CONTAINERS, and the difference is not cosmetic.</b> gg
-    /// cannot enumerate a pool: the only thing that talks to a container
-    /// runtime is <c>IPoolAdapter</c>, which lives in <c>Gg.Runner</c> behind a
-    /// proxy on the pool host's loopback and is not referenced by this project
-    /// at all. A member that redeemed its nonce is a runner like any other; one
-    /// created and never redeemed appears nowhere here, which is exactly the
-    /// "counted as warm forever" failure the contract warns about — so nothing
-    /// in these rows may be read as a count of what exists.
-    /// </para>
-    /// <para>
-    /// <b>A CHARTED NAME NOTHING ADVERTISES IS STILL A ROW.</b> That is the
-    /// state somebody acts on: it is why a flight selecting the environment
-    /// waits, and dropping the row would leave them looking at a tab with
-    /// nothing in it for the one name they came to check.
-    /// </para>
-    /// <para>
-    /// <b>A RUNNER ADVERTISING SOMETHING UNCHARTED IS NOT HERE.</b> It is not
-    /// an environment an envelope may select, so this pane is not about it -
-    /// and including it would make the tab a second fleet listing that happens
-    /// to sort differently. The Runners tab is where every runner is.
-    /// </para>
-    /// </remarks>
-    public static IReadOnlyList<MemberRow> Members(AppState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        var fleet = state.Runners?.Runners ?? [];
-
-        return
-        [
-            .. Charted(state).SelectMany(charted =>
-            {
-                var advertising = fleet
-                    .Where(r => r.Labels.Any(
-                        l => string.Equals(
-                            l.Name, AdvertisedAs + charted.Name, StringComparison.Ordinal)))
-                    .OrderBy(r => r.Label, StringComparer.Ordinal)
-                    .ToList();
-
-                return advertising.Count == 0
-                    ? (IEnumerable<MemberRow>)[Nobody(charted.Name)]
-                    : advertising.Select(r => Running(charted.Name, r));
-            }),
-        ];
-    }
-
-    /// <summary>
-    /// A charted name with nothing advertising it.
-    /// </summary>
-    /// <remarks>
-    /// <b>The control plane's own words</b> — <c>ReasonKinds.NoRunnerAdvertises</c>
-    /// renders "waiting: no runner advertises environment=…" for a flight stuck
-    /// on exactly this. Two surfaces describing one state differently is how a
-    /// person ends up believing they are two states.
-    /// </remarks>
-    private static MemberRow Nobody(string environment) =>
-        new(environment, Member: "", State: "no runner advertises it", Work: "", Heard: "");
-
-    private static MemberRow Running(string environment, Gg.Contracts.RunnerSummary runner) =>
-        new(
-            environment,
-
-            // THE RUNNER'S OWN LABEL, which for a pool member is whatever the
-            // control plane named it at mint. gg does not choose it and cannot
-            // check it, so it is shown rather than parsed.
-            Member: runner.Label,
-
-            // BOTH FACTS OR NEITHER, which is Rows.Runners' rule one pane over:
-            // a runner can be parked AND busy, and a column printing only the
-            // state shows a machine somebody deliberately withheld as idle.
-            State: runner.ParkedAt is null ? runner.State : $"{runner.State} · parked",
-            Work: runner.CurrentFlightNumber ?? "",
-            Heard: runner.LastHeartbeatAt is { } at ? at.ToString("u") : "never");
 
     /// <summary>
     /// The name, and what its word is worth.

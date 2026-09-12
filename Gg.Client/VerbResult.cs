@@ -677,12 +677,31 @@ public static class VerbOutput
         {
             var spent = window.Tokens.ToString("N0", CultureInfo.InvariantCulture);
 
-            text.AppendLine(window.Limit is { } ceiling
-                ? $"  {Clean(window.Kind),-9} {spent,14} of "
+            // THE METER FIRST, because the other two are worse answers to the
+            // same question. Its share is the provider's own and needs no
+            // ceiling; the typed ceiling is a guess at a number the provider
+            // knows; and the sentence is what is left when there is neither.
+            text.AppendLine(window switch
+            {
+                { Reported: { } share } =>
+                    $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                  + $"{(int)Math.Floor(share * 100)}% spent"
+                  + (window.ResetsAt is { } resets
+                        ? $", resets {resets:u}"
+
+                        // NO RESET, SO SAY NOTHING ABOUT ONE. A share whose
+                        // window has no stated end is still the provider's
+                        // number and still better than a divided one.
+                        : ""),
+
+                { Limit: { } ceiling } =>
+                    $"  {Clean(window.Kind),-9} {spent,14} of "
                   + $"{ceiling.ToString("N0", CultureInfo.InvariantCulture),-14} "
-                  + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}%"
-                : $"  {Clean(window.Kind),-9} {spent,14} tokens   "
-                  + "(no ceiling; set allowance-limits to see a share)");
+                  + $"{(int)Math.Floor(window.Tokens * 100.0 / ceiling)}%",
+
+                _ => $"  {Clean(window.Kind),-9} {spent,14} tokens   "
+                   + "(no ceiling; set allowance-limits to see a share)",
+            });
         }
 
         return text.ToString().TrimEnd();

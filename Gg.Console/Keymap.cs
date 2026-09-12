@@ -360,22 +360,25 @@ public static class Keymap
     /// different modes, so neither shadows the other.
     /// </para>
     /// </remarks>
-    private static KeyBinding Turning(bool labelled) =>
-        new(KeyStroke.Char('v'), Command.NextRunnerView, "next view")
-        {
-            // A BUTTON IN ONE OF THE TWO MODALS, AND A KEY IN THE OTHER, which
-            // looks like a wobble and is the all-or-nothing rule working.
-            // Buttons() offers them only when EVERY answer in a mode carries a
-            // label, and ModalButtonTests puts the two shapes of this modal on
-            // opposite sides of its line: ours restarts and shuts down, which
-            // are safe to click; somebody else's stays keys-only.
-            //
-            // SO THIS FOLLOWS THE MODAL RATHER THAN DECIDING FOR IT. Labelled
-            // unconditionally it put buttons on the keys-only shape; unlabelled
-            // it silently took restart and shut-down off the other one. Both
-            // were caught by that ratchet, which is what it is for.
-            Label = labelled ? "Next view" : null,
-        };
+    /// <summary>
+    /// The key that turns the runner modal's three views.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Declared once, because this modal has two shapes.</b> Ours gets
+    /// restart and shut-down and somebody else's does not, and a binding
+    /// written into both lists is one somebody will later change in one of
+    /// them.
+    /// </para>
+    /// <para>
+    /// <b>NO LABEL, LIKE EVERY OTHER BINDING IN THIS MODAL.</b> It carried one
+    /// conditionally for a while, because <c>Buttons()</c> is all-or-nothing
+    /// and the two shapes sat on opposite sides of that line. They sit on the
+    /// same side now — keys only — so the condition went with the buttons.
+    /// </para>
+    /// </remarks>
+    private static KeyBinding Turning { get; } =
+        new(KeyStroke.Char('v'), Command.NextRunnerView, "next view");
 
     private static IReadOnlyList<KeyBinding> Watching(KeymapContext context) =>
         context.RunnerIsFlying
@@ -384,7 +387,6 @@ public static class Keymap
                 new(KeyStroke.Char('w'), Command.WatchRunner, "watch what it is flying")
                 {
                     When = "while it is flying something",
-                    Label = "Watch",
                 },
             ]
             : [];
@@ -540,28 +542,27 @@ public static class Keymap
                 new(KeyStroke.Char('r'), Command.RestartRunner, "restart it")
                 {
                     When = "over the runner on this machine",
-                    Label = "Restart",
                 },
                 new(KeyStroke.Char('x'), Command.StopRunner, "shut it down")
                 {
                     When = "over the runner on this machine",
 
-                    // THE ONE BUTTON HERE THAT ENDS SOMETHING, and it is on the
-                    // side of the line where clicking it is recoverable: the
-                    // runner beside it starts the same thing again, this modal
-                    // is over the runner it names, and nothing a runner is
-                    // carrying is lost by stopping it. `Shut down' rather than
-                    // `Stop', because that is what the key already says and a
-                    // button that renames the action makes them read as two.
-                    Label = "Shut down",
+                    // NO BUTTON ANY MORE, AND THIS WAS THE ONE THAT ENDED
+                    // SOMETHING. It was argued onto the clickable side - the
+                    // runner beside it starts the same thing again, and nothing
+                    // a runner carries is lost by stopping it - and that
+                    // argument is untouched. What removed it is the room: this
+                    // modal's foot is a tab bar now, and a button row under a
+                    // bar somebody can already click is two clickable things in
+                    // one place.
                 },
-                Turning(labelled: true),
+                Turning,
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ]
             :
             [
                 .. Watching(context),
-                Turning(labelled: false),
+                Turning,
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
 

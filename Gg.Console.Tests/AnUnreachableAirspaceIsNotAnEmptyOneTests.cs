@@ -123,6 +123,24 @@ public class AnUnreachableAirspaceIsNotAnEmptyOneTests
     }
 
     [Test]
+    public async Task The_reason_is_passed_through_rather_than_introduced()
+    {
+        // SEEN ON SCREEN: "The airspace could not be read: The airspace could
+        // not be read: Connection refused (localhost:5199)". Diagnosis is the
+        // estate's own SENTENCE, not a fragment, so a pane that introduces it
+        // says the same thing twice - and a reader who has to skip a stutter
+        // to reach the reason is being told the console is confused.
+        var said = Said(
+            Tree(names: null, diagnosis: "The airspace could not be read: Connection refused"),
+            AirspaceView.Applied);
+
+        var times = said.Split("could not be read").Length - 1;
+
+        await Assert.That(times).IsEqualTo(1)
+            .Because($"once, not twice. Said:\n{said}");
+    }
+
+    [Test]
     public async Task The_effective_view_does_not_compose_out_of_what_it_never_read()
     {
         var said = Said(

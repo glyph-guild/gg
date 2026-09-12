@@ -148,15 +148,6 @@ public class ModalEscapeTests
           + "flying anything, so the real decision lands where a person can still change it - "
           + "and abandoning the editor opens nothing either.",
 
-        [UiMode.ReadingDocument] =
-            "opened by `v' on the airspace tab WHEN THE CURSOR IS ON A DOCUMENT, which a "
-          + "fresh console has none of: the flag comes from AirspaceRows.Pointed, and a "
-          + "console with no tree read has no rows to point at. So one keypress against an "
-          + "empty model gives the rules in force instead, correctly. "
-          + "AnAppliedDocumentIsReadBackInTheConsoleTests holds the route - that `v' means "
-          + "this document over a document row and the envelope elsewhere - and "
-          + "escapability is covered above, because StateGenerator emits every UiMode.",
-
         [UiMode.ConfirmRetire] =
             "opened by `x' INSIDE the changeset view, which `v' then `d' reach - so it is "
           + "three keys from a fresh state and this test presses one. It is in a modal on "
@@ -166,6 +157,15 @@ public class ModalEscapeTests
           + "it without saying so. RetiringIsReachableFromTheChangesetTests holds the chain "
           + "and asserts the Normal-mode binding survives; escapability is covered above, "
           + "because StateGenerator emits every UiMode.",
+
+        [UiMode.ReadingEnvelope] =
+            "opened by `e' from either of the other two reading views, which `o' reaches - "
+          + "so it is two keys deep and this test presses one. `v' used to open it from the "
+          + "tab and now turns the pane beside the tree, which is where a document is read; "
+          + "the FLOOR is readable there too, as root.yaml's applied view, so this modal "
+          + "view is a convenience rather than the only route to it. "
+          + "TheAirspaceKeysWalkEndToEndTests walks o then e and back. Escapability is "
+          + "covered above, because StateGenerator emits every UiMode.",
 
         [UiMode.ReadingOutcome] =
             "opened BY THE LOOP after an apply returns - Reducer.ApplyAnswered, called with "

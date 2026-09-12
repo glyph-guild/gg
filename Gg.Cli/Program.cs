@@ -1276,13 +1276,6 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.ToggleRepositories =>
                         _ => Gg.Console.ConsoleRepositories.Read(data, current),
 
-                    // ONE DOCUMENT, READ BACK. Which one is the cursor's
-                    // answer and ConsoleDocument asks the same projection the
-                    // keymap did, so what is fetched cannot differ from what
-                    // the key offered.
-                    Gg.Console.Command.ReadDocument =>
-                        _ => Gg.Console.ConsoleDocument.Read(data, current),
-
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.
                     Gg.Console.Command.ShowFlight =>

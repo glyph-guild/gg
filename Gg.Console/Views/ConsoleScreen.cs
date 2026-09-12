@@ -1853,7 +1853,7 @@ public sealed class ConsoleScreen : Window
         // PaneText's to answer, and it answers by mode - so this asks only
         // whether a person is reading.
         var reading = State.Mode is UiMode.ReadingEnvelope or UiMode.ReadingChangeset
-                                 or UiMode.ReadingOutcome or UiMode.ReadingDocument;
+                                 or UiMode.ReadingOutcome;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
@@ -2130,7 +2130,6 @@ public sealed class ConsoleScreen : Window
         {
             UiMode.ReadingChangeset => PaneText.ChangesetLines(State, _readingSaid.Viewport.Width),
             UiMode.ReadingOutcome => PaneText.ApplyLines(State, _readingSaid.Viewport.Width),
-            UiMode.ReadingDocument => PaneText.DocumentLines(State, _readingSaid.Viewport.Width),
             _ => PaneText.EnvelopeLines(State, _readingSaid.Viewport.Width),
         };
 
@@ -2147,8 +2146,7 @@ public sealed class ConsoleScreen : Window
     private void OnReadingResized(object? sender, EventArgs args)
     {
         if (State.Mode is not (UiMode.ReadingEnvelope or UiMode.ReadingChangeset
-                                                      or UiMode.ReadingOutcome
-                                                      or UiMode.ReadingDocument))
+                                                      or UiMode.ReadingOutcome))
         {
             return;
         }

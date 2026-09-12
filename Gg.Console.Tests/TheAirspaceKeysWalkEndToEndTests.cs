@@ -90,11 +90,16 @@ public class TheAirspaceKeysWalkEndToEndTests
     {
         var state = Loaded();
 
-        await Assert.That(Hints(state)).Contains("v ", StringComparison.Ordinal)
+        await Assert.That(Hints(state)).Contains("o ", StringComparison.Ordinal)
             .Because("the way in has to be on the line, or nothing below it is reachable "
-                   + "by anybody who does not already know. Line: " + Hints(state));
+                   + "by anybody who does not already know. `v' turns the pane beside the "
+                   + "tree now; `o' opens what is about the airspace as a whole. Line: "
+                   + Hints(state));
 
-        (state, _) = Press(state, KeyStroke.Char('v'));
+        (state, _) = Press(state, KeyStroke.Char('o'));
+        await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingOutcome);
+
+        (state, _) = Press(state, KeyStroke.Char('e'));
         await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingEnvelope);
 
         await Assert.That(Hints(state)).Contains("d ", StringComparison.Ordinal)
@@ -104,11 +109,8 @@ public class TheAirspaceKeysWalkEndToEndTests
         (state, _) = Press(state, KeyStroke.Char('d'));
         await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingChangeset);
 
-        (state, _) = Press(state, KeyStroke.Char('o'));
-        await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingOutcome);
-
-        (state, _) = Press(state, KeyStroke.Char('e'));
-        await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingEnvelope)
+        (state, _) = Press(state, KeyStroke.Char('d'));
+        await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingChangeset)
             .Because("all three reach each other, which is why they share one box.");
 
         (state, _) = Press(state, KeyStroke.Esc);
@@ -145,7 +147,7 @@ public class TheAirspaceKeysWalkEndToEndTests
     {
         var state = Loaded();
 
-        (state, _) = Press(state, KeyStroke.Char('v'));
+        (state, _) = Press(state, KeyStroke.Char('o'));
         (state, _) = Press(state, KeyStroke.Char('d'));
 
         await Assert.That(state.Mode).IsEqualTo(UiMode.ReadingChangeset);

@@ -150,6 +150,21 @@ public class ConsoleDataTests
         // is exactly why it did not come with them.
         var exempt = (string[])
         [
+            // THE PANE HAS THE ANSWER ALREADY, which is why neither of these
+            // reaches the console. AirspaceDocumentsAsync fetches every
+            // document in one request and the estate read keeps them, so the
+            // airspace tab draws any row without asking - and a port for one
+            // document, or for one composition, would be a second request for
+            // something in hand.
+            //
+            // COMPOSING IS PURE AND THE PANE DOES IT. EnvelopeComposition is in
+            // Gg.Contracts, so PaneText runs the control plane's own
+            // computation over documents it holds. Both stay verbs, because
+            // `gg airspace show <name>` and `gg envelope show <work-kind>` are
+            // what somebody at a terminal asks.
+            "AirspaceAsync",
+            "RulesInForceAsync",
+
             // TWO VERBS SHARE THIS NAME AND THE ENTRY USED TO MEAN THE OTHER ONE.
             // It said no pane rendered the rules governing a tenant's flights,
             // which was `EnvelopeCommands.ShowAsync` and stopped being true when

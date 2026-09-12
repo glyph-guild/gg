@@ -180,15 +180,17 @@ public enum Command
     /// </remarks>
     CopyModal,
 
-    /// <summary>Read the document under the cursor back, as applied.</summary>
+    /// <summary>
+    /// Turn the airspace pane to the next view of the selected document.
+    /// </summary>
     /// <remarks>
-    /// <b>A READ, so it runs beside the console rather than ending it.</b> It
-    /// asks the control plane for the estate and keeps one document - the same
-    /// shape ToggleEnvelope has, and for its reason: a whole screen taken away
-    /// and given back to fetch a document is what the Reads category exists to
-    /// avoid.
+    /// <b>NO I/O AT ALL, which is the point of holding the documents.</b> The
+    /// estate read already fetched every document and the walk kept every
+    /// file's text, so turning the page is arithmetic over what is in hand -
+    /// and moving the cursor is too. A pane that fetched per row would be a
+    /// request on an arrow key, which this console does not make.
     /// </remarks>
-    ReadDocument,
+    NextAirspaceView,
 
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
@@ -629,7 +631,6 @@ public static class ShellCommands
         // to a spawn. Four guards said so before this was tried, each with the
         // reason written out, and they were right.
         Command.ToggleEnvelope,
-        Command.ReadDocument,
         Command.ToggleRepositories,
     };
 

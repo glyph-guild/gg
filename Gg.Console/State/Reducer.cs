@@ -65,6 +65,8 @@ public static class Reducer
             // in it is a request nobody asked for.
             Command.ToggleEnvelope => EnvelopeToggled(state) with { ReadInFlight = true },
             Command.ToggleRepositories => RepositoriesToggled(state) with { ReadInFlight = true },
+            Command.ToggleEnvironments => Toggled(state, TabId.Environments)
+                with { ReadInFlight = true },
 
             // NO READ IN FLIGHT, because the allowances are already in the
             // model: the runners tab's refresh fetches them, and the boot
@@ -262,6 +264,7 @@ public static class Reducer
         BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
         RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
+        EnvironmentsVisible = tab == TabId.Environments ? open : state.EnvironmentsVisible,
         AllowancesVisible = tab == TabId.Allowances ? open : state.AllowancesVisible,
     };
 
@@ -716,6 +719,7 @@ public static class Reducer
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
                 TabId.Runners => PickRunner(state, state.RunnerSelected + by),
                 TabId.Envelope => PickAirspaceRow(state, state.AirspaceSelected + by),
+                TabId.Environments => PickEnvironment(state, state.EnvironmentSelected + by),
                 _ => Select(state, state.SelectedRow + by),
             };
 
@@ -757,6 +761,7 @@ public static class Reducer
             TabId.Flights => PickFlight(state, row),
             TabId.Runners => PickRunner(state, row),
             TabId.Envelope => PickAirspaceRow(state, row),
+            TabId.Environments => PickEnvironment(state, row),
             _ => Select(state, row),
         };
     }
@@ -835,6 +840,19 @@ public static class Reducer
     private static AppState PickRunner(AppState state, int to) => state with
     {
         RunnerSelected = Rows.Runners(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
+
+    /// <summary>Move the environment cursor, inside the chart.</summary>
+    /// <remarks>
+    /// <b>Clamped to the CHARTED names</b>, which is what the rows are - not to
+    /// the strategies or the ledger, either of which can be shorter than the
+    /// chart and neither of which decides how many rows there are.
+    /// </remarks>
+    private static AppState PickEnvironment(AppState state, int to) => state with
+    {
+        EnvironmentSelected = EnvironmentRows.Environments(state) is { Count: > 0 } rows
             ? Math.Clamp(to, 0, rows.Count - 1)
             : 0,
     };

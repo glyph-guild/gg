@@ -86,6 +86,7 @@ public static class Tabs
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
             TabId.Envelope => state.EnvelopeVisible,
+            TabId.Environments => state.EnvironmentsVisible,
             // WHETHER THE LIST HAS ARRIVED, not whether the pane is open. The
             // boot and the runners refresh both fetch it, so this usually has
             // an answer before anybody presses the key.
@@ -117,6 +118,14 @@ public static class Tabs
         TabId.Runners => KeyStroke.Char('u'),
         TabId.Envelope => KeyStroke.Char('e'),
 
+        // `s' BECAUSE OF WHAT IS LEFT, which is the argument `u' came in on
+        // one line up. Normal mode has m, s and z free: `p' is refused by
+        // name - nothing may answer the key the checklist had - `m' is the
+        // members tab beside this one, and `z' reads as nothing, which the
+        // allowances line below already says. `s' is in the word, it is
+        // free, and it is said to be.
+        TabId.Environments => KeyStroke.Char('s'),
+
         // `v`, because the letters that say what this is are all taken: `a` is
         // actions, `f` is freeze and fly, `l` is live, `s` is the estate's
         // apply. Of what is left, `v` reads as "view" and `z` reads as
@@ -145,6 +154,7 @@ public static class Tabs
         // nothing: the fleet is already in the model, fetched at boot.
         TabId.Runners => Command.ToggleRunners,
         TabId.Envelope => Command.ToggleEnvelope,
+        TabId.Environments => Command.ToggleEnvironments,
         TabId.Allowances => Command.ToggleAllowances,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
@@ -237,6 +247,7 @@ public static class Tabs
         // a display name diverging from an enum name costs a line here
         // rather than a rename of the type.
         TabId.Envelope => "Airspace",
+        TabId.Environments => "Environments",
         TabId.Allowances => "Allowances",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };

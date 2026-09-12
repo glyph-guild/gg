@@ -36,6 +36,8 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
     private readonly Label _repositories;
+    private readonly FrameView _environmentsPane;
+    private readonly Label _environments;
     /// <summary>
     /// The airspace working copy, as a tree.
     /// </summary>
@@ -149,6 +151,7 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _flightsTable;
     private readonly TableView _browseTable;
     private readonly TableView _repositoriesTable;
+    private readonly TableView _environmentsTable;
     private readonly FrameView _runnersPane;
     private readonly Label _runners;
     private readonly Label _runnerNotice;
@@ -568,6 +571,20 @@ public sealed class ConsoleScreen : Window
         _repositories = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _repositoriesPane.Add(_repositories);
 
+        // WHAT IS CHARTED, AND WHAT FURNISHES IT. The same region as its
+        // neighbours - exactly one tab shows at a time, which Toggled enforces.
+        _environmentsPane = new FrameView
+        {
+            Title = "Environments",
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _environments = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _environmentsPane.Add(_environments);
+
         // THE FLEET, AND THIS MACHINE'S RUNNER FIRST. Already in the model from
         // the boot, so this tab is never waiting on a read.
         _runnersPane = new FrameView
@@ -621,12 +638,15 @@ public sealed class ConsoleScreen : Window
         _browsePane.Add(_browseTable);
         _repositoriesTable = CollectionViews.Table();
         _repositoriesPane.Add(_repositoriesTable);
+        _environmentsTable = CollectionViews.Table();
+        _environmentsPane.Add(_environmentsTable);
         _runnersTable = CollectionViews.Table();
         _runnersPane.Add(_runnersTable);
 
         _flightsTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
+        _environmentsTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
         _airspaceTable.ValueChanged += OnRowPointedAt;
         _runnersTable.KeyDown += OnTableKeyDown;
@@ -942,6 +962,11 @@ public sealed class ConsoleScreen : Window
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
+
+            // AFTER THE AIRSPACE, WHERE IT IS DECLARED, and beside it for a
+            // reason a reader can check: a strategy is an airspace document,
+            // and this is what the pool it manages did about it.
+            (TabId.Environments, Tabbed(_environmentsPane)),
 
             // LAST, WHERE IT IS DECLARED, for the reason written three tabs
             // up - and the only one of these that may not be on the bar at
@@ -1956,6 +1981,11 @@ public sealed class ConsoleScreen : Window
                 State.RepositorySelected,
                 r => [r.Chosen, r.Path, r.Name]);
 
+            Fill(_environmentsTable, _environments,
+                EnvironmentRows.Environments(State), EnvironmentRows.EnvironmentColumns,
+                State.EnvironmentSelected,
+                r => [r.Environment, r.Strategy, r.Pool, r.Wants, r.Attested, r.Measured]);
+
             // OFF THE MODEL, like the other three. This passed a literal 0 and
             // a comment saying nothing here is selectable - true of the model
             // and never true of the widget, so the cursor snapped back to the
@@ -2050,6 +2080,7 @@ public sealed class ConsoleScreen : Window
 
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);
+        _environments.Text = PaneText.ForTab(State, TabId.Environments);
         _runners.Text = PaneText.Runners(State);
         _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
 
@@ -2766,6 +2797,7 @@ public sealed class ConsoleScreen : Window
             TabId.Live => _live,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
             TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
+            TabId.Environments => _environmentsTable.Visible ? _environmentsTable : _environments,
 
             // THE TABLE, NOT THE BUTTON ABOVE IT. Terminal.Gui would pick the
             // button, because it is the first focusable child - and a tab whose
@@ -2828,6 +2860,7 @@ public sealed class ConsoleScreen : Window
             _flightsTable.ValueChanged -= OnRowPointedAt;
             _browseTable.ValueChanged -= OnRowPointedAt;
             _repositoriesTable.ValueChanged -= OnRowPointedAt;
+            _environmentsTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;
             _flightLog.ValueChanged -= OnLogRowPointedAt;
             _flightLog.ViewportChanged -= OnLogResized;

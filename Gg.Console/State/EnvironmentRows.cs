@@ -57,6 +57,25 @@ public static class EnvironmentRows
     public static IReadOnlyList<string> EnvironmentColumns { get; } =
         ["environment", "strategy", "pool", "wants", "attested", "measured"];
 
+    /// <summary>
+    /// The charted name the cursor is on, or null when there is no chart.
+    /// </summary>
+    /// <remarks>
+    /// The NAME rather than the row, because what a pane says more about is
+    /// keyed on the name in all three reads - and the row's own first cell has
+    /// the disposition folded into it, so it is a label rather than a key.
+    /// </remarks>
+    public static string? Pointed(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var charted = Charted(state);
+
+        return state.EnvironmentSelected >= 0 && state.EnvironmentSelected < charted.Count
+            ? charted[state.EnvironmentSelected].Name
+            : null;
+    }
+
     /// <summary>Every charted name, in the order the rows are drawn.</summary>
     public static IReadOnlyList<EnvironmentCharted> Charted(AppState state)
     {

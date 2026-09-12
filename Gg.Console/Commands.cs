@@ -89,6 +89,17 @@ public enum Command
     ToggleEnvelope,
 
     /// <summary>
+    /// Every environment name this tenant has charted, and what furnishes it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A read, and three of them.</b> The chart is the list, the strategies
+    /// say what furnishes each name, and the ledger says what each pool last
+    /// reported. None is in the model at boot, so a tab that asked for nothing
+    /// would be permanently empty.
+    /// </remarks>
+    ToggleEnvironments,
+
+    /// <summary>
     /// Render the estate into the working copy.
     /// </summary>
     /// <remarks>
@@ -653,6 +664,7 @@ public static class ShellCommands
         // reason written out, and they were right.
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
+        Command.ToggleEnvironments,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>

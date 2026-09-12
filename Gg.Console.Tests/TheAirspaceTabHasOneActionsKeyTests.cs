@@ -47,15 +47,50 @@ public class TheAirspaceTabHasOneActionsKeyTests
     [Test]
     public async Task The_four_actions_leave_the_tab()
     {
+        // WHAT THIS ASSERTS CHANGED, AND IT DID NOT LOOSEN. It used to say the
+        // four letters resolve to NOTHING from the tab, which was the strongest
+        // true statement while all four were free. `s' is the Environments
+        // tab's key now, so it resolves - and a test demanding silence would be
+        // asking for a dead letter rather than for the property that matters.
+        //
+        // THE PROPERTY IS THAT NONE OF THEM STILL ACTS ON THE AIRSPACE. Two of
+        // the four rewrite a working copy, and what made moving them worth a
+        // second keystroke is that no bare-tab letter does that any more. A key
+        // that switched TABS was never the hazard; a key that pulled was.
         var tab = OnTheAirspaceTab();
+
+        var acts = (Command[])
+        [
+            Command.PullEstate,
+            Command.AskToApplyEstate,
+            Command.DraftEstate,
+            Command.ReadOutcome,
+        ];
 
         foreach (var key in "psmo")
         {
-            await Assert.That(Keymap.Resolve(KeyStroke.Char(key), tab))
-                .IsNull()
-                .Because($"`{key}' is behind the actions modal now, and a letter that still "
-                       + "acts from out here would be a second way to do one thing.");
+            await Assert.That(acts).DoesNotContain(
+                    Keymap.Resolve(KeyStroke.Char(key), tab) ?? Command.Quit)
+                .Because($"`{key}' acts on the airspace only from inside the actions modal, "
+                       + "and a letter that still did it from out here would be a second way "
+                       + "to do one thing - with two of the four rewriting a tree.");
         }
+
+        // AND THREE OF THEM ARE STILL SILENT, which is worth keeping separate:
+        // `s' was taken deliberately and by argument, and a future letter taken
+        // by accident must not pass this by inheriting that.
+        foreach (var key in "pmo")
+        {
+            await Assert.That(Keymap.Resolve(KeyStroke.Char(key), tab)).IsNull()
+                .Because($"nothing has claimed `{key}' since the four moved, and a letter "
+                       + "that quietly acquires a meaning here is how the line grew to ten.");
+        }
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), tab))
+            .IsEqualTo(Command.ToggleEnvironments)
+            .Because("`s' went to the Environments tab once applying stopped needing it - "
+                   + "named here so the exception is a decision somebody reads rather than "
+                   + "a hole in the loop above.");
     }
 
     [Test]

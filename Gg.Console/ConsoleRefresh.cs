@@ -45,6 +45,8 @@ public static class ConsoleRefresh
                 TabId.Runners => await TheFleetAndWhatItHasLeftAsync(data, cancellationToken),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
+                TabId.Environments => await TheChartAndWhatFurnishesItAsync(
+                    data, cancellationToken),
                 _ => Nothing,
             };
         }
@@ -106,6 +108,52 @@ public static class ConsoleRefresh
         return allowances is null
             ? fleet
             : state => ConsoleProjection.Apply(fleet(state), allowances);
+    }
+
+    /// <summary>
+    /// The chart, the strategies that furnish it, and what the pools last said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three reads, and the first one decides whether the others matter.</b>
+    /// The chart is the list of rows; a strategy for a name that is not charted
+    /// draws nothing, and an attestation for a pool no strategy names draws
+    /// nothing either. So the chart is fetched without a net and the two joins
+    /// are allowed to fail on their own - the shape
+    /// <see cref="TheFleetAndWhatItHasLeftAsync"/> already uses, and for its
+    /// reason: a column that is extra must not take the pane down with it.
+    /// </para>
+    /// <para>
+    /// <b>AND THE LEDGER IS THE ONE MOST LIKELY TO.</b> GET /v1/pools has been
+    /// declared for slices with nothing calling it, so this is the first gg
+    /// that asks - and a control plane that has not implemented it answers
+    /// something outside the declared statuses. The chart and the strategies
+    /// still draw.
+    /// </para>
+    /// </remarks>
+    private static async Task<Func<AppState, AppState>> TheChartAndWhatFurnishesItAsync(
+        ConsoleData data, CancellationToken cancellationToken)
+    {
+        var chart = Apply(await data.EnvironmentsAsync(cancellationToken));
+
+        var joins = new List<VerbResult>();
+
+        foreach (var join in (Func<CancellationToken, Task<VerbResult>>[])
+                 [data.StrategiesAsync, data.PoolsAsync])
+        {
+            try
+            {
+                joins.Add(await join(cancellationToken));
+            }
+            catch (HttpRequestException)
+            {
+            }
+            catch (ProtocolTooOldException)
+            {
+            }
+        }
+
+        return state => joins.Aggregate(chart(state), ConsoleProjection.Apply);
     }
 
     /// <summary>

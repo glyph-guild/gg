@@ -45,8 +45,14 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
     /// and on these five it is off the line because there is nothing under a
     /// cursor for it to act on.
     /// </remarks>
+    /// <remarks>
+    /// <b>HAND-WRITTEN, so it does not notice a new tab.</b> Nothing fails when
+    /// a tab is added and left out of both lists - the coverage simply stops
+    /// growing, quietly, which is the one failure mode a ratchet is supposed
+    /// not to have. A tab belongs in one of these two on the day it arrives.
+    /// </remarks>
     private static readonly TabId[] Elsewhere =
-        [TabId.Runners, TabId.Live, TabId.Browse, TabId.Repositories];
+        [TabId.Runners, TabId.Live, TabId.Browse, TabId.Repositories, TabId.Environments];
 
     [Test]
     public async Task The_airspace_tab_advertises_what_the_airspace_tab_does()

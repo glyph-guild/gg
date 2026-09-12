@@ -114,6 +114,7 @@ public static class PaneText
             TabId.Browse => Browse(state),
             TabId.Repositories => Repositories(state),
             TabId.Envelope => AirspaceAbsence(state),
+            TabId.Environments => EnvironmentsAbsence(state),
             TabId.Allowances => FleetAllowances(state),
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
@@ -559,6 +560,69 @@ public static class PaneText
     /// still worth drawing — so a failure to ask says so and the rows stay.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What the Environments tab says when it has no rows to say it with.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THREE ABSENCES, THREE SENTENCES</b> - the rule <c>PaneText.Estate</c>
+    /// records. Never-asked, nothing-charted and charted-but-unfurnished are
+    /// three things a person does differently about, and one line covering all
+    /// of them would send somebody to chart a name they already charted.
+    /// </para>
+    /// <para>
+    /// <b>The third is NOT an absence of rows</b>, so it is not here: a charted
+    /// name nothing furnishes is a row with empty cells, which says it better
+    /// than a sentence could and says it per name. What this returns for a
+    /// chart with anything in it is nothing at all - the airspace tab's rule,
+    /// and the reason a pane and a table never both try to answer.
+    /// </para>
+    /// <para>
+    /// <b>AND IT NAMES NO VERB FOR CHARTING, because gg has none.</b> The door
+    /// is POST /v1/environments and it rides the widening gate; this console
+    /// reads the chart and does not write it, so pointing at a key that does
+    /// not exist would be worse than pointing nowhere.
+    /// </para>
+    /// </remarks>
+    public static string EnvironmentsAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Chart is not { } chart)
+        {
+            // ASKED-AND-FAILED IS NOT NEVER-ASKED, and telling them apart is
+            // what the visibility flag is for. It is set when the tab is
+            // OPENED, which is before the read lands - so a null chart behind
+            // an open tab means the request went and did not come back, and
+            // "not read - press s" would send somebody to press the key they
+            // just pressed.
+            //
+            // FOUND BY RUNNING IT, against a control plane that was not there.
+            //
+            // AND THE DIAGNOSIS IS PRINTED VERBATIM, which is the second thing
+            // running it found: ConsoleEnvironments composes a whole sentence
+            // ("Could not read the environment chart: ..."), so a pane adding
+            // its own lead-in said it twice. The rule PaneText.NotRead already
+            // records, one pane over.
+            return state.EnvironmentsVisible
+                ? state.Diagnosis is { Length: > 0 } why
+                    ? Clean(why, lines: true)
+                    : "The environment chart could not be read, and nothing said why."
+                : "the environment chart: not read - press s";
+        }
+
+        if (chart.Environments.Count == 0)
+        {
+            return "Nothing is charted here yet, which is a tenant that is set up and has "
+                 + "said nothing rather than one with a problem. The chart is what an "
+                 + "envelope naming an environment is refused against, so until a name is "
+                 + "in it no flight can ask to run anywhere in particular.";
+        }
+
+        // THE ROWS ARE THE ANSWER FROM HERE ON.
+        return "";
+    }
+
     public static string AirspaceAbsence(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

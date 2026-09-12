@@ -54,6 +54,48 @@ public static class AirspaceRows
     public static IReadOnlyList<string> AirspaceColumns { get; } =
         ["document", "based on", "state"];
 
+    /// <summary>
+    /// The document the cursor is on, or null on a folder row or no tree.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pure, and read by both the keymap and the read.</b> Whether `v' means
+    /// "this document" or "the rules in force" depends on it, and so does what
+    /// gets fetched - two answers that must not disagree, which is why there is
+    /// one function rather than a check in each.
+    /// </remarks>
+    public static AirspaceFile? Pointed(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Estate?.Tree is not { Present: true } tree)
+        {
+            return null;
+        }
+
+        var rows = Tree(state);
+
+        if (rows.Count == 0)
+        {
+            return null;
+        }
+
+        // A FOLDER ROW HAS NO DOCUMENT, and its Document ends in a slash - the
+        // one thing that tells the two kinds of row apart without a second
+        // list to keep in step.
+        var row = rows[Math.Clamp(state.AirspaceSelected, 0, rows.Count - 1)];
+
+        if (row.Document.TrimEnd().EndsWith('/'))
+        {
+            return null;
+        }
+
+        var leaf = row.Document.Trim();
+
+        return tree.Documents.FirstOrDefault(d =>
+            d.Path.EndsWith("/" + leaf, StringComparison.Ordinal)
+            || string.Equals(d.Path, leaf, StringComparison.Ordinal));
+    }
+
     /// <summary>The tree, folders and files, in the order it reads.</summary>
     public static IReadOnlyList<AirspaceRow> Tree(AppState state)
     {

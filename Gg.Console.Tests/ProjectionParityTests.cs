@@ -214,6 +214,19 @@ public class ProjectionParityTests
                             + "it into the outcome modal, per name, saying that nothing is "
                             + "gone until the gate opens.",
 
+            ["NamedEnvelopeShown"] = "one document read back by name, unwrapped by "
+                                   + "ConsoleDocument rather than projected here - "
+                                   + "AirspaceDiffed's reason: what lands on the model is "
+                                   + "one field chosen from the answer, and every failure "
+                                   + "is a sentence rather than state. It is what `v' over "
+                                   + "a document row shows.",
+
+            ["StrategyShown"] = "a strategy read back by name. It reaches the console "
+                              + "through the same read and is SAID rather than rendered: a "
+                              + "strategy is not an envelope, and a modal that drew one as "
+                              + "the other would be inventing a shape. The command line "
+                              + "renders it in full.",
+
             // --- and one that is correct as it stands ---
             ["Bundle"] = "built FROM the state rather than into it, so there is nothing to "
                        + "project. S28.2-06 asserts what a bundle contains once the model is "

@@ -232,6 +232,28 @@ public class TheSignInModalReadsTests
                     },
                 ],
             },
+
+            // AND A CURSOR ON A DOCUMENT, which is what makes `v' mean "read
+            // this one back" rather than "read the rules in force". The flag
+            // is derived from the tree and the cursor together, so both have
+            // to be here - a model with a tree and no row would leave it false
+            // and this guard would call the derivation blind.
+            Estate = new EstateOnThisMachine
+            {
+                Root = "/home/someone/airspace",
+                Uncommitted = [],
+                Tree = new WorkingCopy
+                {
+                    Present = true,
+                    Documents = [new("root", "root", "airspace/root.yaml", "v6")],
+                    Unreadable = [],
+                },
+            },
+            // ROW ONE, NOT ROW ZERO. Row zero is the synthesised `airspace/'
+            // folder, and a folder row holds no document - which is the
+            // projection working, and worth pinning here because it is the
+            // difference between this flag being derived and being guessed.
+            AirspaceSelected = 1,
         };
 
         var context = KeymapContext.For(state);

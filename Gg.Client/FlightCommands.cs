@@ -497,9 +497,75 @@ public sealed class FlightCommands(
             ?? throw NoSuchFlight(reference));
     }
 
-    /// <summary>The topology: every envelope name that exists, root included.</summary>
-    public async Task<VerbResult> AirspaceAsync(CancellationToken cancellationToken = default) =>
-        new VerbResult.AirspaceTopology(await _client.GetTopologyAsync(Session(), cancellationToken));
+    /// <summary>
+    /// The topology, or one applied document when a name is given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE READ-BACK THAT DID NOT EXIST.</b> gg could apply a document and
+    /// then show it to nobody: <c>gg envelope show</c> is the ROOT document, so
+    /// a work kind applied successfully was invisible, and the only evidence it
+    /// had landed was a diff reporting no changes. Somebody concluded, twice,
+    /// that their apply had failed.
+    /// </para>
+    /// <para>
+    /// <b>No new request.</b> <c>ReadEstateAsync</c> already returns every
+    /// document whole; this renders what was being fetched to compute a diff
+    /// and thrown away.
+    /// </para>
+    /// <para>
+    /// <b>Three answers, because a declared name holding no document is its own
+    /// state.</b> That is what an apply which never ran leaves behind - the
+    /// registration landed and the document did not - and calling it "no such
+    /// name" would send somebody to declare what already exists.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> AirspaceAsync(
+        string? name = null, CancellationToken cancellationToken = default)
+    {
+        var session = Session();
+
+        if (name is not { Length: > 0 })
+        {
+            return new VerbResult.AirspaceTopology(
+                await _client.GetTopologyAsync(session, cancellationToken));
+        }
+
+        var estate = await _client.ReadEstateAsync(session, cancellationToken);
+
+        if (estate.Documents.FirstOrDefault(d =>
+                string.Equals(d.Name, name, StringComparison.Ordinal)) is { } document)
+        {
+            return new VerbResult.NamedEnvelopeShown(document);
+        }
+
+        // A STRATEGY IS A DOCUMENT TOO, and asking for one by name is the same
+        // question. It reads through its own door and lands in its own list,
+        // which is a fact about the wire rather than about what somebody asked.
+        if (estate.Strategies.FirstOrDefault(s =>
+                string.Equals(s.Name, name, StringComparison.Ordinal)) is { } strategy)
+        {
+            return new VerbResult.StrategyShown(strategy);
+        }
+
+        var topology = await _client.GetTopologyAsync(session, cancellationToken);
+
+        if (topology.Names.Any(n => string.Equals(n.Name, name, StringComparison.Ordinal)))
+        {
+            throw new EnvelopeRefusedException(
+                $"'{name}' is a declared name and nothing has been applied to it yet. The "
+              + "registration landed; the document did not. Apply it with gg airspace "
+              + "apply.");
+        }
+
+        // THE NAMES IT DOES HOLD, because the commonest reason this is asked is
+        // a misremembered one - and a bare "not found" sends somebody to
+        // another verb to get the list they needed to read this refusal.
+        throw new EnvelopeRefusedException(
+            $"No name '{name}' is declared in this airspace. Declared: "
+          + string.Join(", ", topology.Names.Select(n => n.Name).Order(StringComparer.Ordinal))
+          + ".");
+    }
 
     /// <summary>
     /// `gg airspace repositories` - what this tenant can fly against.

@@ -148,6 +148,15 @@ public class ModalEscapeTests
           + "flying anything, so the real decision lands where a person can still change it - "
           + "and abandoning the editor opens nothing either.",
 
+        [UiMode.ReadingDocument] =
+            "opened by `v' on the airspace tab WHEN THE CURSOR IS ON A DOCUMENT, which a "
+          + "fresh console has none of: the flag comes from AirspaceRows.Pointed, and a "
+          + "console with no tree read has no rows to point at. So one keypress against an "
+          + "empty model gives the rules in force instead, correctly. "
+          + "AnAppliedDocumentIsReadBackInTheConsoleTests holds the route - that `v' means "
+          + "this document over a document row and the envelope elsewhere - and "
+          + "escapability is covered above, because StateGenerator emits every UiMode.",
+
         [UiMode.ConfirmRetire] =
             "opened by `x' INSIDE the changeset view, which `v' then `d' reach - so it is "
           + "three keys from a fresh state and this test presses one. It is in a modal on "

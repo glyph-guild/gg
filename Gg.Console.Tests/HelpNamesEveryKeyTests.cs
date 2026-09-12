@@ -75,7 +75,14 @@ public class HelpNamesEveryKeyTests
         // exhaustively. Both shapes are here so the description it lands in is
         // covered either way.
         from refresh in (string[])["", "5s"]
-        select new KeymapContext(mode, showing, frozen, takeable, handedBack)
+        // WHETHER THE AIRSPACE CURSOR IS ON A DOCUMENT, because `v' means two
+        // different things across it: read this document back, or read the
+        // rules in force. A flag the keymap branches on and this does not cross
+        // is a binding the completeness check cannot see - the mistake this
+        // product has already made twice.
+        from overADocument in (bool[])[false, true]
+        select new KeymapContext(
+            mode, showing, frozen, takeable, handedBack, overADocument)
         {
             SignInStarted = started,
             RunnerIsOurs = ours,
@@ -126,7 +133,7 @@ public class HelpNamesEveryKeyTests
             .Select(p => p.Name)
             .ToList();
 
-        await Assert.That(members.Count).IsEqualTo(11)
+        await Assert.That(members.Count).IsEqualTo(12)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

@@ -100,6 +100,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.NameDeclared;
     }
 
+    /// <summary>One applied document, read back by name.</summary>
+    public sealed record NamedEnvelopeShown(Gg.Contracts.NamedEnvelopeState Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.NamedEnvelopeShown;
+    }
+
+    /// <summary>One applied strategy, read back by name.</summary>
+    public sealed record StrategyShown(Gg.Contracts.EnvironmentStrategyState Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.StrategyShown;
+    }
+
     /// <summary>What retiring a name came to: always a gate.</summary>
     public sealed record NameRetired(Gg.Client.NameRetired Value) : VerbResult
     {
@@ -359,6 +371,10 @@ public static class VerbResultKinds
     public const string NameDeclared = "name-declared";
 
     public const string NameRetired = "name-retired";
+
+    public const string NamedEnvelopeShown = "named-envelope-shown";
+
+    public const string StrategyShown = "strategy-shown";
     public const string RunnerLabels = "runner-labels";
 
     public const string Why = "why";
@@ -408,6 +424,8 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(EstateApplied))]
 [JsonSerializable(typeof(NameDeclared))]
 [JsonSerializable(typeof(NameRetired))]
+[JsonSerializable(typeof(Gg.Contracts.NamedEnvelopeState))]
+[JsonSerializable(typeof(Gg.Contracts.EnvironmentStrategyState))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
@@ -501,6 +519,10 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameDeclared),
         VerbResult.NameRetired r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameRetired),
+        VerbResult.NamedEnvelopeShown r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NamedEnvelopeState),
+        VerbResult.StrategyShown r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentStrategyState),
         VerbResult.RunnerLabels r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         _ => throw Unknown(result?.Kind),
@@ -625,6 +647,8 @@ public static class VerbOutput
         VerbResult.AirspaceDiffed r => DiffText(r.Value),
         VerbResult.NameDeclared r => NameDeclaredText(r.Value),
         VerbResult.NameRetired r => NameRetiredText(r.Value),
+        VerbResult.NamedEnvelopeShown r => NamedEnvelopeText(r.Value),
+        VerbResult.StrategyShown r => StrategyShownText(r.Value),
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
@@ -2275,6 +2299,37 @@ public static class VerbOutput
             // rather than thrown, because a control plane that grew one should
             // report what it did instead of crashing a verb.
             : $"{retired.Name}: retired, with no gate. In force: {retired.Version}.\n";
+
+    /// <summary>
+    /// One applied document, with the version that names it permanently.
+    /// </summary>
+    /// <remarks>
+    /// <b>The header first, and the version is the point.</b> A document you
+    /// can read but cannot name is one you cannot quote in an argument about
+    /// what governed a flight - and <c>score-hal@v1</c> is what an attribution
+    /// says. Rendered by the same renderer the pull writes files with, so what
+    /// is read back is what a pull would put on disk.
+    /// </remarks>
+    private static string NamedEnvelopeText(Gg.Contracts.NamedEnvelopeState document)
+    {
+        var body = document.Narrowing is { } narrowing
+            ? Gg.Contracts.EnvelopeText.Render(narrowing)
+            : document.Envelope is { } envelope
+                ? Gg.Contracts.EnvelopeText.Render(envelope)
+                : null;
+
+        return $"# {document.Name}   {document.Role}   {document.Version}\n"
+             + $"# updated   {document.UpdatedAt:yyyy-MM-dd HH:mm:ss}Z by "
+             + $"{Clean(document.UpdatedBy)}\n\n"
+             + (body is null
+                 ? "This name holds no document body.\n"
+                 : Clean(body, lines: true) + "\n");
+    }
+
+    /// <summary>One applied strategy, in the same shape.</summary>
+    private static string StrategyShownText(Gg.Contracts.EnvironmentStrategyState strategy) =>
+        $"# {strategy.Name}   strategy   {strategy.Version}\n\n"
+      + Clean(Gg.Contracts.EnvelopeText.Render(strategy.Strategy), lines: true) + "\n";
 
     private static string AppliedText(EstateApplied applied)
     {

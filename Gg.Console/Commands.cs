@@ -180,6 +180,16 @@ public enum Command
     /// </remarks>
     CopyModal,
 
+    /// <summary>Read the document under the cursor back, as applied.</summary>
+    /// <remarks>
+    /// <b>A READ, so it runs beside the console rather than ending it.</b> It
+    /// asks the control plane for the estate and keeps one document - the same
+    /// shape ToggleEnvelope has, and for its reason: a whole screen taken away
+    /// and given back to fetch a document is what the Reads category exists to
+    /// avoid.
+    /// </remarks>
+    ReadDocument,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside
@@ -619,6 +629,7 @@ public static class ShellCommands
         // to a spawn. Four guards said so before this was tried, each with the
         // reason written out, and they were right.
         Command.ToggleEnvelope,
+        Command.ReadDocument,
         Command.ToggleRepositories,
     };
 

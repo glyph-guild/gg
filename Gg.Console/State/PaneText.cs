@@ -985,6 +985,20 @@ public static class PaneText
 
         var applied = AirspaceViews.Applied(state, pointed.Name);
 
+        // THE ON-DISK VIEW IS LOCAL AND THE OTHER TWO ARE NOT. Whether a name
+        // holds a document, and what composes for a work kind, are the
+        // airspace's answers; an estate whose topology is null never got one,
+        // and an empty Applied then reads as "nothing is applied" when what
+        // happened is that nobody could ask.
+        //
+        // See ConsoleEstate: the read answers NOTHING rather than a half-read
+        // estate, so the topology is the mark of the remote half having spoken.
+        if (state.AirspaceView is not AirspaceView.OnDisk
+            && state.Estate?.Names is null)
+        {
+            return Fitted(NotRead(state, pointed), columns);
+        }
+
         return Fitted(
             state.AirspaceView switch
             {
@@ -1020,6 +1034,31 @@ public static class PaneText
             },
             columns);
     }
+
+    /// <summary>
+    /// Why the pane cannot say what is applied to this name.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two absences, not one.</b> Never asked and asked-and-failed are
+    /// different facts with different next moves - press the key, or fix the
+    /// connection - which is the distinction <c>NotCompared</c> keeps one modal
+    /// over, and this says it about the same estate.
+    /// <para>
+    /// <b>And it says what IS in hand.</b> The file on disk was read locally
+    /// and is one tab away; a person who came here to see their own document
+    /// should be told they still can.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<string> NotRead(AppState state, AirspaceFile pointed) =>
+    [
+        state.Estate?.Diagnosis is { Length: > 0 } why
+            ? "The airspace could not be read: " + Clean(why)
+            : "The airspace has not been read yet - press e, which reads it.",
+        "",
+        $"So what is applied to '{Clean(pointed.Name)}' is not known here, and nothing "
+      + "on this tab is a claim that it is. The file itself was read from disk and is "
+      + "in the tab beside this one.",
+    ];
 
     /// <summary>
     /// What governs a flight of this row's kind, composed.

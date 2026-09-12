@@ -54,10 +54,18 @@ public class TheGitTimeoutIsReachableTests
     {
         var git = Source();
 
-        await Assert.That(git).DoesNotContain("ReadToEnd()", StringComparison.Ordinal)
-            .Because("a synchronous drain blocks until the pipe closes, and a git that "
-                   + "never returns never closes it - so every bound below such a call is "
-                   + "unreachable, including the one this file declares.");
+        // THE CALL SITES, NOT THE WORD. The fix's own comment explains what it
+        // replaced, and a matcher blunt enough to read prose would make that
+        // explanation unwritable - which is how a guard starts editing the
+        // reasons instead of the code.
+        foreach (var drain in (string[])
+                 ["StandardOutput.ReadToEnd()", "StandardError.ReadToEnd()"])
+        {
+            await Assert.That(git).DoesNotContain(drain, StringComparison.Ordinal)
+                .Because("a synchronous drain blocks until the pipe closes, and a git that "
+                       + "never returns never closes it - so every bound below such a call "
+                       + "is unreachable, including the one this file declares.");
+        }
     }
 
     [Test]
@@ -65,9 +73,12 @@ public class TheGitTimeoutIsReachableTests
     {
         var git = Source();
 
+        // THE CALL, NOT THE WORD - twice bitten now. The fix's comment names
+        // WaitForExit while explaining what moved, and matching the bare word
+        // found the prose above the code and read the order backwards.
         var out_ = git.IndexOf("StandardOutput.ReadToEndAsync", StringComparison.Ordinal);
         var err = git.IndexOf("StandardError.ReadToEndAsync", StringComparison.Ordinal);
-        var wait = git.IndexOf("WaitForExit", StringComparison.Ordinal);
+        var wait = git.IndexOf("process.WaitForExit(", StringComparison.Ordinal);
 
         await Assert.That(out_).IsGreaterThan(-1);
         await Assert.That(err).IsGreaterThan(-1);
@@ -90,7 +101,7 @@ public class TheGitTimeoutIsReachableTests
         // this is already going wrong.
         var git = Source();
 
-        var wait = git.IndexOf("WaitForExit", StringComparison.Ordinal);
+        var wait = git.IndexOf("process.WaitForExit(", StringComparison.Ordinal);
         var after = git[wait..];
 
         await Assert.That(after).Contains("Kill(", StringComparison.Ordinal);

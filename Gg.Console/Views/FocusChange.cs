@@ -18,7 +18,17 @@ public enum FocusTarget
     /// say WHICH widget, and what a person opened this to watch is a runner
     /// coming up - which is the log, live, while it does.
     /// </remarks>
-    RunnerLog,
+    /// <summary>
+    /// Whichever of the runner modal's three views is showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Was <c>RunnerLog</c>, and the rename is the defect.</b> The modal has
+    /// three views now, and a landing that always named the log made the other
+    /// two unreachable: Terminal.Gui's <c>Tabs</c> follows FOCUS, so a focused
+    /// log pane assigns <c>Value</c> back to itself every render and the bar
+    /// snapped away from whatever a person had just turned it to.
+    /// </remarks>
+    RunnerView,
 
     /// <summary>
     /// The log inside the flight modal, which is the part of it with a cursor.
@@ -111,19 +121,34 @@ public static class FocusChange
         bool modalHasFocus,
         bool pathHasFocus = false,
         bool readingTheDocument = false,
-        bool landedReading = false) => (mode, landed) switch
+        bool landedReading = false,
+        RunnerView runnerView = RunnerView.Log,
+        RunnerView landedRunnerView = RunnerView.Log) => (mode, landed) switch
     {
         // THE FIELD FIRST, because it is not a modal and the arms below would
         // hand it to one that is not on screen.
         (UiMode.AirspacePath, _) when pathHasFocus => FocusTarget.LeaveAlone,
         (UiMode.AirspacePath, _) => FocusTarget.AirspacePath,
 
+        // THE RUNNER MODAL IS MADE OF THREE AND THE OTHERS ARE NOT, so it
+        // answers before the guard below. That guard says "the modal has focus,
+        // so nothing needs moving", which is true of a modal with one place for
+        // the keyboard to be and false of this one: the view can turn while the
+        // modal keeps focus, and the keyboard has to follow because it is what
+        // decides which tab the bar shows.
+        //
+        // THE PAIR, exactly as landedReading is the pair for the airspace tab's
+        // two halves - see that parameter's remark. Comparing the model against
+        // the widget instead would re-place focus once a second.
+        (UiMode.Runner, _) when modalHasFocus && landedRunnerView == runnerView
+            => FocusTarget.LeaveAlone,
+        (UiMode.Runner, _) => FocusTarget.RunnerView,
+
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 
         // WHICH WIDGET, for the two modals that are made of several. The rest
         // are a few lines and two keys, and the frame is the whole of them.
         (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
-        (UiMode.Runner, _) => FocusTarget.RunnerLog,
         (not UiMode.Normal, _) => FocusTarget.Modal,
 
         // NOTHING MOVED, so nothing is moved. The tab is the one focus was

@@ -318,15 +318,21 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
         // been wrong three times. The log is where it goes for the flight
         // modal's reason: it is the part somebody scrolls, and the fields are a
         // tab away.
+        // THE TARGET WAS RENAMED AND THE CLAIM DID NOT CHANGE. The modal is
+        // made of three views now, so the landing names whichever is SHOWING -
+        // and the log is what shows when nobody has turned it, which is this
+        // test's case and still its answer.
         await Assert.That(FocusChange.Wanted(
                 UiMode.Runner, TabId.Runners, landed: null, modalHasFocus: false))
-            .IsEqualTo(FocusTarget.RunnerLog);
+            .IsEqualTo(FocusTarget.RunnerView);
 
         await Assert.That(FocusChange.Wanted(
                 UiMode.Runner, TabId.Runners, landed: null, modalHasFocus: true))
             .IsEqualTo(FocusTarget.LeaveAlone)
             .Because("a person who moved focus inside the modal keeps it, which is the same "
-                   + "rule every other mode here follows.");
+                   + "rule every other mode here follows - and it holds WHILE THE VIEW HAS "
+                   + "NOT TURNED, which is the qualifier the three views added. See "
+                   + "TheRunnerViewStaysWhereItWasPutTests for the other half.");
     }
 
     [Test]

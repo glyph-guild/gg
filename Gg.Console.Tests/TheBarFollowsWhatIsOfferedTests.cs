@@ -76,12 +76,16 @@ public class TheBarFollowsWhatIsOfferedTests
                    + "offered later - and selecting into it throws rather than showing "
                    + "nothing, which is how this arrived as a crash.");
 
-        await Assert.That(screen).Contains("_bar.InsertTab(", StringComparison.Ordinal)
+        await Assert.That(screen).Contains("Follow(_bar,", StringComparison.Ordinal)
+            .Because("the window's bar reconciles through the shared method, which the "
+                   + "airspace pane's bar also uses - see TheAirspaceViewsAreTabsOnThePane.");
+
+        await Assert.That(screen).Contains("bar.InsertTab(", StringComparison.Ordinal)
             .Because("a tab that arrives late belongs where it is declared, not appended "
                    + "past the tabs that were there first - the bar's order and Tabs.Next's "
                    + "walk have been made to agree once already.");
 
-        await Assert.That(screen).Contains("_bar.Remove(", StringComparison.Ordinal)
+        await Assert.That(screen).Contains("bar.Remove(", StringComparison.Ordinal)
             .Because("following the offered set means shrinking too: a tab that stops being "
                    + "offered has to leave the bar, or it is a door onto a pane the model "
                    + "says is not there.");

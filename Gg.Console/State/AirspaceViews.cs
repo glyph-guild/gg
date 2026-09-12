@@ -90,6 +90,22 @@ public static class AirspaceViews
         ];
     }
 
+    /// <summary>What the tab for a view says.</summary>
+    /// <remarks>
+    /// <b>Lower case, and three words a person would use.</b> These sit along
+    /// the foot of a pane beside a tree of file names; a heading voice there
+    /// would compete with the thing being read. And they are here rather than
+    /// in the screen for the reason every other title in this console is pure:
+    /// the screen cannot be constructed without a terminal, so nothing can ask
+    /// it what it drew.
+    /// </remarks>
+    public static string Title(AirspaceView view) => view switch
+    {
+        AirspaceView.OnDisk => "on disk",
+        AirspaceView.Effective => "effective",
+        _ => "applied",
+    };
+
     /// <summary>The next view round, or the first when this one is gone.</summary>
     /// <remarks>
     /// <b>Clamped rather than wrapped from a stale value.</b> A row whose

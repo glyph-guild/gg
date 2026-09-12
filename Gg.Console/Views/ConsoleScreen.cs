@@ -48,6 +48,27 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly TableView _airspaceTable;
 
+    /// <summary>The three views of the selected document, beside the tree.</summary>
+    /// <remarks>
+    /// <b>ALONG THE BOTTOM, because the window's own tabs run across the top.</b>
+    /// A second row of them up there would read as more of that bar rather than
+    /// as a question about the row the cursor is on.
+    /// </remarks>
+    private readonly Terminal.Gui.Views.Tabs _airspaceViews;
+
+    /// <summary>Each view's body, and the list inside it that holds the lines.</summary>
+    private readonly (AirspaceView View, View Pane, ListView Said)[] _viewTabbed;
+
+    /// <summary>Which views that bar is holding.</summary>
+    /// <remarks>See <see cref="_onTheBar"/>; this one changes on an arrow key.</remarks>
+    private readonly List<AirspaceView> _onTheViewBar = [];
+
+    /// <summary>The lines the document pane is showing.</summary>
+    private IReadOnlyList<string>? _airspaceSaidShowing;
+
+    /// <summary>What the pane says when the cursor is not on a document.</summary>
+    private readonly Label _airspaceNoDocument;
+
     /// <summary>Said instead of the tree, when there is no tree to draw.</summary>
     /// <remarks>
     /// A pane's three absences are three sentences — nothing read, nothing
@@ -371,15 +392,74 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(1),
             Visible = false,
         };
+        // THE TREE ON THE LEFT AND THE DOCUMENT ON THE RIGHT, which is why
+        // the reading modal went away: the cursor picks the subject and the
+        // pane answers about it, so comparing one row against the next is an
+        // arrow key rather than two keypresses and a memory of the last one.
+        //
         // THREE ROWS SHORTER, which is what the box below it takes: two for
         // its border and one for the line inside.
         _airspaceTable = CollectionViews.Table();
+        _airspaceTable.Width = Dim.Percent(42);
         _airspaceTable.Height = Dim.Fill(3);
         _airspaceAbsent = new Label
         {
             Width = Dim.Fill(),
             Height = Dim.Fill(3),
             CanFocus = true,
+        };
+
+        _airspaceViews = new Terminal.Gui.Views.Tabs
+        {
+            X = Pos.Right(_airspaceTable) + 1,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(3),
+            TabSide = Side.Bottom,
+
+            // NOT IN THE TAB RING. `tab' is the keymap's on this screen and
+            // moves between the WINDOW's tabs, so a widget claiming a stop
+            // would give that key a second meaning on one screen - which is
+            // the airspace field's reason, one widget over. `v' turns this bar,
+            // and a click on a header turns it too.
+            TabStop = TabBehavior.NoStop,
+        };
+
+        _viewTabbed =
+        [
+            .. Enum.GetValues<AirspaceView>().Select(view =>
+            {
+                // A LIST RATHER THAN A LABEL, because nothing in this console
+                // scrolls a Label and a composed envelope is longer than any
+                // box. The same pattern the runner log and the reading modal
+                // use: a pure producer, wrapped to the width, set only when
+                // the lines actually change.
+                var said = CollectionViews.List();
+                said.ViewportChanged += OnAirspaceDocumentResized;
+
+                var pane = new View
+                {
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill(),
+                    CanFocus = true,
+                    TabStop = TabBehavior.NoStop,
+                };
+
+                pane.Add(said);
+
+                return (View: view, Pane: (View)pane, Said: said);
+            }),
+        ];
+
+        // WHEN THE CURSOR IS ON A FOLDER, which has no document and so has no
+        // views. A bar with no tabs would be a frame around nothing; this says
+        // which of the nothings it is, from the same producer the lists use.
+        _airspaceNoDocument = new Label
+        {
+            X = Pos.Right(_airspaceTable) + 1,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(3),
         };
 
         // ALWAYS ON THE SCREEN WHILE THE TAB IS, and bordered so it is on it
@@ -427,8 +507,12 @@ public sealed class ConsoleScreen : Window
         // which is the same thing the runners table and its button do.
         _airspacePath.KeyDown += OnAirspacePathKeyDown;
 
+        _airspaceViews.ValueChanged += OnAirspaceViewChanged;
+
         _envelopePane.Add(_airspaceTable);
         _envelopePane.Add(_airspaceAbsent);
+        _envelopePane.Add(_airspaceViews);
+        _envelopePane.Add(_airspaceNoDocument);
         _envelopePane.Add(_airspacePathBox);
 
         // AND THE SIXTH, which shares the same region as the four above it.
@@ -872,8 +956,8 @@ public sealed class ConsoleScreen : Window
         // puts every border, header and label on the same dark surface - and
         // what makes "muted" mean something relative to it.
         SetScheme(ConsoleTheme.Grounded());
-        Muted(_airspaceAbsent, _live, _flight, _modalBody, _runners,
-            _flightIntent, _flightLogAbsent);
+        Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
+            _runners, _flightIntent, _flightLogAbsent);
 
         Add(_bar, _activity, _hints, _modal);
 
@@ -1220,9 +1304,30 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void FollowTheOffered()
     {
-        var offered = Tabs.Offered(State);
+        Follow(_bar, _onTheBar, Tabs.Offered(State),
+            tab => (_tabbed.First(t => t.Tab == tab).Pane, Tabs.Title(State, tab)));
 
-        if (_onTheBar.SequenceEqual(offered))
+        // THE SAME METHOD, and the bar that moves constantly is not the copy.
+        // The window's offered set changes once in the life of a console; this
+        // one changes whenever the cursor lands on a row with different views,
+        // which is an arrow key.
+        Follow(_airspaceViews, _onTheViewBar, AirspaceViews.Offered(State),
+            view => (_viewTabbed.First(t => t.View == view).Pane, AirspaceViews.Title(view)));
+    }
+
+    /// <summary>Make a bar hold exactly what is offered, where it is declared.</summary>
+    /// <remarks>
+    /// <b>Offered is always a subsequence of the declared order</b> - both
+    /// callers filter a fixed list rather than building one - so a tab's
+    /// position in the offered set is its position on the bar.
+    /// </remarks>
+    private static void Follow<T>(
+        Terminal.Gui.Views.Tabs bar,
+        List<T> held,
+        IReadOnlyList<T> offered,
+        Func<T, (View Pane, string Title)> tabbed)
+    {
+        if (held.SequenceEqual(offered))
         {
             return;
         }
@@ -1231,28 +1336,51 @@ public sealed class ConsoleScreen : Window
         // the selected tab makes Terminal.Gui choose another and announce it;
         // the caller holds the sync flag over this, so that announcement is
         // not mistaken for a person clicking a tab.
-        foreach (var (tab, pane) in _tabbed
-                     .Where(t => _onTheBar.Contains(t.Tab) && !offered.Contains(t.Tab)))
+        foreach (var gone in held.Where(t => !offered.Contains(t)).ToList())
         {
-            _bar.Remove(pane);
-            _onTheBar.Remove(tab);
+            bar.Remove(tabbed(gone).Pane);
+            held.Remove(gone);
         }
 
         for (var index = 0; index < offered.Count; index++)
         {
             var tab = offered[index];
 
-            if (_onTheBar.Contains(tab))
+            if (held.Contains(tab))
             {
                 continue;
             }
 
-            var pane = _tabbed.First(t => t.Tab == tab).Pane;
-            pane.Title = Tabs.Title(State, tab);
+            var (pane, title) = tabbed(tab);
+            pane.Title = title;
 
-            _bar.InsertTab(index, pane);
-            _onTheBar.Insert(index, tab);
+            bar.InsertTab(index, pane);
+            held.Insert(index, tab);
         }
+    }
+
+    /// <summary>A view was picked off the pane's bar with the mouse.</summary>
+    /// <remarks>
+    /// <b>The same shape as the window's bar, and for its reason:</b> a click
+    /// is a person asking, so it goes through the model rather than round it.
+    /// `v' walks the same field from the keymap.
+    /// </remarks>
+    private void OnAirspaceViewChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var picked = _viewTabbed.FirstOrDefault(t => ReferenceEquals(t.Pane, chosen));
+
+        if (picked.Pane is null || picked.View == State.AirspaceView)
+        {
+            return;
+        }
+
+        State = State with { AirspaceView = picked.View };
+        Render();
     }
 
     private void OnTabChanged(object? sender, ValueChangedEventArgs<View?> args)
@@ -1828,6 +1956,35 @@ public sealed class ConsoleScreen : Window
             // already hides an empty table; what it cannot know is which of
             // the three absences this is.
             _airspaceTable.Visible = absence.Length == 0 && tree.Count > 0;
+
+            // AND THE DOCUMENT BESIDE IT. The bar's membership was reconciled
+            // at the top of this block, so what is offered is what it holds;
+            // a folder row offers nothing and gets the sentence instead.
+            var views = AirspaceViews.Offered(State);
+            var beside = _airspaceTable.Visible;
+
+            _airspaceViews.Visible = beside && views.Count > 0;
+            _airspaceNoDocument.Visible = beside && views.Count == 0;
+
+            if (_airspaceNoDocument.Visible)
+            {
+                _airspaceNoDocument.Text = string.Join(
+                    '\n',
+                    PaneText.AirspaceDocument(
+                        State, _airspaceNoDocument.Viewport.Width));
+            }
+
+            if (_viewTabbed.FirstOrDefault(t => t.View == State.AirspaceView).Pane
+                    is { } turned
+                && _onTheViewBar.Contains(State.AirspaceView))
+            {
+                if (!ReferenceEquals(_airspaceViews.Value, turned))
+                {
+                    _airspaceViews.Value = turned;
+                }
+
+                FillAirspaceDocument();
+            }
         }
         finally
         {
@@ -2221,6 +2378,49 @@ public sealed class ConsoleScreen : Window
         _readingSaid.SetSource(new ObservableCollection<string>(lines));
     }
 
+    /// <summary>
+    /// The selected document, in the view the pane's bar is showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only the showing one.</b> The other two panes are behind it and hold
+    /// whatever they last drew; they are refilled when they come forward,
+    /// which is the same render.
+    /// <para>
+    /// <b>And only when the lines change</b>, because setting a list's source
+    /// resets where a person had scrolled to, and Render runs once a second
+    /// for the countdown.
+    /// </para>
+    /// </remarks>
+    private void FillAirspaceDocument()
+    {
+        if (_viewTabbed.FirstOrDefault(t => t.View == State.AirspaceView).Said
+            is not { } said)
+        {
+            return;
+        }
+
+        var lines = PaneText.AirspaceDocument(State, said.Viewport.Width);
+
+        if (_airspaceSaidShowing is not null && _airspaceSaidShowing.SequenceEqual(lines))
+        {
+            return;
+        }
+
+        _airspaceSaidShowing = lines;
+        said.SetSource(new ObservableCollection<string>(lines));
+    }
+
+    /// <summary>The pane changed width, so the lines have to be broken again.</summary>
+    private void OnAirspaceDocumentResized(object? sender, EventArgs args)
+    {
+        if (State.ActiveTab is not TabId.Envelope)
+        {
+            return;
+        }
+
+        FillAirspaceDocument();
+    }
+
     /// <summary>The frame changed width, so the lines have to be broken again.</summary>
     private void OnReadingResized(object? sender, EventArgs args)
     {
@@ -2535,6 +2735,12 @@ public sealed class ConsoleScreen : Window
             _runnersTable.KeyDown -= OnTableKeyDown;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
+            _airspaceViews.ValueChanged -= OnAirspaceViewChanged;
+
+            foreach (var (_, _, said) in _viewTabbed)
+            {
+                said.ViewportChanged -= OnAirspaceDocumentResized;
+            }
             _readingSaid.ViewportChanged -= OnReadingResized;
 
             // ALL FOUR, and three of them were missed. The file already let go

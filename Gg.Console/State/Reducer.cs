@@ -799,9 +799,28 @@ public static class Reducer
     {
         var rows = AirspaceRows.Tree(state).Count;
 
-        return rows == 0
-            ? state
-            : state with { AirspaceSelected = Math.Clamp(row, 0, rows - 1) };
+        if (rows == 0)
+        {
+            return state;
+        }
+
+        var moved = state with { AirspaceSelected = Math.Clamp(row, 0, rows - 1) };
+
+        // AND THE PANE'S VIEW WITH IT. Which views a row has is the row's own
+        // answer - a file matching what is applied has nothing to compare, a
+        // strategy has no composition - so an arrow key can take away the view
+        // the pane is showing, and leave it pointing at a tab that is not on
+        // the bar. That disagreement between a model and a widget is what
+        // crashed the window's tabs.
+        //
+        // A REPAIR RATHER THAN A RESET, and only when there is an answer: a
+        // folder row offers nothing, and nothing is not evidence that the view
+        // somebody chose is wrong.
+        var offered = AirspaceViews.Offered(moved);
+
+        return offered.Count > 0 && !offered.Contains(moved.AirspaceView)
+            ? moved with { AirspaceView = offered[0] }
+            : moved;
     }
 
     private static AppState PickRunner(AppState state, int to) => state with

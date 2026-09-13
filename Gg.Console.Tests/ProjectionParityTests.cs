@@ -175,16 +175,12 @@ public class ProjectionParityTests
                         + "the console shows a sentence and not a state. Wired or the "
                         + "sentence is declared to be the whole of it.",
             ["Launched"] = "step 6, on the same footing as Invited.",
-            // WAS "the registered repositories as a tree", which was the wrong
-            // read: this one is the TOPOLOGY - envelope names and their roles -
-            // and the repositories are RegisteredRepositories, a different door.
-            // The same conflation was in the family's usage line. It is wired
-            // to a pane now, which is what that entry said would resolve it,
-            // and unwrapped by ConsoleEstate for the reason below rather than
-            // projected.
-            ["AirspaceTopology"] = "the topology: every envelope name and its role. Read by "
-                                 + "ConsoleEstate and unwrapped there, beside the diff it is "
-                                 + "joined with.",
+            // AirspaceTopology WAS EXEMPT HERE and is projected now. The entry
+            // said it was "read by ConsoleEstate and unwrapped there", which was
+            // true and made the names reachable only by pressing `v` - so a
+            // question asked at fly time could offer nothing on a console that
+            // had not visited the Envelope tab. It has an arm, so it has no
+            // entry: this list names nothing that is handled.
 
             // --- arms that would be wrong, and the reason is the same one ---
             // Each of these is the RESULT OF A WRITE THAT TAKES A FILE, which

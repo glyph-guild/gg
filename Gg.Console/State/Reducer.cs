@@ -1035,6 +1035,17 @@ public static class Reducer
             return PickWorkItemChange(state, row);
         }
 
+        // AND THE KINDS. Every modal above draws a list of its own and every
+        // one of them had to be added here as it did - which is what a list of
+        // special cases does when it is a list rather than a rule. Missing it
+        // for this one made the modal unusable: the arrows moved the work list
+        // behind the dialog, KindSelected never changed, and the render that
+        // followed put the highlight back on row zero.
+        if (state.Mode is UiMode.WorkKindChoice)
+        {
+            return PickWorkKind(state, row);
+        }
+
         return state.ActiveTab switch
         {
             TabId.Repositories => PickRepository(state, row),

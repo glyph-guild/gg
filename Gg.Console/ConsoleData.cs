@@ -697,6 +697,27 @@ public static class ConsoleProjection
                 continue;
             }
 
+            // THE CAUSE BEFORE THE SYMPTOMS. A flight whose credential will not
+            // resolve is claimed, refused and handed back by every runner that
+            // takes it, so it accumulates the shapes of trouble the two checks
+            // below look for. Shown as "expired twice" a person goes and looks
+            // at machines that are perfectly healthy; shown as what it is, they
+            // run one command.
+            //
+            // SINCE THE FIRST, unlike the expiries below. Two expiries is a
+            // PATTERN that became true at the second; a credential nobody has
+            // registered became true at the first and has been true ever since,
+            // and the default sort orders on how long somebody has been waiting.
+            var unresolved = log.Entries
+                .Where(e => e.Kind == StoryKinds.CredentialUnresolved)
+                .ToList();
+
+            if (unresolved.Count > 0)
+            {
+                rows.Add(Row(flight, QueueReason.CredentialUnresolved, unresolved[0].At));
+                continue;
+            }
+
             var expiries = log.Entries.Where(e => e.Kind == "lease-expired").ToList();
             if (expiries.Count >= ExpiriesThatMeanTrouble)
             {

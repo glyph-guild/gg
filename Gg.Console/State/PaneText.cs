@@ -2410,6 +2410,7 @@ public static class PaneText
         UiMode.FloorChoice => "How much to keep back",
         UiMode.ComposeChoice => "How do you want to write this flight?",
         UiMode.WorkKindChoice => "What is this flight for?",
+        UiMode.BrowseFilter => "Narrow the work list",
         UiMode.WorkItemDetail => "The work item",
         _ => "",
     };
@@ -2671,6 +2672,7 @@ public static class PaneText
             UiMode.FloorChoice => FloorChoice(state),
             UiMode.ComposeChoice => ComposeChoice(),
             UiMode.WorkKindChoice => WorkKindChoice(state),
+            UiMode.BrowseFilter => BrowseFilter(state),
 
             // WHAT THE READER SAID, WHOLE. Wrapped like every other document in
             // a box this size, and otherwise untouched: it is one tracker's
@@ -2708,6 +2710,62 @@ public static class PaneText
     /// a tenant with three and does nothing on a tenant with two.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The choices a tracker offered, with the picked ones marked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The picked rows are marked, or a person cannot tell what they have
+    /// already chosen.</b> The cursor says where they are; the mark says what
+    /// is in force, and a modal that showed only the first is one somebody
+    /// narrows twice by accident.
+    /// </para>
+    /// <para>
+    /// <b>Nothing here advertises a key.</b> The hint line is generated from
+    /// the same context dispatch uses, so keys said here would be a second
+    /// place to keep true - and a line shaped like an offer for a key that does
+    /// not resolve is what the dead-key ratchet reads as a lie.
+    /// </para>
+    /// <para>
+    /// <b>A reader that could not be asked gets its own sentence.</b> Three
+    /// empty groups and a reader that does not declare the tool look identical,
+    /// and one of them means go and look at the reader.
+    /// </para>
+    /// </remarks>
+    private static string BrowseFilter(AppState state)
+    {
+        var text = new StringBuilder();
+
+        if (state.Facets?.Why is { Length: > 0 } why)
+        {
+            return Clean(why);
+        }
+
+        var rows = BrowseFilters.Rows(state);
+
+        if (rows.Count == 0)
+        {
+            return "Nothing has been asked for the choices yet.";
+        }
+
+        text.AppendLine(
+            "Narrowing goes to the tracker rather than to the rows already fetched, so a "
+          + "sprint whose work sorted below the cut is still found.");
+        text.AppendLine();
+
+        var cursor = Math.Clamp(state.FilterSelected, 0, rows.Count - 1);
+
+        for (var row = 0; row < rows.Count; row++)
+        {
+            text.AppendLine(
+                (row == cursor ? "> " : "  ")
+              + Clean(rows[row].Said)
+              + (rows[row].Chosen ? "  *" : ""));
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     private static string WorkKindChoice(AppState state)
     {
         var kinds = WorkKinds.Declared(state);

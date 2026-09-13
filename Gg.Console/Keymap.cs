@@ -811,6 +811,37 @@ public static class Keymap
         // page is built by enumerating shapes. Six fixed keys over a list of any
         // length is the table's answer, and it is already how every other list
         // in this console is walked.
+        // THE SAME LIST-WITH-A-CURSOR SHAPE, over values that are a tracker's.
+        // A key per answer would be a keymap whose length depends on how many
+        // sprints a team has run.
+        UiMode.BrowseFilter =>
+        [
+            // THE LIST'S CURSOR, untaught and off the hint line for the reason
+            // every other modal list's is: the arrows do this through the
+            // widget, so the one line of hints goes to keys with nowhere else
+            // to be found.
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { Untaught = true, OffTheHintLine = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { Untaught = true, OffTheHintLine = true },
+
+            // PICKING IS NOT BROWSING, and two keys say so. A browse tears this
+            // session down and starts a child holding a credential, so a toggle
+            // that re-queried would spawn a reader per cursor move - and a
+            // person narrowing three ways would watch the screen blink three
+            // times to see one answer.
+            new(KeyStroke.EnterKey, Command.PickFilterValue, "pick this") { Label = "Pick" },
+
+            // INSIDE A MODAL THE LETTERS ARE FREE, so both of these can be the
+            // word they mean.
+            new(KeyStroke.Char('b'), Command.BrowseFiltered, "list the work again")
+                { Label = "Browse" },
+            new(KeyStroke.Char('x'), Command.ClearFilter, "take the filter off")
+                { Label = "Clear" },
+
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.WorkKindChoice =>
         [
             // THE LIST'S CURSOR, untaught and off the hint line for the reason
@@ -1027,8 +1058,19 @@ public static class Keymap
                         : []]
                 : [],
             .. context.Showing == TabId.Browse
-                ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
-                    { When = "while the browse tab is showing" }]
+                ? (KeyBinding[])[
+                    new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
+                        { When = "while the browse tab is showing" },
+
+                    // CHOSEN FOR BEING FREE, AND SAID TO BE. Every letter this
+                    // console binds was taken before this key was needed, and a
+                    // mnemonic that silently shadows another key is worse than
+                    // one picked for being unused - which `/` is, in every mode.
+                    // It also says the right thing: it is what narrows a list
+                    // everywhere else a person has narrowed one.
+                    new(KeyStroke.Char('/'), Command.FilterBrowse, "narrow the list")
+                        { When = "while the browse tab is showing" },
+                ]
                 : [],
             // Only offered when there is something to take. A key advertised
             // against a flight with no held tree is a key that does nothing, and

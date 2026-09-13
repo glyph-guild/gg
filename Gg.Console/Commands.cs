@@ -597,6 +597,45 @@ public enum Command
     ShowWorkItem,
 
     /// <summary>
+    /// Ask the tracker what there is to narrow the listing by, and offer it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The shell's, for the sentence one command up.</b> The choices come
+    /// from a child process holding a credential, which is a spawn and not a
+    /// read, and a UI session may do neither. It opens the modal with what came
+    /// back - including the sentence that came back instead.
+    /// </remarks>
+    FilterBrowse,
+
+    /// <summary>
+    /// Pick, or un-pick, the choice the filter cursor is on.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reducer's, because it changes nothing outside the model.</b>
+    /// Choosing is not applying: a browse tears the session down and starts a
+    /// reader, so re-querying per toggle would spawn a child per cursor move.
+    /// </remarks>
+    PickFilterValue,
+
+    /// <summary>Take the whole filter off, in one key.</summary>
+    /// <remarks>
+    /// Also the reducer's. Clearing one dimension is a row in the list; this is
+    /// the key for a person who narrowed three ways and wants the backlog back.
+    /// </remarks>
+    ClearFilter,
+
+    /// <summary>
+    /// List the work again, narrowed by whatever is picked.
+    /// </summary>
+    /// <remarks>
+    /// <b>The shell's, because it is a browse.</b> It is the same spawn
+    /// <see cref="ToggleBrowse"/> performs and it earns its own name because it
+    /// closes the modal first: a filter applied under a dialog that stays up is
+    /// a person looking at choices instead of at what they chose.
+    /// </remarks>
+    BrowseFiltered,
+
+    /// <summary>
     /// Open the work item where it lives.
     /// </summary>
     /// <remarks>
@@ -843,6 +882,13 @@ public static class ShellCommands
         // difference the rule turns on.
         Command.ShowWorkItem,
         Command.OpenWorkItem,
+
+        // AND ASKING WHAT THERE IS TO FILTER BY, which is the same spawn again.
+        // Both of these run the reader; one asks it for work and the other asks
+        // it for the shape of the tracker, and the rule turns on the child and
+        // the credential rather than on what is fetched.
+        Command.FilterBrowse,
+        Command.BrowseFiltered,
 
         Command.ForgetCredential,
 

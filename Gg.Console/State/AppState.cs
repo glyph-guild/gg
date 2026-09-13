@@ -239,6 +239,18 @@ public enum UiMode
     WorkKindChoice,
 
     /// <summary>
+    /// What to narrow the work list to, picked from what the tracker offers.
+    /// </summary>
+    /// <remarks>
+    /// <b>A list with a cursor, over values that are a tenant's.</b> An area
+    /// path is a tree carrying somebody's punctuation and a sprint is whatever
+    /// a team named a fortnight; typed one character wrong, either answers an
+    /// empty listing indistinguishable from a sprint with no work in it. So
+    /// they are picked, and the modal is where.
+    /// </remarks>
+    BrowseFilter,
+
+    /// <summary>
     /// What one work item says, in the reader's own words.
     /// </summary>
     /// <remarks>
@@ -1101,28 +1113,6 @@ public sealed record AppState
     /// <summary>Which silence the live pane is showing, when it is showing one.</summary>
     public LiveSilence Silence { get; init; } = LiveSilence.NotAttached;
 
-    /// <summary>
-    /// The work a tracker offered to pick from, or why it offered none.
-    /// </summary>
-    /// <remarks>
-    /// <b>Null is "no reader was ever asked"</b>, which is a different sentence
-    /// from a reader that answered nothing - the same distinction
-    /// <see cref="Silence"/> draws for the live view, and for the same reason:
-    /// an empty box cannot say which of them it is showing.
-    /// </remarks>
-    /// <summary>Whether the browse pane has the region.</summary>
-    /// <remarks>
-    /// One region, one pane: turning this on turns <see cref="LiveVisible"/>
-    /// off, because two visible flags over one region is two panes drawn on
-    /// top of each other.
-    /// </remarks>
-    /// <summary>Which row of the work list is picked.</summary>
-    /// <remarks>
-    /// <b>Not <see cref="SelectedRow"/>, which is the queue's.</b> The queue's
-    /// selection is what the flight pane hangs off; somebody scrolling a work
-    /// list and returning to a different flight than they left is the confusion
-    /// two indices avoid.
-    /// </remarks>
     /// <summary>A flight this console has asked about but not opened.</summary>
     /// <remarks>
     /// <b>Held rather than passed</b>, because the answer arrives on a later
@@ -1155,11 +1145,76 @@ public sealed record AppState
     /// </remarks>
     public string? LastSignIn { get; init; }
 
+    /// <summary>Which row of the work list is picked.</summary>
+    /// <remarks>
+    /// <b>Not <see cref="SelectedRow"/>, which is the queue's.</b> The queue's
+    /// selection is what the flight pane hangs off; somebody scrolling a work
+    /// list and returning to a different flight than they left is the confusion
+    /// two indices avoid.
+    /// </remarks>
     public int BrowseSelected { get; init; }
 
+    /// <summary>Whether the browse pane has the region.</summary>
+    /// <remarks>
+    /// One region, one pane: turning this on turns <see cref="LiveVisible"/>
+    /// off, because two visible flags over one region is two panes drawn on top
+    /// of each other.
+    /// </remarks>
     public bool BrowseVisible { get; init; }
 
+    /// <summary>
+    /// The work a tracker offered to pick from, or why it offered none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is "no reader was ever asked"</b>, which is a different sentence
+    /// from a reader that answered nothing - the same distinction
+    /// <see cref="Silence"/> draws for the live view, and for the same reason:
+    /// an empty box cannot say which of them it is showing.
+    /// </remarks>
     public BrowseListing? Browse { get; init; }
+
+    /// <summary>
+    /// What this tracker offers to narrow by, or null until somebody asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked, never assumed.</b> Nothing here can be derived from a listing:
+    /// a page of fifty items names the two sprints those fifty are in, and
+    /// offering those as the sprints would hide every other one behind the
+    /// paging - a filter that can only find what is already on screen.
+    /// </remarks>
+    public BrowseFacets? Facets { get; init; }
+
+    /// <summary>Which row of the filter modal the cursor is on.</summary>
+    /// <remarks>
+    /// A cursor of its own for <see cref="BrowseSelected"/>'s reason: the modal
+    /// is over the work list, and one index would move a person's place in the
+    /// list they are narrowing while they narrow it.
+    /// </remarks>
+    public int FilterSelected { get; init; }
+
+    /// <summary>
+    /// The area path every listing will be narrowed to, or null for all of them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is the ordinary state and means "do not narrow".</b> It is not
+    /// an empty path: a tracker asked to match items filed at "" would answer
+    /// the ones filed nowhere, which is none of them.
+    /// </remarks>
+    public string? ChosenAreaPath { get; init; }
+
+    /// <summary>The sprint every listing will be narrowed to, or null.</summary>
+    public string? ChosenIteration { get; init; }
+
+    /// <summary>
+    /// The states a listing will be narrowed to, REPLACING the default.
+    /// </summary>
+    /// <remarks>
+    /// <b>A set, because a query takes one</b> - a person wants what is active
+    /// and what is resolved together. Empty means the reader's own default,
+    /// which is open work; asking for closed work means naming it here, and
+    /// anding the default on top would answer nothing for ever.
+    /// </remarks>
+    public IReadOnlyList<string> ChosenStates { get; init; } = [];
 
     /// <summary>What this tenant can fly against, or null if never asked.</summary>
     /// <remarks>

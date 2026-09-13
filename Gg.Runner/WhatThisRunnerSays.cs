@@ -38,6 +38,16 @@ public sealed class WhatThisRunnerSays(
     private string _doing = "starting";
     private string? _diagnosis;
 
+    /// <summary>The flight this runner holds, as a person reads it. Null when none.</summary>
+    /// <remarks>
+    /// <b>Learned from the lease and nowhere else.</b> Claimed carries it; a
+    /// second derivation would be a second answer to what this machine is on.
+    /// </remarks>
+    private string? _flightNumber;
+
+    /// <summary>When this runner last beat the control plane.</summary>
+    private DateTimeOffset? _beatAt;
+
     public LogTail Tail(int lines)
     {
         var read = _log.Tail(lines);
@@ -60,6 +70,8 @@ public sealed class WhatThisRunnerSays(
                 Doing = _doing,
                 Diagnosis = _diagnosis,
                 At = _now(),
+                FlightNumber = _flightNumber,
+                BeatAt = _beatAt,
             };
         }
     }
@@ -97,8 +109,39 @@ public sealed class WhatThisRunnerSays(
 
     public void Claimed(LeaseGranted lease)
     {
+        ArgumentNullException.ThrowIfNull(lease);
+
         Doing("working a flight");
+
+        lock (_gate)
+        {
+            _flightNumber = lease.FlightNumber;
+        }
+
         _inner.Claimed(lease);
+    }
+
+    /// <summary>
+    /// This runner beat the control plane.
+    /// </summary>
+    /// <remarks>
+    /// <b>A SECOND LIVENESS, and it is not this channel's.</b> A watcher can see
+    /// that an answer came back; what it cannot see from here is whether the
+    /// machine is still reaching the control plane. A runner partitioned from
+    /// the control plane answers a peer connection perfectly and is never given
+    /// work again, and a person watching it wait deserves to know which of those
+    /// two silences they are in.
+    /// <para>
+    /// <b>It does not touch what this runner is DOING.</b> Beating happens
+    /// beside a flight and beside an idle poll alike.
+    /// </para>
+    /// </remarks>
+    public void Beat(DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            _beatAt = at;
+        }
     }
 
     public void Renewed(string leaseId, DateTimeOffset expiresAt) =>
@@ -107,12 +150,31 @@ public sealed class WhatThisRunnerSays(
     public void Fenced(string leaseId)
     {
         Doing("fenced - the flight is somebody else's now");
+        FlyingNothing();
         _inner.Fenced(leaseId);
+    }
+
+    /// <summary>
+    /// Lets go of the flight. Every ending calls it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A number that outlives its flight is worse than none</b>, because the
+    /// one thing it is on the wire to report is a CHANGE - so a watcher left
+    /// holding a landed flight's number goes on naming work that is over, and
+    /// says nothing when the next one starts.
+    /// </remarks>
+    private void FlyingNothing()
+    {
+        lock (_gate)
+        {
+            _flightNumber = null;
+        }
     }
 
     public void Released(string leaseId, string disposition)
     {
         Doing($"released a flight: {disposition}");
+        FlyingNothing();
         _inner.Released(leaseId, disposition);
     }
 
@@ -147,12 +209,14 @@ public sealed class WhatThisRunnerSays(
     public void Idle()
     {
         Doing("idle");
+        FlyingNothing();
         _inner.Idle();
     }
 
     public void Parked()
     {
         Doing("parked - somebody withheld this machine");
+        FlyingNothing();
         _inner.Parked();
     }
 
@@ -161,12 +225,14 @@ public sealed class WhatThisRunnerSays(
         // NOT "PARKED", and not "idle". A person watching this runner needs to
         // know there is nothing to do about it and nobody to ask.
         Doing("allowance spent - waiting for the window to roll over");
+        FlyingNothing();
         _inner.AllowanceSpent();
     }
 
     public void Waiting(IReadOnlyList<string> repositories)
     {
         Doing($"waiting on {repositories.Count} repositor{(repositories.Count == 1 ? "y" : "ies")}");
+        FlyingNothing();
         _inner.Waiting(repositories);
     }
 

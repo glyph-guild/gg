@@ -293,6 +293,9 @@ public class ConsoleWriteVerbsTests
         public string PathFor(string locator) => "(none)";
         public void Write(string locator, string secret) { }
         public string? Read(string locator) => null;
+
+        // Presence without resolving; this double holds nothing to resolve.
+        public bool Holds(string locator) => false;
         public bool Remove(string locator) => false;
     }
 

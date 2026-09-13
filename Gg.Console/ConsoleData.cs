@@ -597,6 +597,11 @@ public static class ConsoleProjection
             VerbResult.AirspaceRepositories repositories => state with
             {
                 Repositories = repositories.Value,
+                // THE STANDINGS ARRIVE WITH THE LIST, because they are one
+                // answer about the same repositories at the same moment. Held
+                // apart, a refresh that updated one and not the other would
+                // label rows with the previous read's credentials.
+                RepositoryCredentials = repositories.Standings,
                 RepositorySelected = 0,
                 Diagnosis = null,
             },

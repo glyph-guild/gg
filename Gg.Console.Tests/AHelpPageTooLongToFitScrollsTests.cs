@@ -160,6 +160,45 @@ public class AHelpPageTooLongToFitScrollsTests
     }
 
     [Test]
+    public async Task A_document_says_how_much_of_it_is_left()
+    {
+        // WITHOUT A BAR, A FULL BOX AND A LONG PAGE LOOK ALIKE. "Not
+        // scrollable" was reported about a page that genuinely was not; a page
+        // that scrolls and shows no sign of it is the same sentence from the
+        // other side, and the console draws no scrollbar anywhere today.
+        var list = CollectionViews.Document();
+
+        await Assert.That(list.VerticalScrollBar.VisibilityMode)
+            .IsEqualTo(ScrollBarVisibilityMode.Auto)
+            .Because("shown when there is more and gone when there is not, so the bar "
+                   + "itself is a fact about the document rather than furniture.");
+    }
+
+    [Test]
+    public async Task And_its_text_stops_short_of_the_bar()
+    {
+        // MEASURED IN A PTY: the bar draws INSIDE the viewport, over the last
+        // column, so a line wrapped to the full width runs under it and loses
+        // its final character - which on this page is the last word of a
+        // sentence.
+        var list = CollectionViews.Document();
+        list.Width = 60;
+        list.Height = 10;
+        list.Layout();
+
+        await Assert.That(CollectionViews.TextWidth(list)).IsEqualTo(list.Viewport.Width - 1)
+            .Because("the column the bar sits in is not the document's to wrap into.");
+
+        var plain = CollectionViews.List();
+        plain.Width = 60;
+        plain.Height = 10;
+        plain.Layout();
+
+        await Assert.That(CollectionViews.TextWidth(plain)).IsEqualTo(plain.Viewport.Width)
+            .Because("a list with no bar has the whole width, and the queue is one.");
+    }
+
+    [Test]
     public async Task So_the_screen_refills_a_page_only_when_it_changes()
     {
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");

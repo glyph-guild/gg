@@ -49,7 +49,14 @@ public class SignalRidesTheHeartbeatTests
         // it and inherits the rule rather than being trusted to have thought of
         // it - the whole point of the poll carrying things is that a fleet with
         // nothing waiting sends what it always sent.
-        foreach (var member in (string[])["Introductions", "Offered"])
+        //
+        // `Forget` IS THE THIRD, and it inherits the rule the same way. It is
+        // also the one where absence matters most: a runner ahead of its
+        // control plane reads a missing member on every single beat, and a
+        // reader that took absence for "drop everything" would empty a fleet's
+        // credential stores the first time the two repositories were a version
+        // apart.
+        foreach (var member in (string[])["Introductions", "Offered", "Forget"])
         {
             var declared = typeof(HeartbeatAccepted).GetProperty(member)!;
 
@@ -60,7 +67,8 @@ public class SignalRidesTheHeartbeatTests
         }
 
         await Assert.That(ProtocolSurface.JsonMembers[typeof(HeartbeatAccepted)])
-            .IsEquivalentTo(new[] { "nextHeartbeatSeconds", "introductions", "offered" });
+            .IsEquivalentTo(
+                new[] { "nextHeartbeatSeconds", "introductions", "offered", "forget" });
     }
 
     [Test]

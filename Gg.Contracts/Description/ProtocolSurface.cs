@@ -1546,7 +1546,8 @@ public static class ProtocolSurface
             [typeof(RunnerHeartbeat)] = ["labels"],
             // `introductions` is absent unless a console is waiting, so an idle
             // fleet's heartbeat body is byte-for-byte what it always was.
-            [typeof(HeartbeatAccepted)] = ["nextHeartbeatSeconds", "introductions", "offered"],
+            [typeof(HeartbeatAccepted)] =
+                ["nextHeartbeatSeconds", "introductions", "offered", "forget"],
             // THE SAME DOCUMENT TWO WAYS ROUND, which is why its member names
             // had to be pinned the moment it became a route's answer: a runner
             // reads it off `offered` above and a person reads it from

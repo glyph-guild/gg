@@ -36,7 +36,8 @@ namespace Gg.Cli;
 /// failed to store would be the one place it did.
 /// </para>
 /// </remarks>
-public sealed class LocalCredentialKeeper(ICredentialStore store) : IKeepACredential
+public sealed class LocalCredentialKeeper(ICredentialStore store)
+    : IKeepACredential, IForgetACredential
 {
     private readonly ICredentialStore _store = store;
 
@@ -84,6 +85,28 @@ public sealed class LocalCredentialKeeper(ICredentialStore store) : IKeepACreden
     /// </remarks>
     public static Gg.Local.Configuration Opened(Gg.Local.Configuration? existing) =>
         (existing ?? new Gg.Local.Configuration()) with { AcceptConfigured = true };
+
+    /// <summary>
+    /// Somewhere to destroy a credential. Always.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>NO GATE, and the asymmetry with <see cref="For"/> is the design.</b>
+    /// A machine has to agree to be GIVEN a secret, because that is somebody
+    /// else putting something on it. Nobody has to agree to have one taken
+    /// away, and a machine that would not forget when told is a liability -
+    /// revocation that a host can decline is revocation that did not happen.
+    /// </para>
+    /// <para>
+    /// <b>A separate factory rather than a parameter</b>, so the two decisions
+    /// read differently at the call site. One asks a question of the file; this
+    /// one does not have a question to ask.
+    /// </para>
+    /// </remarks>
+    public static IForgetACredential Forgetting(ICredentialStore store) =>
+        new LocalCredentialKeeper(store);
+
+    public bool Forget(string locator) => _store.Remove(locator);
 
     public bool Keep(string locator, string secret)
     {

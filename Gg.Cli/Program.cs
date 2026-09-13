@@ -2152,6 +2152,10 @@ static async Task<int> RunnerUpAsync()
             // one rather than for want of a check, the way a runner handed no
             // private key is simply unreachable.
             keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()),
+            // AND UNCONDITIONALLY, SOMEWHERE TO DESTROY ONE. No question is
+            // asked of the file: a machine agrees to be given a secret, and
+            // nobody agrees to have one taken away.
+            forgetCredential: LocalCredentialKeeper.Forgetting(new FileCredentialStore()),
             // A NEW OFFER ENDS THIS PROCESS SO THE NEXT ONE TAKES IT. Nothing
             // is applied here: everything above was composed already, and the
             // startup path is the one place an offer lands. Stopping is how
@@ -2399,7 +2403,10 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // start wrote accept-configured above; every start after this reads it
         // from the file, so a member bounced by the pool comes back with the
         // same answer rather than a fresh assumption.
-        keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()));
+        keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()),
+        // UNCONDITIONAL HERE TOO, and a member is the case it matters for: it
+        // is the machine nobody can open a shell on to clean up by hand.
+        forgetCredential: LocalCredentialKeeper.Forgetting(new FileCredentialStore()));
 }
 
 /// <summary>

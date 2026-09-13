@@ -73,6 +73,15 @@ public sealed record Sent(SendOutcome Outcome, string Said);
 /// </remarks>
 public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel channel)
 {
+    /// <summary>What this reach asks a capability to authorise.</summary>
+    /// <remarks>
+    /// <b>Not <see cref="WatchARunner.Purpose"/>, and that difference is the
+    /// whole reason a purpose exists.</b> Until a console could say which it
+    /// wanted, every introduction was minted for tailing a log and the
+    /// narrowing was decoration.
+    /// </remarks>
+    public static string Purpose => RunnerCapabilityPurposes.ConfigureThisRunner;
+
     /// <summary>
     /// The secret to send: this machine's copy, or one typed now.
     /// </summary>
@@ -182,6 +191,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
             sessionToken,
             runner.RunnerId,
             Convert.ToBase64String(ephemeral.ExportSubjectPublicKeyInfo()),
+            Purpose,
             cancellationToken);
 
         if (introduced.Introduction is not { } introduction)

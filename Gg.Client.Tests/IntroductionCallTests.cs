@@ -71,7 +71,8 @@ public class IntroductionCallTests
         var handler = new Answering(HttpStatusCode.OK, AnIntroduction);
 
         var introduced = await Against(handler)
-            .IntroduceRunnerAsync("a-session", Runner, "the-console-key");
+            .IntroduceRunnerAsync(
+                "a-session", Runner, "the-console-key", WatchARunner.Purpose);
 
         await Assert.That(introduced.Refusal).IsEqualTo(IntroductionRefusal.None);
         await Assert.That(introduced.Introduction!.IntroductionId).IsEqualTo("intro-1");
@@ -82,6 +83,14 @@ public class IntroductionCallTests
             .Because("the control plane stores the hash of this key against the row, so a "
                    + "console that sends one key and seals with another has declared something "
                    + "it did not do.");
+
+        // AND WHAT IT IS FOR, which used to be unsayable. Every introduction was
+        // minted for tailing a log because the request had nowhere to name
+        // anything else, so the second purpose existed in the build and in
+        // nothing that crossed.
+        await Assert.That(handler.SentBody).Contains(RunnerCapabilityPurposes.TailYourOwnLog)
+            .Because("a purpose the control plane never receives is a capability it cannot "
+                   + "narrow, whatever the vocabulary says.");
     }
 
     [Test]
@@ -92,7 +101,8 @@ public class IntroductionCallTests
         HttpStatusCode status, IntroductionRefusal refusal, string names)
     {
         var introduced = await Against(new Answering(status))
-            .IntroduceRunnerAsync("a-session", Runner, "the-console-key");
+            .IntroduceRunnerAsync(
+                "a-session", Runner, "the-console-key", WatchARunner.Purpose);
 
         await Assert.That(introduced.Refusal).IsEqualTo(refusal);
         await Assert.That(introduced.Introduction).IsNull();

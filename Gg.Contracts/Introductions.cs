@@ -48,6 +48,44 @@ public static class RunnerCapabilityPurposes
 
     public static IReadOnlyList<string> All { get; } =
         [TailYourOwnLog, ConfigureThisRunner];
+
+    /// <summary>
+    /// The purpose an introduction is actually minted for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>On the contract for <see cref="RunnerSeal"/>'s reason: one rule both
+    /// sides compile against, rather than two that agree today.</b> gg decides
+    /// what to ask for and the control plane decides what to mint, and a
+    /// default invented separately in each is how an older console comes to be
+    /// introduced for something it never requested.
+    /// </para>
+    /// <para>
+    /// <b>Absence is <see cref="TailYourOwnLog"/>, and that is not a
+    /// preference.</b> Every introduction ever minted has been for it, because
+    /// until this member existed there was nothing else to mint. A console that
+    /// predates the member sends none and has to go on being introduced exactly
+    /// as it was — anything else changes what an old console gets without that
+    /// console changing.
+    /// </para>
+    /// </remarks>
+    public static string Requested(string? asked) =>
+        asked is { Length: > 0 } named ? named : TailYourOwnLog;
+
+    /// <summary>
+    /// Why a requested purpose cannot be minted, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Absence is an older console, not a bad one</b> — so it is not refused
+    /// here, it is resolved by <see cref="Requested"/>. What IS refused is a
+    /// value nobody declared, which is the closure's own argument: a free
+    /// string would make "one purpose" a description of today.
+    /// </remarks>
+    public static string? Refused(string? asked) =>
+        asked is not { Length: > 0 } named || All.Contains(named, StringComparer.Ordinal)
+            ? null
+            : $"'{named}' is not a purpose an introduction can be minted for. "
+            + $"This build knows {string.Join(", ", All)}.";
 }
 
 /// <summary>
@@ -73,6 +111,35 @@ public sealed record RunnerIntroductionRequest
     /// look after on a machine that already has a session token.
     /// </remarks>
     public required string EphemeralPublicKey { get; init; }
+
+    /// <summary>
+    /// What the capability should authorise, or absent for the only thing it
+    /// ever authorised before this member existed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Without this, <see cref="RunnerCapabilityPurposes"/> was a closed
+    /// vocabulary with an unreachable member.</b> A console could not say what
+    /// it wanted an introduction for, so the control plane minted
+    /// <c>tail-your-own-log</c> for every one — and the second value existed in
+    /// the build, in the fingerprint and in nothing else. The narrowing the type
+    /// was written to express could not be requested.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, because the two repositories are not upgraded in step.</b>
+    /// <see cref="RunnerCapabilityPurposes.Requested"/> is where absence becomes
+    /// a purpose, so an older console is introduced exactly as it was.
+    /// </para>
+    /// <para>
+    /// <b>It is still not a check the runner performs.</b> The runner cannot
+    /// verify a capability — see <see cref="RunnerSealedOffer"/> on why one was
+    /// removed from the offer — so what this buys is the control plane's
+    /// refusal and the flight log's record of what a console said it was for.
+    /// What restrains a write on the machine is the machine's own
+    /// <c>accept-configured</c>.
+    /// </para>
+    /// </remarks>
+    public string? Purpose { get; init; }
 }
 
 /// <summary>

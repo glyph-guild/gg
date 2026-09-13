@@ -57,11 +57,7 @@ return CliArgs.Parse(args) switch
     // whichever came first - and it was the ordinary one, which is how
     // `--hand` parsed for a whole slice and did nothing.
     CliAction.Fly { ByHand: true } hand => await HandAsync(hand),
-    CliAction.Fly fly => await EmitAsync(
-        fly.Json, c => c.FlyAsync(
-            fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository,
-            runner: fly.Runner, attended: fly.Attended,
-            workKind: fly.WorkKind, environment: fly.Environment)),
+    CliAction.Fly fly => await EmitAsync(fly.Json, c => Flown(c, fly)),
     CliAction.Flights flights => await EmitAsync(
         flights.Json, c => c.ListAsync(flights.All, intent: flights.Intent)),
     CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
@@ -1939,6 +1935,33 @@ static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
     return 0;
 }
 
+/// <summary>
+/// Opens a flight from what a person typed, whichever door they came through.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>ONE CALL, BECAUSE THERE ARE TWO DOORS AND THEY DRIFTED.</b> The ordinary
+/// arm passed all nine values and the <c>--hand</c> arm passed five, so
+/// <c>gg fly --hand --work-kind X</c> parsed, said nothing, and opened a flight
+/// with no work kind - a flag neither refused nor honoured, which is the worst
+/// of the three. The comment above the two arms already records the same defect
+/// on the same door once before.
+/// </para>
+/// <para>
+/// <b>Everything a person typed crosses; nothing is decided here.</b> A work
+/// kind can only narrow root and an environment is checked against the composed
+/// envelope, so both are the control plane's to refuse with a better sentence
+/// than this could produce. What this owes them is delivery.
+/// </para>
+/// </remarks>
+static Task<VerbResult> Flown(
+    FlightCommands commands, CliAction.Fly fly, CancellationToken cancellationToken = default) =>
+    commands.FlyAsync(
+        fly.Text, fly.Uri, name: null, cancellationToken,
+        provider: fly.Provider, id: fly.Id, repository: fly.Repository,
+        runner: fly.Runner, attended: fly.Attended,
+        workKind: fly.WorkKind, environment: fly.Environment);
+
 static async Task<int> HandAsync(CliAction.Fly fly)
 {
     var session = new FileSessionStore().Read();
@@ -1966,8 +1989,7 @@ static async Task<int> HandAsync(CliAction.Fly fly)
         // WHAT THIS MACHINE ADVERTISES. The plan prices against the fleet, and a
         // label some other runner has is useless to a person at this keyboard.
         advertised: labels,
-        open: _ => commands.FlyAsync(
-            fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository),
+        open: token => Flown(commands, fly, token),
         hold: (flightId, token) => HoldAsync(baseAddress, http, session, labels, flightId, token),
         say: Console.WriteLine,
         // THE PERSON'S SESSION, ON A DOOR THAT ANSWERS TO ONE. Rule 8: the

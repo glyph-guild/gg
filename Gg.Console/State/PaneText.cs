@@ -2054,7 +2054,27 @@ public static class PaneText
         }
 
         var text = new StringBuilder();
-        text.AppendLine($"{listing.ProviderKey} — {listing.Items.Count} item(s)");
+
+        // WHAT THESE ROWS WERE NARROWED BY, on the line that counts them. Two
+        // items under a filter nobody can see is a person concluding their
+        // backlog is nearly done - the full-box version of the lie the five
+        // endings above prevent.
+        text.AppendLine(
+            $"{listing.ProviderKey} — {listing.Items.Count} item(s)"
+          + (listing.FilterSaid is { Length: > 0 } narrowed ? $" — {Clean(narrowed)}" : ""));
+
+        // AND WHEN WHAT IS PICKED IS NOT WHAT IS SHOWING. Picking and browsing
+        // are two keys, so between them the rows are older than the filter in
+        // hand; quietly drawing the old ones under the new name would be the
+        // same lie by omission.
+        if (!string.Equals(
+                BrowseFilters.Said(state), listing.FilterSaid, StringComparison.Ordinal))
+        {
+            text.AppendLine(
+                "The filter you have picked has not been listed yet — press b in the filter "
+              + "to list the work again.");
+        }
+
         text.AppendLine();
 
         foreach (var item in listing.Items)

@@ -83,10 +83,13 @@ public class TheTablesAreTablesTests
         await Assert.That(Rows.FlightColumns).IsEquivalentTo((string[])
             ["flight", "state", "loop", "age", "work"]);
         await Assert.That(Rows.BrowseColumns).IsEquivalentTo((string[])
-            ["item", "state", "title"]);
-        // AND THE BROWSE ROWS WERE ALREADY ROWS. BrowseRow has held these three
+            ["item", "state", "where", "title"]);
+        // AND THE BROWSE ROWS WERE ALREADY ROWS. BrowseRow has held these
         // fields since the pane was written; the renderer flattened them into a
-        // string, which is the step this change removes.
+        // string, which is the step that change removed. `where` is the fourth
+        // because it is what a filter narrows on: a person who narrows to a
+        // team and sees the same undifferentiated list cannot tell a filter
+        // that took from one that did not.
         await Assert.That(Rows.RepositoryColumns).IsEquivalentTo((string[])
             ["", "path", "name"]);
     }

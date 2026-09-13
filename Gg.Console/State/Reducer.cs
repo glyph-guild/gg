@@ -1085,7 +1085,27 @@ public static class Reducer
         return Toggled(state, TabId.Envelope);
     }
 
-    public static AppState Browsed(AppState state, string providerKey, BrowseOutcome outcome)
+    /// <param name="said">
+    /// What the listing was narrowed by, or null where nobody narrowed. Recorded
+    /// on the listing because it is the only moment the filter in hand and the
+    /// rows on screen are the same thing.
+    /// </param>
+    /// <summary>
+    /// The last segment of a tracker's path, or null where there is none.
+    /// </summary>
+    /// <remarks>
+    /// Every row of one project shares the root, so the whole path is a column
+    /// of one repeated word with the part that differs pushed off the edge.
+    /// </remarks>
+    private static string? Leaf(string? path) =>
+        path is { Length: > 0 }
+            ? path.Split('\\', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 } parts
+                ? parts[^1]
+                : path
+            : null;
+
+    public static AppState Browsed(
+        AppState state, string providerKey, BrowseOutcome outcome, string? said = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(outcome);
@@ -1114,8 +1134,11 @@ public static class Reducer
                         State = item.State,
                         Updated = item.Updated,
                         Url = item.Url is { Length: > 0 } where ? where : null,
+                        Where = Leaf(item.AreaPath),
+                        Sprint = item.Iteration,
                     })],
                     NextCursor = listed.Page.NextCursor,
+                    FilterSaid = said,
                 },
 
                 BrowseOutcome.NotBrowsable why => Absent(providerKey, why.Why),

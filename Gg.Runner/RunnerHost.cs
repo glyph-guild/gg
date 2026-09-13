@@ -320,6 +320,24 @@ public static class RunnerHost
             flightId => new TheFlightsOwnOutput(Gg.Local.LocalPaths.LiveView(flightId)),
             () => DateTimeOffset.UtcNow);
 
+        // THE RUN'S, NOT A FLIGHT'S, and this `using` is the whole of its
+        // lifetime. It used to be a factory the loop called on every claim, so
+        // a person could only be reached while something was already being
+        // watched; a machine waiting for work was unreachable in exactly the
+        // state somebody wants to attach in.
+        //
+        // NULL WHEN THIS RUNNER WAS NOT WIRED TO BE DRIVEN, which is the lock
+        // that stays. Gg.Runner never goes looking for the private key - it
+        // lives on the machine and never leaves it - so the composition root
+        // either hands in a way to open a session or does not.
+        using var attended = identityKey is null
+            ? null
+            : new AttendedSession(
+                identityKey,
+                new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
+                new AskDispatch(says, keepCredential),
+                says);
+
         var loop = new RunnerLoop(
             new RunnerProtocolClient(http, runnerToken),
             new SystemClock(),
@@ -354,13 +372,7 @@ public static class RunnerHost
             allowance: allowance is null
                 ? null
                 : now => allowance.ReadAsync(now, stopping.Token),
-            attendedSessions: identityKey is null
-                ? null
-                : _ => new AttendedSession(
-                    identityKey,
-                    new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
-                    new AskDispatch(says, keepCredential),
-                    says))
+            attended: attended)
         {
             HoldFor = holdFor,
         };

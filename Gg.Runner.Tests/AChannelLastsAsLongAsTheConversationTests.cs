@@ -6,17 +6,31 @@ using Gg.Runner;
 namespace Gg.Runner.Tests;
 
 /// <summary>
-/// A runner answers introductions only while somebody is flying it.
+/// A channel lasts as long as the conversation, and not a moment past it.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>This is ADR-0013's security argument, as a property rather than a
 /// paragraph.</b> The risk of a debug channel was never that a runner can do
 /// dangerous things — it already runs an agent over customer code with
-/// credentials. It was capability without governance: a path no lease
-/// authorises, no envelope scopes and no story records. Making driving a flight
-/// removes that, and what makes it true here is that a session exists ONLY
-/// inside a hold. When the lease ends the channels end with it.
+/// credentials. It was capability without governance: a path nothing authorises,
+/// no envelope scopes and no story records.
+/// </para>
+/// <para>
+/// <b>THE BOUND USED TO BE THE FLIGHT AND IS NOW THE CONVERSATION.</b> A session
+/// existed only inside a hold, so a runner could be reached only while somebody
+/// was already watching something — and a person could never be attached when
+/// work ARRIVED, which is the moment they most want to be. What replaced it
+/// bounds the same thing from the other end: a runner answers while it is
+/// beating, and a conversation nobody is asking anything of is let go.
+/// </para>
+/// <para>
+/// <b>What can be read did not move.</b> Only the control plane mints an
+/// introduction, only for the principal who REGISTERED this runner, sealed to a
+/// pinned key and expiring in a minute; the channel carries two read-only verbs;
+/// and the tail is this machine's current flight and never a journal. The same
+/// person could already read all of it, over ssh, on a machine they own — which
+/// is the argument the runner modal makes for the ssh line beside it.
 /// </para>
 /// <para>
 /// <b>And a runner nobody wired to be driven cannot be.</b> <c>Gg.Runner</c>
@@ -25,7 +39,7 @@ namespace Gg.Runner.Tests;
 /// or does not.
 /// </para>
 /// </remarks>
-public class OnlyWhileSomebodyIsFlyingItTests
+public class AChannelLastsAsLongAsTheConversationTests
 {
     private static ECDiffieHellman AKey() => ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
@@ -87,9 +101,11 @@ public class OnlyWhileSomebodyIsFlyingItTests
     [Test]
     public async Task Closing_the_session_closes_every_channel_it_opened()
     {
-        // THE LIFETIME PROPERTY. The session lives inside a hold, so this is
-        // what happens the moment the lease ends - released, fenced, taken over,
-        // or the hold simply returning.
+        // THE LIFETIME PROPERTY, and it outlived the reason it was written for.
+        // The session used to live inside a hold, so this was what happened the
+        // moment a lease ended. It lives for the run now, and disposing it is
+        // still what closes every channel it opened - which is what makes
+        // stopping a runner the end of every conversation about it.
         using var runnerKey = AKey();
         var protocol = new FakeProtocol();
 
@@ -110,8 +126,9 @@ public class OnlyWhileSomebodyIsFlyingItTests
         session.Dispose();
 
         await Assert.That(session.Open).IsEqualTo(0)
-            .Because("there is no standing capability to reach a runner: there is a flight, and "
-                   + "while it is flying a person is talking to it.");
+            .Because("a channel is a conversation with this process, so when the process "
+                   + "lets go of them there is nothing left to talk to - which is what "
+                   + "stops a closed session being a door somebody left open.");
     }
 
     [Test]

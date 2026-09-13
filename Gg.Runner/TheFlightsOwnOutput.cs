@@ -20,8 +20,15 @@ namespace Gg.Runner;
 /// <para>
 /// <b>Scoped to ONE FLIGHT, which is the part that matters.</b> A journal is the
 /// machine's, so tailing it would hand somebody every flight that machine is
-/// running — including other people's. This names one file, for the flight whose
-/// lease authorised the conversation. The narrowing is the file path.
+/// running — including other people's. This names one file, and the narrowing is
+/// the file path rather than a filter somebody applies.
+/// <para>
+/// <b>WHICH flight is asked at read time now</b>, by the object that holds the
+/// lease — see <c>WhatThisRunnerSays</c>. It used to be chosen when the session
+/// was built, which was the same narrowing while a session existed for one
+/// flight, and is no answer at all for a watcher who attached while the machine
+/// was idle. One at a time, the one this machine is running now.
+/// </para>
 /// </para>
 /// <para>
 /// <b>The same file the local console tails.</b> <c>LiveStream</c> is ADR-0007

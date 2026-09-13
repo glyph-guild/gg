@@ -76,7 +76,7 @@ public class AnIdleRunnerCanStillBeReachedTests
                     return Task.CompletedTask;
                 },
                 says, new NoCredentialResolver(), new NoWorkspace(),
-                attendedSessions: _ => new AttendedSession(
+                attended: new AttendedSession(
                     key,
                     new RunnerChannel([], TimeSpan.FromMilliseconds(50)),
                     new AskDispatch(says),
@@ -111,7 +111,7 @@ public class AnIdleRunnerCanStillBeReachedTests
                 (_, _) => { stopping.Cancel(); return Task.CompletedTask; },
                 says, new NoCredentialResolver(), new NoWorkspace(),
                 offered: seen.Add,
-                attendedSessions: _ => new AttendedSession(
+                attended: new AttendedSession(
                     key,
                     new RunnerChannel([], TimeSpan.FromMilliseconds(50)),
                     new AskDispatch(says),

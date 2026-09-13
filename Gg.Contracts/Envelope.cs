@@ -1377,6 +1377,41 @@ public sealed record Envelope
 {
     public required ContextBinding Context { get; init; }
 
+    /// <summary>
+    /// One line saying what this work kind is for, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The only thing in an envelope written for the PERSON.</b> Everything
+    /// else here governs an agent; the names a tenant declares - score-hal,
+    /// triage - are its own words, and somebody being asked which of them a
+    /// flight is for is being asked to pick between strings they may never have
+    /// seen.
+    /// </para>
+    /// <para>
+    /// <b>WORK-KIND-ONLY, which is the whole composition rule.</b> Root
+    /// describes nothing in particular and a narrowing narrows something
+    /// already described, so a description that composed would give every kind
+    /// the floor's sentence or let a narrowing overwrite the kind's.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, and absent is not empty.</b> Every envelope that exists
+    /// today has none, and none of them may be rewritten by this member
+    /// arriving: a key emitted empty is a diff in every working copy on the
+    /// next pull. It is declared nullable rather than absorbing for the reason
+    /// <see cref="Instructions"/> sets out at length - a member being ADDED has
+    /// no readers dereferencing it bare, and nullable is what lets it reach a
+    /// control plane that has not learned it.
+    /// </para>
+    /// <para>
+    /// <b>It governs nothing.</b> No obligation reads it, no loop is bounded by
+    /// it, and an agent is never shown it - so a wrong one misleads a person
+    /// and cannot misgovern a flight.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public string? Description { get; init; }
+
     [Composes(MergeOperators.Union)]
     public required IReadOnlyList<Obligation> Obligations { get; init; }
 

@@ -75,6 +75,15 @@ public static class EnvelopeText
         // rendered them.
         var text = new StringBuilder();
 
+        // FIRST, BECAUSE IT READS LIKE A TITLE, and only when there is one. A
+        // key emitted empty would put a diff nobody made in every working copy
+        // on the next pull - the preserve-unadmitted rule, applied to the one
+        // line in this document written for a person rather than an agent.
+        if (envelope.Description is { Length: > 0 } description)
+        {
+            text.Append($"description: {Scalar(description)}\n");
+        }
+
         text.Append("context:\n");
         text.Append($"{Indent}scope: {Scalar(envelope.Context.Scope)}\n");
         text.Append($"{Indent}constitution: {Scalar(envelope.Context.Constitution)}\n");

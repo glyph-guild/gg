@@ -1419,6 +1419,11 @@ public static class PlatformToolServer
             "  environment: / repository:   the older singular spellings of those two. "
           + "Read so old documents still parse; do not write them.");
         said.AppendLine(
+            "  description:        for a work kind, one line saying what it is FOR, written "
+          + "for the person choosing rather than for you. It governs nothing - no obligation "
+          + "reads it and no loop is bounded by it - so it is the one key here you may word "
+          + "freely. A console lists the tenant's kinds with this beside each name.");
+        said.AppendLine(
             $"  accepts:            for a work kind, what it takes in. Any of: "
           + $"{string.Join(", ", Gg.Contracts.SubjectKinds.All)}.");
         said.AppendLine(

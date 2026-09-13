@@ -2614,7 +2614,18 @@ public static class PaneText
              // question with two answers wants a box an eye takes in at once;
              // ninety sprints want the screen, and a box sized to its body
              // asked for ninety rows and got the tail of one.
-             or UiMode.BrowseFilter;
+             or UiMode.BrowseFilter
+
+             // AND THE WORK ITEM, which is three regions deep: a document
+             // somebody wrote, its scalars and its history. It was sized to the
+             // prose alone, so the two regions under that prose got whatever
+             // was left of a box measured without them.
+             or UiMode.WorkItemDetail
+
+             // AND THE KINDS, now that each carries a sentence. A name per line
+             // fitted a small box; a name and what it is for do not, and a
+             // tenant may declare any number of them.
+             or UiMode.WorkKindChoice;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -2837,27 +2848,21 @@ public static class PaneText
             : "Nothing picked, so this lists everything the tracker has open.";
     }
 
-    private static string WorkKindChoice(AppState state)
-    {
-        var kinds = WorkKinds.Declared(state);
-        var text = new StringBuilder();
-
-        text.AppendLine(
-            "A work kind says what this flight is FOR. It can only narrow the floor, so "
-          + "choosing one grants nothing the floor withheld.");
-        text.AppendLine();
-
-        IReadOnlyList<string> rows = ["no kind - inherit the floor", .. kinds];
-
-        for (var row = 0; row < rows.Count; row++)
-        {
-            text.AppendLine(
-                (row == Math.Clamp(state.KindSelected, 0, rows.Count - 1) ? "> " : "  ")
-              + Clean(rows[row]));
-        }
-
-        return text.ToString().TrimEnd();
-    }
+    /// <summary>
+    /// The sentence beside the kinds, which are a table now.
+    /// </summary>
+    /// <remarks>
+    /// <b>A label with a caret in it is not a list</b> - the argument the
+    /// filter modal already made. The choices are a widget every other list in
+    /// this console uses; this is the line above them.
+    /// </remarks>
+    private static string WorkKindChoice(AppState state) =>
+        WorkKinds.Declared(state).Count == 0
+            ? "This tenant has declared no work kinds, so there is nothing here to choose "
+            + "between. A flight opened now inherits the floor, which is what every flight "
+            + "before kinds existed did."
+            : "A work kind says what this flight is FOR. It can only narrow the floor, so "
+            + "choosing one grants nothing the floor withheld.";
 
     /// <summary>
     /// Why the console behind this is empty, and the two steps out of it.

@@ -270,6 +270,23 @@ public sealed record TopologyName
 
     public string? SubjectBinding { get; init; }
 
+    /// <summary>
+    /// One line saying what this name is for, from its envelope, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here because this is where a picker reads it.</b> A console listing a
+    /// tenant's work kinds holds the topology and nothing else; fetching an
+    /// envelope per row to find one sentence would be a read per name every
+    /// time somebody opens the question.
+    /// <para>
+    /// <b>The envelope is where it is WRITTEN</b> - see
+    /// <see cref="Envelope.Description"/> - and this is a projection of it.
+    /// Nullable, because the two repositories are not upgraded in step and
+    /// because a name declared before descriptions existed has none.
+    /// </para>
+    /// </remarks>
+    public string? Description { get; init; }
+
     /// <summary>Who declared it - a display a person can read, not an id.</summary>
     public required string DeclaredBy { get; init; }
 

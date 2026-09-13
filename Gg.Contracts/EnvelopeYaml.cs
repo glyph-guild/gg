@@ -502,15 +502,22 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "context", "environment", "environments", "repository",
-               "repositories", "accepts", "produces", "targeting", "instructions", "obligations",
-               "loops", "destinations");
+        Closed(root, BasedOnKey, "description", "context", "environment", "environments",
+               "repository", "repositories", "accepts", "produces", "targeting", "instructions",
+               "obligations", "loops", "destinations");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
 
         return new Envelope
         {
+            // ABSENT STAYS ABSENT, for `targeting`'s reason one field over:
+            // reading a missing key back as "" would be a different document on
+            // disk and the same value to the engine, so show-after-apply would
+            // not round trip.
+            Description = root.Entries.TryGetValue("description", out var description)
+                ? RequireScalar(description, "description")
+                : null,
             Context = new ContextBinding
             {
                 Scope = RequireScalar(Require(context, "scope"), "context.scope"),

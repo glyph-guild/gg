@@ -22,9 +22,6 @@ public enum WatchOutcome
     /// <summary>It is not beating.</summary>
     Offline,
 
-    /// <summary>It is beating and flying nothing.</summary>
-    FlyingNothing,
-
     /// <summary>The control plane would not introduce this person to it.</summary>
     NotIntroduced,
 
@@ -47,12 +44,18 @@ public sealed record Watched(
 /// to use any of it.
 /// </para>
 /// <para>
-/// <b>It asks the fleet first, and that is not an optimisation.</b> A channel
-/// exists only while a flight is flying, so a runner that is offline or idle
-/// cannot be reached however correct everything else is — and reaching
-/// anyway would spend twenty seconds and then say "the runner did not answer",
-/// which reads as a broken machine. The fleet read already carries state and the
-/// current flight; using it is the difference between a diagnosis and a timeout.
+/// <b>It asks the fleet first, and that is not an optimisation.</b> A runner
+/// that is not beating cannot be reached however correct everything else is -
+/// an introduction is picked up on a heartbeat, so nothing ever collects the
+/// offer - and finding that out by minting a key, sealing an offer and waiting
+/// out its whole minute is a sentence about a network for a machine that is
+/// simply off. The fleet read is also where the label comes from, so what is
+/// said names the machine a person meant rather than a uuid.
+/// <para>
+/// <b>Flying nothing is no longer one of those refusals.</b> It was, and the
+/// reason was true: a channel existed only while a flight did. Which made the
+/// one moment a person most wants to be attached - before work arrives - the
+/// one moment they could not be.
 /// </para>
 /// </remarks>
 public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel channel)
@@ -107,14 +110,12 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
               + $"heard from {Ago(runner.LastHeartbeatAt, now)}.");
         }
 
-        if (runner.CurrentFlightId is not { Length: > 0 })
-        {
-            return Nothing(
-                WatchOutcome.FlyingNothing,
-                $"{runner.Label} is beating and flying nothing. There is nothing to watch: a "
-              + "channel to a runner exists only while a flight does, which is what stops it "
-              + "being a standing way in.");
-        }
+        // AND FLYING NOTHING IS NO LONGER A REFUSAL. It was, on the grounds
+        // that a channel to a runner exists only while a flight does - which
+        // made the one moment a person most wants to be attached, before work
+        // arrives, the one moment they could not be. A runner answers while it
+        // is beating now, so the check above is the whole of what the fleet
+        // read is still for.
 
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
@@ -191,12 +192,20 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
 
             if (follow)
             {
-                await FollowAsync(conversation, tail.Lines, lines, write, cancellationToken);
+                await FollowAsync(
+                    (ask, token) => conversation.AskAsync(ask, Patience, token),
+                    (span, token) => Task.Delay(span, token),
+                    tail.Lines,
+                    lines,
+                    write,
+                    cancellationToken);
             }
 
             return new Watched(
                 WatchOutcome.Watching,
-                $"{runner.Label}, flying {runner.CurrentFlightNumber}",
+                runner.CurrentFlightNumber is { Length: > 0 } flying
+                    ? $"{runner.Label}, flying {flying}"
+                    : $"{runner.Label}, waiting for work",
                 tail.Lines,
                 tail.Truncated);
         }
@@ -228,50 +237,170 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
     /// everything. Silence is the one answer this cannot give.
     /// </para>
     /// </remarks>
-    private static async Task FollowAsync(
-        Conversation conversation,
+    /// <summary>How long one ask is waited for.</summary>
+    /// <remarks>
+    /// <b>Generous, because the far end may be mid-flight.</b> A runner
+    /// answering a tail is reading a file while an agent writes it, and the
+    /// cost of being impatient is a silence this side would have to interpret.
+    /// </remarks>
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(15);
+
+    /// <summary>How often the machine itself is asked about, in ticks.</summary>
+    /// <remarks>
+    /// <b>Beside the tail rather than instead of it.</b> Every tick asks for
+    /// the log; this says how often it also asks the runner what it is doing,
+    /// which is how a person learns a flight started, learns one landed, and
+    /// sees that the machine is still beating while it waits. Five seconds is
+    /// slower than the log and far faster than a heartbeat, so nothing is
+    /// reported late and nothing is asked for twice between beats.
+    /// </remarks>
+    private const int StatusEvery = 5;
+
+    /// <summary>How many silences in a row end a watch.</summary>
+    /// <remarks>
+    /// <b>One used to, and one is what a timeout produces.</b> A null answer
+    /// meant "the flight landed and the lease went with it", which was the
+    /// ordinary end while a watch lasted a flight. A watch now sits on a machine
+    /// that may be idle for an hour, and ending it on a single fifteen second
+    /// timeout would be a watch that quietly stopped.
+    /// </remarks>
+    private const int SilencesThatEndIt = 3;
+
+    /// <summary>
+    /// Keeps asking, and writes only what is new.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public because the asking and the waiting are handed in.</b> This was
+    /// a private method over a live Conversation and a hard-coded one second
+    /// delay, which is why the only part of it a test could reach was the
+    /// overlap finder, by reflection - and why when it gives up was asserted
+    /// nowhere.
+    /// </remarks>
+    public static async Task FollowAsync(
+        Func<RunnerAsk, CancellationToken, Task<RunnerSaid?>> ask,
+        Func<TimeSpan, CancellationToken, Task> wait,
         IReadOnlyList<string> seen,
         int lines,
         Action<string> write,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(ask);
+        ArgumentNullException.ThrowIfNull(wait);
+        ArgumentNullException.ThrowIfNull(write);
+
         var previous = seen;
+        string? flying = null;
+        DateTimeOffset? beat = null;
+        var silences = 0;
+        var tick = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await wait(TimeSpan.FromSeconds(1), cancellationToken);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
 
-            if (await AskAsync(conversation, lines, cancellationToken) is not { } tail)
+            if (cancellationToken.IsCancellationRequested)
             {
-                // A RUN THAT STOPPED ANSWERING IS THE ORDINARY END of watching:
-                // the flight landed and the lease went with it, which closed the
-                // channel. Saying nothing here is right - the caller's own
-                // ending says what became of the flight.
                 return;
             }
 
-            var overlap = OverlapOf(previous, tail.Lines);
+            // THE MACHINE, PERIODICALLY. What it answers is used to NAME what
+            // is happening and to reset the overlap at a flight boundary - it
+            // is never what decides whether to ask for the log. A console
+            // watching an older runner gets no flight name at all, and gating
+            // the log on one would leave it saying "idle" while the runner
+            // flies: silently absent, which is indistinguishable from
+            // satisfied.
+            if (tick++ % StatusEvery == 0)
+            {
+                var said = await ask(new RunnerAsk { Kind = RunnerAskKinds.Status }, cancellationToken);
 
-            if (overlap == 0 && previous.Count > 0 && tail.Lines.Count > 0)
+                if (said?.Status is { } status)
+                {
+                    if (status.BeatAt is { } beatAt && beatAt != beat)
+                    {
+                        beat = beatAt;
+
+                        // ONLY WHILE THERE IS NOTHING ELSE TO SHOW. A beat line
+                        // between an agent's own sentences is noise; a beat line
+                        // on a machine that is waiting is the only thing saying
+                        // it is still there.
+                        if (status.FlightNumber is not { Length: > 0 })
+                        {
+                            write($"  ... beat {beatAt:HH:mm:ss} - {status.Doing}");
+                        }
+                    }
+
+                    if (!string.Equals(status.FlightNumber, flying, StringComparison.Ordinal))
+                    {
+                        if (status.FlightNumber is { Length: > 0 } started)
+                        {
+                            write($"  ... {started} started here");
+                        }
+                        else if (flying is { Length: > 0 } landed)
+                        {
+                            write($"  ... {landed} is no longer flying here");
+                        }
+
+                        flying = status.FlightNumber;
+
+                        // AND THE OVERLAP STARTS AGAIN. Every live view opens
+                        // with near-identical setup lines, so a match across a
+                        // boundary would swallow the new flight's first words -
+                        // and no match at all would warn about a gap that did
+                        // not happen.
+                        previous = [];
+                    }
+                }
+            }
+
+            var tail = await ask(
+                new RunnerAsk
+                {
+                    Kind = RunnerAskKinds.TailLog,
+                    TailLog = new TailLogAsk { Lines = lines },
+                },
+                cancellationToken);
+
+            if (tail?.Tail is not { } said_)
+            {
+                // A CHANNEL THAT IS GONE, once it has been quiet enough times
+                // to mean it. The runner is reachable across flights now, so a
+                // single unanswered ask is a hiccup rather than an ending.
+                if (++silences >= SilencesThatEndIt)
+                {
+                    write(
+                        $"  ... {SilencesThatEndIt} asks went unanswered, so this channel is "
+                      + "gone. Press the key again to open another.");
+                    return;
+                }
+
+                continue;
+            }
+
+            silences = 0;
+
+            var overlap = OverlapOf(previous, said_.Lines);
+
+            if (overlap == 0 && previous.Count > 0 && said_.Lines.Count > 0)
             {
                 write(
                     "  ... (more was said than a tail holds, so some of it was missed - "
                   + "ask for more lines to widen the window)");
             }
 
-            foreach (var line in tail.Lines.Skip(overlap))
+            foreach (var line in said_.Lines.Skip(overlap))
             {
                 write(line);
             }
 
-            previous = tail.Lines;
+            previous = said_.Lines;
         }
     }
 
@@ -308,7 +437,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
                 Kind = RunnerAskKinds.TailLog,
                 TailLog = new TailLogAsk { Lines = lines },
             },
-            TimeSpan.FromSeconds(15),
+            Patience,
             cancellationToken);
 
         return said?.Tail;

@@ -1343,7 +1343,8 @@ public sealed class ConsoleLoop(
         try
         {
             return Reducer.Browsed(
-                state, key, browser.BrowseAsync(cursor: null, limit: 50, CancellationToken.None)
+                state, key,
+                browser.BrowseAsync(cursor: null, limit: 50, filter: null, CancellationToken.None)
                     .GetAwaiter().GetResult());
         }
         catch (Exception problem) when (problem is not OperationCanceledException)

@@ -30,7 +30,7 @@ public class TheLoopDoesTheReadingTests
 
         public string? Key => "a-tracker";
 
-        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, CancellationToken token)
+        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, WorkItemFilter? filter, CancellationToken token)
         {
             Asked++;
             return Task.FromResult(outcome);
@@ -129,7 +129,7 @@ public class TheLoopDoesTheReadingTests
     {
         public string? Key => "a-tracker";
 
-        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, CancellationToken token) =>
+        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, WorkItemFilter? filter, CancellationToken token) =>
             throw new InvalidOperationException("a bug in a reader");
 
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>

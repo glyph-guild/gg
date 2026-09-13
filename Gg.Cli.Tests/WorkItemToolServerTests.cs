@@ -75,6 +75,10 @@ public class WorkItemToolServerTests
         public Task<WorkItem?> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<WorkItem?>(null);
 
+        public Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
+            string id, CancellationToken token) =>
+            Task.FromResult<IReadOnlyList<WorkItemChange>>([]);
+
         public Task<WorkItemPage> BrowseAsync(
             string? cursor, int limit, WorkItemFilter? filter, CancellationToken token)
         {

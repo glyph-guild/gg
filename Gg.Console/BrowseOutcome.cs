@@ -66,6 +66,19 @@ public abstract record BrowseOutcome
     public sealed record Unintelligible(string Why) : BrowseOutcome;
 
     /// <summary>
+    /// It can be browsed, but not the way this asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>The inverse of every other ending here, and the reason it is its own
+    /// case.</b> The others are ways a listing can be empty when it should not
+    /// be; this is a listing that would be FULL when it should not be. A pane
+    /// drawing fifty rows of everything under a filter's name looks like an
+    /// answer, which makes it the worse lie - so the console refuses the call
+    /// rather than making it and hoping.
+    /// </remarks>
+    public sealed record NotFilterable(string Why) : BrowseOutcome;
+
+    /// <summary>
     /// Nothing came back at all.
     /// </summary>
     /// <remarks>

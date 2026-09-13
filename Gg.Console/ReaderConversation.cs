@@ -56,9 +56,18 @@ public sealed class ReaderConversation(
     /// </remarks>
     private IReadOnlyList<string>? _declared;
 
+    /// <summary>What the browse tool declared it TAKES, read once beside its name.</summary>
+    /// <remarks>
+    /// A name says a reader can be browsed; only the schema says how narrowly.
+    /// Both come from the one <c>tools/list</c> and both are held, because each
+    /// verb asks its own question of them.
+    /// </remarks>
+    private IReadOnlyList<string>? _browseArguments;
+
     /// <summary>A page of work, or the reason there is not one.</summary>
     public async Task<BrowseOutcome> BrowseAsync(
-        string? cursor, int limit, CancellationToken cancellationToken = default)
+        string? cursor, int limit, WorkItemFilter? filter = null,
+        CancellationToken cancellationToken = default)
     {
         if (await OpenAsync(cancellationToken) is { } refused)
         {
@@ -73,6 +82,15 @@ public sealed class ReaderConversation(
             return new BrowseOutcome.NotBrowsable(BrowseTool.NotBrowsable(_key));
         }
 
+        // ASKED BEFORE CALLING, AND NOT AFTER. The schema came back with the
+        // same tools/list and says whether this reader takes the arguments;
+        // calling a tool with arguments it never declared would answer a full
+        // page of everything, which the pane would draw under the filter's name.
+        if (filter is { Narrows: true } && !BrowseTool.CanFilter(_browseArguments))
+        {
+            return new BrowseOutcome.NotFilterable(BrowseTool.NotFilterable(_key));
+        }
+
         var call = await CallAsync(
             BrowseTool.Name,
             arguments =>
@@ -82,6 +100,28 @@ public sealed class ReaderConversation(
                     arguments.WriteString(BrowseTool.Paging.Cursor, cursor);
                 }
                 arguments.WriteNumber(BrowseTool.Paging.Limit, limit);
+
+                // ABSENT, NOT EMPTY. A reader handed areaPath:"" would
+                // reasonably answer the items filed nowhere, which is none.
+                if (filter?.AreaPath is { Length: > 0 } area)
+                {
+                    arguments.WriteString(BrowseTool.Filters.AreaPath, area);
+                }
+
+                if (filter?.Iteration is { Length: > 0 } iteration)
+                {
+                    arguments.WriteString(BrowseTool.Filters.Iteration, iteration);
+                }
+
+                if (filter?.States is { Count: > 0 } states)
+                {
+                    arguments.WriteStartArray(BrowseTool.Filters.States);
+                    foreach (var state in states)
+                    {
+                        arguments.WriteStringValue(state);
+                    }
+                    arguments.WriteEndArray();
+                }
             },
             cancellationToken);
 
@@ -236,6 +276,7 @@ public sealed class ReaderConversation(
         }
 
         _declared = ToolNames(listed.Value.Document!.RootElement);
+        _browseArguments = BrowseArguments(listed.Value.Document!.RootElement);
 
         // WHAT IT CAN DO IS NOT WHETHER IT OPENED. A reader that lists no browse
         // tool is still a reader, and refusing the conversation here made the
@@ -414,7 +455,9 @@ public sealed class ReaderConversation(
         Title: Field(item, BrowseTool.Fields.Title) ?? "",
         State: Field(item, BrowseTool.Fields.State) ?? "",
         Url: Field(item, BrowseTool.Fields.Url) ?? "",
-        Updated: Field(item, BrowseTool.Fields.Updated));
+        Updated: Field(item, BrowseTool.Fields.Updated),
+        AreaPath: Field(item, BrowseTool.Fields.AreaPath),
+        Iteration: Field(item, BrowseTool.Fields.Iteration));
 
     private static string? Field(JsonElement item, string name) =>
         item.ValueKind == JsonValueKind.Object && item.TryGetProperty(name, out var value)
@@ -430,6 +473,34 @@ public sealed class ReaderConversation(
                 .Where(tool => tool.TryGetProperty("name", out _))
                 .Select(tool => tool.GetProperty("name").GetString() ?? "")]
             : [];
+
+    /// <summary>
+    /// What the browse tool says it takes, or null where it declared no schema.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is "it did not say", and that is not the same as "it takes
+    /// nothing"</b> - but both end the same way here, because a filter can only
+    /// be sent to a reader that promised to read it. A schema is optional in
+    /// the protocol and the ones that omit it are exactly the ones nobody can
+    /// check.
+    /// </remarks>
+    private static IReadOnlyList<string>? BrowseArguments(JsonElement reply) =>
+        reply.TryGetProperty("result", out var result)
+        && result.TryGetProperty("tools", out var tools)
+        && tools.ValueKind == JsonValueKind.Array
+            ? tools.EnumerateArray()
+                .Where(tool => tool.TryGetProperty("name", out var name)
+                            && name.ValueKind == JsonValueKind.String
+                            && name.GetString() == BrowseTool.Name)
+                .Select(tool =>
+                    tool.TryGetProperty("inputSchema", out var schema)
+                    && schema.TryGetProperty("properties", out var properties)
+                    && properties.ValueKind == JsonValueKind.Object
+                        ? (IReadOnlyList<string>)[.. properties.EnumerateObject()
+                            .Select(property => property.Name)]
+                        : null)
+                .FirstOrDefault()
+            : null;
 
     /// <summary>
     /// Every sentence names the reader.

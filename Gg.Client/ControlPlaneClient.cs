@@ -75,6 +75,11 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RegistrationPending))]
 [JsonSerializable(typeof(EnvelopeTopology))]
 [JsonSerializable(typeof(RegisteredRepositories))]
+// THE WRITE HALF OF THE SAME DOOR. The read was registered and the write
+// was not, which is the serializer telling the same story the verb list
+// did: nothing in gg had ever posted one.
+[JsonSerializable(typeof(RegisterRepositoryRequest))]
+[JsonSerializable(typeof(RepositoryRegistered))]
 [JsonSerializable(typeof(PoolLedger))]
 [JsonSerializable(typeof(MemberCredentialRedemption))]
 [JsonSerializable(typeof(MemberCredentialIssued))]
@@ -796,6 +801,72 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// and answers a different question. A person wanting to know what they can
     /// fly against had no way to ask.
     /// </remarks>
+    /// <summary>
+    /// Registers a repository, or rides the gate that decides whether it may be.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The door three refusals already point at.</b> A flight whose intent
+    /// names an unregistered repository is refused pointing HERE, and until now
+    /// nothing in gg could knock on it — so the refusal named a door only
+    /// something else could open.
+    /// </para>
+    /// <para>
+    /// <b>202 is the ordinary answer.</b> Registering a NEW repository widens
+    /// what the tenant can reach, so it rides a flight and the answer names who
+    /// decides. The one 200 left is an entry already live and identical, which
+    /// is the idempotent re-run.
+    /// </para>
+    /// <para>
+    /// <b>Read by STATUS CODE rather than by which body parsed</b>, which is
+    /// <see cref="DeclareNameAsync"/>'s rule: the two bodies are different
+    /// types, and a reader that tried the live one first would deserialize a
+    /// pending answer into a shape with none of its fields set and report a
+    /// repository as registered.
+    /// </para>
+    /// <para>
+    /// <b>400 carries the door's own sentence.</b> It names which of provider,
+    /// forge id and path was blank; rewording it here would be a second opinion
+    /// about somebody else's rule.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// The entry when it is live, or null with the pending answer when it rode
+    /// a flight. Exactly one of the two.
+    /// </returns>
+    public async Task<(RepositoryRegistered? Live, RegistrationPending? Pending)>
+        RegisterRepositoryAsync(
+            string sessionToken,
+            RegisterRepositoryRequest body,
+            CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/airspace/repositories", sessionToken);
+        request.Content = JsonContent.Create(
+            body, ProtocolJsonContext.Default.RegisterRepositoryRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        if (response.StatusCode == HttpStatusCode.Accepted)
+        {
+            return (null, await response.Content.ReadFromJsonAsync(
+                ProtocolJsonContext.Default.RegistrationPending, cancellationToken)
+                ?? throw new InvalidOperationException("Control plane acknowledged nothing."));
+        }
+
+        return (await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RepositoryRegistered, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing."), null);
+    }
+
     public async Task<RegisteredRepositories> ListRepositoriesAsync(
         string sessionToken, CancellationToken cancellationToken = default)
     {

@@ -67,12 +67,13 @@ public class RegisteringARepositoryTests
 
     private const string Live = """
         {"name":"payments","provider":"github","id":"R_123","path":"acme/payments",
+         "credential":"required",
          "registeredBy":"Dana","registeredAt":"2026-09-13T09:00:00+00:00"}
         """;
 
     private const string Pending = """
-        {"flightNumber":"GG-42","approver":"platform-oncall",
-         "because":"registering widens what this tenant can reach"}
+        {"flight":"GG-42","awaiting":"platform-oncall",
+         "widens":"the registry gaining the name payments"}
         """;
 
     private static RegisterRepositoryRequest ARegistration() => new()
@@ -107,8 +108,14 @@ public class RegisteringARepositoryTests
             .Because("202 is not a quieter 200. A repository nobody has agreed to yet is not "
                    + "registered, and saying it is sends somebody to fly against it.");
 
-        await Assert.That(pending!.FlightNumber).IsEqualTo("GG-42");
-        await Assert.That(pending.Approver).IsEqualTo("platform-oncall");
+        await Assert.That(pending!.Flight).IsEqualTo("GG-42");
+
+        await Assert.That(pending.Awaiting).IsEqualTo("platform-oncall")
+            .Because("a display a person can read rather than an id - the point of the "
+                   + "answer is that somebody can go and ask them.");
+
+        await Assert.That(pending.Widens).IsNotEmpty()
+            .Because("what a gate is about is the half a person needs to approve it.");
     }
 
     [Test]

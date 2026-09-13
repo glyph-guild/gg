@@ -31,6 +31,17 @@ public enum FocusTarget
     RunnerView,
 
     /// <summary>
+    /// Whichever of the filter modal's three tables is showing.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RunnerView"/>'s reason exactly: a modal made of widgets has
+    /// to say WHICH widget, and Terminal.Gui's <c>Tabs</c> follows focus - so a
+    /// table left focused in a tab nobody is looking at assigns the bar back to
+    /// itself on every render.
+    /// </remarks>
+    FilterView,
+
+    /// <summary>
     /// The log inside the flight modal, which is the part of it with a cursor.
     /// </summary>
     /// <remarks>
@@ -145,7 +156,9 @@ public static class FocusChange
         RunnerView runnerView = RunnerView.Log,
         RunnerView landedRunnerView = RunnerView.Log,
         HelpPage helpPage = HelpPage.Keys,
-        HelpPage landedHelpPage = HelpPage.Keys) => (mode, landed) switch
+        HelpPage landedHelpPage = HelpPage.Keys,
+        BrowseFacet filterView = BrowseFacet.AreaPath,
+        BrowseFacet landedFilterView = BrowseFacet.AreaPath) => (mode, landed) switch
     {
         // THE FIELD FIRST, because it is not a modal and the arms below would
         // hand it to one that is not on screen.
@@ -174,6 +187,14 @@ public static class FocusChange
         (UiMode.Help, _) when modalHasFocus && landedHelpPage == helpPage
             => FocusTarget.LeaveAlone,
         (UiMode.Help, _) => FocusTarget.HelpPage,
+
+        // THE FILTER MODAL IS MADE OF TABS TOO, and answers before the same
+        // guard for the same reason: the bar can turn while the modal keeps
+        // focus, and the keyboard has to follow or the table a person is
+        // looking at is not the one their arrows move.
+        (UiMode.BrowseFilter, _) when modalHasFocus && landedFilterView == filterView
+            => FocusTarget.LeaveAlone,
+        (UiMode.BrowseFilter, _) => FocusTarget.FilterView,
 
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 

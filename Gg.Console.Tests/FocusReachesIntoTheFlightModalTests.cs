@@ -58,7 +58,12 @@ public class FocusReachesIntoTheFlightModalTests
         // reason, and its focus target is asserted where the field is.
         foreach (var mode in Modals.Drawn)
         {
-            if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help)
+            // AND THE FILTER, WHICH IS A FOURTH MADE OF WIDGETS. Three tables
+            // in a bar: focus at the frame would leave the arrows moving
+            // nothing, which is the defect the runner modal's own arm exists
+            // for. Its target is asserted in TheFilterModalIsTabbedTests.
+            if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help
+                     or UiMode.BrowseFilter)
             {
                 continue;
             }

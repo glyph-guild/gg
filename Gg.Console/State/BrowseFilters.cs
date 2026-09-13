@@ -21,6 +21,59 @@ public enum BrowseFacet
 }
 
 /// <summary>
+/// The filter modal's views, and how to move between them.
+/// </summary>
+/// <remarks>
+/// <b>Pure, and asked by the keymap as well as the pane</b> - which is
+/// <see cref="RunnerViews"/>' rule one modal over. Which key is offered and
+/// which view is drawn are the same question, and two answers to it drift.
+/// </remarks>
+public static class FilterViews
+{
+    /// <summary>
+    /// All three, always.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unconditional, and a tracker that offers none of one still has the
+    /// tab.</b> An empty tab is an answer - this project files nothing by
+    /// sprint - where a tab that vanished would leave a person wondering which
+    /// key they had failed to find.
+    /// </remarks>
+    public static IReadOnlyList<BrowseFacet> All { get; } =
+        [BrowseFacet.AreaPath, BrowseFacet.Iteration, BrowseFacet.State];
+
+    /// <summary>What the tab for a view says.</summary>
+    /// <remarks>
+    /// <b>Lower case and plural, the words a person would use</b> - the rule
+    /// the runner modal's tabs already follow, and they sit along the same kind
+    /// of foot. Here rather than in the screen because the screen cannot be
+    /// constructed without a terminal, so nothing could ask it what it drew.
+    /// </remarks>
+    public static string Title(BrowseFacet view) => view switch
+    {
+        BrowseFacet.Iteration => "sprints",
+        BrowseFacet.State => "states",
+        _ => "area paths",
+    };
+
+    /// <summary>What one row of this view holds, as a column heading.</summary>
+    public static string Column(BrowseFacet view) => view switch
+    {
+        BrowseFacet.Iteration => "sprint",
+        BrowseFacet.State => "state",
+        _ => "area path",
+    };
+
+    /// <summary>The next view round.</summary>
+    public static BrowseFacet Next(BrowseFacet showing)
+    {
+        var at = All.ToList().IndexOf(showing);
+
+        return at < 0 ? All[0] : All[(at + 1) % All.Count];
+    }
+}
+
+/// <summary>
 /// What a tracker offered to narrow by, as rows to walk with a cursor.
 /// </summary>
 /// <remarks>
@@ -44,68 +97,99 @@ public enum BrowseFacet
 /// </remarks>
 public static class BrowseFilters
 {
-    /// <summary>One row of the filter modal.</summary>
+    /// <summary>One row of one of the filter modal's tables.</summary>
     /// <param name="Facet">Which dimension it narrows.</param>
-    /// <param name="Value">The value, or null for the row that clears this dimension.</param>
-    /// <param name="Said">What the row reads as on screen.</param>
-    /// <param name="Chosen">Whether this value is currently part of the filter.</param>
-    public sealed record Choice(BrowseFacet Facet, string? Value, string Said, bool Chosen);
+    /// <param name="Value">The value, exactly as the tracker offered it.</param>
+    /// <param name="Chosen">Whether it is currently part of the filter.</param>
+    public sealed record Choice(BrowseFacet Facet, string Value, bool Chosen);
 
-    /// <summary>Every choice on offer, in the order the modal draws them.</summary>
-    public static IReadOnlyList<Choice> Rows(AppState state)
+    /// <summary>
+    /// What one view offers, in the order the tracker gave it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Exactly what the tracker said, with nothing invented.</b> An "any"
+    /// row was here to clear one dimension; in a table it is a row to scroll
+    /// past, and the key that picks already takes a pick back - so the row
+    /// bought nothing and cost every person one line of every list.
+    /// </para>
+    /// <para>
+    /// <b>Not re-sorted.</b> A tracker's classification tree comes back in its
+    /// own order, parents before children, and alphabetising it would separate
+    /// a team from the sub-teams under it.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<Choice> Offered(AppState state, BrowseFacet view)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         var facets = state.Facets;
 
-        List<Choice> rows =
-        [
-            .. Group(
-                BrowseFacet.AreaPath, "Area", facets?.AreaPaths ?? [],
-                value => string.Equals(value, state.ChosenAreaPath, StringComparison.Ordinal),
-                state.ChosenAreaPath is null),
+        return view switch
+        {
+            BrowseFacet.Iteration =>
+            [
+                .. (facets?.Iterations ?? []).Select(value => new Choice(
+                    view, value,
+                    string.Equals(value, state.ChosenIteration, StringComparison.Ordinal))),
+            ],
 
-            .. Group(
-                BrowseFacet.Iteration, "Sprint", facets?.Iterations ?? [],
-                value => string.Equals(value, state.ChosenIteration, StringComparison.Ordinal),
-                state.ChosenIteration is null),
+            BrowseFacet.State =>
+            [
+                .. (facets?.States ?? []).Select(value => new Choice(
+                    view, value, state.ChosenStates.Contains(value, StringComparer.Ordinal))),
+            ],
 
-            .. Group(
-                BrowseFacet.State, "State", facets?.States ?? [],
-                value => state.ChosenStates.Contains(value, StringComparer.Ordinal),
-                state.ChosenStates.Count == 0),
-        ];
-
-        return rows;
+            _ =>
+            [
+                .. (facets?.AreaPaths ?? []).Select(value => new Choice(
+                    view, value,
+                    string.Equals(value, state.ChosenAreaPath, StringComparison.Ordinal))),
+            ],
+        };
     }
 
-    private static IEnumerable<Choice> Group(
-        BrowseFacet facet, string label, IReadOnlyList<string> offered,
-        Func<string, bool> chosen, bool none)
+    /// <summary>Where the cursor is in the view that is showing.</summary>
+    public static int Cursor(AppState state)
     {
-        yield return new Choice(facet, null, $"{label,-7} any", none);
+        ArgumentNullException.ThrowIfNull(state);
 
-        foreach (var value in offered)
+        return Cursor(state, state.FilterView);
+    }
+
+    /// <summary>Where the cursor is in one view, whichever is showing.</summary>
+    /// <remarks>
+    /// Every table is filled on every render, including the two behind the one
+    /// showing - so each needs its own cursor asked for by name, or turning the
+    /// bar would land on row zero of a list somebody had already walked.
+    /// </remarks>
+    public static int Cursor(AppState state, BrowseFacet view)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return view switch
         {
-            yield return new Choice(facet, value, $"{label,-7} {value}", chosen(value));
-        }
+            BrowseFacet.Iteration => state.IterationSelected,
+            BrowseFacet.State => state.StateSelected,
+            _ => state.AreaSelected,
+        };
     }
 
     /// <summary>
-    /// The row a cursor is on, or null where there is nothing to be on.
+    /// The row the cursor is on, or null where the showing view offers none.
     /// </summary>
     /// <remarks>
     /// Clamped rather than trusted: a list that shrank under a cursor - a
-    /// second reader, a tracker that lost a sprint - would otherwise pick by
-    /// index into nothing.
+    /// second reader, a sprint somebody closed - would otherwise pick by index
+    /// into nothing.
     /// </remarks>
     public static Choice? Under(AppState state)
     {
-        var rows = Rows(state);
+        var rows = Offered(state, state.FilterView);
 
         return rows.Count == 0
             ? null
-            : rows[Math.Clamp(state.FilterSelected, 0, rows.Count - 1)];
+            : rows[Math.Clamp(Cursor(state), 0, rows.Count - 1)];
     }
 
     /// <summary>

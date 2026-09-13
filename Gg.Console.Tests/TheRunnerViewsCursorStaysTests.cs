@@ -145,14 +145,18 @@ public class TheRunnerViewsCursorStaysTests
     {
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
+        // THE HANDLER IS NAMED FOR WHAT IT IS RATHER THAN FOR WHO WAS FIRST.
+        // It routes through Reducer.Pointed, which answers by MODE before it
+        // answers by tab - so it serves every table inside every modal, and the
+        // filter modal's three joined these two.
         await Assert.That(screen)
-            .Contains("_runnerMembers.ValueChanged += OnRunnerRowPointedAt", StringComparison.Ordinal);
+            .Contains("_runnerMembers.ValueChanged += OnModalRowPointedAt", StringComparison.Ordinal);
         await Assert.That(screen)
-            .Contains("_runnerEnvironments.ValueChanged += OnRunnerRowPointedAt", StringComparison.Ordinal);
+            .Contains("_runnerEnvironments.ValueChanged += OnModalRowPointedAt", StringComparison.Ordinal);
 
         await Assert.That(screen)
-            .Contains("_runnerMembers.ValueChanged -= OnRunnerRowPointedAt", StringComparison.Ordinal);
+            .Contains("_runnerMembers.ValueChanged -= OnModalRowPointedAt", StringComparison.Ordinal);
         await Assert.That(screen)
-            .Contains("_runnerEnvironments.ValueChanged -= OnRunnerRowPointedAt", StringComparison.Ordinal);
+            .Contains("_runnerEnvironments.ValueChanged -= OnModalRowPointedAt", StringComparison.Ordinal);
     }
 }

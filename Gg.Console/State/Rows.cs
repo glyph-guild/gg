@@ -222,6 +222,25 @@ public static class Rows
     public static IReadOnlyList<string> RepositoryColumns { get; } =
         ["", "path", "name", "provider", "credential", "ref", "narrowings"];
 
+    /// <summary>
+    /// One filter tab's columns: the mark, and the value.
+    /// </summary>
+    /// <remarks>
+    /// <b>The mark column has no heading</b>, for the reason the runners' and
+    /// the repositories' first columns have none: a word explaining a symbol
+    /// that already explains itself. What it marks is what is in the filter.
+    /// </remarks>
+    public static IReadOnlyList<string> FilterColumns(BrowseFacet view) =>
+        ["", FilterViews.Column(view)];
+
+    /// <summary>The mark against a value that is in the filter.</summary>
+    /// <remarks>
+    /// The same arrow the repositories table puts against the one this console
+    /// is flying against, and for the same reason: it points at the row rather
+    /// than decorating it, so a column of them reads as a list of picks.
+    /// </remarks>
+    public const string Picked = "→";
+
     /// <summary>Every flight this tenant has, newest first.</summary>
     public static IReadOnlyList<FlightRow> Flights(AppState state)
     {

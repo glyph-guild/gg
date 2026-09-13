@@ -49,7 +49,35 @@ public static class RunnerAskKinds
     /// <summary>What the runner is doing, and what it last failed at.</summary>
     public const string Status = "status";
 
-    public static IReadOnlyList<string> All { get; } = [TailLog, Status];
+    /// <summary>
+    /// Place a credential on this runner, for this runner's own use.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The third value, and the "for now" above is what it spends.</b> It
+    /// arrives the way that paragraph says it must - through a lease and an
+    /// envelope - rather than quietly: a fingerprint moved and a contract
+    /// version was spent to add it.
+    /// </para>
+    /// <para>
+    /// <b>It is not <c>RunCommand</c>, and the difference is worth stating
+    /// rather than leaving to be inferred.</b> ADR-0013 names that type as the
+    /// thing this vocabulary exists to refuse, and <c>RunnerAskClosureTests</c>
+    /// plants it by name. This performs nothing, returns no data, and writes one
+    /// file the runner already writes for itself - what it widens is what a
+    /// runner may be TOLD, not what it may be made to DO.
+    /// </para>
+    /// <para>
+    /// <b>And it is the only way in.</b> A strategy document cannot hold a
+    /// credential, an offered configuration cannot carry one, and a pool member
+    /// has no file an operator can reach. What was left was rebuilding the image
+    /// for every rotation.
+    /// </para>
+    /// </remarks>
+    public const string ConfigureCredential = "configure-credential";
+
+    public static IReadOnlyList<string> All { get; } =
+        [TailLog, Status, ConfigureCredential];
 }
 
 /// <summary>
@@ -100,6 +128,84 @@ public sealed record TailLogAsk
 public sealed record StatusAsk;
 
 /// <summary>
+/// A credential for this runner to keep, and the only thing on this contract
+/// that carries one.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Article VIII is not bent by this, and the reason is WHERE it travels.</b>
+/// The control plane stores <i>references and facts, never secrets</i> - and it
+/// never sees this. It crosses a channel sealed end to end between a console
+/// and a runner, brokered by a relay that <i>says where and whether, never
+/// what</i>. A secret the control plane cannot read is the aligned answer to
+/// "how does a machine with no filesystem anybody can reach get a token", not a
+/// transgression against the article.
+/// </para>
+/// <para>
+/// <b>That safety is structural and asserted.</b> No endpoint in
+/// <see cref="Description.ProtocolSurface"/> names this type, transitively - so
+/// there is no request body it can enter - and the channel has its own
+/// serializer context, kept apart from the one a runner uses to speak to its
+/// control plane, so <i>a type added to one is not silently serialisable over
+/// the other</i>.
+/// </para>
+/// <para>
+/// <b>Two members, and the shortness is the design.</b> The runner writes a
+/// file keyed by a locator; identity and scopes are the control plane's record
+/// of the reference and it already holds them. A member here that the write
+/// does not need is a member a secret-carrying type did not have to have.
+/// </para>
+/// </remarks>
+[PinnedId("0f4e6a21-9c73-4b58-8d10-72a5e3b6c94f")]
+[RunnerAskKind(RunnerAskKinds.ConfigureCredential)]
+public sealed record ConfigureCredentialAsk
+{
+    /// <summary>
+    /// Which credential this is, in the form <c>gg credential add</c> stores.
+    /// </summary>
+    /// <remarks>
+    /// <b>Validated by the contract's own rule before it becomes a path</b>,
+    /// which <see cref="CredentialStore"/> already does and already says why:
+    /// <i>a path it could steer is a path it could steer anywhere</i>. It said
+    /// that about a locator arriving from a control plane. This one arrives
+    /// from a console over a channel <c>CLAUDE.md</c> calls hostile - the same
+    /// guard, and a better reason for it.
+    /// </remarks>
+    public required string Locator { get; init; }
+
+    /// <summary>The value. It goes to a 0600 file and nowhere else.</summary>
+    /// <remarks>
+    /// <b>Named for what it is.</b> <c>CredentialContainmentTests</c> refuses a
+    /// member called this on every type it scans, which is exactly the guard
+    /// that should fire if anybody ever adds this one to that list.
+    /// </remarks>
+    public required string Secret { get; init; }
+}
+
+/// <summary>What the runner did with it. Never what it was given.</summary>
+/// <remarks>
+/// <b>An acknowledgement rather than an echo.</b> A runner that answered with
+/// what it had been handed would put the secret back on a channel a person is
+/// watching and into whatever renders it - which is the one failure this whole
+/// path has to not have. The locator is a reference and names nothing;
+/// <see cref="Written"/> is the fact.
+/// </remarks>
+[PinnedId("6c21d90b-473e-4a85-b1f6-2d089e7a3c15")]
+public sealed record ConfiguredCredential
+{
+    /// <summary>Which credential, by the name it was asked about.</summary>
+    public required string Locator { get; init; }
+
+    /// <summary>Whether the secret is now on this machine.</summary>
+    /// <remarks>
+    /// <b>A fact, not an apology</b>, for <see cref="LogTail.Truncated"/>'s
+    /// reason. A write that failed and a write that happened must not read
+    /// identically, because the flight after this one depends on which.
+    /// </remarks>
+    public required bool Written { get; init; }
+}
+
+/// <summary>
 /// One question for one runner.
 /// </summary>
 /// <remarks>
@@ -116,6 +222,8 @@ public sealed record RunnerAsk
     public TailLogAsk? TailLog { get; init; }
 
     public StatusAsk? Status { get; init; }
+
+    public ConfigureCredentialAsk? ConfigureCredential { get; init; }
 }
 
 /// <summary>The lines a runner wrote about itself.</summary>
@@ -185,6 +293,8 @@ public sealed record RunnerSaid
 
     public RunnerStatusReport? Status { get; init; }
 
+    public ConfiguredCredential? Configured { get; init; }
+
     /// <summary>
     /// The same answer with every control sequence removed.
     /// </summary>
@@ -226,6 +336,15 @@ public sealed record RunnerSaid
                 ? null
                 : ControlText.Strip(Status.Diagnosis, allowLineBreaks: true),
             At = Status.At,
+        },
+        // THE LOCATOR IS A LINE, so it is stripped like one. It is a value a
+        // console sent and a runner sent back, and an arm added to the envelope
+        // and forgotten here is an escape sequence riding home through the one
+        // artifact everybody was told is safe.
+        Configured = Configured is null ? null : new ConfiguredCredential
+        {
+            Locator = ControlText.Strip(Configured.Locator, allowLineBreaks: false),
+            Written = Configured.Written,
         },
     };
 }

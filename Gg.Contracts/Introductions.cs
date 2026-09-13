@@ -24,7 +24,30 @@ public static class RunnerCapabilityPurposes
     /// <summary>Ask a runner about itself, and nothing else.</summary>
     public const string TailYourOwnLog = "tail-your-own-log";
 
-    public static IReadOnlyList<string> All { get; } = [TailYourOwnLog];
+    /// <summary>Place a credential on one runner, for its own use.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The second value, and the closure above is what it spends.</b> An
+    /// introduction minted to read a log must not also place a credential, so
+    /// this is a different purpose rather than a wider one - which is the
+    /// narrowing the type exists to express.
+    /// </para>
+    /// <para>
+    /// <b>WHAT THIS IS NOT: a check the runner performs.</b> The runner cannot
+    /// verify a capability - <see cref="RunnerSealedOffer"/> records why the
+    /// capability was taken OUT of the offer: <i>a bearer capability is verified
+    /// by ASKING the control plane, and there is no route for that. An
+    /// unverifiable field that looks like a check is worse than no field.</i> So
+    /// this is the control plane's refusal and the flight log's record of what
+    /// a console said it was for. What restrains the runner is the closed
+    /// dispatch and the lease, and it is written down here so a later reader
+    /// does not take a purpose for a gate.
+    /// </para>
+    /// </remarks>
+    public const string ConfigureThisRunner = "configure-this-runner";
+
+    public static IReadOnlyList<string> All { get; } =
+        [TailYourOwnLog, ConfigureThisRunner];
 }
 
 /// <summary>

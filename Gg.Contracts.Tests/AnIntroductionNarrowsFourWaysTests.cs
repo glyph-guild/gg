@@ -41,15 +41,24 @@ public class AnIntroductionNarrowsFourWaysTests
     }
 
     [Test]
-    public async Task The_purpose_is_a_closed_vocabulary_with_one_value()
+    public async Task The_purpose_is_a_closed_vocabulary_a_value_cannot_slip_into()
     {
         // A FREE STRING WOULD MAKE "one purpose" A DESCRIPTION OF TODAY. The
         // second purpose would arrive as a typo nobody noticed, and widening
         // what a capability authorises is exactly the change that should cost a
         // version.
-        await Assert.That(RunnerCapabilityPurposes.All.Count).IsEqualTo(1);
-        await Assert.That(RunnerCapabilityPurposes.All)
-            .Contains(RunnerCapabilityPurposes.TailYourOwnLog);
+        //
+        // IT COST ONE, WHICH IS THIS ASSERTION WORKING RATHER THAN BEING
+        // WEAKENED. `configure-this-runner` moved the fingerprint, spent
+        // 0.153.0, and made somebody come here and edit this number on purpose -
+        // which is the whole of what the count was ever for. The list is what is
+        // asserted, so a THIRD value still has to be argued for here.
+        await Assert.That(RunnerCapabilityPurposes.All).IsEquivalentTo(
+            (string[])
+            [
+                RunnerCapabilityPurposes.TailYourOwnLog,
+                RunnerCapabilityPurposes.ConfigureThisRunner,
+            ]);
 
         var membership = typeof(RunnerCapabilityPurposes)
             .GetCustomAttribute<VocabularyOfAttribute>();

@@ -89,6 +89,14 @@ public class ABrowseFilterIsPickedTests
         await Assert.That(Keymap.Resolve(
             KeyStroke.Esc, new KeymapContext(UiMode.BrowseFilter)))
             .IsEqualTo(Command.CloseModal);
+
+        await Assert.That(Keymap.Resolve(
+            KeyStroke.EnterKey, new KeymapContext(UiMode.BrowseFilter)))
+            .IsEqualTo(Command.PickFilterValue);
+
+        await Assert.That(Keymap.Resolve(
+            KeyStroke.Char('b'), new KeymapContext(UiMode.BrowseFilter)))
+            .IsEqualTo(Command.BrowseFiltered);
     }
 
     [Test]

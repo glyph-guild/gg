@@ -131,6 +131,42 @@ public sealed class ReaderConversation(
     }
 
     /// <summary>
+    /// What has happened to one item, in the reader's own words.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own verb, and a reader may not have it.</b> A reader that answers
+    /// what an item IS without answering what happened to it is still useful,
+    /// so this says so by name rather than failing the whole modal.
+    /// </remarks>
+    public async Task<ItemOutcome> HistoryAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        if (await OpenAsync(cancellationToken) is { } refused)
+        {
+            return new ItemOutcome.Nothing(Why(refused));
+        }
+
+        if (!ItemTool.HasHistory(_declared))
+        {
+            return new ItemOutcome.Nothing(ItemTool.NoHistory(_key));
+        }
+
+        var call = await CallAsync(
+            ItemTool.HistoryName,
+            arguments => arguments.WriteString(ItemTool.Id, id),
+            cancellationToken);
+
+        return call switch
+        {
+            { Outcome: { } ended } => new ItemOutcome.Nothing(Why(ended)),
+            { Text: { } text } => new ItemOutcome.Read(text),
+            _ => new ItemOutcome.Nothing(Saying("answered a call with no content")),
+        };
+    }
+
+    /// <summary>
     /// One ending's words, whichever ending it is.
     /// </summary>
     /// <remarks>

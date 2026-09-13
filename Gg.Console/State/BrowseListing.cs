@@ -5,11 +5,16 @@ namespace Gg.Console;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>No url, and that is deliberate.</b> The browse contract carries one, but
-/// a flight is opened from a provider and an id - never parsed out of a url,
-/// which is the rule <c>FlightIntent.Id</c> already states - so holding it here
-/// would put one more customer string in the state dump for no reader of the
-/// screen.
+/// <b>The url is held, and it was not.</b> "No url, and that is deliberate" was
+/// right on its own terms: a flight is opened from a provider and an id, never
+/// parsed out of a url - the rule <c>FlightIntent.Id</c> states - so the url was
+/// one more customer string in the state dump <i>for no reader of the screen</i>.
+/// That last clause was the whole condition, and it has changed: there is a
+/// reader now, which is the key that opens the item where it lives.
+/// </para>
+/// <para>
+/// <b>It still never becomes an intent.</b> What opens a flight is unchanged -
+/// a provider and an id, declared - and this is only ever handed to a browser.
 /// </para>
 /// <para>
 /// <b>The title IS held, and it is customer content.</b> Choosing work without
@@ -26,6 +31,9 @@ public sealed record BrowseRow
 
     /// <summary>When the tracker last saw it change, as the tracker spells it.</summary>
     public string? Updated { get; init; }
+
+    /// <summary>Where a person would go to read it, or null where the reader gave none.</summary>
+    public string? Url { get; init; }
 }
 
 /// <summary>

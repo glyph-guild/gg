@@ -1003,16 +1003,19 @@ public static class Reducer
                 BrowseOutcome.Listed listed => new BrowseListing
                 {
                     ProviderKey = providerKey,
-                    // NO URL. A flight is opened from a provider and an id,
-                    // never parsed out of a url, so carrying one would put a
-                    // customer string in the dump that no reader of the screen
-                    // asked for.
+                    // THE URL CROSSES NOW, AND IT DID NOT. The reason it did
+                    // not was that no reader of the screen asked for it - a
+                    // flight is opened from a provider and an id, never parsed
+                    // out of a url. That is still true of flying; what changed
+                    // is that the detail modal offers to open the item where it
+                    // lives, which is a reader.
                     Items = [.. listed.Page.Items.Select(item => new BrowseRow
                     {
                         Id = item.Id,
                         Title = item.Title,
                         State = item.State,
                         Updated = item.Updated,
+                        Url = item.Url is { Length: > 0 } where ? where : null,
                     })],
                     NextCursor = listed.Page.NextCursor,
                 },

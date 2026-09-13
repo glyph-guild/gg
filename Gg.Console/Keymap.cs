@@ -798,6 +798,10 @@ public static class Keymap
         // way out of every other modal.
         UiMode.WorkItemDetail =>
         [
+            // INSIDE A MODAL THE LETTERS ARE FREE, so this one can be the word
+            // it means. `o` is taken on the runners tab and in two other modals,
+            // and a modal owns the keyboard while it is up.
+            new(KeyStroke.Char('o'), Command.OpenWorkItem, "open it in a browser"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

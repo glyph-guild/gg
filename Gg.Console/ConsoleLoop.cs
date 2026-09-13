@@ -807,7 +807,15 @@ public sealed class ConsoleLoop(
                         browser is null
                             ? null
                             : id => browser.ReadAsync(id, CancellationToken.None)
+                                .GetAwaiter().GetResult(),
+                        browser is null
+                            ? null
+                            : id => browser.HistoryAsync(id, CancellationToken.None)
                                 .GetAwaiter().GetResult());
+                    break;
+
+                case Command.OpenWorkItem:
+                    state = OpenedWorkItem(state, openUri);
                     break;
 
                 case Command.ForgetCredential:
@@ -1555,7 +1563,8 @@ public sealed class ConsoleLoop(
     /// rule, one method over.
     /// </para>
     /// </remarks>
-    public static AppState ShowedWorkItem(AppState state, Func<string, ItemOutcome>? read)
+    public static AppState ShowedWorkItem(
+        AppState state, Func<string, ItemOutcome>? read, Func<string, ItemOutcome>? history = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -1575,18 +1584,61 @@ public sealed class ConsoleLoop(
             };
         }
 
-        var said = read(listing.Items[state.BrowseSelected].Id);
+        var id = listing.Items[state.BrowseSelected].Id;
+
+        // BOTH, AND THE ITEM FIRST. What it IS comes before what has happened to
+        // it, because the second only means anything once you know the first -
+        // and each half says its own failure, so a reader that answers one is
+        // more useful than one refused for not answering both.
+        var body = Words(read(id));
+        var happened = history is null ? "" : Words(history(id));
 
         return state with
         {
             Mode = UiMode.WorkItemDetail,
-            WorkItemSaid = said switch
-            {
-                ItemOutcome.Read(var body) => body,
-                ItemOutcome.Nothing(var why) => why,
-                _ => "The reader answered something this console could not read.",
-            },
+            WorkItemSaid = happened is { Length: > 0 }
+                ? $"{body}\n\n— what has happened to it —\n\n{happened}"
+                : body,
         };
+    }
+
+    /// <summary>Whatever the reader said, whichever way it ended.</summary>
+    private static string Words(ItemOutcome outcome) => outcome switch
+    {
+        ItemOutcome.Read(var said) => said,
+        ItemOutcome.Nothing(var why) => why,
+        _ => "The reader answered something this console could not read.",
+    };
+
+    /// <summary>
+    /// Hand the item to a browser, or say why there is nowhere to go.
+    /// </summary>
+    /// <remarks>
+    /// <b>The url is the row's, not the rendering's.</b> What a reader wrote
+    /// about an item is prose, and pulling a link back out of prose would be
+    /// parsing something nobody promised - where the listing carried one all
+    /// along.
+    /// </remarks>
+    public static AppState OpenedWorkItem(
+        AppState state, Func<AppState, string, AppState>? openUri)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Browse is not { Items.Count: > 0 } listing
+            || state.BrowseSelected < 0
+            || state.BrowseSelected >= listing.Items.Count
+            || listing.Items[state.BrowseSelected].Url is not { Length: > 0 } where)
+        {
+            return state with
+            {
+                LastRunner = "This tracker gave no link for that item, so there is nowhere "
+                           + "to open.",
+            };
+        }
+
+        return openUri is null
+            ? state with { LastRunner = "This console is not configured to open a browser." }
+            : openUri(state, where);
     }
 
     /// <summary>The question is over: close it, and forget where the cursor was.</summary>

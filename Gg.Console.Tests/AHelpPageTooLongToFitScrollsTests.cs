@@ -119,7 +119,12 @@ public class AHelpPageTooLongToFitScrollsTests
         list.SetSource(new ObservableCollection<string>(
             Enumerable.Range(0, 40).Select(i => $"line {i}").ToList()));
 
-        await Assert.That(list.SelectedItem).IsEqualTo(0)
+        // MEASURED IN 2.5.0, and it is null rather than zero: SelectedItem is
+        // an int? and a fresh source clears it outright. Either way the person
+        // is no longer where they were, which is the point - but the exact
+        // value is written down here so a version that changes it fails in a
+        // test rather than in somebody's hands.
+        await Assert.That(list.SelectedItem).IsNull()
             .Because("identical lines, and the cursor is still lost - so a page refilled "
                    + "once a second can be scrolled for at most a second.");
     }

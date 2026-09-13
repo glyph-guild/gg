@@ -2712,6 +2712,47 @@ public static class PaneText
     public static string HelpEnvironmentText(AppState state) => HelpEnvironment(state);
 
     /// <summary>
+    /// A text help page as lines, broken to a box that wide.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Lines rather than a string, because a Label does not scroll.</b> The
+    /// two text pages are longer than the modal on any real machine - a dozen
+    /// variables at four lines each, or a health report - and a Label draws
+    /// what fits and drops the rest with no mark. A ListView of lines scrolls,
+    /// takes the arrows, and shows a bar, which is what the reading pane, the
+    /// runner's log and the airspace document all already do.
+    /// </para>
+    /// <para>
+    /// <b>The Keys page is not here.</b> It is a tree, not a document; its rows
+    /// are <see cref="HelpTree"/>'s and its folds are the model's. Returning
+    /// something plausible for it would invite a caller to draw the keys twice.
+    /// </para>
+    /// <para>
+    /// <b>Width zero is the first render</b>, before Terminal.Gui has laid
+    /// anything out. <see cref="Fitted"/> passes the lines through unbroken
+    /// rather than returning nothing, because no width yet is not the same as
+    /// nothing to say - and the resize that follows breaks them properly.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> HelpPageLines(AppState state, HelpPage page, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var text = page switch
+        {
+            HelpPage.Environment => HelpEnvironmentText(state),
+            HelpPage.Doctor => HelpDoctorText(state),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(page),
+                page,
+                "The Keys page is a tree and is drawn from HelpTree, not from lines."),
+        };
+
+        return Fitted([.. text.Split('\n')], columns);
+    }
+
+    /// <summary>
     /// What this gg is, and what it found when the console opened.
     /// </summary>
     /// <remarks>

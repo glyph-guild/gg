@@ -33,7 +33,24 @@ namespace Gg.Console.Views;
 /// </remarks>
 public static class CollectionViews
 {
-    /// <summary>The queue's list.</summary>
+    /// <summary>
+    /// The queue's list, and every long read-only document beside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A list rather than a label, wherever the text can outgrow the box.</b>
+    /// A Label draws what fits and drops the rest with no mark; a ListView of
+    /// lines scrolls, takes the arrows and shows a bar. The help modal's
+    /// Environment and Doctor pages were Labels and could not be read past the
+    /// first screenful, which is what this factory now answers for them as well
+    /// as for the reading pane, the runner's log and the airspace document.
+    /// <para>
+    /// <b>Focusable, which it is by default, and that matters here.</b> A
+    /// Dialog hands focus to its first focusable child, and a page that could
+    /// not take it would send the focus into a SIBLING tab - whereupon Tabs
+    /// re-selects that tab and raises ValueChanged, which the screen reads as a
+    /// person picking it.
+    /// </para>
+    /// </remarks>
     public static ListView List()
     {
         var list = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
@@ -102,26 +119,6 @@ public static class CollectionViews
                 ? base.OnKeyDownNotHandled(key)
                 : false;
     }
-
-    /// <summary>
-    /// A label that scrolls under the keyboard without answering for it.
-    /// </summary>
-    /// <remarks>
-    /// <b>Focusable, because focus has to stay inside the tab that is
-    /// showing.</b> A Dialog hands focus to its first focusable child, and when
-    /// that child is in a SIBLING tab's pane the Tabs notices, re-selects that
-    /// tab and raises ValueChanged - which the screen reads as a person picking
-    /// it. So every page takes the keyboard, and every page gives the keys
-    /// back.
-    /// </remarks>
-    private sealed class QuietLabel : Label
-    {
-        protected override bool OnKeyDownNotHandled(Key key) => false;
-    }
-
-    /// <summary>A read-only page that holds focus and no keys.</summary>
-    public static Label Page() =>
-        new QuietLabel { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
 
     /// <summary>
     /// A tab bar that renders a choice and never makes one.

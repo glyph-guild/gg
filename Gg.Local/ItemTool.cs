@@ -47,6 +47,43 @@ public static class ItemTool
     /// </remarks>
     public const string HistoryName = "get_work_item_history";
 
+    /// <summary>
+    /// What one history answer carries.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rows, because a history IS a table.</b> It crossed as one rendered
+    /// block - three fields joined with two spaces - which flattened the shape
+    /// at the last point anybody could still see it had one, and left a pane
+    /// with a paragraph where it wanted columns. <see cref="BrowseTool"/>
+    /// answers JSON for exactly this reason: a pane parses it.
+    /// </para>
+    /// <para>
+    /// <b>The time is a string, as the tracker spells it.</b>
+    /// <c>BrowseTool.Fields.Updated</c> already makes this choice: a reader
+    /// re-formatting somebody else's timestamp is a reader having an opinion
+    /// about a record it does not own, and a console parsing one back is two
+    /// chances to disagree.
+    /// </para>
+    /// </remarks>
+    public static class History
+    {
+        /// <summary>The changes, under one key so the answer is one object.</summary>
+        public const string Changes = "changes";
+
+        /// <summary>When it happened, as the tracker spells it.</summary>
+        public const string When = "when";
+
+        /// <summary>Who did it, as the tracker names them.</summary>
+        public const string Who = "who";
+
+        /// <summary>What changed, in the tracker's own words.</summary>
+        public const string What = "what";
+
+        /// <summary>All three fields of one row.</summary>
+        public static IReadOnlyList<string> Fields { get; } = [When, Who, What];
+    }
+
     /// <summary>What the caller names the item by.</summary>
     /// <remarks>
     /// <b>The tracker's own identifier, exactly as a listing spelled it.</b> A

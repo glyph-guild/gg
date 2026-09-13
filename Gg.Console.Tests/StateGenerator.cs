@@ -94,6 +94,23 @@ internal static class StateGenerator
             ChosenAreaPath = random.Next(3) == 0 ? NextId(random) : null,
             ChosenIteration = random.Next(3) == 0 ? NextId(random) : null,
             ChosenStates = [.. Enumerable.Range(0, random.Next(0, 3)).Select(_ => NextId(random))],
+
+            // AND WHAT THE ITEM MODAL HOLDS. The history is rows now, so the
+            // round trip has a list of records to carry rather than a string -
+            // which is the member shape the source generator has to have been
+            // told about, refused in the published binary rather than here.
+            WorkItemSaid = random.Next(3) == 0 ? NextText(random) : null,
+            WorkItemHistorySaid = random.Next(3) == 0 ? NextText(random) : null,
+            WorkItemSelected = random.Next(0, 5),
+            WorkItemChanges =
+            [
+                .. Enumerable.Range(0, random.Next(0, 4)).Select(_ => new WorkItemChangeRow
+                {
+                    When = NextId(random),
+                    Who = NextId(random),
+                    What = NextText(random),
+                }),
+            ],
         };
     }
 

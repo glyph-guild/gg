@@ -33,7 +33,7 @@ public interface IWorkBrowser
     Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken);
 
     /// <summary>What has happened to one item, in the reader's own words.</summary>
-    Task<ItemOutcome> HistoryAsync(string id, CancellationToken cancellationToken);
+    Task<HistoryOutcome> HistoryAsync(string id, CancellationToken cancellationToken);
 
     Task<BrowseOutcome> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken);
@@ -103,11 +103,11 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
         return await reader.ReadAsync(id, cancellationToken);
     }
 
-    public async Task<ItemOutcome> HistoryAsync(string id, CancellationToken cancellationToken)
+    public async Task<HistoryOutcome> HistoryAsync(string id, CancellationToken cancellationToken)
     {
         if (Key is not { } key || _readers.For(key) is not { } reader)
         {
-            return new ItemOutcome.Nothing(
+            return new HistoryOutcome.Nothing(
                 "No tracker is configured to read work items on this machine.");
         }
 

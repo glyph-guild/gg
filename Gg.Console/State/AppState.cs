@@ -1607,6 +1607,33 @@ public sealed record AppState
     /// </remarks>
     public string? WorkItemSaid { get; init; }
 
+    /// <summary>
+    /// What has happened to that item, as rows.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rows, because a history is a table.</b> It arrived as one rendered
+    /// block once, which flattened the shape at the last point anybody could
+    /// still see it had one - and a pane cannot put a paragraph in columns.
+    /// Empty means the tracker answered and had nothing to say;
+    /// <see cref="WorkItemHistorySaid"/> is the other case.
+    /// </remarks>
+    public IReadOnlyList<WorkItemChangeRow> WorkItemChanges { get; init; } = [];
+
+    /// <summary>Why there is no history, already worded, or null.</summary>
+    /// <remarks>
+    /// A reader that does not declare the tool and a tracker with nothing to
+    /// report are two different things, and an empty table claims the second.
+    /// </remarks>
+    public string? WorkItemHistorySaid { get; init; }
+
+    /// <summary>Which row of that history the cursor is on.</summary>
+    /// <remarks>
+    /// A cursor of its own, for <see cref="BrowseSelected"/>'s reason twice
+    /// over: the list behind this modal is the work list, and moving that while
+    /// somebody reads a history would change which item the modal is about.
+    /// </remarks>
+    public int WorkItemSelected { get; init; }
+
 
     /// <summary>
     /// What came of the last credential this console registered.

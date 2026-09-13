@@ -233,6 +233,16 @@ public static class Rows
     public static IReadOnlyList<string> FilterColumns(BrowseFacet view) =>
         ["", FilterViews.Column(view)];
 
+    /// <summary>
+    /// The work item history's columns.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three, because a change has three parts</b> - and it arrived as one
+    /// rendered line until now, which is a table flattened at the last point
+    /// anybody could still see it was one.
+    /// </remarks>
+    public static IReadOnlyList<string> WorkItemColumns { get; } = ["when", "who", "what"];
+
     /// <summary>The mark against a value that is in the filter.</summary>
     /// <remarks>
     /// The same arrow the repositories table puts against the one this console

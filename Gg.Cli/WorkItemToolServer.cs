@@ -379,10 +379,26 @@ public static class WorkItemToolServer
 
         var changes = await source.HistoryAsync(wanted, cancellationToken);
 
-        return Content(id, changes.Count == 0
-            ? "Nothing has happened to this item yet."
-            : string.Join('\n', changes.Select(change =>
-                $"{change.When:yyyy-MM-dd HH:mm}  {change.Who}  {change.What}")));
+        // ROWS, NOT A RENDERING. Three fields joined with two spaces is a table
+        // flattened at the last point anybody could still see it was one - and
+        // a pane on the other side of this pipe wants the columns back.
+        return Content(id, Write(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteStartArray(Gg.Local.ItemTool.History.Changes);
+
+            foreach (var change in changes)
+            {
+                writer.WriteStartObject();
+                writer.WriteString(
+                    Gg.Local.ItemTool.History.When, $"{change.When:yyyy-MM-dd HH:mm}");
+                writer.WriteString(Gg.Local.ItemTool.History.Who, change.Who);
+                writer.WriteString(Gg.Local.ItemTool.History.What, change.What);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        }));
     }
 
     /// <summary>

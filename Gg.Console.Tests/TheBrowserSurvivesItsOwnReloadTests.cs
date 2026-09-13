@@ -45,8 +45,8 @@ public class TheBrowserSurvivesItsOwnReloadTests
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
 
-        public Task<ItemOutcome> HistoryAsync(string id, CancellationToken token) =>
-            Task.FromResult<ItemOutcome>(new ItemOutcome.Read("a history"));
+        public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
+            Task.FromResult<HistoryOutcome>(new HistoryOutcome.Read([]));
     }
 
     /// <summary>

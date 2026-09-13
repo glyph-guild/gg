@@ -42,6 +42,16 @@ public enum FocusTarget
     FilterView,
 
     /// <summary>
+    /// The history inside the work item modal, which is the part with a cursor.
+    /// </summary>
+    /// <remarks>
+    /// The flight log's reason one modal over: a modal made of widgets has to
+    /// say WHICH widget, and the arrows are how a history longer than the pane
+    /// is read at all.
+    /// </remarks>
+    WorkItemHistory,
+
+    /// <summary>
     /// The log inside the flight modal, which is the part of it with a cursor.
     /// </summary>
     /// <remarks>
@@ -195,6 +205,12 @@ public static class FocusChange
         (UiMode.BrowseFilter, _) when modalHasFocus && landedFilterView == filterView
             => FocusTarget.LeaveAlone,
         (UiMode.BrowseFilter, _) => FocusTarget.FilterView,
+
+        // AND THE WORK ITEM'S HISTORY, which is the one part of that modal with
+        // a cursor. It has one place for the keyboard to be, so the ordinary
+        // guard below is enough once it has landed.
+        (UiMode.WorkItemDetail, _) when modalHasFocus => FocusTarget.LeaveAlone,
+        (UiMode.WorkItemDetail, _) => FocusTarget.WorkItemHistory,
 
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 

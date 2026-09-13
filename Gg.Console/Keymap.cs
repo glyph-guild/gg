@@ -801,6 +801,15 @@ public static class Keymap
             // INSIDE A MODAL THE LETTERS ARE FREE, so this one can be the word
             // it means. `o` is taken on the runners tab and in two other modals,
             // and a modal owns the keyboard while it is up.
+            // THE HISTORY'S CURSOR, untaught and off the hint line for every
+            // other modal list's reason: the arrows do this through the widget,
+            // so the one line of hints goes to keys with nowhere else to be
+            // found.
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { Untaught = true, OffTheHintLine = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { Untaught = true, OffTheHintLine = true },
+
             new(KeyStroke.Char('o'), Command.OpenWorkItem, "open it in a browser"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],

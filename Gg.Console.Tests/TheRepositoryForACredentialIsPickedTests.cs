@@ -229,6 +229,67 @@ public class TheRepositoryForACredentialIsPickedTests
     }
 
     [Test]
+    public async Task Pointing_at_a_row_moves_this_list_and_not_the_fleet_behind_it()
+    {
+        // THE SIXTH MODAL TO NEED THIS ARM AND THE SECOND TO SHIP WITHOUT IT.
+        // Reducer.Pointed routes by mode and then falls through to the ACTIVE
+        // TAB - which behind this dialog is Runners - so an arrow key moved the
+        // fleet's cursor, changed which runner the modal was about, and the
+        // render put the highlight back on row zero. The rows read as
+        // unselectable because nothing this list owns ever moved.
+        var open = Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
+        {
+            ActiveTab = TabId.Runners,
+            Runners = OneRunner(),
+            RunnerSelected = 0,
+        };
+
+        var pointed = Reducer.Pointed(open, 1);
+
+        await Assert.That(pointed.CredentialRepoSelected).IsEqualTo(1);
+        await Assert.That(pointed.RunnerSelected).IsEqualTo(0)
+            .Because("the runner under the cursor is what this send is ABOUT, so moving it "
+                   + "from inside the dialog changes the machine a secret goes to.");
+    }
+
+    [Test]
+    public async Task A_credential_this_machine_holds_says_it_will_be_forwarded()
+    {
+        // WHAT ENTER DOES, rather than what the registry says. SecretFor
+        // already prefers this machine's copy - "the ordinary case is somebody
+        // who has already run gg credential add" - so a held credential is
+        // forwarded without anybody typing. That was true and invisible, which
+        // is the same as not being offered.
+        var rows = CredentialRepositories.Rows(Standing(
+            ("JDX/held", CredentialStanding.Here)));
+
+        await Assert.That(rows[0].Said).Contains("forward", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Test]
+    public async Task One_this_machine_lacks_says_it_will_ask()
+    {
+        var rows = CredentialRepositories.Rows(Standing(
+            ("JDX/absent", CredentialStanding.MissingHere)));
+
+        await Assert.That(rows[0].Said).Contains("paste", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Test]
+    public async Task One_with_no_reference_at_all_says_to_register_it_first()
+    {
+        // THE DOOR GG-96 ACTUALLY FAILED AT. A runner holding the secret is
+        // half of it; the control plane holding a reference is the half the
+        // flight is refused for, and sending here does not create one. Saying
+        // "none registered" named the state and not the remedy.
+        var rows = CredentialRepositories.Rows(Standing(
+            ("JDX/unregistered", CredentialStanding.NoneRegistered)));
+
+        await Assert.That(rows[0].Said)
+            .Contains("gg credential add", StringComparison.Ordinal);
+    }
+
+    [Test]
     public async Task The_cursor_survives_a_list_with_nothing_in_it()
     {
         // AN EMPTY LIST BECAME REACHABLE WHEN THE PROMPT ROW WENT, and moving

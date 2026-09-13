@@ -65,7 +65,8 @@ public class AWatchWaitsThenFollowsTests
     private static async Task<List<string>> FollowedAsync(
         IReadOnlyList<RunnerSaid?> tails,
         IReadOnlyList<RunnerSaid?> statuses,
-        IReadOnlyList<string> seen)
+        IReadOnlyList<string> seen,
+        Action<RunnerAsk>? noting = null)
     {
         var written = new List<string>();
         var nextTail = 0;
@@ -75,6 +76,18 @@ public class AWatchWaitsThenFollowsTests
         await WatchARunner.FollowAsync(
             (ask, _) =>
             {
+                noting?.Invoke(ask);
+
+                // REFUSED THE WAY THE RUNNER REFUSES IT. AskDispatch matches on
+                // the kind AND the payload; a double that answered on the kind
+                // alone is a double that cannot fail the way the machine does,
+                // which is how a loop whose every status ask was thrown away
+                // passed all of these.
+                if (ask.Status is null && ask.TailLog is null)
+                {
+                    return Task.FromResult<RunnerSaid?>(null);
+                }
+
                 if (string.Equals(ask.Kind, RunnerAskKinds.Status, StringComparison.Ordinal))
                 {
                     return Task.FromResult(
@@ -96,6 +109,44 @@ public class AWatchWaitsThenFollowsTests
             cancellationToken: stopping.Token);
 
         return written;
+    }
+
+    [Test]
+    public async Task Every_ask_carries_the_payload_its_kind_declares()
+    {
+        // MEASURED ON A REAL RUNNER, WHICH IS THE ONLY REASON THIS IS KNOWN.
+        // AskDispatch's arm is `case RunnerAskKinds.Status when ask.Status is
+        // not null` - a kind with no payload is not a status ask, it is an
+        // unrecognised one, and the runner refuses it and counts it. So every
+        // status this loop sent was thrown away: no beat, no flight name, no
+        // dedupe reset, and nothing on screen to say any of that was missing.
+        //
+        // THE DOUBLE WAS MORE PERMISSIVE THAN THE DISPATCH. It answered by
+        // kind and never looked at the payload, so the tests passed while the
+        // feature did nothing at all against a real machine.
+        var asks = new List<RunnerAsk>();
+
+        await FollowedAsync(
+            tails: [Tail(), Tail()],
+            statuses: [Status("idle", null, 15)],
+            seen: [],
+            noting: asks.Add);
+
+        await Assert.That(asks).IsNotEmpty();
+
+        foreach (var ask in asks)
+        {
+            var carried = ask.Kind switch
+            {
+                RunnerAskKinds.Status => ask.Status is not null,
+                RunnerAskKinds.TailLog => ask.TailLog is not null,
+                _ => false,
+            };
+
+            await Assert.That(carried).IsTrue()
+                .Because($"a `{ask.Kind}` with no payload is not that ask - it is one the "
+                       + "runner does not recognise, and it is refused and counted.");
+        }
     }
 
     [Test]

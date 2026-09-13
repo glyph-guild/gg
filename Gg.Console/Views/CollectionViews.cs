@@ -63,6 +63,47 @@ public static class CollectionViews
     }
 
     /// <summary>
+    /// A list for a document long enough to need a scrollbar.
+    /// </summary>
+    /// <remarks>
+    /// <b>Auto: shown when there is more and gone when there is not</b>, so the
+    /// bar is a fact about the document rather than furniture. Without one a
+    /// full box and a long page look exactly alike - which is "the environment
+    /// textbox is not scrollable" said from the other side, and it was said
+    /// about a page that genuinely was not.
+    /// </remarks>
+    public static ListView Document()
+    {
+        var list = List();
+        list.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
+        return list;
+    }
+
+    /// <summary>
+    /// How wide the text in one of these lists may be.
+    /// </summary>
+    /// <remarks>
+    /// <b>The bar draws INSIDE the viewport, over the last column</b> - measured
+    /// in a pty, where a line wrapped to the full width came back with its last
+    /// character under the bar. A list with no bar keeps its whole width, which
+    /// is what the queue and the logs want.
+    /// <para>
+    /// <b>And never less than a phrase.</b> A viewport is zero wide before
+    /// Terminal.Gui has laid anything out, and wrapping to zero or to one is a
+    /// column of single letters rather than a page.
+    /// </para>
+    /// </remarks>
+    public static int TextWidth(ListView list)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+
+        var bar = list.VerticalScrollBar.VisibilityMode
+            is ScrollBarVisibilityMode.Auto or ScrollBarVisibilityMode.Always;
+
+        return Math.Max(20, list.Viewport.Width - (bar ? 1 : 0));
+    }
+
+    /// <summary>
     /// One of the three tabs that are tables.
     /// </summary>
     /// <remarks>

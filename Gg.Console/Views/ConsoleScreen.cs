@@ -718,7 +718,7 @@ public sealed class ConsoleScreen : Window
         _helpTabs = CollectionViews.Bar();
 
         _helpKeys = CollectionViews.Tree<HelpNode>();
-        _helpEnvironment = CollectionViews.List();
+        _helpEnvironment = CollectionViews.Document();
         _helpEnvironment.ViewportChanged += OnHelpPageResized;
 
         _helpKeysTab = new View
@@ -739,7 +739,7 @@ public sealed class ConsoleScreen : Window
         };
         _helpEnvironmentTab.Add(_helpEnvironment);
 
-        _helpDoctor = CollectionViews.List();
+        _helpDoctor = CollectionViews.Document();
         _helpDoctor.ViewportChanged += OnHelpPageResized;
         _helpDoctorTab = new View
         {
@@ -1819,7 +1819,7 @@ public sealed class ConsoleScreen : Window
 
         void Fill(ListView list, ref IReadOnlyList<string>? showing, HelpPage page)
         {
-            var lines = PaneText.HelpPageLines(State, page, list.Viewport.Width);
+            var lines = PaneText.HelpPageLines(State, page, CollectionViews.TextWidth(list));
 
             if (showing is not null && showing.SequenceEqual(lines))
             {

@@ -1161,8 +1161,9 @@ static async Task<int> LaunchConsoleAsync()
                 opened: onOpen,
                 cancellationToken: token)
             // THE SENTENCE, WHICH IS THE POINT OF ASKING. Only the watch knows
-            // whether nobody answered because the machine is away or because
-            // the flight was never opened to be watched.
+            // whether nobody answered because the machine is away, because the
+            // control plane would not introduce this person to it, or because a
+            // route was found and nothing opened on it.
             .ContinueWith(done => done.Result.Said, TaskScheduler.Default),
         () => DateTimeOffset.UtcNow);
 

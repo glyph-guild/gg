@@ -422,16 +422,16 @@ public static class RunnerDetails
 
         var machine = label.Split(':')[0];
 
-        // WHAT THE FLIGHT IS SAYING, FIRST, when there is a flight. Everything
-        // slice thirty-four built was reachable from nowhere: a person opening
-        // this pane found an ssh command and no way to use any of it. The two
-        // answer different questions and both belong here - `watch` is what the
-        // FLIGHT is saying, and the ssh below is what the RUNNER is doing.
+        // WHAT THE MACHINE IS SAYING, FIRST. Everything slice thirty-four built
+        // was reachable from nowhere: a person opening this pane found an ssh
+        // command and no way to use any of it. The two answer different
+        // questions and both belong here - `watch` is what this machine is
+        // saying and flying, and the ssh below is what its own logs hold.
         //
-        // OFFERED ONLY WHILE SOMETHING IS FLYING, because a channel to a runner
-        // exists only while a flight does. Offering it on an idle machine would
-        // be a command that always fails, which is the thing this method exists
-        // not to do.
+        // OFFERED WHETHER OR NOT IT IS FLYING, because a runner answers while
+        // it is beating. An idle machine is in fact the one worth attaching to:
+        // it is how somebody sees work arrive rather than finding out later
+        // that it did.
         // ALWAYS NAMED, AND THE SENTENCE SAYS WHETHER IT WOULD WORK NOW.
         //
         // The first version showed this only while something was flying, on the

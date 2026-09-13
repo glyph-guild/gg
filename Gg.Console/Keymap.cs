@@ -535,12 +535,13 @@ public static class Keymap
         // key that does nothing and the worst is one that shuts down the local
         // runner while a person is looking at another row. Close is always
         // there: a modal with no way out is worse than one with nothing to do.
-        // AND `w` OVER ANY RUNNER THAT IS FLYING, ours or not - which is the
+        // AND `w` OVER ANY RUNNER THAT IS BEATING, ours or not - which is the
         // whole point of it. `watch` reaches a machine through the control
         // plane rather than through a pidfile this one wrote, so unlike `r` and
         // `x` it is exactly as available over somebody else's runner as over
-        // this one. Withheld while nothing is in the air, because a channel to
-        // a runner exists only while a flight does.
+        // this one. Withheld only while a machine is not beating: an
+        // introduction is picked up on a heartbeat, so one that is not sending
+        // them never sees it.
         UiMode.Runner => context.RunnerIsOurs
             ?
             [

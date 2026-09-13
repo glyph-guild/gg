@@ -1309,7 +1309,12 @@ public sealed class FlightCommands(
         // Attended without a runner is refused at the door, because it would be
         // a flight nobody chose a machine for and nothing to talk to.
         string? runner = null,
-        bool attended = false)
+        bool attended = false,
+        // WHICH REGIME, AND WHERE. Both have been on FlightLaunchRequest since
+        // it shipped and no caller set either, so a tenant with a work kind
+        // defined had no way to open a flight for it.
+        string? workKind = null,
+        string? environment = null)
     {
         var token = Session();
 
@@ -1346,6 +1351,20 @@ public sealed class FlightCommands(
             // the system. Null inherits, which is what it has always meant.
             Repository = repository is { Length: > 0 } ? repository : null,
             Runner = runner is { Length: > 0 } ? runner : null,
+
+            // NULL INHERITS, which is what both have always meant and what
+            // every flight opened before these flags existed said. Empty is
+            // normalised to null rather than sent: a blank name would be
+            // refused as a name, where nothing at all is a choice not to
+            // narrow.
+            //
+            // NEITHER IS CHECKED HERE. A work kind can only narrow root, so
+            // choosing wrong grants nothing root withheld; an environment is
+            // validated against the composed envelope's bound. Both are the
+            // control plane's to refuse, with a better sentence than this
+            // could produce - the rule --ticket's shape already follows.
+            WorkKind = workKind is { Length: > 0 } ? workKind : null,
+            Environment = environment is { Length: > 0 } ? environment : null,
             // ABSENT RATHER THAN FALSE, which is what keeps every headless
             // flight's body byte-for-byte what it always was.
             Attended = attended ? true : null,

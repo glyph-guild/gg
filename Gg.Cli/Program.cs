@@ -60,7 +60,8 @@ return CliArgs.Parse(args) switch
     CliAction.Fly fly => await EmitAsync(
         fly.Json, c => c.FlyAsync(
             fly.Text, fly.Uri, provider: fly.Provider, id: fly.Id, repository: fly.Repository,
-            runner: fly.Runner, attended: fly.Attended)),
+            runner: fly.Runner, attended: fly.Attended,
+            workKind: fly.WorkKind, environment: fly.Environment)),
     CliAction.Flights flights => await EmitAsync(
         flights.Json, c => c.ListAsync(flights.All, intent: flights.Intent)),
     CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),

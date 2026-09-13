@@ -45,8 +45,18 @@ namespace Gg.Contracts.Tests;
 /// <b>It does not widen what a runner may be told to DO.</b>
 /// <c>RunnerAskClosureTests</c> plants <c>RunCommandAsk</c> by name because
 /// ADR-0013 names it, and this is deliberately not that: it carries a credential
-/// for the runner's OWN configuration, performs nothing, returns no data, and is
-/// answerable only inside a lease. The burden of saying so is on this change.
+/// for the runner's OWN configuration, performs nothing, and returns no data.
+/// </para>
+/// <para>
+/// <b>This used to end "and is answerable only inside a lease", and that is no
+/// longer true.</b> The channel's lifetime moved from the flight to the
+/// conversation after this was written, so a person can attach to a runner that
+/// is waiting for work - which is the state they most want to attach in, and
+/// which also means no lease is involved. What restrains a write now is the
+/// machine's own <c>accept-configured</c>: without it the runner is handed
+/// nowhere to keep a credential and refuses for want of a port.
+/// <c>TheChannelHasAWritingVerbTests</c> is where that combination is kept
+/// honest.
 /// </para>
 /// </remarks>
 public class ARunnerCanBeGivenACredentialTests

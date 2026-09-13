@@ -51,7 +51,8 @@ public interface IKeepACredential
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is where ADR-0013's read-only constraint stops being a sentence.</b>
+/// <b>This is where ADR-0013's closed-vocabulary constraint stops being a
+/// sentence.</b>
 /// The ADR says a general data channel to a component <c>CLAUDE.md</c> calls
 /// hostile is a bad idea and one that can only answer <c>tail-log</c> and
 /// <c>status</c> is defensible. A dispatch that fell through to "do what it

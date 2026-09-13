@@ -473,12 +473,19 @@ public sealed class RunnerLoop(
             // arrived, because attaching was what they were not allowed to do
             // until it had.
             //
-            // WHAT STILL NARROWS IT, and it is all of what ever did: only the
-            // control plane mints an introduction, only for the principal who
-            // REGISTERED this runner, sealed to a key that is pinned and expires
-            // in a minute; the channel carries two read-only verbs; the tail is
-            // this machine's current flight and never a journal; and a runner
+            // WHAT STILL NARROWS IT: only the control plane mints an
+            // introduction, only for the principal who REGISTERED this runner,
+            // sealed to a key that is pinned and expires in a minute; the tail
+            // is this machine's current flight and never a journal; and a runner
             // nobody wired with an identity key has no session to answer with.
+            //
+            // THIS USED TO COUNT THE CHANNEL'S VERBS AND CALL THEM ALL
+            // HARMLESS. There are three now, and the third writes a credential
+            // to this machine's disk. It is restrained by the machine's own
+            // accept-configured rather than by anything here - a runner that did
+            // not opt in is handed nowhere to keep one and refuses for want of a
+            // port. Said here because this is where somebody reads to find out
+            // what a beat can let in.
             //
             // WHAT REPLACES THE FLIGHT AS THE BOUND is the conversation itself -
             // a channel nobody is asking anything of is let go.

@@ -394,6 +394,21 @@ public static class Keymap
                 {
                     When = "while it is beating",
                 },
+
+                // BESIDE `w` AND ON `w`'s TERMS, because it is the same
+                // mechanism: an introduction over the control plane, picked up
+                // on a heartbeat. A machine that is not beating never sees one,
+                // so offering the key would spend somebody's twenty seconds to
+                // tell them what the fleet pane already said.
+                //
+                // AND IN BOTH SHAPES OF THIS MODAL, unlike restart and
+                // shut-down. Those go through a pidfile this machine wrote;
+                // this goes through the control plane, which is exactly as able
+                // to introduce you to somebody else's runner as to this one.
+                new(KeyStroke.Char('c'), Command.SendCredential, "give it a credential")
+                {
+                    When = "while it is beating",
+                },
             ]
             : [];
 

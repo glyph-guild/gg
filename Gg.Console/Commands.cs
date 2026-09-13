@@ -416,6 +416,30 @@ public enum Command
     /// </remarks>
     WatchRunner,
 
+    /// <summary>Put a credential on the runner under the cursor.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one act this console could diagnose and not perform.</b> The queue
+    /// says a flight is blocked on a credential and names the machine; the
+    /// runner modal is where that machine is on the screen; and until this, the
+    /// way to act on it was to quit, find the runner id again, and type a
+    /// command. A console that can see something and not fix it is a console a
+    /// person leaves at the moment it was useful.
+    /// </para>
+    /// <para>
+    /// <b>The session ends first, like the editor and like watching.</b> It asks
+    /// for a repository, reads a secret with the echo off, and opens a sealed
+    /// channel - a prompt, a credential and three network calls, none of which a
+    /// UI session may do. All of it happens with the terminal provably free.
+    /// </para>
+    /// <para>
+    /// <b>And it is the same sender the command line uses.</b> A second
+    /// implementation would be a second answer to where the secret comes from,
+    /// and the two would drift on the question that matters most.
+    /// </para>
+    /// </remarks>
+    SendCredential,
+
     /// <summary>Asks whether to ground the flight the modal is about.</summary>
     /// <remarks>
     /// Separate from <see cref="GroundFlight"/>, which is now the ANSWER. The
@@ -818,6 +842,12 @@ public static class ShellCommands
         // flight ends - the editor's shape, and for the editor's reason: what
         // it does inside is a network call a session may not make.
         Command.WatchRunner,
+
+        // TAKES THE TERMINAL TO ASK FOR A SECRET, which is the one thing on this
+        // list that reads from a person rather than writing to them. The echo
+        // has to be off and a Terminal.Gui session cannot turn it off, so this
+        // needs the terminal back exactly as the editor does.
+        Command.SendCredential,
 
         // OPENS AN EDITOR AND THEN A FLIGHT, which is what `n` does; the only
         // difference is what the editor opens on.

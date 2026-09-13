@@ -67,6 +67,9 @@ public sealed class ConsoleLoop(
     /// all. Between sessions it is ordinary.
     /// </remarks>
     Func<AppState, AppState>? watchRunner = null,
+    // GIVING A RUNNER A CREDENTIAL, which is watching's shape with one more
+    // thing it may not do inside a session: read a secret with the echo off.
+    Func<AppState, AppState>? sendCredential = null,
 
     /// <summary>
     /// Folds what is known about the runner this console started into the model.
@@ -463,6 +466,15 @@ public sealed class ConsoleLoop(
                     // path off the right edge. It is also where somebody watches
                     // it come up, which is the next thing they want.
                     state = Reducer.RunnerShown(state);
+                    break;
+
+                case Command.SendCredential:
+                    // THE SESSION IS OVER HERE TOO, and this one needs that more
+                    // than watching does. Watching makes calls a session may not
+                    // make; this makes the same calls AND asks a person for a
+                    // secret, which needs the echo off - something a
+                    // Terminal.Gui session cannot arrange at all.
+                    state = Given(state, sendCredential);
                     break;
 
                 case Command.WatchRunner:
@@ -939,6 +951,14 @@ public sealed class ConsoleLoop(
         watch is null
             ? state with { LastRunner = "This console is not configured to watch a runner." }
             : watch(state);
+
+    private static AppState Given(AppState state, Func<AppState, AppState>? give) =>
+        give is null
+            ? state with
+            {
+                LastCredential = "This console is not configured to send a credential.",
+            }
+            : give(state);
 
     private static AppState Stopped(AppState state, Func<AppState, AppState>? stop) =>
         stop is null

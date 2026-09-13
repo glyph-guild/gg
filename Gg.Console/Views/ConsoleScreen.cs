@@ -2578,9 +2578,10 @@ public sealed class ConsoleScreen : Window
         // one and a list of work items with no attribution is a list nobody can
         // act on. It is in the body too; a person reading either should not
         // have to look at the other.
-        _browsePane.Title = State.Browse is { ProviderKey.Length: > 0 } listing
-            ? $"Browse — {listing.ProviderKey}"
-            : "Browse";
+        // AND WHAT IT WAS NARROWED BY, for the reason the tracker is here: a
+        // title composed in the view is one the model cannot be asked about,
+        // which is how the filter came to be drawn only on the empty pane.
+        _browsePane.Title = PaneText.BrowseTitle(State);
 
         // WHICH TAB IS SHOWING IS STILL THE MODEL'S, and the component is told
         // rather than asked. Tabs.Showing answers true for exactly one tab -

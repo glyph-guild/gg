@@ -2022,6 +2022,42 @@ public static class PaneText
     /// asked, and a tracker with no work in it are three different things to go
     /// and do, and an empty box says none of them.
     /// </remarks>
+    /// <summary>
+    /// The browse pane's title: which tracker, and what it was narrowed by.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The title, because it is the part a person reading a full table can
+    /// see.</b> <see cref="Browse"/> is the pane's sentence and is drawn only
+    /// when there are no rows, so a filter named there is named on the one
+    /// screen where the rows it narrowed are not.
+    /// </para>
+    /// <para>
+    /// <b>The tracker is here because a tenant may configure more than one</b>,
+    /// and a list of work items with no attribution is a list nobody can act
+    /// on. The filter joins it for the same reason one noun over: two rows
+    /// under a narrowing nobody can see is a person concluding their backlog is
+    /// nearly done.
+    /// </para>
+    /// <para>
+    /// <b>Silent when nobody narrowed.</b> An unfiltered listing is the
+    /// ordinary case, and a title that said so every time would be noise where
+    /// the tracker's name belongs.
+    /// </para>
+    /// </remarks>
+    public static string BrowseTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Browse is not { ProviderKey.Length: > 0 } listing)
+        {
+            return "Browse";
+        }
+
+        return $"Browse — {listing.ProviderKey}"
+             + (listing.FilterSaid is { Length: > 0 } narrowed ? $" — {Clean(narrowed)}" : "");
+    }
+
     public static string Browse(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

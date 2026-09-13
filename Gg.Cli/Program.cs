@@ -2146,6 +2146,12 @@ static async Task<int> RunnerUpAsync()
             // other - and TURN is S34.Q-04, still open.
             stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
             Settings.Value(Gg.Runner.StunConfiguration.Variable, inForce)),
+            // WHERE A CREDENTIAL HANDED OVER THE CHANNEL WOULD GO, or nowhere.
+            // Null unless this machine's own file says accept-configured, which
+            // is the whole gate: a runner handed no port refuses for want of
+            // one rather than for want of a check, the way a runner handed no
+            // private key is simply unreachable.
+            keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()),
             // A NEW OFFER ENDS THIS PROCESS SO THE NEXT ONE TAKES IT. Nothing
             // is applied here: everything above was composed already, and the
             // startup path is the one place an offer lands. Stopping is how
@@ -2272,6 +2278,22 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
                       + "or it has already been redeemed. A nonce is spent exactly once, and a "
                       + "member cannot mint itself another - the pool has to warm a new one.");
 
+                // OPTED IN AT FIRST START, ON THE NONCE'S AUTHORITY, and
+                // this is the one branch that runs exactly once per member -
+                // EnsureAsync reads the stored identity on every restart after
+                // it. A member has no file an operator can open, so the switch
+                // accept-unattended died for want of cannot be reached from
+                // outside; what CAN reach it is the tenant that minted the
+                // single-use nonce this line has just spent.
+                //
+                // WRITTEN RATHER THAN ASSUMED, so `gg config show` inside the
+                // container answers the question. A permission nobody can see
+                // is a permission somebody forgot they granted, and a member is
+                // the machine nobody can look inside.
+                Gg.Local.ConfigurationFile.Write(
+                    LocalCredentialKeeper.Opened(
+                        Gg.Local.ConfigurationFile.Read().Configuration));
+
                 return new StoredRunner
                 {
                     RunnerId = issued.RunnerId,
@@ -2329,11 +2351,55 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
         secretFor: locator => new FileCredentialStore().Read(locator));
 
+    // THE KEY THIS MEMBER CAN BE REACHED ON, and it had none. Everything else
+    // about the channel was built and correct; a member simply never got one,
+    // so attendedSessions was null, so no channel existed and no dispatch was
+    // ever constructed. It read as a machine that would not answer rather than
+    // as one nobody wired - and a member is the one machine class with no
+    // other way to be given a credential: no bind, no file, no operator.
+    var identityKey = RunnerIdentityKey
+        .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName));
+
+    // AND OFFERED, for `gg runner up`'s reason. Redemption issues an identity
+    // and takes no key, so a key made locally afterwards is one nobody has been
+    // told about - which is the same defect that left every runner registered
+    // before keys existed permanently unreachable. Idempotent: 204 whether it
+    // set the key or already had this one.
+    switch (await new Gg.Runner.RunnerProtocolClient(
+                new HttpClient { BaseAddress = new Uri(baseAddress) }, identity.RunnerToken)
+            .OfferKeyAsync(identity.RunnerId, identityKey.PublicKey))
+    {
+        case Gg.Runner.KeyOfferResult.Refused:
+            // SAID AND CARRIED ON, like the host runner. A member under a key
+            // it cannot open is unreachable and still perfectly able to fly;
+            // the pool warms a new one rather than this one healing itself.
+            Console.Error.WriteLine(
+                "this member is registered under a different key than the one on its own "
+              + "disk, so nobody can reach it by hand. It will still take work.");
+            break;
+
+        default:
+            break;
+    }
+
+    var inForce = InForce.Configuration;
+
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), identity.RunnerId, identity.RunnerToken, identity.Labels, holdFor,
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
         destinations: destinations, trackers: trackers, executor: executor,
-        allowance: Allowance());
+        allowance: Allowance(),
+        identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
+        // FROM THE ONE READER, so a stun-servers line offered to this member
+        // reaches it. Read straight from the environment this would be the
+        // defect that reader exists to have ended, one variable over.
+        stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, inForce)),
+        // WHAT THE NONCE BOUGHT, read back rather than remembered. The first
+        // start wrote accept-configured above; every start after this reads it
+        // from the file, so a member bounced by the pool comes back with the
+        // same answer rather than a fresh assumption.
+        keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()));
 }
 
 /// <summary>

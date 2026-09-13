@@ -215,7 +215,14 @@ public static class RunnerHost
         // relays and executor before the loop existed, so applying one now
         // would change nothing until the process restarted. The root that
         // started this decides.
-        Action<Gg.Contracts.OfferedConfiguration>? offered = null)
+        Action<Gg.Contracts.OfferedConfiguration>? offered = null,
+        // WHERE A CREDENTIAL HANDED OVER THE CHANNEL IS KEPT, or null. The
+        // private key's rule, applied to a second capability: Gg.Runner cannot
+        // see the store and does not go looking for one, so the composition
+        // root either hands a place to keep one in or does not. A runner that
+        // may be given a credential is one somebody wired to be, and the
+        // dispatch refuses for want of this rather than for want of a check.
+        IKeepACredential? keepCredential = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -320,14 +327,17 @@ public static class RunnerHost
                 : flightId => new AttendedSession(
                     identityKey,
                     new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
-                    new AskDispatch(new WhatThisRunnerSays(
-                        narration,
-                        // THIS FLIGHT'S OWN OUTPUT, which is where an agent's
-                        // text actually is. Not the journal: that holds this
-                        // runner's narration and its crashes, and on the fleet's
-                        // only supervised unit it never holds a flight at all.
-                        new TheFlightsOwnOutput(Gg.Local.LocalPaths.LiveView(flightId)),
-                        () => DateTimeOffset.UtcNow)),
+                    new AskDispatch(
+                        new WhatThisRunnerSays(
+                            narration,
+                            // THIS FLIGHT'S OWN OUTPUT, which is where an
+                            // agent's text actually is. Not the journal: that
+                            // holds this runner's narration and its crashes,
+                            // and on the fleet's only supervised unit it never
+                            // holds a flight at all.
+                            new TheFlightsOwnOutput(Gg.Local.LocalPaths.LiveView(flightId)),
+                            () => DateTimeOffset.UtcNow),
+                        keepCredential),
                     narration))
         {
             HoldFor = holdFor,

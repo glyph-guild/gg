@@ -293,6 +293,18 @@ public sealed class RunnerLoop(
     // told is a liability, and the two are separate ports so that wiring one
     // cannot wire the other by accident.
     IForgetACredential? forget = null,
+    // WHETHER THIS MACHINE WILL KEEP A CREDENTIAL IT IS HANDED, declared on
+    // every beat so a person is not asked for a secret the far end will refuse.
+    //
+    // DERIVED FROM THE PORT THE DISPATCH ACTUALLY USES rather than read from the
+    // file a second time. A second reading is a second answer, and the failure
+    // it produces is the one this exists to end: a runner that says yes and
+    // then refuses. What the composition root hands in IS the answer.
+    //
+    // Null is a real value - a runner composed with nowhere to keep one has
+    // nothing to say - and the control plane reads it as "an older runner",
+    // which is what it was before this existed.
+    bool? acceptsConfiguration = null,
     // WHAT THIS MACHINE HAS SPENT, asked on every beat and answering nothing
     // most times. The cadence belongs to whatever the root wires here, because
     // what it protects is the WALK across every transcript on the machine
@@ -458,7 +470,8 @@ public sealed class RunnerLoop(
     {
         try
         {
-            var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
+            var beat = await _protocol.HeartbeatAsync(
+                runnerId, labels, acceptsConfiguration, cancellationToken);
 
             // SAID AS SOON AS IT WAS ACCEPTED. What this records is that the
             // control plane was reached, which is a different fact from this

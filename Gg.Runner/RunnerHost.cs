@@ -364,6 +364,12 @@ public static class RunnerHost
             // leaves it, and Gg.Runner does not go looking for it. So a runner
             // that can be driven is one somebody wired to be.
             offered: offered,
+            // WHAT THIS MACHINE WILL TAKE, said on every beat. Derived from the
+            // port handed to the dispatch rather than read from the file again:
+            // a second reading is a second answer, and the failure that produces
+            // is the one this declaration exists to end - a runner claiming yes
+            // and then refusing. Non-null here IS the machine's answer.
+            acceptsConfiguration: keepCredential is not null,
             // UNGATED, unlike keepCredential below. See its own remark.
             forget: forgetCredential,
             // THE CANCELLATION TOKEN IS THE LOOP'S, and it matters now that a

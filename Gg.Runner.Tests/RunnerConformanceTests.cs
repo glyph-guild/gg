@@ -29,7 +29,7 @@ public class RunnerConformanceTests
     private static Task<StubRunnerSurface> ExerciseAllAsync() =>
         ExerciseAsync(async client =>
         {
-            await client.HeartbeatAsync("runner-1", ["linux"]);
+            await client.HeartbeatAsync("runner-1", ["linux"], acceptsConfiguration: true);
             await client.RequestClaimAsync("runner-1", ["linux"], RunnerLoop.ClaimWaitSeconds);
             await client.ReadClaimAsync("request-9");
             await client.RenewAsync("lease-9", 3);

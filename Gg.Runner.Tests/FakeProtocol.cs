@@ -153,10 +153,22 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.CompletedTask;
     }
 
+    /// <summary>What the last beat said this machine would take.</summary>
+    /// <remarks>
+    /// Recorded rather than ignored, so a test can assert that a runner
+    /// composed with somewhere to keep a credential SAYS so - which is the
+    /// whole point of the member and is otherwise invisible from out here.
+    /// </remarks>
+    public bool? LastAcceptsConfiguration { get; private set; }
+
     public Task<HeartbeatAccepted> HeartbeatAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
+        string runnerId,
+        IReadOnlyList<string> labels,
+        bool? acceptsConfiguration,
+        CancellationToken cancellationToken = default)
     {
         Calls.Add("heartbeat");
+        LastAcceptsConfiguration = acceptsConfiguration;
         Interlocked.Increment(ref _heartbeats);
 
         // RECORDED BEFORE IT THROWS, so a test can count the ATTEMPTS. Whether

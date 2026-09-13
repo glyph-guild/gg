@@ -143,6 +143,21 @@ public sealed record Reason
               + "claimable by exactly one machine, and this one is not answering. Start it, or "
               + "re-open the flight without naming a runner.",
 
+            ReasonKinds.NoCredentialRegistered =>
+                "waiting: no credential is registered for "
+              + string.Join(", ", parameters)
+              + ". Fetching without one either fails at the forge with nothing pointing at "
+              + "the cause or, worse, quietly succeeds against a public copy of something "
+              + "that was meant to be read with a credential - so this waits instead. "
+              + "Register one with `gg credential add --repo <slug>`.",
+
+            ReasonKinds.CredentialUnreadable =>
+                $"waiting: '{First(parameters)}' is registered, and the machine that took "
+              + $"this flight ({Second(parameters)}) does not hold the secret. Nothing is "
+              + "misconfigured and the reference is correct - the credential is on another "
+              + "machine. Run `gg credential add` ON THAT MACHINE, or fly this somewhere "
+              + "that already holds it.",
+
             ReasonKinds.PoolWarming =>
                 $"the pool '{First(parameters)}' is warming toward this flight's label; "
               + "a runner advertising it clears this.",
@@ -423,12 +438,52 @@ public static class ReasonKinds
     /// </remarks>
     public const string DirectedRunnerBusy = "directed-runner-busy";
 
+    /// <summary>
+    /// No credential reference exists for a repository this flight names.
+    /// Params: the repositories, by name.
+    /// </summary>
+    /// <remarks>
+    /// <b>A TENANT HAS NOT REGISTERED ONE, and that is a different fact from
+    /// one that will not resolve.</b> The control plane learns which references
+    /// a flight needs from what identity announced, so it can say this before
+    /// any machine tries - which is what <c>ClaimResult.Waiting</c> and
+    /// <c>LeaseGranted.UnresolvedRepos</c> both already carry and nothing could
+    /// render. The repositories are named rather than counted, for
+    /// <c>WaitingOn</c>'s own reason: a number says something is wrong, a name
+    /// says which credential to register.
+    /// </remarks>
+    public const string NoCredentialRegistered = "no-credential-registered";
+
+    /// <summary>
+    /// A credential is registered and the machine holding the flight cannot
+    /// read it. Params: [locator, runner].
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>NOT A MISSING REGISTRATION, and that is the whole reason it has its
+    /// own kind.</b> <see cref="NoCredentialRegistered"/> means register one;
+    /// this means one IS registered, the reference is correct, and the secret
+    /// is on another machine. Same silence, opposite remedy - and the wrong one
+    /// sends somebody to run <c>gg credential add</c> a second time on the
+    /// laptop where it already works.
+    /// </para>
+    /// <para>
+    /// <b>The machine is named because the machine IS the remedy.</b> ADR-0004
+    /// named this failure before it existed - <i>secret-reference indirection
+    /// fails opaquely</i> - and the answer it asked for was diagnostics, not
+    /// logging. A pool member cannot be reached to have a credential put on it,
+    /// which is why naming which one is where a person's next question starts.
+    /// </para>
+    /// </remarks>
+    public const string CredentialUnreadable = "credential-unreadable";
+
     /// <summary>Every kind, for the closed-vocabulary fingerprint.</summary>
     public static IReadOnlyList<string> All { get; } =
         [NoRunnerAdvertises, CannotBeShownToTighten, WideningRequiresAGate,
          Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
          StaleWorkingCopy, FlightsInTheAir, DeclaredAndAbsent, ForgeUnreachable,
-         RunnerReserved, RunnerParked, DirectedRunnerAbsent, DirectedRunnerBusy];
+         RunnerReserved, RunnerParked, DirectedRunnerAbsent, DirectedRunnerBusy,
+         NoCredentialRegistered, CredentialUnreadable];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
@@ -441,8 +496,14 @@ public static class ReasonKinds
         // is waiting for a person, which is a wait however deliberate the
         // holding is. Filing them under `refused` would put a flight that is
         // going to run in the bucket somebody was told no in.
+        // THE TWO CREDENTIAL HALTS JOIN THEM for the same reason. Nobody
+        // refused either one: the flight was admitted, and what it needs is
+        // not on a machine yet. Filing them under `refused` would put a flight
+        // that is going to run the moment somebody registers a token in the
+        // bucket somebody was told no in.
         NoRunnerAdvertises or PoolWarming or DeclaredAndAbsent or ForgeUnreachable
-            or RunnerReserved or RunnerParked or DirectedRunnerAbsent =>
+            or RunnerReserved or RunnerParked or DirectedRunnerAbsent
+            or NoCredentialRegistered or CredentialUnreadable =>
             ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
         // DIRECTED-RUNNER-BUSY IS A REFUSAL AND ITS SIBLING IS A WAIT, which is

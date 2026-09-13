@@ -66,16 +66,64 @@ public class BrowseContractTests
     }
 
     [Test]
-    public async Task The_listed_item_carries_five_fields_and_no_body()
+    public async Task The_listed_item_says_where_it_is_filed_and_still_carries_no_body()
     {
         // An issue's text is customer content that does not cross and is not
         // needed to CHOOSE one: a person picking work reads a title and a state.
+        // Where it is FILED is neither - it is the thing a filter narrows on,
+        // and a filter whose effect cannot be seen on the row is one nobody can
+        // tell took from one that silently did not.
         await Assert.That(BrowseTool.Fields.All).IsEquivalentTo(
-            (string[])["id", "title", "state", "url", "updated"]);
+            (string[])["id", "title", "state", "url", "updated", "areaPath", "iteration"]);
         await Assert.That(BrowseTool.Fields.All).DoesNotContain("description");
         await Assert.That(BrowseTool.Fields.All).DoesNotContain("body")
             .Because("get_work_item is what reads a body, on the runner, after a flight "
                    + "exists - which is the boundary LeaseGranted.IntentUri states.");
+    }
+
+    [Test]
+    public async Task A_filter_is_named_the_way_the_row_it_narrows_is()
+    {
+        // THE ARGUMENT AND THE FIELD ARE ONE SPELLING. A caller filtering on
+        // areaPath and reading a column called area would have to be told they
+        // are the same thing, and every third party implementing this reader
+        // would have to be told twice.
+        await Assert.That(BrowseTool.Filters.AreaPath).IsEqualTo(BrowseTool.Fields.AreaPath);
+        await Assert.That(BrowseTool.Filters.Iteration).IsEqualTo(BrowseTool.Fields.Iteration);
+        await Assert.That(BrowseTool.Filters.States).IsEqualTo("states")
+            .Because("a state filter is a set - a person wants Active and Resolved together - "
+                   + "so it is plural, and it is the one that does not match a column.");
+    }
+
+    [Test]
+    public async Task A_reader_that_declares_no_filter_arguments_cannot_filter()
+    {
+        // ALL THREE OR NONE. A reader that took an area path and ignored the
+        // sprint would answer a list that is narrower than everything and wider
+        // than what was asked for, and nothing on screen could say which.
+        await Assert.That(BrowseTool.CanFilter(["cursor", "limit"])).IsFalse();
+        await Assert.That(BrowseTool.CanFilter(null)).IsFalse();
+        await Assert.That(BrowseTool.CanFilter(
+            ["cursor", "limit", "areaPath", "iteration"])).IsFalse()
+            .Because("half a filter applied and half ignored is the answer a person cannot "
+                   + "check, which is worse than a filter that plainly did not run.");
+
+        await Assert.That(BrowseTool.CanFilter(
+            ["cursor", "limit", .. BrowseTool.Filters.All])).IsTrue();
+    }
+
+    [Test]
+    public async Task Telling_a_person_their_reader_cannot_filter_names_the_reader()
+    {
+        var said = BrowseTool.NotFilterable("a-tracker");
+
+        await Assert.That(said).Contains("a-tracker");
+        await Assert.That(said).Contains(BrowseTool.Filters.AreaPath)
+            .Because("the person reading it is usually the operator who installed the reader, "
+                   + "and the argument names are what they would add.");
+        await Assert.That(said).Contains("without a filter")
+            .Because("it has to say what still works: an unfiltered list is still a list, and "
+                   + "silence here reads as a reader that is broken.");
     }
 
     [Test]

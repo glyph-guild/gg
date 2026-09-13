@@ -44,12 +44,12 @@ public class ARepositoryIsRegisteredByAVerbTests
         var parsed = Parse(
             "airspace", "repositories", "add",
             "--name", "payments",
-            "--provider", "github",
+            "--provider", "forge",
             "--id", "R_123",
             "--path", "acme/payments");
 
         await Assert.That(parsed.Name).IsEqualTo("payments");
-        await Assert.That(parsed.Provider).IsEqualTo("github");
+        await Assert.That(parsed.Provider).IsEqualTo("forge");
         await Assert.That(parsed.Id).IsEqualTo("R_123");
         await Assert.That(parsed.Path).IsEqualTo("acme/payments")
             .Because("the path is the display label an intent is matched against, and it is "
@@ -91,7 +91,7 @@ public class ARepositoryIsRegisteredByAVerbTests
         // different registration from the one somebody typed.
         var parsed = Parse(
             "airspace", "repositories", "add",
-            "--name", "payments", "--provider", "github",
+            "--name", "payments", "--provider", "forge",
             "--id", "R_123", "--path", "acme/payments");
 
         await Assert.That(parsed.Ref).IsNull();
@@ -123,7 +123,7 @@ public class ARepositoryIsRegisteredByAVerbTests
             var given = new List<string> { "airspace", "repositories", "add" };
 
             foreach (var (other, otherValue) in ((string, string)[])
-                     [("--name", "payments"), ("--provider", "github"),
+                     [("--name", "payments"), ("--provider", "forge"),
                       ("--id", "R_123"), ("--path", "acme/payments")])
             {
                 if (!string.Equals(other, flag, StringComparison.Ordinal))
@@ -152,7 +152,7 @@ public class ARepositoryIsRegisteredByAVerbTests
         // had said which host it is on.
         var parsed = CliArgs.Parse([
             "airspace", "repositories", "add",
-            "--name", "payments", "--provider", "github",
+            "--name", "payments", "--provider", "forge",
             "--id", "R_123", "--path", "acme/payments", "--url", "https://example.test"]);
 
         var unknown = await Assert.That(parsed).IsTypeOf<CliAction.Unknown>();
@@ -168,7 +168,7 @@ public class ARepositoryIsRegisteredByAVerbTests
     {
         var parsed = CliArgs.Parse([
             "airspace", "repositories", "add",
-            "--name", "payments", "--provider", "github", "--id", "R_123", "--path"]);
+            "--name", "payments", "--provider", "forge", "--id", "R_123", "--path"]);
 
         await Assert.That(parsed).IsTypeOf<CliAction.Unknown>();
     }

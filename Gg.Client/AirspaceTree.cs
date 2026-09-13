@@ -626,6 +626,64 @@ public sealed record NameDeclared
     public string? Widens { get; init; }
 }
 
+/// <summary>What registering a repository came to.</summary>
+/// <remarks>
+/// <para>
+/// <b>One record for both answers</b>, the way <see cref="NameDeclared"/>
+/// already folds a gated declaration into the same shape as a landed one. A
+/// registry entry is reach that did not exist a moment ago (ADR-0016 § 6), so
+/// the gated arm is the ordinary one, and two types for "it landed" and "it is
+/// waiting" would be two things to render and two ways to ask which happened.
+/// </para>
+/// <para>
+/// <b>The four facts are always here and the rest is nullable</b>, because the
+/// four are what was asked for and the others are what came back: a pending
+/// answer knows nothing about who registered it or what the resolved credential
+/// mode is, and filling either in would be reporting a decision nobody has made.
+/// </para>
+/// </remarks>
+public sealed record RepositoryAdded
+{
+    /// <summary>What envelopes and flights call it.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The key a runner resolves to a host of its own.</summary>
+    public required string Provider { get; init; }
+
+    /// <summary>The forge's own identifier, which flight identity resolves through.</summary>
+    public required string Id { get; init; }
+
+    /// <summary>The display path an intent is matched against.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>The resolved credential mode, when the entry is live here now.</summary>
+    public string? Credential { get; init; }
+
+    /// <summary>The ref work starts from when a flight's intent names none.</summary>
+    public string? Ref { get; init; }
+
+    /// <summary>The directory under which every document is a narrowing, when one was set.</summary>
+    public string? Narrowings { get; init; }
+
+    /// <summary>Who registered it, when the entry is live here now.</summary>
+    /// <remarks>
+    /// Null while a registration is riding a flight, for the reason
+    /// <see cref="NameDeclared.DeclaredBy"/> is: the attribution is minted when
+    /// the gate opens, and filling it with the asker would name somebody who
+    /// has decided nothing.
+    /// </remarks>
+    public string? RegisteredBy { get; init; }
+
+    /// <summary>The flight the registration rides, when it diverted.</summary>
+    public string? Flight { get; init; }
+
+    /// <summary>Who the gate awaits, when it diverted.</summary>
+    public string? Awaiting { get; init; }
+
+    /// <summary>What the registration widens, when it diverted.</summary>
+    public string? Widens { get; init; }
+}
+
 /// <summary>One document's change, in lines and direction.</summary>
 public sealed record DocumentChange
 {

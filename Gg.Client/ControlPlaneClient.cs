@@ -853,6 +853,20 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
                 await response.Content.ReadAsStringAsync(cancellationToken));
         }
 
+        // THE ROLE ANSWER, AND IT IS AN ANSWER RATHER THAN A FAULT. Left to
+        // EnsureSuccessStatusCode this became an HttpRequestException, which
+        // the emitter prints as "could not reach the control plane - try gg
+        // doctor": a person told to diagnose a network that just answered
+        // them. Who may register is decided there and never here, so gg's job
+        // is to carry the sentence and say who can.
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new PermissionRefusedException(
+                await RefusalAsync(response, cancellationToken)
+              + " Registering a repository widens what this tenant can reach, so it is an "
+              + "administrator's to do - ask one of yours to run it, or to grant you the role.");
+        }
+
         response.EnsureSuccessStatusCode();
 
         if (response.StatusCode == HttpStatusCode.Accepted)
@@ -1923,6 +1937,28 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 /// down".
 /// </remarks>
 public sealed class AdminRefusedException(string message) : Exception(message);
+
+/// <summary>
+/// Raised when the control plane checked the principal and said no.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>An answer, never a fault.</b> A 403 left to
+/// <c>EnsureSuccessStatusCode</c> becomes an <c>HttpRequestException</c>, and
+/// every emitter renders one of those as <i>"could not reach the control plane
+/// … try gg doctor"</i> - which is false in the one way that costs a person the
+/// most time: the control plane was reached, it understood the request, and it
+/// decided.
+/// </para>
+/// <para>
+/// <b>Distinct from a refusal a person can act on.</b> A 400 names a value to
+/// fix and the same person fixes it; this one has nothing to fix and has to
+/// point at somebody who holds the role. Two instructions, so two types - the
+/// argument <see cref="AdminRefusedException"/> already makes for telling "you
+/// may not" from "the network is down".
+/// </para>
+/// </remarks>
+public sealed class PermissionRefusedException(string message) : Exception(message);
 
 /// <summary>Raised when the control plane refuses this binary's protocol version.</summary>
 public sealed class ProtocolTooOldException(string message) : Exception(message);

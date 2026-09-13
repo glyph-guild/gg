@@ -52,7 +52,7 @@ public class RegisteringARepositoryIsAVerbTests
     private static RepositoryRegistered Live() => new()
     {
         Name = "payments",
-        Provider = "github",
+        Provider = "forge",
         Id = "R_123",
         Path = "acme/payments",
         Credential = RepositoryCredentialModes.Required,
@@ -75,7 +75,7 @@ public class RegisteringARepositoryIsAVerbTests
 
         using var http = new HttpClient();
         var added = ((VerbResult.RepositoryAdded)await Against(stub, http)
-            .RegisterRepositoryAsync("payments", "github", "R_123", "acme/payments")).Value;
+            .RegisterRepositoryAsync("payments", "forge", "R_123", "acme/payments")).Value;
 
         await Assert.That(added.Flight).IsEqualTo("GG-77");
         await Assert.That(added.Awaiting).IsEqualTo("platform-oncall");
@@ -97,7 +97,7 @@ public class RegisteringARepositoryIsAVerbTests
 
         using var http = new HttpClient();
         var added = ((VerbResult.RepositoryAdded)await Against(stub, http)
-            .RegisterRepositoryAsync("payments", "github", "R_123", "acme/payments")).Value;
+            .RegisterRepositoryAsync("payments", "forge", "R_123", "acme/payments")).Value;
 
         await Assert.That(added.Flight).IsNull();
         await Assert.That(added.RegisteredBy).IsEqualTo("dana@example.test");
@@ -116,7 +116,7 @@ public class RegisteringARepositoryIsAVerbTests
 
         using var http = new HttpClient();
         await Against(stub, http).RegisterRepositoryAsync(
-            "payments", "github", "R_123", "acme/payments",
+            "payments", "forge", "R_123", "acme/payments",
             credential: RepositoryCredentialModes.None,
             reference: "refs/heads/trunk",
             narrowings: "policy");
@@ -125,7 +125,7 @@ public class RegisteringARepositoryIsAVerbTests
 
         await Assert.That(sent).IsNotNull();
         await Assert.That(sent!.Name).IsEqualTo("payments");
-        await Assert.That(sent.Provider).IsEqualTo("github");
+        await Assert.That(sent.Provider).IsEqualTo("forge");
         await Assert.That(sent.Id).IsEqualTo("R_123");
         await Assert.That(sent.Path).IsEqualTo("acme/payments");
         await Assert.That(sent.Credential).IsEqualTo(RepositoryCredentialModes.None);
@@ -140,7 +140,7 @@ public class RegisteringARepositoryIsAVerbTests
 
         using var http = new HttpClient();
         await Against(stub, http)
-            .RegisterRepositoryAsync("payments", "github", "R_123", "acme/payments");
+            .RegisterRepositoryAsync("payments", "forge", "R_123", "acme/payments");
 
         await Assert.That(stub.RegisteredRepository!.Ref).IsNull()
             .Because("a blank ref is not the same fact as no ref: null means the flight has "
@@ -158,7 +158,7 @@ public class RegisteringARepositoryIsAVerbTests
         var commands = Against(stub, http);
 
         var refused = await Assert.That(async () => await commands
-                .RegisterRepositoryAsync("payments", "github", "R_123", "acme/payments"))
+                .RegisterRepositoryAsync("payments", "forge", "R_123", "acme/payments"))
             .Throws<PermissionRefusedException>();
 
         await Assert.That(refused!.Message).Contains("administrator", StringComparison.OrdinalIgnoreCase)
@@ -198,7 +198,7 @@ public class RegisteringARepositoryIsAVerbTests
         var text = VerbOutput.ToText(new VerbResult.RepositoryAdded(new RepositoryAdded
         {
             Name = "payments",
-            Provider = "github",
+            Provider = "forge",
             Id = "R_123",
             Path = "acme/payments",
             Flight = "GG-77",
@@ -219,7 +219,7 @@ public class RegisteringARepositoryIsAVerbTests
         var text = VerbOutput.ToText(new VerbResult.RepositoryAdded(new RepositoryAdded
         {
             Name = "payments",
-            Provider = "github",
+            Provider = "forge",
             Id = "R_123",
             Path = "acme/payments",
             Credential = RepositoryCredentialModes.Required,

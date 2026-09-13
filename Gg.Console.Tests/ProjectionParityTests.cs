@@ -203,6 +203,18 @@ public class ProjectionParityTests
                              + "result like the three above - it needs no tree - so it is "
                              + "absent only until the estate pane it belongs on exists.",
 
+            // NOT A FIELD ON THE MODEL, and for NameRetired's reason rather
+            // than NameDeclared's. What the Repositories tab shows is the
+            // REGISTRY - AirspaceRepositories, the list - and a registration
+            // mostly produces a flight instead, which the queue already shows.
+            // Projecting this onto the tab would put a row there for a name the
+            // registry does not hold, which is exactly the belief the rendered
+            // sentence exists to prevent.
+            ["RepositoryAdded"] = "the answer to registering a repository, and mostly a "
+                                + "gate rather than an entry. The tab projects the registry "
+                                + "itself; a row for something still riding a flight would "
+                                + "say the name is nameable when it is not.",
+
             ["NameRetired"] = "the answer to retiring a topology name, and it is never a "
                             + "field on the model: it always rides a gate, so there is "
                             + "nothing to project onto a pane - what it produces is a "

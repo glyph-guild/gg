@@ -27,16 +27,35 @@ namespace Gg.Runner;
 /// </para>
 /// </remarks>
 public sealed class WhatThisRunnerSays(
-    IRunnerObserver inner, IReadOnlyLog log, Func<DateTimeOffset> now)
+    IRunnerObserver inner, Func<string, IReadOnlyLog> logFor, Func<DateTimeOffset> now)
     : IRunnerObserver, IAnswersAboutItself
 {
     private readonly IRunnerObserver _inner = inner;
-    private readonly IReadOnlyLog _log = log;
+
+    /// <summary>Where one flight's own output can be read from.</summary>
+    /// <remarks>
+    /// <b>A function rather than a log, because the answer changes.</b> The log
+    /// used to be chosen when the session was built, which was right while a
+    /// session existed for one flight - the path WAS the narrowing. A watch that
+    /// outlives a flight has no such moment to choose in: there is no flight
+    /// when somebody attaches to an idle machine. Asking at read time keeps the
+    /// narrowing whole - one flight at a time, the one this machine is running
+    /// now - and is what makes following the next one automatic.
+    /// </remarks>
+    private readonly Func<string, IReadOnlyLog> _logFor = logFor;
     private readonly Func<DateTimeOffset> _now = now;
     private readonly Lock _gate = new();
 
     private string _doing = "starting";
     private string? _diagnosis;
+
+    /// <summary>The flight this runner holds, on this machine. Null when none.</summary>
+    /// <remarks>
+    /// <b>The id stays here and the number crosses.</b> This is what a live
+    /// view's filename is built from, which is a fact about this disk; what a
+    /// person reads is the number, and that is the one on the wire.
+    /// </remarks>
+    private string? _flightId;
 
     /// <summary>The flight this runner holds, as a person reads it. Null when none.</summary>
     /// <remarks>
@@ -50,7 +69,21 @@ public sealed class WhatThisRunnerSays(
 
     public LogTail Tail(int lines)
     {
-        var read = _log.Tail(lines);
+        string? flightId;
+
+        lock (_gate)
+        {
+            flightId = _flightId;
+        }
+
+        // OUTSIDE THE LOCK, because this reads a file. A slow disk under the
+        // gate would stall the loop's own narration, which takes it on every
+        // line an agent says.
+        //
+        // AND AN EMPTY TAIL WHEN THERE IS NO FLIGHT, which is the same answer
+        // an absent file already gives: a machine flying nothing is not a
+        // machine hiding something.
+        var read = flightId is null ? new TailRead([], false) : _logFor(flightId).Tail(lines);
 
         return new LogTail
         {
@@ -115,6 +148,7 @@ public sealed class WhatThisRunnerSays(
 
         lock (_gate)
         {
+            _flightId = lease.FlightId;
             _flightNumber = lease.FlightNumber;
         }
 
@@ -142,6 +176,8 @@ public sealed class WhatThisRunnerSays(
         {
             _beatAt = at;
         }
+
+        _inner.Beat(at);
     }
 
     public void Renewed(string leaseId, DateTimeOffset expiresAt) =>
@@ -167,6 +203,7 @@ public sealed class WhatThisRunnerSays(
     {
         lock (_gate)
         {
+            _flightId = null;
             _flightNumber = null;
         }
     }

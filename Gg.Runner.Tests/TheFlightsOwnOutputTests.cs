@@ -118,6 +118,29 @@ public class TheFlightsOwnOutputTests
         await Assert.That(log.Tail(10).Lines).IsEquivalentTo(new[] { "tool: Read", "tool: → ok" });
     }
 
+    /// <summary>
+    /// A runner that is flying something, because only one of those has a log.
+    /// </summary>
+    /// <remarks>
+    /// <b>The tail follows the flight now.</b> An object that has claimed
+    /// nothing answers an empty tail whatever log it was built over - which is
+    /// the answer an idle machine owes a watcher, and is why a test about what a
+    /// tail CONTAINS has to put it in the air first.
+    /// </remarks>
+    private static LeaseGranted Flying() => new()
+    {
+        LeaseId = "lease-84",
+        Generation = 1,
+        FlightId = "flight-84",
+        FlightNumber = "GG-84",
+        Repos = [],
+        Credentials = [],
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
+        ExpiresAt = DateTimeOffset.UnixEpoch.AddMinutes(30),
+        RenewWithinSeconds = 30,
+    };
+
     [Test]
     public async Task A_tail_bigger_than_the_contract_allows_is_cut_to_it()
     {
@@ -127,8 +150,14 @@ public class TheFlightsOwnOutputTests
         var essay = new string('x', 4096);
         var many = Enumerable.Range(0, 200).Select(_ => Entry("text", essay)).ToArray();
 
-        var dispatch = new AskDispatch(new WhatThisRunnerSays(
-            new SilentObserver(), new TheFlightsOwnOutput(AView(many)), () => DateTimeOffset.UnixEpoch));
+        var says = new WhatThisRunnerSays(
+            new SilentObserver(), _ => new TheFlightsOwnOutput(AView(many)), () => DateTimeOffset.UnixEpoch);
+
+        // IN THE AIR, because the tail follows the flight: an object that has
+        // claimed nothing answers an empty tail whatever log it was built over.
+        says.Claimed(Flying());
+
+        var dispatch = new AskDispatch(says);
 
         var said = dispatch.Answer(new RunnerAsk
         {

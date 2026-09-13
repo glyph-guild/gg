@@ -42,7 +42,7 @@ public class RunnerStillDialsOutTests
     }
 
     private static AskDispatch ADispatch() =>
-        new(new WhatThisRunnerSays(new SilentObserver(), new NoLog(), () => DateTimeOffset.UnixEpoch));
+        new(new WhatThisRunnerSays(new SilentObserver(), _ => new NoLog(), () => DateTimeOffset.UnixEpoch));
 
     /// <summary>
     /// A real handshake against a real offer, so gathering actually happens.

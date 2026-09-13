@@ -101,10 +101,18 @@ public class AConsoleReachesARunnerTests
                 // THE RUNNER'S HALF, RUN WHERE THE CONTROL PLANE WOULD HAVE
                 // DELIVERED IT. Answering inside the leave is what a heartbeat
                 // does a second later.
+                var says = new WhatThisRunnerSays(new SilentObserver(), _ => log, () => T0);
+
+                // IN THE AIR, because the tail follows the flight. A runner
+                // that has claimed nothing answers an empty tail whatever log
+                // it was built over - which is the right answer for an idle
+                // machine and not what a test about carrying lines is asking.
+                says.Claimed(Flying());
+
                 answered = await runner.AnswerAsync(
                     new PendingIntroduction { IntroductionId = "intro-1", Offer = offer },
                     runnerKey,
-                    new AskDispatch(new WhatThisRunnerSays(new SilentObserver(), log, () => T0)),
+                    new AskDispatch(says),
                     ct);
             },
             _ => Task.FromResult(answered.Answer is { } a
@@ -114,6 +122,21 @@ public class AConsoleReachesARunnerTests
 
         return (reached, answered, left);
     }
+
+    /// <summary>A flight to be on, so there is a log to read.</summary>
+    private static LeaseGranted Flying() => new()
+    {
+        LeaseId = "lease-84",
+        Generation = 1,
+        FlightId = "flight-84",
+        FlightNumber = "GG-84",
+        Repos = [],
+        Credentials = [],
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
+        ExpiresAt = T0.AddMinutes(30),
+        RenewWithinSeconds = 30,
+    };
 
     [Test]
     public async Task The_runner_knows_the_console_arrived()

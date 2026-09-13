@@ -24,6 +24,25 @@ public interface IRunnerObserver
 
     void Renewed(string leaseId, DateTimeOffset expiresAt);
 
+    /// <summary>
+    /// This runner beat the control plane, and it was accepted.
+    /// </summary>
+    /// <remarks>
+    /// <b>A SECOND LIVENESS, and it is not the one a watcher can see for
+    /// itself.</b> Somebody watching over a channel knows their own answer came
+    /// back; what they cannot tell from that is whether the machine is still
+    /// reaching the control plane. A runner partitioned from it answers a peer
+    /// connection perfectly and will never be given work again - so a person
+    /// waiting to see work arrive on it would wait for ever, and nothing on
+    /// screen would say why.
+    /// <para>
+    /// <b>Required rather than defaulted</b>, because an observer that silently
+    /// did not record this would report a machine as beating by saying nothing,
+    /// and silently absent is indistinguishable from satisfied.
+    /// </para>
+    /// </remarks>
+    void Beat(DateTimeOffset at);
+
     /// <summary>The fence refused us. The flight is somebody else's now.</summary>
     void Fenced(string leaseId);
 
@@ -178,6 +197,8 @@ public sealed class SilentObserver : IRunnerObserver
 
     public void Claimed(LeaseGranted lease) { }
     public void Renewed(string leaseId, DateTimeOffset expiresAt) { }
+
+    public void Beat(DateTimeOffset at) { }
     public void Fenced(string leaseId) { }
     public void Released(string leaseId, string disposition) { }
     public void BoundBroken(string diagnosis) { }
@@ -427,6 +448,12 @@ public sealed class RunnerLoop(
         try
         {
             var beat = await _protocol.HeartbeatAsync(runnerId, labels, cancellationToken);
+
+            // SAID AS SOON AS IT WAS ACCEPTED. What this records is that the
+            // control plane was reached, which is a different fact from this
+            // runner being reachable - and somebody watching a machine wait for
+            // work is deciding between exactly those two silences.
+            _observer.Beat(_clock.UtcNow);
 
             // ANSWERED ONLY INSIDE A HOLD. The idle loop beats too and its beats
             // carry introductions the same way - they are ignored here, because

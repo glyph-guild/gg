@@ -35,8 +35,36 @@ public class ChannelDispatchIsClosedTests
         }
     }
 
-    private static AskDispatch Dispatching(IReadOnlyLog log) =>
-        new(new WhatThisRunnerSays(new SilentObserver(), log, () => T0));
+    /// <summary>
+    /// A runner that is flying something, because only one of those has a log.
+    /// </summary>
+    /// <remarks>
+    /// <b>The tail follows the flight now.</b> An object that has claimed
+    /// nothing answers an empty tail whatever log it was built over - which is
+    /// the answer an idle machine owes a watcher, and is why a test about what a
+    /// tail CONTAINS has to put it in the air first.
+    /// </remarks>
+    private static LeaseGranted Flying() => new()
+    {
+        LeaseId = "lease-84",
+        Generation = 1,
+        FlightId = "flight-84",
+        FlightNumber = "GG-84",
+        Repos = [],
+        Credentials = [],
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
+        ExpiresAt = DateTimeOffset.UnixEpoch.AddMinutes(30),
+        RenewWithinSeconds = 30,
+    };
+
+    private static AskDispatch Dispatching(IReadOnlyLog log)
+    {
+        var says = new WhatThisRunnerSays(new SilentObserver(), _ => log, () => T0);
+        says.Claimed(Flying());
+
+        return new AskDispatch(says);
+    }
 
     /// <summary>A store that keeps nothing; the subject is the arm's existence.</summary>
     private sealed class Keeping : IKeepACredential

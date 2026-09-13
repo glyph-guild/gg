@@ -398,6 +398,19 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     public void Claimed(LeaseGranted lease) => Record($"claimed:{lease.LeaseId}");
     public void Renewed(string leaseId, DateTimeOffset expiresAt) => Record($"renewed:{leaseId}");
+
+    /// <summary>
+    /// Counted, not recorded.
+    /// </summary>
+    /// <remarks>
+    /// <b>The recorded list is what tests assert sequences over</b>, and a beat
+    /// lands between every other event on a running loop - so putting one in
+    /// here would rewrite the expectations of every test that reads the list,
+    /// none of which are about beating.
+    /// </remarks>
+    public int Beats { get; private set; }
+
+    public void Beat(DateTimeOffset at) => Beats++;
     public void Fenced(string leaseId) => Record($"fenced:{leaseId}");
     public void Released(string leaseId, string disposition) => Record($"released:{disposition}");
 

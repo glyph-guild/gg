@@ -79,6 +79,10 @@ public class WorkItemToolServerTests
             string id, CancellationToken token) =>
             Task.FromResult<IReadOnlyList<WorkItemChange>>([]);
 
+        public Task<WorkItemFacets> FacetsAsync(CancellationToken token) =>
+            Task.FromResult(new WorkItemFacets(
+                [@"Widgets", @"Widgets\Platform"], [@"Widgets\Sprint 42"], ["New", "Active"]));
+
         public Task<WorkItemPage> BrowseAsync(
             string? cursor, int limit, WorkItemFilter? filter, CancellationToken token)
         {
@@ -241,6 +245,42 @@ public class WorkItemToolServerTests
                    + "tell took from one that silently did not.");
         await Assert.That(item.GetProperty(BrowseTool.Fields.Iteration).GetString())
             .IsEqualTo(@"Widgets\Sprint 42");
+    }
+
+    [Test]
+    public async Task It_declares_the_choices_a_filter_is_picked_from()
+    {
+        // A READER THAT FILTERS BUT CANNOT SAY WHAT THERE IS TO FILTER BY makes
+        // a person type an area path, get it wrong once, and see an empty list
+        // that looks exactly like a sprint with no work in it.
+        var documents = await ExchangeAsync(Initialize(), List(1));
+        var names = ToolNames(documents[1]);
+
+        await Assert.That(FacetTool.IsOffered(names)).IsTrue()
+            .Because("the contract's own predicate is what the console asks, so it is what "
+                   + "this must satisfy rather than a list that merely looks right here.");
+    }
+
+    [Test]
+    public async Task The_choices_come_back_as_three_lists()
+    {
+        var documents = await ExchangeAsync(
+            new RecordingSource(),
+            Initialize(),
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+          + "{\"name\":\"" + FacetTool.Name + "\",\"arguments\":{}}}");
+
+        var text = documents[1].RootElement.GetProperty("result").GetProperty("content")[0]
+            .GetProperty("text").GetString()!;
+
+        var answered = JsonDocument.Parse(text).RootElement;
+
+        await Assert.That(answered.GetProperty(FacetTool.Fields.AreaPaths)
+            .EnumerateArray().Select(path => path.GetString())).Contains(@"Widgets\Platform");
+        await Assert.That(answered.GetProperty(FacetTool.Fields.Iterations)
+            .EnumerateArray().Select(sprint => sprint.GetString())).Contains(@"Widgets\Sprint 42");
+        await Assert.That(answered.GetProperty(FacetTool.Fields.States)
+            .EnumerateArray().Select(state => state.GetString())).Contains("Active");
     }
 
     [Test]

@@ -502,8 +502,12 @@ public enum StreamLineKind
 /// <remarks>
 /// The queue's rows are FLIGHTS NEEDING ME - a queue that happens to be short,
 /// not a list that will later be filtered. Every value here is a condition
-/// step 3 actually produces; nothing is here in anticipation. Credential
-/// resolution joins at step 5 and is deliberately absent rather than stubbed.
+/// something actually produces; nothing is here in anticipation.
+/// <para>
+/// <b>Credential resolution was the one this list promised and did not
+/// have</b>, and it joined when the promise came due rather than as a stub -
+/// which is why the sentence above no longer names a step it is waiting for.
+/// </para>
 /// </remarks>
 public enum QueueReason
 {
@@ -521,6 +525,21 @@ public enum QueueReason
 
     /// <summary>A runner stopped heartbeating while holding work.</summary>
     RunnerOffline,
+
+    /// <summary>
+    /// A credential this flight needs could not be resolved on the machine
+    /// that took it.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE ONE ROW HERE THAT IS AN ACT RATHER THAN A DIAGNOSIS.</b> The
+    /// other three describe a state a person watches; this one names something
+    /// they do - register a credential, or fly the work somewhere that holds
+    /// one. It sits above the two below it for that reason: a flight nobody can
+    /// resolve a credential for is taken and handed back by every runner that
+    /// tries, so it wears their clothes, and shown as "expired twice" it sends
+    /// somebody to look at machines that are perfectly healthy.
+    /// </remarks>
+    CredentialUnresolved,
 }
 
 /// <summary>One row of the queue.</summary>

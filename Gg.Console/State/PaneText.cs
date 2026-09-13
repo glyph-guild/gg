@@ -180,6 +180,10 @@ public static class PaneText
         QueueReason.AwaitingDecision => "awaiting a decision",
         QueueReason.LeaseExpiredTwice => "expired twice",
         QueueReason.RunnerOffline => "runner offline",
+        // THE WORD A PERSON SEARCHES FOR. "unresolved" alone would be true and
+        // would not say what to go and do; the cell is narrow, so it spends its
+        // width on the noun rather than on the verb.
+        QueueReason.CredentialUnresolved => "credential missing",
         // Article XI: a reason nothing can render halts rather than showing a
         // blank cell that reads as "nothing wrong".
         _ => throw new InvalidOperationException(

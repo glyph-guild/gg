@@ -1262,12 +1262,22 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         string sessionToken,
         string runnerId,
         string ephemeralPublicKey,
+        // WHAT THE CAPABILITY SHOULD AUTHORISE. Required of the caller rather
+        // than defaulted here: every reach knows what it is for, and a default
+        // is how the next one is minted for tailing a log while it places a
+        // credential. The contract decides what absence means; this side never
+        // sends absence.
+        string purpose,
         CancellationToken cancellationToken = default)
     {
         using var request = Request(
             HttpMethod.Post, $"/v1/runners/{runnerId}/introduction", sessionToken);
         request.Content = JsonContent.Create(
-            new RunnerIntroductionRequest { EphemeralPublicKey = ephemeralPublicKey },
+            new RunnerIntroductionRequest
+            {
+                EphemeralPublicKey = ephemeralPublicKey,
+                Purpose = purpose,
+            },
             ProtocolJsonContext.Default.RunnerIntroductionRequest);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);

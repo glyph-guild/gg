@@ -1510,7 +1510,7 @@ public static class ProtocolSurface
             // registration rather than a rewrite - which means these members are
             // declared here while ProtocolSurface.Endpoints names no route for
             // them at all. That asymmetry is the design, not an omission.
-            [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey"],
+            [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey", "purpose"],
             [typeof(PendingIntroduction)] = ["introductionId", "offer"],
             [typeof(RunnerKeyOffer)] = ["publicKey"],
             [typeof(RunnerSignalAnswer)] = ["introductionId", "answer"],

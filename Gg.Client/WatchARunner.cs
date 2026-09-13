@@ -60,6 +60,15 @@ public sealed record Watched(
 /// </remarks>
 public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel channel)
 {
+    /// <summary>What this reach asks a capability to authorise.</summary>
+    /// <remarks>
+    /// <b>Named here rather than written at the call site</b>, because it is a
+    /// decision rather than an argument: an introduction minted to read a log
+    /// must not also place a credential, and a literal in the middle of a
+    /// method is a decision nothing can assert about.
+    /// </remarks>
+    public static string Purpose => RunnerCapabilityPurposes.TailYourOwnLog;
+
     public async Task<Watched> WatchAsync(
         string sessionToken,
         string runnerId,
@@ -128,6 +137,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
             sessionToken,
             runner.RunnerId,
             Convert.ToBase64String(ephemeral.ExportSubjectPublicKeyInfo()),
+            Purpose,
             cancellationToken);
 
         if (introduced.Introduction is not { } introduction)

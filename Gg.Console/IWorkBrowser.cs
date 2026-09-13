@@ -24,6 +24,15 @@ public interface IWorkBrowser
     string? Key { get; }
 
     Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, CancellationToken cancellationToken);
+
+    /// <summary>What one work item says, in the reader's own words.</summary>
+    /// <remarks>
+    /// <b>The same conversation, because it is the same reader.</b> A person
+    /// reading an item is reading the one they listed it from, so asking
+    /// somewhere else would be asking a different tracker about an id that
+    /// means something else there.
+    /// </remarks>
+    Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -58,5 +67,16 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
         }
 
         return await reader.BrowseAsync(cursor, limit, cancellationToken);
+    }
+
+    public async Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken)
+    {
+        if (Key is not { } key || _readers.For(key) is not { } reader)
+        {
+            return new ItemOutcome.Nothing(
+                "No tracker is configured to read work items on this machine.");
+        }
+
+        return await reader.ReadAsync(id, cancellationToken);
     }
 }

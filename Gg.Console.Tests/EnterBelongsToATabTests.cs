@@ -55,10 +55,21 @@ public class EnterBelongsToATabTests
     }
 
     [Test]
+    public async Task The_browse_tab_reads_the_item_under_the_cursor()
+    {
+        // THE FOURTH TAB WITH SOMETHING TO OPEN, and it was in the list below
+        // until it had one. A browse row is an id, a state and a title; the
+        // thing it is ABOUT was reachable only by leaving the console, which
+        // made choosing work choosing by headline.
+        await Assert.That(Enter(TabId.Browse)).IsEqualTo(Command.ShowWorkItem);
+    }
+
+    [Test]
     public async Task Every_other_tab_has_no_enter_at_all()
     {
         foreach (var tab in Tabs.All.Where(t =>
-                     t is not (TabId.Flights or TabId.Queue or TabId.Runners or TabId.Envelope)))
+                     t is not (TabId.Flights or TabId.Queue or TabId.Runners
+                            or TabId.Envelope or TabId.Browse)))
         {
             await Assert.That(Enter(tab)).IsNull()
                 .Because($"the {tab} tab has no row enter could open, and a key offered "

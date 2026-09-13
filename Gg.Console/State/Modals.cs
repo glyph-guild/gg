@@ -60,6 +60,10 @@ public static class Modals
         // names the tenant declared rather than over two fixed answers. A title,
         // a body and a cursor: a dialog.
         UiMode.WorkKindChoice,
+
+        // A DOCUMENT WITH A TITLE, which is what the reading views are. What it
+        // holds is one work item as its own reader rendered it.
+        UiMode.WorkItemDetail,
     ];
 
     /// <summary>

@@ -35,6 +35,9 @@ public class TheLoopDoesTheReadingTests
             Asked++;
             return Task.FromResult(outcome);
         }
+
+        public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
+            Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
     }
 
     private static BrowseOutcome OneItem => new BrowseOutcome.Listed(
@@ -124,6 +127,9 @@ public class TheLoopDoesTheReadingTests
         public string? Key => "a-tracker";
 
         public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, CancellationToken token) =>
+            throw new InvalidOperationException("a bug in a reader");
+
+        public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
             throw new InvalidOperationException("a bug in a reader");
     }
 }

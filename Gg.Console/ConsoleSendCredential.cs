@@ -45,7 +45,17 @@ public static class ConsoleSendCredential
     /// prompt are all things this assembly may not hold. It answers with the
     /// sentence to show.
     /// </remarks>
-    public delegate string Send(string runnerId);
+    /// <summary>
+    /// Hands one runner a credential for one repository.
+    /// </summary>
+    /// <remarks>
+    /// <b>The repository is an argument now, and it used to be a prompt.</b> It
+    /// was asked for after the terminal was handed back, which put the question
+    /// in the one place holding neither the registry nor the runner it was
+    /// about. Null still means ask - the chooser's last row - so the older
+    /// behaviour is a choice rather than something that was taken away.
+    /// </remarks>
+    public delegate string Send(string runnerId, string? repository);
 
     /// <summary>Sends one, or says why it did not.</summary>
     public static AppState Give(AppState state, Send send)
@@ -81,6 +91,32 @@ public static class ConsoleSendCredential
             };
         }
 
-        return state with { LastCredential = send(row.Id) };
+        // READ HERE RATHER THAN RECORDED THERE. Answering the chooser ends the
+        // session, so a reducer that stored the choice would give a shell
+        // command a second, local effect - the thing ShellCommands forbids by
+        // name, because the local half lands whether or not the remote half
+        // did. The cursor crossed in the model on its own; this reads it at the
+        // one moment it is used.
+        return Spent(state) with
+        {
+            LastCredential = send(row.Id, CredentialRepositories.Chosen(state)),
+        };
+    }
+
+    /// <summary>
+    /// The question is answered, so it stops being asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>A cursor left where it was is one the next send inherits without
+    /// being asked</b> - the rule the work-kind cursor already states, and it
+    /// bites harder here. A stale kind opens a flight somebody can ground; a
+    /// stale row would put a credential on a machine for a repository nobody
+    /// named this time.
+    /// </remarks>
+    public static AppState Spent(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state with { Mode = UiMode.Normal, CredentialRepoSelected = 0 };
     }
 }

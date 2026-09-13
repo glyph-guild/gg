@@ -239,6 +239,26 @@ public enum UiMode
     WorkKindChoice,
 
     /// <summary>
+    /// Which repository a credential is being sent for, picked from the
+    /// registry this console already holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>WorkKindChoice's shape over the list next door, and for a sharper
+    /// reason.</b> That one saves a person a decision; this one saves them the
+    /// session. The question used to be asked after the terminal was handed
+    /// back, so the screen holding the registry, the credential standings and
+    /// the runner under the cursor passed it to a bare prompt holding none of
+    /// them.
+    /// <para>
+    /// <b>The repository only.</b> The secret is read at the prompt, where the
+    /// echo can be turned off and where it never has to cross a session
+    /// boundary in <see cref="AppState"/> - which is written to disk on a crash
+    /// and put in a diagnostics bundle.
+    /// </para>
+    /// </remarks>
+    CredentialRepositoryChoice,
+
+    /// <summary>
     /// What to narrow the work list to, picked from what the tracker offers.
     /// </summary>
     /// <remarks>
@@ -1268,6 +1288,23 @@ public sealed record AppState
     /// person's place in a list they were not looking at.
     /// </remarks>
     public int RepositorySelected { get; init; }
+
+    /// <summary>Which row the credential chooser's cursor is on.</summary>
+    /// <remarks>
+    /// <b>Its own cursor, for <see cref="RepositorySelected"/>'s reason and
+    /// then one more.</b> The chooser's list is not the pane's: it carries a
+    /// final row the pane has no business drawing, so the two run to different
+    /// lengths and a shared cursor would point past the end of one of them.
+    /// </remarks>
+    /// <remarks>
+    /// <b>A cursor and not an answer.</b> There is deliberately no
+    /// <c>CredentialFor</c> beside this: answering the chooser ends the
+    /// session, and a reducer that recorded the choice would give a shell
+    /// command a second local effect - which <c>ShellCommands</c> forbids,
+    /// because the local half lands whether or not the send did.
+    /// <c>CredentialRepositories.Chosen</c> reads this row where it is used.
+    /// </remarks>
+    public int CredentialRepoSelected { get; init; }
 
     /// <summary>
     /// The repository every flight this console opens will name, or null.

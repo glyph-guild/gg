@@ -191,7 +191,7 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(11)
+        await Assert.That(built).IsEqualTo(12)
             .Because("nine calls, and the count is here so a tenth has to come past this. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
                    + "a hand-counted role column. The seventh and eighth are the RUNNER "
@@ -201,7 +201,11 @@ public class TheRunnersCursorStaysTests
                    + "is why this counts calls rather than tables. The tenth is the work "
                    + "item's history, which was a paragraph until it was a table. The "
                    + "eleventh is the work kinds, which were a label with a caret until each "
-                   + "gained a sentence to sit beside its name.");
+                   + "gained a sentence to sit beside its name. The twelfth is the registry "
+                   + "a credential is sent for, which was a question typed at a bare prompt "
+                   + "after the terminal had already been handed back - so the console that "
+                   + "holds the registry asked nothing and the place holding none of it "
+                   + "asked everything.");
 
         // AND THE GAP BETWEEN THESE TWO NUMBERS IS THREE, ALL OF WHICH ARE
         // WIRED TO A HANDLER OF THEIR OWN. "Built but not subscribed to THIS

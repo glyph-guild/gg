@@ -125,15 +125,28 @@ public class TheRepositoryForACredentialIsPickedTests
     [Test]
     public async Task Answering_carries_the_path_out_of_the_session()
     {
-        var answered = Reducer.CredentialRepositoryPicked(
-            Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
-            {
-                CredentialRepoSelected = 1,
-            });
+        // THE CURSOR CROSSES, NOT A RECORDED ANSWER. Answering ends the
+        // session, so a reducer that wrote the choice down would give a shell
+        // command a second local effect - which ShellCommands forbids by name,
+        // because the local half lands whether or not the send did. The cursor
+        // is already in the model and is read where it is spent.
+        var answered = Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
+        {
+            CredentialRepoSelected = 1,
+        };
 
-        await Assert.That(answered.CredentialFor).IsEqualTo("JDX/JDNext")
-            .Because("the loop sends after the session ends, so what was chosen has to cross "
-                   + "in the model - which is exactly what the secret may not do.");
+        await Assert.That(CredentialRepositories.Chosen(answered)).IsEqualTo("JDX/JDNext");
+    }
+
+    [Test]
+    public async Task Nothing_is_chosen_unless_the_chooser_is_open()
+    {
+        // ROW ZERO IS A REAL REPOSITORY, so a send arriving by any other route
+        // would otherwise resolve to whichever happens to be first - a
+        // credential placed for something nobody named.
+        var elsewhere = OnARunner(Two()) with { CredentialRepoSelected = 0 };
+
+        await Assert.That(CredentialRepositories.Chosen(elsewhere)).IsNull();
     }
 
     [Test]
@@ -141,13 +154,12 @@ public class TheRepositoryForACredentialIsPickedTests
     {
         var rows = CredentialRepositories.Offered(OnARunner(Two()));
 
-        var answered = Reducer.CredentialRepositoryPicked(
-            Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
-            {
-                CredentialRepoSelected = rows.Count - 1,
-            });
+        var answered = Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
+        {
+            CredentialRepoSelected = rows.Count - 1,
+        };
 
-        await Assert.That(answered.CredentialFor).IsNull()
+        await Assert.That(CredentialRepositories.Chosen(answered)).IsNull()
             .Because("null is what the sender reads as 'ask me', so the row and the old "
                    + "behaviour are the same thing rather than two.");
     }
@@ -161,13 +173,15 @@ public class TheRepositoryForACredentialIsPickedTests
         // it would put a credential on a machine for a repository nobody named
         // this time.
         var sent = ConsoleSendCredential.Spent(
-            Reducer.CredentialRepositoryPicked(
-                Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
-                {
-                    CredentialRepoSelected = 0,
-                }));
+            Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
+            {
+                CredentialRepoSelected = 1,
+            });
 
-        await Assert.That(sent.CredentialFor).IsNull();
+        await Assert.That(sent.CredentialRepoSelected).IsEqualTo(0);
+        await Assert.That(sent.Mode).IsEqualTo(UiMode.Normal)
+            .Because("a chooser left open behind a send would be answered again by the next "
+                   + "keypress that meant something else.");
     }
 
     [Test]
@@ -192,7 +206,8 @@ public class TheRepositoryForACredentialIsPickedTests
                 ],
             },
             RunnerSelected = 0,
-            CredentialFor = "JDX/JDNext",
+            Mode = UiMode.CredentialRepositoryChoice,
+            CredentialRepoSelected = 1,
         };
 
         _ = ConsoleSendCredential.Give(state, (runnerId, repo) =>

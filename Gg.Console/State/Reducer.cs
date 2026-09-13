@@ -173,6 +173,12 @@ public static class Reducer
             // flight, which is the loop's to do with the terminal free.
             Command.FlyForKind => state,
 
+            // ASKED HERE, ANSWERED HERE, SENT OUT THERE. The question needs the
+            // registry and the runner under the cursor, both of which are in
+            // this model; the answer is folded into it so the loop can send
+            // once the terminal is free. Only the secret has to wait for that.
+            Command.ChooseCredentialRepository => CredentialRepositoryAsked(state),
+
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
 
@@ -474,7 +480,10 @@ public static class Reducer
             // so one surviving answered for both.
             return state with
             {
-                Flight = null, FlightLog = null, Attribution = null, Story = null,
+                Flight = null,
+                FlightLog = null,
+                Attribution = null,
+                Story = null,
             };
         }
 
@@ -902,6 +911,43 @@ public static class Reducer
             KindSelected = Math.Clamp(row, 0, WorkKinds.Declared(state).Count),
         };
 
+    /// <summary>
+    /// Ask which repository a credential is for, here rather than at a prompt.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked ALWAYS, unlike the work-kind question.</b> That one is skipped
+    /// when a tenant declared no kinds, because one possible answer is not a
+    /// question. Here the last row is a question in its own right - it is the
+    /// prompt this replaced - so there is never only one answer, and a console
+    /// holding no registry still has something to say rather than an empty list
+    /// that would read as "there are no repositories".
+    /// </remarks>
+    public static AppState CredentialRepositoryAsked(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Modal(state, UiMode.CredentialRepositoryChoice) with
+        {
+            CredentialRepoSelected = 0,
+        };
+    }
+
+    /// <summary>
+    /// Moves the chooser's cursor, clamped to the rows it actually draws.
+    /// </summary>
+    /// <remarks>
+    /// Clamped to <c>Count - 1</c> rather than to <c>Count</c>, unlike
+    /// <see cref="PickWorkKind"/>: that list has a synthetic row zero and this
+    /// one has a synthetic row LAST, so the end that needs room is the other
+    /// one.
+    /// </remarks>
+    private static AppState PickCredentialRepository(AppState state, int row) =>
+        state with
+        {
+            CredentialRepoSelected =
+                Math.Clamp(row, 0, CredentialRepositories.Offered(state).Count - 1),
+        };
+
     private static AppState Moved(AppState state, int by) =>
         // A MODAL WITH A LIST IN IT OWNS THE CURSOR, because it owns the
         // keyboard. The tab is what answers this the rest of the time, and it
@@ -911,6 +957,8 @@ public static class Reducer
             ? PickLogEntry(state, state.LogSelected + by)
             : state.Mode is UiMode.WorkKindChoice
             ? PickWorkKind(state, state.KindSelected + by)
+            : state.Mode is UiMode.CredentialRepositoryChoice
+            ? PickCredentialRepository(state, state.CredentialRepoSelected + by)
             : state.Mode is UiMode.BrowseFilter
             ? PickFilterRow(state, BrowseFilters.Cursor(state) + by)
             : state.Mode is UiMode.WorkItemDetail

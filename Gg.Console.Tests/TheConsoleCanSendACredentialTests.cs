@@ -45,8 +45,12 @@ public class TheConsoleCanSendACredentialTests
         // be the gap `w` was written to close.
         foreach (var ours in (bool[])[true, false])
         {
+            // IT ASKS BEFORE IT SENDS NOW, and the key is the asking. The
+            // question - which repository - is answered on this screen, which
+            // holds the registry; only the secret needs the terminal back. What
+            // this guards is unchanged: the key is there on ANY beating runner.
             await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), Looking(ours, beating: true)))
-                .IsEqualTo(Command.SendCredential)
+                .IsEqualTo(Command.ChooseCredentialRepository)
                 .Because("reaching a machine goes through the control plane, which is exactly "
                        + "as able to introduce you to somebody else's runner as to this one.");
         }

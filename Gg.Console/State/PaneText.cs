@@ -2475,6 +2475,7 @@ public static class PaneText
         UiMode.FloorChoice => "How much to keep back",
         UiMode.ComposeChoice => "How do you want to write this flight?",
         UiMode.WorkKindChoice => "What is this flight for?",
+        UiMode.CredentialRepositoryChoice => "Which repository is this credential for?",
         UiMode.BrowseFilter => "Narrow the work list",
         UiMode.WorkItemDetail => "The work item",
         _ => "",
@@ -2754,6 +2755,7 @@ public static class PaneText
             UiMode.FloorChoice => FloorChoice(state),
             UiMode.ComposeChoice => ComposeChoice(),
             UiMode.WorkKindChoice => WorkKindChoice(state),
+            UiMode.CredentialRepositoryChoice => CredentialRepositoryChoice(state),
             UiMode.BrowseFilter => BrowseFilter(state),
 
             // WHAT THE READER SAID, WHOLE. Wrapped like every other document in
@@ -2863,6 +2865,31 @@ public static class PaneText
             + "before kinds existed did."
             : "A work kind says what this flight is FOR. It can only narrow the floor, so "
             + "choosing one grants nothing the floor withheld.";
+
+    /// <summary>
+    /// The sentence beside the registry, which is a table like the kinds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It says what happens next, because what happens next is unusual.</b>
+    /// Answering ends the session and asks for a secret at a bare terminal -
+    /// the only place the echo can be turned off - and somebody who was not
+    /// told that reads the console vanishing as a crash.
+    /// </para>
+    /// <para>
+    /// <b>And it says when the list is short because nothing was read</b>, which
+    /// is a different fact from a tenant with no repositories. The registry
+    /// arrives when the Repositories pane is first shown.
+    /// </para>
+    /// </remarks>
+    private static string CredentialRepositoryChoice(AppState state) =>
+        state.Repositories is null
+            ? "This console has not read the registry yet - open the Repositories pane to "
+            + "list it here. Until then the prompt can still be told which one. Answering "
+            + "hands the terminal back to read the secret, with the echo off."
+            : "The reference is keyed by path, which is what `gg credential list` shows. "
+            + "Answering hands the terminal back to read the secret, with the echo off - "
+            + "it reaches the runner and is not written into this console.";
 
     /// <summary>
     /// Why the console behind this is empty, and the two steps out of it.

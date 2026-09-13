@@ -50,7 +50,8 @@ public class AHelpPageTooLongToFitScrollsTests
             {
                 Name = "EDITOR",
                 Value = null,
-                Why = "The editor gg hands the terminal to when an intent is written.",
+                Why = "The editor gg hands the terminal to when an intent is written, "
+                    + "which is the one place a person types prose into a flight.",
                 Source = SettingSources.Unset,
             },
         ],
@@ -75,6 +76,35 @@ public class AHelpPageTooLongToFitScrollsTests
         await Assert.That(lines.Any(line => line.Contains("GG_CONTROL_PLANE", StringComparison.Ordinal)))
             .IsTrue()
             .Because("the page still says what it always said; only the widget changed.");
+    }
+
+    [Test]
+    public async Task A_wrapped_line_keeps_the_indent_it_was_written_with()
+    {
+        // THE PAGE IS A HIERARCHY DRAWN IN SPACES: a variable at two, its value
+        // and its explanation at six. A wrap that returns the continuation to
+        // column zero breaks exactly the lines that are long enough to need the
+        // alignment, so the explanation of one variable reads as a paragraph
+        // belonging to none of them.
+        var lines = PaneText.HelpPageLines(AMachine(), HelpPage.Environment, columns: 40);
+
+        // THE EXPLANATION OF ONE VARIABLE, however many lines the wrap made of
+        // it: from the line that starts it up to the blank line that ends the
+        // entry.
+        var explanation = lines
+            .SkipWhile(line => !line.Contains("The editor", StringComparison.Ordinal))
+            .TakeWhile(line => line.Trim().Length > 0)
+            .ToList();
+
+        await Assert.That(explanation.Count).IsGreaterThan(1)
+            .Because("a sentence that fits in forty columns would not be testing a wrap.");
+
+        foreach (var line in explanation)
+        {
+            await Assert.That(line).StartsWith("      ")
+                .Because("every line of it belongs under the variable it explains, and the "
+                       + "whole page is indented rather than ruled.");
+        }
     }
 
     [Test]

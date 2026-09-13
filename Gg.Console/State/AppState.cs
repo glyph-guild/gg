@@ -227,6 +227,18 @@ public enum UiMode
     ComposeChoice,
 
     /// <summary>
+    /// What is this flight for? Asked before one is opened.
+    /// </summary>
+    /// <remarks>
+    /// <b>A modal because the tenant declared the answers and only a person
+    /// knows which.</b> A work kind can only narrow root, so choosing wrong
+    /// grants nothing root withheld - which is why it is safe to ask here at
+    /// all. Asked only when there are kinds declared: one possible answer is
+    /// not a question.
+    /// </remarks>
+    WorkKindChoice,
+
+    /// <summary>
     /// How much of your own allowance to keep back.
     /// </summary>
     /// <remarks>
@@ -1452,6 +1464,28 @@ public sealed record AppState
     /// cleared when it closes, however it closes.
     /// </remarks>
     public ComposingFor ComposingFor { get; init; }
+
+    /// <summary>
+    /// Which door asked what this flight is for.
+    /// </summary>
+    /// <remarks>
+    /// <b>The QUESTION, not the answer.</b> Three doors open a flight and the
+    /// work-kind question interrupts all three, so answering has to know what
+    /// it is resuming. What it must not hold is the KIND somebody picked - that
+    /// is a value a later flight could inherit, which is the argument
+    /// <c>ComposingFor</c> already makes for itself one field up.
+    /// </remarks>
+    public ComposingFor AskingKindFor { get; init; }
+
+    /// <summary>
+    /// Which row of the work-kind question the cursor is on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Zero is `no kind', and it is row zero on purpose.</b> That is what
+    /// every flight before kinds existed was, and it must stay what somebody
+    /// gets by pressing enter without reading.
+    /// </remarks>
+    public int KindSelected { get; init; }
 
 
     /// <summary>

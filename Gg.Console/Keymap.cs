@@ -793,6 +793,32 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
         ],
 
+        // A LIST WITH A CURSOR, NOT A KEY PER ANSWER. The kinds are the
+        // tenant's and there may be any number of them, so a binding each would
+        // be a keymap whose SHAPE depends on somebody's airspace - and the help
+        // page is built by enumerating shapes. Six fixed keys over a list of any
+        // length is the table's answer, and it is already how every other list
+        // in this console is walked.
+        UiMode.WorkKindChoice =>
+        [
+            // THE LIST'S CURSOR, untaught and off the hint line for the reason
+            // the flight modal's are: the arrows do this through the list
+            // widget, so the one line of hints goes to keys a person has no
+            // other way to find.
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { Untaught = true, OffTheHintLine = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { Untaught = true, OffTheHintLine = true },
+
+            // ENTER ON ROW ZERO IS A DECISION, and it is not the same decision
+            // as escaping. `No kind' opens a flight that inherits the floor -
+            // which is what every flight before kinds existed did - where esc
+            // opens nothing at all. One keypress must not be able to mean both.
+            new(KeyStroke.EnterKey, Command.FlyForKind, "fly it for this") { Label = "Fly" },
+
+            new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
+        ],
+
         UiMode.SignIn => context.SignInStarted
             ?
             [

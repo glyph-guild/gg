@@ -755,6 +755,36 @@ public sealed class ConsoleLoop(
 
                     break;
 
+                case Command.FlyForKind:
+                    // THE QUESTION IS STILL OPEN WHILE THIS FLIES, and that is
+                    // what stops it asking about its own answer: FlewPicked asks
+                    // only when AskingKindFor is Nothing, so answering walks
+                    // straight past the branch that interrupted it and the
+                    // cursor is still there to be read.
+                    //
+                    // CLOSED AFTERWARDS RATHER THAN BEFORE, for the same reason
+                    // the compose answers close after the loop has done the
+                    // work: a reducer that closed it here would be closing the
+                    // question before the thing it asked about had happened.
+                    bool flew;
+                    state = state.AskingKindFor is ComposingFor.WorkItem
+                        ? FlewPicked(state, actions, out flew)
+                        : Answered(state, out flew);
+
+                    state = state with
+                    {
+                        Mode = UiMode.Normal,
+                        AskingKindFor = ComposingFor.Nothing,
+                        KindSelected = 0,
+                    };
+
+                    if (flew)
+                    {
+                        state = Reloaded(state, reload, asked: false);
+                    }
+
+                    break;
+
                 case Command.ForgetCredential:
                     // A WRITE, SO IT REFRESHES WHAT IT INVALIDATED. Rule 4: the
                     // credential list the flight pane reads is exactly what this
@@ -1347,6 +1377,24 @@ public sealed class ConsoleLoop(
             };
         }
 
+        // ASKED BEFORE ANYTHING IS OPENED, and only when there is something to
+        // ask. A tenant that declared work kinds has a choice a flight cannot be
+        // opened without making; a tenant that declared none has one possible
+        // answer, and a modal with one answer is friction wearing a question's
+        // clothes - so for them this key behaves exactly as it did.
+        //
+        // ONCE. The question sets AskingKindFor, and answering clears it before
+        // coming back through here, so this cannot ask about its own answer.
+        if (state.AskingKindFor is ComposingFor.Nothing && WorkKinds.Declared(state).Count > 0)
+        {
+            return state with
+            {
+                Mode = UiMode.WorkKindChoice,
+                AskingKindFor = ComposingFor.WorkItem,
+                KindSelected = 0,
+            };
+        }
+
         var id = listing.Items[state.BrowseSelected].Id;
 
         // ASKED BEFORE ANYTHING IS OPENED. Two flights on one work item is
@@ -1380,7 +1428,7 @@ public sealed class ConsoleLoop(
         return state with
         {
             LastFlightOpened = actions.FlyTicket(
-                    listing.ProviderKey, id, state.ChosenRepository)
+                    listing.ProviderKey, id, state.ChosenRepository, WorkKinds.Picked(state))
                 + " " + PaneText.ComposedBy(ComposingFor.WorkItem),
         };
     }
@@ -1423,7 +1471,28 @@ public sealed class ConsoleLoop(
             LastFlightOpened = actions is null
                 ? "This console is not configured to open flights."
                 : actions.FlyTicket(
-                    pending.Provider, pending.Id, state.ChosenRepository),
+                    pending.Provider, pending.Id, state.ChosenRepository,
+                    WorkKinds.Picked(state)),
+        };
+    }
+
+    /// <summary>
+    /// The doors this question can be asked from that are not wired yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named rather than defaulted.</b> `new flight' and `fly by hand' both
+    /// open a flight and both will ask this question; until they do, an answer
+    /// that arrived from one of them would silently open nothing, and a person
+    /// would be left looking at a console that had swallowed a keypress.
+    /// </remarks>
+    private static AppState Answered(AppState state, out bool flew)
+    {
+        flew = false;
+
+        return state with
+        {
+            LastFlightOpened =
+                "Nothing was opened: this door does not ask what a flight is for yet.",
         };
     }
 

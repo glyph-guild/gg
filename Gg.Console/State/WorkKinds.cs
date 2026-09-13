@@ -25,6 +25,23 @@ namespace Gg.Console;
 /// </remarks>
 public static class WorkKinds
 {
+    /// <summary>
+    /// The kind the question is sitting on, or null for "inherit the floor".
+    /// </summary>
+    /// <remarks>
+    /// <b>Row zero is not a kind.</b> It is the answer every flight before
+    /// kinds existed gave, and it has to travel as ABSENT rather than as a name:
+    /// the control plane reads a missing kind as <c>implement</c>, so sending
+    /// that word would be declaring something nobody chose.
+    /// </remarks>
+    public static string? Picked(AppState state)
+    {
+        var declared = Declared(state);
+        var row = state.KindSelected - 1;
+
+        return row >= 0 && row < declared.Count ? declared[row] : null;
+    }
+
     /// <summary>Every work kind this tenant has declared, in the order it declared them.</summary>
     public static IReadOnlyList<string> Declared(AppState state)
     {

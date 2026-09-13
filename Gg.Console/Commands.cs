@@ -569,6 +569,22 @@ public enum Command
     /// <remarks><see cref="ComposeInEditor"/>'s, one composer over.</remarks>
     ComposeWithAgent,
 
+    /// <summary>
+    /// Open the flight this question was asked for, with the kind under the cursor.
+    /// </summary>
+    /// <remarks>
+    /// <b>The shell's, because it opens a flight.</b> The compose modal was
+    /// found with a reducer arm and no shell command, so it recorded a choice,
+    /// returned to Normal, and nothing ever acted on it - an arm no key reaches.
+    /// Answering this question has to END the session, because that is the only
+    /// place a flight can be opened from.
+    /// <para>
+    /// <b>One command for three doors.</b> Which flight it opens is
+    /// <see cref="AppState.AskingKindFor"/>'s answer, not this name's.
+    /// </para>
+    /// </remarks>
+    FlyForKind,
+
     /// <summary>Shows or hides every allowance in the fleet.</summary>
     ToggleAllowances,
 
@@ -775,6 +791,7 @@ public static class ShellCommands
         // session and nothing was ever opened.
         Command.ComposeInEditor,
         Command.ComposeWithAgent,
+        Command.FlyForKind,
 
         // SETTING A FLOOR IS A WRITE, so it happens between sessions with the
         // terminal provably free - the arrangement every other write here

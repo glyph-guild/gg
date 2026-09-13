@@ -2409,6 +2409,7 @@ public static class PaneText
         UiMode.SignIn => "Nobody is signed in",
         UiMode.FloorChoice => "How much to keep back",
         UiMode.ComposeChoice => "How do you want to write this flight?",
+        UiMode.WorkKindChoice => "What is this flight for?",
         _ => "",
     };
 
@@ -2668,8 +2669,48 @@ public static class PaneText
             UiMode.GateDecision => GateDecision(state),
             UiMode.FloorChoice => FloorChoice(state),
             UiMode.ComposeChoice => ComposeChoice(),
+            UiMode.WorkKindChoice => WorkKindChoice(state),
             _ => "",
         };
+    }
+
+    /// <summary>
+    /// The kinds this tenant declared, with the cursor on one of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>`No kind' is a row and it is the first one.</b> Inheriting the floor
+    /// is an answer - it is what every flight before kinds existed was - so it
+    /// is on the list rather than being what happens if you escape. Escaping
+    /// opens nothing at all, which is a different act.
+    /// </para>
+    /// <para>
+    /// <b>The rows are marked, not keyed.</b> A line shaped like an offer -
+    /// two spaces, a character, two spaces - is read as one by the guard that
+    /// walks modal bodies, and a digit per kind would be a key that resolves on
+    /// a tenant with three and does nothing on a tenant with two.
+    /// </para>
+    /// </remarks>
+    private static string WorkKindChoice(AppState state)
+    {
+        var kinds = WorkKinds.Declared(state);
+        var text = new StringBuilder();
+
+        text.AppendLine(
+            "A work kind says what this flight is FOR. It can only narrow the floor, so "
+          + "choosing one grants nothing the floor withheld.");
+        text.AppendLine();
+
+        IReadOnlyList<string> rows = ["no kind - inherit the floor", .. kinds];
+
+        for (var row = 0; row < rows.Count; row++)
+        {
+            text.AppendLine(
+                (row == Math.Clamp(state.KindSelected, 0, rows.Count - 1) ? "> " : "  ")
+              + Clean(rows[row]));
+        }
+
+        return text.ToString().TrimEnd();
     }
 
     /// <summary>

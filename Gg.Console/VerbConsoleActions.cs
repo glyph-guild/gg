@@ -151,14 +151,15 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string FlyTicket(string provider, string id, string? repository)
+    public string FlyTicket(string provider, string id, string? repository, string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
         try
         {
-            var opened = _data.FlyTicketAsync(provider, id, repository).GetAwaiter().GetResult();
+            var opened = _data.FlyTicketAsync(provider, id, repository, workKind)
+                .GetAwaiter().GetResult();
 
             return opened is VerbResult.Launched launched
                 ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "

@@ -158,6 +158,8 @@ public static class Reducer
                 {
                     Mode = UiMode.Normal,
                     ComposingFor = ComposingFor.Nothing,
+                    AskingKindFor = ComposingFor.Nothing,
+                    KindSelected = 0,
                     AirspacePathTyped = null,
                 },
 
@@ -167,6 +169,10 @@ public static class Reducer
             // request - and the loop is where the terminal is free. A reducer
             // that closed the modal here would be closing it before the thing it
             // asked about had happened.
+            // ANSWERED THE SAME WAY, and for the same reason: it opens a
+            // flight, which is the loop's to do with the terminal free.
+            Command.FlyForKind => state,
+
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
 
@@ -713,6 +719,20 @@ public static class Reducer
     /// while a person was looking at the queue. The tab showing is the only
     /// thing that can answer "which list is the person pointing at".
     /// </remarks>
+    /// <summary>
+    /// Which work kind the question is sitting on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Clamped to the list with `no kind' at the top.</b> One more row than
+    /// the tenant declared, because inheriting the floor is an answer and not an
+    /// absence of one.
+    /// </remarks>
+    private static AppState PickWorkKind(AppState state, int row) =>
+        state with
+        {
+            KindSelected = Math.Clamp(row, 0, WorkKinds.Declared(state).Count),
+        };
+
     private static AppState Moved(AppState state, int by) =>
         // A MODAL WITH A LIST IN IT OWNS THE CURSOR, because it owns the
         // keyboard. The tab is what answers this the rest of the time, and it
@@ -720,6 +740,8 @@ public static class Reducer
         // would move behind a modal that is about one particular flight.
         state.Mode is UiMode.FlightDetail
             ? PickLogEntry(state, state.LogSelected + by)
+            : state.Mode is UiMode.WorkKindChoice
+            ? PickWorkKind(state, state.KindSelected + by)
             : state.ActiveTab switch
             {
                 TabId.Repositories => PickRepository(state, state.RepositorySelected + by),

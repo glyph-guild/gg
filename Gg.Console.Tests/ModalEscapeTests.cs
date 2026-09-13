@@ -131,6 +131,15 @@ public class ModalEscapeTests
           + "left through CloseModal, and Every_modal_has_exactly_one_escape_hatch above "
           + "already covers it.",
 
+        [UiMode.WorkKindChoice] =
+            "opened by ConsoleLoop.FlewPicked before a flight is opened, for ConfirmFlight's "
+          + "reason one entry up: the branch that asks is the loop's, because opening a "
+          + "flight cannot happen inside a UI session, so no key pressed against a fresh "
+          + "state reaches it. It is entered through FlyPicked and left through CloseModal, "
+          + "and AFlightIsAskedWhatItIsForTests drives both. Being escapable is covered "
+          + "above rather than here: StateGenerator emits every UiMode, so the escape-hatch "
+          + "walk already leaves this one.",
+
         [UiMode.ConfirmGround] =
             "opened by `x` inside the flight modal, which is itself opened by the loop after "
           + "a read - so it is two steps from a fresh state and this test presses one key. "

@@ -217,6 +217,9 @@ internal static class ConsoleDoubles
         /// </remarks>
         internal List<(string Provider, string Id, string? Repository)> Tickets { get; } = [];
 
+        /// <summary>What each flight said it was for, null where it said nothing.</summary>
+        internal List<string?> Kinds { get; } = [];
+
         /// <summary>Every pasted intent, with the repository it named.</summary>
         internal List<(string Intent, string? Repository)> Intents { get; } = [];
 
@@ -257,10 +260,16 @@ internal static class ConsoleDoubles
             return refusing ? "Nothing was opened — the control plane could not be reached." : "opened";
         }
 
-        public string FlyTicket(string provider, string id, string? repository)
+        public string FlyTicket(string provider, string id, string? repository, string? workKind)
         {
             Flown.Add((provider, id));
             Tickets.Add((provider, id, repository));
+
+            // WHAT A FLIGHT SAID IT WAS FOR, recorded so a test can ask. A
+            // double that took the argument and dropped it would let the whole
+            // crossing pass while nothing arrived - which is the shape that has
+            // already cost this repository a slice on this very flag.
+            Kinds.Add(workKind);
 
             return refusing
                 ? "Nothing was opened — the control plane could not be reached."

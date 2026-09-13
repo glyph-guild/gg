@@ -52,6 +52,8 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void Claimed(LeaseGranted lease) => _inner.Claimed(lease);
 
+    public void Beat(DateTimeOffset at) => _inner.Beat(at);
+
     public void Renewed(string leaseId, DateTimeOffset expiresAt) =>
         _inner.Renewed(leaseId, expiresAt);
 

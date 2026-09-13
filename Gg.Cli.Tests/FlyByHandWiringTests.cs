@@ -166,6 +166,8 @@ public class FlyByHandWiringTests
 
         public void Claimed(LeaseGranted lease) => Calls.Add("claimed");
         public void Renewed(string leaseId, DateTimeOffset expiresAt) => Calls.Add("renewed");
+
+        public void Beat(DateTimeOffset at) => Calls.Add("beat");
         public void Fenced(string leaseId) => Calls.Add("fenced");
         public void Released(string leaseId, string disposition) => Calls.Add("released");
         public void BoundBroken(string diagnosis) => Calls.Add("bound-broken");

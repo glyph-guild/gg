@@ -29,7 +29,7 @@ public class HandshakeFailsLegiblyTests
         Convert.ToBase64String(key.ExportSubjectPublicKeyInfo());
 
     private static AskDispatch ADispatch() =>
-        new(new WhatThisRunnerSays(new SilentObserver(), new NoLog(), () => DateTimeOffset.UnixEpoch));
+        new(new WhatThisRunnerSays(new SilentObserver(), _ => new NoLog(), () => DateTimeOffset.UnixEpoch));
 
     private sealed class NoLog : IReadOnlyLog
     {

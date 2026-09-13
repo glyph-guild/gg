@@ -10,6 +10,12 @@ internal sealed class ConsoleObserver : IRunnerObserver
         System.Console.WriteLine(
             $"claimed {lease.FlightNumber} (lease {lease.LeaseId} gen {lease.Generation}) until {lease.ExpiresAt:O}");
 
+    // NOT PRINTED. A line every fifteen seconds for the life of a runner would
+    // bury the ones that mean something, and what a beat is for - telling a
+    // waiting machine from a stopped one - is answered by `status` over the
+    // channel, where somebody asked.
+    public void Beat(DateTimeOffset at) { }
+
     public void Renewed(string leaseId, DateTimeOffset expiresAt) =>
         System.Console.WriteLine($"renewed {leaseId} until {expiresAt:O}");
 
@@ -296,11 +302,29 @@ public static class RunnerHost
             ? new StopsAfterOneFlight(new ConsoleObserver(), stopping)
             : (IRunnerObserver)new ConsoleObserver();
 
+        // ONE OBJECT, NARRATED TO AND ASKED OF. It used to be built inside the
+        // session factory wrapping this same narration, and handed only to the
+        // dispatch - so nothing ever called its observer methods and `status`
+        // answered "starting" for the life of every runner that ever ran. The
+        // class was right; the composition root never put it on the path.
+        var says = new WhatThisRunnerSays(
+            narration,
+
+            // THIS FLIGHT'S OWN OUTPUT, which is where an agent's text actually
+            // is. Not the journal: that holds this runner's narration and its
+            // crashes, and on the fleet's only supervised unit it never holds a
+            // flight at all.
+            //
+            // RESOLVED PER READ, because which flight that is changes under a
+            // watcher that outlived the last one.
+            flightId => new TheFlightsOwnOutput(Gg.Local.LocalPaths.LiveView(flightId)),
+            () => DateTimeOffset.UtcNow);
+
         var loop = new RunnerLoop(
             new RunnerProtocolClient(http, runnerToken),
             new SystemClock(),
             (span, token) => Task.Delay(span, token),
-            narration,
+            says,
             credentials,
             workspace,
             executor,
@@ -332,21 +356,11 @@ public static class RunnerHost
                 : now => allowance.ReadAsync(now, stopping.Token),
             attendedSessions: identityKey is null
                 ? null
-                : flightId => new AttendedSession(
+                : _ => new AttendedSession(
                     identityKey,
                     new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
-                    new AskDispatch(
-                        new WhatThisRunnerSays(
-                            narration,
-                            // THIS FLIGHT'S OWN OUTPUT, which is where an
-                            // agent's text actually is. Not the journal: that
-                            // holds this runner's narration and its crashes,
-                            // and on the fleet's only supervised unit it never
-                            // holds a flight at all.
-                            new TheFlightsOwnOutput(Gg.Local.LocalPaths.LiveView(flightId)),
-                            () => DateTimeOffset.UtcNow),
-                        keepCredential),
-                    narration))
+                    new AskDispatch(says, keepCredential),
+                    says))
         {
             HoldFor = holdFor,
         };

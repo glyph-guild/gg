@@ -32,7 +32,7 @@ public class ARunnerSaysWhichFlightItIsOnTests
     private static DateTimeOffset At(string when) => DateTimeOffset.Parse(when, null);
 
     private static WhatThisRunnerSays ARunner() =>
-        new(new SilentObserver(), new NoLog(), () => At("2026-09-12T18:00:00Z"));
+        new(new SilentObserver(), _ => new NoLog(), () => At("2026-09-12T18:00:00Z"));
 
     private static LeaseGranted ALease(int number) => new()
     {

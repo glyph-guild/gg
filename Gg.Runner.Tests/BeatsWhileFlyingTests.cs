@@ -170,7 +170,8 @@ public class BeatsWhileFlyingTests
                 new RunnerChannel([], TimeSpan.FromSeconds(1)),
                 new AskDispatch(new WhatThisRunnerSays(
                     observer,
-                    new TheFlightsOwnOutput(Path.Combine(Path.GetTempPath(), $"{flightId}.ndjson")),
+                    flying => new TheFlightsOwnOutput(
+                        Path.Combine(Path.GetTempPath(), $"{flying}.ndjson")),
                     () => T0)),
                 observer)
             : null;

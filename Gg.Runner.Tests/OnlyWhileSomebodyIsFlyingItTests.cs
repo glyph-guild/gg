@@ -35,7 +35,7 @@ public class OnlyWhileSomebodyIsFlyingItTests
     }
 
     private static AskDispatch ADispatch() =>
-        new(new WhatThisRunnerSays(new SilentObserver(), new NoLog(), () => DateTimeOffset.UnixEpoch));
+        new(new WhatThisRunnerSays(new SilentObserver(), _ => new NoLog(), () => DateTimeOffset.UnixEpoch));
 
     /// <summary>An offer a console really sealed, so answering it means something.</summary>
     private static async Task<PendingIntroduction> AnOfferAsync(

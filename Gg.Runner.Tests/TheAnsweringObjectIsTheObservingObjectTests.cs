@@ -35,7 +35,7 @@ public class TheAnsweringObjectIsTheObservingObjectTests
     public async Task A_loop_narrating_to_it_moves_what_it_says()
     {
         using var stopping = new CancellationTokenSource();
-        var says = new WhatThisRunnerSays(new SilentObserver(), new NoLog(), () => T0);
+        var says = new WhatThisRunnerSays(new SilentObserver(), _ => new NoLog(), () => T0);
 
         await Assert.That(says.Status().Doing).IsEqualTo("starting");
 

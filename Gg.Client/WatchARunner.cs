@@ -329,7 +329,13 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
             // satisfied.
             if (tick++ % StatusEvery == 0)
             {
-                var said = await ask(new RunnerAsk { Kind = RunnerAskKinds.Status }, cancellationToken);
+                // THE PAYLOAD, EMPTY AS IT IS. AskDispatch matches the kind AND
+                // the member beside it; a StatusAsk carries nothing and is
+                // still what makes this a status ask rather than one the runner
+                // does not recognise.
+                var said = await ask(
+                    new RunnerAsk { Kind = RunnerAskKinds.Status, Status = new StatusAsk() },
+                    cancellationToken);
 
                 if (said?.Status is { } status)
                 {

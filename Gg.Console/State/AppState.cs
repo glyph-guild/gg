@@ -442,6 +442,26 @@ public enum FlightTab
     /// waiting on you".
     /// </remarks>
     Gate,
+
+    /// <summary>
+    /// What has happened to this flight: the table, and what the entry under
+    /// the cursor says.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own tab because it is its own question, and because it was
+    /// paying for the details tab's height.</b> Sharing meant the fields and
+    /// the history competed for the same rows, and it meant the log could only
+    /// show what an entry said by becoming several rows of itself - Terminal.Gui
+    /// has no variable row heights, so an unwrapped entry was one row carrying
+    /// the entry and more rows carrying the rest of its prose with every other
+    /// column blank.
+    /// <para>
+    /// A pane beneath the table needs none of that: one entry is one row, the
+    /// prose goes where prose fits, and the model's cursor and the widget's
+    /// finally mean the same thing.
+    /// </para>
+    /// </remarks>
+    Log,
 }
 
 public enum TabId

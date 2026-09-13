@@ -34,14 +34,13 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
 {
-    // A LOG WHOSE ENTRIES ARE NOT ALL THE SAME SIZE, because even ones hide
-    // this: the rows that vanish above the cursor are exactly what moves it.
+    // ONE ROW PER ENTRY, since the log stopped unwrapping into continuations.
+    // What still moves the rows under a cursor is a REFILL - a story read
+    // again, or a different flight's - which is what these assertions are
+    // about and always were.
     private static IReadOnlyList<LogRow> Log() =>
         [.. Enumerable.Range(0, 20).Select(i => new LogRow(
-            i, "", $"12:0{i % 10}", "1", $"event {i}",
-            i == 5
-                ? string.Join(' ', Enumerable.Repeat($"a-long-detail-on-{i}", 40))
-                : "short"))];
+            i, $"12:0{i % 10}", "1", $"event {i}", "short"))];
 
     private static ITableSource Source(IReadOnlyList<LogRow> shown)
     {
@@ -54,7 +53,7 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
 
         foreach (var row in shown)
         {
-            data.Rows.Add(row.Mark, row.Time, row.Attempt, row.Event);
+            data.Rows.Add(row.Time, row.Attempt, row.Event);
         }
 
         return new DataTableSource(data);
@@ -82,7 +81,7 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
     /// next press is the one that leaves the entry.
     /// </remarks>
     private static (TableView Table, int Was, int From, int At, IReadOnlyList<LogRow> Next)
-        ReadToTheEndOfADetail()
+        ReadDownThenRefill()
     {
         var table = CollectionViews.Table();
         table.Width = 70;
@@ -90,28 +89,29 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
         table.Layout();
 
         var log = Log();
-        var width = Rows.DetailWidth(log, table.Viewport.Width);
-        var open = Rows.Unwrapped(log, 5, width);
-        var last = StartOf(open, 6) - 1;
 
-        CollectionViews.Fill(table, Source(open));
-        table.SetSelection(0, last, extendExistingSelection: false, null);
+        // READ DOWN TO THE END, which is what scrolls the view. The entry that
+        // used to unwrap did this by making the rows above the cursor tall;
+        // now it is simply a log longer than the viewport, which is every log
+        // worth scrolling.
+        CollectionViews.Fill(table, Source(log));
+        table.SetSelection(0, log.Count - 1, extendExistingSelection: false, null);
         table.EnsureValidSelection();
         table.EnsureCursorIsVisible();
 
-        var was = last;
+        var was = log.Count - 1;
         var from = table.RowOffset;
 
-        // THE PRESS THAT LEAVES ENTRY 5: it closes, entry 6 opens, and the whole
-        // table is refilled to draw it.
-        var next = Rows.Unwrapped(log, 6, width);
-        var at = StartOf(next, 6);
+        // THE REFILL: the story is read again and the cursor lands on an entry
+        // near the top. The rows are replaced wholesale, and a refill says
+        // nothing about where the view is scrolled to.
+        var at = StartOf(log, 6);
 
-        CollectionViews.Fill(table, Source(next));
+        CollectionViews.Fill(table, Source(log));
         table.SetSelection(0, at, extendExistingSelection: false, null);
         table.EnsureValidSelection();
 
-        return (table, was, from, at, next);
+        return (table, was, from, at, log);
     }
 
     [Test]
@@ -121,7 +121,7 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
         // about Terminal.Gui rather than about this console: filling a table and
         // setting a selection does not scroll to it. Everything else here is
         // arithmetic; this is the reason the arithmetic is needed at all.
-        var (table, _, from, at, _) = ReadToTheEndOfADetail();
+        var (table, _, from, at, _) = ReadDownThenRefill();
 
         await Assert.That(from).IsGreaterThan(0)
             .Because("this is about a view that has been scrolled, and one that never scrolled "
@@ -141,7 +141,7 @@ public class TheLogKeepsItsPlaceWhenAnEntryOpensTests
         // measured once; this one takes them from the widget on the way past, so
         // a change in how Terminal.Gui scrolls cannot leave the arithmetic
         // passing against numbers that stopped being true.
-        var (table, was, from, at, _) = ReadToTheEndOfADetail();
+        var (table, was, from, at, _) = ReadDownThenRefill();
 
         table.RowOffset = Rows.KeepingTheCursorsLine(was, from, at);
         table.EnsureCursorIsVisible();

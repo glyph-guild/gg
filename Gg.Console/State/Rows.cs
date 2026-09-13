@@ -67,14 +67,13 @@ public sealed record RepositoryRow(
 /// </param>
 /// <param name="Detail">
 /// The whole of what somebody wrote - <c>StoryEntry.Said</c> - flattened to one
-/// line. <b>Carried rather than drawn:</b> no column renders it, because 29
-/// characters is not a place to read prose. It is what
-/// <see cref="Unwrapped"/> breaks into continuations, and what the linear
-/// rendering behind <c>PaneText.Modal</c> reads.
+/// line. <b>Carried rather than drawn:</b> no column renders it, because a
+/// table cell is not a place to read prose. It is what the pane beneath the
+/// log renders for the entry under the cursor, and what the linear rendering
+/// behind <c>PaneText.Modal</c> reads.
 /// </param>
 public sealed record LogRow(
     int Entry,
-    string Mark,
     string Time,
     string Attempt,
     string Event,
@@ -190,23 +189,7 @@ public static class Rows
     /// business, and what is in a cell is this one's.
     /// </remarks>
     public static IReadOnlyList<string> LogColumns { get; } =
-        ["", "time", "attempt", "event"];
-
-    /// <summary>
-    /// How wide the mark column is: one character, always.
-    /// </summary>
-    /// <remarks>
-    /// Both marks are one character and the heading is blank, so this is a
-    /// fact about the column rather than a measurement of what happens to be
-    /// in it today.
-    /// </remarks>
-    private const int MarkWidth = 1;
-
-    /// <summary>An entry with prose under it, showing.</summary>
-    public const string Open = "▾";
-
-    /// <summary>An entry with prose under it, not showing.</summary>
-    public const string Closed = "▸";
+        ["time", "attempt", "event"];
 
     /// <summary>
     /// The runners' columns, the first of which has no name.
@@ -635,10 +618,6 @@ public static class Rows
         [
             .. story.Entries.Select((entry, at) => new LogRow(
                 at,
-
-                // WHICH MARK IS A QUESTION ABOUT THE CURSOR, and the cursor is
-                // not this method's business. Unwrapped puts it on.
-                "",
                 $"{entry.At:u}",
                 entry.Attempt is { } which
                     ? which.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -648,102 +627,6 @@ public static class Rows
                 OneLine(entry.Said))),
         ];
     }
-
-    /// <summary>
-    /// The same rows, with the entry under the cursor unwrapped.
-    /// </summary>
-    /// <param name="rows">What <see cref="Log"/> answered.</param>
-    /// <param name="selected">Which ENTRY the cursor is on, not which row.</param>
-    /// <param name="width">
-    /// How wide the detail column is, from <see cref="DetailWidth"/>. Zero
-    /// before anything has been laid out, and zero means wrap nothing - a wrap
-    /// to no width is one row per character.
-    /// </param>
-    /// <remarks>
-    /// <para>
-    /// <b>Terminal.Gui has no variable row heights, so an entry that unwraps
-    /// becomes several rows.</b> The first carries the entry; the rest carry
-    /// the remainder of its detail with the other three columns empty, so every
-    /// row is still one line and the table still reads as a table.
-    /// </para>
-    /// <para>
-    /// <b>Only the columns that size themselves are left empty, and that is the
-    /// point.</b> A continuation contributes nothing to the width of time,
-    /// attempt or event - so expanding one cannot move where the detail column
-    /// starts, and the table does not shift sideways as the cursor travels.
-    /// </para>
-    /// </remarks>
-    public static IReadOnlyList<LogRow> Unwrapped(
-        IReadOnlyList<LogRow> rows, int selected, int width)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-
-        var shown = new List<LogRow>(rows.Count);
-
-        foreach (var row in rows)
-        {
-            var has = row.Detail.Length > 0;
-            var open = has && row.Entry == selected && width > 0;
-
-            shown.Add(row with { Mark = !has ? "" : open ? Open : Closed });
-
-            if (!open)
-            {
-                continue;
-            }
-
-            // UNDER THE ENTRY, IN THE COLUMN THAT EXPANDS, and blank in the
-            // three that size themselves - which is what keeps the table from
-            // shifting sideways as the cursor travels, since a continuation
-            // contributes nothing to any width.
-            shown.AddRange(Wrapped(row.Detail, width)
-                .Select(line => new LogRow(row.Entry, "", "", "", line, "")));
-        }
-
-        return shown;
-    }
-
-    /// <summary>
-    /// How wide a continuation may be: what the wide column expands into.
-    /// </summary>
-    /// <param name="rows">The rows the table is holding.</param>
-    /// <param name="available">The table's own width, which only it knows.</param>
-    /// <remarks>
-    /// <para>
-    /// <b>The widget's rule, restated where a test can read it.</b> A column is
-    /// as wide as the widest of its heading and its cells, with one column of
-    /// separator after it; the last expands into whatever is left. Restating it
-    /// is a cost, and the alternative was asking a <c>TableView</c> that cannot
-    /// be constructed without a terminal - so the arithmetic would have been
-    /// beyond the reach of any test, which is the same argument
-    /// <see cref="ConsoleTheme"/> and <c>CollectionViews</c> already make.
-    /// </para>
-    /// <para>
-    /// <b>The event column's own content is not subtracted, and that is the
-    /// whole change.</b> It is the last column, so it takes what is left
-    /// whatever is in it - and what is left, once the mark and the two fixed
-    /// columns have had theirs, is a line rather than a quarter of one. The
-    /// sentences are what a continuation shares the column with, not what it
-    /// competes with.
-    /// </para>
-    /// </remarks>
-    public static int DetailWidth(IReadOnlyList<LogRow> rows, int available)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-
-        // THE MARK IS ONE WIDE BY CONSTRUCTION, so it is a constant and not a
-        // measurement. Measuring it made the answer depend on whether anything
-        // was marked yet - rows straight out of Log carry no marks and rows out
-        // of Unwrapped do - so the width moved by one the moment a cursor
-        // landed, which is the jitter this whole arithmetic exists to prevent.
-        var taken =
-            MarkWidth + 1
-          + Column(LogColumns[1], rows.Select(r => r.Time))
-          + Column(LogColumns[2], rows.Select(r => r.Attempt));
-
-        return Math.Max(0, available - taken);
-    }
-
     /// <summary>
     /// Where to scroll the log so the cursor stays on the line it is on.
     /// </summary>
@@ -768,9 +651,9 @@ public static class Rows
     /// follows is the highlight.
     /// </para>
     /// <para>
-    /// <b>Here rather than in the view, for <see cref="DetailWidth"/>'s
-    /// reason.</b> A <c>TableView</c> cannot be constructed without a terminal,
-    /// so arithmetic left in the view is arithmetic no test can reach.
+    /// <b>Here rather than in the view.</b> A <c>TableView</c> cannot be
+    /// constructed without a terminal, so arithmetic left in the view is
+    /// arithmetic no test can reach.
     /// </para>
     /// </remarks>
     public static int KeepingTheCursorsLine(int was, int offset, int now)
@@ -787,11 +670,6 @@ public static class Rows
         // closed up.
         return Math.Max(0, now - line);
     }
-
-    /// <summary>One column's width, plus the separator that follows it.</summary>
-    private static int Column(string heading, IEnumerable<string> cells) =>
-        Math.Max(heading.Length, cells.Select(cell => cell.Length).DefaultIfEmpty(0).Max()) + 1;
-
     /// <summary>
     /// One line broken into several, none wider than the room given.
     /// </summary>

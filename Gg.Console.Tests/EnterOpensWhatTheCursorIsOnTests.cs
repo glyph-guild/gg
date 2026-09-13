@@ -118,8 +118,12 @@ public class EnterOpensWhatTheCursorIsOnTests
         // NEWEST FIRST is what the pane shows, so the cursor at rest is on the
         // newest flight - and the modal has to be about the row a person is
         // looking at rather than the first one in the list the boot returned.
+        // ON THE LOG TAB, because that is where the log is. The modal opens on
+        // the details and this assertion is about the story, so it asks for
+        // the tab that holds one rather than for the tab a person lands on.
         var opened = Reducer.FlightShown(Listing());
-        var modal = PaneText.Modal(opened);
+        var modal = PaneText.Modal(opened) + "\n"
+                  + PaneText.Modal(opened with { FlightTab = FlightTab.Log });
 
         await Assert.That(modal).Contains("GG-52", StringComparison.Ordinal);
         await Assert.That(modal).DoesNotContain("GG-51", StringComparison.Ordinal)

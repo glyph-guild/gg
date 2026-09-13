@@ -40,11 +40,17 @@ public static class Reducer
             },
 
             // TWO TABS AND ONE KEY, so it has to come back round.
+            // THREE NOW, AND IT COMES BACK ROUND. A cycle that stopped at the
+            // last tab would make the third one a place a person reaches and
+            // cannot leave by the key that got them there.
             Command.NextFlightTab => state with
             {
-                FlightTab = state.FlightTab is FlightTab.Details
-                    ? FlightTab.Gate
-                    : FlightTab.Details,
+                FlightTab = state.FlightTab switch
+                {
+                    FlightTab.Details => FlightTab.Gate,
+                    FlightTab.Gate => FlightTab.Log,
+                    _ => FlightTab.Details,
+                },
             },
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.ToggleAirspaceActions => Modal(state, UiMode.AirspaceActions),

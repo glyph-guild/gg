@@ -500,10 +500,20 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
                        + "rendering the parity guard reads.");
         }
 
+        // THE LOG IS A TAB NOW, so the widgets read in order on THIS tab are
+        // the title, the intent and the fields. Asserting the log against the
+        // details tab would hold the linear rendering to something the screen
+        // stopped drawing there - which is the drift this test exists to
+        // catch, pointed the wrong way.
+        await Assert.That(text).DoesNotContain(Rows.Log(Opened())[0].Event)
+            .Because("what the details tab draws is what its text says, and the log moved.");
+
+        var onTheLog = PaneText.Modal(Opened() with { FlightTab = FlightTab.Log });
+
         foreach (var row in Rows.Log(Opened()))
         {
-            await Assert.That(text).Contains(row.Event);
-            await Assert.That(text).Contains(row.Detail);
+            await Assert.That(onTheLog).Contains(row.Event);
+            await Assert.That(onTheLog).Contains(row.Detail);
         }
     }
 }

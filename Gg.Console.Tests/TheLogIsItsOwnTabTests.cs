@@ -33,6 +33,8 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheLogIsItsOwnTabTests
 {
+    private const string Id = "019fe815-6136-7518-bb57-b06d6d3f411a";
+
     private static readonly DateTimeOffset At = new(2026, 9, 13, 12, 0, 0, TimeSpan.Zero);
 
     private static StoryEntry[] Happenings() =>
@@ -60,14 +62,43 @@ public class TheLogIsItsOwnTabTests
     {
         var entries = Happenings();
 
+        // THE MODAL IS OPENED ON A FLIGHT, and the story is checked against
+        // the flight it is about - so a state carrying a story and no flight
+        // renders nothing at all, which is the console refusing to caption one
+        // flight's history with another's name.
         return new AppState
         {
             Mode = UiMode.FlightDetail,
             FlightTab = FlightTab.Log,
             LogSelected = selected,
+            Flights = new FlightList
+            {
+                Flights =
+                [
+                    new FlightSummary
+                    {
+                        FlightId = Id,
+                        FlightNumber = FlightRef.Format(42),
+                        Name = "the login form loses focus",
+                        Intent = new FlightIntent
+                        {
+                            Kind = FlightIntentKinds.Text,
+                            Text = "the login form loses focus",
+                        },
+                        CreatedAt = At,
+                        RunnerProtocolVersion = 1,
+                        FactVocabularyVersion = "0.30.0",
+                        ConstitutionVersion = "1.0.0",
+                        EnvelopeVersion = "v6",
+                        Attempts = 1,
+                        State = FlightStates.Open,
+                        Facts = [],
+                    },
+                ],
+            },
             Story = new FlightStory
             {
-                FlightId = "019fe815-6136-7518-bb57-b06d6d3f411a",
+                FlightId = Id,
                 FlightNumber = FlightRef.Format(42),
                 Stage = FlightStoryStages.Reached(entries),
                 State = FlightStates.Open,
@@ -168,7 +199,7 @@ public class TheLogIsItsOwnTabTests
         // Unchanged and asserted anyway: a story nobody fetched and a flight
         // nothing happened to are different facts, and the sentence that tells
         // them apart is the one thing the empty log tab has to keep.
-        var never = new AppState { Mode = UiMode.FlightDetail, FlightTab = FlightTab.Log };
+        var never = Opened() with { Story = null };
 
         await Assert.That(FlightDetails.LogAbsence(never)).IsNotEmpty();
     }

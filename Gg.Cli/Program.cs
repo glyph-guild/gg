@@ -1500,7 +1500,7 @@ static async Task<int> LaunchConsoleAsync()
         // second answer to it.
         sendCredential: current => Gg.Console.ConsoleSendCredential.Give(
             current,
-            send: runnerId => SendFromTheConsole(runnerId)),
+            send: (runnerId, repository) => SendFromTheConsole(runnerId, repository)),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the
         // child would be, and how to run it. The order - refuse before asking,
@@ -1748,7 +1748,7 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 /// be a paragraph with its end cut off.
 /// </para>
 /// </remarks>
-static string SendFromTheConsole(string runnerId)
+static string SendFromTheConsole(string runnerId, string? chosen)
 {
     var session = new FileSessionStore().Read();
     if (session is null)
@@ -1756,9 +1756,19 @@ static string SendFromTheConsole(string runnerId)
         return "Not signed in, so nothing was sent. `gg login` first.";
     }
 
-    Console.WriteLine();
-    Console.Write("Which repository is this credential for? ");
-    var repo = Console.ReadLine();
+    // ASKED ON THE SCREEN, WHEN THE SCREEN COULD ANSWER IT. The console holds
+    // the registry and the runner under the cursor; this prompt holds neither,
+    // so asking here sent somebody away to look up a slug they had just been
+    // looking at. Null is the chooser's last row - "ask me at the prompt" -
+    // which is what this always did and is still reachable.
+    var repo = chosen;
+
+    if (repo is not { Length: > 0 })
+    {
+        Console.WriteLine();
+        Console.Write("Which repository is this credential for? ");
+        repo = Console.ReadLine();
+    }
 
     if (repo is not { Length: > 0 })
     {

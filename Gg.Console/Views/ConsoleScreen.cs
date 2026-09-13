@@ -202,6 +202,18 @@ public sealed class ConsoleScreen : Window
     private readonly Label _kindSentence;
     private readonly TableView _kindChoices;
 
+    /// <summary>
+    /// The registry a credential is being sent for, in the kinds' shape.
+    /// </summary>
+    /// <remarks>
+    /// A table rather than a label with a caret, for the reason above it: a
+    /// list somebody drives is a widget every other list in this console
+    /// already uses.
+    /// </remarks>
+    private readonly View _credentialRepoBody;
+    private readonly Label _credentialRepoSentence;
+    private readonly TableView _credentialRepoChoices;
+
     private readonly View _filterBody;
     private readonly Label _filterSentence;
     private readonly Terminal.Gui.Views.Tabs _filterViews;
@@ -958,7 +970,10 @@ public sealed class ConsoleScreen : Window
         // from a reader that does not declare the tool.
         _itemHistoryAbsent = new Label
         {
-            X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(),
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
         };
 
         _itemHistoryPane.Add(_itemHistory, _itemHistoryAbsent);
@@ -996,6 +1011,37 @@ public sealed class ConsoleScreen : Window
         _kindChoices.Height = Dim.Fill();
 
         _kindBody.Add(_kindSentence, _kindChoices);
+
+        // THE REGISTRY, AND THE ONE LINE ABOVE IT. The kinds' shape exactly.
+        // Three rows for the sentence rather than two, because it says what
+        // happens AFTER the answer as well as what the list is - and a person
+        // who is not told the terminal is about to go away reads it as a crash.
+        _credentialRepoSentence = new Label
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = 3,
+        };
+
+        _credentialRepoChoices = CollectionViews.Table();
+        _credentialRepoChoices.ValueChanged += OnModalRowPointedAt;
+        _credentialRepoChoices.KeyDown += OnModalKeyDown;
+
+        _credentialRepoBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+        };
+
+        _credentialRepoChoices.X = 0;
+        _credentialRepoChoices.Y = Pos.Bottom(_credentialRepoSentence);
+        _credentialRepoChoices.Width = Dim.Fill();
+        _credentialRepoChoices.Height = Dim.Fill();
+
+        _credentialRepoBody.Add(_credentialRepoSentence, _credentialRepoChoices);
 
         // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
         // as tall as the top third because it is the only part whose length
@@ -1265,7 +1311,10 @@ public sealed class ConsoleScreen : Window
         // environments means no peers and the same sentence explains both.
         _runnerNothingHere = new Label
         {
-            X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(),
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
         };
 
         _runnerViewTabbed =
@@ -1377,7 +1426,7 @@ public sealed class ConsoleScreen : Window
 
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
-            _itemBody, _kindBody);
+            _itemBody, _kindBody, _credentialRepoBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -2940,6 +2989,7 @@ public sealed class ConsoleScreen : Window
         var filtering = State.Mode is UiMode.BrowseFilter;
         var item = State.Mode is UiMode.WorkItemDetail;
         var kind = State.Mode is UiMode.WorkKindChoice;
+        var credentialRepo = State.Mode is UiMode.CredentialRepositoryChoice;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
@@ -2948,8 +2998,10 @@ public sealed class ConsoleScreen : Window
         _filterBody.Visible = filtering;
         _itemBody.Visible = item;
         _kindBody.Visible = kind;
+        _credentialRepoBody.Visible = credentialRepo;
         _modalBody.Visible =
-            !flight && !runner && !reading && !helping && !filtering && !item && !kind;
+            !flight && !runner && !reading && !helping && !filtering && !item && !kind
+            && !credentialRepo;
 
         if (helping)
         {
@@ -2969,6 +3021,11 @@ public sealed class ConsoleScreen : Window
         if (kind)
         {
             RenderWorkKinds();
+        }
+
+        if (credentialRepo)
+        {
+            RenderCredentialRepositories();
         }
 
         if (flight)
@@ -3244,6 +3301,36 @@ public sealed class ConsoleScreen : Window
             Fill(
                 _kindChoices, null, rows, Rows.WorkKindColumns, State.KindSelected,
                 row => [row.Name, row.Said]);
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    /// <summary>
+    /// The registry a credential can be sent for, and the line above it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The standing is the second column because it says what the answer
+    /// costs.</b> A repository this machine already holds a secret for is one
+    /// the send reuses; one it does not is a paste. Both end the session, and
+    /// only one of them asks for anything.
+    /// </remarks>
+    private void RenderCredentialRepositories()
+    {
+        _credentialRepoSentence.Text = PaneText.Modal(State);
+
+        _syncing = true;
+
+        try
+        {
+            var rows = CredentialRepositories.Rows(State);
+
+            Fill(
+                _credentialRepoChoices, null, rows, CredentialRepositories.Columns,
+                State.CredentialRepoSelected,
+                row => [row.Path, row.Said]);
         }
         finally
         {
@@ -3821,6 +3908,11 @@ public sealed class ConsoleScreen : Window
                 // kept focus at its frame leaves the arrows moving nothing,
                 // which is the defect every widget modal here has had once.
                 _kindChoices.SetFocus();
+                break;
+
+            case FocusTarget.CredentialRepositoryChoices:
+                // THE TABLE AGAIN, for the reason above it.
+                _credentialRepoChoices.SetFocus();
                 _landed = null;
                 return;
 
@@ -3839,7 +3931,7 @@ public sealed class ConsoleScreen : Window
                 // focus is what makes the arrows move a cursor a person can
                 // see, and an empty list has none to move.
                 (_filterTabbed.FirstOrDefault(t => t.View == State.FilterView) is
-                    { Pane: not null } tab && tab.Table.Visible
+                { Pane: not null } tab && tab.Table.Visible
                         ? tab.Table
                         : (View)_modal).SetFocus();
 

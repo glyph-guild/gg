@@ -67,9 +67,12 @@ public class FocusReachesIntoTheFlightModalTests
             // moving nothing. Its target is asserted where the table is.
             // AND THE KINDS, which became a table when each gained a sentence
             // to sit beside its name. Its target is asserted where the table is.
+            // AND THE REGISTRY A CREDENTIAL IS SENT FOR, which is the kinds'
+            // shape over the other list: a sentence and a table a person
+            // drives. Its target is asserted where the table is, too.
             if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help
                      or UiMode.BrowseFilter or UiMode.WorkItemDetail
-                     or UiMode.WorkKindChoice)
+                     or UiMode.WorkKindChoice or UiMode.CredentialRepositoryChoice)
             {
                 continue;
             }
@@ -138,7 +141,7 @@ public class FocusReachesIntoTheFlightModalTests
                        + "TabGroup both leave everything under it unreachable.");
         }
 
-        foreach (var named in (string[]) ["_flightBody = new View", "_flightFields = new View"])
+        foreach (var named in (string[])["_flightBody = new View", "_flightFields = new View"])
         {
             var from = screen.IndexOf(named, StringComparison.Ordinal);
             var declared = screen[from..];

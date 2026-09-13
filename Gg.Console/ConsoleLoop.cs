@@ -481,6 +481,9 @@ public sealed class ConsoleLoop(
                     // make; this makes the same calls AND asks a person for a
                     // secret, which needs the echo off - something a
                     // Terminal.Gui session cannot arrange at all.
+                    //
+                    // WHICH REPOSITORY WAS ALREADY ANSWERED, on the screen that
+                    // holds the registry. Only the secret is left to ask for.
                     state = Given(state, sendCredential);
                     break;
 
@@ -527,134 +530,134 @@ public sealed class ConsoleLoop(
                     break;
 
                 case Command.SetAirspacePath:
-                // AND THEN RE-READ, because every row in the pane is about
-                // the tree this just repointed - the working-copy states
-                // were computed against the old one.
-                state = Reloaded(
-                    setAirspace is null
+                    // AND THEN RE-READ, because every row in the pane is about
+                    // the tree this just repointed - the working-copy states
+                    // were computed against the old one.
+                    state = Reloaded(
+                        setAirspace is null
+                            ? state with
+                            {
+                                LastEstate =
+                                    "This console is not configured to set the airspace.",
+                            }
+                            : setAirspace(Closed(state)),
+                        reload,
+                        asked: false);
+                    break;
+
+                case Command.DraftEstate:
+                    // AND THE QUESTION CLOSES WITH IT. Reachable from the airspace
+                    // actions modal now, and a shell command ends the session -
+                    // so without this the surviving state carries an open dialog
+                    // into the session built over the result.
+                    state = Closed(state);
+
+                    // AND THEN RE-READ, because whatever the agent submitted is a
+                    // file now and the documents column is the only thing that will
+                    // say which. The session does not report that itself: a count
+                    // guessed there would be a second answer to what the diff is
+                    // about to compute.
+                    state = Reloaded(
+                        draftEstate is null
+                            ? state with
+                            {
+                                LastEstate =
+                                    "This console is not configured to draft with an agent.",
+                            }
+                            : draftEstate(state),
+                        reload,
+                        asked: false);
+                    break;
+
+                case Command.ApplyEstate:
+                    // CLOSED FIRST, THEN APPLIED, THEN RE-READ. The question is
+                    // answered however it went, the estate is submitted with the
+                    // terminal free, and the pane is re-read because every version
+                    // it was showing has just moved.
+                    state = Reloaded(
+                        applyEstate is null
+                            ? Closed(state) with
+                            {
+                                LastEstate = "This console is not configured to apply the airspace.",
+                            }
+                            : applyEstate(Closed(state)),
+                        reload,
+                        asked: false);
+
+                    // OVER THE CONSOLE, WITH WHAT IT CAME TO. One line per document
+                    // plus a refusal that names paths does not fit the activity
+                    // row, and the half that fell off the right edge was the half
+                    // somebody acts on - a refused apply naming the very command
+                    // that would have fixed it. The hand-flight refusal above was
+                    // given a modal for this reason; this is the same reason.
+                    //
+                    // AFTER THE RELOAD, so the views behind it are already showing
+                    // the tree this just changed.
+                    state = Reducer.ApplyAnswered(state);
+                    break;
+
+                case Command.CopyModal:
+                    // THE MODAL STAYS OPEN, and nothing here reopens it: the screen
+                    // is rebuilt from the model and Mode is part of the model. That
+                    // is the whole reason a copy can afford the terminal-release
+                    // round trip when the paste into a half-typed field could not.
+                    //
+                    // AND NO RELOAD. Copying changed nothing anybody else can see,
+                    // so re-reading would be a request nobody asked for.
+                    state = copyModal is null
                         ? state with
                         {
-                            LastEstate =
-                                "This console is not configured to set the airspace.",
+                            LastEstate = "This console is not configured to copy.",
                         }
-                        : setAirspace(Closed(state)),
-                    reload,
-                    asked: false);
-                break;
+                        : copyModal(state);
+                    break;
 
-            case Command.DraftEstate:
-                // AND THE QUESTION CLOSES WITH IT. Reachable from the airspace
-                // actions modal now, and a shell command ends the session -
-                // so without this the surviving state carries an open dialog
-                // into the session built over the result.
-                state = Closed(state);
+                case Command.RetireNames:
+                    // CLOSED FIRST, THEN ASKED, THEN RE-READ - the apply's shape,
+                    // for the apply's reasons. The question is answered however it
+                    // went, the requests happen with the terminal free, and the
+                    // changeset behind it has just moved.
+                    state = Reloaded(
+                        retireNames is null
+                            ? Closed(state) with
+                            {
+                                LastEstate = "This console is not configured to retire names.",
+                            }
+                            : retireNames(Closed(state)),
+                        reload,
+                        asked: false);
 
-                // AND THEN RE-READ, because whatever the agent submitted is a
-                // file now and the documents column is the only thing that will
-                // say which. The session does not report that itself: a count
-                // guessed there would be a second answer to what the diff is
-                // about to compute.
-                state = Reloaded(
-                    draftEstate is null
-                        ? state with
-                        {
-                            LastEstate =
-                                "This console is not configured to draft with an agent.",
-                        }
-                        : draftEstate(state),
-                    reload,
-                    asked: false);
-                break;
+                    // AND OVER THE CONSOLE, because one gated flight per name does
+                    // not fit a row - and the part that surprises people is that
+                    // nothing is gone yet.
+                    state = Reducer.ApplyAnswered(state);
+                    break;
 
-            case Command.ApplyEstate:
-                // CLOSED FIRST, THEN APPLIED, THEN RE-READ. The question is
-                // answered however it went, the estate is submitted with the
-                // terminal free, and the pane is re-read because every version
-                // it was showing has just moved.
-                state = Reloaded(
-                    applyEstate is null
-                        ? Closed(state) with
-                        {
-                            LastEstate = "This console is not configured to apply the airspace.",
-                        }
-                        : applyEstate(Closed(state)),
-                    reload,
-                    asked: false);
+                case Command.PullEstate:
+                    // AND THE QUESTION CLOSES WITH IT, for DraftEstate's reason.
+                    state = Closed(state);
 
-                // OVER THE CONSOLE, WITH WHAT IT CAME TO. One line per document
-                // plus a refusal that names paths does not fit the activity
-                // row, and the half that fell off the right edge was the half
-                // somebody acts on - a refused apply naming the very command
-                // that would have fixed it. The hand-flight refusal above was
-                // given a modal for this reason; this is the same reason.
-                //
-                // AFTER THE RELOAD, so the views behind it are already showing
-                // the tree this just changed.
-                state = Reducer.ApplyAnswered(state);
-                break;
+                    // AND THEN RE-READ, because the pane a person is looking at
+                    // describes the tree this just rewrote. Without the reload the
+                    // documents column would still show what was true before the
+                    // pull, which is the one moment it is guaranteed to be wrong.
+                    state = Reloaded(
+                        pullEstate is null
+                            ? state with
+                            {
+                                LastEstate = "This console is not configured to pull the airspace.",
+                            }
+                            : pullEstate(state),
+                        reload,
+                        asked: false);
 
-            case Command.CopyModal:
-                // THE MODAL STAYS OPEN, and nothing here reopens it: the screen
-                // is rebuilt from the model and Mode is part of the model. That
-                // is the whole reason a copy can afford the terminal-release
-                // round trip when the paste into a half-typed field could not.
-                //
-                // AND NO RELOAD. Copying changed nothing anybody else can see,
-                // so re-reading would be a request nobody asked for.
-                state = copyModal is null
-                    ? state with
-                    {
-                        LastEstate = "This console is not configured to copy.",
-                    }
-                    : copyModal(state);
-                break;
+                    // AND OVER THE CONSOLE WHEN IT HAS SOMETHING TO SAY. A pull
+                    // that refuses names a document per line, and the row it used
+                    // to go in is one row.
+                    state = Reducer.ApplyAnswered(state);
+                    break;
 
-            case Command.RetireNames:
-                // CLOSED FIRST, THEN ASKED, THEN RE-READ - the apply's shape,
-                // for the apply's reasons. The question is answered however it
-                // went, the requests happen with the terminal free, and the
-                // changeset behind it has just moved.
-                state = Reloaded(
-                    retireNames is null
-                        ? Closed(state) with
-                        {
-                            LastEstate = "This console is not configured to retire names.",
-                        }
-                        : retireNames(Closed(state)),
-                    reload,
-                    asked: false);
-
-                // AND OVER THE CONSOLE, because one gated flight per name does
-                // not fit a row - and the part that surprises people is that
-                // nothing is gone yet.
-                state = Reducer.ApplyAnswered(state);
-                break;
-
-            case Command.PullEstate:
-                // AND THE QUESTION CLOSES WITH IT, for DraftEstate's reason.
-                state = Closed(state);
-
-                // AND THEN RE-READ, because the pane a person is looking at
-                // describes the tree this just rewrote. Without the reload the
-                // documents column would still show what was true before the
-                // pull, which is the one moment it is guaranteed to be wrong.
-                state = Reloaded(
-                    pullEstate is null
-                        ? state with
-                        {
-                            LastEstate = "This console is not configured to pull the airspace.",
-                        }
-                        : pullEstate(state),
-                    reload,
-                    asked: false);
-
-                // AND OVER THE CONSOLE WHEN IT HAS SOMETHING TO SAY. A pull
-                // that refuses names a document per line, and the row it used
-                // to go in is one row.
-                state = Reducer.ApplyAnswered(state);
-                break;
-
-            case Command.EditConfiguration:
+                case Command.EditConfiguration:
                     // A CHILD AND THEN A WRITE, which is why this is here and
                     // not in the session that asked for it. The editor is
                     // handed the document as it stands and what comes back is

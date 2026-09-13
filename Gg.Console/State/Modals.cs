@@ -68,6 +68,11 @@ public static class Modals
         // A QUESTION WITH A LIST IN IT, which is WorkKindChoice's shape over a
         // longer list: a title, a body of choices and a cursor. A dialog.
         UiMode.BrowseFilter,
+
+        // THE SAME SHAPE AGAIN, over the registry. It is a dialog rather than a
+        // pane because it is answered and gone: what it collects is spent by
+        // the send that follows the session.
+        UiMode.CredentialRepositoryChoice,
     ];
 
     /// <summary>

@@ -586,6 +586,18 @@ public enum Command
     FlyForKind,
 
     /// <summary>
+    /// Ask which repository the credential about to be sent is for.
+    /// </summary>
+    /// <remarks>
+    /// <b>In session, unlike the send it leads to.</b> The question needs the
+    /// registry and the runner under the cursor, both of which are already in
+    /// the model; the SEND needs the terminal, because a secret is read with
+    /// the echo off. So the asking half stays and only the answering half
+    /// leaves.
+    /// </remarks>
+    ChooseCredentialRepository,
+
+    /// <summary>
     /// Show what the work item under the cursor actually says.
     /// </summary>
     /// <remarks>

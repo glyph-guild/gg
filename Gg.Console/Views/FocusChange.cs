@@ -54,6 +54,9 @@ public enum FocusTarget
     /// <summary>The table of work kinds, which is the whole of that question.</summary>
     WorkKindChoices,
 
+    /// <summary>The registry a credential is being sent for, the same shape.</summary>
+    CredentialRepositoryChoices,
+
     /// <summary>
     /// The log inside the flight modal, which is the part of it with a cursor.
     /// </summary>
@@ -172,71 +175,75 @@ public static class FocusChange
         HelpPage landedHelpPage = HelpPage.Keys,
         BrowseFacet filterView = BrowseFacet.AreaPath,
         BrowseFacet landedFilterView = BrowseFacet.AreaPath) => (mode, landed) switch
-    {
-        // THE FIELD FIRST, because it is not a modal and the arms below would
-        // hand it to one that is not on screen.
-        (UiMode.AirspacePath, _) when pathHasFocus => FocusTarget.LeaveAlone,
-        (UiMode.AirspacePath, _) => FocusTarget.AirspacePath,
+        {
+            // THE FIELD FIRST, because it is not a modal and the arms below would
+            // hand it to one that is not on screen.
+            (UiMode.AirspacePath, _) when pathHasFocus => FocusTarget.LeaveAlone,
+            (UiMode.AirspacePath, _) => FocusTarget.AirspacePath,
 
-        // THE RUNNER MODAL IS MADE OF THREE AND THE OTHERS ARE NOT, so it
-        // answers before the guard below. That guard says "the modal has focus,
-        // so nothing needs moving", which is true of a modal with one place for
-        // the keyboard to be and false of this one: the view can turn while the
-        // modal keeps focus, and the keyboard has to follow because it is what
-        // decides which tab the bar shows.
-        //
-        // THE PAIR, exactly as landedReading is the pair for the airspace tab's
-        // two halves - see that parameter's remark. Comparing the model against
-        // the widget instead would re-place focus once a second.
-        (UiMode.Runner, _) when modalHasFocus && landedRunnerView == runnerView
-            => FocusTarget.LeaveAlone,
-        (UiMode.Runner, _) => FocusTarget.RunnerView,
+            // THE RUNNER MODAL IS MADE OF THREE AND THE OTHERS ARE NOT, so it
+            // answers before the guard below. That guard says "the modal has focus,
+            // so nothing needs moving", which is true of a modal with one place for
+            // the keyboard to be and false of this one: the view can turn while the
+            // modal keeps focus, and the keyboard has to follow because it is what
+            // decides which tab the bar shows.
+            //
+            // THE PAIR, exactly as landedReading is the pair for the airspace tab's
+            // two halves - see that parameter's remark. Comparing the model against
+            // the widget instead would re-place focus once a second.
+            (UiMode.Runner, _) when modalHasFocus && landedRunnerView == runnerView
+                => FocusTarget.LeaveAlone,
+            (UiMode.Runner, _) => FocusTarget.RunnerView,
 
-        // THE HELP MODAL IS MADE OF PAGES, for the reason the runner modal is
-        // made of views, and it answers before the same guard. While its two
-        // text pages were Labels there was nothing on them to move and this was
-        // invisible; now that they scroll, a page reached with the keyboard
-        // still on the page behind it cannot be scrolled at all.
-        (UiMode.Help, _) when modalHasFocus && landedHelpPage == helpPage
-            => FocusTarget.LeaveAlone,
-        (UiMode.Help, _) => FocusTarget.HelpPage,
+            // THE HELP MODAL IS MADE OF PAGES, for the reason the runner modal is
+            // made of views, and it answers before the same guard. While its two
+            // text pages were Labels there was nothing on them to move and this was
+            // invisible; now that they scroll, a page reached with the keyboard
+            // still on the page behind it cannot be scrolled at all.
+            (UiMode.Help, _) when modalHasFocus && landedHelpPage == helpPage
+                => FocusTarget.LeaveAlone,
+            (UiMode.Help, _) => FocusTarget.HelpPage,
 
-        // THE FILTER MODAL IS MADE OF TABS TOO, and answers before the same
-        // guard for the same reason: the bar can turn while the modal keeps
-        // focus, and the keyboard has to follow or the table a person is
-        // looking at is not the one their arrows move.
-        (UiMode.BrowseFilter, _) when modalHasFocus && landedFilterView == filterView
-            => FocusTarget.LeaveAlone,
-        (UiMode.BrowseFilter, _) => FocusTarget.FilterView,
+            // THE FILTER MODAL IS MADE OF TABS TOO, and answers before the same
+            // guard for the same reason: the bar can turn while the modal keeps
+            // focus, and the keyboard has to follow or the table a person is
+            // looking at is not the one their arrows move.
+            (UiMode.BrowseFilter, _) when modalHasFocus && landedFilterView == filterView
+                => FocusTarget.LeaveAlone,
+            (UiMode.BrowseFilter, _) => FocusTarget.FilterView,
 
-        // AND THE WORK ITEM'S HISTORY, which is the one part of that modal with
-        // a cursor. It has one place for the keyboard to be, so the ordinary
-        // guard below is enough once it has landed.
-        (UiMode.WorkItemDetail, _) when modalHasFocus => FocusTarget.LeaveAlone,
-        (UiMode.WorkItemDetail, _) => FocusTarget.WorkItemHistory,
+            // AND THE WORK ITEM'S HISTORY, which is the one part of that modal with
+            // a cursor. It has one place for the keyboard to be, so the ordinary
+            // guard below is enough once it has landed.
+            (UiMode.WorkItemDetail, _) when modalHasFocus => FocusTarget.LeaveAlone,
+            (UiMode.WorkItemDetail, _) => FocusTarget.WorkItemHistory,
 
-        // AND THE KINDS, for the same reason: the table IS the question, and
-        // focus at the frame leaves the arrows moving nothing.
-        (UiMode.WorkKindChoice, _) when modalHasFocus => FocusTarget.LeaveAlone,
-        (UiMode.WorkKindChoice, _) => FocusTarget.WorkKindChoices,
+            // AND THE KINDS, for the same reason: the table IS the question, and
+            // focus at the frame leaves the arrows moving nothing.
+            (UiMode.WorkKindChoice, _) when modalHasFocus => FocusTarget.LeaveAlone,
+            (UiMode.WorkKindChoice, _) => FocusTarget.WorkKindChoices,
 
-        (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
+            // AND THE REGISTRY, for the third time and the same reason.
+            (UiMode.CredentialRepositoryChoice, _) when modalHasFocus => FocusTarget.LeaveAlone,
+            (UiMode.CredentialRepositoryChoice, _) => FocusTarget.CredentialRepositoryChoices,
 
-        // WHICH WIDGET, for the two modals that are made of several. The rest
-        // are a few lines and two keys, and the frame is the whole of them.
-        (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
-        (not UiMode.Normal, _) => FocusTarget.Modal,
+            (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 
-        // NOTHING MOVED, so nothing is moved. The tab is the one focus was
-        // placed on AND the same half of it still wants the keyboard.
-        (_, { } already) when already == showing && landedReading == readingTheDocument
-            => FocusTarget.LeaveAlone,
+            // WHICH WIDGET, for the two modals that are made of several. The rest
+            // are a few lines and two keys, and the frame is the whole of them.
+            (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
+            (not UiMode.Normal, _) => FocusTarget.Modal,
 
-        // THE HALF TURNED. Crossing to the document is its own target; crossing
-        // back is the tab's own landing, which already names the tree.
-        _ when readingTheDocument && showing == TabId.Envelope
-            => FocusTarget.AirspaceDocument,
+            // NOTHING MOVED, so nothing is moved. The tab is the one focus was
+            // placed on AND the same half of it still wants the keyboard.
+            (_, { } already) when already == showing && landedReading == readingTheDocument
+                => FocusTarget.LeaveAlone,
 
-        _ => FocusTarget.Tab,
-    };
+            // THE HALF TURNED. Crossing to the document is its own target; crossing
+            // back is the tab's own landing, which already names the tree.
+            _ when readingTheDocument && showing == TabId.Envelope
+                => FocusTarget.AirspaceDocument,
+
+            _ => FocusTarget.Tab,
+        };
 }

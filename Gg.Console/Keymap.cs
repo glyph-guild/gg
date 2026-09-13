@@ -405,7 +405,14 @@ public static class Keymap
                 // shut-down. Those go through a pidfile this machine wrote;
                 // this goes through the control plane, which is exactly as able
                 // to introduce you to somebody else's runner as to this one.
-                new(KeyStroke.Char('c'), Command.SendCredential, "give it a credential")
+                // ASKS FIRST, ON THIS SCREEN. It used to end the session and
+                // type "Which repository is this credential for?" at a bare
+                // prompt - handing the question to the one place that holds
+                // neither the registry nor the runner it is about. The send
+                // still needs the terminal, for the secret; the question does
+                // not.
+                new(KeyStroke.Char('c'), Command.ChooseCredentialRepository,
+                    "give it a credential")
                 {
                     When = "while it is beating",
                 },
@@ -875,6 +882,26 @@ public static class Keymap
             new(KeyStroke.EnterKey, Command.FlyForKind, "fly it for this") { Label = "Fly" },
 
             new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
+        ],
+
+        UiMode.CredentialRepositoryChoice =>
+        [
+            // THE LIST'S CURSOR, on WorkKindChoice's terms: the arrows do this
+            // through the list widget, so the hint line goes to keys a person
+            // has no other way to find.
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { Untaught = true, OffTheHintLine = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { Untaught = true, OffTheHintLine = true },
+
+            // ENTER ENDS THE SESSION, because the secret is read with the echo
+            // off and a Terminal.Gui session cannot arrange that. Esc sends
+            // nothing at all, and the two must not be confusable: one asks for
+            // a token and one does not.
+            new(KeyStroke.EnterKey, Command.SendCredential, "send one for this")
+                { Label = "Send" },
+
+            new(KeyStroke.Esc, Command.CloseModal, "send nothing"),
         ],
 
         UiMode.SignIn => context.SignInStarted

@@ -59,11 +59,47 @@ public class WorkItemToolServerTests
             Task.FromResult<IReadOnlyList<WorkItemChange>>([]);
     }
 
-    private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines)
+    /// <summary>A source that answers one row and remembers what it was asked.</summary>
+    /// <remarks>
+    /// <b>The filter has to be checked where it ARRIVES.</b> A server that parses
+    /// three arguments and hands the source none would answer a full page under
+    /// a filter's name, which is exactly the lie the console's check upstream is
+    /// trying to prevent - so the assertion is on what the source received.
+    /// </remarks>
+    private sealed class RecordingSource : IWorkItemSource
+    {
+        internal WorkItemFilter? Asked { get; private set; }
+
+        internal bool Called { get; private set; }
+
+        public Task<WorkItem?> ReadAsync(string id, CancellationToken token) =>
+            Task.FromResult<WorkItem?>(null);
+
+        public Task<WorkItemPage> BrowseAsync(
+            string? cursor, int limit, WorkItemFilter? filter, CancellationToken token)
+        {
+            Asked = filter;
+            Called = true;
+
+            return Task.FromResult(new WorkItemPage(
+                [new WorkItemSummary(
+                    "26", "The runner drops a lease", "Active",
+                    "https://tracker.example/acme/_workitems/edit/26",
+                    "2026-09-05T01:06:13Z",
+                    AreaPath: @"Widgets\Platform", Iteration: @"Widgets\Sprint 42")],
+                null));
+        }
+    }
+
+    private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines) =>
+        await ExchangeAsync(new StubSource(), lines);
+
+    private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(
+        IWorkItemSource source, params string[] lines)
     {
         var output = new StringWriter();
         await WorkItemToolServer.RunAsync(
-            new StringReader(string.Join('\n', lines)), output, new StubSource());
+            new StringReader(string.Join('\n', lines)), output, source);
 
         return output.ToString()
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -120,6 +156,87 @@ public class WorkItemToolServerTests
         await Assert.That(properties.TryGetProperty(BrowseTool.Paging.Limit, out _)).IsTrue()
             .Because("the contract names both halves of paging; declaring one is a reader that "
                    + "pages once.");
+    }
+
+    [Test]
+    public async Task The_browse_tool_it_declares_takes_the_filter_the_contract_names()
+    {
+        // A READER THIS REPOSITORY OWNS HAS NO EXCUSE TO FAIL ITS OWN CHECK.
+        // The console decides whether to send a filter by reading this schema,
+        // so a server that filters but does not SAY it filters is one the
+        // console will refuse to narrow.
+        var documents = await ExchangeAsync(Initialize(), List(1));
+
+        var browse = documents[1].RootElement.GetProperty("result").GetProperty("tools")
+            .EnumerateArray()
+            .Single(tool => tool.GetProperty("name").GetString() == BrowseTool.Name);
+
+        var declared = browse.GetProperty("inputSchema").GetProperty("properties")
+            .EnumerateObject().Select(property => property.Name).ToList();
+
+        await Assert.That(BrowseTool.CanFilter(declared)).IsTrue()
+            .Because("the contract's own predicate is what the console asks, so it is what "
+                   + "this must satisfy rather than a list that merely looks right here.");
+    }
+
+    [Test]
+    public async Task A_filter_on_the_call_reaches_the_source()
+    {
+        var source = new RecordingSource();
+
+        await ExchangeAsync(
+            source,
+            Initialize(),
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+          + "{\"name\":\"" + BrowseTool.Name + "\",\"arguments\":{"
+          + "\"areaPath\":\"Widgets\\\\Platform\","
+          + "\"iteration\":\"Widgets\\\\Sprint 42\","
+          + "\"states\":[\"Active\",\"Resolved\"]}}}");
+
+        await Assert.That(source.Asked).IsNotNull();
+        await Assert.That(source.Asked!.AreaPath).IsEqualTo(@"Widgets\Platform");
+        await Assert.That(source.Asked.Iteration).IsEqualTo(@"Widgets\Sprint 42");
+        await Assert.That(source.Asked.States).IsEquivalentTo((string[])["Active", "Resolved"]);
+    }
+
+    [Test]
+    public async Task A_call_with_no_filter_asks_the_source_for_no_filter()
+    {
+        // NOT AN EMPTY FILTER. A WorkItemFilter with three blanks narrows on
+        // nothing, but it is a different sentence from "nobody narrowed", and
+        // the source is entitled to tell them apart.
+        var source = new RecordingSource();
+
+        await ExchangeAsync(
+            source,
+            Initialize(),
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+          + "{\"name\":\"" + BrowseTool.Name + "\",\"arguments\":{}}}");
+
+        await Assert.That(source.Called).IsTrue();
+        await Assert.That(source.Asked).IsNull();
+    }
+
+    [Test]
+    public async Task A_listed_item_says_where_the_tracker_files_it()
+    {
+        var documents = await ExchangeAsync(
+            new RecordingSource(),
+            Initialize(),
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+          + "{\"name\":\"" + BrowseTool.Name + "\",\"arguments\":{}}}");
+
+        var text = documents[1].RootElement.GetProperty("result").GetProperty("content")[0]
+            .GetProperty("text").GetString()!;
+
+        var item = JsonDocument.Parse(text).RootElement.GetProperty(BrowseTool.Paging.Items)[0];
+
+        await Assert.That(item.GetProperty(BrowseTool.Fields.AreaPath).GetString())
+            .IsEqualTo(@"Widgets\Platform")
+            .Because("a filter whose effect is invisible on the row is one a person cannot "
+                   + "tell took from one that silently did not.");
+        await Assert.That(item.GetProperty(BrowseTool.Fields.Iteration).GetString())
+            .IsEqualTo(@"Widgets\Sprint 42");
     }
 
     [Test]

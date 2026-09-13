@@ -177,7 +177,8 @@ public static class Reducer
             // registry and the runner under the cursor, both of which are in
             // this model; the answer is folded into it so the loop can send
             // once the terminal is free. Only the secret has to wait for that.
-            Command.ChooseCredentialRepository => CredentialRepositoryAsked(state),
+            Command.ChooseCredentialRepository =>
+                CredentialRepositoryAsked(state) with { ReadInFlight = true },
 
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
@@ -941,12 +942,19 @@ public static class Reducer
     /// one has a synthetic row LAST, so the end that needs room is the other
     /// one.
     /// </remarks>
-    private static AppState PickCredentialRepository(AppState state, int row) =>
-        state with
-        {
-            CredentialRepoSelected =
-                Math.Clamp(row, 0, CredentialRepositories.Offered(state).Count - 1),
-        };
+    private static AppState PickCredentialRepository(AppState state, int row)
+    {
+        // AN EMPTY LIST IS REACHABLE NOW, and it was not while the chooser
+        // carried a row that asked at the prompt. Clamping to Count - 1 threw
+        // ArgumentException on a console whose registry is empty or has not
+        // landed - a crash on an arrow key, found by the escape-hatch walk
+        // rather than by anything aimed at this.
+        var rows = CredentialRepositories.Rows(state).Count;
+
+        return rows == 0
+            ? state with { CredentialRepoSelected = 0 }
+            : state with { CredentialRepoSelected = Math.Clamp(row, 0, rows - 1) };
+    }
 
     private static AppState Moved(AppState state, int by) =>
         // A MODAL WITH A LIST IN IT OWNS THE CURSOR, because it owns the

@@ -798,6 +798,13 @@ public static class ShellCommands
         // reason written out, and they were right.
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
+
+        // THE SAME REGISTRY, WANTED BY A DIFFERENT SCREEN. The credential
+        // chooser lists what has no credential yet, which it cannot do without
+        // the registry - and it used to compensate with a row that asked a
+        // person to type a slug the console could have read. A read that folds
+        // in without the session ending is what makes that row unnecessary.
+        Command.ChooseCredentialRepository,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>

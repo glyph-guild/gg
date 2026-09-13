@@ -1323,7 +1323,13 @@ static async Task<int> LaunchConsoleAsync()
                         Gg.Console.ConsoleEstate.Patch(
                             data, Airspace(), Gg.Console.ConsoleEnvelope.Read(data, current)),
 
-                    Gg.Console.Command.ToggleRepositories =>
+                    // ONE REGISTRY, TWO SCREENS THAT WANT IT. The pane draws
+                    // it and the credential chooser lists what is missing from
+                    // it; a second reader would be a second answer to "what is
+                    // registered" and the two would disagree on whichever
+                    // arrived first.
+                    Gg.Console.Command.ToggleRepositories or
+                    Gg.Console.Command.ChooseCredentialRepository =>
                         Gg.Console.ConsoleRepositories.Patch(data, current),
 
                     // THE FLIGHT'S STORY, which is what this port was built

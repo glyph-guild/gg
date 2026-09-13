@@ -168,14 +168,32 @@ public sealed class ConsoleScreen : Window
 
     private readonly TreeView<HelpNode> _helpKeys;
 
-    private readonly Label _helpEnvironment;
+    /// <summary>
+    /// The Environment page. A list of lines, because a Label does not scroll.
+    /// </summary>
+    /// <remarks>
+    /// <b>The shape the three other long documents already use.</b> The reading
+    /// pane, the runner's log and the airspace document are all a ListView of
+    /// lines wrapped to the viewport; a Label draws what fits in the box and
+    /// drops the rest with no mark, which on a machine with a dozen variables
+    /// is most of the page. Reported as "the environment textbox is not
+    /// scrollable".
+    /// </remarks>
+    private readonly ListView _helpEnvironment;
+
+    /// <summary>What that page is showing, so a render a second does not refill it.</summary>
+    private IReadOnlyList<string>? _helpEnvironmentShowing;
 
     /// <summary>The key groups, built once. See RenderHelp for why not every render.</summary>
     private List<HelpNode>? _helpGroups;
 
     private readonly View _helpDoctorTab;
 
-    private readonly Label _helpDoctor;
+    /// <summary>The Doctor page, a list for the reason its neighbour is one.</summary>
+    private readonly ListView _helpDoctor;
+
+    /// <summary>What that page is showing. Same guard, same reason.</summary>
+    private IReadOnlyList<string>? _helpDoctorShowing;
 
     /// <summary>The modal's buttons, rebuilt whenever what it asks changes.</summary>
     /// <remarks>
@@ -700,7 +718,8 @@ public sealed class ConsoleScreen : Window
         _helpTabs = CollectionViews.Bar();
 
         _helpKeys = CollectionViews.Tree<HelpNode>();
-        _helpEnvironment = CollectionViews.Page();
+        _helpEnvironment = CollectionViews.List();
+        _helpEnvironment.ViewportChanged += OnHelpPageResized;
 
         _helpKeysTab = new View
         {
@@ -720,7 +739,8 @@ public sealed class ConsoleScreen : Window
         };
         _helpEnvironmentTab.Add(_helpEnvironment);
 
-        _helpDoctor = CollectionViews.Page();
+        _helpDoctor = CollectionViews.List();
+        _helpDoctor.ViewportChanged += OnHelpPageResized;
         _helpDoctorTab = new View
         {
             Width = Dim.Fill(),
@@ -1705,8 +1725,7 @@ public sealed class ConsoleScreen : Window
         // label that names the wrong thing is worse than none.
         _modal.Title = $"Help — {HelpPages.Title(State.HelpPage)}";
 
-        _helpEnvironment.Text = PaneText.HelpEnvironmentText(State);
-        _helpDoctor.Text = PaneText.HelpDoctorText(State);
+        FillHelpPages();
 
         // BUILT ONCE, NOT EVERY SECOND. Render runs on a one-second timer for
         // the refresh countdown, and ClearObjects/AddObjects hands the tree a
@@ -1774,6 +1793,53 @@ public sealed class ConsoleScreen : Window
         {
             State = State with { HelpFold = over };
         }
+    }
+
+    /// <summary>
+    /// The two text pages, wrapped to their own width.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only when the lines change</b>, because setting a list's source sends
+    /// the cursor back to the top and <c>Render</c> runs once a second for the
+    /// countdown - so an unguarded page can be scrolled for at most a second.
+    /// That is not hypothetical: it is what the tree beside these did on the
+    /// first cut of this modal, reported in one press.
+    /// </para>
+    /// <para>
+    /// <b>Both, not just the one showing.</b> A hidden tab has a viewport too,
+    /// and filling it here means switching pages shows the page rather than a
+    /// blank that fills in on the next tick.
+    /// </para>
+    /// </remarks>
+    private void FillHelpPages()
+    {
+        Fill(_helpEnvironment, ref _helpEnvironmentShowing, HelpPage.Environment);
+        Fill(_helpDoctor, ref _helpDoctorShowing, HelpPage.Doctor);
+
+        void Fill(ListView list, ref IReadOnlyList<string>? showing, HelpPage page)
+        {
+            var lines = PaneText.HelpPageLines(State, page, list.Viewport.Width);
+
+            if (showing is not null && showing.SequenceEqual(lines))
+            {
+                return;
+            }
+
+            showing = lines;
+            list.SetSource(new ObservableCollection<string>(lines));
+        }
+    }
+
+    /// <summary>A page changed width, so its lines have to be broken again.</summary>
+    private void OnHelpPageResized(object? sender, EventArgs args)
+    {
+        if (State.Mode is not UiMode.Help)
+        {
+            return;
+        }
+
+        FillHelpPages();
     }
 
     /// <summary>Puts the keyboard on the page a person is reading.</summary>

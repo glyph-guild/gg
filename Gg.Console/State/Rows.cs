@@ -243,6 +243,16 @@ public static class Rows
     /// </remarks>
     public static IReadOnlyList<string> WorkItemColumns { get; } = ["when", "who", "what"];
 
+    /// <summary>
+    /// The work kind question's columns.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two, because a name alone is a question only its author can
+    /// answer.</b> The kinds are a tenant's own words and somebody opening this
+    /// for the first time is picking between strings they have never seen.
+    /// </remarks>
+    public static IReadOnlyList<string> WorkKindColumns { get; } = ["kind", "what it is for"];
+
     /// <summary>The mark against a value that is in the filter.</summary>
     /// <remarks>
     /// The same arrow the repositories table puts against the one this console

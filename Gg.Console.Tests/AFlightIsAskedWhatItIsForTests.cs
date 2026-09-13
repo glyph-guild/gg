@@ -124,10 +124,13 @@ public class AFlightIsAskedWhatItIsForTests
         var asked = ConsoleLoop.FlewPicked(
             Browsing("hal-score", "research"), new ConsoleDoubles.Records(alreadyFlown: null));
 
-        var said = PaneText.Modal(asked);
+        // THE CHOICES ARE ROWS NOW, NOT LINES OF A LABEL. PaneText.Modal is the
+        // sentence above the table; what a person picks from is the table, so
+        // that is where the names are asserted.
+        var rows = WorkKinds.Rows(asked);
 
-        await Assert.That(said).Contains("hal-score");
-        await Assert.That(said).Contains("research");
+        await Assert.That(rows.Select(row => row.Name)).Contains("hal-score");
+        await Assert.That(rows.Select(row => row.Name)).Contains("research");
 
         await Assert.That(asked.KindSelected).IsEqualTo(0)
             .Because("the cursor starts on `no kind', because that is what every flight "

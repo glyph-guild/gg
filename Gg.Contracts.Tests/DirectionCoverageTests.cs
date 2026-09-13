@@ -343,6 +343,19 @@ public class DirectionCoverageTests
             // deliberately reads it and answers "never a widening", which a
             // Moves row cannot express because every row asserts a widening.
             // Covered by four assertions rather than exempted out of sight.
+            // THE SAME ANSWER AS INSTRUCTIONS, one layer of readership over.
+            // That is text an AGENT reads and this is a line a PERSON reads
+            // while choosing what a flight is for; neither moves a bound.
+            // Nothing governs on it - no obligation reads it, no loop is
+            // bounded by it, and it never reaches a prompt - so a change to it
+            // is neither a widening nor a tightening, and the comparator never
+            // compares it. Covered by three assertions in
+            // AnEnvelopeSaysWhatItIsForTests rather than exempted out of sight.
+            ["Envelope.Description"] =
+                "prose a person reads while choosing, covered by "
+              + "AnEnvelopeSaysWhatItIsForTests - it governs nothing, so adding, changing or "
+              + "removing it is never a widening in either direction",
+
             ["Envelope.Instructions"] =
                 "never a widening in either direction, covered by "
               + "EnvelopeDirectionTests.Adding_an_instruction_is_not_a_widening and its three "

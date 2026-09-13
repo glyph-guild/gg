@@ -1478,8 +1478,8 @@ public static class ProtocolSurface
                  "mayWrite"],
             [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
-                ["context", "obligations", "instructions", "loops", "destinations",
-                 "environments", "repositories", "environment", "repository",
+                ["description", "context", "obligations", "instructions", "loops",
+                 "destinations", "environments", "repositories", "environment", "repository",
                  "accepts", "produces", "targeting"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
@@ -1639,7 +1639,8 @@ public static class ProtocolSurface
             [typeof(PoolLedger)] = ["pools"],
             [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
             [typeof(TopologyName)] =
-                ["name", "role", "parent", "subjectBinding", "declaredBy", "declaredAt"],
+                ["name", "role", "parent", "subjectBinding", "description", "declaredBy",
+                 "declaredAt"],
             [typeof(EnvelopeTopology)] = ["names"],
             [typeof(RegisterRepositoryRequest)] =
                 ["name", "provider", "id", "path", "credential", "ref", "narrowings"],

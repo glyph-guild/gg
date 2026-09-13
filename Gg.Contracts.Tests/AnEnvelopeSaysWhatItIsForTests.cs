@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Authoring;
 
 namespace Gg.Contracts.Tests;
 
@@ -75,9 +76,9 @@ public class AnEnvelopeSaysWhatItIsForTests
 
         await Assert.That(rendered).Contains("description:");
 
-        var read = EnvelopeYaml.ReadEnvelope(rendered);
+        var read = EnvelopeYaml.Parse(rendered);
 
-        await Assert.That(read.Envelope.Description)
+        await Assert.That(read.Envelope!.Description)
             .IsEqualTo("Scores backlog items against the HAL rubric.");
     }
 
@@ -91,7 +92,7 @@ public class AnEnvelopeSaysWhatItIsForTests
 
         await Assert.That(rendered).DoesNotContain("description:");
 
-        await Assert.That(EnvelopeYaml.ReadEnvelope(rendered).Envelope.Description).IsNull();
+        await Assert.That(EnvelopeYaml.Parse(rendered).Envelope!.Description).IsNull();
     }
 
     [Test]
@@ -106,6 +107,29 @@ public class AnEnvelopeSaysWhatItIsForTests
             .Because("root describes nothing in particular and a narrowing narrows something "
                    + "already described - one would give every kind the floor's sentence and "
                    + "the other would let a narrowing overwrite the kind's.");
+    }
+
+    [Test]
+    public async Task Changing_it_is_never_a_widening_in_either_direction()
+    {
+        // WHAT THAT LETS A TENANT DO, SAID OUT LOUD: reword what a kind says it
+        // is for without the widening gate. Nothing governs on it - no
+        // obligation reads it, no loop is bounded by it, and it never reaches a
+        // prompt - so an envelope that adds, edits or removes it is at-or-below
+        // the one before it on every governed quantity, which is what the
+        // comparator asks. The alternative is a human approval for a typo.
+        var none = With(null);
+        var said = With("Scores backlog items against the HAL rubric.");
+        var other = With("Scores items on the Agentic backlog.");
+
+        await Assert.That(EnvelopeDirection.Widening(none, said)).IsNull()
+            .Because("adding a sentence grants nothing.");
+
+        await Assert.That(EnvelopeDirection.Widening(said, none)).IsNull()
+            .Because("and removing one takes nothing away that was ever enforced.");
+
+        await Assert.That(EnvelopeDirection.Widening(said, other)).IsNull()
+            .Because("nor does rewording it, which is the case a gate would make daily.");
     }
 
     [Test]

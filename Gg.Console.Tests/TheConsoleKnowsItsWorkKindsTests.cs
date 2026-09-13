@@ -60,7 +60,8 @@ public class TheConsoleKnowsItsWorkKindsTests
             Estate = new EstateOnThisMachine { Uncommitted = [], Names = ATopology() },
         };
 
-        await Assert.That(WorkKinds.Declared(state)).IsEquivalentTo(new List<string> { "hal-score" })
+        await Assert.That(WorkKinds.Declared(state).Select(kind => kind.Name))
+            .IsEquivalentTo(new List<string> { "hal-score" })
             .Because("a flight is FOR one thing, and only a work-kind layer supplies that - "
                    + "root is the floor every kind narrows and is not a choice.");
     }

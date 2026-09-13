@@ -189,6 +189,19 @@ public sealed class ConsoleScreen : Window
     private readonly Label _itemHistoryAbsent;
     private IReadOnlyList<FlightField>? _itemFieldsShowing;
 
+    /// <summary>
+    /// The work kind question's body: a sentence, and a table of kinds.
+    /// </summary>
+    /// <remarks>
+    /// <b>A table for the filter modal's reason.</b> The kinds are a tenant's
+    /// own and there may be any number of them, each with a sentence beside it
+    /// - which a label with a caret cannot scroll, cannot be clicked, and
+    /// aligns by hand.
+    /// </remarks>
+    private readonly View _kindBody;
+    private readonly Label _kindSentence;
+    private readonly TableView _kindChoices;
+
     private readonly View _filterBody;
     private readonly Label _filterSentence;
     private readonly Terminal.Gui.Views.Tabs _filterViews;
@@ -958,6 +971,29 @@ public sealed class ConsoleScreen : Window
 
         _itemBody.Add(_itemSaidPane, _itemFields, _itemHistoryPane);
 
+        // THE KINDS, AND THE ONE LINE ABOVE THEM. Two rows for the sentence
+        // because it wraps at this width; the table takes the rest.
+        _kindSentence = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = 2 };
+
+        _kindChoices = CollectionViews.Table();
+        _kindChoices.ValueChanged += OnModalRowPointedAt;
+        _kindChoices.KeyDown += OnModalKeyDown;
+
+        _kindBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+        };
+
+        _kindChoices.X = 0;
+        _kindChoices.Y = Pos.Bottom(_kindSentence);
+        _kindChoices.Width = Dim.Fill();
+        _kindChoices.Height = Dim.Fill();
+
+        _kindBody.Add(_kindSentence, _kindChoices);
+
         // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
         // as tall as the top third because it is the only part whose length
         // nobody controls; the fields take what they need; the log gets the
@@ -1297,7 +1333,7 @@ public sealed class ConsoleScreen : Window
 
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
-            _itemBody);
+            _itemBody, _kindBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -2853,6 +2889,7 @@ public sealed class ConsoleScreen : Window
         var helping = State.Mode is UiMode.Help;
         var filtering = State.Mode is UiMode.BrowseFilter;
         var item = State.Mode is UiMode.WorkItemDetail;
+        var kind = State.Mode is UiMode.WorkKindChoice;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
@@ -2860,8 +2897,9 @@ public sealed class ConsoleScreen : Window
         _helpBody.Visible = helping;
         _filterBody.Visible = filtering;
         _itemBody.Visible = item;
+        _kindBody.Visible = kind;
         _modalBody.Visible =
-            !flight && !runner && !reading && !helping && !filtering && !item;
+            !flight && !runner && !reading && !helping && !filtering && !item && !kind;
 
         if (helping)
         {
@@ -2878,6 +2916,11 @@ public sealed class ConsoleScreen : Window
             RenderWorkItem();
         }
 
+        if (kind)
+        {
+            RenderWorkKinds();
+        }
+
         if (flight)
         {
             RenderFlight();
@@ -2890,7 +2933,7 @@ public sealed class ConsoleScreen : Window
         {
             FillReading();
         }
-        else if (!filtering && !item)
+        else if (!filtering && !item && !kind)
         {
             _modalBody.Text = PaneText.Modal(State);
         }
@@ -3126,6 +3169,35 @@ public sealed class ConsoleScreen : Window
     /// rather than written twice.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The kinds a tenant declared, with what each says it is for.
+    /// </summary>
+    /// <remarks>
+    /// <b>The answer that names no kind is row zero</b>, which is
+    /// <c>WorkKinds.Rows</c>' to say rather than this: inheriting the floor is
+    /// an answer and it has to be at a known index, because the cursor is what
+    /// the decision reads.
+    /// </remarks>
+    private void RenderWorkKinds()
+    {
+        _kindSentence.Text = PaneText.Modal(State);
+
+        _syncing = true;
+
+        try
+        {
+            var rows = WorkKinds.Rows(State);
+
+            Fill(
+                _kindChoices, null, rows, Rows.WorkKindColumns, State.KindSelected,
+                row => [row.Name, row.Said]);
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
     /// <summary>
     /// What the item says, its scalars, and what has happened to it.
     /// </summary>
@@ -3696,6 +3768,14 @@ public sealed class ConsoleScreen : Window
                 _landedRunnerView = State.RunnerView;
                 return;
 
+            case FocusTarget.WorkKindChoices:
+                // THE TABLE, because it is the whole question. A dialog that
+                // kept focus at its frame leaves the arrows moving nothing,
+                // which is the defect every widget modal here has had once.
+                _kindChoices.SetFocus();
+                _landed = null;
+                return;
+
             case FocusTarget.WorkItemHistory:
                 // THE TABLE WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE - the
                 // flight log's fallback, for its reason: focus is what makes
@@ -3850,6 +3930,9 @@ public sealed class ConsoleScreen : Window
 
             _itemHistory.KeyDown -= OnModalKeyDown;
             _itemHistory.ValueChanged -= OnModalRowPointedAt;
+
+            _kindChoices.KeyDown -= OnModalKeyDown;
+            _kindChoices.ValueChanged -= OnModalRowPointedAt;
             _modalBody.KeyDown -= OnModalKeyDown;
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;

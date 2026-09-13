@@ -65,8 +65,11 @@ public class FocusReachesIntoTheFlightModalTests
             // AND THE WORK ITEM, which gained a history table and is now made
             // of widgets too - focus at the frame leaves that table's arrows
             // moving nothing. Its target is asserted where the table is.
+            // AND THE KINDS, which became a table when each gained a sentence
+            // to sit beside its name. Its target is asserted where the table is.
             if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help
-                     or UiMode.BrowseFilter or UiMode.WorkItemDetail)
+                     or UiMode.BrowseFilter or UiMode.WorkItemDetail
+                     or UiMode.WorkKindChoice)
             {
                 continue;
             }

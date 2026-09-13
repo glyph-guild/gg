@@ -263,6 +263,7 @@ public class EnvelopeModelRoundTripTests
         // rendered' shipped twice because nothing forced that decision.
         string[] covered =
         [
+            nameof(Envelope.Description),
             nameof(Envelope.Context), nameof(Envelope.Environments), nameof(Envelope.Repositories),
             // THE LEGACY SPELLINGS, exempted rather than covered: they are read
             // so a stored document keeps its bound and are deliberately NEVER

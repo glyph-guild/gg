@@ -51,6 +51,9 @@ public enum FocusTarget
     /// </remarks>
     WorkItemHistory,
 
+    /// <summary>The table of work kinds, which is the whole of that question.</summary>
+    WorkKindChoices,
+
     /// <summary>
     /// The log inside the flight modal, which is the part of it with a cursor.
     /// </summary>
@@ -211,6 +214,11 @@ public static class FocusChange
         // guard below is enough once it has landed.
         (UiMode.WorkItemDetail, _) when modalHasFocus => FocusTarget.LeaveAlone,
         (UiMode.WorkItemDetail, _) => FocusTarget.WorkItemHistory,
+
+        // AND THE KINDS, for the same reason: the table IS the question, and
+        // focus at the frame leaves the arrows moving nothing.
+        (UiMode.WorkKindChoice, _) when modalHasFocus => FocusTarget.LeaveAlone,
+        (UiMode.WorkKindChoice, _) => FocusTarget.WorkKindChoices,
 
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 

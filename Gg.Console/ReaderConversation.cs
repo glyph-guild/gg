@@ -46,6 +46,16 @@ public sealed class ReaderConversation(
     private bool _opened;
     private BrowseOutcome? _refusedToOpen;
 
+    /// <summary>What the reader said it can do, asked once.</summary>
+    /// <remarks>
+    /// <b>Held rather than judged at the door.</b> Opening used to refuse any
+    /// reader that could not be BROWSED, which made the ordinary reader - the
+    /// one that declares <c>get_work_item</c> and nothing else - unreachable for
+    /// the one thing it can do. Each verb asks its own question of this list
+    /// now, and the conversation opens for both.
+    /// </remarks>
+    private IReadOnlyList<string>? _declared;
+
     /// <summary>A page of work, or the reason there is not one.</summary>
     public async Task<BrowseOutcome> BrowseAsync(
         string? cursor, int limit, CancellationToken cancellationToken = default)
@@ -53,6 +63,14 @@ public sealed class ReaderConversation(
         if (await OpenAsync(cancellationToken) is { } refused)
         {
             return refused;
+        }
+
+        // DECLARED AND NOT BROWSABLE, which is not an error and not an empty
+        // tracker. BrowseTool.IsBrowsable is the contract's own predicate, so
+        // this asks the same question a reader answers.
+        if (!BrowseTool.IsBrowsable(_declared))
+        {
+            return new BrowseOutcome.NotBrowsable(BrowseTool.NotBrowsable(_key));
         }
 
         var call = await CallAsync(
@@ -74,6 +92,61 @@ public sealed class ReaderConversation(
             _ => new BrowseOutcome.Unintelligible(Saying("answered a call with no content")),
         };
     }
+
+    /// <summary>
+    /// What one work item says, in the reader's own words.
+    /// </summary>
+    /// <remarks>
+    /// <b>The rendering is the answer.</b> The server already turns an item into
+    /// text for an agent - type, state, title, body, acceptance criteria, tags,
+    /// in the order a person reads them - and parsing that back into fields here
+    /// would be a second opinion about the same bytes.
+    /// </remarks>
+    public async Task<ItemOutcome> ReadAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        if (await OpenAsync(cancellationToken) is { } refused)
+        {
+            return new ItemOutcome.Nothing(Why(refused));
+        }
+
+        if (!ItemTool.IsReadable(_declared))
+        {
+            return new ItemOutcome.Nothing(ItemTool.NotReadable(_key));
+        }
+
+        var call = await CallAsync(
+            ItemTool.Name,
+            arguments => arguments.WriteString(ItemTool.Id, id),
+            cancellationToken);
+
+        return call switch
+        {
+            { Outcome: { } ended } => new ItemOutcome.Nothing(Why(ended)),
+            { Text: { } text } => new ItemOutcome.Read(text),
+            _ => new ItemOutcome.Nothing(Saying("answered a call with no content")),
+        };
+    }
+
+    /// <summary>
+    /// One ending's words, whichever ending it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Flattened on purpose.</b> The five browse endings are five different
+    /// things to go and do when a LIST is empty; about one item they are all
+    /// "here is what the reader said", and a modal that sorted them would be
+    /// offering a distinction nobody acts on.
+    /// </remarks>
+    private static string Why(BrowseOutcome outcome) => outcome switch
+    {
+        BrowseOutcome.NotBrowsable(var why) => why,
+        BrowseOutcome.Refused(var why) => why,
+        BrowseOutcome.Unintelligible(var why) => why,
+        BrowseOutcome.Silent(var why) => why,
+        _ => "The reader answered something this console could not read.",
+    };
 
     /// <summary>
     /// initialize, then tools/list, once.
@@ -126,14 +199,13 @@ public sealed class ReaderConversation(
             return _refusedToOpen = wrong;
         }
 
-        var declared = ToolNames(listed.Value.Document!.RootElement);
+        _declared = ToolNames(listed.Value.Document!.RootElement);
 
-        // DECLARED AND NOT BROWSABLE, which is not an error and not an empty
-        // tracker. BrowseTool.IsBrowsable is the contract's own predicate, so
-        // this asks the same question a reader answers.
-        return _refusedToOpen = BrowseTool.IsBrowsable(declared)
-            ? null
-            : new BrowseOutcome.NotBrowsable(BrowseTool.NotBrowsable(_key));
+        // WHAT IT CAN DO IS NOT WHETHER IT OPENED. A reader that lists no browse
+        // tool is still a reader, and refusing the conversation here made the
+        // ordinary one - `get_work_item` and nothing else - unreachable for the
+        // one thing it does.
+        return _refusedToOpen = null;
     }
 
     private async Task<(BrowseOutcome? Outcome, string? Text)> CallAsync(

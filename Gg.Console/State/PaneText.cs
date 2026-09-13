@@ -2607,7 +2607,13 @@ public static class PaneText
     public static bool ModalIsADocument(UiMode mode) =>
         mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner
              or UiMode.ReadingEnvelope or UiMode.ReadingChangeset
-             or UiMode.ReadingOutcome;
+             or UiMode.ReadingOutcome
+
+             // AND THE FILTER, WHICH HOLDS A TRACKER'S WHOLE AREA TREE. A
+             // question with two answers wants a box an eye takes in at once;
+             // ninety sprints want the screen, and a box sized to its body
+             // asked for ninety rows and got the tail of one.
+             or UiMode.BrowseFilter;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -2775,14 +2781,20 @@ public static class PaneText
     /// </para>
     /// </remarks>
     /// <summary>
-    /// The choices a tracker offered, with the picked ones marked.
+    /// Why there is nothing to pick from, or nothing at all.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The picked rows are marked, or a person cannot tell what they have
-    /// already chosen.</b> The cursor says where they are; the mark says what
-    /// is in force, and a modal that showed only the first is one somebody
-    /// narrows twice by accident.
+    /// <b>The choices are TABLES now, so this is only the sentence beside
+    /// them.</b> A label with a caret in it cannot be scrolled or clicked and
+    /// had to be windowed by hand to fit a screen; what a person walks is a
+    /// widget this console already uses for every list somebody else's system
+    /// decides the length of.
+    /// </para>
+    /// <para>
+    /// <b>A reader that could not be asked gets its own sentence.</b> Three
+    /// empty tabs and a reader that does not declare the tool look identical,
+    /// and one of them means go and look at the reader.
     /// </para>
     /// <para>
     /// <b>Nothing here advertises a key.</b> The hint line is generated from
@@ -2790,74 +2802,39 @@ public static class PaneText
     /// place to keep true - and a line shaped like an offer for a key that does
     /// not resolve is what the dead-key ratchet reads as a lie.
     /// </para>
-    /// <para>
-    /// <b>A reader that could not be asked gets its own sentence.</b> Three
-    /// empty groups and a reader that does not declare the tool look identical,
-    /// and one of them means go and look at the reader.
-    /// </para>
     /// </remarks>
-    private static string BrowseFilter(AppState state)
-    {
-        var text = new StringBuilder();
-
-        if (state.Facets?.Why is { Length: > 0 } why)
-        {
-            return Clean(why);
-        }
-
-        var rows = BrowseFilters.Rows(state);
-
-        if (rows.Count == 0)
-        {
-            return "Nothing has been asked for the choices yet.";
-        }
-
-        text.AppendLine(
-            "Narrowing goes to the tracker rather than to the rows already fetched, so a "
-          + "sprint whose work sorted below the cut is still found.");
-        text.AppendLine();
-
-        var cursor = Math.Clamp(state.FilterSelected, 0, rows.Count - 1);
-
-        // A WINDOW AROUND THE CURSOR, because this dialog is sized to its body
-        // and a terminal is not. A tracker with ninety sprints asked for a box
-        // ninety rows tall and got the tail of one - the heading, the area
-        // paths and the cursor itself all off the top of the screen.
-        var first = Math.Clamp(cursor - (Window / 2), 0, Math.Max(0, rows.Count - Window));
-        var last = Math.Min(rows.Count, first + Window);
-
-        if (first > 0)
-        {
-            text.AppendLine($"… {first} more above");
-        }
-
-        for (var row = first; row < last; row++)
-        {
-            text.AppendLine(
-                (row == cursor ? "> " : "  ")
-              + Clean(rows[row].Said)
-              + (rows[row].Chosen ? "  *" : ""));
-        }
-
-        if (last < rows.Count)
-        {
-            text.AppendLine($"… {rows.Count - last} more below");
-        }
-
-        return text.ToString().TrimEnd();
-    }
+    private static string BrowseFilter(AppState state) =>
+        state.Facets?.Why is { Length: > 0 } why
+            ? Clean(why)
+            : state.Facets is null
+                ? "Nothing has been asked for the choices yet."
+                : "Narrowing goes to the tracker rather than to the rows already fetched, so "
+                + "a sprint whose work sorted below the cut is still found.";
 
     /// <summary>
-    /// How many choices are on screen at once.
+    /// What the filter would narrow to, along the foot of the modal.
     /// </summary>
     /// <remarks>
-    /// <b>Fewer than the shortest terminal anybody uses.</b> The dialog takes
-    /// its height from its body, so this is the one number that keeps it on the
-    /// screen - and what is above and below is counted rather than hidden,
-    /// because a truncated list that does not say so is a tracker that appears
-    /// to have fifteen sprints.
+    /// <para>
+    /// <b>All three at once, because the tabs show one.</b> A modal that said
+    /// what was picked only on the tab it was picked in would be a person
+    /// turning the bar to remember what they had chosen - and the thing they
+    /// are about to press `b' for is the combination, not the tab.
+    /// </para>
+    /// <para>
+    /// <b>It says so when nothing is picked.</b> An empty foot under three
+    /// empty tabs says nothing about whether the listing behind it is narrowed;
+    /// the answer is that it is not, and that is worth one word.
+    /// </para>
     /// </remarks>
-    private const int Window = 15;
+    public static string FilterInForce(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return BrowseFilters.Said(state) is { Length: > 0 } narrowed
+            ? "Narrowing to: " + Clean(narrowed)
+            : "Nothing picked, so this lists everything the tracker has open.";
+    }
 
     private static string WorkKindChoice(AppState state)
     {

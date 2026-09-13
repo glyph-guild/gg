@@ -201,6 +201,10 @@ public static class Reducer
             // items would change what the flight pane shows for a keystroke
             // they aimed somewhere else.
             Command.PickFilterValue => FilterPicked(state),
+            Command.NextFilterView => state with
+            {
+                FilterView = FilterViews.Next(state.FilterView),
+            },
             Command.ClearFilter => FilterCleared(state),
 
             Command.SelectNext => Moved(state, +1),
@@ -243,10 +247,12 @@ public static class Reducer
             Facets = offered,
             Mode = UiMode.BrowseFilter,
 
-            // A NEW LIST STARTS AT THE TOP, for Browsed's reason: a cursor left
+            // EVERY LIST STARTS AT THE TOP, for Browsed's reason: a cursor left
             // pointing at row nine of a list that now has two picks the wrong
-            // thing, silently.
-            FilterSelected = 0,
+            // thing, silently. All three, because all three were just replaced.
+            AreaSelected = 0,
+            IterationSelected = 0,
+            StateSelected = 0,
         };
     }
 
@@ -273,25 +279,33 @@ public static class Reducer
             return state;
         }
 
+        // THE SAME KEY BOTH WAYS. Picking what is already picked takes it
+        // back: the alternative is a second key to learn, or an invented row to
+        // choose instead - and a person who narrowed to the wrong team would
+        // otherwise clear all three to fix one.
         return choice.Facet switch
         {
-            BrowseFacet.AreaPath => state with { ChosenAreaPath = choice.Value },
-            BrowseFacet.Iteration => state with { ChosenIteration = choice.Value },
+            BrowseFacet.AreaPath => state with
+            {
+                ChosenAreaPath = choice.Chosen ? null : choice.Value,
+            },
+
+            BrowseFacet.Iteration => state with
+            {
+                ChosenIteration = choice.Chosen ? null : choice.Value,
+            },
+
             BrowseFacet.State => state with { ChosenStates = Toggled(state, choice.Value) },
             _ => state,
         };
     }
 
     /// <summary>This state added, or removed where it was already picked.</summary>
-    /// <remarks>
-    /// A null value is the row that clears the whole dimension, which is an
-    /// empty set rather than a set containing nothing named.
-    /// </remarks>
     private static IReadOnlyList<string> Toggled(AppState state, string? value)
     {
         if (value is not { Length: > 0 })
         {
-            return [];
+            return state.ChosenStates;
         }
 
         return state.ChosenStates.Contains(value, StringComparer.Ordinal)
@@ -308,13 +322,31 @@ public static class Reducer
         ChosenStates = [],
     };
 
+    /// <summary>
+    /// Move the cursor of whichever list is showing, and only that one.
+    /// </summary>
+    /// <remarks>
+    /// The three lists have nothing to do with each other: row nine of the
+    /// sprints is not row nine of anything, so a shared index would move
+    /// somebody's place in a list they were not looking at.
+    /// </remarks>
     private static AppState PickFilterRow(AppState state, int row)
     {
-        var rows = BrowseFilters.Rows(state);
+        var rows = BrowseFilters.Offered(state, state.FilterView);
 
-        return rows.Count == 0
-            ? state
-            : state with { FilterSelected = Math.Clamp(row, 0, rows.Count - 1) };
+        if (rows.Count == 0)
+        {
+            return state;
+        }
+
+        var at = Math.Clamp(row, 0, rows.Count - 1);
+
+        return state.FilterView switch
+        {
+            BrowseFacet.Iteration => state with { IterationSelected = at },
+            BrowseFacet.State => state with { StateSelected = at },
+            _ => state with { AreaSelected = at },
+        };
     }
 
     /// <summary>
@@ -858,7 +890,7 @@ public static class Reducer
             : state.Mode is UiMode.WorkKindChoice
             ? PickWorkKind(state, state.KindSelected + by)
             : state.Mode is UiMode.BrowseFilter
-            ? PickFilterRow(state, state.FilterSelected + by)
+            ? PickFilterRow(state, BrowseFilters.Cursor(state) + by)
             : state.ActiveTab switch
             {
                 TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
@@ -915,6 +947,15 @@ public static class Reducer
                 // row in it and there is no cursor to move.
                 _ => state,
             };
+        }
+
+        // AND THE FILTER MODAL'S THREE, for the same reason one arm up: the tab
+        // behind it is Browse, so falling through would move the WORK list's
+        // cursor and change which item a person flies, under a modal that is
+        // not about that at all.
+        if (state.Mode is UiMode.BrowseFilter)
+        {
+            return PickFilterRow(state, row);
         }
 
         return state.ActiveTab switch

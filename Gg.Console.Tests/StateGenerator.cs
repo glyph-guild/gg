@@ -87,7 +87,10 @@ internal static class StateGenerator
             // was never told about pass unread here and be refused in the
             // published binary instead.
             Facets = random.Next(3) == 0 ? NextFacets(random) : null,
-            FilterSelected = random.Next(0, 6),
+            FilterView = Pick(random, FilterViews.All),
+            AreaSelected = random.Next(0, 6),
+            IterationSelected = random.Next(0, 6),
+            StateSelected = random.Next(0, 6),
             ChosenAreaPath = random.Next(3) == 0 ? NextId(random) : null,
             ChosenIteration = random.Next(3) == 0 ? NextId(random) : null,
             ChosenStates = [.. Enumerable.Range(0, random.Next(0, 3)).Select(_ => NextId(random))],

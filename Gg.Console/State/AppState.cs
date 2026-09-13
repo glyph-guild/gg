@@ -1184,13 +1184,28 @@ public sealed record AppState
     /// </remarks>
     public BrowseFacets? Facets { get; init; }
 
-    /// <summary>Which row of the filter modal the cursor is on.</summary>
+    /// <summary>Which of the filter modal's three tabs is showing.</summary>
     /// <remarks>
-    /// A cursor of its own for <see cref="BrowseSelected"/>'s reason: the modal
-    /// is over the work list, and one index would move a person's place in the
-    /// list they are narrowing while they narrow it.
+    /// <b>Three questions, not three renderings of one.</b> Area paths, sprints
+    /// and states are answered separately and a flat list interleaving them
+    /// made a person scroll every sprint a project has run to reach the states.
     /// </remarks>
-    public int FilterSelected { get; init; }
+    public BrowseFacet FilterView { get; init; }
+
+    /// <summary>Which area path the cursor is on.</summary>
+    /// <remarks>
+    /// <b>A cursor per view, for <see cref="BrowseSelected"/>'s reason.</b>
+    /// Sharing one would move a person's place in a list they were not looking
+    /// at - and here it is worse, because the lists have nothing to do with
+    /// each other and row nine of the sprints is not row nine of anything.
+    /// </remarks>
+    public int AreaSelected { get; init; }
+
+    /// <summary>Which sprint the cursor is on.</summary>
+    public int IterationSelected { get; init; }
+
+    /// <summary>Which state the cursor is on.</summary>
+    public int StateSelected { get; init; }
 
     /// <summary>
     /// The area path every listing will be narrowed to, or null for all of them.

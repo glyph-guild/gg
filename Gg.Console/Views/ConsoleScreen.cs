@@ -160,6 +160,23 @@ public sealed class ConsoleScreen : Window
     /// <summary>The help modal's tabbed body. See the construction for why it is widgets now.</summary>
     private readonly View _helpBody;
 
+    /// <summary>
+    /// The filter modal's own body: a sentence, three tabs of tables, a foot.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="_modalBody"/> rather than instead of it</b>, which
+    /// is the argument <see cref="_flightBody"/> already makes. A label with a
+    /// caret in it cannot be scrolled or clicked and had to be windowed by hand
+    /// to fit a screen; what a person walks here is the widget every other list
+    /// in this console uses.
+    /// </remarks>
+    private readonly View _filterBody;
+    private readonly Label _filterSentence;
+    private readonly Terminal.Gui.Views.Tabs _filterViews;
+    private readonly (BrowseFacet View, View Pane, TableView Table, Label Empty)[] _filterTabbed;
+    private readonly Label _filterInForce;
+    private BrowseFacet _landedFilterView;
+
     private readonly Terminal.Gui.Views.Tabs _helpTabs;
 
     private readonly View _helpKeysTab;
@@ -769,6 +786,88 @@ public sealed class ConsoleScreen : Window
         };
         _helpBody.Add(_helpTabs);
 
+        // THE FILTER'S THREE TABLES, one per criterion. Each pane is CanFocus
+        // for the reason the help body is: nothing inside a view that cannot
+        // take focus can take it either, and SetFocus on such a view does
+        // nothing at all - silently, which reads as an arrow-key problem.
+        _filterTabbed =
+        [
+            .. FilterViews.All.Select(view =>
+            {
+                var table = CollectionViews.Table();
+
+                // AN EMPTY TAB IS AN ANSWER, and it needs the sentence that
+                // says which answer: a project that files nothing by sprint is
+                // not a reader that failed.
+                var empty = new Label
+                {
+                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(),
+                    Text = $"The tracker offered no {FilterViews.Title(view)}.",
+                };
+
+                var pane = new View
+                {
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill(),
+                    CanFocus = true,
+                    TabStop = TabBehavior.NoStop,
+                };
+
+                pane.Add(table, empty);
+
+                return (View: view, Pane: (View)pane, Table: table, Empty: empty);
+            }),
+        ];
+
+        _filterSentence = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = 2 };
+
+        // THE FOOT SAYS ALL THREE AT ONCE, because the tabs show one. A modal
+        // that named what was picked only on the tab it was picked in is a
+        // person turning the bar to remember what they chose - and what `b'
+        // will ask for is the combination, not the tab.
+        _filterInForce = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
+
+        _filterViews = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = Pos.Bottom(_filterSentence),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            TabSide = Side.Bottom,
+
+            // NOT IN THE TAB RING, the runner bar's reason: `tab' is the
+            // keymap's on this screen, so a widget claiming a stop would give
+            // that key a second meaning. `v' turns this bar, and a click on a
+            // header turns it too.
+            TabStop = TabBehavior.NoStop,
+        };
+
+        foreach (var (view, pane, table, _) in _filterTabbed)
+        {
+            pane.Title = FilterViews.Title(view);
+            _filterViews.Add(pane);
+
+            table.ValueChanged += OnModalRowPointedAt;
+
+            // AND THE KEYS, BECAUSE THE TABLE IS WHAT HAS THE KEYBOARD. A key
+            // reaches the focused view first and a TableView means things by
+            // some of them; enter was spent exactly this way once already, one
+            // widget up.
+            table.KeyDown += OnModalKeyDown;
+        }
+
+        _filterViews.ValueChanged += OnFilterViewChanged;
+
+        _filterBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+        };
+
+        _filterBody.Add(_filterSentence, _filterViews, _filterInForce);
+
         // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
         // as tall as the top third because it is the only part whose length
         // nobody controls; the fields take what they need; the log gets the
@@ -1053,8 +1152,8 @@ public sealed class ConsoleScreen : Window
         // Reducer.Pointed by ACTIVE TAB, and the tab behind this modal is
         // Runners - so a click in here would change which runner the modal is
         // about. The flight log is wired to its own for the same reason.
-        _runnerEnvironments.ValueChanged += OnRunnerRowPointedAt;
-        _runnerMembers.ValueChanged += OnRunnerRowPointedAt;
+        _runnerEnvironments.ValueChanged += OnModalRowPointedAt;
+        _runnerMembers.ValueChanged += OnModalRowPointedAt;
 
         _runnerBody = new View
         {
@@ -1106,7 +1205,8 @@ public sealed class ConsoleScreen : Window
 
         _readingBody.Add(_readingSaid);
 
-        _modal.Add(_modalBody, _flightBody, _runnerBody, _readingBody, _helpBody);
+        _modal.Add(
+            _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -2648,16 +2748,23 @@ public sealed class ConsoleScreen : Window
                                  or UiMode.ReadingOutcome;
 
         var helping = State.Mode is UiMode.Help;
+        var filtering = State.Mode is UiMode.BrowseFilter;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
         _readingBody.Visible = reading;
         _helpBody.Visible = helping;
-        _modalBody.Visible = !flight && !runner && !reading && !helping;
+        _filterBody.Visible = filtering;
+        _modalBody.Visible = !flight && !runner && !reading && !helping && !filtering;
 
         if (helping)
         {
             RenderHelp();
+        }
+
+        if (filtering)
+        {
+            RenderFilter();
         }
 
         if (flight)
@@ -2672,7 +2779,7 @@ public sealed class ConsoleScreen : Window
         {
             FillReading();
         }
-        else
+        else if (!filtering)
         {
             _modalBody.Text = PaneText.Modal(State);
         }
@@ -2908,6 +3015,74 @@ public sealed class ConsoleScreen : Window
     /// rather than written twice.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The three tables, the bar over them, and the foot under it.
+    /// </summary>
+    /// <remarks>
+    /// <b>All three are filled, not just the one showing.</b> A table filled
+    /// only when its tab is turned to shows the previous tab's rows for the
+    /// frame the turn happens in - and each keeps its own cursor, so filling
+    /// from the showing view's index would land the others on somebody else's
+    /// row.
+    /// </remarks>
+    private void RenderFilter()
+    {
+        _syncing = true;
+
+        try
+        {
+            var showing = _filterTabbed
+                .FirstOrDefault(t => t.View == State.FilterView).Pane;
+
+            if (showing is not null && !ReferenceEquals(_filterViews.Value, showing))
+            {
+                _filterViews.Value = showing;
+            }
+
+            foreach (var (view, _, table, empty) in _filterTabbed)
+            {
+                Fill(
+                    table, empty,
+                    BrowseFilters.Offered(State, view), Rows.FilterColumns(view),
+                    BrowseFilters.Cursor(State, view),
+                    row => [row.Chosen ? Rows.Picked : " ", row.Value]);
+            }
+
+            _filterSentence.Text = PaneText.Modal(State);
+            _filterInForce.Text = PaneText.FilterInForce(State);
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    /// <summary>
+    /// The bar turned, by a click or an arrow along the headers.
+    /// </summary>
+    /// <remarks>
+    /// A bar nobody listens to is one whose every move the next render undoes,
+    /// which is what the runner modal's was reported as.
+    /// </remarks>
+    private void OnFilterViewChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is null)
+        {
+            return;
+        }
+
+        var picked = _filterTabbed
+            .FirstOrDefault(t => ReferenceEquals(t.Pane, args.NewValue));
+
+        if (picked.Pane is null || picked.View == State.FilterView)
+        {
+            return;
+        }
+
+        State = State with { FilterView = picked.View };
+        Render();
+    }
+
     private void RenderRunnerViews()
     {
         _syncing = true;
@@ -3221,7 +3396,14 @@ public sealed class ConsoleScreen : Window
     /// move the FLEET's cursor and change which runner the modal is about,
     /// under somebody reading it.
     /// </remarks>
-    private void OnRunnerRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
+    /// <summary>A click inside a modal's table, routed by the mode it is in.</summary>
+    /// <remarks>
+    /// <b>Not <c>OnRowPointedAt</c>.</b> That one routes through
+    /// <c>Reducer.Pointed</c> by ACTIVE TAB, and the tab behind a modal is
+    /// whatever was showing - so a click in here would move the cursor of a
+    /// list the modal is not about. <c>Pointed</c> answers by mode first.
+    /// </remarks>
+    private void OnModalRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
     {
         if (_syncing || args.NewValue is not { } selection)
         {
@@ -3318,7 +3500,8 @@ public sealed class ConsoleScreen : Window
     {
         switch (FocusChange.Wanted(
             State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus,
-            State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView))
+            State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView,
+            filterView: State.FilterView, landedFilterView: _landedFilterView))
         {
             case FocusTarget.LeaveAlone:
                 return;
@@ -3361,6 +3544,20 @@ public sealed class ConsoleScreen : Window
 
                 _landed = null;
                 _landedRunnerView = State.RunnerView;
+                return;
+
+            case FocusTarget.FilterView:
+                // THE TABLE IN WHICHEVER TAB IS SHOWING, and the pane when it
+                // has no rows - the runner views' fallback, for its reason:
+                // focus is what makes the arrows move a cursor a person can
+                // see, and an empty list has none to move.
+                (_filterTabbed.FirstOrDefault(t => t.View == State.FilterView) is
+                    { Pane: not null } tab && tab.Table.Visible
+                        ? tab.Table
+                        : (View)_modal).SetFocus();
+
+                _landed = null;
+                _landedFilterView = State.FilterView;
                 return;
 
             case FocusTarget.AirspaceDocument:
@@ -3483,13 +3680,21 @@ public sealed class ConsoleScreen : Window
         {
             KeyDown -= OnScreenKeyDown;
             _modal.KeyDown -= OnModalKeyDown;
+
+            foreach (var (_, _, table, _) in _filterTabbed)
+            {
+                table.KeyDown -= OnModalKeyDown;
+                table.ValueChanged -= OnModalRowPointedAt;
+            }
+
+            _filterViews.ValueChanged -= OnFilterViewChanged;
             _modalBody.KeyDown -= OnModalKeyDown;
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;
             _runnerViews.ValueChanged -= OnRunnerViewChanged;
-            _runnerEnvironments.ValueChanged -= OnRunnerRowPointedAt;
-            _runnerMembers.ValueChanged -= OnRunnerRowPointedAt;
+            _runnerEnvironments.ValueChanged -= OnModalRowPointedAt;
+            _runnerMembers.ValueChanged -= OnModalRowPointedAt;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
             _airspaceViews.ValueChanged -= OnAirspaceViewChanged;

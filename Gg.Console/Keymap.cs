@@ -834,6 +834,12 @@ public static class Keymap
 
             // INSIDE A MODAL THE LETTERS ARE FREE, so both of these can be the
             // word they mean.
+            // THE BAR, WITH THE RUNNER MODAL'S KEY. Both are a foot of tabs
+            // over a table, and a person who has turned one should not have to
+            // learn a second letter for the other.
+            new(KeyStroke.Char('v'), Command.NextFilterView, "next criterion")
+                { Label = "Next" },
+
             new(KeyStroke.Char('b'), Command.BrowseFiltered, "list the work again")
                 { Label = "Browse" },
             new(KeyStroke.Char('x'), Command.ClearFilter, "take the filter off")

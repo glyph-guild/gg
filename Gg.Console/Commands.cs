@@ -617,6 +617,15 @@ public enum Command
     /// </remarks>
     PickFilterValue,
 
+    /// <summary>
+    /// Turn the filter modal's bar to the next criterion.
+    /// </summary>
+    /// <remarks>
+    /// The reducer's: it changes which of three lists is showing and nothing
+    /// else. The runner modal's bar turns the same way, with the same key.
+    /// </remarks>
+    NextFilterView,
+
     /// <summary>Take the whole filter off, in one key.</summary>
     /// <remarks>
     /// Also the reducer's. Clearing one dimension is a row in the list; this is

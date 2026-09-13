@@ -100,87 +100,25 @@ public class ABrowseFilterIsPickedTests
     }
 
     [Test]
-    public async Task Every_offered_value_is_a_row_under_the_dimension_it_narrows()
-    {
-        var rows = BrowseFilters.Rows(Offering());
-
-        await Assert.That(rows.Count).IsEqualTo(8)
-            .Because("three dimensions, each with an 'any' row of its own, over two area "
-                   + "paths, one sprint and two states.");
-
-        await Assert.That(rows[0].Value).IsNull()
-            .Because("clearing one dimension is a choice a person makes without clearing the "
-                   + "other two, so every group starts with the row that does it.");
-
-        await Assert.That(rows.Select(row => row.Value)).Contains(@"Widgets\Platform");
-        await Assert.That(rows.Select(row => row.Value)).Contains("Active");
-    }
-
-    [Test]
-    public async Task Picking_a_row_narrows_the_dimension_it_belongs_to()
-    {
-        var rows = BrowseFilters.Rows(Offering());
-        var platform = rows.ToList().FindIndex(row => row.Value == @"Widgets\Platform");
-
-        var picked = Reducer.Reduce(
-            Offering() with { FilterSelected = platform }, Command.PickFilterValue);
-
-        await Assert.That(picked.ChosenAreaPath).IsEqualTo(@"Widgets\Platform");
-        await Assert.That(picked.ChosenIteration).IsNull()
-            .Because("a person narrowing to a team has not said anything about a sprint.");
-    }
-
-    [Test]
     public async Task Picking_a_second_area_path_replaces_the_first()
     {
-        // ONE AREA PATH, BECAUSE A QUERY TAKES ONE. Accumulating them would be a
-        // list this console could not send, so the modal cannot offer to build
-        // one.
-        var rows = BrowseFilters.Rows(Offering());
-        var first = rows.ToList().FindIndex(row => row.Value == "Widgets");
-        var second = rows.ToList().FindIndex(row => row.Value == @"Widgets\Platform");
-
-        var state = Reducer.Reduce(
-            Offering() with { FilterSelected = first }, Command.PickFilterValue);
-        state = Reducer.Reduce(state with { FilterSelected = second }, Command.PickFilterValue);
+        // ONE AREA PATH, BECAUSE A QUERY TAKES ONE. Accumulating them would be
+        // a list this console could not send, so the modal cannot offer to
+        // build one.
+        var state = Reducer.Reduce(Offering(), Command.PickFilterValue);
+        state = Reducer.Reduce(state with { AreaSelected = 1 }, Command.PickFilterValue);
 
         await Assert.That(state.ChosenAreaPath).IsEqualTo(@"Widgets\Platform");
     }
 
     [Test]
-    public async Task A_state_is_a_set_so_picking_two_keeps_both()
+    public async Task Taking_one_criterion_back_says_nothing_about_the_others()
     {
-        var rows = BrowseFilters.Rows(Offering());
-        var active = rows.ToList().FindIndex(row => row.Value == "Active");
-        var closed = rows.ToList().FindIndex(row => row.Value == "Closed");
-
-        var state = Reducer.Reduce(
-            Offering() with { FilterSelected = active }, Command.PickFilterValue);
-        state = Reducer.Reduce(state with { FilterSelected = closed }, Command.PickFilterValue);
-
-        await Assert.That(state.ChosenStates).IsEquivalentTo((string[])["Active", "Closed"])
-            .Because("a person wants what is active AND what is resolved, and a tracker's "
-                   + "query takes a set for exactly that reason.");
-
-        var again = Reducer.Reduce(state with { FilterSelected = active }, Command.PickFilterValue);
-
-        await Assert.That(again.ChosenStates).IsEquivalentTo((string[])["Closed"])
-            .Because("the same key on the same row is how a person takes one back; there is "
-                   + "no other key for it and there should not be two.");
-    }
-
-    [Test]
-    public async Task The_any_row_of_a_dimension_clears_only_that_dimension()
-    {
-        var rows = BrowseFilters.Rows(Offering());
-        var anySprint = rows.ToList()
-            .FindIndex(row => row.Facet == BrowseFacet.Iteration && row.Value is null);
-
         var state = Offering() with
         {
             ChosenAreaPath = @"Widgets\Platform",
             ChosenIteration = @"Widgets\Sprint 42",
-            FilterSelected = anySprint,
+            FilterView = BrowseFacet.Iteration,
         };
 
         var cleared = Reducer.Reduce(state, Command.PickFilterValue);
@@ -188,6 +126,25 @@ public class ABrowseFilterIsPickedTests
         await Assert.That(cleared.ChosenIteration).IsNull();
         await Assert.That(cleared.ChosenAreaPath).IsEqualTo(@"Widgets\Platform")
             .Because("clearing the sprint says nothing about the team.");
+    }
+
+    [Test]
+    public async Task Clearing_takes_all_three_off_at_once()
+    {
+        var cleared = Reducer.Reduce(
+            Offering() with
+            {
+                ChosenAreaPath = @"Widgets\Platform",
+                ChosenIteration = @"Widgets\Sprint 42",
+                ChosenStates = ["Active"],
+            },
+            Command.ClearFilter);
+
+        await Assert.That(cleared.ChosenAreaPath).IsNull();
+        await Assert.That(cleared.ChosenIteration).IsNull();
+        await Assert.That(cleared.ChosenStates).IsEmpty()
+            .Because("one key for the person who narrowed three ways and wants the backlog "
+                   + "back; the per-row key is for fixing one of the three.");
     }
 
     [Test]
@@ -206,17 +163,6 @@ public class ABrowseFilterIsPickedTests
         await Assert.That(said).IsNotNull();
         await Assert.That(said!).Contains(@"Widgets\Platform");
         await Assert.That(said).Contains("Active");
-    }
-
-    [Test]
-    public async Task The_modal_lists_the_choices_and_marks_the_ones_that_are_picked()
-    {
-        var drawn = PaneText.Modal(
-            Offering() with { ChosenAreaPath = @"Widgets\Platform" });
-
-        await Assert.That(drawn).Contains(@"Widgets\Platform");
-        await Assert.That(drawn).Contains("Sprint 42");
-        await Assert.That(drawn).Contains("Active");
     }
 
     [Test]
@@ -239,37 +185,21 @@ public class ABrowseFilterIsPickedTests
     }
 
     [Test]
-    public async Task A_long_list_of_sprints_does_not_draw_a_modal_taller_than_the_screen()
+    public async Task Ninety_sprints_do_not_make_the_body_ninety_lines()
     {
-        // FOUND IN A PTY AGAINST A REAL TRACKER, which had ninety sprints. The
-        // modal is sized to its body, so a body of a hundred lines asked for a
-        // box a hundred rows tall - and a terminal with forty drew the tail of
-        // it, with the cursor, the heading and every area path off the top.
-        var many = new AppState
+        // THE ORIGINAL DEFECT, NOW ANSWERED BY THE WIDGET. The dialog is sized
+        // to its body, so a body that grew with the tracker asked for a box
+        // ninety rows tall and drew the tail of one. The choices are a table
+        // that scrolls; the body is the sentence beside it and nothing else.
+        var many = Offering() with
         {
-            ActiveTab = TabId.Browse,
-            Mode = UiMode.BrowseFilter,
             Facets = new BrowseFacets
             {
-                AreaPaths = ["Widgets"],
                 Iterations = [.. Enumerable.Range(1, 90).Select(n => $@"Widgets\Sprint {n}")],
             },
-            FilterSelected = 60,
         };
 
-        var lines = PaneText.Modal(many).Split('\n');
-
-        await Assert.That(lines.Length).IsLessThanOrEqualTo(24)
-            .Because("the modal is sized to its body and a terminal is not, so the body is "
-                   + "what has to be bounded.");
-
-        await Assert.That(PaneText.Modal(many)).Contains("Sprint 60")
-            .Because("a window that does not contain the cursor is a list a person moves "
-                   + "through blind.");
-
-        await Assert.That(PaneText.Modal(many)).Contains("more")
-            .Because("a truncated list that does not say it is truncated is a tracker that "
-                   + "appears to have thirty sprints.");
+        await Assert.That(PaneText.Modal(many).Split('\n').Length).IsLessThanOrEqualTo(4);
     }
 
     [Test]

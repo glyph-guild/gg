@@ -167,8 +167,8 @@ public class BeatsWhileFlyingTests
         // answering observable at all. The offer left below cannot be opened, so
         // the runner says so - and saying so is the only evidence that it looked.
         using var key = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
-        Func<string, AttendedSession>? sessions = wiredToBeDriven
-            ? flightId => new AttendedSession(
+        using var session = wiredToBeDriven
+            ? new AttendedSession(
                 key,
                 new RunnerChannel([], TimeSpan.FromSeconds(1)),
                 new AskDispatch(new WhatThisRunnerSays(
@@ -189,7 +189,7 @@ public class BeatsWhileFlyingTests
                 observer, new NoCredentialResolver(),
                 trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
                 executor: executor,
-                attendedSessions: sessions,
+                attended: session,
                 offered: offers.Add,
                 // THE BEAT'S OWN PACE, and it is a SECOND knob deliberately.
                 // The flight's own waits are logical steps a test moves a clock
@@ -270,9 +270,11 @@ public class BeatsWhileFlyingTests
     [Test]
     public async Task Any_flight_can_be_watched_and_not_only_one_opened_to_be()
     {
-        // THE MARKER WAS A SECOND LOCK ON A DOOR THAT ALREADY HAD ONE. A channel
-        // exists only while a flight does - the `using` in WorkAsync is the whole
-        // of that - and the control plane refuses to introduce anybody but the
+        // THE MARKER WAS A SECOND LOCK ON A DOOR THAT ALREADY HAD ONE, and the
+        // first lock has since moved: a channel lasts as long as the
+        // conversation rather than as long as a flight, so a runner is reachable
+        // while it waits. What locks it is unchanged - the control plane refuses
+        // to introduce anybody but the
         // principal who REGISTERED the runner, with a 403 that says so: "only the
         // registrant may, and that is stricter than flying at it, which any
         // principal here may do."
@@ -303,9 +305,9 @@ public class BeatsWhileFlyingTests
         await Assert.That(flown.Observer.Events.Any(
                 e => e.StartsWith("not-reachable:", StringComparison.Ordinal))).IsTrue()
             .Because("an introduction rides the heartbeat and is answered by a session that "
-                   + "exists for the flight - any flight. A runner that opens one only for a "
-                   + "flight somebody remembered to mark cannot be watched in the case that "
-                   + "actually arises. Said: " + string.Join(" | ", flown.Observer.Events));
+                   + "exists for the RUN - so any flight on this machine can be watched, "
+                   + "including the ones nobody remembered to mark, which are the ones that "
+                   + "actually arise. Said: " + string.Join(" | ", flown.Observer.Events));
     }
 
     [Test]

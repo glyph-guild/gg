@@ -4,17 +4,29 @@ using Gg.Contracts;
 namespace Gg.Runner;
 
 /// <summary>
-/// The channels a runner serves while somebody is flying it by hand.
+/// The channels a runner serves to whoever has been introduced to it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Its lifetime is the lease's, and that is the whole security argument.</b>
-/// ADR-0013 chose to make driving a runner a flight rather than a side channel
-/// because the risk was never that a runner can do dangerous things — it already
-/// runs an agent over customer code with credentials — it was capability without
-/// governance: a path no lease authorises, no envelope scopes and no story
-/// records. One of these exists only inside a hold, so when the lease ends the
-/// channels end with it. There is no standing way to reach a runner.
+/// <b>Its lifetime is a conversation's, and that is the security argument
+/// now.</b> ADR-0013 chose to make driving a runner a flight rather than a side
+/// channel because the risk was never that a runner can do dangerous things — it
+/// already runs an agent over customer code with credentials — it was capability
+/// without governance. One of these used to exist only inside a hold, which
+/// bounded it and also made a runner unreachable in the one state a person wants
+/// to attach in: waiting for work. So the bound moved to the other end. A
+/// channel nobody is asking anything of is let go, and stopping the runner ends
+/// every conversation at once.
+/// </para>
+/// <para>
+/// <b>What can be READ did not widen.</b> Only the control plane mints an
+/// introduction, only for the principal who REGISTERED this runner, sealed to a
+/// pinned key and expiring in a minute. The channel carries two read-only verbs,
+/// and the tail is this machine's current flight — never a journal, never
+/// another machine's. A registrant who attaches now sees whatever this machine
+/// claims next, including a flight somebody else in the tenant opened; that is
+/// the same text they could already read over ssh on a machine they own, which
+/// is the argument the runner modal makes for the ssh line beside it.
 /// </para>
 /// <para>
 /// <b>A runner built without a key cannot be reached at all.</b> The private half
@@ -24,10 +36,11 @@ namespace Gg.Runner;
 /// capability every runner has by default.
 /// </para>
 /// <para>
-/// <b>Introductions are answered ONLY here.</b> The idle loop beats too, and its
-/// beats carry introductions the same way — they are ignored, because nothing is
-/// holding a lease to authorise them. That is the difference between a runner a
-/// person is flying and a runner somebody knows the id of.
+/// <b>Introductions are answered here, on any beat.</b> They used to be ignored
+/// on an idle one, on the grounds that nothing was holding a lease to authorise
+/// them — which read as a second lock and worked as a closed door: the beat that
+/// carries an introduction to a waiting machine is exactly the beat a person
+/// needs answered.
 /// </para>
 /// </remarks>
 public sealed class AttendedSession(

@@ -265,7 +265,12 @@ public sealed class RunnerLoop(
     // decision somebody made rather than a capability every runner has.
     //
     // LAST and defaulted, because every existing caller passes positionally.
-    Func<string, AttendedSession>? attendedSessions = null,
+    //
+    // BORROWED, NOT OWNED. The host builds it under its own `using` and it
+    // lasts as long as this run does; the loop never disposes it. It used to be
+    // a factory this called once per lease, which is what made a channel's
+    // lifetime the flight's.
+    AttendedSession? attended = null,
     // THE BEAT'S OWN PACE, and a SECOND waiting delegate deliberately.
     // <paramref name="delay"/> paces the flight's own steps, which a test moves
     // a clock through; this paces a cadence running BESIDE them. One delegate
@@ -356,8 +361,7 @@ public sealed class RunnerLoop(
     /// correctly.
     /// </remarks>
     private async Task BeatIfDueAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken,
-        AttendedSession? attended = null)
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
     {
         if (_clock.UtcNow < _nextBeatDue)
         {
@@ -370,7 +374,7 @@ public sealed class RunnerLoop(
         // very next turn of the loop - a spin at whatever rate the claim
         // happens to run at.
         _nextBeatDue =
-            _clock.UtcNow + await BeatAsync(runnerId, labels, cancellationToken, attended);
+            _clock.UtcNow + await BeatAsync(runnerId, labels, cancellationToken);
     }
 
     /// <summary>
@@ -439,11 +443,18 @@ public sealed class RunnerLoop(
         }
     }
 
+    /// <summary>The flight this loop is holding, or null while it is idle.</summary>
+    /// <remarks>
+    /// <b>What "idle" is asked of now.</b> It used to be asked of the attended
+    /// session, which existed only while a flight did - one answer for two
+    /// questions, and they have come apart.
+    /// </remarks>
+    private string? _flying;
+
     private async Task<TimeSpan> BeatAsync(
         string runnerId,
         IReadOnlyList<string> labels,
-        CancellationToken cancellationToken,
-        AttendedSession? session = null)
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -455,14 +466,25 @@ public sealed class RunnerLoop(
             // work is deciding between exactly those two silences.
             _observer.Beat(_clock.UtcNow);
 
-            // ANSWERED ONLY INSIDE A HOLD. The idle loop beats too and its beats
-            // carry introductions the same way - they are ignored here, because
-            // nothing is holding a lease to authorise them. That is the whole of
-            // "there is no standing capability to reach a runner": not a check,
-            // but a session that only exists while a flight does.
-            if (session is not null && beat.Introductions is { Count: > 0 } waiting)
+            // ANSWERED WHENEVER THIS RUNNER IS BEATING, which is the rule that
+            // replaced "only inside a hold". A flight used to be what authorised
+            // the conversation, and the cost was the moment a person most wants
+            // to be looking: they could not already be attached when work
+            // arrived, because attaching was what they were not allowed to do
+            // until it had.
+            //
+            // WHAT STILL NARROWS IT, and it is all of what ever did: only the
+            // control plane mints an introduction, only for the principal who
+            // REGISTERED this runner, sealed to a key that is pinned and expires
+            // in a minute; the channel carries two read-only verbs; the tail is
+            // this machine's current flight and never a journal; and a runner
+            // nobody wired with an identity key has no session to answer with.
+            //
+            // WHAT REPLACES THE FLIGHT AS THE BOUND is the conversation itself -
+            // a channel nobody is asking anything of is let go.
+            if (attended is not null && beat.Introductions is { Count: > 0 } waiting)
             {
-                await session.AnswerAllAsync(runnerId, waiting, _protocol, cancellationToken);
+                await attended.AnswerAllAsync(runnerId, waiting, _protocol, cancellationToken);
             }
 
             // ONLY WHILE IDLE, and the omission is the point. This beats
@@ -470,7 +492,14 @@ public sealed class RunnerLoop(
             // caller to end a process halfway through somebody's work - where
             // the runner's whole bargain is that a lease it holds is finished
             // or explicitly released.
-            if (session is null && beat.Offered is { } carried)
+            //
+            // ASKED OF THE FLIGHT AND NOT OF THE SESSION. This read `session is
+            // null' when a session existed only while a flight did, so the two
+            // questions had one answer. They no longer do, and the reading that
+            // was about to invert silently is the one where every production
+            // runner - all of them wired with an identity key - stops taking
+            // configuration for ever.
+            if (_flying is null && beat.Offered is { } carried)
             {
                 offered?.Invoke(carried);
             }
@@ -1005,16 +1034,18 @@ public sealed class RunnerLoop(
         // attended that nobody comes to watch is grounded. That is a promise
         // about a person turning up rather than a permission to look.
         //
-        // NULL WHEN THIS RUNNER WAS NOT WIRED TO BE DRIVEN, which is the lock
-        // that stays. Gg.Runner never goes looking for the private key - it
-        // lives on the machine and never leaves it - so the composition root
-        // either hands in a way to open a session or does not.
-        // BY FLIGHT ID, so the log this session can read is THIS flight's live
-        // view and not the machine's whole output. A journal would have handed
-        // somebody every flight the runner is running, including other people's;
-        // the lease authorises one conversation about one flight, and the file
-        // path is what makes that true rather than a filter somebody applies.
-        using var attended = attendedSessions?.Invoke(lease.FlightId);
+        // WHAT THIS RUNNER IS FLYING, recorded because two things ask. The beat
+        // beside this asks it to decide whether an offered configuration may be
+        // reported - it may not, mid-flight - and the object that answers
+        // `status` and `tail-log` asks it to know which live view to read.
+        //
+        // THE SESSION IS NOT BUILT HERE ANY MORE. It used to be, and that was
+        // the whole of "a channel's lifetime is the flight's": this method's
+        // `using` opened one on a claim and closed it on a landing. The host
+        // owns it now and it lasts as long as the run, so somebody can be
+        // attached before there is anything to watch - which is the only way to
+        // see work arrive.
+        _flying = lease.FlightId;
 
         // BESIDE THE FLIGHT, not inside it. Every phase below either blocks on
         // one long await or polls something of its own, so a beat threaded
@@ -1022,10 +1053,10 @@ public sealed class RunnerLoop(
         // rest - and materializing a tree, which nobody would think of, is
         // twenty seconds of silence on its own.
         using var landing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var beating = BeatWhileFlyingAsync(runnerId, labels, attended, landing.Token);
+        var beating = BeatWhileFlyingAsync(runnerId, labels, landing.Token);
 
         var flight = FlyAsync(
-            runnerId, labels, lease, attended, secretsByLocator, cancellationToken);
+            runnerId, labels, lease, secretsByLocator, cancellationToken);
 
         try
         {
@@ -1033,6 +1064,11 @@ public sealed class RunnerLoop(
         }
         finally
         {
+            // FLYING NOTHING AGAIN, however this ended. Left set, the beat
+            // beside an idle runner would go on refusing offered configuration
+            // for the life of the process.
+            _flying = null;
+
             // STOPPED AND AWAITED, in that order. A pump left running would
             // beat for a flight that has ended, and one never awaited would
             // report its own failure into a void.
@@ -1104,14 +1140,13 @@ public sealed class RunnerLoop(
     private async Task BeatWhileFlyingAsync(
         string runnerId,
         IReadOnlyList<string> labels,
-        AttendedSession? attended,
         CancellationToken cancellationToken)
     {
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await BeatIfDueAsync(runnerId, labels, cancellationToken, attended);
+                await BeatIfDueAsync(runnerId, labels, cancellationToken);
 
                 // UNTIL THE NEXT ONE IS OWED, which the control plane decided
                 // and this only reads. Waiting a constant here would put a
@@ -1132,7 +1167,6 @@ public sealed class RunnerLoop(
         string runnerId,
         IReadOnlyList<string> labels,
         LeaseGranted lease,
-        AttendedSession? attended,
         IReadOnlyDictionary<string, string> secretsByLocator,
         CancellationToken cancellationToken)
     {
@@ -1235,7 +1269,7 @@ public sealed class RunnerLoop(
             : Decided(lease, workspace, decision);
 
         await HoldAsync(
-            runnerId, labels, lease, attended, cancellationToken, disposition, detail);
+            runnerId, labels, lease, cancellationToken, disposition, detail);
     }
 
     /// <summary>
@@ -2275,20 +2309,18 @@ public sealed class RunnerLoop(
 
     private async Task HoldAsync(
         string runnerId, IReadOnlyList<string> labels, LeaseGranted lease,
-        AttendedSession? attended,
         CancellationToken cancellationToken,
         string disposition = RunnerDisposition.Completed, string? detail = null)
     {
         var expiresAt = lease.ExpiresAt;
         var until = _clock.UtcNow + HoldFor;
 
-        // THE SESSION IS THE FLIGHT'S AND ARRIVES FROM ABOVE. It was made here
-        // once, which gave a person a channel that opened only after the agent
-        // had stopped working - see WorkAsync, which owns it now. The hold is
-        // still where it ENDS: the `using` up there closes every channel when
-        // the flight does, so there is no standing capability to reach a
-        // runner; there is a flight, and while it is flying a person is talking
-        // to it.
+        // THE SESSION IS NOT THIS METHOD'S AND NEVER WAS THE HOLD'S. It was
+        // made here once, which gave a person a channel that opened only after
+        // the agent had stopped working; then it was the flight's, which meant
+        // nobody could be attached before there was anything to watch. It is
+        // the run's now, and what bounds a conversation is the conversation -
+        // one nobody is asking anything of is let go.
         //
         // AND NOTHING BEATS HERE ANY MORE. The pump beside the flight covers
         // this window like every other, and a second beater would race it for

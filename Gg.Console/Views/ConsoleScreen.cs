@@ -2698,7 +2698,7 @@ public sealed class ConsoleScreen : Window
         {
             Fill(_flightsTable, _flights, Rows.Flights(State), Rows.FlightColumns,
                 State.FlightSelected,
-                r => [r.Number, r.State, r.Loop, r.Age, r.Work]);
+                r => [r.Number, r.State, r.Kind, r.Loop, r.Age, r.Work]);
 
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,

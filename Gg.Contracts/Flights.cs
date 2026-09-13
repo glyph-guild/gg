@@ -470,6 +470,34 @@ public sealed record FlightSummary
     /// </remarks>
     public Reason? Waiting { get; init; }
 
+    /// <summary>
+    /// Which kind of work this is — the work-kind name that governs it, or
+    /// null when the control plane did not say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Stored since work kinds existed, and never sent.</b> A launch names
+    /// one and the control plane defaults an unnamed one to <c>implement</c>,
+    /// so every flight has a kind; a reader had no way to learn it. Two
+    /// flights with one name can be governed by entirely different envelopes,
+    /// which is precisely what a queue is for telling apart.
+    /// </para>
+    /// <para>
+    /// <b>NULLABLE, because the two repositories are not upgraded in step</b>
+    /// — the rule the last four members here shipped under. A console reading
+    /// a control plane that predates this gets null and must render it as an
+    /// absence: substituting <c>implement</c> would be right by coincidence
+    /// for new flights and a fabrication for old ones, on the field that says
+    /// which envelope governs.
+    /// </para>
+    /// <para>
+    /// <b>The name a tenant declared, not a closed set.</b> Work kinds are a
+    /// tenant's own words — <c>score-hal</c>, <c>triage</c> — so this is the
+    /// topology name and a vocabulary here would describe today.
+    /// </para>
+    /// </remarks>
+    public string? WorkKind { get; init; }
+
     /// <summary>How this flight stands: one of <see cref="FlightStates.All"/>.</summary>
     /// <remarks>
     /// <para>

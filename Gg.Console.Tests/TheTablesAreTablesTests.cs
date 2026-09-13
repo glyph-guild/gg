@@ -80,8 +80,11 @@ public class TheTablesAreTablesTests
     {
         // The headers are the thing a Label could not have. Asserted as a set
         // so the order stays the view's business and the NAMES stay the model's.
+        // `kind` sits with the facts about the flight rather than beside the
+        // prose, because it is not the same question as `work`: that column is
+        // what somebody CALLED this flight, and the kind is what governs it.
         await Assert.That(Rows.FlightColumns).IsEquivalentTo((string[])
-            ["flight", "state", "loop", "age", "work"]);
+            ["flight", "state", "kind", "loop", "age", "work"]);
         await Assert.That(Rows.BrowseColumns).IsEquivalentTo((string[])
             ["item", "state", "where", "title"]);
         // AND THE BROWSE ROWS WERE ALREADY ROWS. BrowseRow has held these

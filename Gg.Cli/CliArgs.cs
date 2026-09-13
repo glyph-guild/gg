@@ -498,7 +498,7 @@ public static class CliArgs
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id>          take a runner out of the fleet, for good",
-        "gg runner watch <id>           watch what its flight is saying, as it says it",
+        "gg runner watch <id>           watch it, and whatever it flies next",
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
@@ -717,8 +717,9 @@ public static class CliArgs
             ["runner", "retire", ..] => Unknown(
                 "gg runner retire needs one runner id. Run gg runners to see the fleet."),
             ["runner", "watch"] => Unknown(
-                "gg runner watch needs one runner id. Run gg runners to see the fleet - and "
-              + "a runner answers only while it is flying something opened to be watched."),
+                "gg runner watch needs one runner id. Run gg runners to see the fleet - a "
+              + "runner answers whenever it is beating, so it can be watched while it waits "
+              + "for work."),
 
             // `--intent <provider>#<id>` is positional rather than pulled out
             // by the pre-scan above, and the difference is that it takes a

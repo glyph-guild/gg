@@ -1,3 +1,4 @@
+using Gg.Client;
 using Gg.Console;
 using Gg.Contracts;
 
@@ -69,6 +70,44 @@ public class TheRepositoryForACredentialIsPickedTests
         Repositories = registry,
     };
 
+    private static RunnerList OneRunner() => new()
+    {
+        Runners =
+        [
+            new RunnerSummary
+            {
+                RunnerId = "01a06572-a784-72ae-b951-f147553cd48e",
+                Label = "vmlinux001",
+                State = RunnerStates.Idle,
+                LastHeartbeatAt = DateTimeOffset.UnixEpoch,
+            },
+        ],
+    };
+
+    /// <summary>A chooser open over repositories with the standings given.</summary>
+    private static AppState Standing(params (string Path, string Said)[] rows) => new()
+    {
+        Mode = UiMode.CredentialRepositoryChoice,
+        Repositories = new RegisteredRepositories
+        {
+            Repositories =
+            [
+                .. rows.Select(r => new RepositoryRegistered
+                {
+                    Name = r.Path,
+                    Provider = "ado",
+                    Id = r.Path,
+                    Path = r.Path,
+                    Credential = RepositoryCredentialModes.Required,
+                    RegisteredBy = "kdee",
+                    RegisteredAt = DateTimeOffset.UnixEpoch,
+                }),
+            ],
+        },
+        RepositoryCredentials =
+            [.. rows.Select(r => new Gg.Client.RepositoryCredential(r.Path, r.Said))],
+    };
+
     [Test]
     public async Task Pressing_it_on_a_runner_asks_here_rather_than_at_a_bare_prompt()
     {
@@ -98,28 +137,63 @@ public class TheRepositoryForACredentialIsPickedTests
     }
 
     [Test]
-    public async Task The_last_row_is_always_the_prompt_this_replaced()
+    public async Task There_is_no_prompt_row_because_the_registry_is_the_answer()
     {
+        // ASKING A PERSON TO TYPE A SLUG WAS THE FALLBACK FOR NOT HAVING READ
+        // THE REGISTRY, and the registry is a background read this console can
+        // simply do. A row that says "type it yourself" on a screen that could
+        // list them is the screen declining to answer its own question.
         var rows = CredentialRepositories.Offered(OnARunner(Two()));
 
-        await Assert.That(rows[^1]).Contains("prompt", StringComparison.OrdinalIgnoreCase)
-            .Because("a repository registered somewhere this console has not read is still a "
-                   + "repository somebody may be sending a credential for, and the old path "
-                   + "has to stay reachable rather than become unreachable.");
+        await Assert.That(rows.Any(row =>
+            row.Contains("prompt", StringComparison.OrdinalIgnoreCase))).IsFalse();
     }
 
     [Test]
-    public async Task A_console_that_never_read_the_registry_offers_only_that_row()
+    public async Task The_ones_without_a_credential_come_first()
     {
-        // NULL IS "NEVER ASKED", which is the distinction AppState.Repositories
-        // already draws. The registry is read when the Repositories pane is
-        // first shown, so a person who went straight to the fleet holds none -
-        // and a chooser that rendered an empty list would say "there are no
-        // repositories" to somebody who has several.
-        var rows = CredentialRepositories.Offered(OnARunner(null));
+        // WHAT THE SCREEN IS FOR. Every standing names a different remedy, and
+        // two of them are "somebody has to send one": missing here, and none
+        // registered. Those are the rows this key exists to act on, so they are
+        // where the cursor starts - not rows a person scrolls past what is
+        // already done to reach.
+        var rows = CredentialRepositories.Rows(Standing(
+            ("JDX/done", CredentialStanding.Here),
+            ("JDX/needed", CredentialStanding.MissingHere)));
 
-        await Assert.That(rows.Count).IsEqualTo(1);
-        await Assert.That(rows[0]).Contains("prompt", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(rows[0].Path).IsEqualTo("JDX/needed");
+        await Assert.That(rows[^1].Path).IsEqualTo("JDX/done");
+    }
+
+    [Test]
+    public async Task A_repository_that_authenticates_to_nothing_sorts_last()
+    {
+        // NOT NEEDED IS NOT PENDING. A file:// mirror wants no credential at
+        // all, so putting it among the rows that need one would be inventing
+        // work - the distinction CredentialStanding draws deliberately rather
+        // than collapsing into "ok" and "not ok".
+        var rows = CredentialRepositories.Rows(Standing(
+            ("JDX/mirror", CredentialStanding.NotNeeded),
+            ("JDX/needed", CredentialStanding.NoneRegistered)));
+
+        await Assert.That(rows[0].Path).IsEqualTo("JDX/needed");
+        await Assert.That(rows[^1].Path).IsEqualTo("JDX/mirror");
+    }
+
+    [Test]
+    public async Task Opening_it_asks_for_the_registry_rather_than_asking_a_person()
+    {
+        // THE READ THAT MAKES THE PROMPT UNNECESSARY. ToggleRepositories is
+        // already in Reads for the pane; this wants the same registry for the
+        // same reason, and a background read folds in without the session
+        // ending - so the list fills itself instead of a person filling it.
+        await Assert.That(ShellCommands.Reads).Contains(Command.ChooseCredentialRepository);
+
+        await Assert.That(
+                Reducer.Reduce(OnARunner(null), Command.ChooseCredentialRepository).ReadInFlight)
+            .IsTrue()
+            .Because("a console that has not read the registry is the case this is FOR, and "
+                   + "it has to say a read is coming or an empty list reads as an answer.");
     }
 
     [Test]
@@ -150,18 +224,27 @@ public class TheRepositoryForACredentialIsPickedTests
     }
 
     [Test]
-    public async Task Choosing_the_prompt_row_carries_nothing_and_asks_as_it_always_did()
+    public async Task Nothing_is_sent_when_there_is_nothing_to_choose()
     {
-        var rows = CredentialRepositories.Offered(OnARunner(Two()));
+        // AND IT SAYS SO RATHER THAN DROPPING TO A PROMPT. With the registry
+        // unread or empty there is no repository to name, and a send carrying
+        // none would reach the runner asking it to write a secret for nothing.
+        var sent = false;
 
-        var answered = Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
+        var state = Reducer.CredentialRepositoryAsked(OnARunner(null)) with
         {
-            CredentialRepoSelected = rows.Count - 1,
+            Runners = OneRunner(),
+            RunnerSelected = 0,
         };
 
-        await Assert.That(CredentialRepositories.Chosen(answered)).IsNull()
-            .Because("null is what the sender reads as 'ask me', so the row and the old "
-                   + "behaviour are the same thing rather than two.");
+        var after = ConsoleSendCredential.Give(state, (_, _) =>
+        {
+            sent = true;
+            return "sent";
+        });
+
+        await Assert.That(sent).IsFalse();
+        await Assert.That(after.LastCredential).IsNotNull();
     }
 
     [Test]

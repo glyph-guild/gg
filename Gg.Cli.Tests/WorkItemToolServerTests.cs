@@ -50,6 +50,9 @@ public class WorkItemToolServerTests
         public Task<WorkItem?> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<WorkItem?>(null);
 
+        public Task<WorkItemFacets> FacetsAsync(CancellationToken token) =>
+            Task.FromResult(WorkItemFacets.Nothing);
+
         public Task<WorkItemPage> BrowseAsync(
             string? cursor, int limit, WorkItemFilter? filter, CancellationToken token) =>
             Task.FromResult(new WorkItemPage([], null));

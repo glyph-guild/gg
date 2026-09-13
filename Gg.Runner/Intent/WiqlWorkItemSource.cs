@@ -405,6 +405,156 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             : value.ValueKind == JsonValueKind.String ? value.GetString() : null;
     }
 
+    /// <summary>
+    /// What there is to narrow by, walked out of the tracker's own trees.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three calls, because they are three different things.</b> Areas and
+    /// iterations are classification trees and states belong to work item
+    /// types; no endpoint here answers all three, and pretending otherwise
+    /// would mean caching one of them somewhere it would go stale.
+    /// </para>
+    /// <para>
+    /// <b>A depth is asked for, or the answer is the root and the news that it
+    /// has children</b> - a list with one useless entry in it. The depth is
+    /// finite because a request is: a tree deeper than this is one nobody is
+    /// picking a leaf out of in a modal anyway.
+    /// </para>
+    /// </remarks>
+    public async Task<WorkItemFacets> FacetsAsync(CancellationToken cancellationToken = default)
+    {
+        var areas = await NodesAsync("Areas", cancellationToken);
+        var iterations = await NodesAsync("Iterations", cancellationToken);
+
+        return new WorkItemFacets(areas, iterations, await StatesAsync(cancellationToken));
+    }
+
+    /// <summary>How deep a classification tree is read.</summary>
+    /// <remarks>
+    /// Deeper than any team nests in practice and finite on purpose: an
+    /// unbounded read of somebody's whole project is a request that can take
+    /// long enough for a console to look hung.
+    /// </remarks>
+    private const int TreeDepth = 6;
+
+    private async Task<IReadOnlyList<string>> NodesAsync(
+        string tree, CancellationToken cancellationToken)
+    {
+        using var answer = await _client.GetAsync(
+            $"{_host}/_apis/wit/classificationnodes/{tree}"
+          + $"?$depth={TreeDepth}&api-version={ApiVersion}",
+            cancellationToken);
+
+        answer.EnsureSuccessStatusCode();
+
+        using var body = Answered(await answer.Content.ReadAsStringAsync(cancellationToken));
+
+        List<string> paths = [];
+        Walk(body.RootElement, paths);
+
+        return paths;
+    }
+
+    /// <summary>Every node in the tree, parents before their children.</summary>
+    /// <remarks>
+    /// <b>The root is in the list.</b> It is where items land when nobody filed
+    /// them deeper, and "everything, said on purpose" is a choice a person
+    /// makes after narrowing too far.
+    /// </remarks>
+    private static void Walk(JsonElement node, List<string> paths)
+    {
+        if (node.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        if (Queryable(Field(node, "path")) is { Length: > 0 } path)
+        {
+            paths.Add(path);
+        }
+
+        if (node.TryGetProperty("children", out var children)
+            && children.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in children.EnumerateArray())
+            {
+                Walk(child, paths);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A node's path, as a query spells it.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE TREE'S OWN NAME IS WEDGED INTO THE MIDDLE.</b> A node comes back
+    /// as <c>\Widgets\Area\Platform</c>, and a query asking for that path
+    /// matches nothing at all - not an error, no rows. The second segment is
+    /// the tree ("Area" or "Iteration") and it is dropped, along with the
+    /// leading separator, which is what leaves the shape <c>System.AreaPath</c>
+    /// actually holds.
+    /// </remarks>
+    private static string Queryable(string? path)
+    {
+        if (path is not { Length: > 0 })
+        {
+            return "";
+        }
+
+        var segments = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+
+        return segments.Length <= 1
+            ? string.Join('\\', segments)
+            : string.Join('\\', segments.Take(1).Concat(segments.Skip(2)));
+    }
+
+    /// <summary>Every state every type has, each one once, in the order met.</summary>
+    /// <remarks>
+    /// <b>Unioned, because a person filtering does not care which type a state
+    /// belongs to.</b> Offering one list per work item type would be asking
+    /// them to know which types have which states before they can narrow -
+    /// which is the tracker's shape leaking through a pane that exists to hide
+    /// it.
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> StatesAsync(CancellationToken cancellationToken)
+    {
+        using var answer = await _client.GetAsync(
+            $"{_host}/_apis/wit/workitemtypes?api-version={ApiVersion}", cancellationToken);
+
+        answer.EnsureSuccessStatusCode();
+
+        using var body = Answered(await answer.Content.ReadAsStringAsync(cancellationToken));
+
+        if (!body.RootElement.TryGetProperty("value", out var types)
+            || types.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        List<string> states = [];
+
+        foreach (var type in types.EnumerateArray())
+        {
+            if (!type.TryGetProperty("states", out var listed)
+                || listed.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var state in listed.EnumerateArray())
+            {
+                if (Field(state, "name") is { Length: > 0 } name
+                    && !states.Contains(name, StringComparer.Ordinal))
+                {
+                    states.Add(name);
+                }
+            }
+        }
+
+        return states;
+    }
+
     public async Task<WorkItemPage> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter = null,
         CancellationToken cancellationToken = default)

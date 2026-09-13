@@ -218,11 +218,72 @@ public sealed class ReaderConversation(
     private static string Why(BrowseOutcome outcome) => outcome switch
     {
         BrowseOutcome.NotBrowsable(var why) => why,
+        BrowseOutcome.NotFilterable(var why) => why,
         BrowseOutcome.Refused(var why) => why,
         BrowseOutcome.Unintelligible(var why) => why,
         BrowseOutcome.Silent(var why) => why,
         _ => "The reader answered something this console could not read.",
     };
+
+    /// <summary>What there is to narrow a listing by, or why there is nothing to offer.</summary>
+    /// <remarks>
+    /// <b>Asked of the same conversation the listing comes from.</b> A person
+    /// picking an area path is picking one that exists in the tracker they are
+    /// about to query; offering choices from anywhere else would offer values
+    /// that answer nothing, which is the failure this whole affordance exists
+    /// to prevent.
+    /// </remarks>
+    public async Task<FacetOutcome> FacetsAsync(CancellationToken cancellationToken = default)
+    {
+        if (await OpenAsync(cancellationToken) is { } refused)
+        {
+            return new FacetOutcome.Nothing(Why(refused));
+        }
+
+        if (!FacetTool.IsOffered(_declared))
+        {
+            return new FacetOutcome.Nothing(FacetTool.NotOffered(_key));
+        }
+
+        var call = await CallAsync(FacetTool.Name, _ => { }, cancellationToken);
+
+        if (call.Outcome is { } ended)
+        {
+            return new FacetOutcome.Nothing(Why(ended));
+        }
+
+        if (call.Text is not { } text)
+        {
+            return new FacetOutcome.Nothing(Saying("answered a call with no content."));
+        }
+
+        try
+        {
+            using var body = JsonDocument.Parse(text);
+
+            return new FacetOutcome.Offered(new WorkItemFacets(
+                Strings(body.RootElement, FacetTool.Fields.AreaPaths),
+                Strings(body.RootElement, FacetTool.Fields.Iterations),
+                Strings(body.RootElement, FacetTool.Fields.States)));
+        }
+        catch (JsonException)
+        {
+            return new FacetOutcome.Nothing(
+                Saying("declared " + FacetTool.Name + " and answered with something that is "
+                     + "not the shape it promised: " + Short(text)));
+        }
+    }
+
+    /// <summary>One list out of the answer, dropping whatever is not a string.</summary>
+    private static IReadOnlyList<string> Strings(JsonElement body, string name) =>
+        body.ValueKind == JsonValueKind.Object
+        && body.TryGetProperty(name, out var listed)
+        && listed.ValueKind == JsonValueKind.Array
+            ? [.. listed.EnumerateArray()
+                .Where(value => value.ValueKind == JsonValueKind.String)
+                .Select(value => value.GetString()!)
+                .Where(value => value.Length > 0)]
+            : [];
 
     /// <summary>
     /// initialize, then tools/list, once.

@@ -274,6 +274,24 @@ public static class WorkItemToolServer
             writer.WriteEndObject();
             writer.WriteEndObject();
 
+            // WHAT THERE IS TO FILTER BY, so nobody has to spell it. An area
+            // path typed one character wrong answers an empty listing that
+            // looks exactly like a sprint with no work in it.
+            writer.WriteStartObject();
+            writer.WriteString("name", FacetTool.Name);
+            writer.WriteString("description",
+                "List the area paths, iterations and states this tracker has, to narrow "
+              + BrowseTool.Name + " by. The values come back shaped the way that tool's "
+              + "arguments take them.");
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
             writer.WriteEndArray();
             writer.WriteEndObject();
         });
@@ -300,6 +318,7 @@ public static class WorkItemToolServer
                 Gg.Local.ItemTool.HistoryName =>
                     await HistoryAsync(id, arguments, source, cancellationToken),
                 BrowseTool.Name => await BrowseAsync(id, arguments, source, cancellationToken),
+                FacetTool.Name => await FacetsAsync(id, source, cancellationToken),
                 _ => Error(id, -32602,
                     $"'{name}' is not a tool this server has. It has {ReadName} and "
                   + BrowseTool.Name + "."),
@@ -364,6 +383,43 @@ public static class WorkItemToolServer
             ? "Nothing has happened to this item yet."
             : string.Join('\n', changes.Select(change =>
                 $"{change.When:yyyy-MM-dd HH:mm}  {change.Who}  {change.What}")));
+    }
+
+    /// <summary>
+    /// The choices, as three lists.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three empty lists is a real answer.</b> A project with no iterations
+    /// is a project where nobody should be offered a sprint to pick; reporting
+    /// that as a failure would send an operator looking for a broken reader.
+    /// </remarks>
+    private static async Task<string> FacetsAsync(
+        JsonElement id, IWorkItemSource source, CancellationToken cancellationToken)
+    {
+        var facets = await source.FacetsAsync(cancellationToken);
+
+        // WRITE OPENS THE OBJECT AND CLOSES IT, which is why nothing here
+        // closes its own - the same shape the browse answer is written in.
+        return Content(id, Write(writer =>
+        {
+            writer.WriteStartObject();
+            Listed(writer, FacetTool.Fields.AreaPaths, facets.AreaPaths);
+            Listed(writer, FacetTool.Fields.Iterations, facets.Iterations);
+            Listed(writer, FacetTool.Fields.States, facets.States);
+        }));
+    }
+
+    private static void Listed(
+        Utf8JsonWriter writer, string name, IReadOnlyList<string> values)
+    {
+        writer.WriteStartArray(name);
+
+        foreach (var value in values)
+        {
+            writer.WriteStringValue(value);
+        }
+
+        writer.WriteEndArray();
     }
 
     /// <summary>What the caller asked to narrow by, or null where it asked for nothing.</summary>

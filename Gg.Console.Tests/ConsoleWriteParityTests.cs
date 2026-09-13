@@ -56,6 +56,9 @@ public class ConsoleWriteParityTests
 
         public string? Read(string locator) => null;
 
+        // Presence without resolving; this double holds nothing to resolve.
+        public bool Holds(string locator) => false;
+
         public bool Remove(string locator) => false;
     }
 

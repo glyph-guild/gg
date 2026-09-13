@@ -48,7 +48,7 @@ public class TheChosenRepositoryCrossesTests
 
     private static AppState Chose() =>
         Reducer.RepositoryChosen(
-            ConsoleProjection.Apply(new AppState(), new VerbResult.AirspaceRepositories(One())));
+            ConsoleProjection.Apply(new AppState(), new VerbResult.AirspaceRepositories(One(), [])));
 
     private static AppState Picked(AppState chosen) =>
         Reducer.Browsed(

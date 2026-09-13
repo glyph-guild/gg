@@ -593,6 +593,9 @@ public class ConsoleStartTests
         public string PathFor(string locator) => throw new InvalidOperationException("no store here");
         public void Write(string locator, string secret) => throw new InvalidOperationException("no store here");
         public string? Read(string locator) => null;
+
+        // Presence without resolving; this double holds nothing to resolve.
+        public bool Holds(string locator) => false;
         public bool Remove(string locator) => false;
     }
 

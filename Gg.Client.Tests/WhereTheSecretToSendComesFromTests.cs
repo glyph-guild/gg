@@ -46,6 +46,9 @@ public class WhereTheSecretToSendComesFromTests
 
         public string? Read(string locator) => secret;
 
+        // Presence without resolving: this double has one secret or none.
+        public bool Holds(string locator) => secret is not null;
+
         public bool Remove(string locator) => false;
     }
 

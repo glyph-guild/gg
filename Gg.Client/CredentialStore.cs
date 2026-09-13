@@ -34,6 +34,19 @@ public interface ICredentialStore
     /// <summary>The secret, or null when this machine does not have it.</summary>
     string? Read(string locator);
 
+    /// <summary>
+    /// Whether this machine has a secret for the locator, without reading one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A separate verb because <see cref="Read"/> hands back the secret.</b>
+    /// Whether a credential is present is a fact a screen may show and a state
+    /// dump may carry; the secret is neither. A console that answered this by
+    /// calling <see cref="Read"/> and testing for null would have pulled every
+    /// credential this machine holds into the process that draws the screen -
+    /// and the console may not resolve a credential at all.
+    /// </remarks>
+    bool Holds(string locator);
+
     /// <summary>Deletes it. False when there was nothing to delete.</summary>
     bool Remove(string locator);
 }
@@ -146,6 +159,11 @@ public sealed class FileCredentialStore : ICredentialStore
         // from a file API somewhere down the stack.
         return File.Exists(path) ? File.ReadAllText(path) : null;
     }
+
+    // THE FILE IS NEVER OPENED. That is the whole difference from Read, and it
+    // is why an answer from here may travel somewhere an answer from there may
+    // not.
+    public bool Holds(string locator) => File.Exists(PathFor(locator));
 
     public bool Remove(string locator)
     {

@@ -185,6 +185,7 @@ public sealed class ConsoleData(
     public Task<VerbResult> FlyAsync(
         string pasted,
         string? repository = null,
+        string? workKind = null,
         CancellationToken cancellationToken = default)
     {
         var read = PastedIntent.Of(pasted);
@@ -197,7 +198,8 @@ public sealed class ConsoleData(
                 // NULL WHERE NOTHING WAS CHOSEN, never "". An empty string is
                 // the console asserting a repository named nothing, which the
                 // control plane refuses for a choice nobody made.
-                repository: repository is { Length: > 0 } named ? named : null);
+                repository: repository is { Length: > 0 } named ? named : null,
+                workKind: workKind is { Length: > 0 } kind ? kind : null);
     }
 
     /// <summary>

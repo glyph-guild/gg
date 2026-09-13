@@ -132,13 +132,14 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string Fly(string intent, string? repository)
+    public string Fly(string intent, string? repository, string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);
 
         try
         {
-            var opened = _data.FlyAsync(intent, repository).GetAwaiter().GetResult();
+            var opened = _data.FlyAsync(intent, repository, workKind)
+                .GetAwaiter().GetResult();
 
             return opened is VerbResult.Launched launched
                 ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "

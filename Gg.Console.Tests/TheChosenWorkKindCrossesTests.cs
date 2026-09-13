@@ -120,10 +120,27 @@ public class TheChosenWorkKindCrossesTests
         // than as a parameter - which is exactly where it was lost before, and
         // an assertion about the argv is the only thing that would have caught
         // it.
-        var argv = ConsoleHandFlight.StartInfoFor(
-            Gg.Local.SelfInvocation.Current, "fix the thing", workKind: "hal-score");
+        // THROUGH Fly, NOT THROUGH THE BUILDER. Asserting on StartInfoFor
+        // directly would pass on a builder nothing hands a kind to - which is
+        // the same "port nothing calls" shape this whole file is about, and it
+        // would have passed while the real door still dropped it.
+        var started = new List<System.Diagnostics.ProcessStartInfo>();
 
-        await Assert.That(argv.ArgumentList).Contains("--work-kind");
-        await Assert.That(argv.ArgumentList).Contains("hal-score");
+        _ = ConsoleHandFlight.Fly(
+            Answering(ComposingFor.HandFlight, row: 1),
+            plan: () => new Checklist
+            {
+                EnvelopeVersion = "v1",
+                RequiredLabels = [],
+                Items = [],
+            },
+            advertised: [],
+            ask: () => "fix the thing",
+            self: new Gg.Local.SelfInvocation("gg", []),
+            start: info => { started.Add(info); return 0; });
+
+        await Assert.That(started).Count().IsEqualTo(1);
+        await Assert.That(started[0].ArgumentList).Contains("--work-kind");
+        await Assert.That(started[0].ArgumentList).Contains("hal-score");
     }
 }

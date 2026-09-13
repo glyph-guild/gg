@@ -54,7 +54,8 @@ public static class ConsoleHandFlight
     /// a developer's machine is routinely not the one they are running.
     /// </para>
     /// </remarks>
-    public static ProcessStartInfo StartInfoFor(SelfInvocation self, string intent)
+    public static ProcessStartInfo StartInfoFor(
+        SelfInvocation self, string intent, string? workKind = null)
     {
         ArgumentNullException.ThrowIfNull(self);
 
@@ -83,6 +84,17 @@ public static class ConsoleHandFlight
         // verb is matched, exactly as `--json` is - which is what lets a person
         // type it wherever they reach for it.
         info.ArgumentList.Add("--hand");
+
+        // AND WHAT THE FLIGHT IS FOR, AS A PAIR. The flag and its value are
+        // stripped together by the parser, so they have to arrive together -
+        // and absent is absent: a flight that chose no kind adds nothing here
+        // rather than adding an empty one, because the control plane reads a
+        // missing kind as implement and a name it does not know is refused.
+        if (workKind is { Length: > 0 } kind)
+        {
+            info.ArgumentList.Add("--work-kind");
+            info.ArgumentList.Add(kind);
+        }
 
         return info;
     }
@@ -202,7 +214,11 @@ public static class ConsoleHandFlight
             };
         }
 
-        var exit = start(StartInfoFor(self, intent));
+        // READ FROM THE STATE THIS ALREADY HAS, which is why the signature does
+        // not grow. The question that asked it was answered against this same
+        // model, so taking the kind from anywhere else would be a second answer
+        // to what this flight is for.
+        var exit = start(StartInfoFor(self, intent, WorkKinds.Picked(state)));
 
         var trouble = exit == 0
             ? null

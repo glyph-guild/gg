@@ -83,18 +83,12 @@ public static class Reducer
             // which is why the keys are shell commands rather than reductions.
             Command.AskToKeepAShare => Modal(state, UiMode.FloorChoice),
 
-            Command.AskHowToCompose => Modal(state, UiMode.ComposeChoice) with
-            {
-                ComposingFor = ComposingFor.NewFlight,
-            },
+            Command.AskHowToCompose => Asked(state, ComposingFor.NewFlight),
 
             // THE SAME QUESTION ABOUT A DIFFERENT FLIGHT. Both hand a child an
             // empty buffer and take back what comes out, so the keys are the
             // same and only the subject differs.
-            Command.AskHowToFlyByHand => Modal(state, UiMode.ComposeChoice) with
-            {
-                ComposingFor = ComposingFor.HandFlight,
-            },
+            Command.AskHowToFlyByHand => Asked(state, ComposingFor.HandFlight),
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
             // ASKING IS A MODE CHANGE AND NOTHING ELSE, which is the reducer's
@@ -727,6 +721,31 @@ public static class Reducer
     /// the tenant declared, because inheriting the floor is an answer and not an
     /// absence of one.
     /// </remarks>
+    /// <summary>
+    /// What is it for, then how will it be written - in that order.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The kind first, because the other question sends somebody away.</b>
+    /// Both compose answers hand the terminal to something else, so a kind
+    /// asked afterwards would be asked of a person who has just come back from
+    /// writing a paragraph and is holding a different thought.
+    /// </para>
+    /// <para>
+    /// <b>And not asked at all when the tenant declared none.</b> One possible
+    /// answer is not a question; for those tenants this is exactly the modal it
+    /// always was.
+    /// </para>
+    /// </remarks>
+    private static AppState Asked(AppState state, ComposingFor door) =>
+        WorkKinds.Declared(state).Count > 0
+            ? Modal(state, UiMode.WorkKindChoice) with
+            {
+                AskingKindFor = door,
+                KindSelected = 0,
+            }
+            : Modal(state, UiMode.ComposeChoice) with { ComposingFor = door };
+
     private static AppState PickWorkKind(AppState state, int row) =>
         state with
         {

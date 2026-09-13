@@ -85,6 +85,11 @@ return CliArgs.Parse(args) switch
     CliAction.AirspaceName declaring => await EmitAsync(
         declaring.Json,
         c => c.DeclareNameAsync(declaring.Role, declaring.Name, declaring.Parent)),
+    CliAction.RepositoryRegister entry => await EmitAsync(
+        entry.Json,
+        c => c.RegisterRepositoryAsync(
+            entry.Name, entry.Provider, entry.Id, entry.Path,
+            entry.Credential, entry.Ref, entry.Narrowings)),
     CliAction.RunnerLabels labels => await EmitAsync(labels.Json, c => c.RunnerLabelsAsync()),
     CliAction.RunnerRepin repin =>
         await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),
@@ -744,6 +749,14 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
         // the verb runs through this emitter and its one refusal was not on
         // the list, which is the third time that has happened here.
         return Fail(refusal.Message);
+    }
+    catch (PermissionRefusedException refused)
+    {
+        // REACHED AND REFUSED, which is not unreachable. Without this arm a 403
+        // fell to the HttpRequestException clause below and was printed as
+        // "could not reach the control plane - try gg doctor", sending somebody
+        // to diagnose a network that had just answered them.
+        return Fail(refused.Message);
     }
     catch (AdminRefusedException refused)
     {

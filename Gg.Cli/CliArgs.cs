@@ -224,6 +224,40 @@ public abstract record CliAction
     public sealed record AirspaceName(
         string Role, string Name, string Parent, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Registers a repository, so a flight may name it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Four values and no shorthand, because a registry entry is four
+    /// different facts.</b> The provider is a key the registrar chose and a
+    /// runner resolves to a host of its own; the id is the forge's own
+    /// identifier, which flight identity resolves through and does not drift;
+    /// the path is the display label an intent is matched against and may; and
+    /// the name is what envelopes and flights say. The request type is explicit
+    /// that none of them is read off a URI - <i>"which host a customer's
+    /// credential goes to must never be a policy edit here"</i> - so splitting
+    /// one argument into four would be guessing at the one that cannot be
+    /// re-derived afterwards.
+    /// </para>
+    /// <para>
+    /// <b>The optional three are here so this is not a half-door.</b>
+    /// <c>--ref</c> decides whether a ticket flight has anywhere to start work,
+    /// <c>--credential none</c> is what makes a <c>file://</c> mirror flyable,
+    /// and <c>--narrowings</c> is what lets a repository contribute to
+    /// composition. A verb reaching only the required four would register
+    /// entries that certain flights still cannot use, which is the same defect
+    /// one level down.
+    /// </para>
+    /// </remarks>
+    public sealed record RepositoryRegister(
+        string Name,
+        string Provider,
+        string Id,
+        string Path,
+        string? Credential,
+        string? Ref,
+        string? Narrowings,
+        bool Json) : CliAction, IEmitsResult;
+
     /// <summary>What the allowance this machine spends from has left.</summary>
     /// <remarks>
     /// Local: the transcripts are on this disk and the ceilings are in this
@@ -526,6 +560,9 @@ public static class CliArgs
         "    apply --declare-names        declare names it needs, under root, first",
         "gg airspace retire <name>      retire a name - always opens a gate",
         "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
+        "gg airspace repositories add --name <n> --provider <p> --id <id> --path <path>",
+        "    [--ref <ref>] [--credential required|none] [--narrowings <dir>]",
+        "                               make a repository nameable - a new one rides a gate",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
         "gg environments                every environment name an envelope may select",
@@ -782,6 +819,16 @@ public static class CliArgs
               + "Retiring removes every constraint in a document at once, so it always "
               + "opens a flight and waits for whoever the document names."),
 
+            // REGISTERING IS WHAT MAKES A REPOSITORY NAMEABLE AT ALL. The
+            // ingress refuses an intent naming an unregistered one by pointing
+            // at this door, and nothing here could knock on it.
+            ["airspace", "repositories", "add", .. var entry] =>
+                RepositoryRegister([.. entry], json),
+            ["airspace", "repositories", ..] => Unknown(
+                "gg airspace repositories takes add - gg airspace repositories add --name "
+              + "payments --provider forge --id R_123 --path acme/payments. The registry "
+              + "itself is on the console's Repositories tab."),
+
             ["airspace", "name", var role, var named, "--under", var parent] =>
                 new CliAction.AirspaceName(role, named, parent, json),
             ["airspace", "name", var role, var named] =>
@@ -791,7 +838,7 @@ public static class CliArgs
               + "gg airspace name narrowing pci. The role is one of work-kind, narrowing or "
               + "strategy, and --under names the parent when it is not root."),
             ["airspace", ..] => Unknown(
-                "gg airspace takes show, pull, diff, apply, name or retire."),
+                "gg airspace takes show, pull, diff, apply, name, retire or repositories."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             ["invite"] => new CliAction.Invite(json),
@@ -933,13 +980,13 @@ public static class CliArgs
                     Runner: runner, Attended: attended, WorkKind: workKind,
                     Environment: environment),
 
-                // A trailing `--repo` is somebody who meant to name one. Falling
-                // through to the says-two-things arm below would diagnose the wrong
-                // half of the line, and taking it as no repository would open work
-                // against an empty tree and report success.
-                ["fly", _, _, "--repo"] or ["fly", _, "--repo"] => Unknown(
-                    "gg fly --repo needs the name a repository is registered under, e.g. "
-                  + "--repo payments. Run gg airspace show to see them."),
+                    // A trailing `--repo` is somebody who meant to name one. Falling
+                    // through to the says-two-things arm below would diagnose the wrong
+                    // half of the line, and taking it as no repository would open work
+                    // against an empty tree and report success.
+                    ["fly", _, _, "--repo"] or ["fly", _, "--repo"] => Unknown(
+                        "gg fly --repo needs the name a repository is registered under, e.g. "
+                      + "--repo payments. Run gg airspace show to see them."),
 
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand,
                 Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
@@ -1228,6 +1275,105 @@ public static class CliArgs
             : Unknown(
                 "gg credential send needs --repo <slug>: which credential to send. It is "
               + "the same slug `gg credential add` registered.");
+    }
+
+    /// <summary>
+    /// Parses the options of <c>gg airspace repositories add</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Each of the four is refused by its own name.</b> The door refuses a
+    /// blank one too, with a sentence naming it - but only after a round trip,
+    /// and a person told "a registry entry is incomplete" is left to work out
+    /// which quarter of it is. Saying it here costs nothing and reads the same.
+    /// </para>
+    /// <para>
+    /// <b>The refusal for a missing provider says what a provider is FOR</b>,
+    /// because somebody who left it out did so believing it could be read off
+    /// the path. It cannot: it is a key a runner resolves to a host of its own,
+    /// and inferring it would decide where a customer's credential goes.
+    /// </para>
+    /// </remarks>
+    private static CliAction RepositoryRegister(IReadOnlyList<string> options, bool json)
+    {
+        string? name = null;
+        string? provider = null;
+        string? id = null;
+        string? path = null;
+        string? credential = null;
+        string? reference = null;
+        string? narrowings = null;
+
+        for (var i = 0; i < options.Count; i += 2)
+        {
+            if (i + 1 >= options.Count)
+            {
+                return Unknown($"'{options[i]}' was given nothing to be.");
+            }
+
+            var value = options[i + 1];
+            switch (options[i])
+            {
+                case "--name":
+                    name = value;
+                    break;
+
+                case "--provider":
+                    provider = value;
+                    break;
+
+                case "--id":
+                    id = value;
+                    break;
+
+                case "--path":
+                    path = value;
+                    break;
+
+                case "--credential":
+                    credential = value;
+                    break;
+
+                case "--ref":
+                    reference = value;
+                    break;
+
+                case "--narrowings":
+                    narrowings = value;
+                    break;
+
+                default:
+                    // NEVER IGNORED. The option somebody reaches for here is
+                    // --url, and dropping it silently would register the
+                    // repository with whatever else was typed and leave them
+                    // sure they had said which host it is on.
+                    return Unknown(
+                        $"'{options[i]}' is not something gg airspace repositories add takes. "
+                      + "It takes --name, --provider, --id and --path, and optionally --ref, "
+                      + "--credential and --narrowings.");
+            }
+        }
+
+        foreach (var (flag, given, says) in ((string, string?, string)[])
+        [
+            ("--name", name, "what envelopes and flights call it"),
+            ("--provider", provider,
+                "the key a runner resolves to a host of its own. It is not read off the "
+              + "path, because which host a credential goes to is the registrar's to say"),
+            ("--id", id, "the forge's own identifier, which flight identity resolves through"),
+            ("--path", path, "the display path an intent is matched against"),
+        ])
+        {
+            if (given is not { Length: > 0 })
+            {
+                return Unknown(
+                    $"gg airspace repositories add needs {flag}: {says}. A registry entry is "
+                  + "four facts and none of them can be derived from another.");
+            }
+        }
+
+        return new CliAction.RepositoryRegister(
+            name!, provider!, id!, path!, credential, reference, narrowings, json);
     }
 
     /// <summary>A refusal that says what was wrong AND what is available.</summary>

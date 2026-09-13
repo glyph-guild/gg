@@ -378,6 +378,22 @@ public class VerbParityTests
             ["AirspaceName"] = "declares a topology name; takes no file, so the working-copy "
                              + "reason above does not apply. Absent until the estate pane "
                              + "exists, which is where it belongs.",
+            // THE ONE VERB HERE WHOSE PANE ALREADY EXISTS. The Repositories tab
+            // renders the registry, so unlike the four above there is no
+            // missing surface - what is missing is the collection. Four values
+            // that cannot be derived from one another is a form, and every
+            // write in this console happens between sessions with the terminal
+            // free; a single keypress that opened a gate would be a mistype
+            // somebody has to explain, which is why apply asks first.
+            //
+            // So this is a sequence rather than a decision, and it carries the
+            // caution the Allowances line carries: REMOVE THIS LINE when the
+            // form lands, and do not let it stand as "next" for longer than it
+            // takes to arrive.
+            ["RepositoryRegister"] = "registers a repository. The Repositories tab already "
+                                   + "shows the registry; adding to it needs a form for four "
+                                   + "values, and a write that opens a gate asks first - so "
+                                   + "the verb ships first and the pane follows.",
             ["EnvelopeApply"] = "applies a governance document from a file. Same reason - and "
                               + "the READ is in scope, in step 4, which is the distinction.",
             ["EnvelopeValidate"] = "validates a file. Same reason.",

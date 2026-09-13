@@ -66,7 +66,7 @@ public class RegisteringARepositoryTests
         new(new HttpClient(handler) { BaseAddress = new Uri("https://control.example.invalid") });
 
     private const string Live = """
-        {"name":"payments","provider":"github","id":"R_123","path":"acme/payments",
+        {"name":"payments","provider":"forge","id":"R_123","path":"acme/payments",
          "credential":"required",
          "registeredBy":"Dana","registeredAt":"2026-09-13T09:00:00+00:00"}
         """;
@@ -79,7 +79,7 @@ public class RegisteringARepositoryTests
     private static RegisterRepositoryRequest ARegistration() => new()
     {
         Name = "payments",
-        Provider = "github",
+        Provider = "forge",
         Id = "R_123",
         Path = "acme/payments",
     };
@@ -125,11 +125,20 @@ public class RegisteringARepositoryTests
         // this side read. IsAdmin is a hint about what a surface may show -
         // "never a permission: every route checks the principal itself" - so a
         // console that decided for itself would be a console guessing.
+        //
+        // AND IT IS AN ANSWER RATHER THAN A FAULT. This asserted
+        // HttpRequestException - what EnsureSuccessStatusCode raises - which
+        // every emitter renders as "could not reach the control plane, try gg
+        // doctor": a person sent to diagnose a network that just answered
+        // them. The named type is what lets the sentence say who CAN instead.
         var refused = new Answering(HttpStatusCode.Forbidden, "not yours to register");
 
-        await Assert.That(async () => await Against(refused)
+        var said = await Assert.That(async () => await Against(refused)
                 .RegisterRepositoryAsync("a-session", ARegistration()))
-            .Throws<HttpRequestException>();
+            .Throws<PermissionRefusedException>();
+
+        await Assert.That(said!.Message)
+            .Contains("administrator", StringComparison.OrdinalIgnoreCase);
     }
 
     [Test]

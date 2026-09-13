@@ -251,6 +251,20 @@ public class ConsoleDataTests
             // something a person cannot then see or use.
             "DeclareNameAsync",
 
+            // REGISTERING A REPOSITORY, AND THE PANE IT BELONGS ON EXISTS -
+            // which makes this the weakest exemption on the list, and it is
+            // written down as such. The Repositories tab already shows the
+            // registry, so the missing half is not a surface but the
+            // collection: four values that cannot be derived from one another,
+            // typed. Nothing in this console is written by typing, which is the
+            // same reason OverrideFloor and AdminAsync are here, and a write
+            // that opens a gate asks first - so it is a form, and a form is its
+            // own change.
+            //
+            // REMOVE THIS LINE when that form lands. It is the one entry here
+            // whose reason is a sequence rather than a property of the verb.
+            "RegisterRepositoryAsync",
+
             // Editing an envelope is the write half of that read, and it cannot come
             // first: you do not edit what you cannot see. When the pane exists this
             // is $EDITOR seeded with the canonical text and applied back - the same
@@ -363,8 +377,8 @@ public class ConsoleDataTests
             FactVocabularyVersion = "0.1.0",
             ConstitutionVersion = "1.0.0",
             EnvelopeVersion = "none",
-        Attempts = 1,
-        Facts = [],
+            Attempts = 1,
+            Facts = [],
         };
 
         var state = ConsoleProjection.Apply(new AppState(), new VerbResult.Flight(summary));

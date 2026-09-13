@@ -790,6 +790,68 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
+    /// Registers a repository, so a flight may name one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The door three refusals already point at.</b> An intent naming an
+    /// unregistered repository is refused by <c>FlightIngress</c> pointing
+    /// here, and nothing in gg could knock - so the fix for the commonest
+    /// refusal in the product was to go and use something that is not gg.
+    /// </para>
+    /// <para>
+    /// <b>The optional three are passed through as they arrived, absence
+    /// included.</b> Null ref means the flight has no repository, null
+    /// narrowings means off, and null credential means required; substituting
+    /// an empty string for any of them would register something other than
+    /// what was typed.
+    /// </para>
+    /// <para>
+    /// <b>Who may register is not asked here.</b> It is decided at the door and
+    /// arrives as a status - see <see cref="PermissionRefusedException"/>.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> RegisterRepositoryAsync(
+        string name,
+        string provider,
+        string id,
+        string path,
+        string? credential = null,
+        string? reference = null,
+        string? narrowings = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (live, pending) = await _client.RegisterRepositoryAsync(
+            Session(),
+            new RegisterRepositoryRequest
+            {
+                Name = name,
+                Provider = provider,
+                Id = id,
+                Path = path,
+                Credential = credential,
+                Ref = reference,
+                Narrowings = narrowings,
+            },
+            cancellationToken);
+
+        return new VerbResult.RepositoryAdded(new RepositoryAdded
+        {
+            Name = name,
+            Provider = provider,
+            Id = id,
+            Path = path,
+            Credential = live?.Credential,
+            Ref = live?.Ref,
+            Narrowings = live?.Narrowings,
+            RegisteredBy = live?.RegisteredBy,
+            Flight = pending?.Flight,
+            Awaiting = pending?.Awaiting,
+            Widens = pending?.Widens,
+        });
+    }
+
+    /// <summary>
     /// Declares a name in the topology, so a document can be applied to it.
     /// </summary>
     /// <remarks>

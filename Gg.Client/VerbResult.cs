@@ -143,6 +143,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.NameDeclared;
     }
 
+    /// <summary>What registering a repository came to: an entry, or a gate.</summary>
+    public sealed record RepositoryAdded(Gg.Client.RepositoryAdded Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RepositoryAdded;
+    }
+
     /// <summary>Every document the airspace holds, whole.</summary>
     public sealed record AirspaceDocuments(AirspaceEstate Value) : VerbResult
     {
@@ -428,6 +434,14 @@ public static class VerbResultKinds
 
     public const string NameDeclared = "name-declared";
 
+    /// <summary>What registering one came to - an entry, or the gate it rides.</summary>
+    /// <remarks>
+    /// Its own kind rather than <see cref="AirspaceRepositories"/>, which is the
+    /// LIST: a reader of a stream cannot tell "here is the registry" from "one
+    /// was added" if both say the same word.
+    /// </remarks>
+    public const string RepositoryAdded = "repository-added";
+
     public const string NameRetired = "name-retired";
 
     public const string NamedEnvelopeShown = "named-envelope-shown";
@@ -485,6 +499,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(TreeWritten))]
 [JsonSerializable(typeof(EstateApplied))]
 [JsonSerializable(typeof(NameDeclared))]
+[JsonSerializable(typeof(RepositoryAdded))]
 [JsonSerializable(typeof(NameRetired))]
 [JsonSerializable(typeof(Gg.Contracts.NamedEnvelopeState))]
 [JsonSerializable(typeof(Gg.Contracts.Envelope))]
@@ -584,6 +599,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EstateDiff),
         VerbResult.NameDeclared r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameDeclared),
+        VerbResult.RepositoryAdded r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RepositoryAdded),
         VerbResult.NameRetired r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NameRetired),
         VerbResult.NamedEnvelopeShown r =>
@@ -727,6 +744,7 @@ public static class VerbOutput
         VerbResult.AirspaceApplied r => AppliedText(r.Value),
         VerbResult.AirspaceDiffed r => DiffText(r.Value),
         VerbResult.NameDeclared r => NameDeclaredText(r.Value),
+        VerbResult.RepositoryAdded r => RepositoryAddedText(r.Value),
         VerbResult.NameRetired r => NameRetiredText(r.Value),
         VerbResult.NamedEnvelopeShown r => NamedEnvelopeText(r.Value),
         VerbResult.RulesInForce r => RulesInForceText(r.WorkKind, r.Value),
@@ -2493,6 +2511,32 @@ public static class VerbOutput
             ? $"{declared.Name}: already declared as a {declared.Role}, by {who}. Nothing "
             + "rode a flight.\n"
             : $"{declared.Name}: declared as a {declared.Role} under {declared.Parent}.\n";
+    }
+
+    /// <summary>What registering a repository came to, as a person reads it.</summary>
+    /// <remarks>
+    /// <b>The gated line says the name is not usable yet, because it looks like
+    /// success and is not finished.</b> A flight whose intent names a
+    /// repository the registry does not hold is refused pointing at this very
+    /// door - so somebody who read "registered" and flew would be sent back to
+    /// the command they just ran. The flight number alone reads like a receipt;
+    /// what they need is that the wait IS the answer.
+    /// </remarks>
+    private static string RepositoryAddedText(RepositoryAdded added)
+    {
+        if (added.Flight is { Length: > 0 } flight)
+        {
+            return $"{added.Name}: registering {added.Path} widens {added.Widens} - flight "
+                 + $"{flight} awaits {added.Awaiting}. The name is NOT in the registry until "
+                 + "that gate opens, so a flight naming it now is refused.\n";
+        }
+
+        var says = added.Credential is { Length: > 0 } mode
+            ? $", credential {mode}"
+            : string.Empty;
+
+        return $"{added.Name}: registered as {added.Provider} {added.Path} ({added.Id})"
+             + $"{says}, by {Clean(added.RegisteredBy)}. Nothing rode a flight.\n";
     }
 
     /// <summary>

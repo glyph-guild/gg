@@ -71,18 +71,20 @@ public class TheConsoleSaysItIsAliveTests
     }
 
     [Test]
-    public async Task The_hint_line_carries_it_too()
+    public async Task The_bottom_line_carries_it_too()
     {
         // WHEREVER A PERSON IS LOOKING. The live pane is off by default, so a
         // console that only moved there would be still for everybody who never
         // opened it.
-        var hints = Keymap.Hints(KeymapContext.For(new AppState
-        {
-            Refresh = new RefreshState { NextIn = 3 },
-        }));
+        var state = new AppState { Refresh = new RefreshState { NextIn = 3 } };
+        var line = PaneText.BottomLine(state);
 
-        await Assert.That(hints).Contains(PaneText.Alive(3))
+        await Assert.That(line).Contains(PaneText.Alive(3))
             .Because("the bottom line is on every screen, which is where a person looks to "
                    + "see whether anything is happening at all.");
+
+        await Assert.That(line).StartsWith(Keymap.Hints(KeymapContext.For(state)))
+            .Because("the hint line is exactly the keys that are live, which is a rule of "
+                   + "its own - so the mark goes BESIDE it rather than into it.");
     }
 }

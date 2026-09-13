@@ -1480,6 +1480,18 @@ static async Task<int> LaunchConsoleAsync()
                 watched.Start(runnerId);
                 return true;
             }),
+        // GIVING A RUNNER A CREDENTIAL, with the terminal free. Everything this
+        // project supplies is something Gg.Console may not hold: the session
+        // token, the control plane, the pinned keys, the local store and a
+        // prompt that turns the echo off.
+        //
+        // THE SAME SENDER `gg credential send` USES. Where the secret comes
+        // from - this machine's own store, or a person - is the question that
+        // matters most on this path, and a second implementation would be a
+        // second answer to it.
+        sendCredential: current => Gg.Console.ConsoleSendCredential.Give(
+            current,
+            send: runnerId => SendFromTheConsole(runnerId)),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the
         // child would be, and how to run it. The order - refuse before asking,
@@ -1705,6 +1717,82 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 /// points prints it, and the sentence a person reads names the locator.
 /// </para>
 /// </remarks>
+/// <summary>
+/// The console's send, run with the terminal free.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Synchronous, because it takes the slot the editor takes.</b> The console
+/// loop is between sessions here; nothing is rendering, and a person is about to
+/// be asked a question at a bare terminal.
+/// </para>
+/// <para>
+/// <b>It asks for the repository rather than guessing one.</b> The console does
+/// not fetch the tenant's credential list today - VerbParityTests records that
+/// as its own gap - so there is nothing to offer as a choice, and inventing one
+/// from the selected flight would be a guess about which of a flight's
+/// repositories somebody meant.
+/// </para>
+/// <para>
+/// <b>Every sentence it produces is one line.</b> What comes back goes into
+/// <c>LastCredential</c>, which the activity line shows - so a paragraph would
+/// be a paragraph with its end cut off.
+/// </para>
+/// </remarks>
+static string SendFromTheConsole(string runnerId)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return "Not signed in, so nothing was sent. `gg login` first.";
+    }
+
+    Console.WriteLine();
+    Console.Write("Which repository is this credential for? ");
+    var repo = Console.ReadLine();
+
+    if (repo is not { Length: > 0 })
+    {
+        return "No repository named, so nothing was sent and nothing was asked for.";
+    }
+
+    var locator = Gg.Contracts.CredentialLocator.ForRepo(repo);
+
+    // BEFORE ANYTHING IS MINTED, and before anybody is asked for a token: an
+    // introduction spent on a send that has nothing to send is a minute of a
+    // capability nobody used.
+    var secret = SendACredential.SecretFor(
+        new FileCredentialStore(), locator, new ConsoleSecretPrompt(),
+        line => Console.WriteLine($"gg: {line}"));
+
+    if (secret is null)
+    {
+        return $"No secret for {locator}, so nothing was sent.";
+    }
+
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    var sent = new SendACredential(
+        new ControlPlaneClient(http),
+        new ConsoleChannel(
+            Gg.Runner.StunConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+            TimeSpan.FromSeconds(20)))
+        .SendAsync(
+            session.SessionToken,
+            runnerId,
+            locator,
+            secret,
+            new PinnedRunnerKeys(),
+            DateTimeOffset.UtcNow,
+            saying: line => Console.WriteLine($"gg: {line}"))
+        .GetAwaiter()
+        .GetResult();
+
+    return sent.Said;
+}
+
 static async Task<int> SendCredentialAsync(CliAction.CredentialSend send)
 {
     var session = new FileSessionStore().Read();

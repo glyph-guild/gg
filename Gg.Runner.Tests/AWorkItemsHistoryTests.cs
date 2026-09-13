@@ -80,8 +80,8 @@ public class AWorkItemsHistoryTests
 
         _ = await source.HistoryAsync("26");
 
-        await Assert.That(seen).IsNotEmpty();
-        await Assert.That(seen[0].ToString()).Contains("26")
+        await Assert.That(seen.Seen).IsNotEmpty();
+        await Assert.That(seen.Seen[0].ToString()).Contains("26")
             .Because("a history for the wrong item is worse than none, and the id is the "
                    + "only thing the person chose.");
     }

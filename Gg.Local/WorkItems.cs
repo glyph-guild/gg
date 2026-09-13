@@ -85,4 +85,30 @@ public interface IWorkItemSource
     /// <summary>A page of items, oldest cursor semantics decided by the source.</summary>
     Task<WorkItemPage> BrowseAsync(
         string? cursor, int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>What has happened to one item, oldest first.</summary>
+    /// <remarks>
+    /// <b>Empty is an answer.</b> Nothing has happened to it yet, which is a
+    /// thing to know rather than an error to report - the same distinction the
+    /// browse page draws between an empty backlog and a refusal.
+    /// </remarks>
+    Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
+        string id, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// One thing that happened to a work item.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A when, a who and a what, because that is what any tracker has.</b> Which
+/// one spells them which way is the deployment's business - this names no forge,
+/// for <see cref="BrowseTool"/>'s reason one file over.
+/// </para>
+/// <para>
+/// <b>A field change and a comment are the same shape.</b> One says a state
+/// moved and the other says somebody wrote a paragraph, and sorting them into
+/// two lists would be deciding for a person which of the two they came for.
+/// </para>
+/// </remarks>
+public sealed record WorkItemChange(DateTimeOffset When, string Who, string What);

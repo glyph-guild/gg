@@ -188,6 +188,166 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             Url: $"{_host}/_workitems/edit/{Uri.EscapeDataString(id)}");
     }
 
+    /// <summary>
+    /// What has happened to this item, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One call, because the shape carries both.</b> A comment arrives as a
+    /// revision of a field like any other, so the discussion and the state
+    /// changes are already interleaved in the order they happened - asking twice
+    /// would be two round trips to rebuild an ordering the tracker has.
+    /// </para>
+    /// <para>
+    /// <b>What changed, from and to.</b> "It changed" is not a fact anybody can
+    /// use; where it came from is half of why it matters. The first revision has
+    /// no old value for anything, which is creation and reads correctly as such.
+    /// </para>
+    /// <para>
+    /// <b>Prose is stripped like every other body.</b> A comment is HTML from a
+    /// tracker and is about to be drawn in a terminal.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        using var answer = await _client.GetAsync(
+            $"{_host}/_apis/wit/workitems/{Uri.EscapeDataString(id)}/updates"
+          + $"?api-version={ApiVersion}",
+            cancellationToken);
+
+        if (answer.StatusCode == HttpStatusCode.NotFound)
+        {
+            return [];
+        }
+
+        answer.EnsureSuccessStatusCode();
+
+        using var body = Answered(await answer.Content.ReadAsStringAsync(cancellationToken));
+        var changes = new List<WorkItemChange>();
+
+        if (!body.RootElement.TryGetProperty("value", out var revisions)
+            || revisions.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        foreach (var revision in revisions.EnumerateArray())
+        {
+            if (!revision.TryGetProperty("fields", out var fields)
+                || fields.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var who = revision.TryGetProperty("revisedBy", out var by)
+                   && by.TryGetProperty("displayName", out var name)
+                ? (name.ValueKind == JsonValueKind.String ? name.GetString() : null) ?? ""
+                : "";
+
+            var when = fields.TryGetProperty(ChangedField, out var stamped)
+                    && Moved(stamped, "newValue") is { } stamp
+                    && DateTimeOffset.TryParse(
+                        stamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out var at)
+                ? at
+                : default;
+
+            foreach (var field in fields.EnumerateObject())
+            {
+                // THE STAMP IS NOT A CHANGE. Every revision moves the changed
+                // date, so reporting it would put one line of noise between
+                // every two lines that mean something.
+                if (string.Equals(field.Name, ChangedField, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (Said(field) is { } what)
+                {
+                    changes.Add(new WorkItemChange(when, who, what));
+                }
+            }
+        }
+
+        return changes;
+    }
+
+    /// <summary>The fields whose movement is worth a line, and what to call them.</summary>
+    /// <remarks>
+    /// <b>A board moves a dozen fields nobody asked about.</b> Rank, column,
+    /// stack order and the revision number all change constantly and say nothing
+    /// about the work; a history that reported them would bury the four lines
+    /// that matter. These are the ones a person opens a history to read: where
+    /// it went, what it is called, whose it is, and what anybody said about it.
+    /// </remarks>
+    private static readonly (string Field, string Label)[] WorthSaying =
+    [
+        (StateField, "State"),
+        (TitleField, "Title"),
+        ("System.AssignedTo", "Assigned to"),
+        (HistoryField, "Said"),
+    ];
+
+    /// <summary>The discussion, which arrives as a field like any other.</summary>
+    private const string HistoryField = "System.History";
+
+    /// <summary>One field's move, as a person would read it.</summary>
+    /// <remarks>
+    /// <b>A comment says what was WRITTEN; anything else says where it WENT.</b>
+    /// The discussion field's old value is the previous comment, so printing
+    /// "was ... now ..." for it would bury the paragraph somebody just added
+    /// under the one they added last week.
+    /// </remarks>
+    private static string? Said(JsonProperty change)
+    {
+        if (Array.Find(WorthSaying, w =>
+                string.Equals(w.Field, change.Name, StringComparison.Ordinal))
+            is not { Field.Length: > 0 } worth)
+        {
+            return null;
+        }
+
+        var now = Moved(change.Value, "newValue");
+
+        if (now is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        if (string.Equals(change.Name, HistoryField, StringComparison.Ordinal))
+        {
+            return Prose(now) is { Length: > 0 } wrote ? wrote : null;
+        }
+
+        return Moved(change.Value, "oldValue") is { Length: > 0 } before
+            ? $"{worth.Label}: {before} -> {now}"
+            : $"{worth.Label}: {now}";
+    }
+
+    /// <summary>
+    /// One side of a field's move, as text.
+    /// </summary>
+    /// <remarks>
+    /// <b>A person is not always a string.</b> An assignment carries an identity
+    /// object, and printing its JSON would be worse than saying nothing - so the
+    /// display name is taken where there is one.
+    /// </remarks>
+    private static string? Moved(JsonElement change, string side)
+    {
+        if (change.ValueKind != JsonValueKind.Object
+            || !change.TryGetProperty(side, out var value))
+        {
+            return null;
+        }
+
+        return value.ValueKind == JsonValueKind.Object
+            ? value.TryGetProperty("displayName", out var named)
+                && named.ValueKind == JsonValueKind.String ? named.GetString() : null
+            : value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    }
+
     public async Task<WorkItemPage> BrowseAsync(
         string? cursor, int limit, CancellationToken cancellationToken = default)
     {

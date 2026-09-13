@@ -31,7 +31,7 @@ public class TheBrowserSurvivesItsOwnReloadTests
     {
         public string? Key => "a-tracker";
 
-        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, CancellationToken token) =>
+        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, WorkItemFilter? filter, CancellationToken token) =>
             Task.FromResult<BrowseOutcome>(new BrowseOutcome.Listed(new WorkItemPage(
                 [
                     new WorkItemSummary("18398", "A draft job fails", "New", "", null),

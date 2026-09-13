@@ -23,8 +23,6 @@ public interface IWorkBrowser
     /// <summary>Which tracker this browses, or null when none is configured.</summary>
     string? Key { get; }
 
-    Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, CancellationToken cancellationToken);
-
     /// <summary>What one work item says, in the reader's own words.</summary>
     /// <remarks>
     /// <b>The same conversation, because it is the same reader.</b> A person
@@ -36,6 +34,9 @@ public interface IWorkBrowser
 
     /// <summary>What has happened to one item, in the reader's own words.</summary>
     Task<ItemOutcome> HistoryAsync(string id, CancellationToken cancellationToken);
+
+    Task<BrowseOutcome> BrowseAsync(
+        string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -61,7 +62,7 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
     public string? Key => _readers.Keys.Count > 0 ? _readers.Keys[0] : null;
 
     public async Task<BrowseOutcome> BrowseAsync(
-        string? cursor, int limit, CancellationToken cancellationToken)
+        string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken)
     {
         if (Key is not { } key || _readers.For(key) is not { } reader)
         {
@@ -69,7 +70,7 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
                 "No tracker is configured to browse on this machine.");
         }
 
-        return await reader.BrowseAsync(cursor, limit, cancellationToken);
+        return await reader.BrowseAsync(cursor, limit, filter, cancellationToken);
     }
 
     public async Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken)

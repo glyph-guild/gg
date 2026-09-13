@@ -236,9 +236,36 @@ public static class WorkItemToolServer
                 $"How many to return. Defaults to {DefaultLimit}, capped at {MaximumLimit}.");
             writer.WriteEndObject();
 
+            // DECLARED, BECAUSE DECLARING IS HOW THE CONSOLE KNOWS. It reads
+            // this schema to decide whether to send a filter at all, so a
+            // server that narrows but does not say it narrows is one that will
+            // never be asked to.
+            writer.WriteStartObject(BrowseTool.Filters.AreaPath);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Only items filed anywhere beneath this area path. Omit for all of them.");
             writer.WriteEndObject();
 
-            // NEITHER IS REQUIRED. A first page with a default size is the
+            writer.WriteStartObject(BrowseTool.Filters.Iteration);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Only items in this iteration exactly, not the ones nested under it. "
+              + "Omit for all of them.");
+            writer.WriteEndObject();
+
+            writer.WriteStartObject(BrowseTool.Filters.States);
+            writer.WriteString("type", "array");
+            writer.WriteStartObject("items");
+            writer.WriteString("type", "string");
+            writer.WriteEndObject();
+            writer.WriteString("description",
+                "Only items in these states, REPLACING the default - which is open work, so "
+              + "asking for closed work means naming it here. Omit for the default.");
+            writer.WriteEndObject();
+
+            writer.WriteEndObject();
+
+            // NONE IS REQUIRED. A first page with a default size is the
             // ordinary call, and making a caller name a cursor to get one
             // would be a contract that cannot be started.
             writer.WriteStartArray("required");
@@ -339,6 +366,57 @@ public static class WorkItemToolServer
                 $"{change.When:yyyy-MM-dd HH:mm}  {change.Who}  {change.What}")));
     }
 
+    /// <summary>What the caller asked to narrow by, or null where it asked for nothing.</summary>
+    /// <remarks>
+    /// <b>Null and an empty filter are different sentences.</b> A
+    /// <see cref="WorkItemFilter"/> with three blanks narrows on nothing and
+    /// would answer the same page - but the source is entitled to tell "nobody
+    /// narrowed" from "somebody narrowed by nothing", and a caller reading its
+    /// own request back should see the same distinction it sent.
+    /// </remarks>
+    private static WorkItemFilter? Narrowing(JsonElement arguments)
+    {
+        if (arguments.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var filter = new WorkItemFilter(
+            AreaPath: Argument(arguments, BrowseTool.Filters.AreaPath),
+            Iteration: Argument(arguments, BrowseTool.Filters.Iteration),
+            States: States(arguments));
+
+        return filter.Narrows ? filter : null;
+    }
+
+    private static string? Argument(JsonElement arguments, string name) =>
+        arguments.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    /// <summary>The states asked for, dropping anything that is not one.</summary>
+    /// <remarks>
+    /// A non-string in the array is a caller's mistake, and answering an error
+    /// for it would lose the rest of a filter that is otherwise fine. It is
+    /// dropped, which is what <c>Argument</c> above does with a number where a
+    /// path was expected.
+    /// </remarks>
+    private static IReadOnlyList<string>? States(JsonElement arguments)
+    {
+        if (!arguments.TryGetProperty(BrowseTool.Filters.States, out var listed)
+            || listed.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        List<string> states = [.. listed.EnumerateArray()
+            .Where(state => state.ValueKind == JsonValueKind.String)
+            .Select(state => state.GetString()!)
+            .Where(state => state.Length > 0)];
+
+        return states.Count > 0 ? states : null;
+    }
+
     private static async Task<string> BrowseAsync(
         JsonElement id, JsonElement arguments, IWorkItemSource source,
         CancellationToken cancellationToken)
@@ -356,7 +434,7 @@ public static class WorkItemToolServer
             : DefaultLimit;
 
         var limit = Math.Clamp(asked, 1, MaximumLimit);
-        var page = await source.BrowseAsync(cursor, limit, cancellationToken: cancellationToken);
+        var page = await source.BrowseAsync(cursor, limit, Narrowing(arguments), cancellationToken);
 
         // THE CONTRACT'S OWN SHAPE, written by its own names. A pane parses
         // this, so a field spelled differently here is a field it cannot find.
@@ -372,6 +450,8 @@ public static class WorkItemToolServer
                 writer.WriteString(BrowseTool.Fields.State, item.State);
                 writer.WriteString(BrowseTool.Fields.Url, item.Url);
                 writer.WriteString(BrowseTool.Fields.Updated, item.Updated);
+                writer.WriteString(BrowseTool.Fields.AreaPath, item.AreaPath);
+                writer.WriteString(BrowseTool.Fields.Iteration, item.Iteration);
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();

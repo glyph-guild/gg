@@ -110,7 +110,8 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
 
     /// <summary>A page of work from this reader, or why there is not one.</summary>
     public async Task<BrowseOutcome> BrowseAsync(
-        string? cursor, int limit, CancellationToken cancellationToken = default)
+        string? cursor, int limit, WorkItemFilter? filter = null,
+        CancellationToken cancellationToken = default)
     {
         // ONE CONVERSATION AT A TIME. The protocol is request-then-reply over
         // one pipe, so two overlapping browses would read each other's answers
@@ -129,7 +130,7 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
 
             try
             {
-                return await _asking!.BrowseAsync(cursor, limit, deadline.Token);
+                return await _asking!.BrowseAsync(cursor, limit, filter, deadline.Token);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {

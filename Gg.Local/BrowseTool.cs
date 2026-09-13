@@ -46,10 +46,16 @@ public static class BrowseTool
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Five, and no body.</b> An issue's text is customer content that does
-    /// not cross and is not needed to choose one: a person picking work reads a
-    /// title and a state. The body is what <c>get_work_item</c> is for, on the
-    /// runner, after a flight exists.
+    /// <b>No body.</b> An issue's text is customer content that does not cross
+    /// and is not needed to choose one: a person picking work reads a title and
+    /// a state. The body is what <c>get_work_item</c> is for, on the runner,
+    /// after a flight exists.
+    /// </para>
+    /// <para>
+    /// <b>Where it is filed is neither.</b> An area path and an iteration are
+    /// what <see cref="Filters"/> narrows on, and a filter whose effect never
+    /// shows on a row is one a person cannot tell took from one that silently
+    /// did not. They are the tracker's own filing, not the work's content.
     /// </para>
     /// <para>
     /// <c>Url</c> is what makes a listing actionable without this binary
@@ -75,8 +81,53 @@ public static class BrowseTool
         /// <summary>When it last changed, so a listing can be ordered.</summary>
         public const string Updated = "updated";
 
-        /// <summary>All five, for a reader asserting it answers them.</summary>
-        public static IReadOnlyList<string> All { get; } = [Id, Title, State, Url, Updated];
+        /// <summary>Where the tracker files it, or absent where it says nothing.</summary>
+        public const string AreaPath = "areaPath";
+
+        /// <summary>The sprint it is in, or absent where the tracker says nothing.</summary>
+        public const string Iteration = "iteration";
+
+        /// <summary>All of them, for a reader asserting it answers them.</summary>
+        public static IReadOnlyList<string> All { get; } =
+            [Id, Title, State, Url, Updated, AreaPath, Iteration];
+    }
+
+    /// <summary>
+    /// What a caller may narrow a listing by.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The argument is spelled the way the column is.</b> A caller filtering
+    /// on <c>areaPath</c> and reading a column called something else would have
+    /// to be told they are the same thing, and every third party implementing
+    /// this reader would have to be told twice - so two of these three ARE the
+    /// field names, structurally and not by coincidence.
+    /// </para>
+    /// <para>
+    /// <b>States is a set, and is the one that is not a column.</b> A person
+    /// wants Active and Resolved together; a single string would need a
+    /// separator that everybody implementing this has to agree on, and the
+    /// first team whose state has a comma in it would find out it was wrong.
+    /// </para>
+    /// <para>
+    /// <b>Every one is optional, and absent means "do not narrow".</b> Not
+    /// "match nothing": a reader handed an empty area path would reasonably
+    /// answer the items filed nowhere, which is none of them.
+    /// </para>
+    /// </remarks>
+    public static class Filters
+    {
+        /// <summary>Optional. Items filed anywhere beneath this path.</summary>
+        public const string AreaPath = Fields.AreaPath;
+
+        /// <summary>Optional. Items in this sprint, and not in the ones under it.</summary>
+        public const string Iteration = Fields.Iteration;
+
+        /// <summary>Optional. An array of states, REPLACING whatever the default is.</summary>
+        public const string States = "states";
+
+        /// <summary>All three, for a reader declaring them or a caller checking.</summary>
+        public static IReadOnlyList<string> All { get; } = [AreaPath, Iteration, States];
     }
 
     /// <summary>
@@ -118,6 +169,43 @@ public static class BrowseTool
     public static bool IsBrowsable(IReadOnlyList<string>? declaredTools) =>
         declaredTools is not null
         && declaredTools.Contains(Name, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether a browse tool declaring these argument names can be narrowed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read from the schema <c>tools/list</c> already returns, not probed.</b>
+    /// Calling with an argument a tool never declared to find out whether it
+    /// takes it costs a round trip whose failure is an unfiltered page nobody
+    /// can tell apart from a filtered one.
+    /// </para>
+    /// <para>
+    /// <b>All three or none.</b> A reader that took the area path and ignored
+    /// the sprint would answer a list narrower than everything and wider than
+    /// what was asked for, with nothing on screen able to say which - and the
+    /// point of asking first is to never draw that list.
+    /// </para>
+    /// </remarks>
+    public static bool CanFilter(IReadOnlyList<string>? declaredArguments) =>
+        declaredArguments is not null
+        && Filters.All.All(name => declaredArguments.Contains(name, StringComparer.Ordinal));
+
+    /// <summary>
+    /// What to tell a person whose reader can be browsed but not narrowed.
+    /// </summary>
+    /// <remarks>
+    /// It names the arguments, because the person reading it is usually the
+    /// operator who installed the reader and those are what they would add. It
+    /// also says what still works: an unfiltered list is what browsing has
+    /// always been, and silence here reads as a reader that is broken rather
+    /// than one that is narrower than this pane wants.
+    /// </remarks>
+    public static string NotFilterable(string providerKey) =>
+        $"The reader for '{providerKey}' declares '{Name}' without "
+      + string.Join(", ", Filters.All.Select(name => $"'{name}'"))
+      + ", so it cannot narrow a listing. Browse it without a filter, or point at a reader "
+      + "whose tool declares those arguments.";
 
     /// <summary>
     /// What to tell a person whose reader cannot be browsed.

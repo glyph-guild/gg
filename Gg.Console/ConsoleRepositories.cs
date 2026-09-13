@@ -21,6 +21,30 @@ namespace Gg.Console;
 /// </remarks>
 public static class ConsoleRepositories
 {
+    /// <summary>
+    /// Reads now, and answers with a fold for whatever state is live later.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="ConsoleEstate.Patch"/>'s shape and its reason.</b> This is
+    /// called inside the composition root's <c>Task.Run</c>; the arm used to
+    /// answer with a lambda that had read nothing, and the reading then
+    /// happened on the UI thread.
+    /// </remarks>
+    public static Func<AppState, AppState> Patch(ConsoleData data, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var read = Read(data, state);
+
+        return current => current with
+        {
+            Repositories = read.Repositories,
+            RepositorySelected = read.RepositorySelected,
+            Diagnosis = read.Diagnosis,
+        };
+    }
+
     public static AppState Read(ConsoleData data, AppState state)
     {
         ArgumentNullException.ThrowIfNull(data);

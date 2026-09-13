@@ -221,7 +221,7 @@ internal static class ConsoleDoubles
         internal List<string?> Kinds { get; } = [];
 
         /// <summary>Every pasted intent, with the repository it named.</summary>
-        internal List<(string Intent, string? Repository)> Intents { get; } = [];
+        internal List<(string Intent, string? Repository, string? WorkKind)> Intents { get; } = [];
 
         /// <summary>Every gate answered, in order.</summary>
         internal List<(string Flight, string Obligation, bool Approved, string? Reason)> Decided
@@ -252,10 +252,11 @@ internal static class ConsoleDoubles
             return "recorded";
         }
 
-        public string Fly(string intent, string? repository)
+        public string Fly(string intent, string? repository, string? workKind)
         {
             Pasted.Add(intent);
-            Intents.Add((intent, repository));
+            Intents.Add((intent, repository, workKind));
+            Kinds.Add(workKind);
 
             return refusing ? "Nothing was opened — the control plane could not be reached." : "opened";
         }

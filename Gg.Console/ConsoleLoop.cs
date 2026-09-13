@@ -1076,7 +1076,7 @@ public sealed class ConsoleLoop(
                 // THE CHOSEN REPOSITORY CROSSES ON BOTH DOORS. A setting that
                 // worked depending on whether you pasted or picked would be
                 // worse than no setting.
-                : actions.Fly(intent, state.ChosenRepository),
+                : actions.Fly(intent, state.ChosenRepository, WorkKinds.Picked(state)),
         };
     }
 

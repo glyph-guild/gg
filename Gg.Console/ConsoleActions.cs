@@ -58,7 +58,7 @@ public interface IConsoleActions
     /// The registered repository this flight is about, or null to let the
     /// envelope resolve it — which is what every flight does by default.
     /// </param>
-    string Fly(string intent, string? repository);
+    string Fly(string intent, string? repository, string? workKind);
 
     /// <summary>
     /// Open a flight for a work item somebody picked, by provider and id.

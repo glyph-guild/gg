@@ -37,22 +37,25 @@ public sealed class WatchedRunner(
     Func<DateTimeOffset> now) : IDisposable
 {
     private readonly Lock _gate = new();
-    private string? _flightId;
+
     private RemoteLiveSource? _source;
     private CancellationTokenSource? _stopping;
 
-    /// <summary>The buffer for a flight, or null when it is not the watched one.</summary>
+    /// <summary>The buffer being filled right now, or null when nothing is.</summary>
     /// <remarks>
-    /// <b>Null rather than an empty buffer</b>, because the composition root
-    /// falls back to the file for anything this does not answer for — and an
-    /// empty remote buffer in front of a local tail with lines in it is a pane
-    /// that went blank for a flight it could see perfectly well.
+    /// <b>Asked for rather than remembered.</b> Pressing the key again stops
+    /// the old conversation and makes a NEW buffer, so a pane holding the
+    /// previous one draws a source nothing is filling and says nothing about
+    /// it. Null rather than an empty buffer, because the pane falls back to a
+    /// local file for anything this does not answer for - and an empty remote
+    /// buffer in front of a tail with lines in it is a pane that went blank for
+    /// a flight it could see perfectly well.
     /// </remarks>
-    public ILiveSource? SourceFor(string flightId)
+    public ILiveSource? Current()
     {
         lock (_gate)
         {
-            return string.Equals(_flightId, flightId, StringComparison.Ordinal) ? _source : null;
+            return _source;
         }
     }
 
@@ -65,7 +68,7 @@ public sealed class WatchedRunner(
     /// heartbeat interval, and the caller has steps to print meanwhile — see
     /// <see cref="Opened"/> for the wait.
     /// </remarks>
-    public void Start(string runnerId, string flightId)
+    public void Start(string runnerId)
     {
         Stop();
 
@@ -77,7 +80,6 @@ public sealed class WatchedRunner(
 
         lock (_gate)
         {
-            _flightId = flightId;
             _source = source;
             _stopping = stopping;
             _open = open;
@@ -170,7 +172,6 @@ public sealed class WatchedRunner(
             source = _source;
             _stopping = null;
             _source = null;
-            _flightId = null;
             _open = null;
         }
 

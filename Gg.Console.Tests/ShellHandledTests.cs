@@ -88,7 +88,7 @@ public class ShellHandledTests
                           {
                               SignInStarted = started,
                               RunnerIsOurs = ours,
-                              RunnerIsFlying = flying,
+                              RunnerIsBeating = flying,
                           }
                           from binding in Keymap.Bindings(context)
                           select binding.Command)

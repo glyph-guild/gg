@@ -126,16 +126,21 @@ public readonly record struct KeymapContext(
     public bool FleetAllowancesOffered { get; init; }
 
     /// <summary>
-    /// Whether the runner the cursor is on is flying something.
+    /// Whether the runner the cursor is on is beating.
     /// </summary>
     /// <remarks>
-    /// <b>What decides whether watching is offered at all.</b> A channel to a
-    /// runner exists only while a flight does - which is what stops it being a
-    /// standing way in - so on an idle machine the key would be one that always
-    /// fails. The modal's text still names the capability there, because a
-    /// person who never sees it never learns it exists.
+    /// <b>What decides whether watching is offered at all.</b> It used to ask
+    /// whether the runner was FLYING, which was the same question while a
+    /// channel existed only for a flight - and withheld the key in the one
+    /// state a person most wants to attach in, which is a machine waiting for
+    /// work.
+    /// <para>
+    /// <b>Beating is what is actually required.</b> An introduction is picked up
+    /// on a heartbeat, so a runner that is not beating never sees one and the
+    /// console would sit out its whole life to learn nothing.
+    /// </para>
     /// </remarks>
-    public bool RunnerIsFlying { get; init; }
+    public bool RunnerIsBeating { get; init; }
 
     /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
@@ -208,10 +213,11 @@ public readonly record struct KeymapContext(
             // way to stop something that is starting badly.
             RunnerIsOurs = Rows.Selected(state) is not { Mine: false },
 
-            // WHETHER THERE IS ANYTHING TO WATCH. Derived here with the rest,
+            // WHETHER THERE IS ANYTHING TO REACH. Derived here with the rest,
             // so the hint line and the dispatch cannot disagree about whether
             // the key is live.
-            RunnerIsFlying = Rows.Selected(state) is { Work.Length: > 0 },
+            RunnerIsBeating = Rows.Selected(state) is { } watchable
+                && !watchable.State.StartsWith(Gg.Contracts.RunnerStates.Offline, StringComparison.Ordinal),
 
             // WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM. Yours rather
             // than Mine: an allowance belongs to the people who registered the
@@ -381,12 +387,12 @@ public static class Keymap
         new(KeyStroke.Char('v'), Command.NextRunnerView, "next view");
 
     private static IReadOnlyList<KeyBinding> Watching(KeymapContext context) =>
-        context.RunnerIsFlying
+        context.RunnerIsBeating
             ?
             [
-                new(KeyStroke.Char('w'), Command.WatchRunner, "watch what it is flying")
+                new(KeyStroke.Char('w'), Command.WatchRunner, "watch this runner")
                 {
-                    When = "while it is flying something",
+                    When = "while it is beating",
                 },
             ]
             : [];
@@ -1278,12 +1284,12 @@ public static class Keymap
         // sets of keys behind one mode. Left out, `x shut it down` would appear
         // on the help page unconditionally while resolving in only one of them.
         from runnerIsOurs in (bool[])[false, true]
-        // AND WHETHER THERE IS ANYTHING TO WATCH, which is a third set of keys
-        // behind the same mode. Left out, `w watch what it is flying` resolved
-        // over a flying runner and appeared on no page - the sign-in modal's
-        // defect exactly, one modal over, which is what a catalogue built by
+        // AND WHETHER THERE IS ANYTHING TO REACH, which is a third set of keys
+        // behind the same mode. Left out, `w watch this runner` resolved over a
+        // beating runner and appeared on no page - the sign-in modal's defect
+        // exactly, one modal over, which is what a catalogue built by
         // enumeration rather than by hand is for.
-        from runnerIsFlying in (bool[])[false, true]
+        from runnerIsBeating in (bool[])[false, true]
         // AND WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM, for the reason
         // the three clauses above it each record: a flag the bindings branch on
         // and this product leaves out is a key that resolves in the running
@@ -1311,7 +1317,7 @@ public static class Keymap
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,
-            RunnerIsFlying = runnerIsFlying,
+            RunnerIsBeating = runnerIsBeating,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
         };

@@ -61,7 +61,7 @@ public class HelpNamesEveryKeyTests
         // is left out of it" and RunnerIsOurs was left out of it - counted by
         // the ratchet below, never crossed here, so every context this produced
         // was over somebody else's runner and the two keys that need a pidfile
-        // were invisible to the completeness check. Adding RunnerIsFlying is
+        // were invisible to the completeness check. Adding RunnerIsBeating is
         // what made that visible.
         from ours in (bool[])[false, true]
         from flying in (bool[])[false, true]
@@ -91,7 +91,7 @@ public class HelpNamesEveryKeyTests
         {
             SignInStarted = started,
             RunnerIsOurs = ours,
-            RunnerIsFlying = flying,
+            RunnerIsBeating = flying,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
             Refresh = refresh,

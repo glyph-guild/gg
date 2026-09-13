@@ -1017,6 +1017,27 @@ public sealed record AppState
     public string? WatchedFlightId { get; init; }
 
     /// <summary>
+    /// The runner the live pane is drawing, when a person attached to a machine
+    /// rather than to a flight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A watch is the MACHINE's, because there may be no flight yet.</b>
+    /// Attaching to a runner that is waiting is the whole point - it is how a
+    /// person sees work arrive - and there is nothing to name at the moment they
+    /// press the key. What the runner answers about is whatever it is on, so the
+    /// pane follows the machine and the machine follows the work.
+    /// </para>
+    /// <para>
+    /// <b>Beside <see cref="WatchedFlightId"/> rather than instead of it.</b>
+    /// They are different bindings: one is a file this console tails on its own
+    /// disk, the other is a conversation with another machine. Both are null in
+    /// the ordinary case, which still means "follow the cursor".
+    /// </para>
+    /// </remarks>
+    public string? WatchedRunnerId { get; init; }
+
+    /// <summary>
     /// Whether a read this console asked for has not come back yet.
     /// </summary>
     /// <remarks>

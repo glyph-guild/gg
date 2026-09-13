@@ -343,15 +343,19 @@ public static class RunnerDetails
             // another explanation - six lines of prose in a box where a log
             // goes, for a machine that is usually sitting idle.
             //
-            // WHAT IT SAYS DEPENDS ON WHETHER THERE IS ANYTHING TO SAY. Idle,
-            // there is no log to fetch and nothing to watch, and everything
-            // after the first sentence is about something that is not
-            // happening. Flying, the one actionable thing is the key.
+            // WHAT IT SAYS DEPENDS ON WHETHER THERE IS ANYTHING TO SAY, and
+            // the idle half changed: there is something to do about an idle
+            // machine now. Attaching before there is anything to watch is how a
+            // person sees work ARRIVE - it is the state the key was withheld in
+            // and the state it is most worth having in - so the sentence offers
+            // it rather than stopping at "nothing here".
             return (elsewhere.Work is { Length: > 0 } flying
                     ? $"No log is available here. It is flying {flying} - press {WatchKey()} "
                     + "to watch what it is saying, over a channel this control plane relays "
                     + "and cannot read."
-                    : "No log is available when idle.")
+                    : $"No log is available when idle. Press {WatchKey()} to watch this "
+                    + "machine anyway: it says what it is doing while it waits, and what it "
+                    + "flies next appears as it arrives.")
                  + Suggestion(elsewhere);
         }
 

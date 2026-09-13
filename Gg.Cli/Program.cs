@@ -1166,13 +1166,18 @@ static async Task<int> LaunchConsoleAsync()
             .ContinueWith(done => done.Result.Said, TaskScheduler.Default),
         () => DateTimeOffset.UtcNow);
 
-    // THE WATCHED FLIGHT FIRST, THEN THE FILE. A runner on this machine writes
+    // THE WATCHED MACHINE FIRST, THEN THE FILE. A runner on this machine writes
     // its live view here and a fleet runner writes it on the fleet host, so the
-    // two sources answer the same question about different flights - and the
+    // two sources answer the same question from different places - and the
     // fallback is what keeps every flight that is NOT being watched drawing
     // exactly as it did.
-    var tails = new LiveTails(flightId =>
-        watched.SourceFor(flightId) ?? new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)));
+    //
+    // TWO ARGUMENTS BECAUSE THEY ARE REMEMBERED DIFFERENTLY. A file tail holds
+    // an offset that must survive a session rebuild; a watched machine's buffer
+    // belongs to its conversation, and pressing the key again makes a new one.
+    var tails = new LiveTails(
+        flightId => new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)),
+        watched.Current);
 
     // THE RUNNER THIS CONSOLE MAY START, and the log it writes. The handle on
     // the child is owned here, outside every UI lifetime, for the reason the
@@ -1468,9 +1473,9 @@ static async Task<int> LaunchConsoleAsync()
         // reason if it fails, arrives in the pane.
         watchRunner: current => Gg.Console.ConsoleWatchRunner.Watch(
             current,
-            start: (runnerId, flightId) =>
+            start: runnerId =>
             {
-                watched.Start(runnerId, flightId);
+                watched.Start(runnerId);
                 return true;
             }),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.

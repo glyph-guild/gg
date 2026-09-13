@@ -3106,7 +3106,11 @@ public sealed class ConsoleScreen : Window
         // on the terminal, and what goes in it depends on the model; the view
         // owns exactly the first half. Viewport is zero before the first
         // layout, and a width of zero means wrap nothing.
-        var width = _flightLog.Viewport.Width;
+        // THE WIDTH THAT LEAVES THE BAR ROOM, not the viewport's. The bar
+        // draws over the last column, so wrapping to the full width hides the
+        // last character of the longest line - which is the one somebody
+        // opened the row to read.
+        var width = CollectionViews.TextWidth(_flightLog);
         var shown = Rows.Unwrapped(log, State.LogSelected, Rows.DetailWidth(log, width));
 
         var showing = (State.Story?.FlightId ?? "", shown.Count, State.LogSelected, width);
@@ -3244,7 +3248,8 @@ public sealed class ConsoleScreen : Window
 
         var log = Rows.Log(State);
         var shown = Rows.Unwrapped(
-            log, State.LogSelected, Rows.DetailWidth(log, _flightLog.Viewport.Width));
+            log, State.LogSelected,
+            Rows.DetailWidth(log, CollectionViews.TextWidth(_flightLog)));
 
         var row = selection.SelectedCell.Y;
 

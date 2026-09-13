@@ -97,11 +97,44 @@ public static class CollectionViews
     {
         ArgumentNullException.ThrowIfNull(list);
 
-        var bar = list.VerticalScrollBar.VisibilityMode
-            is ScrollBarVisibilityMode.Auto or ScrollBarVisibilityMode.Always;
-
-        return Math.Max(20, list.Viewport.Width - (bar ? 1 : 0));
+        return TextWidth(list.Viewport.Width, list.VerticalScrollBar.VisibilityMode);
     }
+
+    /// <summary>
+    /// How wide the text in one of these tables may be.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same arithmetic as the list's, for the same measured reason</b> —
+    /// the bar draws inside the viewport over the last column. The flight log
+    /// wraps its detail column to whatever it is told, so a width counting the
+    /// bar's column puts the last character of the longest line underneath it,
+    /// and the failure is silent: the text is simply one character short.
+    /// </remarks>
+    public static int TextWidth(TableView table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        return TextWidth(table.Viewport.Width, table.VerticalScrollBar.VisibilityMode);
+    }
+
+    /// <summary>
+    /// The width, minus the bar's column when there is one.
+    /// </summary>
+    /// <remarks>
+    /// <b>One rule for both widgets rather than two that agree today.</b> The
+    /// list had this arithmetic first and the table now needs the same answer;
+    /// two copies is how they come to disagree by a column the day one of them
+    /// changes.
+    /// </remarks>
+    private static int TextWidth(int width, ScrollBarVisibilityMode bar) =>
+        Math.Max(
+            // NEVER LESS THAN A PHRASE. A viewport is zero wide before
+            // Terminal.Gui has laid anything out, and wrapping to zero or to
+            // one is a column of single letters rather than a page.
+            20,
+            width - (bar is ScrollBarVisibilityMode.Auto or ScrollBarVisibilityMode.Always
+                ? 1
+                : 0));
 
     /// <summary>
     /// One of the three tabs that are tables.
@@ -240,6 +273,20 @@ public static class CollectionViews
         };
 
         table.CollectionNavigator = null;
+
+        // AUTO, WHICH IS Document()'S ARGUMENT ABOUT A LIST APPLIED TO A TABLE.
+        // Without a bar a full box and a longer one look exactly alike, and
+        // every table here is a box somebody scrolls: a queue, a fleet, a
+        // flight log, a changeset. Auto rather than Always so the bar is a fact
+        // about the rows - a table that fits keeps its whole width.
+        table.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
+
+        // AND NO HORIZONTAL ONE, on the strength of ExpandLastColumn above:
+        // these tables fill the width they are given, so there is nothing off
+        // to the right to reach and a bar would spend a row of the box saying
+        // so. Left at whatever Terminal.Gui calls hidden rather than named -
+        // ATableSaysThereIsMoreTests holds that neither mode which DRAWS one is
+        // set, which survives the constant being renamed.
 
         return table;
     }

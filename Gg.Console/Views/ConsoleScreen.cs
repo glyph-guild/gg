@@ -2420,7 +2420,7 @@ public sealed class ConsoleScreen : Window
 
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,
-                r => [r.Id, r.State, r.Title]);
+                r => [r.Id, r.State, r.Where ?? "", r.Title]);
 
             Fill(_repositoriesTable, null, Rows.Repositories(State), Rows.RepositoryColumns,
                 State.RepositorySelected,

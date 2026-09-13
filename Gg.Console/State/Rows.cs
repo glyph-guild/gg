@@ -142,7 +142,18 @@ public static class Rows
     public static IReadOnlyList<string> FlightColumns { get; } =
         ["flight", "state", "loop", "age", "work"];
 
-    public static IReadOnlyList<string> BrowseColumns { get; } = ["item", "state", "title"];
+    /// <summary>
+    /// What a person reads down each column of the work list.
+    /// </summary>
+    /// <remarks>
+    /// <b>Where it is filed is a column because it is what a filter narrows
+    /// on.</b> A person who narrows to a team and is shown the same
+    /// undifferentiated list cannot tell a filter that took from one that did
+    /// not - and with no filter at all it is the fastest way to see which part
+    /// of a project the backlog is actually in.
+    /// </remarks>
+    public static IReadOnlyList<string> BrowseColumns { get; } =
+        ["item", "state", "where", "title"];
 
     /// <summary>
     /// The log's columns, inside the flight modal rather than on a tab.

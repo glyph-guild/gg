@@ -34,6 +34,24 @@ public sealed record BrowseRow
 
     /// <summary>Where a person would go to read it, or null where the reader gave none.</summary>
     public string? Url { get; init; }
+
+    /// <summary>
+    /// Where the tracker files it, as the leaf of the path.
+    /// </summary>
+    /// <remarks>
+    /// <b>The leaf, not the whole path.</b> Every row of one project shares the
+    /// root, so a column holding the full path is a column of one repeated word
+    /// with the part that differs pushed off the right-hand edge.
+    /// </remarks>
+    public string? Where { get; init; }
+
+    /// <summary>The sprint it is in, or null where the tracker said nothing.</summary>
+    /// <remarks>
+    /// Carried rather than drawn. It is the second thing a filter narrows on,
+    /// and a value that crosses the wire and stops at this boundary is one
+    /// assembled and discarded.
+    /// </remarks>
+    public string? Sprint { get; init; }
 }
 
 /// <summary>
@@ -65,6 +83,18 @@ public sealed record BrowseListing
 
     /// <summary>Why there are no items, already worded, or null.</summary>
     public string? Absence { get; init; }
+
+    /// <summary>
+    /// What these rows were narrowed by, or null where nobody narrowed.
+    /// </summary>
+    /// <remarks>
+    /// <b>What the ROWS came from, and not what is picked now.</b> Picking and
+    /// browsing are two keystrokes, so between them what is on screen is older
+    /// than what is in hand; a pane that read the picks would name a filter
+    /// over a listing nobody had fetched with it. Recorded when the answer
+    /// arrived, which is the only moment the two are the same.
+    /// </remarks>
+    public string? FilterSaid { get; init; }
 }
 
 /// <summary>

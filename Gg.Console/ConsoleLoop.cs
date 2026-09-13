@@ -1421,7 +1421,8 @@ public sealed class ConsoleLoop(
                 state, key,
                 browser.BrowseAsync(
                     cursor: null, limit: 50, Narrowing(state), CancellationToken.None)
-                    .GetAwaiter().GetResult());
+                    .GetAwaiter().GetResult(),
+                BrowseFilters.Said(state));
         }
         catch (Exception problem) when (problem is not OperationCanceledException)
         {

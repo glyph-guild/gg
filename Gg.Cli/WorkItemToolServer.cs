@@ -195,6 +195,25 @@ public static class WorkItemToolServer
             writer.WriteEndObject();
 
             writer.WriteStartObject();
+            writer.WriteString("name", Gg.Local.ItemTool.HistoryName);
+            writer.WriteString("description",
+                "What has happened to one work item: its state changes, who made them, and "
+              + "anything said about it. Use this to find out what has already been tried.");
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteStartObject("id");
+            writer.WriteString("type", "string");
+            writer.WriteString("description", "The work item's numeric id.");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteStringValue("id");
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
+            writer.WriteStartObject();
             writer.WriteString("name", BrowseTool.Name);
             writer.WriteString("description",
                 "List work items to choose from: id, title, state, url and when each last "
@@ -251,6 +270,8 @@ public static class WorkItemToolServer
             return name switch
             {
                 ReadName => await ReadAsync(id, arguments, source, cancellationToken),
+                Gg.Local.ItemTool.HistoryName =>
+                    await HistoryAsync(id, arguments, source, cancellationToken),
                 BrowseTool.Name => await BrowseAsync(id, arguments, source, cancellationToken),
                 _ => Error(id, -32602,
                     $"'{name}' is not a tool this server has. It has {ReadName} and "
@@ -285,6 +306,37 @@ public static class WorkItemToolServer
         return item is null
             ? Failed(id, $"There is no work item {wanted} at this tracker.")
             : Content(id, Rendered(item));
+    }
+
+    /// <summary>
+    /// What has happened to one item, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// <b>One line per change, in the order they happened.</b> A history is read
+    /// top to bottom and the tracker already put it in an order; renumbering or
+    /// grouping it here would be this server having an opinion about somebody
+    /// else's record.
+    /// </remarks>
+    private static async Task<string> HistoryAsync(
+        JsonElement id, JsonElement arguments, IWorkItemSource source,
+        CancellationToken cancellationToken)
+    {
+        var wanted = arguments.ValueKind == JsonValueKind.Object
+                  && arguments.TryGetProperty(Gg.Local.ItemTool.Id, out var given)
+            ? Text(given)
+            : null;
+
+        if (string.IsNullOrWhiteSpace(wanted))
+        {
+            return Failed(id, "This tool needs the work item's id, and none was given.");
+        }
+
+        var changes = await source.HistoryAsync(wanted, cancellationToken);
+
+        return Content(id, changes.Count == 0
+            ? "Nothing has happened to this item yet."
+            : string.Join('\n', changes.Select(change =>
+                $"{change.When:yyyy-MM-dd HH:mm}  {change.Who}  {change.What}")));
     }
 
     private static async Task<string> BrowseAsync(

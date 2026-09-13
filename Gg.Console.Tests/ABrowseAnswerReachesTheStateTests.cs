@@ -48,18 +48,32 @@ public class ABrowseAnswerReachesTheStateTests
     }
 
     [Test]
-    public async Task The_url_does_not_cross_into_the_state()
+    public async Task The_url_crosses_now_and_still_never_becomes_an_intent()
     {
-        // A flight is opened from a provider and an id, never parsed out of a
-        // url - FlightIntent.Id's own rule - so carrying one would be a
-        // customer string in the dump that no reader of the screen wants.
+        // THIS ASSERTED THE OPPOSITE, and the reason it gave was "a customer
+        // string in the dump that no reader of the screen wants". The first
+        // half is still true and the second half stopped being: the detail
+        // modal offers to open the item where it lives, which is a reader, and
+        // pulling a link back out of a reader's prose would be parsing
+        // something nobody promised.
+        //
+        // WHAT HAS NOT CHANGED is the rule that mattered. A flight is opened
+        // from a provider and an id, never parsed out of a url - FlightIntent.Id's
+        // own rule - and this is only ever handed to a browser.
         var state = Reducer.Browsed(
             new AppState(), "a-tracker", new BrowseOutcome.Listed(APage()));
 
-        var written = System.Text.Json.JsonSerializer.Serialize(
-            state, AppStateJsonContext.Default.AppState);
+        await Assert.That(state.Browse!.Items[0].Url).IsNotNull()
+            .Because("the key that opens it has to have somewhere to open.");
 
-        await Assert.That(written).DoesNotContain("_workitems/edit");
+        var flying = new ConsoleDoubles.Records();
+
+        _ = ConsoleLoop.FlewPicked(state with { BrowseVisible = true }, flying);
+
+        await Assert.That(flying.Tickets).Count().IsEqualTo(1);
+        await Assert.That(flying.Tickets[0].Id).DoesNotContain("http")
+            .Because("what opens a flight is the id the tracker gave, and a url reaching "
+                   + "that argument is the parse this rule exists to prevent.");
     }
 
     [Test]

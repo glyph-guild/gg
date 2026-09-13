@@ -33,6 +33,9 @@ public interface IWorkBrowser
     /// means something else there.
     /// </remarks>
     Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken);
+
+    /// <summary>What has happened to one item, in the reader's own words.</summary>
+    Task<ItemOutcome> HistoryAsync(string id, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -78,5 +81,16 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
         }
 
         return await reader.ReadAsync(id, cancellationToken);
+    }
+
+    public async Task<ItemOutcome> HistoryAsync(string id, CancellationToken cancellationToken)
+    {
+        if (Key is not { } key || _readers.For(key) is not { } reader)
+        {
+            return new ItemOutcome.Nothing(
+                "No tracker is configured to read work items on this machine.");
+        }
+
+        return await reader.HistoryAsync(id, cancellationToken);
     }
 }

@@ -34,6 +34,19 @@ public static class ItemTool
     /// </remarks>
     public const string Name = "get_work_item";
 
+    /// <summary>
+    /// The tool that answers what has HAPPENED to one item.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second verb rather than more of the first.</b> What
+    /// <see cref="Name"/> answers is described to an agent as an item's type,
+    /// state, title, description and acceptance criteria, and widening that
+    /// rendering would change what every agent already reading it sees. A
+    /// history is a different question, so it is a different tool - and a reader
+    /// that does not declare it still answers the first one.
+    /// </remarks>
+    public const string HistoryName = "get_work_item_history";
+
     /// <summary>What the caller names the item by.</summary>
     /// <remarks>
     /// <b>The tracker's own identifier, exactly as a listing spelled it.</b> A
@@ -54,6 +67,16 @@ public static class ItemTool
     public static bool IsReadable(IReadOnlyList<string>? declaredTools) =>
         declaredTools is not null
         && declaredTools.Contains(Name, StringComparer.Ordinal);
+
+    /// <summary>Whether a reader that listed these tools can answer a history.</summary>
+    public static bool HasHistory(IReadOnlyList<string>? declaredTools) =>
+        declaredTools is not null
+        && declaredTools.Contains(HistoryName, StringComparer.Ordinal);
+
+    /// <summary>What to tell a person whose reader cannot answer a history.</summary>
+    public static string NoHistory(string providerKey) =>
+        $"The reader for '{providerKey}' does not declare '{HistoryName}', so what has "
+      + "happened to this item can only be read at the tracker.";
 
     /// <summary>What to tell a person whose reader cannot answer about one item.</summary>
     /// <remarks>

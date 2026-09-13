@@ -596,6 +596,18 @@ public enum Command
     /// </remarks>
     ShowWorkItem,
 
+    /// <summary>
+    /// Open the work item where it lives.
+    /// </summary>
+    /// <remarks>
+    /// <b>A tracker holds more than a reader renders.</b> Attachments, links,
+    /// the people on it, the thing somebody dragged into a comment - a console
+    /// that showed a rendering and offered no way out would be asking a person
+    /// to believe the rendering is all of it. It spawns a browser, so it is the
+    /// shell's, exactly as the sign-in link beside it is.
+    /// </remarks>
+    OpenWorkItem,
+
     /// <summary>Shows or hides every allowance in the fleet.</summary>
     ToggleAllowances,
 
@@ -830,6 +842,7 @@ public static class ShellCommands
         // environment as listing them does; that it fetches less is not a
         // difference the rule turns on.
         Command.ShowWorkItem,
+        Command.OpenWorkItem,
 
         Command.ForgetCredential,
 

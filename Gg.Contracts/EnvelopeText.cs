@@ -130,9 +130,22 @@ public static class EnvelopeText
         // thing as a document declaring "no instructions on purpose". So empty
         // and missing collapse deliberately here, which is what keeps every
         // envelope written before this field rendering byte-for-byte unchanged.
+        // AS WRITTEN, AND THIS IS THE ONE SEQUENCE THAT IS. Everything else an
+        // envelope carries in a list is a SET of names - accepts, produces,
+        // moves, discharges, requires, may-write - where two documents naming
+        // the same things are the same document, and sorting is what makes
+        // their bytes agree. Instructions are prose, read in order by the agent
+        // that receives them: RenderInstructions iterates the model and sorts
+        // nothing, so an emitter that sorted here showed a person an order
+        // their work would never be governed by.
+        //
+        // It is also the property `Append` exists to protect. Instructions
+        // compose by appending rather than by union precisely because "root's
+        // guidance then the work kind's reads differently from the reverse" -
+        // and sorting inside a layer gave that up one level down.
         if (envelope.Instructions.Count > 0)
         {
-            Sequence(text, "instructions", [.. envelope.Instructions.Select(i => i.Text)], depth: 0);
+            AsWritten(text, "instructions", [.. envelope.Instructions.Select(i => i.Text)], depth: 0);
         }
 
         text.Append("obligations:\n");
@@ -560,7 +573,26 @@ public static class EnvelopeText
         Sequence(text, key, values, depth: 0);
     }
 
-    private static void Sequence(StringBuilder text, string key, IReadOnlyList<string> values, int depth)
+    /// <summary>A set of values, ordered so that two equal sets render alike.</summary>
+    private static void Sequence(StringBuilder text, string key, IReadOnlyList<string> values, int depth) =>
+        Emit(text, key, [.. values.OrderBy(v => v, StringComparer.Ordinal)], depth);
+
+    /// <summary>
+    /// A sequence whose order is part of what it says.
+    /// </summary>
+    /// <remarks>
+    /// <b>The exception, and it is one field.</b> Sorting is right for a set of
+    /// names: two documents naming the same things are the same document, and
+    /// a version derived from these bytes should move when the rules move and
+    /// not when two lines were swapped in an editor. It is wrong wherever a
+    /// reader consumes the order — for instructions the lines ARE the rules,
+    /// and swapping two of them changes what an agent is told. Anything else
+    /// wanting this has to argue its own case rather than inherit this one.
+    /// </remarks>
+    private static void AsWritten(StringBuilder text, string key, IReadOnlyList<string> values, int depth) =>
+        Emit(text, key, values, depth);
+
+    private static void Emit(StringBuilder text, string key, IReadOnlyList<string> values, int depth)
     {
         var pad = string.Concat(Enumerable.Repeat(Indent, depth));
 
@@ -571,7 +603,7 @@ public static class EnvelopeText
         }
 
         text.Append($"{pad}{key}:\n");
-        foreach (var value in values.OrderBy(v => v, StringComparer.Ordinal))
+        foreach (var value in values)
         {
             text.Append($"{pad}{Indent}- {Scalar(value)}\n");
         }

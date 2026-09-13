@@ -953,6 +953,14 @@ public static class VerbOutput
             + "somebody runs `gg config accept`\n"
             : "offers  no configuration offered by a control plane is accepted here\n");
 
+        // AND WHO MAY PUT A SECRET ON IT, which is the same question about a
+        // different thing and so is answered in the same place, the same way,
+        // whichever way it reads.
+        text.Append(view.AcceptsConfigured
+            ? "secrets a credential may be placed on this machine over an "
+            + "introduced channel, while a flight is in the air\n"
+            : "secrets no credential may be placed on this machine\n");
+
         text.Append('\n');
 
         var width = view.Settings.Max(s => s.Name.Length);

@@ -37,12 +37,20 @@ public class AModalHearsItsOwnKeysTests
 
         await Assert.That(screen).Contains("_modal.KeyDown +=")
             .Because("the screen's handler is above the dialog, so a key the dialog gives its "
-                   + "own meaning to never gets there - which is what made enter do nothing "
-                   + "in every modal that binds it.");
+                   + "own meaning to never gets there.");
+
+        await Assert.That(screen).Contains("_modalBody.KeyDown +=")
+            .Because("and the BODY is the view that actually holds the keyboard - the label "
+                   + "is CanFocus, a dialog hands focus to its first focusable child, and a "
+                   + "key reaches the focused view first. Subscribing the dialog alone was "
+                   + "measured and did not fix it: with GG_KEYTRACE on, j and b arrived at "
+                   + "the dialog and enter arrived nowhere.");
 
         await Assert.That(screen).Contains("_modal.KeyDown -=")
             .Because("the screen is disposed and rebuilt on every terminal release, and a "
                    + "handler that is added and never removed is one per session.");
+
+        await Assert.That(screen).Contains("_modalBody.KeyDown -=");
     }
 
     [Test]

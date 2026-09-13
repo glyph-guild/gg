@@ -1190,6 +1190,21 @@ public sealed class ConsoleScreen : Window
         Add(_bar, _activity, _hints, _modal);
 
         KeyDown += OnScreenKeyDown;
+
+        // AND THE DIALOG, BELOW IT. A key travels from the focused view
+        // upwards, so while a modal has the keyboard the screen's handler is
+        // the LAST thing to see a key - and Terminal.Gui gives enter its own
+        // meaning on a Dialog, which means enter never arrived at all. Found in
+        // a pty: the filter modal's "pick this" resolved, reduced, and did
+        // nothing anybody could see.
+        _modal.KeyDown += OnModalKeyDown;
+
+        // AND THE BODY, WHICH IS THE ONE THAT ACTUALLY HAS THE KEYBOARD. The
+        // label is CanFocus, so a dialog handing focus to its first focusable
+        // child hands it here - and a key goes to the focused view first. That
+        // is where enter was being spent: traced, with GG_KEYTRACE, showing j
+        // and b arriving at the dialog and enter arriving nowhere at all.
+        _modalBody.KeyDown += OnModalKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
 
         Render();
@@ -2317,6 +2332,33 @@ public sealed class ConsoleScreen : Window
         }
     }
 
+    /// <summary>
+    /// The modal's own keys, taken before the dialog can mean something else by them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same keymap and the same dispatch as the screen's handler</b> -
+    /// deliberately, because what a key MEANS has one authority and this is
+    /// only about which view hears it first.
+    /// </para>
+    /// <para>
+    /// <b>Unresolved keys are left alone, unlike the airspace field's.</b> The
+    /// tables inside the flight and runner modals move their own cursors with
+    /// the arrows and the keymap binds none of those; swallowing here would
+    /// take the arrows off every list in a modal.
+    /// </para>
+    /// </remarks>
+    private void OnModalKeyDown(object? sender, Key key)
+    {
+        if (Keymap.Resolve(KeyTranslator.Translate(key), Context()) is not { } command)
+        {
+            return;
+        }
+
+        key.Handled = true;
+        Dispatch(command);
+    }
+
     private void OnScreenKeyDown(object? sender, Key key)
     {
         var stroke = KeyTranslator.Translate(key);
@@ -3429,6 +3471,8 @@ public sealed class ConsoleScreen : Window
         if (disposing)
         {
             KeyDown -= OnScreenKeyDown;
+            _modal.KeyDown -= OnModalKeyDown;
+            _modalBody.KeyDown -= OnModalKeyDown;
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;

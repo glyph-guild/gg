@@ -82,11 +82,42 @@ public sealed class Served : IDisposable
     private readonly RTCPeerConnection _peer;
     private readonly CancellationTokenSource _letGo = new();
 
-    internal Served(RTCPeerConnection peer, Task opened, TimeSpan arrivalBound)
+    internal Served(
+        RTCPeerConnection peer, Task opened, TimeSpan arrivalBound, DateTimeOffset answeredAt)
     {
         _peer = peer;
+        LastHeard = answeredAt;
         Opened = WaitAsync(peer, opened, arrivalBound, _letGo.Token);
     }
+
+    /// <summary>
+    /// When somebody last asked something on this channel.
+    /// </summary>
+    /// <remarks>
+    /// <b>Stamped on the answer and on every ask after it.</b> A watcher polls
+    /// once a second, so on a live conversation this is never more than a moment
+    /// old; on one whose console was killed it stops moving, which is the only
+    /// signal this side gets that nobody is there any more.
+    /// </remarks>
+    public DateTimeOffset LastHeard { get; private set; }
+
+    /// <summary>Records that something arrived on this channel.</summary>
+    internal void Heard(DateTimeOffset at) => LastHeard = at;
+
+    /// <summary>
+    /// Whether this conversation is over regardless of when it was last heard.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two endings that need no clock.</b> The handshake finished and said
+    /// nobody arrived, or the peer is no longer connected - and a peer nobody
+    /// ever reached must not be held for the quiet bound on top of the arrival
+    /// bound it already failed.
+    /// </remarks>
+    public bool Gone =>
+        (Opened.IsCompleted && Opened.Result is not HandshakeFailure.None)
+        || _peer.connectionState is RTCPeerConnectionState.closed
+            or RTCPeerConnectionState.failed
+            or RTCPeerConnectionState.disconnected;
 
     /// <summary>How it turned out: <c>None</c>, or why nobody arrived.</summary>
     /// <remarks>
@@ -151,8 +182,21 @@ public sealed class Served : IDisposable
 /// </para>
 /// </remarks>
 public sealed class RunnerChannel(
-    IReadOnlyList<string> stunServers, TimeSpan patience, TimeSpan? arrivalBound = null)
+    IReadOnlyList<string> stunServers,
+    TimeSpan patience,
+    TimeSpan? arrivalBound = null,
+    Func<DateTimeOffset>? now = null)
 {
+    /// <summary>
+    /// What time it is, for stamping when a conversation was last heard from.
+    /// </summary>
+    /// <remarks>
+    /// <b>Last and defaulted, because every existing caller passes
+    /// positionally.</b> A channel had no use for a clock until a conversation
+    /// could outlive the flight that opened it.
+    /// </remarks>
+    private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.UtcNow);
+
     /// <summary>
     /// How long a peer is held for a console that has not turned up.
     /// </summary>
@@ -222,6 +266,12 @@ public sealed class RunnerChannel(
         var opened = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
+        // STAMPED FROM INSIDE THE HANDLER, and assigned below. The handle does
+        // not exist yet when the handler is registered, and a closure over the
+        // variable is what lets the same message that is served also record
+        // that somebody is still there.
+        Served? serving = null;
+
         // ANSWERED, NEVER OPENED. The console creates the channel; this side
         // serves whatever arrives on it and can start nothing of its own.
         peer.ondatachannel += channel =>
@@ -233,6 +283,13 @@ public sealed class RunnerChannel(
                 // a channel that carried one was open, whatever any event did
                 // or did not say.
                 opened.TrySetResult(true);
+
+                // AND PROOF THAT SOMEBODY IS STILL THERE, which is what the
+                // quiet bound is measured from. A watcher polls once a second,
+                // so this moves constantly on a live conversation and stops the
+                // moment a console is closed or killed.
+                serving?.Heard(_now());
+
                 Serve(dispatch, channel, data);
             };
 
@@ -321,7 +378,7 @@ public sealed class RunnerChannel(
             // THE COUNTDOWN STARTS HERE rather than at the peer's creation,
             // because gathering has just spent some of the caller's patience and
             // the console has not been told anything yet.
-            new Served(peer, opened.Task, _arrivalBound));
+            serving = new Served(peer, opened.Task, _arrivalBound, _now()));
     }
 
     private static IReadOnlyList<string> Offered(List<string> gathered)

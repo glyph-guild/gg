@@ -505,12 +505,18 @@ public sealed class RunnerLoop(
             }
 
             // ON EVERY BEAT, FLYING OR IDLE, and that is the whole difference
-            // from the two above it. An introduction needs a lease to authorise
-            // it; an offer waits for idle because acting on one ends the
-            // process. A revoked credential is revoked while the machine is
-            // busy, and a runner that waited for a gap in its work would hold a
-            // live secret for exactly as long as it was useful to somebody.
+            // from the offer above it, which waits for idle because acting on
+            // one ends the process. A revoked credential is revoked while the
+            // machine is busy, and a runner that waited for a gap in its work
+            // would hold a live secret for exactly as long as it was useful to
+            // somebody.
             ForgetsWhatItIsTold.Apply(beat.Forget, forget);
+
+            // AND LET GO OF WHAT IS OVER, on the one clock this runner already
+            // turns. The bound a conversation has instead of a flight's landing
+            // is only real if something enforces it, and a beat happens whether
+            // or not anybody is watching - which is exactly the case that leaks.
+            attended?.ForgetTheQuiet(_clock.UtcNow);
 
             // WHAT THIS MACHINE HAS SPENT, beside the beat and never inside
             // it. The heartbeat is liveness only - a runner able to report

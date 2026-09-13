@@ -41,6 +41,9 @@ public static class FlightDetails
     /// </remarks>
     public const string LogTitle = "Log";
 
+    /// <summary>The pane beneath the log, which holds what a cell cannot.</summary>
+    public const string LogDetailTitle = "What it said";
+
     /// <summary>The title over the modal's second tab.</summary>
     public const string GateTitle = "Gate";
 
@@ -334,6 +337,78 @@ public static class FlightDetails
     }
 
     /// <summary>
+    /// What the entry under the cursor actually said, for the pane beneath the
+    /// table.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The half a table cannot hold.</b> A cell is one line and what a
+    /// runner writes is prose, often several lines of it - which is why the
+    /// log used to turn one entry into several rows to show it. Here it is
+    /// simply text in a pane, and the table goes back to one row per entry.
+    /// </para>
+    /// <para>
+    /// <b>Most entries have none, and that is a sentence rather than a
+    /// blank.</b> A pane that emptied on the common case would read as one
+    /// that failed to draw, which is the absence-versus-silence rule this
+    /// console keeps everywhere else.
+    /// </para>
+    /// </remarks>
+    public static string LogDetail(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (LogAbsence(state) is { Length: > 0 } absence)
+        {
+            return absence;
+        }
+
+        var rows = Rows.Log(state);
+
+        if (rows.Count == 0)
+        {
+            return NothingUnderTheCursor;
+        }
+
+        // CLAMPED, BECAUSE THE CURSOR OUTLIVES THE LIST. A story read again is
+        // a different length, and a cursor past the end would render nothing
+        // at all - which reads as a pane that broke rather than as a list that
+        // got shorter.
+        var entry = rows[Math.Clamp(state.LogSelected, 0, rows.Count - 1)];
+
+        return entry.Detail is { Length: > 0 } said
+            ? said
+            : NothingMoreWasSaid;
+    }
+
+    /// <summary>What the pane says when the entry under the cursor said nothing more.</summary>
+    internal const string NothingMoreWasSaid =
+        "This entry is the whole of what was recorded. Nothing further was written against it.";
+
+    /// <summary>What the pane says when there is no entry to be under.</summary>
+    internal const string NothingUnderTheCursor =
+        "Nothing is selected, because nothing has happened to this flight yet.";
+
+    /// <summary>The log, one line per entry, for the linear reading.</summary>
+    private static string LogLines(AppState state)
+    {
+        var text = new StringBuilder();
+
+        foreach (var row in Rows.Log(state))
+        {
+            var attempt = row.Attempt is { Length: > 0 } which ? $"#{which} " : "";
+            text.AppendLine($"    {row.Time}  {attempt}{row.Event}");
+
+            if (row.Detail is { Length: > 0 } detail)
+            {
+                text.AppendLine($"        {detail}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// Why the log is empty, or empty when it is not.
     /// </summary>
     /// <remarks>
@@ -403,24 +478,18 @@ public static class FlightDetails
             text.AppendLine($"  {field.Label,-10} {field.Value}");
         }
 
-        text.AppendLine();
-        text.AppendLine($"  {LogTitle}");
-
-        if (LogAbsence(state) is { Length: > 0 } absence)
+        // THE LOG IS NOT HERE ANY MORE. It has a tab, and drawing it in both
+        // places would put one fact on the screen twice - which is the thing a
+        // tab per question exists to stop. What this text is FOR is the
+        // linear reading of the tab a person is on, so it says where the log
+        // went rather than carrying it.
+        if (state.FlightTab is FlightTab.Log)
         {
-            text.AppendLine($"  {absence}");
-            return text.ToString().TrimEnd();
-        }
-
-        foreach (var row in Rows.Log(state))
-        {
-            var attempt = row.Attempt is { Length: > 0 } which ? $"#{which} " : "";
-            text.AppendLine($"    {row.Time}  {attempt}{row.Event}");
-
-            if (row.Detail is { Length: > 0 } detail)
-            {
-                text.AppendLine($"        {detail}");
-            }
+            text.AppendLine();
+            text.AppendLine($"  {LogTitle}");
+            text.AppendLine(LogAbsence(state) is { Length: > 0 } absence
+                ? $"  {absence}"
+                : LogLines(state));
         }
 
         return text.ToString().TrimEnd();

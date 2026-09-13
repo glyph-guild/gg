@@ -143,8 +143,19 @@ public class StoryFieldParityTests
     /// happened and never WHAT IT SAYS" - and the modal was doing exactly that,
     /// full screen, which is where somebody goes when the pane is not enough.
     /// </remarks>
-    private static string Modal(FlightStory story) =>
-        PaneText.Modal(new AppState
+    /// <summary>
+    /// The modal as a person reads it, which is every tab of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Joined, because the modal stopped being one pane.</b> The log has a
+    /// tab of its own now, so a single tab's text cannot carry every fact and
+    /// asserting against one would say the modal had lost what it had merely
+    /// moved. What this file is about is that nothing is dropped BETWEEN
+    /// surfaces; where a surface puts it is that surface's business.
+    /// </remarks>
+    private static string Modal(FlightStory story)
+    {
+        var opened = new AppState
         {
             Mode = UiMode.FlightDetail,
             Story = story,
@@ -152,7 +163,12 @@ public class StoryFieldParityTests
             {
                 Flights = [Listed(story)],
             },
-        });
+        };
+
+        return string.Join(
+            '\n',
+            Enum.GetValues<FlightTab>().Select(tab => PaneText.Modal(opened with { FlightTab = tab })));
+    }
 
     // ---- S32.4-03 ----
 

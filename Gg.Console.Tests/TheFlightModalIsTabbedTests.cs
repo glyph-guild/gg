@@ -48,16 +48,21 @@ public class TheFlightModalIsTabbedTests
     }
 
     [Test]
-    public async Task Tab_moves_to_the_evidence_and_back()
+    public async Task Tab_moves_to_the_evidence_then_the_log_and_back()
     {
         var evidence = Reducer.Reduce(Showing(), Command.NextFlightTab);
 
         await Assert.That(evidence.FlightTab).IsEqualTo(FlightTab.Gate);
 
-        var back = Reducer.Reduce(evidence, Command.NextFlightTab);
+        var log = Reducer.Reduce(evidence, Command.NextFlightTab);
+
+        await Assert.That(log.FlightTab).IsEqualTo(FlightTab.Log)
+            .Because("the log became the third tab, so one key reaches three regions.");
+
+        var back = Reducer.Reduce(log, Command.NextFlightTab);
 
         await Assert.That(back.FlightTab).IsEqualTo(FlightTab.Details)
-            .Because("two tabs and one key, so the key has to come back - a person who "
+            .Because("however many tabs and one key, the key has to come back - a person who "
                    + "overshoots with no way back is a person stuck in a modal.");
     }
 
@@ -123,11 +128,17 @@ public class TheFlightModalIsTabbedTests
                    + "half of the modal in it and the other half beside it.");
 
         await Assert.That(screen).Contains("_flightTabs.Add(_flightGateTab)");
+        await Assert.That(screen).Contains("_flightTabs.Add(_flightLogTab)");
 
         await Assert.That(screen)
-            .Contains("_flightDetailsTab.Add(_flightIntentPane, _flightFields, _flightLogPane)")
-            .Because("all three regions move together. A modal whose log stayed outside the "
-                   + "strip would show a flight's log under its evidence tab.");
+            .Contains("_flightDetailsTab.Add(_flightIntentPane, _flightFields)")
+            .Because("the details are the intent and the fields. The log used to be a third "
+                   + "region here and pay for whatever height they left; it has a tab now.");
+
+        await Assert.That(screen)
+            .Contains("_flightLogTab.Add(_flightLogPane, _flightLogDetailPane)")
+            .Because("the table and what an entry says are one tab and two regions - the "
+                   + "layout the unwrapping into continuation rows existed to fake.");
 
         // THE SIZING THIS BREAKS IF IT IS FORGOTTEN. The intent measures the
         // room it shares with the fields and the log; that room is now the TAB,

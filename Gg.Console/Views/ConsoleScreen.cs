@@ -268,6 +268,9 @@ public sealed class ConsoleScreen : Window
     private readonly Terminal.Gui.Views.Tabs _flightTabs;
     private readonly View _flightDetailsTab;
     private readonly View _flightGateTab;
+    private readonly View _flightLogTab;
+    private readonly FrameView _flightLogDetailPane;
+    private readonly Label _flightLogDetail;
     private readonly Label _flightGate;
     private readonly FrameView _flightIntentPane;
     private readonly Markdown _flightIntent;
@@ -1057,13 +1060,16 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
         };
 
+        // THE TOP OF ITS OWN TAB NOW, not the bottom of the details one. It
+        // used to sit under the fields and take whatever height they left,
+        // which is what made a log of any length fight a form of any length.
         _flightLogPane = new FrameView
         {
             Title = FlightDetails.LogTitle,
             X = 0,
-            Y = Pos.Bottom(_flightFields),
+            Y = 0,
             Width = Dim.Fill(),
-            Height = Dim.Fill(),
+            Height = Dim.Percent(60),
 
             // The same, and see the intent's frame for why.
             TabStop = TabBehavior.TabStop,
@@ -1086,6 +1092,32 @@ public sealed class ConsoleScreen : Window
         _flightLog.ViewportChanged += OnLogResized;
         _flightLogAbsent = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         _flightLogPane.Add(_flightLog, _flightLogAbsent);
+
+        // WHAT THE ENTRY UNDER THE CURSOR SAID, in the half of the tab a table
+        // cannot use. A Label rather than a table because this is prose: it is
+        // the text the log used to break into continuation rows, and the
+        // reason those rows existed at all.
+        _flightLogDetailPane = new FrameView
+        {
+            Title = FlightDetails.LogDetailTitle,
+            X = 0,
+            Y = Pos.Bottom(_flightLogPane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+
+            // The same, and see the intent's frame for why.
+            TabStop = TabBehavior.TabStop,
+            CanFocus = true,
+        };
+        _flightLogDetail = new Label
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+        };
+        _flightLogDetailPane.Add(_flightLogDetail);
 
         // FOCUSABLE, FOR THE SAME REASON AND WITH MORE AT STAKE: this one is
         // between the modal and ALL THREE regions, so with it left as a plain
@@ -1112,7 +1144,7 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
-        _flightDetailsTab.Add(_flightIntentPane, _flightFields, _flightLogPane);
+        _flightDetailsTab.Add(_flightIntentPane, _flightFields);
 
         // A LABEL, LIKE THE PANE IT CAME FROM. A gate is read rather than
         // picked from, and the renderer it delegates to already produces the
@@ -1135,6 +1167,17 @@ public sealed class ConsoleScreen : Window
         };
         _flightGateTab.Add(_flightGate);
 
+        // THE THIRD TAB: the table above, what it cannot hold below.
+        _flightLogTab = new View
+        {
+            Title = FlightDetails.LogTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _flightLogTab.Add(_flightLogPane, _flightLogDetailPane);
+
         // THE SAME WIDGET THE CONSOLE'S OWN BAR USES, one level in. A second
         // way of drawing a row of tabs would be a second set of behaviours for
         // one act, and this one already answers arrow keys the way a person
@@ -1148,6 +1191,7 @@ public sealed class ConsoleScreen : Window
         };
         _flightTabs.Add(_flightDetailsTab);
         _flightTabs.Add(_flightGateTab);
+        _flightTabs.Add(_flightLogTab);
         _flightTabs.ValueChanged += OnFlightTabChanged;
 
         _flightBody.Add(_flightTabs);
@@ -1742,8 +1786,8 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        var wanted = ReferenceEquals(chosen, _flightGateTab)
-            ? FlightTab.Gate
+        var wanted = ReferenceEquals(chosen, _flightGateTab) ? FlightTab.Gate
+            : ReferenceEquals(chosen, _flightLogTab) ? FlightTab.Log
             : FlightTab.Details;
 
         if (wanted == State.FlightTab)
@@ -1751,7 +1795,13 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        State = Reducer.Reduce(State, Command.NextFlightTab);
+        // CYCLED UNTIL IT MATCHES, because the command is "next" and a person
+        // clicking a tab picked one. Two tabs made this a single step and
+        // three do not.
+        while (State.FlightTab != wanted)
+        {
+            State = Reducer.Reduce(State, Command.NextFlightTab);
+        }
         Render();
     }
 
@@ -3021,9 +3071,12 @@ public sealed class ConsoleScreen : Window
         _syncing = true;
         try
         {
-            var showing = State.FlightTab is FlightTab.Gate
-                ? _flightGateTab
-                : _flightDetailsTab;
+            var showing = State.FlightTab switch
+            {
+                FlightTab.Gate => _flightGateTab,
+                FlightTab.Log => _flightLogTab,
+                _ => _flightDetailsTab,
+            };
 
             if (!ReferenceEquals(_flightTabs.Value, showing))
             {
@@ -3499,18 +3552,15 @@ public sealed class ConsoleScreen : Window
         _flightLogAbsent.Visible = absence.Length > 0;
         _flightLog.Visible = log.Count > 0;
 
-        // MEASURED HERE, DECIDED THERE. How wide the detail column is depends
-        // on the terminal, and what goes in it depends on the model; the view
-        // owns exactly the first half. Viewport is zero before the first
-        // layout, and a width of zero means wrap nothing.
-        // THE WIDTH THAT LEAVES THE BAR ROOM, not the viewport's. The bar
-        // draws over the last column, so wrapping to the full width hides the
-        // last character of the longest line - which is the one somebody
-        // opened the row to read.
-        var width = CollectionViews.TextWidth(_flightLog);
-        var shown = Rows.Unwrapped(log, State.LogSelected, Rows.DetailWidth(log, width));
+        // WHAT AN ENTRY SAYS GOES IN THE PANE BELOW, which is why no width is
+        // measured here any more. The table used to wrap prose into
+        // continuation rows because Terminal.Gui has no variable row heights;
+        // a pane of its own needs no arithmetic and leaves one row per entry.
+        _flightLogDetail.Text = FlightDetails.LogDetail(State);
+        _flightLogDetail.Visible = log.Count > 0;
 
-        var showing = (State.Story?.FlightId ?? "", shown.Count, State.LogSelected, width);
+        var shown = log;
+        var showing = (State.Story?.FlightId ?? "", shown.Count, State.LogSelected, 0);
 
         if (_logShowing != showing)
         {
@@ -3530,7 +3580,7 @@ public sealed class ConsoleScreen : Window
                         ? null
                         : new DataTableSource(CollectionViews.Rows(
                             Rows.LogColumns,
-                            [.. shown.Select(r => new[] { r.Mark, r.Time, r.Attempt, r.Event })])));
+                            [.. shown.Select(r => new[] { r.Time, r.Attempt, r.Event })])));
 
                 // ON THE ENTRY'S FIRST ROW. Filling replaces the source, which
                 // resets the selection - and the model's cursor is an entry, so
@@ -3650,19 +3700,17 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
+        // ONE ROW PER ENTRY, so the widget's row number IS the entry. It used
+        // to be a lookup because an unwrapped entry spanned several rows.
         var log = Rows.Log(State);
-        var shown = Rows.Unwrapped(
-            log, State.LogSelected,
-            Rows.DetailWidth(log, CollectionViews.TextWidth(_flightLog)));
-
         var row = selection.SelectedCell.Y;
 
-        if (row < 0 || row >= shown.Count)
+        if (row < 0 || row >= log.Count)
         {
             return;
         }
 
-        var pointed = Reducer.Pointed(State, shown[row].Entry);
+        var pointed = Reducer.Pointed(State, log[row].Entry);
 
         if (ReferenceEquals(pointed, State))
         {

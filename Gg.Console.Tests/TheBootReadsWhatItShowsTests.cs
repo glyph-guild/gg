@@ -119,7 +119,10 @@ public class TheBootReadsWhatItShowsTests
             .Because("the modal opens BEFORE the story rather than over it now, and stays "
                    + "open while it lands - which is the whole of not blinking.");
 
-        await Assert.That(PaneText.Modal(final)).Contains("read-on-demand")
+        // ON THE LOG TAB, which is where a story is read. The modal opens on
+        // the details, and this is asserting that the READ landed.
+        await Assert.That(PaneText.Modal(final with { FlightTab = FlightTab.Log }))
+            .Contains("read-on-demand")
             .Because("and what it shows once the read lands is what was read.");
 
         await Assert.That(FlightDetails.LogAbsence(opened)).Contains("still")

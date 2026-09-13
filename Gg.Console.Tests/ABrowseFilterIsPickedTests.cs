@@ -231,6 +231,40 @@ public class ABrowseFilterIsPickedTests
     }
 
     [Test]
+    public async Task A_long_list_of_sprints_does_not_draw_a_modal_taller_than_the_screen()
+    {
+        // FOUND IN A PTY AGAINST A REAL TRACKER, which had ninety sprints. The
+        // modal is sized to its body, so a body of a hundred lines asked for a
+        // box a hundred rows tall - and a terminal with forty drew the tail of
+        // it, with the cursor, the heading and every area path off the top.
+        var many = new AppState
+        {
+            ActiveTab = TabId.Browse,
+            Mode = UiMode.BrowseFilter,
+            Facets = new BrowseFacets
+            {
+                AreaPaths = ["Widgets"],
+                Iterations = [.. Enumerable.Range(1, 90).Select(n => $@"Widgets\Sprint {n}")],
+            },
+            FilterSelected = 60,
+        };
+
+        var lines = PaneText.Modal(many).Split('\n');
+
+        await Assert.That(lines.Length).IsLessThanOrEqualTo(24)
+            .Because("the modal is sized to its body and a terminal is not, so the body is "
+                   + "what has to be bounded.");
+
+        await Assert.That(PaneText.Modal(many)).Contains("Sprint 60")
+            .Because("a window that does not contain the cursor is a list a person moves "
+                   + "through blind.");
+
+        await Assert.That(PaneText.Modal(many)).Contains("more")
+            .Because("a truncated list that does not say it is truncated is a tracker that "
+                   + "appears to have thirty sprints.");
+    }
+
+    [Test]
     public async Task A_reader_that_cannot_narrow_is_reported_as_that_and_not_as_a_gap()
     {
         // THE ARM THAT WAS MISSING. BrowseOutcome gained an ending and the

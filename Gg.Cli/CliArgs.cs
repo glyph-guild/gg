@@ -82,6 +82,22 @@ public abstract record CliAction
         bool ByHand = false,
         /// <summary>Which machine this flight is for, by id.</summary>
         string? Runner = null,
+        /// <summary>The work kind whose regime governs this flight, or null.</summary>
+        /// <remarks>
+        /// <b>Null inherits, and inheriting is what every flight did before this
+        /// existed.</b> Naming one can only NARROW root - the contract says so -
+        /// so choosing wrong grants nothing root withheld, and the control plane
+        /// refuses a name its topology does not know.
+        /// </remarks>
+        string? WorkKind = null,
+        /// <summary>Which charted environment this flight runs in, or null.</summary>
+        /// <remarks>
+        /// <b>A selection, not a bound.</b> It is validated against the composed
+        /// envelope's <c>environments</c>, so it can only pick from what the
+        /// tenant already allows - and a name nobody charted is refused pointing
+        /// at the chart.
+        /// </remarks>
+        string? Environment = null,
         /// <summary>
         /// A person will watch this one from wherever they are.
         /// </summary>
@@ -460,6 +476,8 @@ public static class CliArgs
         "gg                             the console",
         "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
         "  --runner <id>                open it for one machine",
+        "  --work-kind <name>           which work kind's rules govern it",
+        "  --environment <name>         which charted environment it runs in",
         "  --attended                   and watch it from wherever you are",
         "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
@@ -607,10 +625,20 @@ public static class CliArgs
         var declareNames = args.Contains("--declare-names", StringComparer.Ordinal);
         var runner = Value(args, "--runner");
 
+        // --work-kind AND --environment TAKE VALUES, so they are stripped as
+        // PAIRS for --runner's reason: dropping only the name leaves the value
+        // in the list, and a value in the list is matched as a verb.
+        var workKind = Value(args, "--work-kind");
+        var environment = Value(args, "--environment");
+
         var rest = Without(
-            args.Where(a => a != "--json" && a != "--all" && a != "--hand"
-                         && a != "--attended" && a != "--declare-names"),
-            "--runner");
+            Without(
+                Without(
+                    args.Where(a => a != "--json" && a != "--all" && a != "--hand"
+                                 && a != "--attended" && a != "--declare-names"),
+                    "--runner"),
+                "--work-kind"),
+            "--environment");
 
         // AND REFUSED ON ANYTHING THAT IS NOT `fly`. Stripping it globally would
         // accept `gg flights --hand` and do nothing - a flag that reads as an
@@ -623,6 +651,35 @@ public static class CliArgs
                 "--attended and --runner are flags on `gg fly`: they say which machine a "
               + "flight is for and whether somebody will be watching it. On any other verb "
               + "they would read as an instruction and do nothing.");
+        }
+
+        // THE SAME RULE, AND THE SAME REASON. Stripped globally these would let
+        // `gg flights --work-kind hal-score` parse and do nothing - a flag that
+        // reads as an instruction and is not one.
+        if ((workKind is not null || environment is not null) && rest is not ["fly", ..])
+        {
+            return Unknown(
+                "--work-kind and --environment are flags on `gg fly`: they say which regime "
+              + "governs a flight and where it runs. Only opening one takes them; on any "
+              + "other verb they would read as an instruction and do nothing.");
+        }
+
+        // A TRAILING ONE IS SOMEBODY WHO MEANT TO NAME ONE, which is the shape
+        // --repo already refuses by name. Value() answers null for a flag with
+        // nothing after it, and falling through would open a flight whose text
+        // is the word they meant as a flag.
+        foreach (var named in (string[])["--work-kind", "--environment"])
+        {
+            if (args.Contains(named, StringComparer.Ordinal) && Value(args, named) is null)
+            {
+                return Unknown(
+                    $"gg fly {named} needs a name after it. {named} says "
+                  + (named == "--work-kind"
+                        ? "which work kind's rules govern the flight - run gg airspace show "
+                        + "to see the names this tenant has."
+                        : "which charted environment it runs in - run gg environments to see "
+                        + "what is charted."));
+            }
         }
 
         if (byHand && rest is not ["fly", ..])
@@ -834,10 +891,15 @@ public static class CliArgs
             // that may drift, and a flight naming the key keeps resolving after
             // somebody renames the repository on the forge.
             ["fly", "--uri", var uri, "--repo", var repo] =>
-                new CliAction.Fly(null, uri, json, Repository: repo, ByHand: byHand, Runner: runner, Attended: attended),
-            ["fly", "--ticket", var ticket, "--repo", var repo] => Ticket(ticket, json, repo, byHand, runner, attended),
+                new CliAction.Fly(null, uri, json, Repository: repo, ByHand: byHand,
+                    Runner: runner, Attended: attended, WorkKind: workKind,
+                    Environment: environment),
+            ["fly", "--ticket", var ticket, "--repo", var repo] =>
+                Ticket(ticket, json, repo, byHand, runner, attended, workKind, environment),
             ["fly", var text, "--repo", var repo] when !Option(text) =>
-                new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand, Runner: runner, Attended: attended),
+                new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand,
+                    Runner: runner, Attended: attended, WorkKind: workKind,
+                    Environment: environment),
 
                 // A trailing `--repo` is somebody who meant to name one. Falling
                 // through to the says-two-things arm below would diagnose the wrong
@@ -847,8 +909,10 @@ public static class CliArgs
                     "gg fly --repo needs the name a repository is registered under, e.g. "
                   + "--repo payments. Run gg airspace show to see them."),
 
-            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand, Runner: runner, Attended: attended),
-            ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand, runner: runner, attended: attended),
+            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand,
+                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
+            ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand,
+                runner: runner, attended: attended, workKind: workKind, environment: environment),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -863,7 +927,8 @@ public static class CliArgs
                 $"'{option}' is an option, and gg fly does not have it. It takes some text, "
               + "--uri <uri>, or --ticket <provider>#<id>."),
 
-            ["fly", var text] => new CliAction.Fly(text, null, json, ByHand: byHand, Runner: runner, Attended: attended),
+            ["fly", var text] => new CliAction.Fly(text, null, json, ByHand: byHand,
+                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
               + "or --ticket <provider>#<id>."),
@@ -1018,11 +1083,13 @@ public static class CliArgs
 
     private static CliAction Ticket(
         string token, bool json, string? repository = null, bool byHand = false,
-        string? runner = null, bool attended = false) =>
+        string? runner = null, bool attended = false,
+        string? workKind = null, string? environment = null) =>
         SplitTicket(token) is var (provider, id) && provider is not null
             ? new CliAction.Fly(
                 null, null, json, Provider: provider, Id: id, Repository: repository,
-                ByHand: byHand, Runner: runner, Attended: attended)
+                ByHand: byHand, Runner: runner, Attended: attended,
+                WorkKind: workKind, Environment: environment)
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");

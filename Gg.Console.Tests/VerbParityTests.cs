@@ -255,6 +255,14 @@ public class VerbParityTests
                                + "nothing fetches. Step 2.",
             ["CredentialAdd"] = "reachable but partial: scopes are hardcoded to read, and the "
                               + "command line takes a list. Step 5.",
+            ["CredentialSend"] = "absent, and a gap, and the one here whose absence costs "
+                               + "the most: it is the only way onto a pool member, which has "
+                               + "no bind, no file and no operator. A person at the console "
+                               + "looking at a runner that cannot resolve a credential has "
+                               + "the runner in front of them and has to leave to fix it. "
+                               + "It wants the runner modal, beside `w`, and it needs a "
+                               + "prompt that does not echo - which the console does not "
+                               + "have yet, because nothing in it has ever taken a secret.",
             ["CredentialRemove"] = "absent, and a gap: a dead wrapper with no key. Step 5, "
                                  + "and it is the half of credential management that matters "
                                  + "when one leaks.",

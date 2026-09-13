@@ -187,6 +187,7 @@ return CliArgs.Parse(args) switch
 
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
+    CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
     CliAction.CredentialRemove remove =>
         await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
@@ -1687,6 +1688,89 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 /// reach them. What is here is what only this project can supply: the control
 /// plane's address, this machine's session, and the pinned keys file.
 /// </remarks>
+/// <summary>
+/// Puts a credential on one runner, over the sealed channel.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The only way onto a machine with no filesystem anybody can reach.</b> A
+/// pool member is created with no binds, its strategy document cannot hold a
+/// credential, and an offered configuration may not carry one. What was left
+/// was rebuilding the image for every rotation.
+/// </para>
+/// <para>
+/// <b>The secret enters at one named place and leaves at one named place.</b>
+/// It comes from this machine's own store, or from a prompt that does not echo,
+/// and it goes into a sealed peer-to-peer frame. Nothing between those two
+/// points prints it, and the sentence a person reads names the locator.
+/// </para>
+/// </remarks>
+static async Task<int> SendCredentialAsync(CliAction.CredentialSend send)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return Fail(
+            "not signed in — run `gg login` first. Putting a credential on a machine is a "
+          + "person's action.");
+    }
+
+    // DERIVED, NEVER TYPED, by the contract's own rule - the same derivation
+    // `gg credential add` stored it under and the runner will look for it
+    // under. Two derivations that agree today is how a runner ends up hunting
+    // for a file the CLI never wrote.
+    var locator = Gg.Contracts.CredentialLocator.ForRepo(send.Repo);
+
+    // BEFORE ANYTHING IS MINTED OR ANYBODY IS ASKED FOR A TOKEN. An
+    // introduction spent on a send that has nothing to send is a minute of a
+    // capability nobody used.
+    var secret = SendACredential.SecretFor(
+        new FileCredentialStore(), locator, new ConsoleSecretPrompt(),
+        line => Console.Error.WriteLine($"gg: {line}"));
+
+    if (secret is null)
+    {
+        return Fail(
+            $"no secret for {locator}, so nothing was sent. An empty credential written to a "
+          + "runner fails at the forge later, with nothing pointing back at this moment.");
+    }
+
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    using var stopping = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
+
+    var sent = await new SendACredential(
+        new ControlPlaneClient(http),
+        // STUN FROM THE ENVIRONMENT, for the runner's own reason: naming a
+        // server in source would point every console at a service nobody chose.
+        new ConsoleChannel(
+            Gg.Runner.StunConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+            TimeSpan.FromSeconds(20)))
+        .SendAsync(
+            session.SessionToken,
+            send.RunnerId,
+            locator,
+            secret,
+            new PinnedRunnerKeys(),
+            DateTimeOffset.UtcNow,
+            // TO STDERR, because it is progress rather than output. The connect
+            // can take a whole heartbeat interval, and spending it silently
+            // makes the healthy case look like a hang.
+            saying: line => Console.Error.WriteLine($"gg: {line}"),
+            cancellationToken: stopping.Token);
+
+    if (sent.Outcome is SendOutcome.Sent)
+    {
+        Console.WriteLine(sent.Said);
+        return 0;
+    }
+
+    return Fail(sent.Said);
+}
+
 static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
 {
     var session = new FileSessionStore().Read();

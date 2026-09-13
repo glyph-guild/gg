@@ -328,6 +328,18 @@ public abstract record CliAction
     public sealed record CredentialAdd(
         string Repo, IReadOnlyList<string> Scopes, string? Identity, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Puts a credential this tenant registered onto one runner.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three members and no fourth, which is the whole shape of the
+    /// safety.</b> A runner, a repository and whether to print json - the
+    /// secret is not here and cannot be, because an argument is in shell
+    /// history and in <c>ps</c> output before any code of ours has run.
+    /// </remarks>
+    public sealed record CredentialSend(
+        string RunnerId, string Repo, bool Json) : CliAction, IEmitsResult;
+
     public sealed record CredentialList(bool Json) : CliAction, IEmitsResult;
 
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
@@ -502,6 +514,8 @@ public static class CliArgs
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
+        "gg credential send --runner <id> --repo <slug>",
+        "                                 put one on a machine that cannot be reached any other way",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
         // WAS "the repositories this tenant has registered", which describes
@@ -645,12 +659,29 @@ public static class CliArgs
         // instruction and is not one, which is exactly what IEmitsResult stops
         // `--json` being. Done here rather than by a type because only one verb
         // has a hand.
-        if ((attended || runner is not null) && rest is not ["fly", ..])
+        if (attended && rest is not ["fly", ..])
         {
             return Unknown(
-                "--attended and --runner are flags on `gg fly`: they say which machine a "
-              + "flight is for and whether somebody will be watching it. On any other verb "
-              + "they would read as an instruction and do nothing.");
+                "--attended is a flag on `gg fly`: it says somebody will be watching the "
+              + "flight. On any other verb it would read as an instruction and do nothing.");
+        }
+
+        // --runner IS TWO VERBS NOW, and they mean the same thing by it: which
+        // machine. `gg fly` names the one that takes the flight and
+        // `gg credential send` names the one that gets the credential, so
+        // spelling it differently in the second would be a second name for a
+        // fact a person already knows how to state.
+        //
+        // STILL REFUSED EVERYWHERE ELSE, because it is stripped globally: left
+        // alone on another verb it would parse and do nothing, which is a flag
+        // that reads as an instruction and is not one.
+        if (runner is not null
+            && rest is not ["fly", ..]
+            && rest is not ["credential", "send", ..])
+        {
+            return Unknown(
+                "--runner is a flag on `gg fly` and `gg credential send`: it says which "
+              + "machine. On any other verb it would read as an instruction and do nothing.");
         }
 
         // THE SAME RULE, AND THE SAME REASON. Stripped globally these would let
@@ -941,7 +972,11 @@ public static class CliArgs
             ["credential", "rm", var credentialId] => new CliAction.CredentialRemove(credentialId, json),
             ["credential", "rm", ..] => Unknown("gg credential rm needs one credential id. Run gg credential list."),
             ["credential", "add", .. var options] => CredentialAdd(options, json),
-            ["credential", ..] => Unknown("gg credential takes add, list or rm."),
+            // THE RUNNER ARRIVES ALREADY EXTRACTED, because --runner is stripped
+            // globally with its value - the same route `gg fly` takes it by. What
+            // reaches here is the rest of the line.
+            ["credential", "send", .. var sending] => CredentialSend(sending, runner, json),
+            ["credential", ..] => Unknown("gg credential takes add, send, list or rm."),
 
             ["show"] => Unknown("gg show needs a flight: gg show GG-42, or the id."),
             ["log"] => Unknown("gg log needs a flight: gg log GG-42, or the id."),
@@ -1131,6 +1166,68 @@ public static class CliArgs
         return repo is { Length: > 0 }
             ? new CliAction.CredentialAdd(repo, scopes, identity, json)
             : Unknown("gg credential add needs --repo <slug>: which repository this credential is for.");
+    }
+
+    /// <summary>
+    /// Parses the options of <c>gg credential send</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pairs, like <c>add</c>'s, and an unknown option is refused by name
+    /// rather than ignored.</b> That matters more here than anywhere else in
+    /// this parser: the option somebody reaches for when they want to script
+    /// this is one that would carry the value itself, and silently dropping it
+    /// would put a token in shell history AND then ask for one anyway.
+    /// <para>
+    /// It is not spelled here, and that is not squeamishness -
+    /// <c>CredentialArgsTests</c> reads every flag literal out of this file's
+    /// source, comments included, and refuses any that names secret material.
+    /// A comment naming one is worth catching too: it is how somebody
+    /// considering the flag leaves a trace before adding it.
+    /// </para>
+    /// </remarks>
+    private static CliAction CredentialSend(
+        IReadOnlyList<string> options, string? runner, bool json)
+    {
+        string? repo = null;
+
+        for (var i = 0; i < options.Count; i += 2)
+        {
+            if (i + 1 >= options.Count)
+            {
+                return Unknown($"'{options[i]}' was given nothing to be.");
+            }
+
+            var value = options[i + 1];
+            switch (options[i])
+            {
+                case "--runner":
+                    runner = value;
+                    break;
+
+                case "--repo":
+                    repo = value;
+                    break;
+
+                default:
+                    return Unknown(
+                        $"'{options[i]}' is not something gg credential send takes. It takes "
+                      + "--runner and --repo; the secret is never an argument, because an "
+                      + "argument is in shell history and in ps output before gg has run.");
+            }
+        }
+
+        if (runner is not { Length: > 0 })
+        {
+            return Unknown(
+                "gg credential send needs --runner <id>: which machine to put it on. "
+              + "`gg runners` lists them.");
+        }
+
+        return repo is { Length: > 0 }
+            ? new CliAction.CredentialSend(runner, repo, json)
+            : Unknown(
+                "gg credential send needs --repo <slug>: which credential to send. It is "
+              + "the same slug `gg credential add` registered.");
     }
 
     /// <summary>A refusal that says what was wrong AND what is available.</summary>

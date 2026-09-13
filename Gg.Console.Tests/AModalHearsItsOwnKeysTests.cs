@@ -43,8 +43,8 @@ public class AModalHearsItsOwnKeysTests
             .Because("and the BODY is the view that actually holds the keyboard - the label "
                    + "is CanFocus, a dialog hands focus to its first focusable child, and a "
                    + "key reaches the focused view first. Subscribing the dialog alone was "
-                   + "measured and did not fix it: with GG_KEYTRACE on, j and b arrived at "
-                   + "the dialog and enter arrived nowhere.");
+                   + "measured and did not fix it: a temporary trace on both handlers "
+                   + "showed j and b arriving at the dialog and enter arriving nowhere.");
 
         await Assert.That(screen).Contains("_modal.KeyDown -=")
             .Because("the screen is disposed and rebuilt on every terminal release, and a "

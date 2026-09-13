@@ -1202,8 +1202,9 @@ public sealed class ConsoleScreen : Window
         // AND THE BODY, WHICH IS THE ONE THAT ACTUALLY HAS THE KEYBOARD. The
         // label is CanFocus, so a dialog handing focus to its first focusable
         // child hands it here - and a key goes to the focused view first. That
-        // is where enter was being spent: traced, with GG_KEYTRACE, showing j
-        // and b arriving at the dialog and enter arriving nowhere at all.
+        // is where enter was being spent: measured with a temporary trace on
+        // both handlers, which showed j and b arriving at the dialog and enter
+        // arriving nowhere at all.
         _modalBody.KeyDown += OnModalKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
 

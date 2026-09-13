@@ -90,8 +90,15 @@ public class TheTablesAreTablesTests
         // because it is what a filter narrows on: a person who narrows to a
         // team and sees the same undifferentiated list cannot tell a filter
         // that took from one that did not.
+        //
+        // AND THE REPOSITORY ROWS GAINED FOUR, each a fact a registration can
+        // refuse a flight for: which forge it is on, whether the credential it
+        // needs is on this machine, whether a flight naming no ref can start at
+        // all, and whether every file in it is policy. The pane's whole job is
+        // to say what this tenant can fly against, and a path and a name are
+        // the two fields that cannot stop anybody.
         await Assert.That(Rows.RepositoryColumns).IsEquivalentTo((string[])
-            ["", "path", "name"]);
+            ["", "path", "name", "provider", "credential", "ref", "narrowings"]);
     }
 
     [Test]

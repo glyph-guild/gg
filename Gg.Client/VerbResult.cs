@@ -106,7 +106,21 @@ public abstract record VerbResult
     }
 
     /// <summary>What this tenant has registered, and can therefore fly against.</summary>
-    public sealed record AirspaceRepositories(RegisteredRepositories Value) : VerbResult
+    /// <remarks>
+    /// <b>The standings ride with the list rather than being fetched beside
+    /// it.</b> They are one answer about the same repositories at the same
+    /// moment, and two reads a caller had to remember to pair are two that
+    /// eventually disagree about how many rows there are.
+    /// </remarks>
+    /// <param name="Value">The registry, exactly as the control plane answered.</param>
+    /// <param name="Standings">
+    /// Whether each one has the credential it needs on THIS machine. Empty is
+    /// a real state - see <see cref="CredentialStanding.Unknown"/> - and never
+    /// means every repository is fine.
+    /// </param>
+    public sealed record AirspaceRepositories(
+        RegisteredRepositories Value,
+        IReadOnlyList<RepositoryCredential> Standings) : VerbResult
     {
         public override string Kind => VerbResultKinds.AirspaceRepositories;
     }
@@ -653,8 +667,12 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EstateDiff))),
         VerbResultKinds.AirspaceTopology => new VerbResult.AirspaceTopology(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnvelopeTopology))),
+        // NO STANDINGS ON THE WAY BACK IN, the shape `Taken` already has one
+        // case up. What --json carries is the control plane's answer, and
+        // whether a secret sits on some machine is not part of it - so a
+        // rehydrated result says "not known" rather than inventing agreement.
         VerbResultKinds.AirspaceRepositories => new VerbResult.AirspaceRepositories(Require(
-            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RegisteredRepositories))),
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RegisteredRepositories)), []),
         VerbResultKinds.RunnerLabels => new VerbResult.RunnerLabels(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerList))),
         VerbResultKinds.Taken => new VerbResult.Taken(Require(
@@ -704,7 +722,7 @@ public static class VerbOutput
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
-        VerbResult.AirspaceRepositories r => RepositoriesText(r.Value),
+        VerbResult.AirspaceRepositories r => RepositoriesText(r.Value, r.Standings),
         VerbResult.AirspacePulled r => PulledText(r.Value),
         VerbResult.AirspaceApplied r => AppliedText(r.Value),
         VerbResult.AirspaceDiffed r => DiffText(r.Value),
@@ -1832,7 +1850,8 @@ public static class VerbOutput
     /// registered and a tenant whose read failed look identical as a blank
     /// answer, and only one of them is a person's next action.
     /// </remarks>
-    private static string RepositoriesText(RegisteredRepositories registered)
+    private static string RepositoriesText(
+        RegisteredRepositories registered, IReadOnlyList<RepositoryCredential> standings)
     {
         if (registered.Repositories.Count == 0)
         {
@@ -1853,6 +1872,18 @@ public static class VerbOutput
             if (repository.Ref is { Length: > 0 } pinned)
             {
                 text.Append("  @").Append(pinned);
+            }
+
+            // THE CREDENTIAL, BECAUSE IT IS THE ONE THAT STOPS A FLIGHT. The
+            // three lines above say what a repository IS; this one says whether
+            // this machine could work on it, which is the question somebody
+            // reading this list is usually asking.
+            text.Append("  credential: ")
+                .Append(RepositoryCredentials.StandingOf(standings, repository.Path));
+
+            if (repository.Narrowings is { Length: > 0 } governed)
+            {
+                text.Append("  narrowings: ").Append(governed);
             }
 
             text.AppendLine();

@@ -57,7 +57,7 @@ public class PaneContentTests
     [Test]
     public async Task The_registered_repositories_are_shown()
     {
-        var text = VerbOutput.ToText(new VerbResult.AirspaceRepositories(Two()));
+        var text = VerbOutput.ToText(new VerbResult.AirspaceRepositories(Two(), []));
 
         await Assert.That(text).Contains("payments");
         await Assert.That(text).Contains("acme/widgets")
@@ -72,7 +72,7 @@ public class PaneContentTests
     public async Task An_empty_registry_says_so_rather_than_answering_blank()
     {
         var text = VerbOutput.ToText(
-            new VerbResult.AirspaceRepositories(new RegisteredRepositories { Repositories = [] }));
+            new VerbResult.AirspaceRepositories(new RegisteredRepositories { Repositories = [] }, []));
 
         await Assert.That(text).Contains("No repositories are registered")
             .Because("a tenant with nothing registered and a tenant whose read failed look "
@@ -88,7 +88,7 @@ public class PaneContentTests
         // result with no arms is loud rather than silent - and this is the test
         // that would have caught two of the three arms being added and not the
         // third.
-        var json = VerbOutput.ToJson(new VerbResult.AirspaceRepositories(Two()));
+        var json = VerbOutput.ToJson(new VerbResult.AirspaceRepositories(Two(), []));
         var back = VerbOutput.Parse(VerbResultKinds.AirspaceRepositories, json);
 
         await Assert.That(back).IsTypeOf<VerbResult.AirspaceRepositories>();

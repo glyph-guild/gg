@@ -2003,6 +2003,14 @@ public static class PaneText
                 : " ";
 
             text.AppendLine($"{mark} {Clean(repository.Path),-40} {Clean(repository.Name)}");
+
+            // WHAT THE REGISTRATION SAYS, UNDER THE NAME IT SAYS IT ABOUT.
+            // These three are what refuse a flight, and a person looking at
+            // this list is deciding whether to fly.
+            text.AppendLine(
+                $"    credential: {Clean(Gg.Client.RepositoryCredentials.StandingOf(state.RepositoryCredentials, repository.Path))}"
+              + $"   ref: {Clean(repository.Ref is { Length: > 0 } pinned ? pinned : "(none)")}"
+              + $"   narrowings: {Clean(repository.Narrowings is { Length: > 0 } governed ? governed : "(off)")}");
         }
 
         text.AppendLine();

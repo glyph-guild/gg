@@ -70,7 +70,16 @@ public interface IConsoleActions
     /// to parse it again would lose the first id that contained the separator -
     /// the rule <c>FlightIntent.Id</c> already states.
     /// </remarks>
-    string FlyTicket(string provider, string id, string? repository);
+    /// <param name="workKind">
+    /// What this flight is FOR, or null to inherit the floor.
+    /// </param>
+    /// <remarks>
+    /// <b>Null is what every flight before kinds existed was</b>, and it stays
+    /// null rather than becoming a local default: the control plane reads a
+    /// missing kind as <c>implement</c>, and a console that supplied that name
+    /// would be declaring something nobody chose.
+    /// </remarks>
+    string FlyTicket(string provider, string id, string? repository, string? workKind);
 
     /// <summary>
     /// Why opening a flight for this work item deserves a second thought, or

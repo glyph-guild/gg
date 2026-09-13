@@ -55,6 +55,11 @@ public static class Modals
         // a few shares and a key each - so it is a question with a title, a
         // body and labelled answers, which is a dialog.
         UiMode.FloorChoice,
+
+        // A QUESTION WITH A LIST IN IT, which is ComposeChoice's shape over
+        // names the tenant declared rather than over two fixed answers. A title,
+        // a body and a cursor: a dialog.
+        UiMode.WorkKindChoice,
     ];
 
     /// <summary>

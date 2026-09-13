@@ -214,10 +214,16 @@ public sealed class ConsoleData(
         string provider,
         string id,
         string? repository = null,
+        string? workKind = null,
         CancellationToken cancellationToken = default) =>
         _commands.FlyAsync(
             text: null, uri: null, name: null, cancellationToken, provider: provider, id: id,
-            repository: repository is { Length: > 0 } named ? named : null);
+            repository: repository is { Length: > 0 } named ? named : null,
+
+            // EMPTY IS NORMALISED TO NULL, the way the repository beside it is
+            // and for the same reason: absent must stay absent, because the
+            // control plane reads a missing kind as implement.
+            workKind: workKind is { Length: > 0 } kind ? kind : null);
 
     /// <summary>What this tenant can fly against.</summary>
     /// <remarks>

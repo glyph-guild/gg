@@ -20,15 +20,6 @@ namespace Gg.Console;
 /// </remarks>
 public static class CredentialRepositories
 {
-    /// <summary>The row that asks at the prompt, exactly as this key always did.</summary>
-    /// <remarks>
-    /// <b>Always last and always present.</b> A repository registered somewhere
-    /// this console has not read is still one somebody may be sending a
-    /// credential for; without this row the old path would become unreachable
-    /// rather than merely unnecessary.
-    /// </remarks>
-    public const string AtThePrompt = "another - ask me at the prompt";
-
     /// <summary>One offered repository, and what this machine knows about it.</summary>
     /// <remarks>
     /// <b>The standing is worth a column because it changes what happens
@@ -42,7 +33,34 @@ public static class CredentialRepositories
     /// <summary>The columns the chooser draws, named for what they answer.</summary>
     public static IReadOnlyList<string> Columns { get; } = ["repository", "credential here"];
 
+    /// <summary>
+    /// How near the top a standing puts a row.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every standing names a different remedy, and only two of them are
+    /// this key's.</b> Missing here and none registered both mean somebody has
+    /// to send one, so they are what the cursor should open among. Unknown
+    /// follows, because nothing said is not the same as nothing wrong. Held
+    /// comes after - re-sending is rotation, which is real and rarer - and not
+    /// needed is last, because a repository that authenticates to nothing is
+    /// not pending work.
+    /// </remarks>
+    private static int Rank(string said) => said switch
+    {
+        Gg.Client.CredentialStanding.NoneRegistered => 0,
+        Gg.Client.CredentialStanding.MissingHere => 1,
+        Gg.Client.CredentialStanding.Here => 3,
+        Gg.Client.CredentialStanding.NotNeeded => 4,
+        _ => 2,
+    };
+
     /// <summary>What the chooser offers, as the table draws it.</summary>
+    /// <remarks>
+    /// <b>Ordered by what is left to do, then by name.</b> A list in registry
+    /// order makes somebody read past everything already done to find the row
+    /// they came for - and the row they came for is the whole reason this
+    /// screen has a key.
+    /// </remarks>
     public static IReadOnlyList<Choice> Rows(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -51,36 +69,37 @@ public static class CredentialRepositories
 
         return
         [
-            .. Offered(state).Select(path => new Choice(
-                path,
-                path == AtThePrompt
-                    ? "typed at the prompt"
-                    : standings.FirstOrDefault(s => string.Equals(
+            .. Offered(state)
+                .Select(path => new Choice(
+                    path,
+                    standings.FirstOrDefault(s => string.Equals(
                         s.Repo, path, StringComparison.Ordinal))?.Standing
-                      ?? "not known")),
+                      ?? "not known"))
+                .OrderBy(c => Rank(c.Said))
+                .ThenBy(c => c.Path, StringComparer.Ordinal),
         ];
     }
 
-    /// <summary>What the chooser offers, in the order it draws them.</summary>
+    /// <summary>Every registered repository, by path.</summary>
+    /// <remarks>
+    /// <b>No synthetic row.</b> There was one - "ask me at the prompt" - and it
+    /// was a fallback for a console that had not read the registry. The
+    /// registry is a background read now, so the fallback was the screen
+    /// declining to answer its own question.
+    /// </remarks>
     public static IReadOnlyList<string> Offered(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        // NULL IS "NEVER ASKED", which is the distinction AppState.Repositories
-        // already draws and the reason this cannot simply render an empty list:
-        // the registry is read when the Repositories pane is first shown, so a
-        // person who went straight to the fleet holds none - and "no rows"
-        // would tell somebody with several repositories that they have none.
         return
         [
             .. (state.Repositories?.Repositories ?? [])
                 .Select(r => r.Path)
                 .Where(p => p is { Length: > 0 }),
-            AtThePrompt,
         ];
     }
 
-    /// <summary>What the row under the cursor names, or null for the prompt.</summary>
+    /// <summary>What the row under the cursor names, or null when there is none.</summary>
     /// <remarks>
     /// <para>
     /// <b>Read by the loop, never written by the reducer.</b> Answering ends
@@ -106,9 +125,14 @@ public static class CredentialRepositories
             return null;
         }
 
-        var rows = Offered(state);
-        var row = Math.Clamp(state.CredentialRepoSelected, 0, rows.Count - 1);
+        // THE ROWS AS DRAWN, not the registry order. The cursor is an index
+        // into what a person is looking at, and Rows sorts what is left to do
+        // to the top - so reading Offered here would hand back whichever
+        // repository happens to sit at that position in the registry instead.
+        var rows = Rows(state);
 
-        return rows[row] == AtThePrompt ? null : rows[row];
+        return rows.Count == 0
+            ? null
+            : rows[Math.Clamp(state.CredentialRepoSelected, 0, rows.Count - 1)].Path;
     }
 }

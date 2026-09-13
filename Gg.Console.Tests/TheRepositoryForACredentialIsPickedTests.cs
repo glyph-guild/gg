@@ -204,10 +204,15 @@ public class TheRepositoryForACredentialIsPickedTests
         // command a second local effect - which ShellCommands forbids by name,
         // because the local half lands whether or not the send did. The cursor
         // is already in the model and is read where it is spent.
-        var answered = Reducer.CredentialRepositoryAsked(OnARunner(Two())) with
-        {
-            CredentialRepoSelected = 1,
-        };
+        // BY THE ROW AS DRAWN, not by its place in the registry. The rows are
+        // sorted so what needs a credential is on top, so an index taken from
+        // the registry would name whichever repository happened to sit there.
+        var opened = Reducer.CredentialRepositoryAsked(OnARunner(Two()));
+        var wanted = CredentialRepositories.Rows(opened)
+            .Select((row, at) => (row.Path, at))
+            .First(r => r.Path == "JDX/JDNext").at;
+
+        var answered = opened with { CredentialRepoSelected = wanted };
 
         await Assert.That(CredentialRepositories.Chosen(answered)).IsEqualTo("JDX/JDNext");
     }
@@ -221,6 +226,19 @@ public class TheRepositoryForACredentialIsPickedTests
         var elsewhere = OnARunner(Two()) with { CredentialRepoSelected = 0 };
 
         await Assert.That(CredentialRepositories.Chosen(elsewhere)).IsNull();
+    }
+
+    [Test]
+    public async Task The_cursor_survives_a_list_with_nothing_in_it()
+    {
+        // AN EMPTY LIST BECAME REACHABLE WHEN THE PROMPT ROW WENT, and moving
+        // the cursor in one threw ArgumentException - a crash on an arrow key,
+        // on precisely the console this screen exists to help: the one whose
+        // registry has not landed yet.
+        var empty = Reducer.CredentialRepositoryAsked(OnARunner(null));
+
+        await Assert.That(() => Reducer.Reduce(empty, Command.SelectNext)).ThrowsNothing();
+        await Assert.That(() => Reducer.Reduce(empty, Command.SelectPrevious)).ThrowsNothing();
     }
 
     [Test]
@@ -290,7 +308,13 @@ public class TheRepositoryForACredentialIsPickedTests
             },
             RunnerSelected = 0,
             Mode = UiMode.CredentialRepositoryChoice,
-            CredentialRepoSelected = 1,
+        };
+
+        state = state with
+        {
+            CredentialRepoSelected = CredentialRepositories.Rows(state)
+                .Select((row, at) => (row.Path, at))
+                .First(r => r.Path == "JDX/JDNext").at,
         };
 
         _ = ConsoleSendCredential.Give(state, (runnerId, repo) =>

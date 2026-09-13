@@ -97,10 +97,24 @@ public static class ConsoleSendCredential
         // name, because the local half lands whether or not the remote half
         // did. The cursor crossed in the model on its own; this reads it at the
         // one moment it is used.
-        return Spent(state) with
+        //
+        // AND NOTHING IS SENT FOR NO REPOSITORY. The chooser used to carry a
+        // row that meant "ask me at the prompt", so null had an answer; it
+        // lists the registry now, and null means the registry is empty or has
+        // not landed. A send carrying none would reach the runner asking it to
+        // write a secret for nothing.
+        if (CredentialRepositories.Chosen(state) is not { Length: > 0 } repository)
         {
-            LastCredential = send(row.Id, CredentialRepositories.Chosen(state)),
-        };
+            return Spent(state) with
+            {
+                LastCredential =
+                    "There is no repository to send a credential for. Register one with "
+                  + "`gg airspace repositories add`, or open the Repositories pane to read "
+                  + "what this tenant already has.",
+            };
+        }
+
+        return Spent(state) with { LastCredential = send(row.Id, repository) };
     }
 
     /// <summary>

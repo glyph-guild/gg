@@ -2464,8 +2464,13 @@ public sealed class ConsoleScreen : Window
     {
         var stroke = KeyTranslator.Translate(key);
         var command = Keymap.Resolve(stroke, Context());
+
         if (command is null)
         {
+            // AND A KEY IT DECLINED MAY STILL HAVE TO BE TAKEN. Handed on, a
+            // key reaches Terminal.Gui's own meanings - escape's is to stop the
+            // runnable, which ended gg on one keystroke, silently.
+            key.Handled = Keymap.Swallowed(stroke, Context());
             return;
         }
 

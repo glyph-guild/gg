@@ -1277,6 +1277,33 @@ public static class Keymap
     /// affordance nobody needed help finding.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether a key the keymap does not answer must still be taken.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because handing it on is not neutral.</b> A key nobody here binds
+    /// travels up to Terminal.Gui, which has meanings of its own - and escape's
+    /// is to stop the runnable, which ends the session, which ends gg. Measured
+    /// in a pty: the console booted, took one escape and exited with status
+    /// zero, silently.
+    /// </para>
+    /// <para>
+    /// <b>The exception, not the rule.</b> A screen that took every key it did
+    /// not understand would be one no widget under it could hear from, and the
+    /// tables' own arrows never reach this function at all - they are how three
+    /// of these panes are walked.
+    /// </para>
+    /// <para>
+    /// <b>Only where the keymap declined.</b> Inside a modal escape resolves to
+    /// <c>CloseModal</c> and is dispatched; this answers about the console
+    /// itself, where there is nothing to leave and `q' is how gg is left.
+    /// </para>
+    /// </remarks>
+    public static bool Swallowed(KeyStroke key, KeymapContext context) =>
+        key == KeyStroke.Esc
+        && Resolve(key, context) is null;
+
     public static IReadOnlyList<KeyBinding> Buttons(KeymapContext context)
     {
         if (context.Mode == UiMode.Normal)

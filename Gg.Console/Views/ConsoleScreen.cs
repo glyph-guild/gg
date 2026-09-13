@@ -1677,7 +1677,7 @@ public sealed class ConsoleScreen : Window
         }
 
         State = State with { HelpFold = over };
-        _hints.Text = Keymap.Hints(Context());
+        _hints.Text = PaneText.BottomLine(State);
     }
 
     /// <summary>
@@ -2675,7 +2675,7 @@ public sealed class ConsoleScreen : Window
         _modal.Height = document ? Dim.Percent(88) : Math.Max(12, tall);
 
         _activity.Text = PaneText.Activity(State);
-        _hints.Text = Keymap.Hints(Context());
+        _hints.Text = PaneText.BottomLine(State);
 
         Focus();
     }

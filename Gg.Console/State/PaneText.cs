@@ -1538,6 +1538,56 @@ public static class PaneText
     /// still has to be good. Lines are typed by kind from the start so
     /// verbosity is a data model rather than a regex applied to a screen later.
     /// </remarks>
+    /// <summary>
+    /// A mark that moves while the console is alive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because a box that is correctly empty looks exactly like a frozen
+    /// one.</b> Watching a machine that is waiting means sitting in front of
+    /// nothing, sometimes for a long time, and the one question a person has in
+    /// that moment is whether anything is still running.
+    /// </para>
+    /// <para>
+    /// <b>Derived from the countdown, not from a clock of its own.</b>
+    /// <c>Refresh.NextIn</c> already ticks once a second and is already in the
+    /// model - so this stays a function of state, which is what lets every view
+    /// be rebuilt after the terminal is handed away, and it stops when the
+    /// console stops, which is what makes it liveness rather than decoration.
+    /// </para>
+    /// </remarks>
+    public static string Alive(int nextIn)
+    {
+        // A DOT THAT MOVES, NOT A COUNT OF DOTS. A growing run of them is one
+        // character wide a third of the time, and one dot at the end of a
+        // sentence is a full stop - which is a mark that says "alive" by
+        // looking exactly like punctuation. Three slots, one dot, always the
+        // same width, so nothing beside it reflows either.
+        var at = Math.Abs(nextIn) % 3;
+
+        return string.Create(3, at, (slots, where) =>
+        {
+            slots.Fill(' ');
+            slots[where] = '\u00b7';
+        });
+    }
+
+    /// <summary>
+    /// The line along the bottom: the live keys, and the mark that moves.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the hints rather than inside them.</b> The hint line is exactly
+    /// the keys that are live and nothing else - a rule of its own, asserted as
+    /// set equality - so a mark added into it would be a key that does nothing.
+    /// Composed here, where a test can ask for both halves at once.
+    /// </remarks>
+    public static string BottomLine(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return $"{Keymap.Hints(KeymapContext.For(state))}  {Alive(state.Refresh.NextIn)}";
+    }
+
     public static string Live(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1558,6 +1608,9 @@ public static class PaneText
                 LiveSilence.NothingYet =>
                     "Watching. The flight is writing a live view and the agent has not said "
                   + "anything yet.",
+                LiveSilence.Waiting =>
+                    "Watching this machine. It is waiting for work; whatever it flies next "
+                  + $"appears here as it arrives. {Alive(state.Refresh.NextIn)}",
                 // AND NOTHING ELSE. It went on "This pane is off by default and
                 // is meant to stay that way", which is a note to whoever built
                 // it rather than an answer to whoever is looking: a person who

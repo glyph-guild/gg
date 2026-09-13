@@ -571,16 +571,28 @@ public sealed record QueueRow
 /// Which silence the live pane is showing.
 /// </summary>
 /// <remarks>
-/// <b>An empty box cannot say why it is empty</b>, and the three reasons want
-/// three different sentences: the pane is off, the flight has written nothing
-/// because nothing is writing, and the flight is writing but the agent has not
-/// spoken. A person reading the second and the third the same way concludes the
-/// feature is broken.
+/// <b>An empty box cannot say why it is empty</b>, and the reasons want
+/// different sentences: the pane is off, the flight has written nothing because
+/// nothing is writing, the flight is writing but the agent has not spoken, and
+/// - since a watch can be attached to a machine before it has a flight at all -
+/// the machine is simply waiting. A person reading any two of those the same way
+/// concludes the feature is broken.
 /// </remarks>
 public enum LiveSilence
 {
     /// <summary>The pane is off, or nothing is selected.</summary>
     NotAttached,
+
+    /// <summary>
+    /// A machine is being watched and it is flying nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the same as a flight that has written nothing.</b> There is no
+    /// flight - which is the state a person attaches in on purpose, to see the
+    /// next one arrive - so a sentence about a live view would be about
+    /// something that does not exist.
+    /// </remarks>
+    Waiting,
 
     /// <summary>No live view exists for this flight.</summary>
     NotStarted,

@@ -88,6 +88,14 @@ public sealed class LiveTails(Func<string, ILiveSource> source, Func<ILiveSource
             return state with
             {
                 Silence = state.Live.Count > 0 ? LiveSilence.Speaking
+
+                    // A MACHINE, NOT A FLIGHT. Both of the sentences below are
+                    // about a flight's live view - that nothing is writing one,
+                    // or that one is being written and the agent has not spoken
+                    // - and neither is true of a runner that is simply waiting
+                    // for work, which is the state somebody attaches in on
+                    // purpose.
+                    : live is not null ? LiveSilence.Waiting
                     : tail.Exists ? LiveSilence.NothingYet
                     : LiveSilence.NotStarted,
             };

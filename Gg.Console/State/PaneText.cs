@@ -2508,17 +2508,35 @@ public static class PaneText
                 continue;
             }
 
-            var line = new System.Text.StringBuilder();
+            // THE INDENT IS STRUCTURE, NOT DECORATION, in every pane that
+            // wraps: the help pages draw a variable at two spaces and what it
+            // means at six, a health check's remedy sits under the check, and
+            // an envelope's rules are nested. Splitting on words dropped it -
+            // and only on the lines long enough to wrap, so the explanation
+            // that most needed to sit under its heading was the one that came
+            // back at column zero.
+            var indent = new string(' ', paragraph.Length - paragraph.TrimStart(' ').Length);
+
+            // AND A LINE THAT IS ALL INDENT HAS NOTHING TO HANG UNDER. Kept
+            // whole rather than turned into a run of spaces nobody asked for.
+            if (indent.Length >= columns)
+            {
+                wrapped.Add(paragraph);
+                continue;
+            }
+
+            var line = new System.Text.StringBuilder(indent);
 
             foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (line.Length > 0 && line.Length + 1 + word.Length > columns)
+                if (line.Length > indent.Length && line.Length + 1 + word.Length > columns)
                 {
                     wrapped.Add(line.ToString());
                     line.Clear();
+                    line.Append(indent);
                 }
 
-                if (line.Length > 0)
+                if (line.Length > indent.Length)
                 {
                     line.Append(' ');
                 }
@@ -2526,7 +2544,7 @@ public static class PaneText
                 line.Append(word);
             }
 
-            if (line.Length > 0)
+            if (line.Length > indent.Length)
             {
                 wrapped.Add(line.ToString());
             }

@@ -20,9 +20,10 @@ namespace Gg.Console.Tests;
 /// grows something to open stops belonging in a list of tabs that have nothing.
 /// </para>
 /// <para>
-/// <b>A read, so it happens between sessions.</b> Asking a reader starts a child
-/// process holding a credential, which a UI session may not do — the same
-/// argument that made <c>b</c> a shell command rather than an in-session toggle.
+/// <b>The shell's, so it happens between sessions.</b> Asking a reader starts a
+/// child process holding a credential, which a UI session may not do — the same
+/// sentence that made <c>b</c> a shell command rather than an in-session toggle,
+/// and the reason this is not in <c>Reads</c> beside the control-plane ones.
 /// </para>
 /// </remarks>
 public class EnterShowsTheWorkItemTests
@@ -49,12 +50,19 @@ public class EnterShowsTheWorkItemTests
     }
 
     [Test]
-    public async Task It_is_a_read_because_asking_starts_a_child()
+    public async Task It_is_the_shells_and_not_a_read()
     {
-        await Assert.That(ShellCommands.Reads.Contains(Command.ShowWorkItem)).IsTrue()
+        // THE DISTINCTION THE DECLARATION ITSELF DRAWS. `Reads` is for
+        // control-plane reads, which cost a request; ToggleBrowse is in
+        // `Handled` instead because browsing "launches an executable with a
+        // credential in its environment", and that is exactly what asking about
+        // one item does. Same door, same reason.
+        await Assert.That(ShellCommands.Handled.Contains(Command.ShowWorkItem)).IsTrue()
             .Because("an intent reader is a child process holding a credential, and a UI "
-                   + "session may start neither - which is the same argument that made "
-                   + "browsing a shell command rather than a toggle.");
+                   + "session may start neither.");
+
+        await Assert.That(ShellCommands.Reads.Contains(Command.ShowWorkItem)).IsFalse()
+            .Because("a command is the shell's or a read and never both.");
     }
 
     [Test]

@@ -151,6 +151,57 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
         }
     }
 
+    /// <summary>What one item says, or why it could not be read.</summary>
+    /// <remarks>
+    /// <b>The same lock, the same deadline, the same drop.</b> One pipe carries
+    /// both verbs, so a read overlapping a browse would read the browse's answer
+    /// - and a reader that stops answering has to be dropped rather than left
+    /// holding a half-written reply, whichever verb was waiting on it.
+    /// </remarks>
+    public async Task<ItemOutcome> ReadAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        await _oneAtATime.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (await StartAsync() is { } refused)
+            {
+                return new ItemOutcome.Nothing(Said(refused));
+            }
+
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(_patience);
+
+            try
+            {
+                return await _asking!.ReadAsync(id, deadline.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                Stop();
+
+                return new ItemOutcome.Nothing(
+                    $"The reader for '{_reader.Key}' did not answer within "
+                  + $"{_patience.TotalMilliseconds:0}ms, so it was stopped.");
+            }
+        }
+        finally
+        {
+            _oneAtATime.Release();
+        }
+    }
+
+    /// <summary>A refusal to start, in words a modal can draw.</summary>
+    private static string Said(BrowseOutcome outcome) => outcome switch
+    {
+        BrowseOutcome.NotBrowsable(var why) => why,
+        BrowseOutcome.Refused(var why) => why,
+        BrowseOutcome.Unintelligible(var why) => why,
+        BrowseOutcome.Silent(var why) => why,
+        _ => "The reader could not be started.",
+    };
+
     public ValueTask DisposeAsync()
     {
         Stop();

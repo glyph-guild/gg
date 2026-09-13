@@ -38,6 +38,9 @@ public class TheBrowserSurvivesItsOwnReloadTests
                     new WorkItemSummary("18471", "Story 3", "Active", "", null),
                 ],
                 null)));
+
+        public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
+            Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
     }
 
     /// <summary>

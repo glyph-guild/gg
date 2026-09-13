@@ -797,6 +797,19 @@ public sealed class ConsoleLoop(
 
                     break;
 
+                case Command.ShowWorkItem:
+                    // ASKED BETWEEN SESSIONS, like browsing and for its reason:
+                    // the reader is a child process holding a credential. The
+                    // same browser answers both, so a person reading an item is
+                    // talking to the tracker they listed it from.
+                    state = ShowedWorkItem(
+                        state,
+                        browser is null
+                            ? null
+                            : id => browser.ReadAsync(id, CancellationToken.None)
+                                .GetAwaiter().GetResult());
+                    break;
+
                 case Command.ForgetCredential:
                     // A WRITE, SO IT REFRESHES WHAT IT INVALIDATED. Rule 4: the
                     // credential list the flight pane reads is exactly what this
@@ -1525,6 +1538,56 @@ public sealed class ConsoleLoop(
     /// </remarks>
     private static AppState Spent(AppState state) =>
         state with { KindSelected = 0, AskingKindFor = ComposingFor.Nothing };
+
+    /// <summary>
+    /// Ask the reader about the row under the cursor, and show what it said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The modal opens either way.</b> A person pressed a key and something
+    /// has to answer them; a failure that closed the modal would be the console
+    /// swallowing the keypress, which is indistinguishable from a key that does
+    /// nothing.
+    /// </para>
+    /// <para>
+    /// <b>Nothing picked asks nothing.</b> A key that appears to work on an
+    /// empty pane is worse than one that is not offered - the browse pane's own
+    /// rule, one method over.
+    /// </para>
+    /// </remarks>
+    public static AppState ShowedWorkItem(AppState state, Func<string, ItemOutcome>? read)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Browse is not { Items.Count: > 0 } listing
+            || state.BrowseSelected < 0
+            || state.BrowseSelected >= listing.Items.Count)
+        {
+            return state with { LastRunner = "There is no work item under the cursor to read." };
+        }
+
+        if (read is null)
+        {
+            return state with
+            {
+                Mode = UiMode.WorkItemDetail,
+                WorkItemSaid = "This console is not configured to read work items.",
+            };
+        }
+
+        var said = read(listing.Items[state.BrowseSelected].Id);
+
+        return state with
+        {
+            Mode = UiMode.WorkItemDetail,
+            WorkItemSaid = said switch
+            {
+                ItemOutcome.Read(var body) => body,
+                ItemOutcome.Nothing(var why) => why,
+                _ => "The reader answered something this console could not read.",
+            },
+        };
+    }
 
     /// <summary>The question is over: close it, and forget where the cursor was.</summary>
     /// <remarks>

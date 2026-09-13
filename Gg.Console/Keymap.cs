@@ -793,6 +793,14 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
         ],
 
+        // A DOCUMENT, SO ONE KEY. What is in it is one tracker's rendering of
+        // one item; there is nothing in it to decide, and the way out is the
+        // way out of every other modal.
+        UiMode.WorkItemDetail =>
+        [
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         // A LIST WITH A CURSOR, NOT A KEY PER ANSWER. The kinds are the
         // tenant's and there may be any number of them, so a binding each would
         // be a keymap whose SHAPE depends on somebody's airspace - and the help
@@ -1287,6 +1295,16 @@ public static class Keymap
         [
             new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
                 { OffTheHintLine = true, When = "on the runners tab" },
+        ],
+
+        // AND THE WORK ITEM UNDER IT, which is the row this tab lists. It was in
+        // the arm for tabs with nothing to open, which was true while the row
+        // was a headline and nothing else - an id, a state and a title, chosen
+        // from without ever being read.
+        TabId.Browse =>
+        [
+            new(KeyStroke.EnterKey, Command.ShowWorkItem, "read this item")
+                { OffTheHintLine = true, When = "on the browse tab" },
         ],
 
         // OFF THE LINE LIKE ITS SIBLINGS, once the field it focuses became a

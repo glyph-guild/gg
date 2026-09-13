@@ -2410,6 +2410,7 @@ public static class PaneText
         UiMode.FloorChoice => "How much to keep back",
         UiMode.ComposeChoice => "How do you want to write this flight?",
         UiMode.WorkKindChoice => "What is this flight for?",
+        UiMode.WorkItemDetail => "The work item",
         _ => "",
     };
 
@@ -2670,6 +2671,22 @@ public static class PaneText
             UiMode.FloorChoice => FloorChoice(state),
             UiMode.ComposeChoice => ComposeChoice(),
             UiMode.WorkKindChoice => WorkKindChoice(state),
+
+            // WHAT THE READER SAID, WHOLE. Wrapped like every other document in
+            // a box this size, and otherwise untouched: it is one tracker's
+            // rendering of one item, and re-sorting it here would be a second
+            // opinion about the same bytes.
+            // THE ID FIRST, THEN WHAT THE READER SAID. The title bar takes a
+            // mode and nothing else, so the one thing that says WHICH item this
+            // is has to be in the body - and two items with similar names behind
+            // a modal are otherwise told apart by nothing.
+            UiMode.WorkItemDetail =>
+                (state.Browse is { Items.Count: > 0 } items
+                 && state.BrowseSelected >= 0
+                 && state.BrowseSelected < items.Items.Count
+                    ? $"{items.Items[state.BrowseSelected].Id}\n\n"
+                    : "")
+              + Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true),
             _ => "",
         };
     }

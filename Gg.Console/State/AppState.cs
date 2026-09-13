@@ -239,6 +239,17 @@ public enum UiMode
     WorkKindChoice,
 
     /// <summary>
+    /// What one work item says, in the reader's own words.
+    /// </summary>
+    /// <remarks>
+    /// <b>A document, like the reading views beside it.</b> The browse row is a
+    /// headline - an id, a state and a title - and choosing work by those three
+    /// is choosing by headline. This is the part that was only ever in a
+    /// browser.
+    /// </remarks>
+    WorkItemDetail,
+
+    /// <summary>
     /// How much of your own allowance to keep back.
     /// </summary>
     /// <remarks>
@@ -1486,6 +1497,22 @@ public sealed record AppState
     /// gets by pressing enter without reading.
     /// </remarks>
     public int KindSelected { get; init; }
+
+    /// <summary>
+    /// What the reader said about the item under the cursor, or why it could not.
+    /// </summary>
+    /// <remarks>
+    /// <b>One string, and it is the reader's.</b> The server renders an item for
+    /// an agent already; re-sorting it into fields here would be a second
+    /// opinion about the same bytes, and the first thing to drift.
+    /// <para>
+    /// <b>It is customer content, and it is in the dump.</b> So is the title on
+    /// every browse row, for the same unavoidable reason: choosing work without
+    /// reading it is not choosing. <c>BundleRedactionTests</c> is where that
+    /// disposition is held to.
+    /// </para>
+    /// </remarks>
+    public string? WorkItemSaid { get; init; }
 
 
     /// <summary>

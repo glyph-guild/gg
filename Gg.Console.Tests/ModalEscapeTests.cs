@@ -131,6 +131,14 @@ public class ModalEscapeTests
           + "left through CloseModal, and Every_modal_has_exactly_one_escape_hatch above "
           + "already covers it.",
 
+        [UiMode.WorkItemDetail] =
+            "opened by ConsoleLoop.ShowedWorkItem after asking a reader what one item says - "
+          + "a child process holding a credential, so it cannot happen inside a UI session "
+          + "and no key pressed against a fresh state reaches it. It is entered through "
+          + "ShowWorkItem and left through CloseModal, and EnterShowsTheWorkItemTests drives "
+          + "both ends. Being escapable is covered above rather than here: StateGenerator "
+          + "emits every UiMode, so the escape-hatch walk already leaves this one.",
+
         [UiMode.WorkKindChoice] =
             "opened by ConsoleLoop.FlewPicked before a flight is opened, for ConfirmFlight's "
           + "reason one entry up: the branch that asks is the loop's, because opening a "

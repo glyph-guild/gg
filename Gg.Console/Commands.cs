@@ -585,6 +585,17 @@ public enum Command
     /// </remarks>
     FlyForKind,
 
+    /// <summary>
+    /// Show what the work item under the cursor actually says.
+    /// </summary>
+    /// <remarks>
+    /// <b>A READ, because asking a reader starts a child holding a
+    /// credential.</b> A UI session may do neither - the same sentence that
+    /// makes browsing a shell command rather than a toggle - so this happens
+    /// between sessions with the terminal free.
+    /// </remarks>
+    ShowWorkItem,
+
     /// <summary>Shows or hides every allowance in the fleet.</summary>
     ToggleAllowances,
 
@@ -813,6 +824,13 @@ public static class ShellCommands
         // are in `Reads` now. Ending the whole session was one way to honour
         // the rule; for a read it costs a screen taken away and given back.
         Command.ToggleBrowse,
+
+        // AND ASKING ABOUT ONE OF THEM, for the sentence directly above. Reading
+        // one item launches the same executable with the same credential in its
+        // environment as listing them does; that it fetches less is not a
+        // difference the rule turns on.
+        Command.ShowWorkItem,
+
         Command.ForgetCredential,
 
         // It opens a child and then writes a file, which is two things a

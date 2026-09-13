@@ -81,6 +81,35 @@ public sealed record WorkItemSummary(
 /// screen to say why.
 /// </para>
 /// </remarks>
+/// <summary>
+/// What a tracker offers to narrow by.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Values a query takes, not values a tree prints.</b> Whatever shape a
+/// tracker keeps its nodes in, what is in here goes straight into a
+/// <see cref="WorkItemFilter"/> - because a caller that has to reshape what it
+/// was offered will reshape it differently from whoever offered it, and the
+/// mismatch shows up as an empty listing with nothing to say why.
+/// </para>
+/// <para>
+/// <b>Empty is an answer.</b> A project with no iterations is a project where
+/// nobody should be offered a sprint to pick, which is different from a reader
+/// that could not be asked - and that difference is the caller's to draw.
+/// </para>
+/// </remarks>
+public sealed record WorkItemFacets(
+    IReadOnlyList<string> AreaPaths,
+    IReadOnlyList<string> Iterations,
+    IReadOnlyList<string> States)
+{
+    /// <summary>Nothing to pick from, which is a shape and not a failure.</summary>
+    public static WorkItemFacets Nothing { get; } = new([], [], []);
+
+    /// <summary>Whether there is anything here to choose.</summary>
+    public bool Any => AreaPaths.Count > 0 || Iterations.Count > 0 || States.Count > 0;
+}
+
 public sealed record WorkItemFilter(
     string? AreaPath = null,
     string? Iteration = null,
@@ -133,6 +162,15 @@ public interface IWorkItemSource
     Task<WorkItemPage> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>What there is to narrow a listing by, as the tracker has it.</summary>
+    /// <remarks>
+    /// <b>Read, not remembered.</b> A team renames an area and adds a sprint
+    /// every fortnight; a list cached anywhere would start offering choices
+    /// that answer nothing, and an empty answer to a stale filter looks exactly
+    /// like a sprint with no work in it.
+    /// </remarks>
+    Task<WorkItemFacets> FacetsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>What has happened to one item, oldest first.</summary>
     /// <remarks>

@@ -360,7 +360,7 @@ public sealed class ConsoleLoop(
                 // question is state and the answer is not.
                 case Command.ComposeInEditor when state.ComposingFor == ComposingFor.HandFlight:
                 case Command.ComposeWithAgent when state.ComposingFor == ComposingFor.HandFlight:
-                    state = Reducer.HandFlightAnswered(
+                    state = Spent(Reducer.HandFlightAnswered(
                         flyByHand is null
                             ? Closed(state) with
                             {
@@ -371,7 +371,7 @@ public sealed class ConsoleLoop(
                             }
                             : flyByHand(
                                 Closed(state),
-                                () => Chosen(outcome.Exit, editor, compose).Edit("")));
+                                () => Chosen(outcome.Exit, editor, compose).Edit(""))));
                     break;
 
                 case Command.OpenFlight:
@@ -380,8 +380,13 @@ public sealed class ConsoleLoop(
                     // AND THEN RE-READ. Rule 4: a flight opened is a flight the
                     // queue does not have yet, and a Last* sentence is a receipt
                     // rather than a substitute for the state changing.
+                    // CONSUMED HERE, AFTER THE OPEN HAS READ IT. The kind
+                    // chosen before composing is read inside Opened and cleared
+                    // on the way out, so it lasts exactly one flight - an answer
+                    // left behind is one the next flight through this arm would
+                    // inherit without being asked.
                     state = Reloaded(
-                        Opened(
+                        Spent(Opened(
                             // ONLY THE ANSWERS CLOSE A MODAL, because only they
                             // were asked from inside one. Resetting the mode for
                             // every command through this arm broke the property
@@ -390,7 +395,7 @@ public sealed class ConsoleLoop(
                             // state that belonged to whoever sent OpenFlight.
                             outcome.Exit == Command.OpenFlight ? state : Closed(state),
                             actions,
-                            Chosen(outcome.Exit, editor, compose)),
+                            Chosen(outcome.Exit, editor, compose))),
                         reload,
                         asked: false);
                     break;
@@ -766,16 +771,23 @@ public sealed class ConsoleLoop(
                     // the compose answers close after the loop has done the
                     // work: a reducer that closed it here would be closing the
                     // question before the thing it asked about had happened.
-                    bool flew;
-                    state = state.AskingKindFor is ComposingFor.WorkItem
-                        ? FlewPicked(state, actions, out flew)
-                        : Answered(state, out flew);
-
-                    state = state with
+                    // THE BROWSE DOOR OPENS NOW; THE OTHER TWO HAVE A SECOND
+                    // QUESTION TO ASK. A work item IS the intent, so there is
+                    // nothing left to write and the flight can be opened here.
+                    // The other two hand the terminal to an editor or an agent
+                    // first, so answering this one leads into that one.
+                    //
+                    // THE CURSOR SURVIVES INTO IT, because the kind is not
+                    // opened with until the composing is done. It is cleared
+                    // when the flight is actually opened, and by CloseModal if
+                    // somebody escapes - so it lasts one flight's opening and
+                    // never reaches the next.
+                    bool flew = false;
+                    state = state.AskingKindFor switch
                     {
-                        Mode = UiMode.Normal,
-                        AskingKindFor = ComposingFor.Nothing,
-                        KindSelected = 0,
+                        ComposingFor.WorkItem => Answering(
+                            FlewPicked(state, actions, out flew)),
+                        _ => ComposingNext(state),
                     };
 
                     if (flew)
@@ -1477,24 +1489,57 @@ public sealed class ConsoleLoop(
     }
 
     /// <summary>
-    /// The doors this question can be asked from that are not wired yet.
+    /// What it is for is answered; now ask how it gets written.
     /// </summary>
     /// <remarks>
-    /// <b>Named rather than defaulted.</b> `new flight' and `fly by hand' both
-    /// open a flight and both will ask this question; until they do, an answer
-    /// that arrived from one of them would silently open nothing, and a person
-    /// would be left looking at a console that had swallowed a keypress.
+    /// <b>Public because the routing is the loop's and the assertion is not.</b>
+    /// The answer to the kind question is a command the SHELL handles - opening
+    /// a flight cannot happen inside a session - so a test that pressed enter
+    /// through the reducer would watch nothing happen and prove nothing, which
+    /// is the trap <c>FlewPicked</c> is public for.
+    /// <para>
+    /// <b>The cursor survives into the next question</b> and is spent when the
+    /// flight is finally opened. A kind chosen before composing is not a kind
+    /// until something is written to go with it.
+    /// </para>
     /// </remarks>
-    private static AppState Answered(AppState state, out bool flew)
+    public static AppState ComposingNext(AppState state)
     {
-        flew = false;
+        ArgumentNullException.ThrowIfNull(state);
 
         return state with
         {
-            LastFlightOpened =
-                "Nothing was opened: this door does not ask what a flight is for yet.",
+            Mode = UiMode.ComposeChoice,
+            ComposingFor = state.AskingKindFor,
+            AskingKindFor = ComposingFor.Nothing,
         };
     }
+
+    /// <summary>
+    /// The answer has been used, so it stops existing.
+    /// </summary>
+    /// <remarks>
+    /// <b>An answer left behind is one the next flight inherits without being
+    /// asked</b>, which is the whole reason this is a cursor and not a setting.
+    /// Every path that opens a flight spends it on the way out.
+    /// </remarks>
+    private static AppState Spent(AppState state) =>
+        state with { KindSelected = 0, AskingKindFor = ComposingFor.Nothing };
+
+    /// <summary>The question is over: close it, and forget where the cursor was.</summary>
+    /// <remarks>
+    /// <b>After the flight, never before it.</b> The kind is read off this state
+    /// while the flight is being opened, so clearing it first would open every
+    /// flight with no kind - and clearing it at all is what stops one flight's
+    /// answer reaching the next.
+    /// </remarks>
+    private static AppState Answering(AppState state) =>
+        state with
+        {
+            Mode = UiMode.Normal,
+            AskingKindFor = ComposingFor.Nothing,
+            KindSelected = 0,
+        };
 
     private static AppState HandedBack(AppState state, IHandSession? hand)
     {

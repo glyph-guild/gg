@@ -183,7 +183,9 @@ public class AFlightIsAskedWhatItIsForTests
         await Assert.That(asked.Mode).IsEqualTo(UiMode.WorkKindChoice);
         await Assert.That(asked.AskingKindFor).IsEqualTo(ComposingFor.NewFlight);
 
-        var composing = Press(asked, KeyStroke.EnterKey);
+        // THROUGH THE LOOP AGAIN, because the answer is a shell command: a
+        // reducer press would watch nothing happen and prove nothing.
+        var composing = ConsoleLoop.ComposingNext(asked);
 
         await Assert.That(composing.Mode).IsEqualTo(UiMode.ComposeChoice)
             .Because("answering what it is FOR leads into how it gets written, which is the "

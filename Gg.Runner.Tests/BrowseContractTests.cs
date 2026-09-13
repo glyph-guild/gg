@@ -127,6 +127,26 @@ public class BrowseContractTests
     }
 
     [Test]
+    public async Task The_choices_a_filter_is_picked_from_are_their_own_tool()
+    {
+        // A SEPARATE TOOL, NOT AN ARGUMENT ON BROWSE. A reader that can list
+        // work and cannot enumerate a tree is a reader that still browses, and
+        // folding the two together would make one capability refuse for the
+        // other's sake.
+        await Assert.That(FacetTool.IsOffered([BrowseTool.Name])).IsFalse();
+        await Assert.That(FacetTool.IsOffered(null)).IsFalse();
+        await Assert.That(FacetTool.IsOffered([BrowseTool.Name, FacetTool.Name])).IsTrue();
+
+        var said = FacetTool.NotOffered("a-tracker");
+
+        await Assert.That(said).Contains("a-tracker");
+        await Assert.That(said).Contains(FacetTool.Name);
+        await Assert.That(said).Contains("without a filter")
+            .Because("it has to say what still works, or a missing tool reads as a reader that "
+                   + "is broken rather than one narrower than this pane wants.");
+    }
+
+    [Test]
     public async Task Paging_is_a_cursor_the_caller_hands_back()
     {
         // A tracker's paging is opaque and its ordering is its business, so the

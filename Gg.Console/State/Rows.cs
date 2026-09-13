@@ -11,7 +11,7 @@ namespace Gg.Console;
 /// and leaves the alignment to something that can measure the screen.
 /// </remarks>
 public sealed record FlightRow(
-    string FlightId, string Number, string State, string Loop, string Age, string Work);
+    string FlightId, string Number, string State, string Kind, string Loop, string Age, string Work);
 
 /// <summary>
 /// One registered repository: what it is, whether this console is flying
@@ -156,8 +156,16 @@ public sealed record RunnerRow(
 public static class Rows
 {
     /// <summary>What a person reads down each column of the flights table.</summary>
+    /// <remarks>
+    /// <b><c>kind</c> is beside <c>state</c> rather than beside <c>work</c>,
+    /// and the two are not the same question.</b> <c>work</c> is what somebody
+    /// CALLED this flight; <c>kind</c> is what governs it. Two flights with
+    /// one name can be bound by different envelopes, so the column that tells
+    /// them apart belongs with the other facts about the flight rather than
+    /// tucked beside the prose.
+    /// </remarks>
     public static IReadOnlyList<string> FlightColumns { get; } =
-        ["flight", "state", "loop", "age", "work"];
+        ["flight", "state", "kind", "loop", "age", "work"];
 
     /// <summary>
     /// What a person reads down each column of the work list.
@@ -279,6 +287,13 @@ public static class Rows
                     f.FlightId,
                     f.FlightNumber,
                     f.State,
+                    // NOT DEFAULTED TO `implement`, which is what the control
+                    // plane substitutes at CREATION. Filling an absent value in
+                    // here would be right by coincidence for new flights and a
+                    // fabrication for every summary from a control plane that
+                    // does not send this yet - on the field that says which
+                    // envelope governs.
+                    f.WorkKind is { Length: > 0 } kind ? kind : "(not said)",
                     PaneText.LoopEndingOf(f),
                     PaneText.AgeOf(f.CreatedAt),
                     f.Name)),

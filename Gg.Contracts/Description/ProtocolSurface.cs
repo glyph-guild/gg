@@ -1589,7 +1589,7 @@ public static class ProtocolSurface
                  "runnerProtocolVersion", "factVocabularyVersion", "constitutionVersion", "envelopeVersion",
                  "attempts",
                  "facts",
-                 "requiredLabels", "waiting", "state"],
+                 "requiredLabels", "waiting", "state", "workKind"],
             [typeof(FlightList)] = ["flights"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
             [typeof(Actor)] = ["kind", "name"],

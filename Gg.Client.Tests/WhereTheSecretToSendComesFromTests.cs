@@ -108,7 +108,11 @@ public class WhereTheSecretToSendComesFromTests
 
             var all = string.Join(" | ", said);
 
-            await Assert.That(all).DoesNotContain(found, StringComparison.Ordinal);
+            await Assert.That(found).IsNotNull()
+                .Because("both arms answer with a secret here; a null would make the next "
+                       + "assertion pass by having nothing to look for.");
+
+            await Assert.That(all).DoesNotContain(found!, StringComparison.Ordinal);
             await Assert.That(all).Contains("local:acme/widgets", StringComparison.Ordinal)
                 .Because("which credential is about to be sent is the fact somebody checks "
                        + "before they send it - and naming it is what makes the silence "

@@ -1,7 +1,9 @@
+using Gg.Contracts;
+
 namespace Gg.Console;
 
 /// <summary>
-/// Connects to the runner under the cursor and leaves the live pane on its flight.
+/// Connects to the runner under the cursor and leaves the live pane on it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -46,7 +48,7 @@ public static class ConsoleWatchRunner
     /// exactly the thing a person wants to see happening. Everything it has to
     /// say - each step, and why it stopped if it did - arrives in the pane.
     /// </remarks>
-    public delegate bool Start(string runnerId, string flightId);
+    public delegate bool Start(string runnerId);
 
     /// <summary>Goes and watches, or says why it did not.</summary>
     public static AppState Watch(AppState state, Start start)
@@ -64,30 +66,20 @@ public static class ConsoleWatchRunner
         // another; a command that arrived anyway - a rebind, a modal that
         // outlived the row it was over - must not reach for a channel that
         // cannot exist and then blame the network for it.
-        if (row.Work is not { Length: > 0 } flying)
+        //
+        // BEATING RATHER THAN FLYING. A runner answers an introduction on a
+        // heartbeat, so a machine that is not beating never sees one and this
+        // console would wait out its whole minute to learn nothing. Flying is
+        // no longer the question: attaching to a machine that is WAITING is
+        // what lets somebody see work arrive.
+        if (row.State.StartsWith(RunnerStates.Offline, StringComparison.Ordinal))
         {
             return state with
             {
                 LastRunner =
-                    $"{row.Label} is flying nothing, so there is nothing to watch: a channel "
-                  + "to a runner exists only while a flight does, which is what stops it "
-                  + "being a standing way in.",
-            };
-        }
-
-        // THE ROW HAS A NUMBER AND THE PANE NEEDS AN ID, and the FLEET ANSWER is
-        // where the two meet. It was the queue once, which is why watching drew
-        // nothing: the queue holds flights that need somebody, and a flight
-        // being watched is usually just flying.
-        if (state.Runners?.Runners
-                .FirstOrDefault(r => string.Equals(r.RunnerId, row.Id, StringComparison.Ordinal))
-                ?.CurrentFlightId is not { Length: > 0 } flightId)
-        {
-            return state with
-            {
-                LastRunner =
-                    $"{row.Label} is flying {flying} and the fleet does not say which flight "
-                  + "that is, so there is nowhere to put what it says. Refresh and try again.",
+                    $"{row.Label} is not beating, so there is nothing to reach: an "
+                  + "introduction is picked up on a heartbeat, and a machine that is not "
+                  + "sending them never sees one.",
             };
         }
 
@@ -95,7 +87,7 @@ public static class ConsoleWatchRunner
         // and why it stopped if it does - goes into the buffer the pane drains,
         // so a person watches it happen instead of watching a bare terminal
         // that stops existing the moment this returns.
-        if (!start(row.Id, flightId))
+        if (!start(row.Id))
         {
             return state with
             {
@@ -103,19 +95,25 @@ public static class ConsoleWatchRunner
             };
         }
 
-        // THE PANE IS TOLD WHICH FLIGHT rather than left to infer it from a
-        // cursor that cannot point at this one. Live is cleared because what
-        // follows is one flight's account from its first step, and lines left
-        // over from whatever was drawn before would sit above it unlabelled.
+        // THE PANE IS TOLD WHICH MACHINE rather than left to infer a flight
+        // from a cursor that cannot point at one - and there may be no flight
+        // at all, which is the case this exists for. Live is cleared because
+        // what follows is one machine's account from the moment it was
+        // attached to, and lines left over from whatever was drawn before
+        // would sit above it unlabelled.
         return state with { Live = [] } with
         {
             // THE MODAL CLOSES, because the thing it was asked from is now
             // happening behind it and the pane it happens in is another tab.
             Mode = UiMode.Normal,
-            WatchedFlightId = flightId,
+            WatchedRunnerId = row.Id,
+            WatchedFlightId = null,
             LiveVisible = true,
             ActiveTab = TabId.Live,
-            LastRunner = $"Watching {flying} on {row.Label}. The pane says how it is going.",
+            LastRunner = row.Work is { Length: > 0 } flying
+                ? $"Watching {row.Label}, flying {flying}. The pane says how it is going."
+                : $"Watching {row.Label}. It is flying nothing yet; work will appear here "
+                + "when it arrives.",
         };
     }
 }

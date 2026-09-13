@@ -190,24 +190,28 @@ public class SuggestedLogCommandTests
     }
 
     [Test]
-    public async Task A_runner_flying_nothing_is_told_nothing_it_cannot_use()
+    public async Task A_runner_flying_nothing_is_offered_the_key_too()
     {
-        // A CORRECTION OF A CORRECTION. The first version showed the verb only
-        // while something was flying; the second showed it always, so that a
-        // person on an idle fleet - which is most of the time - would learn the
-        // capability exists at all. That was right while the only way in was a
-        // command somebody had to be told about.
+        // THE THIRD CORRECTION OF ONE SENTENCE, and each one was right about
+        // the code it was written against. First the verb showed only while
+        // something was flying. Then always, so a person on an idle fleet -
+        // which is most of the time - would learn the capability exists. Then
+        // never, because it had become a KEY and the key was not bound here, and
+        // a pane offering one that is not live teaches somebody to distrust the
+        // pane.
         //
-        // It is a KEY now, and a key is advertised on the hint line the moment
-        // it is live. So the pane stops explaining a verb that cannot work here
-        // and says the one true thing instead, which is what an idle runner
-        // has: nothing.
+        // NOW THE KEY IS BOUND HERE. A runner answers while it is beating, so
+        // attaching to a machine that is waiting is not only possible, it is the
+        // reason the whole thing exists: it is how somebody sees work arrive
+        // rather than finding out afterwards that it did.
         var said = RunnerDetails.LogAbsence(Flying("vmlinux001", flying: null));
 
-        await Assert.That(said).StartsWith("No log is available when idle.");
+        await Assert.That(said).StartsWith("No log is available when idle.")
+            .Because("there is still no log to fetch, and the first sentence is the true "
+                   + "one about what is HERE.");
 
-        await Assert.That(said.Contains("`w`", StringComparison.Ordinal)).IsFalse()
-            .Because("the key is not bound while it flies nothing, and a pane offering one "
-                   + "that is not live teaches somebody to distrust the pane. Said: " + said);
+        await Assert.That(said).Contains("`w`")
+            .Because("and what to do about it is a key that is live right now, read off the "
+                   + "keymap so the two cannot drift. Said: " + said);
     }
 }

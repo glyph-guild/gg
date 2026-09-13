@@ -180,10 +180,11 @@ public class TheSignInModalReadsTests
             // model without a fleet leaves it false however the derivation is
             // written.
             //
-            // AND THAT RUNNER IS FLYING SOMETHING, for the same reason and a
-            // second flag: watching is offered only while there is a flight to
-            // watch, so an idle row leaves RunnerIsFlying false and this
-            // assertion cannot tell that from a derivation that never reads it.
+            // AND THAT RUNNER IS BEATING, for the same reason and a second
+            // flag: watching is offered only over a machine that can pick an
+            // introduction up, so a row with no beat leaves RunnerIsBeating
+            // false and this assertion cannot tell that from a derivation that
+            // never reads it.
             Machine = "a-laptop",
             LocalRunnerId = "01a078bb-4b97-779b-81ff-554c4ea662c0",
             RunnerSelected = 0,

@@ -20,7 +20,7 @@ namespace Gg.Console;
 /// live there.
 /// </para>
 /// </remarks>
-public sealed class LiveTails(Func<string, ILiveSource> source)
+public sealed class LiveTails(Func<string, ILiveSource> source, Func<ILiveSource?>? watched = null)
 {
     private readonly Dictionary<string, ILiveSource> _tails = new(StringComparer.Ordinal);
 
@@ -40,24 +40,44 @@ public sealed class LiveTails(Func<string, ILiveSource> source)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        // WHAT IT WAS TOLD TO DRAW, THEN WHAT THE CURSOR IS ON. A watched
+        if (!state.LiveVisible)
+        {
+            return state with { Silence = LiveSilence.NotAttached };
+        }
+
+        // A WATCHED MACHINE FIRST, AND NEVER REMEMBERED. Its buffer belongs to
+        // the conversation, and pressing the key again stops the old one and
+        // makes a new buffer - so a source held from last time is one nothing
+        // is filling any more, drawn with nothing saying so.
+        //
+        // The file tails below are the opposite: they hold an offset that has
+        // to survive a session rebuild, which is the whole reason this class
+        // remembers anything.
+        var live = state.WatchedRunnerId is { Length: > 0 } ? watched?.Invoke() : null;
+
+        // THEN WHAT IT WAS TOLD TO DRAW, THEN WHAT THE CURSOR IS ON. A watched
         // flight is named outright because the queue cannot name it: the queue
         // holds flights that need somebody, and a flight being watched is
         // usually just flying. Following the cursor stays the default, so every
         // pane that worked before works unchanged.
         var flightId = state.WatchedFlightId ?? state.Selected?.FlightId;
 
-        if (!state.LiveVisible || flightId is not { Length: > 0 })
+        if (live is null && flightId is not { Length: > 0 })
         {
             return state with { Silence = LiveSilence.NotAttached };
         }
 
         try
         {
-            if (!_tails.TryGetValue(flightId, out var tail))
+            var tail = live;
+
+            if (tail is null)
             {
-                tail = source(flightId);
-                _tails[flightId] = tail;
+                if (!_tails.TryGetValue(flightId!, out tail))
+                {
+                    tail = source(flightId!);
+                    _tails[flightId!] = tail;
+                }
             }
 
             foreach (var line in tail.Read())

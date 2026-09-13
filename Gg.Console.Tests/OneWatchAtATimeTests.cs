@@ -54,9 +54,9 @@ public class OneWatchAtATimeTests
     {
         using var watched = new WatchedRunner(Following("one", "two"), () => T0);
 
-        watched.Start("a-runner", "a-flight");
+        watched.Start("a-runner");
 
-        var source = watched.SourceFor("a-flight");
+        var source = watched.Current();
 
         await Assert.That(source).IsNotNull()
             .Because("the pane is keyed by flight, so a watch that registered under anything "
@@ -101,9 +101,9 @@ public class OneWatchAtATimeTests
             },
             () => T0);
 
-        watched.Start("a-runner", "a-flight");
+        watched.Start("a-runner");
 
-        var source = watched.SourceFor("a-flight")!;
+        var source = watched.Current()!;
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         var seen = new List<StreamLine>();
 
@@ -137,29 +137,27 @@ public class OneWatchAtATimeTests
         using var watched = new WatchedRunner(Following("a line"), () => T0);
 
         var started = System.Diagnostics.Stopwatch.StartNew();
-        watched.Start("a-runner", "a-flight");
+        watched.Start("a-runner");
         started.Stop();
 
         await Assert.That(started.Elapsed).IsLessThan(TimeSpan.FromSeconds(2))
             .Because("the watch runs beside the console rather than in front of it. Took: "
                    + started.Elapsed);
 
-        await Assert.That(watched.SourceFor("a-flight")).IsNotNull()
+        await Assert.That(watched.Current()).IsNotNull()
             .Because("and the pane has somewhere to read from the moment it returns, or the "
                    + "first steps arrive before anything is listening.");
     }
 
     [Test]
-    public async Task A_flight_nobody_is_watching_has_no_source()
+    public async Task Nothing_watched_is_no_source_at_all()
     {
         using var watched = new WatchedRunner(Following(), () => T0);
 
-        watched.Start("a-runner", "a-flight");
-
-        await Assert.That(watched.SourceFor("some-other-flight")).IsNull()
-            .Because("the composition root falls back to the file for anything this does not "
-                   + "answer for, so answering for a flight nobody is watching would put an "
-                   + "empty remote buffer in front of a local tail that has lines in it.");
+        await Assert.That(watched.Current()).IsNull()
+            .Because("the pane falls back to the file for anything this does not answer for, "
+                   + "so answering before anybody watched anything would put an empty remote "
+                   + "buffer in front of a local tail that has lines in it.");
     }
 
     [Test]
@@ -185,13 +183,17 @@ public class OneWatchAtATimeTests
             },
             () => T0);
 
-        watched.Start("first", "first-flight");
-        watched.Start("second", "second-flight");
+        watched.Start("first");
+        var firstBuffer = watched.Current();
+
+        watched.Start("second");
 
         await stopped.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
-        await Assert.That(watched.SourceFor("first-flight")).IsNull();
-        await Assert.That(watched.SourceFor("second-flight")).IsNotNull();
+        await Assert.That(watched.Current()).IsNotNull();
+        await Assert.That(watched.Current()).IsNotSameReferenceAs(firstBuffer)
+            .Because("the second watch gets its own buffer, and a pane still holding the "
+                   + "first one would draw a source nothing is filling any more.");
     }
 
     [Test]
@@ -203,9 +205,9 @@ public class OneWatchAtATimeTests
         // over a conversation that is over.
         using var watched = new WatchedRunner(Following(), () => T0);
 
-        watched.Start("a-runner", "a-flight");
+        watched.Start("a-runner");
 
-        var source = watched.SourceFor("a-flight")!;
+        var source = watched.Current()!;
 
         // OPEN ONLY ONCE THERE IS A CHANNEL. Start returns before there is one,
         // which is the whole reason Opened exists.
@@ -215,7 +217,7 @@ public class OneWatchAtATimeTests
         watched.Stop();
 
         await Assert.That(source.Exists).IsFalse();
-        await Assert.That(watched.SourceFor("a-flight")).IsNull();
+        await Assert.That(watched.Current()).IsNull();
     }
 
     [Test]

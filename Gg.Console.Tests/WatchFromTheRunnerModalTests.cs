@@ -88,20 +88,11 @@ public class WatchFromTheRunnerModalTests
                    + string.Join(", ", keys.Select(k => k.Command.ToString())));
     }
 
-    [Test]
-    public async Task A_runner_flying_nothing_is_not_offered_it()
-    {
-        // THE SAME RULE THE SENTENCE STATES. A channel to a runner exists only
-        // while a flight does, so a key here would be one that always fails -
-        // and the modal's own text is where a person learns the capability
-        // exists on an idle machine.
-        var keys = Keymap.Bindings(KeymapContext.For(State(null)));
-
-        await Assert.That(keys.Any(k => k.Command == Command.WatchRunner)).IsFalse()
-            .Because("a key that cannot work is worse than a sentence that explains when it "
-                   + "would. Offered: "
-                   + string.Join(", ", keys.Select(k => k.Command.ToString())));
-    }
+    // "A RUNNER FLYING NOTHING IS NOT OFFERED IT" WAS HERE, and the rule it
+    // stated is gone: a runner answers while it is BEATING now, so waiting for
+    // work is exactly when the key is worth having. What replaced it -
+    // including the offline case, which is the part that really cannot work -
+    // is WatchingAnIdleRunnerFromTheModalTests.
 
     [Test]
     public async Task The_modal_names_the_key_rather_than_only_the_command()
@@ -116,26 +107,24 @@ public class WatchFromTheRunnerModalTests
             .Because("a console that knows the answer and makes a person leave to use it is "
                    + "what this key was added to stop. Said: " + said);
 
-        // AND NOT WHEN THERE IS NOTHING TO PRESS IT ON. The idle sentence still
-        // names the capability - that is where somebody learns it exists - but
-        // offering a key that is not bound right now is the thing the whole
-        // method exists not to do.
-        // THE IDLE PANE OFFERS NOTHING IT CANNOT DO. It used to explain, at
-        // length, when watching would work; the key is on the hint line the
-        // moment it is live, so the pane says the one true thing instead.
+        // AND WHEN IT IS FLYING NOTHING, WHICH IS THE NEW PART. The pane used
+        // to say "No log is available when idle." and stop, because the key was
+        // not bound and offering one that is not live teaches somebody to
+        // distrust the pane. It is bound now, and an idle machine is the one a
+        // person most wants to attach to - so the sentence says so.
         var idle = RunnerDetails.LogAbsence(State(null));
 
-        await Assert.That(idle).StartsWith("No log is available when idle.");
-        await Assert.That(idle.Contains("`w`", StringComparison.Ordinal)).IsFalse()
-            .Because("the key is not bound while it flies nothing, and a pane offering one "
-                   + "that is not live teaches somebody to distrust the pane. Said: " + idle);
+        await Assert.That(idle).Contains("`w`")
+            .Because("attaching before there is anything to watch is how somebody sees work "
+                   + "arrive, and a pane that does not mention it is a capability nobody "
+                   + "finds. Said: " + idle);
     }
 
     /// <summary>A start that records which runner it was asked about.</summary>
     private static ConsoleWatchRunner.Start Starting(List<string> asked) =>
-        (runnerId, flightId) =>
+        runnerId =>
         {
-            asked.Add($"{runnerId}/{flightId}");
+            asked.Add(runnerId);
             return true;
         };
 
@@ -149,15 +138,15 @@ public class WatchFromTheRunnerModalTests
 
         var after = ConsoleWatchRunner.Watch(State("GG-71"), Starting(asked));
 
-        await Assert.That(asked).IsEquivalentTo(new[] { $"{Vmlinux}/{TheFlight}" })
-            .Because("the connect is asked for by runner and the pane is keyed by flight, so "
-                   + "both have to cross.");
+        await Assert.That(asked).IsEquivalentTo(new[] { Vmlinux })
+            .Because("the connect and the pane are both the machine's now, so one identifier "
+                   + "crosses where two used to.");
 
         await Assert.That(after.LiveVisible).IsTrue()
             .Because("a watch that connected and showed nothing is a watch a person cannot "
                    + "tell from one that failed.");
 
-        await Assert.That(after.WatchedFlightId).IsEqualTo(TheFlight)
+        await Assert.That(after.WatchedRunnerId).IsEqualTo(Vmlinux)
             .Because("the pane needs to be told WHICH flight, and the queue cursor cannot "
                    + "say: the queue holds flights that need somebody, and one being watched "
                    + "is usually just flying.");
@@ -188,46 +177,17 @@ public class WatchFromTheRunnerModalTests
         }
     }
 
-    [Test]
-    public async Task A_runner_flying_nothing_is_not_watched_even_if_asked()
-    {
-        // THE KEY AND THE ACT AGREE. The hint line is derived from one place and
-        // dispatch from another; a command that arrived anyway - a rebind, a
-        // stale modal - must not connect to something that cannot answer.
-        var reached = false;
+    // "A RUNNER FLYING NOTHING IS NOT WATCHED EVEN IF ASKED" WAS HERE, and
+    // it inverted with the key above it. Dispatch still re-checks the rule the
+    // key obeys - that is the point of checking it twice - but the rule is now
+    // "beating", and the test for it is with the others in
+    // WatchingAnIdleRunnerFromTheModalTests.
 
-        var after = ConsoleWatchRunner.Watch(
-            State(null), (_, _) => { reached = true; return true; });
-
-        await Assert.That(reached).IsFalse();
-        await Assert.That(after.LastRunner).Contains("nothing")
-            .Because("it has to say why rather than fail silently. Said: " + after.LastRunner);
-    }
-
-    [Test]
-    public async Task A_fleet_that_does_not_say_which_flight_is_not_watched()
-    {
-        // THE ROW SHOWS A NUMBER AND THE PANE NEEDS AN ID. The fleet answer
-        // carries both; a row without the id is one this console cannot key a
-        // buffer under, which is a refusal rather than a blank box.
-        var reached = false;
-
-        var state = State("GG-71");
-        var blind = state with
-        {
-            Runners = new RunnerList
-            {
-                Runners = [state.Runners!.Runners[0] with { CurrentFlightId = null }],
-            },
-        };
-
-        var after = ConsoleWatchRunner.Watch(
-            blind, (_, _) => { reached = true; return true; });
-
-        await Assert.That(reached).IsFalse();
-        await Assert.That(after.LastRunner).Contains("GG-71")
-            .Because("it has to name the flight it could not place. Said: " + after.LastRunner);
-    }
+    // "A FLEET THAT DOES NOT SAY WHICH FLIGHT IS NOT WATCHED" WAS HERE, and
+    // its rule is gone rather than moved. The pane needed a flight id to key a
+    // buffer under, so a fleet answer without one was a refusal; the buffer is
+    // keyed by the machine now, and what it draws is whatever that machine is
+    // on - so there is nothing left to refuse over.
 
     [Test]
     public async Task A_flight_that_is_only_flying_is_watchable()
@@ -237,12 +197,11 @@ public class WatchFromTheRunnerModalTests
         // queue of PROBLEMS - awaiting a decision, a lease expired twice, a
         // runner gone. A flight that is simply flying is in none of those, so
         // watching worked for exactly the flights nobody wants to watch.
-        var after = ConsoleWatchRunner.Watch(
-            State("GG-77"), (_, _) => true);
+        var after = ConsoleWatchRunner.Watch(State("GG-77"), _ => true);
 
         await Assert.That(after.Queue).IsEmpty()
             .Because("this is the case that was broken and it has to stay the case.");
-        await Assert.That(after.WatchedFlightId).IsEqualTo(TheFlight);
+        await Assert.That(after.WatchedRunnerId).IsEqualTo(Vmlinux);
         await Assert.That(after.LiveVisible).IsTrue();
     }
 }

@@ -39,7 +39,7 @@ public class TheRunnerModalIsKeysOnlyTests
         {
             Mode = UiMode.Runner,
             RunnerIsOurs = true,
-            RunnerIsFlying = true,
+            RunnerIsBeating = true,
         });
 
         await Assert.That(buttons).IsEmpty()
@@ -54,7 +54,7 @@ public class TheRunnerModalIsKeysOnlyTests
         {
             Mode = UiMode.Runner,
             RunnerIsOurs = false,
-            RunnerIsFlying = true,
+            RunnerIsBeating = true,
         });
 
         await Assert.That(buttons).IsEmpty();
@@ -70,7 +70,7 @@ public class TheRunnerModalIsKeysOnlyTests
         {
             Mode = UiMode.Runner,
             RunnerIsOurs = true,
-            RunnerIsFlying = true,
+            RunnerIsBeating = true,
         };
 
         foreach (var (stroke, command) in new (KeyStroke, Command)[]
@@ -111,7 +111,7 @@ public class TheRunnerModalIsKeysOnlyTests
             {
                 Mode = UiMode.Runner,
                 RunnerIsOurs = ours,
-                RunnerIsFlying = true,
+                RunnerIsBeating = true,
             });
 
             await Assert.That(bindings.Where(b => b.Label is { Length: > 0 })).IsEmpty();

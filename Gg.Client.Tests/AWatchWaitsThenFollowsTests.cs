@@ -52,32 +52,42 @@ public class AWatchWaitsThenFollowsTests
         },
     };
 
-    /// <summary>Answers each ask from a script, and stops the loop when it runs out.</summary>
+    /// <summary>
+    /// Answers each kind from its own script, and stops when the tails run out.
+    /// </summary>
+    /// <remarks>
+    /// <b>By KIND rather than by position</b>, because the loop asks for the log
+    /// every tick and about the machine only every few - so one script in
+    /// arrival order would be a test that encodes the tick arithmetic and breaks
+    /// when the cadence changes, rather than one about what the loop does with
+    /// each answer.
+    /// </remarks>
     private static async Task<List<string>> FollowedAsync(
-        IReadOnlyList<RunnerSaid?> answers, IReadOnlyList<string> seen)
+        IReadOnlyList<RunnerSaid?> tails,
+        IReadOnlyList<RunnerSaid?> statuses,
+        IReadOnlyList<string> seen)
     {
         var written = new List<string>();
-        var next = 0;
+        var nextTail = 0;
+        var nextStatus = 0;
         using var stopping = new CancellationTokenSource();
 
         await WatchARunner.FollowAsync(
             (ask, _) =>
             {
-                // TAIL AND STATUS COME OFF ONE SCRIPT, in the order the loop
-                // actually asks them, so what the script says is also a record
-                // of what the loop did.
-                if (next >= answers.Count)
+                if (string.Equals(ask.Kind, RunnerAskKinds.Status, StringComparison.Ordinal))
+                {
+                    return Task.FromResult(
+                        nextStatus < statuses.Count ? statuses[nextStatus++] : null);
+                }
+
+                if (nextTail >= tails.Count)
                 {
                     stopping.Cancel();
                     return Task.FromResult<RunnerSaid?>(null);
                 }
 
-                var answer = answers[next++];
-
-                return Task.FromResult(
-                    answer is null || string.Equals(answer.Kind, ask.Kind, StringComparison.Ordinal)
-                        ? answer
-                        : answer);
+                return Task.FromResult(tails[nextTail++]);
             },
             (_, _) => Task.CompletedTask,
             seen,
@@ -92,8 +102,9 @@ public class AWatchWaitsThenFollowsTests
     public async Task Nothing_is_written_while_the_machine_is_waiting()
     {
         var written = await FollowedAsync(
-            [Status("idle", null, 15), Tail(), Status("idle", null, 30), Tail()],
-            []);
+            tails: [Tail(), Tail()],
+            statuses: [Status("idle", null, 15), Status("idle", null, 30)],
+            seen: []);
 
         await Assert.That(written.Any(l => l.Contains("beat", StringComparison.OrdinalIgnoreCase)))
             .IsTrue()
@@ -111,13 +122,9 @@ public class AWatchWaitsThenFollowsTests
     public async Task The_flight_that_arrives_is_named_and_then_followed()
     {
         var written = await FollowedAsync(
-            [
-                Status("idle", null, 15),
-                Tail(),
-                Status("working a flight", "GG-84", 30),
-                Tail("text: starting on it"),
-            ],
-            []);
+            tails: [Tail(), Tail(), Tail(), Tail(), Tail(), Tail("text: starting on it")],
+            statuses: [Status("idle", null, 15), Status("working a flight", "GG-84", 30)],
+            seen: []);
 
         await Assert.That(written.Any(l => l.Contains("GG-84", StringComparison.Ordinal))).IsTrue()
             .Because("a pane that silently begins drawing a different flight's output is "
@@ -137,13 +144,21 @@ public class AWatchWaitsThenFollowsTests
         // that did not happen. The flight name is what makes the reset
         // deterministic.
         var written = await FollowedAsync(
+            tails:
             [
-                Status("working a flight", "GG-84", 15),
                 Tail("setup: cloning", "text: the first flight"),
-                Status("working a flight", "GG-85", 30),
+                Tail("setup: cloning", "text: the first flight"),
+                Tail("setup: cloning", "text: the first flight"),
+                Tail("setup: cloning", "text: the first flight"),
+                Tail("setup: cloning", "text: the first flight"),
                 Tail("setup: cloning", "text: the second flight"),
             ],
-            []);
+            statuses:
+            [
+                Status("working a flight", "GG-84", 15),
+                Status("working a flight", "GG-85", 30),
+            ],
+            seen: []);
 
         await Assert.That(written).Contains("text: the second flight");
 
@@ -157,8 +172,9 @@ public class AWatchWaitsThenFollowsTests
     public async Task One_silence_does_not_end_a_watch_and_three_do()
     {
         var written = await FollowedAsync(
-            [null, Tail("text: still here"), null, null, null, Tail("text: never reached")],
-            []);
+            tails: [null, Tail("text: still here"), null, null, null, Tail("text: never reached")],
+            statuses: [Status("idle", null, 15)],
+            seen: []);
 
         await Assert.That(written).Contains("text: still here")
             .Because("a fifteen second timeout produces a null, and a watch meant to sit on "

@@ -62,6 +62,12 @@ public class AFlightIsAskedWhatItIsForTests
         ],
     };
 
+    /// <summary>A console that knows the tenant's kinds and is on no tab in particular.</summary>
+    private static AppState WithKinds(params string[] kinds) => new()
+    {
+        Estate = new EstateOnThisMachine { Uncommitted = [], Names = Declaring(kinds) },
+    };
+
     private static AppState Browsing(params string[] kinds) => new()
     {
         ActiveTab = TabId.Browse,
@@ -163,6 +169,45 @@ public class AFlightIsAskedWhatItIsForTests
             .Because("escaping is `I did not mean to open this' and has to leave nothing "
                    + "behind - where choosing the first row is a decision to fly with no "
                    + "kind, which is a different act and opens a flight.");
+    }
+
+    [Test]
+    public async Task A_new_flight_is_asked_before_it_is_composed()
+    {
+        // THE ORDER IS THE POINT. Asking after somebody has written a paragraph
+        // is asking them to hold a question while they think about something
+        // else - and the compose modal is already a question, so two in a row
+        // have to come in the order a person can answer them.
+        var asked = Press(WithKinds("hal-score"), KeyStroke.Char('n'));
+
+        await Assert.That(asked.Mode).IsEqualTo(UiMode.WorkKindChoice);
+        await Assert.That(asked.AskingKindFor).IsEqualTo(ComposingFor.NewFlight);
+
+        var composing = Press(asked, KeyStroke.EnterKey);
+
+        await Assert.That(composing.Mode).IsEqualTo(UiMode.ComposeChoice)
+            .Because("answering what it is FOR leads into how it gets written, which is the "
+                   + "question that was already there.");
+    }
+
+    [Test]
+    public async Task Flying_by_hand_is_asked_too()
+    {
+        var asked = Press(WithKinds("hal-score"), KeyStroke.Char('y'));
+
+        await Assert.That(asked.Mode).IsEqualTo(UiMode.WorkKindChoice);
+        await Assert.That(asked.AskingKindFor).IsEqualTo(ComposingFor.HandFlight)
+            .Because("three doors open a flight and a question asked on two of them is a "
+                   + "setting that works depending on how you started.");
+    }
+
+    [Test]
+    public async Task And_neither_is_asked_when_the_tenant_declared_none()
+    {
+        await Assert.That(Press(new AppState(), KeyStroke.Char('n')).Mode)
+            .IsEqualTo(UiMode.ComposeChoice)
+            .Because("one possible answer is not a question, and flying is unchanged for a "
+                   + "tenant that declared no kinds.");
     }
 
     [Test]

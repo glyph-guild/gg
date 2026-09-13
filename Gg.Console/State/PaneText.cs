@@ -1555,6 +1555,14 @@ public static class PaneText
     /// be rebuilt after the terminal is handed away, and it stops when the
     /// console stops, which is what makes it liveness rather than decoration.
     /// </para>
+    /// <para>
+    /// <b>In the live view and nowhere else.</b> It was along the bottom of the
+    /// whole application first, which put it on every screen whether or not
+    /// anything was being watched - furniture rather than an answer - and on
+    /// the one line whose rule is that it names exactly the keys that are live.
+    /// The question it answers is asked by somebody looking at a pane that is
+    /// not moving, so it belongs in the pane.
+    /// </para>
     /// </remarks>
     public static string Alive(int nextIn)
     {
@@ -1573,20 +1581,18 @@ public static class PaneText
     }
 
     /// <summary>
-    /// The line along the bottom: the live keys, and the mark that moves.
+    /// The moving mark, where there is something to move under.
     /// </summary>
     /// <remarks>
-    /// <b>Beside the hints rather than inside them.</b> The hint line is exactly
-    /// the keys that are live and nothing else - a rule of its own, asserted as
-    /// set equality - so a mark added into it would be a key that does nothing.
-    /// Composed here, where a test can ask for both halves at once.
+    /// <b>Only while the pane is open, and never while it is frozen.</b> A pane
+    /// nobody asked for has nothing to be alive about - it is off by default and
+    /// meant to stay that way - and freezing is a promise that the pixels stop
+    /// so a terminal's own selection survives being made.
     /// </remarks>
-    public static string BottomLine(AppState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        return $"{Keymap.Hints(KeymapContext.For(state))}  {Alive(state.Refresh.NextIn)}";
-    }
+    private static string Moving(AppState state) =>
+        state.LiveVisible && !state.Frozen
+            ? $"\n\n{Alive(state.Refresh.NextIn)}"
+            : "";
 
     public static string Live(AppState state)
     {
@@ -1594,6 +1600,9 @@ public static class PaneText
 
         if (state.Live.Count == 0)
         {
+            // THE SAME MARK UNDER THE SAME SENTENCES. An empty box is the
+            // screen somebody stares at wondering whether the console is stuck,
+            // so it is the last place that should sit perfectly still.
             // THREE SILENCES, THREE SENTENCES. An empty box cannot say why it is
             // empty, and a person who reads "nothing is writing" as "nothing has
             // been said yet" concludes the feature is broken.
@@ -1610,7 +1619,7 @@ public static class PaneText
                   + "anything yet.",
                 LiveSilence.Waiting =>
                     "Watching this machine. It is waiting for work; whatever it flies next "
-                  + $"appears here as it arrives. {Alive(state.Refresh.NextIn)}",
+                  + "appears here as it arrives.",
                 // AND NOTHING ELSE. It went on "This pane is off by default and
                 // is meant to stay that way", which is a note to whoever built
                 // it rather than an answer to whoever is looking: a person who
@@ -1622,7 +1631,8 @@ public static class PaneText
                 // writing" as "nothing has been said yet" is how somebody
                 // concludes the feature is broken.
                 _ => "Nothing is running.",
-            };
+            }
+            + Moving(state);
         }
 
         var text = new StringBuilder();
@@ -1631,15 +1641,27 @@ public static class PaneText
             text.AppendLine($"{Marker(line.Kind)} {Clean(line.Text, lines: true)}");
         }
 
-        if (state.Frozen && state.Held.Count > 0)
+        if (state.Frozen)
         {
             // Said out loud, because a frozen screen that is silently behind
             // looks like a run that stopped.
-            text.AppendLine();
-            text.AppendLine($"— frozen, {state.Held.Count} line(s) waiting —");
+            if (state.Held.Count > 0)
+            {
+                text.AppendLine();
+                text.AppendLine($"— frozen, {state.Held.Count} line(s) waiting —");
+            }
+
+            // AND NOTHING MOVES UNDER IT. Freezing is a promise that the pixels
+            // stop so a terminal's own selection survives being made; a mark
+            // ticking away below held lines breaks the one thing it is for.
+            return text.ToString().TrimEnd();
         }
 
-        return text.ToString().TrimEnd();
+        // THE MARK LAST, because a flight that said something and then went
+        // quiet asks the same question as an empty box: is this still running,
+        // or did it stop? An agent thinking for a minute and a channel that
+        // died look identical without it.
+        return text.ToString().TrimEnd() + Moving(state);
     }
 
     /// <summary>

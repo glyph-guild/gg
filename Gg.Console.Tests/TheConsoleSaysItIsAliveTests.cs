@@ -73,6 +73,24 @@ public class TheConsoleSaysItIsAliveTests
     }
 
     [Test]
+    public async Task An_empty_pane_moves_too()
+    {
+        // THE SCREEN SOMEBODY STARES AT. "Nothing is running" is the state a
+        // person is most likely to read as a console that has stopped, so it is
+        // the last place that should sit perfectly still.
+        var empty = new AppState
+        {
+            LiveVisible = true,
+            Refresh = new RefreshState { NextIn = 3 },
+        };
+
+        await Assert.That(PaneText.Live(empty)).EndsWith(PaneText.Alive(3));
+
+        await Assert.That(PaneText.Live(empty))
+            .IsNotEqualTo(PaneText.Live(empty with { Refresh = new RefreshState { NextIn = 2 } }));
+    }
+
+    [Test]
     public async Task A_pane_with_lines_in_it_carries_the_mark_too()
     {
         // NOT ONLY THE EMPTY CASE. A flight that has said something and then

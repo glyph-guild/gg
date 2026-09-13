@@ -1522,12 +1522,20 @@ public static class ProtocolSurface
             // EvidenceReference's sentence about a different body.
             [typeof(RunnerSealedOffer)] = ["sealed"],
             [typeof(RunnerSealedAnswer)] = ["runnerId", "sealed"],
-            [typeof(RunnerAsk)] = ["kind", "tailLog", "status"],
+            [typeof(RunnerAsk)] = ["kind", "tailLog", "status", "configureCredential"],
+            // THE ONE DECLARED MEMBER ON THIS SURFACE THAT IS A SECRET, and it
+            // is declared for the reason everything else here is: a member
+            // nobody wrote down is a member nobody can audit. What keeps it safe
+            // is that ProtocolSurface.Endpoints names no route carrying this
+            // type - asserted, not intended - so there is no request body it
+            // can enter.
+            [typeof(ConfigureCredentialAsk)] = ["locator", "secret"],
+            [typeof(ConfiguredCredential)] = ["locator", "written"],
             [typeof(TailLogAsk)] = ["lines"],
             // Empty on purpose: the ask is "how are you", and a member here
             // would be a filter - which is the first step toward a query.
             [typeof(StatusAsk)] = [],
-            [typeof(RunnerSaid)] = ["kind", "tail", "status"],
+            [typeof(RunnerSaid)] = ["kind", "tail", "status", "configured"],
             [typeof(LogTail)] = ["lines", "truncated"],
             [typeof(RunnerStatusReport)] = ["doing", "diagnosis", "at"],
             [typeof(RunnerRetirementRequest)] = [],

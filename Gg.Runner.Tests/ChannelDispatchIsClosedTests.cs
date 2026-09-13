@@ -38,6 +38,12 @@ public class ChannelDispatchIsClosedTests
     private static AskDispatch Dispatching(IReadOnlyLog log) =>
         new(new WhatThisRunnerSays(new SilentObserver(), log, () => T0));
 
+    /// <summary>A store that keeps nothing; the subject is the arm's existence.</summary>
+    private sealed class Keeping : IKeepACredential
+    {
+        public bool Keep(string locator, string secret) => true;
+    }
+
     [Test]
     public async Task It_answers_a_tail()
     {
@@ -171,7 +177,14 @@ public class ChannelDispatchIsClosedTests
         // no arm here would be a kind the contract says exists and the runner
         // silently refuses - which reads to a console exactly like a runner one
         // version behind.
-        var dispatch = Dispatching(new ALog("a line"));
+        // WIRED TO KEEP ONE, because the subject here is whether an arm
+        // EXISTS. That a runner without a store refuses is the opposite
+        // property and is asserted where it belongs, in
+        // ARunnerKeepsACredentialItIsGivenTests - a dispatch with no store
+        // would make this test pass for the wrong reason or fail for one.
+        var dispatch = new AskDispatch(
+            new WhatThisRunnerSays(new SilentObserver(), new ALog("a line"), () => T0),
+            new Keeping());
 
         var asks = new Dictionary<string, RunnerAsk>(StringComparer.Ordinal)
         {
@@ -184,6 +197,15 @@ public class ChannelDispatchIsClosedTests
             {
                 Kind = RunnerAskKinds.Status,
                 Status = new StatusAsk(),
+            },
+            [RunnerAskKinds.ConfigureCredential] = new()
+            {
+                Kind = RunnerAskKinds.ConfigureCredential,
+                ConfigureCredential = new ConfigureCredentialAsk
+                {
+                    Locator = "local:acme/widgets",
+                    Secret = "not-a-real-token",
+                },
             },
         };
 

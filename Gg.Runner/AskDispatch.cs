@@ -18,6 +18,34 @@ public interface IAnswersAboutItself
     RunnerStatusReport Status();
 }
 
+/// <summary>Where a credential this runner is given is kept.</summary>
+/// <remarks>
+/// <para>
+/// <b>A port for <see cref="IAnswersAboutItself"/>'s reason and one more.</b>
+/// The transport must not decide what happens to a secret - but more than that,
+/// <c>Gg.Runner</c> cannot see the project the credential store lives in, and
+/// that separation is the architecture rather than an accident. The composition
+/// root, which sees both, hands one in. Or does not.
+/// </para>
+/// <para>
+/// <b>Which is the lock.</b> A runner whose composition root wired nothing here
+/// cannot be given a credential at all, exactly as a runner handed no private
+/// key cannot be reached. "This runner may be configured" is a decision somebody
+/// made about a machine, not a capability every runner has because the contract
+/// grew a value.
+/// </para>
+/// <para>
+/// <b>It answers whether the secret landed rather than throwing.</b> What calls
+/// it is a channel a hostile peer is on the other end of, and an exception out
+/// of a dispatch arm is a peer that can end a runner's conversation at will.
+/// </para>
+/// </remarks>
+public interface IKeepACredential
+{
+    /// <summary>Keeps the secret under the locator. Whether it landed.</summary>
+    bool Keep(string locator, string secret);
+}
+
 /// <summary>
 /// The channel's whole vocabulary, in one switch that cannot grow by accident.
 /// </summary>
@@ -44,9 +72,16 @@ public interface IAnswersAboutItself
 /// a second transport carrying escape sequences into somebody's terminal.
 /// </para>
 /// </remarks>
-public sealed class AskDispatch(IAnswersAboutItself runner)
+public sealed class AskDispatch(
+    IAnswersAboutItself runner,
+    // NULL IS THE DEFAULT AND THE DEFAULT IS CLOSED. A runner nobody wired to
+    // keep a credential refuses to be given one, which is the same shape as a
+    // runner handed no private key being unreachable - a wiring decision
+    // somebody made, rather than a capability the contract handed out.
+    IKeepACredential? credentials = null)
 {
     private readonly IAnswersAboutItself _runner = runner;
+    private readonly IKeepACredential? _credentials = credentials;
     private int _refused;
 
     /// <summary>How many asks this runner did not recognise.</summary>
@@ -93,6 +128,45 @@ public sealed class AskDispatch(IAnswersAboutItself runner)
                     Kind = RunnerAskKinds.Status,
                     Status = _runner.Status(),
                 }.Stripped();
+
+            // THE ONE ARM THAT WRITES, and every narrowing on it is here rather
+            // than at whatever wired it. It performs nothing, returns no data,
+            // and touches one file the runner already writes for itself - which
+            // is what makes it not the `RunCommand` ADR-0013 names and
+            // RunnerAskClosureTests plants.
+            case RunnerAskKinds.ConfigureCredential when ask.ConfigureCredential is { } given:
+            {
+                // NOWHERE TO KEEP IT IS A REFUSAL, not a failure reported
+                // politely. An answer saying `written: false` would tell a
+                // console this runner COULD be configured and something went
+                // wrong; it cannot be, and those are different facts.
+                if (_credentials is null)
+                {
+                    Interlocked.Increment(ref _refused);
+                    return null;
+                }
+
+                // VALIDATED BEFORE IT BECOMES A PATH, by the contract's own
+                // rule, and refused rather than sanitised. CredentialStore holds
+                // this too; a bound only the far end enforces disappears the
+                // moment the far end is wrong, and this is the machine whose
+                // disk it would be.
+                if (CredentialLocator.Validate(given.Locator) is not null)
+                {
+                    Interlocked.Increment(ref _refused);
+                    return null;
+                }
+
+                return new RunnerSaid
+                {
+                    Kind = RunnerAskKinds.ConfigureCredential,
+                    Configured = new ConfiguredCredential
+                    {
+                        Locator = given.Locator,
+                        Written = _credentials.Keep(given.Locator, given.Secret),
+                    },
+                }.Stripped();
+            }
 
             default:
                 // A KIND WITH NO PAYLOAD LANDS HERE TOO, deliberately. `tail-log`

@@ -52,6 +52,10 @@ public class WorkItemToolServerTests
 
         public Task<WorkItemPage> BrowseAsync(string? cursor, int limit, CancellationToken token) =>
             Task.FromResult(new WorkItemPage([], null));
+
+        public Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
+            string id, CancellationToken token) =>
+            Task.FromResult<IReadOnlyList<WorkItemChange>>([]);
     }
 
     private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines)

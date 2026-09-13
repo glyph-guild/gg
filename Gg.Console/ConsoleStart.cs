@@ -216,13 +216,22 @@ public static class ConsoleStart
             var pools = OwnFailureAsync(
                 "pools", ct => data.PoolsAsync(ct), partial, cancellationToken);
 
+            // AND THE NAMES THIS TENANT DECLARED, on its own failure like the
+            // reads above it. They were filled only by the Envelope tab, so a
+            // console open all morning knew nothing about the tenant's work
+            // kinds unless somebody happened to look - and a question asked at
+            // fly time can offer only what the model holds. What a failure
+            // costs is the list of kinds; what it must not cost is the console.
+            var names = OwnFailureAsync(
+                "the airspace names", ct => data.TopologyAsync(ct), partial, cancellationToken);
+
             // OBSERVED BEFORE ANY OF THEM IS ALLOWED TO THROW. WhenAll marks all
             // five as observed and then raises the first failure, so a control
             // plane nobody can reach still leaves the catch below with nothing
             // dangling behind it.
             await Task.WhenAll(
                 (Task)listing, fleet, waiting, credentials, identity, allowances,
-                chart, strategies, pools, health);
+                chart, strategies, pools, names, health);
 
             var flights = (VerbResult.Flights)await listing;
             var runners = (VerbResult.Runners)await fleet;
@@ -375,6 +384,7 @@ public static class ConsoleStart
             loaded = Folded(loaded, await chart);
             loaded = Folded(loaded, await strategies);
             loaded = Folded(loaded, await pools);
+            loaded = Folded(loaded, await names);
             loaded = Folded(loaded, await reason);
             loaded = Folded(loaded, await story);
 

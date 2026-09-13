@@ -559,6 +559,23 @@ public static class ConsoleProjection
                 state with { Strategies = strategies.Value, Diagnosis = null },
             VerbResult.Pools pools => state with { Pools = pools.Value, Diagnosis = null },
 
+            // THE NAMES THIS TENANT DECLARED, which used to be unwrapped by hand
+            // inside ConsoleEstate and reachable only by pressing `v`. A question
+            // asked at fly time can offer only what the model holds, so a console
+            // that learned the work kinds exclusively from a tab somebody may
+            // never open was a feature that looked like it should work.
+            //
+            // AN ARM RATHER THAN A SECOND ASSIGNMENT, which is what the boot's
+            // own remark asks for: Apply is the one path from a verb result into
+            // the model, and unwrapping this beside it would be the projection
+            // that slice exists to prevent, one layer down and harder to see.
+            VerbResult.AirspaceTopology topology => state with
+            {
+                Estate = (state.Estate ?? new EstateOnThisMachine { Uncommitted = [], Names = null })
+                    with { Names = topology.Value },
+                Diagnosis = null,
+            },
+
             // THE FLEET'S, NOT THIS MACHINE'S. `gg allowance` reads the
             // transcripts on the disk it runs on and has no arm here at all,
             // deliberately: projecting one laptop's local reading into a model

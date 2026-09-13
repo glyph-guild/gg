@@ -43,10 +43,25 @@ public sealed class NotSignedInException(string message) : Exception(message);
 /// </para>
 /// </remarks>
 public sealed class FlightCommands(
-    ControlPlaneClient client, ISessionStore sessions, PinnedRunnerKeys? pins = null)
+    ControlPlaneClient client,
+    ISessionStore sessions,
+    PinnedRunnerKeys? pins = null,
+    ICredentialStore? credentials = null)
 {
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
+
+    /// <summary>
+    /// Asked whether a credential is HERE, and never for one.
+    /// </summary>
+    /// <remarks>
+    /// Optional and defaulted to the real store, the shape <c>pins</c> uses
+    /// one member down and for the same reason. Only <c>Holds</c> is ever
+    /// called on it: what this class needs is presence, and reading a secret
+    /// to discover presence would put every credential on this machine into
+    /// whichever process asked.
+    /// </remarks>
+    private readonly ICredentialStore _credentials = credentials ?? new FileCredentialStore();
 
     /// <summary>
     /// The runner keys this machine has met.
@@ -742,9 +757,37 @@ public sealed class FlightCommands(
     /// against" is asking a different question, and until now nothing in this
     /// binary asked it even though the control plane has always answered.
     /// </remarks>
-    public async Task<VerbResult> RepositoriesAsync(CancellationToken cancellationToken = default) =>
-        new VerbResult.AirspaceRepositories(
-            await _client.ListRepositoriesAsync(Session(), cancellationToken));
+    public async Task<VerbResult> RepositoriesAsync(CancellationToken cancellationToken = default)
+    {
+        var registered = await _client.ListRepositoriesAsync(Session(), cancellationToken);
+
+        // WHAT THE CONTROL PLANE HOLDS REFERENCES FOR, which is only half the
+        // credential question - the other half is this machine, below.
+        //
+        // NAMED, AND ONLY THE TRANSPORT. A control plane with no credentials
+        // door answers 404 and EnsureSuccessStatusCode turns that into an
+        // HttpRequestException; taking the repository list down with it would
+        // make a pane about repositories fail for a reason that is not about
+        // repositories. Every standing then reads "not known", which is what
+        // that constant is for, and anything else still throws.
+        IReadOnlyList<CredentialSummary> held;
+
+        try
+        {
+            held = (await _client.ListCredentialsAsync(Session(), cancellationToken)).Credentials;
+        }
+        catch (HttpRequestException)
+        {
+            held = [];
+        }
+
+        return new VerbResult.AirspaceRepositories(
+            registered,
+            [
+                .. registered.Repositories.Select(r => new RepositoryCredential(
+                    r.Path, CredentialStanding.For(r, held, _credentials.Holds))),
+            ]);
+    }
 
     /// <summary>
     /// Declares a name in the topology, so a document can be applied to it.

@@ -59,7 +59,7 @@ public class WhatThisTenantCanFlyAgainstTests
     /// <c>ProjectionParityTests</c> exists to stop.
     /// </remarks>
     private static AppState Listed() =>
-        ConsoleProjection.Apply(new AppState(), new VerbResult.AirspaceRepositories(Two()));
+        ConsoleProjection.Apply(new AppState(), new VerbResult.AirspaceRepositories(Two(), []));
 
     [Test]
     public async Task The_pane_shows_what_this_tenant_can_fly_against()
@@ -77,7 +77,7 @@ public class WhatThisTenantCanFlyAgainstTests
         // an answer, and it is a different answer from never having asked.
         var read = ConsoleProjection.Apply(
             new AppState(),
-            new VerbResult.AirspaceRepositories(new RegisteredRepositories { Repositories = [] }));
+            new VerbResult.AirspaceRepositories(new RegisteredRepositories { Repositories = [] }, []));
 
         await Assert.That(PaneText.Repositories(read)).Contains("nothing registered");
         await Assert.That(PaneText.Repositories(new AppState())).DoesNotContain("nothing registered")

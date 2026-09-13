@@ -1191,6 +1191,29 @@ public sealed record AppState
     public string? ChosenRepository { get; init; }
 
     /// <summary>
+    /// Whether each registered repository has the credential it needs, here.
+    /// </summary>
+    /// <remarks>
+    /// <b>Arrives with the repositories and is keyed by path, never by
+    /// position.</b> It is assembled from two reads - what the control plane
+    /// holds references for, and what this machine actually stores - so a row
+    /// matched by index would carry somebody else's answer the moment the two
+    /// disagree, and both lists would still render.
+    /// <para>
+    /// <b>No secret and no locator, deliberately.</b> This is serialized into
+    /// a state dump: the conclusion belongs there and nothing that helps find
+    /// a secret does. Empty means nothing was said, which
+    /// <see cref="Gg.Client.CredentialStanding.Unknown"/> renders as "not
+    /// known" rather than as anything reassuring.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<Gg.Client.RepositoryCredential> RepositoryCredentials
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>
     /// The environment variables this program reads, and what they decide.
     /// </summary>
     /// <remarks>

@@ -13,8 +13,25 @@ namespace Gg.Console;
 public sealed record FlightRow(
     string FlightId, string Number, string State, string Loop, string Age, string Work);
 
-/// <summary>One registered repository, and whether this console is flying against it.</summary>
-public sealed record RepositoryRow(string Chosen, string Path, string Name);
+/// <summary>
+/// One registered repository: what it is, whether this console is flying
+/// against it, and whether this machine could.
+/// </summary>
+/// <remarks>
+/// <b>The last three columns are the ones that refuse a flight.</b> A path and
+/// a name say which repository this is; the credential says whether work on it
+/// can start here, the ref says whether a flight naming none can start at all,
+/// and the narrowings directory says whether every file in it is policy. None
+/// of the three was visible in this console before.
+/// </remarks>
+public sealed record RepositoryRow(
+    string Chosen,
+    string Path,
+    string Name,
+    string Provider,
+    string Credential,
+    string Ref,
+    string Narrowings);
 
 /// <summary>
 /// One line of the log: an entry, or the continuation of one.
@@ -191,7 +208,8 @@ public static class Rows
     /// heading over a column of marks would be a word explaining a symbol that
     /// explains itself.
     /// </remarks>
-    public static IReadOnlyList<string> RepositoryColumns { get; } = ["", "path", "name"];
+    public static IReadOnlyList<string> RepositoryColumns { get; } =
+        ["", "path", "name", "provider", "credential", "ref", "narrowings"];
 
     /// <summary>Every flight this tenant has, newest first.</summary>
     public static IReadOnlyList<FlightRow> Flights(AppState state)
@@ -509,7 +527,15 @@ public static class Rows
             .. listed.Repositories.Select(r => new RepositoryRow(
                 string.Equals(r.Path, state.ChosenRepository, StringComparison.Ordinal) ? "→" : " ",
                 r.Path,
-                r.Name)),
+                r.Name,
+                r.Provider,
+                Gg.Client.RepositoryCredentials.StandingOf(state.RepositoryCredentials, r.Path),
+                // AN ABSENCE IS RENDERED, not blanked. "Null is different from
+                // any ref": a ticket flight against a repository with no
+                // default ref is refused, and an empty cell would read as a
+                // column that failed to load.
+                r.Ref is { Length: > 0 } pinned ? pinned : "(none)",
+                r.Narrowings is { Length: > 0 } governed ? governed : "(off)")),
         ];
     }
 

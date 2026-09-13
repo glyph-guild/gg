@@ -87,8 +87,14 @@ public class TheTablesAreTablesTests
         // AND THE BROWSE ROWS WERE ALREADY ROWS. BrowseRow has held these three
         // fields since the pane was written; the renderer flattened them into a
         // string, which is the step this change removes.
+        // FOUR MORE THAN THIS ONCE PINNED, and each is a fact a registration
+        // can refuse a flight for: which forge it is on, whether the credential
+        // it needs is on this machine, whether a flight naming no ref can start
+        // at all, and whether every file in it is policy. The pane's whole job
+        // is to say what this tenant can fly against, and a path and a name are
+        // the two fields that cannot stop anybody.
         await Assert.That(Rows.RepositoryColumns).IsEquivalentTo((string[])
-            ["", "path", "name"]);
+            ["", "path", "name", "provider", "credential", "ref", "narrowings"]);
     }
 
     [Test]

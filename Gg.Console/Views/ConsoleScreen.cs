@@ -2422,9 +2422,13 @@ public sealed class ConsoleScreen : Window
                 State.BrowseSelected,
                 r => [r.Id, r.State, r.Title]);
 
-            Fill(_repositoriesTable, null, Rows.Repositories(State), Rows.RepositoryColumns,
+            // THE LABEL IS THE EMPTY CASE, and passing null left it visible
+            // underneath the table - which was invisible while both said the
+            // same two columns, and stops being so the moment the sentence
+            // says more than the row.
+            Fill(_repositoriesTable, _repositories, Rows.Repositories(State), Rows.RepositoryColumns,
                 State.RepositorySelected,
-                r => [r.Chosen, r.Path, r.Name]);
+                r => [r.Chosen, r.Path, r.Name, r.Provider, r.Credential, r.Ref, r.Narrowings]);
 
 
             // OFF THE MODEL, like the other three. This passed a literal 0 and

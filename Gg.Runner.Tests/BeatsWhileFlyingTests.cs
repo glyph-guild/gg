@@ -124,7 +124,8 @@ public class BeatsWhileFlyingTests
         FakeProtocol Protocol,
         RecordingObserver Observer,
         int BeatsWhileFlying,
-        IReadOnlyList<TimeSpan> Paced);
+        IReadOnlyList<TimeSpan> Paced,
+        IReadOnlyList<OfferedConfiguration> Offers);
 
     /// <summary>
     /// Flies one flight, holding the agent inside it long enough to watch what
@@ -134,7 +135,8 @@ public class BeatsWhileFlyingTests
         bool attended,
         bool wiredToBeDriven = false,
         PendingIntroduction? introduceMidFlight = null,
-        int? heartbeatSeconds = null)
+        int? heartbeatSeconds = null,
+        OfferedConfiguration? offerMidFlight = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -148,6 +150,7 @@ public class BeatsWhileFlyingTests
         }
 
         var observer = new RecordingObserver();
+        var offers = new List<OfferedConfiguration>();
         using var stopping = new CancellationTokenSource();
         observer.OnEvent = e =>
         {
@@ -187,6 +190,7 @@ public class BeatsWhileFlyingTests
                 trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
                 executor: executor,
                 attendedSessions: sessions,
+                offered: offers.Add,
                 // THE BEAT'S OWN PACE, and it is a SECOND knob deliberately.
                 // The flight's own waits are logical steps a test moves a clock
                 // through; the beat is a background cadence running alongside
@@ -224,6 +228,15 @@ public class BeatsWhileFlyingTests
             protocol.Introductions.Enqueue(introduceMidFlight);
         }
 
+        // AND AN OFFER, ONLY ONCE THE AGENT IS WORKING, for the reason above:
+        // set before the run it would be taken by the idle loop's first beat,
+        // and a test about what a beat does MID-FLIGHT would be reading an idle
+        // one.
+        if (offerMidFlight is not null)
+        {
+            protocol.Offered = offerMidFlight;
+        }
+
         var before = protocol.Heartbeats;
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         int beats;
@@ -239,7 +252,7 @@ public class BeatsWhileFlyingTests
 
         lock (paced)
         {
-            return new Flown(protocol, observer, beats, [.. paced]);
+            return new Flown(protocol, observer, beats, [.. paced], offers);
         }
     }
 
@@ -293,6 +306,35 @@ public class BeatsWhileFlyingTests
                    + "exists for the flight - any flight. A runner that opens one only for a "
                    + "flight somebody remembered to mark cannot be watched in the case that "
                    + "actually arises. Said: " + string.Join(" | ", flown.Observer.Events));
+    }
+
+    [Test]
+    public async Task An_offer_is_still_not_reported_while_a_flight_is_held()
+    {
+        // THE HALF THAT WAS ONLY EVER PROSE. "Only on an idle beat" is stated
+        // in TheLoopNoticesAnOfferAndStopsTests and asserted nowhere: all three
+        // of its tests are idle ones. It mattered little while the gate read
+        // `session is null', which is true of every loop those tests build -
+        // and it matters now, because a session that exists whether or not a
+        // flight does turns that reading inside out.
+        //
+        // WHAT IT PROTECTS: the root stops the process to apply an offer, and a
+        // runner's whole bargain is that a lease it holds is finished or
+        // explicitly released.
+        var flown = await FlyAsync(
+            attended: false,
+            wiredToBeDriven: true,
+            offerMidFlight: new OfferedConfiguration
+            {
+                Version = "offer@7",
+                OfferedAt = T0,
+                Settings = [new OfferedSetting { Key = "stun-servers", Value = "stun:relay.invalid:3478" }],
+            });
+
+        await Assert.That(flown.Offers).IsEmpty()
+            .Because("reporting one mid-flight invites a caller to end a process that is "
+                   + "halfway through somebody's work. Reported: "
+                   + string.Join(" | ", flown.Offers.Select(o => o.Version)));
     }
 
     [Test]

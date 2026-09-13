@@ -49,7 +49,12 @@ namespace Gg.Cli;
 public static class WorkItemToolServer
 {
     /// <summary>The tool a flight depends on: read the item it is about.</summary>
-    public const string ReadName = "get_work_item";
+    /// <remarks>
+    /// <b>The contract's, not this file's.</b> A reader declares it, the console
+    /// asks for it and this server answers it - three spellings of one name is
+    /// how one of them stops agreeing, and the failure is silent.
+    /// </remarks>
+    public const string ReadName = Gg.Local.ItemTool.Name;
 
     /// <summary>What a page holds when the caller names no size.</summary>
     private const int DefaultLimit = 50;

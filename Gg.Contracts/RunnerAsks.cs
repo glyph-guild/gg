@@ -55,9 +55,28 @@ public static class RunnerAskKinds
     /// <remarks>
     /// <para>
     /// <b>The third value, and the "for now" above is what it spends.</b> It
-    /// arrives the way that paragraph says it must - through a lease and an
-    /// envelope - rather than quietly: a fingerprint moved and a contract
-    /// version was spent to add it.
+    /// arrived loudly rather than quietly, which is the half of that paragraph
+    /// that held: a fingerprint moved and a contract version was spent.
+    /// </para>
+    /// <para>
+    /// <b>The other half did not hold, and pretending otherwise would be worse
+    /// than saying so.</b> That paragraph promised "through a lease and an
+    /// envelope", and this was written when a channel existed only while a
+    /// flight did. The channel's lifetime then moved from the flight to the
+    /// conversation - so that a person could attach to a runner while it waits
+    /// for work, which is when they most want to - and there is no lease on this
+    /// path any more.
+    /// </para>
+    /// <para>
+    /// <b>What restrains it instead.</b> Only the control plane mints an
+    /// introduction and only for the principal who REGISTERED the runner; the
+    /// offer is sealed to a pinned key; a runner nobody wired with an identity
+    /// key cannot be reached at all; and the machine's own file must say
+    /// <c>accept-configured</c>, without which the runner is handed nowhere to
+    /// keep a credential and refuses for want of a port. The last is the
+    /// load-bearing one and it belongs to the machine rather than to the
+    /// channel, which is the right place for a decision about what may be put on
+    /// a person's disk.
     /// </para>
     /// <para>
     /// <b>It is not <c>RunCommand</c>, and the difference is worth stating

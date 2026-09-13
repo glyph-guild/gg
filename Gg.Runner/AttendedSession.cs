@@ -21,12 +21,30 @@ namespace Gg.Runner;
 /// <para>
 /// <b>What can be READ did not widen.</b> Only the control plane mints an
 /// introduction, only for the principal who REGISTERED this runner, sealed to a
-/// pinned key and expiring in a minute. The channel carries two read-only verbs,
-/// and the tail is this machine's current flight — never a journal, never
-/// another machine's. A registrant who attaches now sees whatever this machine
-/// claims next, including a flight somebody else in the tenant opened; that is
-/// the same text they could already read over ssh on a machine they own, which
-/// is the argument the runner modal makes for the ssh line beside it.
+/// pinned key and expiring in a minute. The tail is this machine's current
+/// flight — never a journal, never another machine's. A registrant who attaches
+/// now sees whatever this machine claims next, including a flight somebody else
+/// in the tenant opened; that is the same text they could already read over ssh
+/// on a machine they own, which is the argument the runner modal makes for the
+/// ssh line beside it.
+/// </para>
+/// <para>
+/// <b>WHAT DID WIDEN, and it is not a read.</b> This paragraph used to count the
+/// channel's verbs and call every one of them harmless. There are three now, and
+/// the third writes a credential to this machine's disk. That is not a
+/// contradiction of the sentence above — nothing more can be READ — but a
+/// reviewer looking here for the restraint deserves to find it rather than a
+/// count that stopped being true. The lifetime change and the third verb landed
+/// close together, each argued on its own, and nobody was looking at both.
+/// </para>
+/// <para>
+/// <b>So what restrains a WRITE is not a flight and never was a lease.</b> It is
+/// the three narrowings above — registrant only, pinned key, wired with an
+/// identity key at all — plus one more that belongs to the machine rather than
+/// to the channel: its own file must say <c>accept-configured</c>, and without
+/// it the runner is handed nowhere to put a credential and refuses for want of a
+/// port. That setting is now the load-bearing one, which is worth knowing before
+/// anybody proposes a fourth verb.
 /// </para>
 /// <para>
 /// <b>A runner built without a key cannot be reached at all.</b> The private half

@@ -35,7 +35,8 @@ public class EnterShowsTheWorkItemTests
             new BrowseOutcome.Listed(new Gg.Local.WorkItemPage(
                 [
                     new Gg.Local.WorkItemSummary(
-                        "18515", "Oz asks guided questions", "Active", "", null),
+                        "18515", "Oz asks guided questions", "Active",
+                        "https://tracker.example/acme/_workitems/edit/18515", null),
                 ],
                 null)));
 
@@ -72,7 +73,8 @@ public class EnterShowsTheWorkItemTests
             Browsing(),
             _ => new ItemOutcome.Read(
                 "Type: Product Backlog Item\nTitle: Oz asks guided questions\n"
-              + "Description: The wizard should ask rather than assume."));
+              + "Description: The wizard should ask rather than assume."),
+            _ => new ItemOutcome.Read(""));
 
         await Assert.That(shown.Mode).IsEqualTo(UiMode.WorkItemDetail);
 
@@ -87,7 +89,9 @@ public class EnterShowsTheWorkItemTests
     public async Task A_reader_that_could_not_answer_says_so_in_the_modal()
     {
         var shown = ConsoleLoop.ShowedWorkItem(
-            Browsing(), _ => new ItemOutcome.Nothing("the credential expired on Tuesday"));
+            Browsing(),
+            _ => new ItemOutcome.Nothing("the credential expired on Tuesday"),
+            _ => new ItemOutcome.Read(""));
 
         await Assert.That(shown.Mode).IsEqualTo(UiMode.WorkItemDetail)
             .Because("the modal opens either way: a person pressed a key and something has "
@@ -97,13 +101,79 @@ public class EnterShowsTheWorkItemTests
     }
 
     [Test]
+    public async Task What_has_happened_to_it_is_shown_under_what_it_says()
+    {
+        // ONE KEYPRESS, TWO QUESTIONS. A body says what somebody wants and a
+        // history says what has already been tried; a person choosing work needs
+        // both, and making the second one another key would make it the one
+        // nobody presses.
+        var shown = ConsoleLoop.ShowedWorkItem(
+            Browsing(),
+            _ => new ItemOutcome.Read("Description: The wizard should ask."),
+            _ => new ItemOutcome.Read("2026-09-04  A Colleague  Blocked on the rollout."));
+
+        var said = PaneText.Modal(shown);
+
+        await Assert.That(said).Contains("The wizard should ask.");
+        await Assert.That(said).Contains("Blocked on the rollout.");
+
+        await Assert.That(said.IndexOf("The wizard", StringComparison.Ordinal))
+            .IsLessThan(said.IndexOf("Blocked on", StringComparison.Ordinal))
+            .Because("what it is comes before what has happened to it: the second only "
+                   + "means anything once you know the first.");
+    }
+
+    [Test]
+    public async Task A_reader_with_no_history_still_shows_the_item()
+    {
+        var shown = ConsoleLoop.ShowedWorkItem(
+            Browsing(),
+            _ => new ItemOutcome.Read("Description: The wizard should ask."),
+            _ => new ItemOutcome.Nothing("this reader does not declare that tool"));
+
+        var said = PaneText.Modal(shown);
+
+        await Assert.That(said).Contains("The wizard should ask.")
+            .Because("a reader that answers one of the two questions is more useful than "
+                   + "one that is refused for not answering both.");
+
+        await Assert.That(said).Contains("does not declare that tool")
+            .Because("and the half that is missing says so, rather than reading as an item "
+                   + "nothing has ever happened to.");
+    }
+
+    [Test]
+    public async Task The_item_can_be_opened_where_it_lives()
+    {
+        var opened = new List<string>();
+
+        var shown = ConsoleLoop.ShowedWorkItem(
+            Browsing(),
+            _ => new ItemOutcome.Read("Description: The wizard should ask."),
+            _ => new ItemOutcome.Read(""));
+
+        var command = Keymap.Resolve(KeyStroke.Char('o'), KeymapContext.For(shown));
+
+        await Assert.That(command).IsEqualTo(Command.OpenWorkItem)
+            .Because("a tracker holds more than a reader renders - attachments, links, the "
+                   + "people on it - and the console should hand somebody over rather than "
+                   + "pretend to replace it.");
+
+        _ = ConsoleLoop.OpenedWorkItem(shown, (state, uri) => { opened.Add(uri); return state; });
+
+        await Assert.That(opened).IsEquivalentTo(
+            new List<string> { "https://tracker.example/acme/_workitems/edit/18515" });
+    }
+
+    [Test]
     public async Task Nothing_picked_asks_nothing_at_all()
     {
         var asked = 0;
 
         var shown = ConsoleLoop.ShowedWorkItem(
             new AppState { ActiveTab = TabId.Browse },
-            _ => { asked++; return new ItemOutcome.Read("never reached"); });
+            _ => { asked++; return new ItemOutcome.Read("never reached"); },
+            _ => new ItemOutcome.Read(""));
 
         await Assert.That(asked).IsEqualTo(0)
             .Because("a key that appears to work on an empty pane is worse than one that is "

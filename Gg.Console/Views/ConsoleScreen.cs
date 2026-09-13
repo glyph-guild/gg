@@ -1539,6 +1539,13 @@ public sealed class ConsoleScreen : Window
         CollectionViews.Fill(table, new DataTableSource(data));
         table.SetSelection(0, Math.Clamp(cursor, 0, rows.Count - 1), extendExistingSelection: false, null);
         table.EnsureValidSelection();
+
+        // AND THE VIEW HAS TO FOLLOW IT. A table handed a new source starts at
+        // the top, and this hands it one every render - so the offset was zero
+        // on every pass while the selection walked to row ninety-one, and
+        // everything past the first screenful was unreachable. EnsureValidSelection
+        // clamps the SELECTION; this is the one that moves the offset.
+        table.EnsureCursorIsVisible();
     }
 
     /// <summary>

@@ -36,6 +36,15 @@ public sealed record ConfigurationView
     /// </remarks>
     public bool AcceptsOffered { get; init; }
 
+    /// <summary>Whether a person may put a credential on this machine.</summary>
+    /// <remarks>
+    /// On the view rather than in the settings list for
+    /// <see cref="AcceptsOffered"/>'s reason, and shown beside it because they
+    /// are the same question about two different things: what may change what
+    /// this machine DOES, and what may put a SECRET on it.
+    /// </remarks>
+    public bool AcceptsConfigured { get; init; }
+
 }
 
 /// <summary>One offered setting, beside what it would replace.</summary>
@@ -165,6 +174,7 @@ public static class ConfigCommands
             Path = path ?? ConfigurationFile.DefaultPath(),
             Settings = settings,
             AcceptsOffered = file?.AcceptOffered is true,
+            AcceptsConfigured = file?.AcceptConfigured is true,
         });
     }
 

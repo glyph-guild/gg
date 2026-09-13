@@ -120,6 +120,36 @@ public sealed record Configuration
     // OfferableKeys.NeedsAPerson. It defends a door that is currently locked,
     // which is the right state for a door that may be unlocked later.
 
+    /// <summary>
+    /// Whether a person may put a credential on this machine over the channel.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The door the note above describes, with a key that fits it.</b>
+    /// <c>accept-unattended</c> died because a member could not reach the file
+    /// it lived in. This one is not reached by an operator either - a member
+    /// WRITES it at its own first start, on the authority of the single-use
+    /// nonce its tenant minted to create it. A laptop opts in by opening its
+    /// file; a member is opted in by whoever made it, and the written line is
+    /// what makes that auditable from inside the container.
+    /// </para>
+    /// <para>
+    /// <b>Off unless it is here and true, no environment variable, and not
+    /// offerable</b> - <see cref="AcceptOffered"/>'s three rules, and the last
+    /// one matters more here than it does there. A control plane that could set
+    /// this would be granting itself the ability to put a SECRET on the
+    /// machine, which is the one thing Article VIII says it never holds.
+    /// </para>
+    /// <para>
+    /// <b>It gates the wiring rather than a check.</b> A machine that has not
+    /// set this hands the runner nowhere to keep a credential, so the dispatch
+    /// arm refuses for want of a port rather than for want of a permission -
+    /// which is the same shape as a runner handed no private key being
+    /// unreachable, and it is why there is no second place to get it wrong.
+    /// </para>
+    /// </remarks>
+    public bool? AcceptConfigured { get; init; }
+
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 

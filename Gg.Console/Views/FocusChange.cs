@@ -64,6 +64,19 @@ public enum FocusTarget
     /// </remarks>
     AirspaceDocument,
 
+    /// <summary>
+    /// Whichever of the help modal's pages is showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The runner view's reason, one modal over.</b> A modal made of pages
+    /// has to say WHICH page: a Dialog stops at itself and hands the keyboard
+    /// to its first focusable child, which since this modal grew a tab bar is
+    /// the bar. And the page can turn while the modal keeps focus, so "the
+    /// modal has it" is not an answer either - each page is a different widget
+    /// with its own cursor, and the arrows belong to the one in front.
+    /// </remarks>
+    HelpPage,
+
     /// <summary>The tab on screen, wherever that tab says focus lands.</summary>
     Tab,
 }
@@ -114,6 +127,13 @@ public static class FocusChange
     /// the widget instead would re-assert focus once a second and drag it back
     /// out of whichever half a person had just clicked into.
     /// </param>
+    /// <param name="helpPage">Which help page the model says is showing.</param>
+    /// <param name="landedHelpPage">
+    /// Which one it was showing when focus was last placed. <b>The pair, exactly
+    /// as <paramref name="landedReading"/> is the pair for the airspace tab's
+    /// two halves</b> - comparing the model against the widget instead would
+    /// re-place focus once a second and scroll a reader back to the top.
+    /// </param>
     public static FocusTarget Wanted(
         UiMode mode,
         TabId showing,
@@ -123,7 +143,9 @@ public static class FocusChange
         bool readingTheDocument = false,
         bool landedReading = false,
         RunnerView runnerView = RunnerView.Log,
-        RunnerView landedRunnerView = RunnerView.Log) => (mode, landed) switch
+        RunnerView landedRunnerView = RunnerView.Log,
+        HelpPage helpPage = HelpPage.Keys,
+        HelpPage landedHelpPage = HelpPage.Keys) => (mode, landed) switch
     {
         // THE FIELD FIRST, because it is not a modal and the arms below would
         // hand it to one that is not on screen.
@@ -143,6 +165,15 @@ public static class FocusChange
         (UiMode.Runner, _) when modalHasFocus && landedRunnerView == runnerView
             => FocusTarget.LeaveAlone,
         (UiMode.Runner, _) => FocusTarget.RunnerView,
+
+        // THE HELP MODAL IS MADE OF PAGES, for the reason the runner modal is
+        // made of views, and it answers before the same guard. While its two
+        // text pages were Labels there was nothing on them to move and this was
+        // invisible; now that they scroll, a page reached with the keyboard
+        // still on the page behind it cannot be scrolled at all.
+        (UiMode.Help, _) when modalHasFocus && landedHelpPage == helpPage
+            => FocusTarget.LeaveAlone,
+        (UiMode.Help, _) => FocusTarget.HelpPage,
 
         (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 

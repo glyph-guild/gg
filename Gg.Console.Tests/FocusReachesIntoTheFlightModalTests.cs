@@ -45,17 +45,20 @@ public class FocusReachesIntoTheFlightModalTests
     [Test]
     public async Task Every_other_modal_is_still_just_the_modal()
     {
-        // THE TWO MADE OF WIDGETS ARE EXEMPT BY NAME, and naming them is the
+        // THE THREE MADE OF WIDGETS ARE EXEMPT BY NAME, and naming them is the
         // point: a modal that grows parts has to say so here, or it keeps
         // taking focus at its frame and the arrows do nothing inside it. The
-        // runner modal joined the flight modal in slice thirty-three.
+        // runner modal joined the flight modal in slice thirty-three, and help
+        // joined them when its pages became documents a person scrolls -
+        // reported as a page that could be read no further than its first
+        // screenful.
         // AND THE WALK IS OVER THE MODES DRAWN AS A DIALOG, because focus at a
         // frame is only an answer for a mode that has one. A mode owning the
         // keyboard through a field in a pane is declared in Modals with its
         // reason, and its focus target is asserted where the field is.
         foreach (var mode in Modals.Drawn)
         {
-            if (mode is UiMode.FlightDetail or UiMode.Runner)
+            if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help)
             {
                 continue;
             }

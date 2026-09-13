@@ -101,6 +101,25 @@ public static class HelpTree
             : Opens([], mode);
     }
 
+    /// <summary>
+    /// Which group the fold key would act on, given the page in front.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null off the Keys page, and that is the whole of it.</b> The tree
+    /// keeps its cursor while another page is showing - it has to, or turning
+    /// back would lose a person's place - so the group under that cursor is
+    /// still an answer to "what is selected" and is no answer at all to "what
+    /// would this key do". The hint line read "fold or unfold this group" over
+    /// the Environment page, advertising a key that folds something nobody can
+    /// see.
+    /// </remarks>
+    public static UiMode? FoldOver(AppState state, UiMode? overGroup)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.HelpPage is HelpPage.Keys ? overGroup : null;
+    }
+
     /// <summary>Opens a closed fold, or closes an open one.</summary>
     /// <remarks>
     /// <b>What is stored is the DIFFERENCE from the default, not the state.</b>

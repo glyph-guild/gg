@@ -82,51 +82,59 @@ public class AQuietConversationIsLetGoTests
     }
 
     [Test]
-    public async Task One_nobody_has_spoken_on_is_let_go_when_it_goes_quiet()
+    public async Task A_conversation_that_has_gone_quiet_is_over()
     {
-        var now = T0;
-        using var runnerKey = AKey();
-        using var session = await AnsweredAsync(runnerKey, () => now);
+        var quiet = T0 + AttendedSession.QuietFor + TimeSpan.FromSeconds(1);
 
-        await Assert.That(session.Open).IsEqualTo(1);
-
-        // JUST INSIDE THE BOUND. A sweep that let go here would be a watch that
-        // ended while somebody was still reading what was already on screen.
-        now = T0 + AttendedSession.QuietFor - TimeSpan.FromSeconds(1);
-        session.ForgetTheQuiet(now);
-
-        await Assert.That(session.Open).IsEqualTo(1)
-            .Because("the bound has not passed yet, and a conversation is not over because "
-                   + "nobody has typed for a while.");
-
-        now = T0 + AttendedSession.QuietFor + TimeSpan.FromSeconds(1);
-        session.ForgetTheQuiet(now);
-
-        await Assert.That(session.Open).IsEqualTo(0)
+        await Assert.That(AttendedSession.IsOver(gone: false, lastHeard: T0, now: quiet))
+            .IsTrue()
             .Because("a channel nobody is asking anything of is what a person who closed "
                    + "their laptop leaves behind, and holding it for the life of the runner "
                    + "is the standing way in this slice exists to avoid.");
     }
 
     [Test]
-    public async Task A_sweep_does_not_touch_one_that_is_being_used()
+    public async Task One_that_is_being_used_is_not()
     {
+        // THE HALF THAT MATTERS. A watcher polls once a second, so the gap
+        // between asks on a live conversation is never near the bound - and a
+        // sweep that let go anyway would end a watch mid-flight, which is worse
+        // than the leak it exists for.
+        var asked = T0 + AttendedSession.QuietFor - TimeSpan.FromSeconds(1);
+        var now = T0 + AttendedSession.QuietFor + TimeSpan.FromSeconds(1);
+
+        await Assert.That(AttendedSession.IsOver(gone: false, lastHeard: asked, now: now))
+            .IsFalse()
+            .Because("it was heard from a second ago, and a conversation is not over "
+                   + "because nobody has typed for a while.");
+    }
+
+    [Test]
+    public async Task And_one_nobody_arrived_on_is_over_with_no_clock_at_all()
+    {
+        await Assert.That(AttendedSession.IsOver(gone: true, lastHeard: T0, now: T0))
+            .IsTrue()
+            .Because("a peer that failed its arrival bound is already closed, and holding "
+                   + "the quiet bound on top of the one it just failed would keep every "
+                   + "handshake that never connected for another ten minutes.");
+    }
+
+    [Test]
+    public async Task A_session_lets_go_of_a_conversation_nobody_arrived_on()
+    {
+        // END TO END OVER A REAL PEER, because the pure rule above says when a
+        // conversation is over and says nothing about whether anything asks.
         var now = T0;
         using var runnerKey = AKey();
         using var session = await AnsweredAsync(runnerKey, () => now);
 
-        // ASKED AT THE LAST MOMENT, which is what somebody watching does: the
-        // console polls once a second, so on a live watch the gap between asks
-        // is never near the bound.
-        now = T0 + AttendedSession.QuietFor - TimeSpan.FromSeconds(1);
-        session.Heard(now);
+        await Assert.That(session.Open).IsEqualTo(1);
 
         now = T0 + AttendedSession.QuietFor + TimeSpan.FromSeconds(1);
         session.ForgetTheQuiet(now);
 
-        await Assert.That(session.Open).IsEqualTo(1)
-            .Because("letting go of a channel somebody is using ends a watch mid-flight, "
-                   + "which is worse than the leak this sweep exists for.");
+        await Assert.That(session.Open).IsEqualTo(0)
+            .Because("the sweep is what turns the rule into a peer actually being closed.");
     }
 
     [Test]

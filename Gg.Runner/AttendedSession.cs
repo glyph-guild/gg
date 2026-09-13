@@ -154,6 +154,12 @@ public sealed class AttendedSession(
         {
             if (await serving.Opened is var how && how is not HandshakeFailure.None)
             {
+                // AND LET GO OF, here rather than at the next sweep. The peer
+                // is already closed by the arrival bound; what is left is this
+                // session's reference to it, and a list that only grows is how
+                // a runner ends up holding every handshake that ever failed.
+                Forget(serving);
+
                 observer.CannotBeFlownByHand(
                     $"introduction {introductionId} was answered and nobody arrived: {how}. "
                   + (how is HandshakeFailure.NoRouteBetweenUs
@@ -165,6 +171,81 @@ public sealed class AttendedSession(
         catch (Exception narrating) when (narrating is not OperationCanceledException)
         {
             observer.CannotBeFlownByHand($"could not tell whether anybody arrived: {narrating}");
+        }
+    }
+
+    /// <summary>
+    /// How long a conversation is kept with nobody asking anything on it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ten minutes, and the number is a person rather than a protocol.</b> A
+    /// watcher polls once a second, so a live conversation is never quiet for
+    /// more than a moment; what this measures is somebody who walked away, shut
+    /// a laptop, or lost a network. Long enough that a suspended machine coming
+    /// back finds its watch still there, short enough that a runner does not
+    /// accumulate peers nobody is on the other end of.
+    /// </remarks>
+    public static TimeSpan QuietFor { get; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Whether one conversation is over.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pure, because the interesting half cannot be reached with a live
+    /// peer.</b> A channel somebody is using must survive a sweep, and building
+    /// that state for a test means a second process on the other end of a real
+    /// ICE connection. The decision is one line; keeping it where it can be
+    /// asked directly is what makes the liveness half assertable at all.
+    /// </remarks>
+    public static bool IsOver(bool gone, DateTimeOffset lastHeard, DateTimeOffset now) =>
+        gone || now - lastHeard > QuietFor;
+
+    /// <summary>
+    /// Lets go of every conversation that is over.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is what replaced the flight as the bound.</b> A session used to
+    /// live inside a hold, so a landing closed everything it had opened. It
+    /// lives for the run now, and without this a console that connected and was
+    /// then killed would leave a peer connection alive for the life of the
+    /// runner - a leak, and the standing capability this slice traded away.
+    /// </para>
+    /// <para>
+    /// <b>Three endings, and they are not the same one.</b> Nobody arrived, the
+    /// peer closed, or nobody has asked anything for <see cref="QuietFor"/>.
+    /// Only the last needs the clock, and it is the one a person walking away
+    /// from a terminal produces.
+    /// </para>
+    /// </remarks>
+    public void ForgetTheQuiet(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            for (var i = _serving.Count - 1; i >= 0; i--)
+            {
+                var serving = _serving[i];
+
+                if (!IsOver(serving.Gone, serving.LastHeard, now))
+                {
+                    continue;
+                }
+
+                serving.Dispose();
+                _serving.RemoveAt(i);
+            }
+        }
+    }
+
+    /// <summary>Lets go of one conversation, wherever it ended.</summary>
+    private void Forget(Served serving)
+    {
+        lock (_gate)
+        {
+            if (_serving.Remove(serving))
+            {
+                serving.Dispose();
+            }
         }
     }
 

@@ -261,6 +261,12 @@ public sealed class RunnerLoop(
     //
     // LAST and defaulted, for the reason beatPace above it is.
     Action<Gg.Contracts.OfferedConfiguration>? offered = null,
+    // WHERE A REVOKED CREDENTIAL IS DESTROYED, or null. Handed in like
+    // everything else this loop does not go looking for - but UNLIKE the port
+    // that keeps one, nothing gates this: a machine that would not forget when
+    // told is a liability, and the two are separate ports so that wiring one
+    // cannot wire the other by accident.
+    IForgetACredential? forget = null,
     // WHAT THIS MACHINE HAS SPENT, asked on every beat and answering nothing
     // most times. The cadence belongs to whatever the root wires here, because
     // what it protects is the WALK across every transcript on the machine
@@ -441,6 +447,14 @@ public sealed class RunnerLoop(
             {
                 offered?.Invoke(carried);
             }
+
+            // ON EVERY BEAT, FLYING OR IDLE, and that is the whole difference
+            // from the two above it. An introduction needs a lease to authorise
+            // it; an offer waits for idle because acting on one ends the
+            // process. A revoked credential is revoked while the machine is
+            // busy, and a runner that waited for a gap in its work would hold a
+            // live secret for exactly as long as it was useful to somebody.
+            ForgetsWhatItIsTold.Apply(beat.Forget, forget);
 
             // WHAT THIS MACHINE HAS SPENT, beside the beat and never inside
             // it. The heartbeat is liveness only - a runner able to report

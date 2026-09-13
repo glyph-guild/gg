@@ -88,6 +88,44 @@ public sealed record HeartbeatAccepted
     /// </para>
     /// </remarks>
     public OfferedConfiguration? Offered { get; init; }
+
+    /// <summary>
+    /// Credentials this runner should no longer hold, by locator, or absent
+    /// when there are none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE OTHER HALF OF PLACING ONE, AND THE HALF THAT HAS TO WORK WITH
+    /// NOBODY PRESENT.</b> Putting a credential on a machine is a person's act
+    /// over an introduced channel, inside a flight. Taking one back is
+    /// revocation, and revocation that needs somebody at a terminal is
+    /// revocation that happens on Monday. So it rides the poll, for the reason
+    /// written two members up.
+    /// </para>
+    /// <para>
+    /// <b>Locators, which are references.</b> Article VIII is untouched and this
+    /// was always the safe direction: the control plane already holds these and
+    /// already sends them on a lease, so naming one to be DROPPED is strictly
+    /// less than naming one to be used. The runner validates each by the
+    /// contract's own rule before it becomes a path - deleting is the direction
+    /// where steering one would cost the most.
+    /// </para>
+    /// <para>
+    /// <b>Acted on whether or not a flight is in the air, unlike either
+    /// neighbour.</b> An introduction needs a lease to authorise it and an offer
+    /// is taken only while idle because acting on one ends the process. A
+    /// revoked credential is revoked while the machine is busy, and a runner
+    /// that waited for a gap in its work would hold a live secret for exactly as
+    /// long as it was useful to somebody.
+    /// </para>
+    /// <para>
+    /// <b>Absent when empty rather than an empty list</b>, so a fleet where
+    /// nothing was revoked pays nothing - and a runner ahead of its control
+    /// plane reads a missing member as nothing to do rather than as everything
+    /// to drop.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? Forget { get; init; }
 }
 
 /// <summary>

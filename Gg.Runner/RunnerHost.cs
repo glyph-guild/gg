@@ -222,7 +222,13 @@ public static class RunnerHost
         // root either hands a place to keep one in or does not. A runner that
         // may be given a credential is one somebody wired to be, and the
         // dispatch refuses for want of this rather than for want of a check.
-        IKeepACredential? keepCredential = null)
+        IKeepACredential? keepCredential = null,
+        // WHERE A REVOKED CREDENTIAL IS DESTROYED, and it is NOT gated the way
+        // the port above it is. Keeping one is something a machine agrees to;
+        // forgetting one is not, and a machine that would not forget when told
+        // is a liability. Separate ports so that wiring one cannot wire the
+        // other by accident.
+        IForgetACredential? forgetCredential = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -316,6 +322,8 @@ public static class RunnerHost
             // leaves it, and Gg.Runner does not go looking for it. So a runner
             // that can be driven is one somebody wired to be.
             offered: offered,
+            // UNGATED, unlike keepCredential below. See its own remark.
+            forget: forgetCredential,
             // THE CANCELLATION TOKEN IS THE LOOP'S, and it matters now that a
             // reading may spawn a process: a runner told to stop must not sit
             // out a refresh's patience.

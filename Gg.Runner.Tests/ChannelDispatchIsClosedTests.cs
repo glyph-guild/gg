@@ -211,7 +211,7 @@ public class ChannelDispatchIsClosedTests
         // ARunnerKeepsACredentialItIsGivenTests - a dispatch with no store
         // would make this test pass for the wrong reason or fail for one.
         var dispatch = new AskDispatch(
-            new WhatThisRunnerSays(new SilentObserver(), new ALog("a line"), () => T0),
+            new WhatThisRunnerSays(new SilentObserver(), _ => new ALog("a line"), () => T0),
             new Keeping());
 
         var asks = new Dictionary<string, RunnerAsk>(StringComparer.Ordinal)

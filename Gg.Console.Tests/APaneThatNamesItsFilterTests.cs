@@ -81,6 +81,35 @@ public class APaneThatNamesItsFilterTests
     }
 
     [Test]
+    public async Task The_filter_is_on_the_pane_a_person_is_actually_looking_at()
+    {
+        // FOUND IN A PTY. PaneText.Browse is the pane's SENTENCE, drawn only
+        // when there are no rows - so a filter named there is named on the one
+        // screen where the rows it narrowed are not. The title is what a person
+        // reading a full table can see, and it already carries the tracker for
+        // the same reason.
+        var state = Reducer.Browsed(
+            new AppState(), "a-tracker", OneItem(), @"Widgets\Platform · Active");
+
+        var title = PaneText.BrowseTitle(state);
+
+        await Assert.That(title).Contains("a-tracker");
+        await Assert.That(title).Contains(@"Widgets\Platform");
+
+        await Assert.That(PaneText.BrowseTitle(
+            Reducer.Browsed(new AppState(), "a-tracker", OneItem(), said: null)))
+            .IsEqualTo("Browse — a-tracker")
+            .Because("an unfiltered listing is the ordinary case and a title that said so "
+                   + "every time would be noise where the tracker's name belongs.");
+
+        var screen = ConsoleSource.Text("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
+
+        await Assert.That(screen).Contains("PaneText.BrowseTitle")
+            .Because("a title composed in the view is one the model cannot be asked about, "
+                   + "which is how the filter came to be drawn only on an empty pane.");
+    }
+
+    [Test]
     public async Task A_row_says_where_the_tracker_files_it()
     {
         var state = Reducer.Browsed(new AppState(), "a-tracker", OneItem(), said: null);

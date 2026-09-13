@@ -27,6 +27,42 @@ public sealed record RunnerHeartbeat
     /// have to re-register to be offered work that needs it.
     /// </summary>
     public required IReadOnlyList<string> Labels { get; init; }
+
+    /// <summary>
+    /// Whether this machine will keep a credential handed to it, or absent from
+    /// a runner that was never asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>So nobody types a secret for a machine that will not take it.</b>
+    /// Without this the refusal arrives AFTER the value has been read, sealed
+    /// and sent: the answer lives in the machine's own <c>accept-configured</c>
+    /// and the control plane has never been told it. A person finds out by
+    /// being told the runner heard and did not keep it, having already produced
+    /// the token.
+    /// </para>
+    /// <para>
+    /// <b>It is not the authorisation and does not pretend to be.</b> Only the
+    /// principal who REGISTERED a runner may be introduced to it, which is what
+    /// answers "may this caller". This answers whether the machine will take one
+    /// from anybody, which is a different question and the machine's own to
+    /// answer. What it changes is WHEN.
+    /// </para>
+    /// <para>
+    /// <b>A lie gains nothing, which is why a runner may be trusted to say
+    /// it.</b> One that claims to accept and then refuses is exactly where this
+    /// path already is. One that claims not to accept is not offered the chance.
+    /// The file on the machine still decides; this only lets the far end stop
+    /// asking.
+    /// </para>
+    /// <para>
+    /// <b>Three states, not two.</b> Absent is a runner that predates this
+    /// member, and a control plane that read absence as "no" would make every
+    /// machine in the field unconfigurable the day it shipped. Absence means
+    /// mint and let the far end refuse - which is what happens today.
+    /// </para>
+    /// </remarks>
+    public bool? AcceptsConfiguration { get; init; }
 }
 
 /// <summary>How long the control plane expects to wait before worrying.</summary>

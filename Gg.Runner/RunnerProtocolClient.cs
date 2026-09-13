@@ -127,11 +127,19 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
     }
 
     public async Task<HeartbeatAccepted> HeartbeatAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default)
+        string runnerId,
+        IReadOnlyList<string> labels,
+        bool? acceptsConfiguration,
+        CancellationToken cancellationToken = default)
     {
         using var request = Request(HttpMethod.Post, $"/v1/runners/{runnerId}/heartbeat");
         request.Content = JsonContent.Create(
-            new RunnerHeartbeat { Labels = labels }, RunnerJsonContext.Default.RunnerHeartbeat);
+            new RunnerHeartbeat
+            {
+                Labels = labels,
+                AcceptsConfiguration = acceptsConfiguration,
+            },
+            RunnerJsonContext.Default.RunnerHeartbeat);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         ThrowIfProtocolRefused(response);

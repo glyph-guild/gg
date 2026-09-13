@@ -216,8 +216,21 @@ public interface IRunnerProtocol
     Task SignalAsync(
         string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default);
 
+    /// <summary>Says this runner is alive, and what it will take.</summary>
+    /// <remarks>
+    /// <b><paramref name="acceptsConfiguration"/> is REQUIRED rather than
+    /// defaulted</b>, for the reason labels are: an optional parameter is how
+    /// the next caller drops it without deciding to, and a beat that silently
+    /// stopped declaring would send a person back to typing secrets for
+    /// machines that will not keep them. Null is a real value here - a runner
+    /// composed without a credential store has nothing to say - but it has to
+    /// be said on purpose.
+    /// </remarks>
     Task<HeartbeatAccepted> HeartbeatAsync(
-        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken = default);
+        string runnerId,
+        IReadOnlyList<string> labels,
+        bool? acceptsConfiguration,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Says what the allowance this machine spends from has left.

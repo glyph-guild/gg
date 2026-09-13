@@ -2183,7 +2183,14 @@ static async Task<int> RunnerUpAsync()
     {
         var beat = await new Gg.Runner.RunnerProtocolClient(
                 new HttpClient { BaseAddress = new Uri(baseAddress) }, registered.RunnerToken)
-            .HeartbeatAsync(registered.RunnerId, [], CancellationToken.None);
+            // NULL, AND IT IS THE HONEST ANSWER. This beat happens before
+            // anything is composed - it exists to collect an offer at startup -
+            // so nothing has yet decided whether this machine will keep a
+            // credential. Saying "no" here would tell the control plane
+            // something false about a runner that is about to say yes.
+            .HeartbeatAsync(
+                registered.RunnerId, [], acceptsConfiguration: null,
+                CancellationToken.None);
 
         var decided = OfferedAtStartup.Decide(
             beat.Offered, inForce, Gg.Local.ConfigurationFile.DefaultPath());

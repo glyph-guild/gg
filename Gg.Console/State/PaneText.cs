@@ -2775,7 +2775,19 @@ public static class PaneText
 
         var cursor = Math.Clamp(state.FilterSelected, 0, rows.Count - 1);
 
-        for (var row = 0; row < rows.Count; row++)
+        // A WINDOW AROUND THE CURSOR, because this dialog is sized to its body
+        // and a terminal is not. A tracker with ninety sprints asked for a box
+        // ninety rows tall and got the tail of one - the heading, the area
+        // paths and the cursor itself all off the top of the screen.
+        var first = Math.Clamp(cursor - (Window / 2), 0, Math.Max(0, rows.Count - Window));
+        var last = Math.Min(rows.Count, first + Window);
+
+        if (first > 0)
+        {
+            text.AppendLine($"… {first} more above");
+        }
+
+        for (var row = first; row < last; row++)
         {
             text.AppendLine(
                 (row == cursor ? "> " : "  ")
@@ -2783,8 +2795,25 @@ public static class PaneText
               + (rows[row].Chosen ? "  *" : ""));
         }
 
+        if (last < rows.Count)
+        {
+            text.AppendLine($"… {rows.Count - last} more below");
+        }
+
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// How many choices are on screen at once.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fewer than the shortest terminal anybody uses.</b> The dialog takes
+    /// its height from its body, so this is the one number that keeps it on the
+    /// screen - and what is above and below is counted rather than hidden,
+    /// because a truncated list that does not say so is a tracker that appears
+    /// to have fifteen sprints.
+    /// </remarks>
+    private const int Window = 15;
 
     private static string WorkKindChoice(AppState state)
     {

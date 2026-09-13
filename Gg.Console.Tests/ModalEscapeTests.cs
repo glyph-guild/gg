@@ -148,6 +148,14 @@ public class ModalEscapeTests
           + "above rather than here: StateGenerator emits every UiMode, so the escape-hatch "
           + "walk already leaves this one.",
 
+        [UiMode.BrowseFilter] =
+            "opened by ConsoleLoop.FilterOffered after asking a reader what there is to "
+          + "narrow by - a child process holding a credential, so it cannot happen inside a "
+          + "UI session and no key pressed against a fresh state reaches it. It is entered "
+          + "through FilterBrowse and left through CloseModal, and ABrowseFilterIsPickedTests "
+          + "drives both ends. Being escapable is covered above rather than here: "
+          + "StateGenerator emits every UiMode, so the escape-hatch walk already leaves it.",
+
         [UiMode.ConfirmGround] =
             "opened by `x` inside the flight modal, which is itself opened by the loop after "
           + "a read - so it is two steps from a fresh state and this test presses one key. "

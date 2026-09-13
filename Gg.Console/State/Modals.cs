@@ -64,6 +64,10 @@ public static class Modals
         // A DOCUMENT WITH A TITLE, which is what the reading views are. What it
         // holds is one work item as its own reader rendered it.
         UiMode.WorkItemDetail,
+
+        // A QUESTION WITH A LIST IN IT, which is WorkKindChoice's shape over a
+        // longer list: a title, a body of choices and a cursor. A dialog.
+        UiMode.BrowseFilter,
     ];
 
     /// <summary>

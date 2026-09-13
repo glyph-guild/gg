@@ -108,6 +108,45 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
         return Task.FromResult<BrowseOutcome?>(null);
     }
 
+    /// <summary>What this reader offers to narrow by, or why it offers nothing.</summary>
+    /// <remarks>
+    /// <b>Through the same gate as a browse</b>, for the same reasons: one
+    /// conversation at a time over one pipe, and a bounded wait, because a
+    /// question that never returns is a console that never redraws.
+    /// </remarks>
+    public async Task<FacetOutcome> FacetsAsync(CancellationToken cancellationToken = default)
+    {
+        await _oneAtATime.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (await StartAsync() is { } refused)
+            {
+                return new FacetOutcome.Nothing(Said(refused));
+            }
+
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(_patience);
+
+            try
+            {
+                return await _asking!.FacetsAsync(deadline.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                Stop();
+
+                return new FacetOutcome.Nothing(
+                    $"The reader for '{_reader.Key}' did not answer within "
+                  + $"{_patience.TotalMilliseconds:0}ms, so it was stopped.");
+            }
+        }
+        finally
+        {
+            _oneAtATime.Release();
+        }
+    }
+
     /// <summary>A page of work from this reader, or why there is not one.</summary>
     public async Task<BrowseOutcome> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter = null,
@@ -233,6 +272,7 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
     private static string Said(BrowseOutcome outcome) => outcome switch
     {
         BrowseOutcome.NotBrowsable(var why) => why,
+        BrowseOutcome.NotFilterable(var why) => why,
         BrowseOutcome.Refused(var why) => why,
         BrowseOutcome.Unintelligible(var why) => why,
         BrowseOutcome.Silent(var why) => why,

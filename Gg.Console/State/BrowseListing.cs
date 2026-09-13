@@ -68,6 +68,36 @@ public sealed record BrowseListing
 }
 
 /// <summary>
+/// What a tracker offers to narrow a listing by, or why it offered nothing.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Empty and unavailable are different, and both are drawn.</b> A project
+/// with no iterations is a project where nobody should be offered a sprint;
+/// a reader that does not declare the tool is a reader to go and look at.
+/// <see cref="Why"/> being set is the second one, and the modal says it rather
+/// than drawing three empty groups.
+/// </para>
+/// <para>
+/// <b>Plain lists of plain strings, because they go straight back out.</b>
+/// These are the values the filter arguments take, offered exactly as they will
+/// be sent - a console that reshaped what it was handed would send something
+/// the reader that offered it does not recognise.
+/// </para>
+/// </remarks>
+public sealed record BrowseFacets
+{
+    public IReadOnlyList<string> AreaPaths { get; init; } = [];
+
+    public IReadOnlyList<string> Iterations { get; init; } = [];
+
+    public IReadOnlyList<string> States { get; init; } = [];
+
+    /// <summary>Why there is nothing to choose from, already worded, or null.</summary>
+    public string? Why { get; init; }
+}
+
+/// <summary>
 /// A flight somebody asked for, waiting on an answer about a duplicate.
 /// </summary>
 /// <remarks>

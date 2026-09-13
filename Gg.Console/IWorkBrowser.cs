@@ -37,6 +37,14 @@ public interface IWorkBrowser
 
     Task<BrowseOutcome> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken);
+
+    /// <summary>What this tracker offers to narrow a listing by.</summary>
+    /// <remarks>
+    /// <b>The same reader the listing comes from.</b> A person picking an area
+    /// path is picking one that exists in the tracker they are about to query;
+    /// choices from anywhere else would be values that answer nothing.
+    /// </remarks>
+    Task<FacetOutcome> FacetsAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -71,6 +79,17 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
         }
 
         return await reader.BrowseAsync(cursor, limit, filter, cancellationToken);
+    }
+
+    public async Task<FacetOutcome> FacetsAsync(CancellationToken cancellationToken)
+    {
+        if (Key is not { } key || _readers.For(key) is not { } reader)
+        {
+            return new FacetOutcome.Nothing(
+                "No tracker is configured to browse on this machine.");
+        }
+
+        return await reader.FacetsAsync(cancellationToken);
     }
 
     public async Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken)

@@ -79,8 +79,28 @@ internal static class StateGenerator
             // console is rebuilt FROM the dump after every terminal release. A
             // field left null in every draw would let all of that pass unread.
             Estate = random.Next(3) == 0 ? NextEstate(random) : null,
+
+            // AND THE FILTER, for the same reason one member up. The choices
+            // are a tracker's and the picks are a person's; both survive a
+            // terminal release only because they are in this dump, and a field
+            // left null in every draw would let a member the source generator
+            // was never told about pass unread here and be refused in the
+            // published binary instead.
+            Facets = random.Next(3) == 0 ? NextFacets(random) : null,
+            FilterSelected = random.Next(0, 6),
+            ChosenAreaPath = random.Next(3) == 0 ? NextId(random) : null,
+            ChosenIteration = random.Next(3) == 0 ? NextId(random) : null,
+            ChosenStates = [.. Enumerable.Range(0, random.Next(0, 3)).Select(_ => NextId(random))],
         };
     }
+
+    private static BrowseFacets NextFacets(Random random) => new()
+    {
+        AreaPaths = [.. Enumerable.Range(0, random.Next(0, 4)).Select(_ => NextId(random))],
+        Iterations = [.. Enumerable.Range(0, random.Next(0, 3)).Select(_ => NextId(random))],
+        States = [.. Enumerable.Range(0, random.Next(0, 3)).Select(_ => NextId(random))],
+        Why = random.Next(3) == 0 ? NextText(random) : null,
+    };
 
     private static EstateOnThisMachine NextEstate(Random random) => new()
     {

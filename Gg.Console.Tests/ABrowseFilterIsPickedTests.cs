@@ -32,6 +32,7 @@ public class ABrowseFilterIsPickedTests
     private static AppState Offering() => new()
     {
         ActiveTab = TabId.Browse,
+        Mode = UiMode.BrowseFilter,
         Facets = new BrowseFacets
         {
             AreaPaths = ["Widgets", @"Widgets\Platform"],
@@ -217,7 +218,11 @@ public class ABrowseFilterIsPickedTests
             new AppState
             {
                 ActiveTab = TabId.Browse,
-                Facets = new BrowseFacets { Why = "The reader for 'a-tracker' does not declare it." },
+                Mode = UiMode.BrowseFilter,
+                Facets = new BrowseFacets
+                {
+                    Why = "The reader for 'a-tracker' does not declare it.",
+                },
             });
 
         await Assert.That(drawn).Contains("a-tracker")

@@ -39,6 +39,9 @@ public class TheBrowserSurvivesItsOwnReloadTests
                 ],
                 null)));
 
+        public Task<FacetOutcome> FacetsAsync(CancellationToken token) =>
+            Task.FromResult<FacetOutcome>(new FacetOutcome.Offered(WorkItemFacets.Nothing));
+
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
 

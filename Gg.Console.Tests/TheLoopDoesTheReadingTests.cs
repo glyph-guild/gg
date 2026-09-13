@@ -36,6 +36,9 @@ public class TheLoopDoesTheReadingTests
             return Task.FromResult(outcome);
         }
 
+        public Task<FacetOutcome> FacetsAsync(CancellationToken token) =>
+            Task.FromResult<FacetOutcome>(new FacetOutcome.Offered(WorkItemFacets.Nothing));
+
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
 
@@ -130,6 +133,9 @@ public class TheLoopDoesTheReadingTests
         public string? Key => "a-tracker";
 
         public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, WorkItemFilter? filter, CancellationToken token) =>
+            throw new InvalidOperationException("a bug in a reader");
+
+        public Task<FacetOutcome> FacetsAsync(CancellationToken token) =>
             throw new InvalidOperationException("a bug in a reader");
 
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>

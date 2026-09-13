@@ -200,6 +200,9 @@ public static class Reducer
             // two lists, and moving the queue underneath a person reading work
             // items would change what the flight pane shows for a keystroke
             // they aimed somewhere else.
+            Command.PickFilterValue => FilterPicked(state),
+            Command.ClearFilter => FilterCleared(state),
+
             Command.SelectNext => Moved(state, +1),
             Command.SelectPrevious => Moved(state, -1),
 
@@ -219,6 +222,99 @@ public static class Reducer
             Command.Quit => state,
             _ => state,
         };
+    }
+
+    /// <summary>
+    /// The choices a tracker offered, with the modal over them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The loop calls this, not <see cref="Reduce"/>.</b> Asking is a spawn,
+    /// so the command is the shell's; a reducer arm for it as well would open
+    /// the modal whether or not the reader ever answered, over a list from the
+    /// last time somebody asked.
+    /// </remarks>
+    public static AppState FilterOffered(AppState state, BrowseFacets offered)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(offered);
+
+        return state with
+        {
+            Facets = offered,
+            Mode = UiMode.BrowseFilter,
+
+            // A NEW LIST STARTS AT THE TOP, for Browsed's reason: a cursor left
+            // pointing at row nine of a list that now has two picks the wrong
+            // thing, silently.
+            FilterSelected = 0,
+        };
+    }
+
+    /// <summary>
+    /// Pick, or un-pick, whatever the filter cursor is on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An area path and a sprint REPLACE; a state accumulates.</b> That is
+    /// not a preference - a query takes one path and a set of states, so a
+    /// modal that let somebody collect two paths would be offering to build a
+    /// filter this console could not send.
+    /// </para>
+    /// <para>
+    /// <b>The same key takes a state back.</b> A second key for un-picking is a
+    /// key a person has to be taught, and the modal already shows which rows
+    /// are picked.
+    /// </para>
+    /// </remarks>
+    private static AppState FilterPicked(AppState state)
+    {
+        if (BrowseFilters.Under(state) is not { } choice)
+        {
+            return state;
+        }
+
+        return choice.Facet switch
+        {
+            BrowseFacet.AreaPath => state with { ChosenAreaPath = choice.Value },
+            BrowseFacet.Iteration => state with { ChosenIteration = choice.Value },
+            BrowseFacet.State => state with { ChosenStates = Toggled(state, choice.Value) },
+            _ => state,
+        };
+    }
+
+    /// <summary>This state added, or removed where it was already picked.</summary>
+    /// <remarks>
+    /// A null value is the row that clears the whole dimension, which is an
+    /// empty set rather than a set containing nothing named.
+    /// </remarks>
+    private static IReadOnlyList<string> Toggled(AppState state, string? value)
+    {
+        if (value is not { Length: > 0 })
+        {
+            return [];
+        }
+
+        return state.ChosenStates.Contains(value, StringComparer.Ordinal)
+            ? [.. state.ChosenStates.Where(
+                chosen => !string.Equals(chosen, value, StringComparison.Ordinal))]
+            : [.. state.ChosenStates, value];
+    }
+
+    /// <summary>The whole filter off, in one key.</summary>
+    private static AppState FilterCleared(AppState state) => state with
+    {
+        ChosenAreaPath = null,
+        ChosenIteration = null,
+        ChosenStates = [],
+    };
+
+    private static AppState PickFilterRow(AppState state, int row)
+    {
+        var rows = BrowseFilters.Rows(state);
+
+        return rows.Count == 0
+            ? state
+            : state with { FilterSelected = Math.Clamp(row, 0, rows.Count - 1) };
     }
 
     /// <summary>
@@ -761,6 +857,8 @@ public static class Reducer
             ? PickLogEntry(state, state.LogSelected + by)
             : state.Mode is UiMode.WorkKindChoice
             ? PickWorkKind(state, state.KindSelected + by)
+            : state.Mode is UiMode.BrowseFilter
+            ? PickFilterRow(state, state.FilterSelected + by)
             : state.ActiveTab switch
             {
                 TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
@@ -1021,6 +1119,13 @@ public static class Reducer
                 },
 
                 BrowseOutcome.NotBrowsable why => Absent(providerKey, why.Why),
+
+                // THE READER ALREADY SAID WHAT WAS WRONG. This ending arrived
+                // with filtering and fell through to the catch-all below, which
+                // reports a gap in this console - true of the console, false of
+                // the reader, and the wrong place to send somebody to look.
+                BrowseOutcome.NotFilterable why => Absent(providerKey, why.Why),
+
                 BrowseOutcome.Refused why => Absent(providerKey, why.Why),
                 BrowseOutcome.Unintelligible why => Absent(providerKey, why.Why),
                 BrowseOutcome.Silent why => Absent(providerKey, why.Why),

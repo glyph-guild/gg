@@ -1,4 +1,6 @@
 using Gg.Client;
+using Gg.Local;
+
 namespace Gg.Console;
 
 /// <summary>
@@ -818,6 +820,27 @@ public sealed class ConsoleLoop(
                     state = OpenedWorkItem(state, openUri);
                     break;
 
+                case Command.FilterBrowse:
+                    // THE SAME SPAWN AGAIN, and it happens here for the same
+                    // sentence: asking a reader what there is to narrow by
+                    // starts a child holding a credential, which a UI session
+                    // may not do.
+                    state = Offered(state, browser);
+                    break;
+
+                case Command.BrowseFiltered:
+                    // THE MODAL CLOSES FIRST. A listing fetched under a dialog
+                    // that stays up is a person looking at the choices instead
+                    // of at what they chose.
+                    state = state with { Mode = UiMode.Normal };
+
+                    if (browser is not null)
+                    {
+                        state = Browsed(state, browser);
+                    }
+
+                    break;
+
                 case Command.ForgetCredential:
                     // A WRITE, SO IT REFRESHES WHAT IT INVALIDATED. Rule 4: the
                     // credential list the flight pane reads is exactly what this
@@ -1336,6 +1359,58 @@ public sealed class ConsoleLoop(
     /// should not lose their console to one. The sentence says the fault is
     /// here rather than at the tracker, because that is where to go and look.
     /// </remarks>
+    /// <summary>
+    /// Ask the reader what there is to narrow by, and offer it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The modal opens either way.</b> A key that did nothing visible when a
+    /// reader could not answer would read as a key that is broken; what comes
+    /// back instead of choices is a sentence, and the modal draws it.
+    /// </remarks>
+    private static AppState Offered(AppState state, IWorkBrowser? browser)
+    {
+        if (browser is null)
+        {
+            return Reducer.FilterOffered(state, new BrowseFacets
+            {
+                Why = "This console is not configured to browse a tracker.",
+            });
+        }
+
+        var key = browser.Key ?? "the reader";
+
+        try
+        {
+            return Reducer.FilterOffered(
+                state,
+                browser.FacetsAsync(CancellationToken.None).GetAwaiter().GetResult() switch
+                {
+                    FacetOutcome.Offered(var facets) => new BrowseFacets
+                    {
+                        AreaPaths = facets.AreaPaths,
+                        Iterations = facets.Iterations,
+                        States = facets.States,
+                    },
+
+                    FacetOutcome.Nothing(var why) => new BrowseFacets { Why = why },
+
+                    _ => new BrowseFacets
+                    {
+                        Why = $"The reader for '{key}' answered in a way this console does not "
+                            + "have a sentence for.",
+                    },
+                });
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return Reducer.FilterOffered(state, new BrowseFacets
+            {
+                Why = $"Asking '{key}' what there is to filter by failed inside this console "
+                    + $"rather than at the tracker: {problem.Message}",
+            });
+        }
+    }
+
     private static AppState Browsed(AppState state, IWorkBrowser browser)
     {
         var key = browser.Key ?? "the reader";
@@ -1344,7 +1419,8 @@ public sealed class ConsoleLoop(
         {
             return Reducer.Browsed(
                 state, key,
-                browser.BrowseAsync(cursor: null, limit: 50, filter: null, CancellationToken.None)
+                browser.BrowseAsync(
+                    cursor: null, limit: 50, Narrowing(state), CancellationToken.None)
                     .GetAwaiter().GetResult());
         }
         catch (Exception problem) when (problem is not OperationCanceledException)
@@ -1353,6 +1429,24 @@ public sealed class ConsoleLoop(
                 $"Browsing '{key}' failed inside this console rather than at the tracker: "
               + problem.Message));
         }
+    }
+
+    /// <summary>
+    /// What the person picked, as the reader's shape, or null if they picked nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null rather than a filter of three blanks.</b> The reader is entitled
+    /// to tell "nobody narrowed" from "somebody narrowed by nothing", and a
+    /// console that always sent a filter would make every reader that cannot
+    /// filter refuse every listing.
+    /// </remarks>
+    private static WorkItemFilter? Narrowing(AppState state)
+    {
+        var filter = new WorkItemFilter(
+            state.ChosenAreaPath, state.ChosenIteration,
+            state.ChosenStates.Count > 0 ? state.ChosenStates : null);
+
+        return filter.Narrows ? filter : null;
     }
 
     /// <summary>

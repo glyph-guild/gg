@@ -356,7 +356,7 @@ public static class WorkItemToolServer
             : DefaultLimit;
 
         var limit = Math.Clamp(asked, 1, MaximumLimit);
-        var page = await source.BrowseAsync(cursor, limit, cancellationToken);
+        var page = await source.BrowseAsync(cursor, limit, cancellationToken: cancellationToken);
 
         // THE CONTRACT'S OWN SHAPE, written by its own names. A pane parses
         // this, so a field spelled differently here is a field it cannot find.

@@ -44,7 +44,54 @@ public sealed record WorkItemSummary(
     string Title,
     string State,
     string Url,
-    string? Updated);
+    string? Updated,
+
+    /// <summary>Where the tracker files it, or null where it says nothing.</summary>
+    /// <remarks>
+    /// <b>A filter a person cannot see the effect of is a filter they cannot
+    /// trust.</b> Narrowing to a team and being shown the same undifferentiated
+    /// list is indistinguishable from a filter that did not take, so what was
+    /// filtered on is on the row.
+    /// </remarks>
+    string? AreaPath = null,
+
+    /// <summary>The sprint it is in, or null where the tracker says nothing.</summary>
+    string? Iteration = null);
+
+/// <summary>
+/// What a caller is asking to see, or null where it is asking for the default.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It narrows the QUERY, not the page.</b> Filtering what came back can only
+/// filter what happened to come back, so a sprint whose work fell outside the
+/// first page would read as an empty one - a box that is lying, which is what
+/// the browse endings exist to stop.
+/// </para>
+/// <para>
+/// <b>Every part is optional and absent means "do not narrow on this".</b> Not
+/// "match nothing" and not "match everything explicitly": a filter with one
+/// field set is the ordinary case, and a caller should not have to name the two
+/// it does not care about.
+/// </para>
+/// <para>
+/// <b>States REPLACE the default rather than adding to it.</b> The default list
+/// excludes closed and removed work; a caller asking FOR closed work and being
+/// handed that exclusion on top would get nothing, for ever, with nothing on
+/// screen to say why.
+/// </para>
+/// </remarks>
+public sealed record WorkItemFilter(
+    string? AreaPath = null,
+    string? Iteration = null,
+    IReadOnlyList<string>? States = null)
+{
+    /// <summary>Whether this narrows anything at all.</summary>
+    public bool Narrows =>
+        AreaPath is { Length: > 0 }
+        || Iteration is { Length: > 0 }
+        || States is { Count: > 0 };
+}
 
 /// <summary>
 /// A page of work items, and how to ask for the next one.
@@ -84,7 +131,8 @@ public interface IWorkItemSource
 
     /// <summary>A page of items, oldest cursor semantics decided by the source.</summary>
     Task<WorkItemPage> BrowseAsync(
-        string? cursor, int limit, CancellationToken cancellationToken = default);
+        string? cursor, int limit, WorkItemFilter? filter = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>What has happened to one item, oldest first.</summary>
     /// <remarks>

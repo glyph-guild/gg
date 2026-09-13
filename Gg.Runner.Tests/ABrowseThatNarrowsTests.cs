@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Gg.Local;
 using Gg.Runner.Intent;
 
@@ -73,6 +74,16 @@ public class ABrowseThatNarrowsTests
           "System.ChangedDate":"2026-09-05T01:06:13Z"}}]}
         """;
 
+    /// <summary>The query as the tracker will read it.</summary>
+    /// <remarks>
+    /// <b>The body is JSON, and JSON escapes an apostrophe.</b> Matching raw
+    /// bytes would assert on the writer's encoder rather than on the query -
+    /// and every interesting case here is a quoting case, which is precisely
+    /// where the two differ. Read the field out and assert on what arrives.
+    /// </remarks>
+    private static string Query(string body) =>
+        JsonDocument.Parse(body).RootElement.GetProperty("query").GetString()!;
+
     private static (WiqlWorkItemSource Source, Recorder Seen) Answering()
     {
         var recorder = new Recorder(request =>
@@ -88,11 +99,11 @@ public class ABrowseThatNarrowsTests
 
         _ = await source.BrowseAsync(cursor: null, limit: 50);
 
-        await Assert.That(seen.Bodies[0]).Contains("<> 'Closed'")
+        await Assert.That(Query(seen.Bodies[0])).Contains("<> 'Closed'")
             .Because("open work, most recently touched first, is what a list is when nobody "
                    + "said - and a filter nobody asked for must not change that.");
 
-        await Assert.That(seen.Bodies[0]).DoesNotContain("AreaPath");
+        await Assert.That(Query(seen.Bodies[0])).DoesNotContain("AreaPath");
     }
 
     [Test]
@@ -104,11 +115,11 @@ public class ABrowseThatNarrowsTests
             cursor: null, limit: 50,
             filter: new WorkItemFilter(AreaPath: @"Widgets\Platform", Iteration: null, States: null));
 
-        await Assert.That(seen.Bodies[0]).Contains("UNDER")
+        await Assert.That(Query(seen.Bodies[0])).Contains("UNDER")
             .Because("an area path names a subtree, and a person who picks a team wants the "
                    + "work under it rather than the work filed exactly at it.");
 
-        await Assert.That(seen.Bodies[0]).Contains(@"Widgets\\Platform");
+        await Assert.That(Query(seen.Bodies[0])).Contains(@"Widgets\Platform");
     }
 
     [Test]
@@ -120,8 +131,8 @@ public class ABrowseThatNarrowsTests
             cursor: null, limit: 50,
             filter: new WorkItemFilter(null, @"Widgets\Sprint 42", null));
 
-        await Assert.That(seen.Bodies[0]).Contains("IterationPath");
-        await Assert.That(seen.Bodies[0]).Contains("Sprint 42");
+        await Assert.That(Query(seen.Bodies[0])).Contains("IterationPath");
+        await Assert.That(Query(seen.Bodies[0])).Contains("Sprint 42");
     }
 
     [Test]
@@ -133,9 +144,9 @@ public class ABrowseThatNarrowsTests
             cursor: null, limit: 50,
             filter: new WorkItemFilter(null, null, ["Closed"]));
 
-        await Assert.That(seen.Bodies[0]).Contains("'Closed'");
+        await Assert.That(Query(seen.Bodies[0])).Contains("'Closed'");
 
-        await Assert.That(seen.Bodies[0]).DoesNotContain("<> 'Closed'")
+        await Assert.That(Query(seen.Bodies[0])).DoesNotContain("<> 'Closed'")
             .Because("asking for closed work and being handed the not-closed default on top "
                    + "of it would answer nothing, for ever, with no way to tell why.");
     }
@@ -149,7 +160,7 @@ public class ABrowseThatNarrowsTests
             cursor: null, limit: 50,
             filter: new WorkItemFilter(@"Widgets\Kevin's team", null, null));
 
-        await Assert.That(seen.Bodies[0]).Contains("Kevin''s team")
+        await Assert.That(Query(seen.Bodies[0])).Contains("Kevin''s team")
             .Because("the sink beside this doubles quotes for the same reason, and a team "
                    + "whose name has an apostrophe is a team that has to be browsable.");
     }

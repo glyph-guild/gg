@@ -113,6 +113,8 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
     private const string AcceptanceField = "Microsoft.VSTS.Common.AcceptanceCriteria";
     private const string TagsField = "System.Tags";
     private const string ChangedField = "System.ChangedDate";
+    private const string AreaField = "System.AreaPath";
+    private const string IterationField = "System.IterationPath";
 
     /// <summary>
     /// What a list is, when nobody said.
@@ -122,12 +124,67 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
     /// browser is choosing something to do next, so closed items are noise and
     /// staleness is the useful sort order. This is a default and not a policy:
     /// it is here, in one string, so that changing it is one edit and reading
-    /// it is one glance.
+    /// it is one glance. That edit has now been made - a caller may narrow it -
+    /// and this is still what it answers when nobody did.
     /// </remarks>
-    private const string OpenWorkQuery =
-        "SELECT [System.Id] FROM WorkItems "
-      + "WHERE [System.State] <> 'Closed' AND [System.State] <> 'Removed' "
-      + "ORDER BY [System.ChangedDate] DESC";
+    private const string OpenWork =
+        "[System.State] <> 'Closed' AND [System.State] <> 'Removed'";
+
+    /// <summary>The query a filter asks for, or the default where it asks for nothing.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The narrowing happens HERE, in the query, and not over the page that
+    /// came back.</b> A page is at most <c>limit</c> rows out of however many
+    /// the tracker holds, so filtering it this end could only ever filter what
+    /// happened to arrive: a sprint whose work sorted below the cut would read
+    /// as an empty sprint. A box that says "nothing" when there is something is
+    /// the one failure the browse endings exist to prevent.
+    /// </para>
+    /// <para>
+    /// <b>An area path is asked for with <c>UNDER</c> and an iteration with
+    /// <c>=</c>.</b> Both are trees, but a person picking a team means that
+    /// team's work wherever it is filed beneath them, and a person picking a
+    /// sprint means that sprint and not the ones nested under it.
+    /// </para>
+    /// <para>
+    /// <b>States REPLACE the default rather than joining it.</b> Anding the
+    /// not-closed default onto a caller who asked for closed work answers an
+    /// empty list, for ever, with nothing on screen to say why.
+    /// </para>
+    /// </remarks>
+    private static string Asking(WorkItemFilter? filter)
+    {
+        List<string> predicates = [];
+
+        if (filter?.AreaPath is { Length: > 0 } area)
+        {
+            predicates.Add($"[{AreaField}] UNDER '{Quoted(area)}'");
+        }
+
+        if (filter?.Iteration is { Length: > 0 } iteration)
+        {
+            predicates.Add($"[{IterationField}] = '{Quoted(iteration)}'");
+        }
+
+        predicates.Add(filter?.States is { Count: > 0 } states
+            ? "(" + string.Join(
+                " OR ", states.Select(state => $"[{StateField}] = '{Quoted(state)}'")) + ")"
+            : OpenWork);
+
+        return "SELECT [System.Id] FROM WorkItems "
+             + $"WHERE {string.Join(" AND ", predicates)} "
+             + "ORDER BY [System.ChangedDate] DESC";
+    }
+
+    /// <summary>A value, safe to sit inside the single quotes of a query.</summary>
+    /// <remarks>
+    /// <b>Doubling is what this dialect does, and the sink beside this already
+    /// does it</b> (<c>WiqlWorkItemSink.FoundAsync</c>) - so it is copied rather
+    /// than reinvented. An area path with an apostrophe in it is an ordinary
+    /// team name, not an attack, and it has to be browsable.
+    /// </remarks>
+    private static string Quoted(string value) =>
+        value.Replace("'", "''", StringComparison.Ordinal);
 
     private readonly string _host;
     private readonly HttpClient _client;
@@ -349,7 +406,8 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
     }
 
     public async Task<WorkItemPage> BrowseAsync(
-        string? cursor, int limit, CancellationToken cancellationToken = default)
+        string? cursor, int limit, WorkItemFilter? filter = null,
+        CancellationToken cancellationToken = default)
     {
         var from = int.TryParse(cursor, out var offset) && offset > 0 ? offset : 0;
 
@@ -361,7 +419,7 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
         await using (var writing = new Utf8JsonWriter(body))
         {
             writing.WriteStartObject();
-            writing.WriteString("query", OpenWorkQuery);
+            writing.WriteString("query", Asking(filter));
             writing.WriteEndObject();
         }
 
@@ -393,7 +451,12 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             return new WorkItemPage([], null);
         }
 
-        var columns = string.Join(',', (string[])[TitleField, StateField, ChangedField]);
+        // WHAT WAS FILTERED ON IS ON THE ROW. A person who narrows to a team
+        // and is shown the same undifferentiated list cannot tell a filter that
+        // took from one that did not, so the two columns a filter narrows on
+        // are two columns a row carries.
+        var columns = string.Join(
+            ',', (string[])[TitleField, StateField, ChangedField, AreaField, IterationField]);
         using var read = await _client.GetAsync(
             $"{_host}/_apis/wit/workitems?ids={string.Join(',', wanted)}"
           + $"&fields={columns}&api-version={ApiVersion}",
@@ -439,7 +502,9 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             Title: Field(fields, TitleField) ?? "",
             State: Field(fields, StateField) ?? "",
             Url: $"{_host}/_workitems/edit/{Uri.EscapeDataString(id)}",
-            Updated: Field(fields, ChangedField));
+            Updated: Field(fields, ChangedField),
+            AreaPath: Field(fields, AreaField),
+            Iteration: Field(fields, IterationField));
     }
 
     /// <summary>An id, whether the tracker quoted it or not.</summary>

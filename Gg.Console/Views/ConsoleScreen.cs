@@ -170,6 +170,25 @@ public sealed class ConsoleScreen : Window
     /// to fit a screen; what a person walks here is the widget every other list
     /// in this console uses.
     /// </remarks>
+    /// <summary>
+    /// The work item modal's body: what it says, its scalars, its history.
+    /// </summary>
+    /// <remarks>
+    /// <b>The flight's three regions, because it is the same three things.</b>
+    /// <c>FlightDetails</c> states the rule - an identity is a heading, prose
+    /// somebody wrote is a document, the scalars are fields and a history is a
+    /// table - and this modal had all four drawn as one Label with a rule of
+    /// dashes in the middle.
+    /// </remarks>
+    private readonly View _itemBody;
+    private readonly FrameView _itemSaidPane;
+    private readonly Markdown _itemSaid;
+    private readonly View _itemFields;
+    private readonly FrameView _itemHistoryPane;
+    private readonly TableView _itemHistory;
+    private readonly Label _itemHistoryAbsent;
+    private IReadOnlyList<FlightField>? _itemFieldsShowing;
+
     private readonly View _filterBody;
     private readonly Label _filterSentence;
     private readonly Terminal.Gui.Views.Tabs _filterViews;
@@ -868,6 +887,77 @@ public sealed class ConsoleScreen : Window
 
         _filterBody.Add(_filterSentence, _filterViews, _filterInForce);
 
+        // THE WORK ITEM'S THREE REGIONS, laid out like the flight's and for its
+        // reasons - see that body for why every container on the way down is a
+        // TabStop, and why the fields are focusable at all.
+        _itemSaidPane = new FrameView
+        {
+            Title = WorkItemDetails.SaidTitle,
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Percent(45),
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _itemSaid = new Markdown
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            ShowHeadingPrefix = false,
+        };
+        _itemSaidPane.Add(_itemSaid);
+
+        _itemFields = new View
+        {
+            X = 0,
+            Y = Pos.Bottom(_itemSaidPane),
+            Width = Dim.Fill(),
+
+            // SET PER RENDER, from the number of fields there are. A tracker
+            // that files nothing by sprint gives one row fewer, and the history
+            // below has to start under whichever it is.
+            Height = 0,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _itemHistoryPane = new FrameView
+        {
+            Title = WorkItemDetails.HistoryTitle,
+            X = 0,
+            Y = Pos.Bottom(_itemFields),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _itemHistory = CollectionViews.Table();
+        _itemHistory.ValueChanged += OnModalRowPointedAt;
+        _itemHistory.KeyDown += OnModalKeyDown;
+
+        // AND THE SENTENCE WHEN THERE ARE NO ROWS. An empty table claims the
+        // tracker answered and had nothing to say, which is a different thing
+        // from a reader that does not declare the tool.
+        _itemHistoryAbsent = new Label
+        {
+            X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(),
+        };
+
+        _itemHistoryPane.Add(_itemHistory, _itemHistoryAbsent);
+
+        _itemBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _itemBody.Add(_itemSaidPane, _itemFields, _itemHistoryPane);
+
         // THE FLIGHT'S OWN BODY, three regions down one column. The intent is
         // as tall as the top third because it is the only part whose length
         // nobody controls; the fields take what they need; the log gets the
@@ -1206,7 +1296,8 @@ public sealed class ConsoleScreen : Window
         _readingBody.Add(_readingSaid);
 
         _modal.Add(
-            _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody);
+            _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
+            _itemBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -2761,13 +2852,16 @@ public sealed class ConsoleScreen : Window
 
         var helping = State.Mode is UiMode.Help;
         var filtering = State.Mode is UiMode.BrowseFilter;
+        var item = State.Mode is UiMode.WorkItemDetail;
 
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
         _readingBody.Visible = reading;
         _helpBody.Visible = helping;
         _filterBody.Visible = filtering;
-        _modalBody.Visible = !flight && !runner && !reading && !helping && !filtering;
+        _itemBody.Visible = item;
+        _modalBody.Visible =
+            !flight && !runner && !reading && !helping && !filtering && !item;
 
         if (helping)
         {
@@ -2777,6 +2871,11 @@ public sealed class ConsoleScreen : Window
         if (filtering)
         {
             RenderFilter();
+        }
+
+        if (item)
+        {
+            RenderWorkItem();
         }
 
         if (flight)
@@ -2791,7 +2890,7 @@ public sealed class ConsoleScreen : Window
         {
             FillReading();
         }
-        else if (!filtering)
+        else if (!filtering && !item)
         {
             _modalBody.Text = PaneText.Modal(State);
         }
@@ -3027,6 +3126,45 @@ public sealed class ConsoleScreen : Window
     /// rather than written twice.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What the item says, its scalars, and what has happened to it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The fields are re-laid only when they changed</b>, which is
+    /// <c>RenderFlight</c>'s guard and for its reason: laying a column disposes
+    /// the views it replaces, and this runs on every render.
+    /// </remarks>
+    private void RenderWorkItem()
+    {
+        _itemSaid.Text = WorkItemDetails.Said(State);
+
+        var fields = WorkItemDetails.Fields(State);
+
+        if (_itemFieldsShowing is null || !_itemFieldsShowing.SequenceEqual(fields))
+        {
+            _itemFieldsShowing = fields;
+            Lay(_itemFields, fields);
+        }
+
+        _syncing = true;
+
+        try
+        {
+            var changes = WorkItemDetails.Changes(State);
+
+            Fill(
+                _itemHistory, _itemHistoryAbsent, changes, Rows.WorkItemColumns,
+                State.WorkItemSelected,
+                row => [row.When, row.Who, row.What]);
+
+            _itemHistoryAbsent.Text = WorkItemDetails.HistoryAbsence(State);
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
     /// <summary>
     /// The three tables, the bar over them, and the foot under it.
     /// </summary>
@@ -3558,6 +3696,15 @@ public sealed class ConsoleScreen : Window
                 _landedRunnerView = State.RunnerView;
                 return;
 
+            case FocusTarget.WorkItemHistory:
+                // THE TABLE WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE - the
+                // flight log's fallback, for its reason: focus is what makes
+                // the arrows move a cursor a person can see, and an empty
+                // history has none to move.
+                (_itemHistory.Visible ? _itemHistory : (View)_modal).SetFocus();
+                _landed = null;
+                return;
+
             case FocusTarget.FilterView:
                 // THE TABLE IN WHICHEVER TAB IS SHOWING, and the pane when it
                 // has no rows - the runner views' fallback, for its reason:
@@ -3700,6 +3847,9 @@ public sealed class ConsoleScreen : Window
             }
 
             _filterViews.ValueChanged -= OnFilterViewChanged;
+
+            _itemHistory.KeyDown -= OnModalKeyDown;
+            _itemHistory.ValueChanged -= OnModalRowPointedAt;
             _modalBody.KeyDown -= OnModalKeyDown;
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;

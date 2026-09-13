@@ -234,7 +234,7 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
 
     /// <summary>What has happened to one item, or why that could not be read.</summary>
     /// <remarks>The lock, the deadline and the drop are the two verbs' above.</remarks>
-    public async Task<ItemOutcome> HistoryAsync(
+    public async Task<HistoryOutcome> HistoryAsync(
         string id, CancellationToken cancellationToken = default)
     {
         await _oneAtATime.WaitAsync(cancellationToken);
@@ -243,7 +243,7 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
         {
             if (await StartAsync() is { } refused)
             {
-                return new ItemOutcome.Nothing(Said(refused));
+                return new HistoryOutcome.Nothing(Said(refused));
             }
 
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -257,7 +257,7 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
             {
                 Stop();
 
-                return new ItemOutcome.Nothing(
+                return new HistoryOutcome.Nothing(
                     $"The reader for '{_reader.Key}' did not answer within "
                   + $"{_patience.TotalMilliseconds:0}ms, so it was stopped.");
             }

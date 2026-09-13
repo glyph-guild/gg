@@ -74,13 +74,12 @@ public class EnterShowsTheWorkItemTests
             _ => new ItemOutcome.Read(
                 "Type: Product Backlog Item\nTitle: Oz asks guided questions\n"
               + "Description: The wizard should ask rather than assume."),
-            _ => new ItemOutcome.Read(""));
+            _ => new HistoryOutcome.Read([]));
 
         await Assert.That(shown.Mode).IsEqualTo(UiMode.WorkItemDetail);
 
-        var said = PaneText.Modal(shown);
-
-        await Assert.That(said).Contains("The wizard should ask rather than assume.")
+        await Assert.That(WorkItemDetails.Said(shown))
+            .Contains("The wizard should ask rather than assume.")
             .Because("the body is the reason somebody pressed enter - the title and the "
                    + "state were already on the row they pressed it from.");
     }
@@ -91,13 +90,14 @@ public class EnterShowsTheWorkItemTests
         var shown = ConsoleLoop.ShowedWorkItem(
             Browsing(),
             _ => new ItemOutcome.Nothing("the credential expired on Tuesday"),
-            _ => new ItemOutcome.Read(""));
+            _ => new HistoryOutcome.Read([]));
 
         await Assert.That(shown.Mode).IsEqualTo(UiMode.WorkItemDetail)
             .Because("the modal opens either way: a person pressed a key and something has "
                    + "to answer them, and an empty box would be the console swallowing it.");
 
-        await Assert.That(PaneText.Modal(shown)).Contains("the credential expired on Tuesday");
+        await Assert.That(WorkItemDetails.Said(shown))
+            .Contains("the credential expired on Tuesday");
     }
 
     [Test]
@@ -110,17 +110,22 @@ public class EnterShowsTheWorkItemTests
         var shown = ConsoleLoop.ShowedWorkItem(
             Browsing(),
             _ => new ItemOutcome.Read("Description: The wizard should ask."),
-            _ => new ItemOutcome.Read("2026-09-04  A Colleague  Blocked on the rollout."));
+            _ => new HistoryOutcome.Read(
+                [new WorkItemChangeRow
+                {
+                    When = "2026-09-04 10:00",
+                    Who = "A Colleague",
+                    What = "Blocked on the rollout.",
+                }]));
 
-        var said = PaneText.Modal(shown);
+        // TWO REGIONS, NOT ONE BLOCK. What it says is prose in a document pane;
+        // what has happened to it is rows in a table, which is what it is - so
+        // the two are asked for separately rather than concatenated with a rule
+        // of dashes between them.
+        await Assert.That(WorkItemDetails.Said(shown)).Contains("The wizard should ask.");
 
-        await Assert.That(said).Contains("The wizard should ask.");
-        await Assert.That(said).Contains("Blocked on the rollout.");
-
-        await Assert.That(said.IndexOf("The wizard", StringComparison.Ordinal))
-            .IsLessThan(said.IndexOf("Blocked on", StringComparison.Ordinal))
-            .Because("what it is comes before what has happened to it: the second only "
-                   + "means anything once you know the first.");
+        await Assert.That(WorkItemDetails.Changes(shown).Single().What)
+            .IsEqualTo("Blocked on the rollout.");
     }
 
     [Test]
@@ -129,15 +134,14 @@ public class EnterShowsTheWorkItemTests
         var shown = ConsoleLoop.ShowedWorkItem(
             Browsing(),
             _ => new ItemOutcome.Read("Description: The wizard should ask."),
-            _ => new ItemOutcome.Nothing("this reader does not declare that tool"));
+            _ => new HistoryOutcome.Nothing("this reader does not declare that tool"));
 
-        var said = PaneText.Modal(shown);
-
-        await Assert.That(said).Contains("The wizard should ask.")
+        await Assert.That(WorkItemDetails.Said(shown)).Contains("The wizard should ask.")
             .Because("a reader that answers one of the two questions is more useful than "
                    + "one that is refused for not answering both.");
 
-        await Assert.That(said).Contains("does not declare that tool")
+        await Assert.That(WorkItemDetails.HistoryAbsence(shown))
+            .Contains("does not declare that tool")
             .Because("and the half that is missing says so, rather than reading as an item "
                    + "nothing has ever happened to.");
     }
@@ -150,7 +154,7 @@ public class EnterShowsTheWorkItemTests
         var shown = ConsoleLoop.ShowedWorkItem(
             Browsing(),
             _ => new ItemOutcome.Read("Description: The wizard should ask."),
-            _ => new ItemOutcome.Read(""));
+            _ => new HistoryOutcome.Read([]));
 
         var command = Keymap.Resolve(KeyStroke.Char('o'), KeymapContext.For(shown));
 
@@ -173,7 +177,7 @@ public class EnterShowsTheWorkItemTests
         var shown = ConsoleLoop.ShowedWorkItem(
             new AppState { ActiveTab = TabId.Browse },
             _ => { asked++; return new ItemOutcome.Read("never reached"); },
-            _ => new ItemOutcome.Read(""));
+            _ => new HistoryOutcome.Read([]));
 
         await Assert.That(asked).IsEqualTo(0)
             .Because("a key that appears to work on an empty pane is worse than one that is "

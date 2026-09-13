@@ -178,19 +178,19 @@ public sealed class ReaderConversation(
     /// what an item IS without answering what happened to it is still useful,
     /// so this says so by name rather than failing the whole modal.
     /// </remarks>
-    public async Task<ItemOutcome> HistoryAsync(
+    public async Task<HistoryOutcome> HistoryAsync(
         string id, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
         if (await OpenAsync(cancellationToken) is { } refused)
         {
-            return new ItemOutcome.Nothing(Why(refused));
+            return new HistoryOutcome.Nothing(Why(refused));
         }
 
         if (!ItemTool.HasHistory(_declared))
         {
-            return new ItemOutcome.Nothing(ItemTool.NoHistory(_key));
+            return new HistoryOutcome.Nothing(ItemTool.NoHistory(_key));
         }
 
         var call = await CallAsync(
@@ -198,13 +198,50 @@ public sealed class ReaderConversation(
             arguments => arguments.WriteString(ItemTool.Id, id),
             cancellationToken);
 
-        return call switch
+        if (call.Outcome is { } ended)
         {
-            { Outcome: { } ended } => new ItemOutcome.Nothing(Why(ended)),
-            { Text: { } text } => new ItemOutcome.Read(text),
-            _ => new ItemOutcome.Nothing(Saying("answered a call with no content")),
-        };
+            return new HistoryOutcome.Nothing(Why(ended));
+        }
+
+        if (call.Text is not { } text)
+        {
+            return new HistoryOutcome.Nothing(Saying("answered a call with no content."));
+        }
+
+        try
+        {
+            using var body = JsonDocument.Parse(text);
+
+            return new HistoryOutcome.Read(Changes(body.RootElement));
+        }
+        catch (JsonException)
+        {
+            return new HistoryOutcome.Nothing(
+                Saying("declared " + ItemTool.HistoryName + " and answered with something "
+                     + "that is not the shape it promised: " + Short(text)));
+        }
     }
+
+    /// <summary>The rows of a history, dropping whatever is not one.</summary>
+    /// <remarks>
+    /// <b>A row missing a field is a row, not a refusal.</b> A tracker that
+    /// records a change with no author is a tracker somebody configured that
+    /// way, and losing the whole history over one blank would be this console
+    /// having an opinion about somebody else's record.
+    /// </remarks>
+    private static IReadOnlyList<WorkItemChangeRow> Changes(JsonElement body) =>
+        body.ValueKind == JsonValueKind.Object
+        && body.TryGetProperty(ItemTool.History.Changes, out var listed)
+        && listed.ValueKind == JsonValueKind.Array
+            ? [.. listed.EnumerateArray()
+                .Where(change => change.ValueKind == JsonValueKind.Object)
+                .Select(change => new WorkItemChangeRow
+                {
+                    When = Field(change, ItemTool.History.When) ?? "",
+                    Who = Field(change, ItemTool.History.Who) ?? "",
+                    What = Field(change, ItemTool.History.What) ?? "",
+                })]
+            : [];
 
     /// <summary>
     /// One ending's words, whichever ending it is.

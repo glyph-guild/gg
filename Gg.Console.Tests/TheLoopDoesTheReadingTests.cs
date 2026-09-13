@@ -42,8 +42,8 @@ public class TheLoopDoesTheReadingTests
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
 
-        public Task<ItemOutcome> HistoryAsync(string id, CancellationToken token) =>
-            Task.FromResult<ItemOutcome>(new ItemOutcome.Read("a history"));
+        public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
+            Task.FromResult<HistoryOutcome>(new HistoryOutcome.Read([]));
     }
 
     private static BrowseOutcome OneItem => new BrowseOutcome.Listed(
@@ -141,7 +141,7 @@ public class TheLoopDoesTheReadingTests
         public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
             throw new InvalidOperationException("a bug in a reader");
 
-        public Task<ItemOutcome> HistoryAsync(string id, CancellationToken token) =>
+        public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
             throw new InvalidOperationException("a bug in a reader");
     }
 }

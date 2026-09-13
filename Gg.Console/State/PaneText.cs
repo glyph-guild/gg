@@ -2366,6 +2366,7 @@ public static class PaneText
         {
             UiMode.FlightDetail => FlightDetails.Title(state),
             UiMode.Runner => RunnerDetails.Title(state),
+            UiMode.WorkItemDetail => WorkItemDetails.Title(state),
             _ => ModalTitle(state.Mode),
         };
     }

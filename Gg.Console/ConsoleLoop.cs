@@ -1660,7 +1660,9 @@ public sealed class ConsoleLoop(
     /// </para>
     /// </remarks>
     public static AppState ShowedWorkItem(
-        AppState state, Func<string, ItemOutcome>? read, Func<string, ItemOutcome>? history = null)
+        AppState state,
+        Func<string, ItemOutcome>? read,
+        Func<string, HistoryOutcome>? history = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -1686,15 +1688,25 @@ public sealed class ConsoleLoop(
         // it, because the second only means anything once you know the first -
         // and each half says its own failure, so a reader that answers one is
         // more useful than one refused for not answering both.
-        var body = Words(read(id));
-        var happened = history is null ? "" : Words(history(id));
+        var happened = history is null
+            ? new HistoryOutcome.Nothing(
+                "This console is not configured to read what has happened to an item.")
+            : history(id);
 
         return state with
         {
             Mode = UiMode.WorkItemDetail,
-            WorkItemSaid = happened is { Length: > 0 }
-                ? $"{body}\n\n— what has happened to it —\n\n{happened}"
-                : body,
+            WorkItemSaid = Words(read(id)),
+
+            // A NEW LIST STARTS AT THE TOP. A cursor left where the last item's
+            // history had it points at somebody else's change.
+            WorkItemSelected = 0,
+
+            // ROWS AND A SENTENCE ARE DIFFERENT ANSWERS, so they are held
+            // apart: an empty table claims the tracker had nothing to say,
+            // where a reader that cannot be asked said something else.
+            WorkItemChanges = happened is HistoryOutcome.Read(var changes) ? changes : [],
+            WorkItemHistorySaid = happened is HistoryOutcome.Nothing(var why) ? why : null,
         };
     }
 

@@ -330,6 +330,22 @@ public static class Reducer
     /// sprints is not row nine of anything, so a shared index would move
     /// somebody's place in a list they were not looking at.
     /// </remarks>
+    /// <summary>
+    /// Move the cursor in the history, and not in the list behind the modal.
+    /// </summary>
+    /// <remarks>
+    /// The tab under this modal is Browse, so without an arm here the work list
+    /// would scroll behind a dialog about one of its rows - and which row that
+    /// is is what the modal is about.
+    /// </remarks>
+    private static AppState PickWorkItemChange(AppState state, int row) =>
+        state.WorkItemChanges.Count == 0
+            ? state
+            : state with
+            {
+                WorkItemSelected = Math.Clamp(row, 0, state.WorkItemChanges.Count - 1),
+            };
+
     private static AppState PickFilterRow(AppState state, int row)
     {
         var rows = BrowseFilters.Offered(state, state.FilterView);
@@ -891,6 +907,8 @@ public static class Reducer
             ? PickWorkKind(state, state.KindSelected + by)
             : state.Mode is UiMode.BrowseFilter
             ? PickFilterRow(state, BrowseFilters.Cursor(state) + by)
+            : state.Mode is UiMode.WorkItemDetail
+            ? PickWorkItemChange(state, state.WorkItemSelected + by)
             : state.ActiveTab switch
             {
                 TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
@@ -956,6 +974,11 @@ public static class Reducer
         if (state.Mode is UiMode.BrowseFilter)
         {
             return PickFilterRow(state, row);
+        }
+
+        if (state.Mode is UiMode.WorkItemDetail)
+        {
+            return PickWorkItemChange(state, row);
         }
 
         return state.ActiveTab switch

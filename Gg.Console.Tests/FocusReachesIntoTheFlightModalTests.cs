@@ -62,8 +62,11 @@ public class FocusReachesIntoTheFlightModalTests
             // in a bar: focus at the frame would leave the arrows moving
             // nothing, which is the defect the runner modal's own arm exists
             // for. Its target is asserted in TheFilterModalIsTabbedTests.
+            // AND THE WORK ITEM, which gained a history table and is now made
+            // of widgets too - focus at the frame leaves that table's arrows
+            // moving nothing. Its target is asserted where the table is.
             if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help
-                     or UiMode.BrowseFilter)
+                     or UiMode.BrowseFilter or UiMode.WorkItemDetail)
             {
                 continue;
             }

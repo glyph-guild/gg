@@ -191,14 +191,15 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(9)
+        await Assert.That(built).IsEqualTo(10)
             .Because("nine calls, and the count is here so a tenth has to come past this. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
                    + "a hand-counted role column. The seventh and eighth are the RUNNER "
                    + "MODAL's - what a runner runs, and what runs beside it - and they are "
                    + "the first tables in this console that no tab drives. The ninth is one "
                    + "call that builds THREE, one per criterion of the browse filter, which "
-                   + "is why this counts calls rather than tables.");
+                   + "is why this counts calls rather than tables. The tenth is the work "
+                   + "item's history, which was a paragraph until it was a table.");
 
         // AND THE GAP BETWEEN THESE TWO NUMBERS IS THREE, ALL OF WHICH ARE
         // WIRED TO A HANDLER OF THEIR OWN. "Built but not subscribed to THIS

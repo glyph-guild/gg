@@ -83,6 +83,35 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
     public static string Purpose => RunnerCapabilityPurposes.ConfigureThisRunner;
 
     /// <summary>
+    /// The ask this puts on the channel.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named so the two halves can be checked against each other.</b>
+    /// <c>AskDispatch</c> matches the kind AND the member beside it, so a kind
+    /// sent bare is refused and counted — which reaches a console as silence,
+    /// and reaches a person as a runner that did not answer. It has happened:
+    /// a follow loop sent a status ask with no payload and the whole feature
+    /// did nothing on a real machine while every test agreed it worked.
+    /// </para>
+    /// <para>
+    /// <b>Built here rather than inline for that reason alone.</b> Inside
+    /// <c>SendAsync</c> it cannot be reached without a live channel, so nothing
+    /// could ask the one question that matters: is what this side sends
+    /// something the other side answers.
+    /// </para>
+    /// </remarks>
+    public static RunnerAsk Asking(string locator, string secret) => new()
+    {
+        Kind = RunnerAskKinds.ConfigureCredential,
+        ConfigureCredential = new ConfigureCredentialAsk
+        {
+            Locator = locator,
+            Secret = secret,
+        },
+    };
+
+    /// <summary>
     /// The secret to send: this machine's copy, or one typed now.
     /// </summary>
     /// <remarks>
@@ -221,17 +250,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
             say($"handing the credential to {runner.Label}");
 
             var said = await conversation.AskAsync(
-                new RunnerAsk
-                {
-                    Kind = RunnerAskKinds.ConfigureCredential,
-                    ConfigureCredential = new ConfigureCredentialAsk
-                    {
-                        Locator = locator,
-                        Secret = secret,
-                    },
-                },
-                TimeSpan.FromSeconds(20),
-                cancellationToken);
+                Asking(locator, secret), TimeSpan.FromSeconds(20), cancellationToken);
 
             // NO ANSWER IS NOT A REFUSAL. A runner one version behind has no arm
             // for this kind and drops the message without a word - which is the

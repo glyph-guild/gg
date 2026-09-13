@@ -23,11 +23,21 @@ namespace Gg.Contracts.Tests;
 /// </para>
 /// <para>
 /// <b>And the combination is defensible - it just has to be argued rather than
-/// inherited.</b> What restrains a write now is three things and none of them is
+/// inherited.</b> What restrains a write now is four things and none of them is
 /// a flight: the control plane introduces only the principal who REGISTERED the
-/// runner, the machine must have been wired with a private key at all, and its
-/// own file must say <c>accept-configured</c>. The last is doing more work than
-/// it was designed for and is now the load-bearing one, which is worth knowing.
+/// runner; the machine must have been wired with a private key at all; a
+/// conversation nobody has asked anything of for <c>AttendedSession.QuietFor</c>
+/// is dropped, which bounds how long a write stays reachable after somebody
+/// walks away; and the machine's own file must say <c>accept-configured</c>.
+/// </para>
+/// <para>
+/// <b>That last one is a DEFECT rather than a design, and saying so is the
+/// point.</b> It is the only restraint in the list that lives on the machine
+/// being written to rather than in the introduction that authorised the write -
+/// so it answers "may anyone put a secret here" and not "may THIS caller". It
+/// ended up load-bearing because the lease it stood beside went away, not
+/// because anybody chose it for the job. A fourth verb should not inherit it
+/// without somebody deciding it is enough.
 /// </para>
 /// <para>
 /// <b>Named here rather than derived, because the point is that a new value

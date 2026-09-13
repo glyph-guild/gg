@@ -49,15 +49,32 @@ public class TheReadHappensOffTheUiThreadTests
     private static string Program() =>
         File.ReadAllText(Path.Combine(Root(), "Gg.Cli", "Program.cs"));
 
-    /// <summary>The reader's arms, from the switch the composition root wires.</summary>
+    /// <summary>
+    /// The reader's arms, as CODE, from the switch the composition root wires.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE COMMENTS COME OUT, AND THAT IS NOT FASTIDIOUSNESS.</b> Three
+    /// guards written in one sitting each matched their own explanation: a
+    /// comment saying what shape was removed contains that shape, so the guard
+    /// reads the reason as the thing. Left alone it makes the fix unexplainable
+    /// - the only way to satisfy it becomes deleting the sentence that says
+    /// why, which is the opposite of what a ratchet is for.
+    /// </remarks>
     private static string Arms()
     {
         var program = Program();
         var at = program.IndexOf("new Gg.Console.BackgroundReads(", StringComparison.Ordinal);
 
-        return at < 0
-            ? throw new InvalidOperationException("the reader is not wired here any more.")
-            : program[at..program.IndexOf("is in ShellCommands.Reads", at, StringComparison.Ordinal)];
+        if (at < 0)
+        {
+            throw new InvalidOperationException("the reader is not wired here any more.");
+        }
+
+        var arms = program[at..program.IndexOf(
+            "is in ShellCommands.Reads", at, StringComparison.Ordinal)];
+
+        return string.Join('\n', arms.Split('\n')
+            .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
     }
 
     [Test]
@@ -67,10 +84,36 @@ public class TheReadHappensOffTheUiThreadTests
         // is handed and calls a read is a read that has not happened yet - and
         // it happens next on the UI thread, because that is where a patch is
         // applied.
-        await Assert.That(Arms()).DoesNotContain("_ =>", StringComparison.Ordinal)
-            .Because("an arm answering with a lambda that ignores its input has done no "
-                   + "reading, so the reading is still to come - on the thread that applies "
-                   + "it. Arms:\n" + Arms());
+        //
+        // EXCEPT THE DEFAULT ARM, which is `_ => throw' and has to be: a
+        // command in Reads with no arm must refuse rather than be served
+        // somebody else's answer. So what is asserted is that every discarding
+        // lambda here throws, rather than that none exists.
+        var arms = Arms();
+
+        foreach (var at in Discarding(arms))
+        {
+            await Assert.That(arms[at..].TrimStart('_', ' ', '=', '>'))
+                .StartsWith("throw", StringComparison.Ordinal)
+                .Because("an arm answering with a lambda that ignores its input has done no "
+                       + "reading, so the reading is still to come - on the thread that "
+                       + "applies it. Arms:\n" + arms);
+        }
+    }
+
+    /// <summary>Where each discarding lambda begins.</summary>
+    private static IReadOnlyList<int> Discarding(string arms)
+    {
+        var found = new List<int>();
+
+        for (var at = arms.IndexOf("_ =>", StringComparison.Ordinal);
+             at >= 0;
+             at = arms.IndexOf("_ =>", at + 1, StringComparison.Ordinal))
+        {
+            found.Add(at);
+        }
+
+        return found;
     }
 
     [Test]

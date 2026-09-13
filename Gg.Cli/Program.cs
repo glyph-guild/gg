@@ -1296,11 +1296,18 @@ static async Task<int> LaunchConsoleAsync()
                         // BOTH READS, as the one key has always meant: what
                         // governs, and where to change it. Estate second so a
                         // failing topology cannot cost the envelope.
-                        (Func<AppState, AppState>)(_ => Gg.Console.ConsoleEstate.Read(
-                            data, Airspace(), Gg.Console.ConsoleEnvelope.Read(data, current))),
+                        //
+                        // AND Patch RATHER THAN `_ => Read(...)', which is what
+                        // makes this a background read at all. A lambda that
+                        // has read nothing is invoked by Advance inside
+                        // _app.Invoke - so every request and the git call under
+                        // them ran on the UI thread, and reading the airspace
+                        // froze the console with the keyboard in it.
+                        Gg.Console.ConsoleEstate.Patch(
+                            data, Airspace(), Gg.Console.ConsoleEnvelope.Read(data, current)),
 
                     Gg.Console.Command.ToggleRepositories =>
-                        _ => Gg.Console.ConsoleRepositories.Read(data, current),
+                        Gg.Console.ConsoleRepositories.Patch(data, current),
 
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.

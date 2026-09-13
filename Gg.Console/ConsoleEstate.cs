@@ -137,6 +137,47 @@ public static class ConsoleEstate
     private static EstateOnThisMachine Nothing(string? root) =>
         new() { Root = root, Uncommitted = [] };
 
+    /// <summary>
+    /// Reads now, and answers with a fold for whatever state is live later.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE READING HAPPENS HERE, WHICH IS THE WHOLE POINT.</b> This is
+    /// called inside the composition root's <c>Task.Run</c>, so the requests
+    /// and the git invocation underneath them run there. The arm used to answer
+    /// <c>_ =&gt; Read(...)</c> — a lambda that had read nothing — and
+    /// <c>BackgroundReads.Advance</c> invoked it inside <c>_app.Invoke</c>, on
+    /// the UI thread. Reading the airspace froze the whole console, keyboard
+    /// included.
+    /// </para>
+    /// <para>
+    /// <b>AND THE FOLD CARRIES ONLY WHAT WAS FETCHED</b>, which is the rule the
+    /// deferral was protecting: a read answering with a whole
+    /// <see cref="AppState"/> is a snapshot taken before the person moved and
+    /// applied after. Three fields is what these two reads write, so three
+    /// fields is what crosses — everything else on the model belongs to
+    /// whoever is at the keyboard.
+    /// </para>
+    /// <para>
+    /// <c>ConsoleFlightLog.Patch</c>'s shape, and it was the one arm that
+    /// already had it.
+    /// </para>
+    /// </remarks>
+    public static Func<AppState, AppState> Patch(ConsoleData data, string? root, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var read = Read(data, root, state);
+
+        return current => current with
+        {
+            Estate = read.Estate,
+            Envelope = read.Envelope,
+            Diagnosis = read.Diagnosis,
+        };
+    }
+
     public static AppState Read(ConsoleData data, string? root, AppState state)
     {
         ArgumentNullException.ThrowIfNull(data);

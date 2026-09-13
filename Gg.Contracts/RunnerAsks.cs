@@ -262,6 +262,46 @@ public sealed record RunnerStatusReport
 
     /// <summary>When the runner measured this.</summary>
     public required DateTimeOffset At { get; init; }
+
+    /// <summary>
+    /// The flight it is on, as a person reads it, or null when it is on none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because a watch outlives the flight it started on.</b> A channel used
+    /// to exist only while one flight did, so what the tail carried could not
+    /// change subject under a reader. A watcher attached to an idle machine
+    /// follows whatever it claims next, and a pane that silently begins drawing
+    /// a different flight's output is lying by omission.
+    /// </para>
+    /// <para>
+    /// <b>The NUMBER and not the id.</b> <c>GG-84</c> is what a person reads and
+    /// what <c>RunnerSummary.CurrentFlightNumber</c> already carries; the id is
+    /// what the runner builds a live-view path out of, which it needs on the
+    /// machine and nowhere else. Sending both would put an identifier on the
+    /// wire that nothing off the machine has a use for.
+    /// </para>
+    /// <para>
+    /// <b>Null is idle, not unknown.</b> Requiring it would force a sentinel,
+    /// and every sentinel would then have to be told apart from a flight number
+    /// by whoever read it.
+    /// </para>
+    /// </remarks>
+    public string? FlightNumber { get; init; }
+
+    /// <summary>
+    /// When this runner last beat the control plane, or null if it has not.
+    /// </summary>
+    /// <remarks>
+    /// <b>A SECOND SILENCE, and telling the two apart is the point.</b>
+    /// <see cref="At"/> says this channel answered; this says the machine is
+    /// still talking to the control plane. A runner reachable over a peer
+    /// connection while partitioned from the control plane reads as healthy on
+    /// the first and stopped on the second - and only one of those is going to
+    /// be given work, which is the thing a person watching wants to know before
+    /// they wait any longer.
+    /// </remarks>
+    public DateTimeOffset? BeatAt { get; init; }
 }
 
 /// <summary>
@@ -336,6 +376,15 @@ public sealed record RunnerSaid
                 ? null
                 : ControlText.Strip(Status.Diagnosis, allowLineBreaks: true),
             At = Status.At,
+
+            // STRIPPED LIKE EVERY OTHER STRING OFF A MACHINE. A flight number
+            // is the control plane's own, but it reaches here by way of a
+            // runner, and the rule this method exists for is that nothing
+            // crosses unstripped rather than that some things are trusted.
+            FlightNumber = Status.FlightNumber is null
+                ? null
+                : ControlText.Strip(Status.FlightNumber),
+            BeatAt = Status.BeatAt,
         },
         // THE LOCATOR IS A LINE, so it is stripped like one. It is a value a
         // console sent and a runner sent back, and an arm added to the envelope

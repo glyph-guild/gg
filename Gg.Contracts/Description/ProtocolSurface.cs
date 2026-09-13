@@ -1537,7 +1537,7 @@ public static class ProtocolSurface
             [typeof(StatusAsk)] = [],
             [typeof(RunnerSaid)] = ["kind", "tail", "status", "configured"],
             [typeof(LogTail)] = ["lines", "truncated"],
-            [typeof(RunnerStatusReport)] = ["doing", "diagnosis", "at"],
+            [typeof(RunnerStatusReport)] = ["doing", "diagnosis", "at", "flightNumber", "beatAt"],
             [typeof(RunnerRetirementRequest)] = [],
             [typeof(RunnerRetired)] = ["runnerId", "retiredAt"],
             [typeof(RunnerParkRequest)] = ["reason"],

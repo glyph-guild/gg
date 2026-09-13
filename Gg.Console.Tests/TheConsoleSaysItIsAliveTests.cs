@@ -28,6 +28,8 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheConsoleSaysItIsAliveTests
 {
+    private static readonly DateTimeOffset T0 = DateTimeOffset.UnixEpoch;
+
     private static AppState Waiting(int nextIn) => new()
     {
         LiveVisible = true,
@@ -71,20 +73,63 @@ public class TheConsoleSaysItIsAliveTests
     }
 
     [Test]
-    public async Task The_bottom_line_carries_it_too()
+    public async Task A_pane_with_lines_in_it_carries_the_mark_too()
     {
-        // WHEREVER A PERSON IS LOOKING. The live pane is off by default, so a
-        // console that only moved there would be still for everybody who never
-        // opened it.
-        var state = new AppState { Refresh = new RefreshState { NextIn = 3 } };
-        var line = PaneText.BottomLine(state);
+        // NOT ONLY THE EMPTY CASE. A flight that has said something and then
+        // gone quiet for a minute is the same question as an empty box: is
+        // anything still running, or did this stop?
+        var speaking = Waiting(3) with
+        {
+            Silence = LiveSilence.Speaking,
+            Live = [new StreamLine { Kind = StreamLineKind.Text, Text = "working", At = T0 }],
+        };
 
-        await Assert.That(line).Contains(PaneText.Alive(3))
-            .Because("the bottom line is on every screen, which is where a person looks to "
-                   + "see whether anything is happening at all.");
+        await Assert.That(PaneText.Live(speaking)).EndsWith(PaneText.Alive(3))
+            .Because("the pane is where somebody watching is looking, so that is where the "
+                   + "mark has to be. Said: " + PaneText.Live(speaking));
 
-        await Assert.That(line).StartsWith(Keymap.Hints(KeymapContext.For(state)))
-            .Because("the hint line is exactly the keys that are live, which is a rule of "
-                   + "its own - so the mark goes BESIDE it rather than into it.");
+        await Assert.That(PaneText.Live(speaking)).IsNotEqualTo(PaneText.Live(speaking with
+        {
+            Refresh = new RefreshState { NextIn = 2 },
+        }));
+    }
+
+    [Test]
+    public async Task A_frozen_pane_does_not_move_at_all()
+    {
+        // FREEZING IS A PROMISE THAT THE PIXELS STOP, so that a terminal's own
+        // selection survives being made. A mark that went on moving would break
+        // exactly the thing freezing is for.
+        var frozen = Waiting(3) with
+        {
+            Silence = LiveSilence.Speaking,
+            Frozen = true,
+            Live = [new StreamLine { Kind = StreamLineKind.Text, Text = "working", At = T0 }],
+        };
+
+        await Assert.That(PaneText.Live(frozen))
+            .IsEqualTo(PaneText.Live(frozen with { Refresh = new RefreshState { NextIn = 2 } }))
+            .Because("held still is held still, and a mark ticking under a frozen pane is a "
+                   + "screen that cannot be selected from.");
+    }
+
+    [Test]
+    public async Task And_the_rest_of_the_console_does_not_carry_it()
+    {
+        // IT BELONGS TO THE LIVE TAB. A mark along the bottom of the whole
+        // application is on every screen whether or not anything is being
+        // watched - which makes it furniture rather than an answer, and puts it
+        // on the one line whose rule is that it names exactly the keys that are
+        // live.
+        var hints = Keymap.Hints(KeymapContext.For(Waiting(3)));
+
+        await Assert.That(hints.Contains(PaneText.Alive(3), StringComparison.Ordinal)).IsFalse()
+            .Because("the hint line is the keys that work right now and nothing else.");
+
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen.Contains("BottomLine", StringComparison.Ordinal)).IsFalse()
+            .Because("and the screen composes its hint line from the keymap alone, which is "
+                   + "what keeps that rule assertable.");
     }
 }

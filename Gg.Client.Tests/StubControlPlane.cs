@@ -88,6 +88,38 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, a declaration is refused 400 with this sentence.</summary>
     public string? NameRefusal { get; set; }
 
+    /// <summary>The gated answer a registration gets, which is the ordinary one.</summary>
+    /// <remarks>
+    /// Separate from <see cref="RepositoryLive"/> for the reason
+    /// <see cref="NamePending"/> is separate from <see cref="NameLive"/>: a
+    /// registry entry is reach that did not exist a moment ago, so 202 is what
+    /// a real door mostly says, and a stub that could only answer 200 would let
+    /// a verb ship having never rendered a gate.
+    /// </remarks>
+    public RegistrationPending? RepositoryPending { get; set; }
+
+    /// <summary>The entry a registration gets when it is already live and identical.</summary>
+    public RepositoryRegistered? RepositoryLive { get; set; }
+
+    /// <summary>When set, a registration is refused 400 with this sentence.</summary>
+    public string? RepositoryRefusal { get; set; }
+
+    /// <summary>
+    /// When set, a registration is refused with this status and no body worth
+    /// reading - which is how a role refusal arrives.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own property because 403 is a different answer from 400.</b> A
+    /// malformed entry carries the door's sentence and a person fixes it; a
+    /// principal without the role has nothing to fix and has to be sent to
+    /// somebody who does. Answering both with one property would let a verb
+    /// render them the same and be tested as if it did not.
+    /// </remarks>
+    public int? RepositoryStatus { get; set; }
+
+    /// <summary>What the last registration actually put on the wire.</summary>
+    public RegisterRepositoryRequest? RegisteredRepository { get; private set; }
+
     /// <summary>What the last declaration actually put on the wire.</summary>
     /// <remarks>
     /// Kept because the answer does not prove the request: the door's parent
@@ -515,6 +547,40 @@ public sealed class StubControlPlane : IAsyncDisposable
                 await WriteJsonAsync(context, 200, Topology);
                 return;
 
+            case "/v1/airspace/repositories" when context.Request.HttpMethod == "POST":
+                RegisteredRepository = JsonSerializer.Deserialize<RegisterRepositoryRequest>(
+                    LastBody, JsonSerializerOptions.Web);
+
+                if (RepositoryStatus is { } refusedStatus)
+                {
+                    await WriteAsync(context, refusedStatus, "");
+                }
+                else if (RepositoryRefusal is { } repositoryRefusal)
+                {
+                    await WriteAsync(context, 400, repositoryRefusal);
+                }
+                else if (RepositoryLive is { } already)
+                {
+                    await WriteJsonAsync(context, 200, already);
+                }
+                else if (RepositoryPending is { } riding)
+                {
+                    await WriteJsonAsync(context, 202, riding);
+                }
+                else
+                {
+                    // NOT A SILENT 200, the same way the names door below is
+                    // not: a stub asked to register with no answer configured
+                    // has been set up wrong, and success would make the test
+                    // pass against nothing.
+                    await WriteAsync(
+                        context, 500,
+                        "This stub was asked to register a repository and no answer was "
+                      + "configured.");
+                }
+
+                return;
+
             case "/v1/airspace/names" when context.Request.HttpMethod == "POST":
                 DeclaredName = JsonSerializer.Deserialize<DeclareNameRequest>(
                     LastBody, JsonSerializerOptions.Web);
@@ -561,24 +627,24 @@ public sealed class StubControlPlane : IAsyncDisposable
             // own match.
             case var strategy when context.Request.HttpMethod == "PUT"
                 && strategy.StartsWith("/v1/airspace/strategies/", StringComparison.Ordinal):
-            {
-                AppliedStrategies.Add(Uri.UnescapeDataString(
-                    strategy["/v1/airspace/strategies/".Length..]));
+                {
+                    AppliedStrategies.Add(Uri.UnescapeDataString(
+                        strategy["/v1/airspace/strategies/".Length..]));
 
-                await WriteJsonAsync(
-                    context,
-                    StrategyDiverts ? 202 : 200,
-                    new EnvelopeApplied
-                    {
-                        Version = "dev@v5",
-                        AppliedAt = DateTimeOffset.UnixEpoch,
-                        Changed = !StrategyDiverts,
-                        Flight = StrategyDiverts ? "GG-112" : null,
-                        Awaiting = StrategyDiverts ? "platform-owner" : null,
-                        Widens = StrategyDiverts ? "pool-max" : null,
-                    });
-                return;
-            }
+                    await WriteJsonAsync(
+                        context,
+                        StrategyDiverts ? 202 : 200,
+                        new EnvelopeApplied
+                        {
+                            Version = "dev@v5",
+                            AppliedAt = DateTimeOffset.UnixEpoch,
+                            Changed = !StrategyDiverts,
+                            Flight = StrategyDiverts ? "GG-112" : null,
+                            Awaiting = StrategyDiverts ? "platform-owner" : null,
+                            Widens = StrategyDiverts ? "pool-max" : null,
+                        });
+                    return;
+                }
 
             case "/v1/configuration/offered" when !ServesOffers:
                 // NOT SERVED AT ALL, which is what a control plane predating
@@ -773,74 +839,74 @@ public sealed class StubControlPlane : IAsyncDisposable
             case var retiring when context.Request.HttpMethod == "POST"
                 && retiring.StartsWith("/v1/airspace/envelopes/", StringComparison.Ordinal)
                 && retiring.EndsWith("/retirement", StringComparison.Ordinal):
-            {
-                RetiredName = Uri.UnescapeDataString(
-                    retiring["/v1/airspace/envelopes/".Length..^"/retirement".Length]);
-
-                if (RetirementRefusal is { } retirementRefusal)
                 {
-                    await WriteAsync(context, 400, retirementRefusal);
+                    RetiredName = Uri.UnescapeDataString(
+                        retiring["/v1/airspace/envelopes/".Length..^"/retirement".Length]);
+
+                    if (RetirementRefusal is { } retirementRefusal)
+                    {
+                        await WriteAsync(context, 400, retirementRefusal);
+                        return;
+                    }
+
+                    // 202 AND ONLY 202. The contract lists no 200 for this door: a
+                    // retirement is a widening by construction and always rides
+                    // the gate, so a stub that answered 200 would be a fixture the
+                    // real surface cannot produce.
+                    await WriteJsonAsync(context, 202, new EnvelopeApplied
+                    {
+                        Version = $"{RetiredName}@v3",
+                        AppliedAt = DateTimeOffset.UnixEpoch,
+                        Changed = false,
+                        Flight = "GG-104",
+                        Awaiting = "platform-owner",
+                        Widens = "every constraint in it",
+                    });
                     return;
                 }
-
-                // 202 AND ONLY 202. The contract lists no 200 for this door: a
-                // retirement is a widening by construction and always rides
-                // the gate, so a stub that answered 200 would be a fixture the
-                // real surface cannot produce.
-                await WriteJsonAsync(context, 202, new EnvelopeApplied
-                {
-                    Version = $"{RetiredName}@v3",
-                    AppliedAt = DateTimeOffset.UnixEpoch,
-                    Changed = false,
-                    Flight = "GG-104",
-                    Awaiting = "platform-owner",
-                    Widens = "every constraint in it",
-                });
-                return;
-            }
 
             // APPLY BY NAME. A prefix arm rather than a literal, because the
             // name is in the path - and last, so every literal route above
             // still wins its own match.
             case var applying when context.Request.HttpMethod == "PUT"
                 && applying.StartsWith("/v1/airspace/envelopes/", StringComparison.Ordinal):
-            {
-                var applied = Uri.UnescapeDataString(
-                    applying["/v1/airspace/envelopes/".Length..]);
-
-                AppliedNames.Add(applied);
-
-                if (ApplyRefusal is { } applyRefusal)
                 {
-                    await WriteAsync(context, 400, applyRefusal);
-                    return;
-                }
+                    var applied = Uri.UnescapeDataString(
+                        applying["/v1/airspace/envelopes/".Length..]);
 
-                // 202 IS A WIDENING THAT DIVERTED, and it is a different answer
-                // rather than a flag on the same one: no version is minted and
-                // the name still holds the old one.
-                if (ApplyDiverts)
-                {
-                    await WriteJsonAsync(context, 202, new EnvelopeApplied
+                    AppliedNames.Add(applied);
+
+                    if (ApplyRefusal is { } applyRefusal)
                     {
-                        Version = $"{applied}@v1",
+                        await WriteAsync(context, 400, applyRefusal);
+                        return;
+                    }
+
+                    // 202 IS A WIDENING THAT DIVERTED, and it is a different answer
+                    // rather than a flag on the same one: no version is minted and
+                    // the name still holds the old one.
+                    if (ApplyDiverts)
+                    {
+                        await WriteJsonAsync(context, 202, new EnvelopeApplied
+                        {
+                            Version = $"{applied}@v1",
+                            AppliedAt = DateTimeOffset.UnixEpoch,
+                            Changed = false,
+                            Flight = "GG-91",
+                            Awaiting = "platform-owner",
+                            Widens = "obligations",
+                        });
+                        return;
+                    }
+
+                    await WriteJsonAsync(context, 200, new EnvelopeApplied
+                    {
+                        Version = $"{applied}@v2",
                         AppliedAt = DateTimeOffset.UnixEpoch,
-                        Changed = false,
-                        Flight = "GG-91",
-                        Awaiting = "platform-owner",
-                        Widens = "obligations",
+                        Changed = true,
                     });
                     return;
                 }
-
-                await WriteJsonAsync(context, 200, new EnvelopeApplied
-                {
-                    Version = $"{applied}@v2",
-                    AppliedAt = DateTimeOffset.UnixEpoch,
-                    Changed = true,
-                });
-                return;
-            }
 
             default:
                 await WriteAsync(context, 404, "");

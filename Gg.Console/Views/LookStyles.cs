@@ -1,5 +1,6 @@
 using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
+using Terminal.Gui.Views;
 
 // AMBIGUOUS WITHOUT THIS: Terminal.Gui.Drawing.Attribute and System.Attribute
 // are both in scope, and the one meant here is a pair of colours rather than
@@ -183,6 +184,74 @@ public static class LookStyles
                 HotNormal = new Attribute(ColorName16.Black, ColorName16.BrightYellow),
             };
     }
+
+    /// <summary>
+    /// Draw a table the way the Look page says to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every flag set every time, never toggled.</b> <c>TableStyle</c> is a
+    /// bag of booleans on a shared object, so setting only the ones a preset
+    /// cares about leaves the rest holding whatever the last preset put there —
+    /// and stepping through the five would accumulate instead of switching.
+    /// </para>
+    /// <para>
+    /// <b>The header's colour comes from the palette</b>, or from a plain
+    /// inversion where the palette is the terminal's own. A fixed header colour
+    /// is unreadable in half of them.
+    /// </para>
+    /// </remarks>
+    public static void Table(TableView table, Look look)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(look);
+
+        var style = table.Style;
+
+        style.ShowHeaders = look.TableHeaders is TableHeaders.Shown;
+
+        style.ShowHorizontalHeaderOverline =
+            look.TableLines is TableLines.Full or TableLines.Boxed;
+
+        style.ShowHorizontalHeaderUnderline = look.TableLines is not TableLines.None;
+
+        style.ShowVerticalCellLines =
+            look.TableLines is TableLines.Full or TableLines.Boxed;
+
+        style.ShowVerticalHeaderLines =
+            look.TableLines is TableLines.Full or TableLines.Boxed;
+
+        // THE TWO OUTER VERTICALS SEPARATELY, because a table inside a pane
+        // already has a line down each side - its own. Drawing another beside
+        // it is the doubled rule this console had before the panes were
+        // frames.
+        style.ShowVerticalCellLineForFirstColumn =
+            look.TableLines is TableLines.Full or TableLines.Boxed;
+
+        style.ShowVerticalCellLineForLastColumn =
+            look.TableLines is TableLines.Full or TableLines.Boxed;
+
+        style.ShowHorizontalBottomLine = look.TableLines is TableLines.Boxed;
+
+        // WHAT THE CURSOR MARKS. Every table here is picked FROM rather than
+        // edited, so a whole-row mark says the true thing; a cell mark says
+        // "you are editing this".
+        table.FullRowSelect = look.RowSelect is RowSelect.FullRow;
+
+        style.HeaderScheme = look.HeaderTint is HeaderTint.Tinted
+            ? Header(look.Palette)
+            : null;
+    }
+
+    /// <summary>The header row's colours, drawn out of the palette.</summary>
+    private static Scheme Header(Palette palette) =>
+        Colours(palette) is { } scheme
+            ? scheme with { Normal = scheme.Focus, HotNormal = scheme.Focus }
+            : new Scheme
+            {
+                Normal = new Attribute(ColorName16.Black, ColorName16.Gray),
+                HotNormal = new Attribute(ColorName16.Black, ColorName16.White),
+            };
 
     /// <summary>A scheme from the six attributes a person actually sees.</summary>
     private static Scheme Built(

@@ -31,7 +31,40 @@ public static class CredentialRepositories
     public sealed record Choice(string Path, string Said);
 
     /// <summary>The columns the chooser draws, named for what they answer.</summary>
-    public static IReadOnlyList<string> Columns { get; } = ["repository", "credential here"];
+    public static IReadOnlyList<string> Columns { get; } = ["repository", "what enter does"];
+
+    /// <summary>
+    /// What answering on this row will actually do.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The action, not the state.</b> This column said "here" and "missing
+    /// here" - the standing, which is true and leaves a person to work out what
+    /// pressing enter costs them. The interesting fact is whether they are
+    /// about to be asked for a token.
+    /// </para>
+    /// <para>
+    /// <b>Forwarding is already what happens and was invisible.</b>
+    /// <c>SendACredential.SecretFor</c> prefers this machine's copy - <i>"the
+    /// ordinary case is somebody who has already run gg credential add"</i> -
+    /// so a held credential reaches the runner with nobody typing. A capability
+    /// nothing announces is one nobody uses.
+    /// </para>
+    /// <para>
+    /// <b>And none-registered names its remedy rather than its state.</b> That
+    /// is the door a flight is actually refused at: a runner holding the secret
+    /// is half of it, the control plane holding a reference is the other half,
+    /// and sending from here creates no reference at all.
+    /// </para>
+    /// </remarks>
+    private static string Does(string standing) => standing switch
+    {
+        Gg.Client.CredentialStanding.Here => "forward the one held here",
+        Gg.Client.CredentialStanding.MissingHere => "ask you to paste one",
+        Gg.Client.CredentialStanding.NoneRegistered => "register one first: gg credential add",
+        Gg.Client.CredentialStanding.NotNeeded => "nothing - it authenticates to nothing",
+        _ => "not known - it will ask, and pasting is safe",
+    };
 
     /// <summary>
     /// How near the top a standing puts a row.
@@ -70,13 +103,13 @@ public static class CredentialRepositories
         return
         [
             .. Offered(state)
-                .Select(path => new Choice(
-                    path,
-                    standings.FirstOrDefault(s => string.Equals(
-                        s.Repo, path, StringComparison.Ordinal))?.Standing
-                      ?? "not known"))
-                .OrderBy(c => Rank(c.Said))
-                .ThenBy(c => c.Path, StringComparer.Ordinal),
+                .Select(path => (
+                    Path: path,
+                    Standing: standings.FirstOrDefault(s => string.Equals(
+                        s.Repo, path, StringComparison.Ordinal))?.Standing ?? "unknown"))
+                .OrderBy(row => Rank(row.Standing))
+                .ThenBy(row => row.Path, StringComparer.Ordinal)
+                .Select(row => new Choice(row.Path, Does(row.Standing))),
         ];
     }
 

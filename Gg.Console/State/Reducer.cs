@@ -1064,6 +1064,17 @@ public static class Reducer
             return PickWorkKind(state, row);
         }
 
+        // AND THE REGISTRY A CREDENTIAL IS SENT FOR, which shipped without this
+        // arm one slice after the kinds did - so the list of special cases
+        // above caught the same defect twice in a row. The tab behind this
+        // dialog is Runners, so falling through moved the FLEET's cursor and
+        // changed which machine the secret was going to, under somebody
+        // choosing a repository.
+        if (state.Mode is UiMode.CredentialRepositoryChoice)
+        {
+            return PickCredentialRepository(state, row);
+        }
+
         return state.ActiveTab switch
         {
             TabId.Repositories => PickRepository(state, row),

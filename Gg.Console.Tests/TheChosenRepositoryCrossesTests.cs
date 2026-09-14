@@ -65,20 +65,21 @@ public class TheChosenRepositoryCrossesTests
         _ = ConsoleLoop.FlewPicked(Picked(Chose()), actions);
 
         await Assert.That(actions.Tickets).Count().IsEqualTo(1);
-        await Assert.That(actions.Tickets[0].Repository).IsEqualTo("acme/widgets");
+        await Assert.That(actions.Tickets[0].Repositories).Contains("acme/widgets");
     }
 
     [Test]
     public async Task With_nothing_chosen_the_envelope_still_decides()
     {
-        // THE ORDINARY STATE, and it must stay reachable. Passing an empty
-        // string rather than null would be the console asserting a repository
-        // named "" - a refusal at the control plane for a choice nobody made.
+        // THE ORDINARY STATE, and it must stay reachable. An empty list is
+        // normalised to null before it is sent - ConsoleData.Named - because
+        // "no repositories" is a choice not to narrow, where a list of none is
+        // the console asserting a flight names none.
         var actions = new ConsoleDoubles.Records();
 
         _ = ConsoleLoop.FlewPicked(Picked(new AppState()), actions);
 
-        await Assert.That(actions.Tickets[0].Repository).IsNull();
+        await Assert.That(actions.Tickets[0].Repositories).IsEmpty();
     }
 
     [Test]
@@ -91,7 +92,7 @@ public class TheChosenRepositoryCrossesTests
         _ = ConsoleLoop.Opened(Chose(), actions, new ConsoleDoubles.Writes("fix the thing"));
 
         await Assert.That(actions.Intents).Count().IsEqualTo(1);
-        await Assert.That(actions.Intents[0].Repository).IsEqualTo("acme/widgets");
+        await Assert.That(actions.Intents[0].Repositories).Contains("acme/widgets");
     }
 
     [Test]
@@ -105,7 +106,7 @@ public class TheChosenRepositoryCrossesTests
         _ = ConsoleLoop.FlewPicked(Picked(Chose()), actions);
 
         var sent = string.Join(
-            " ", actions.Tickets.Select(t => $"{t.Provider} {t.Id} {t.Repository}"));
+            " ", actions.Tickets.Select(t => $"{t.Provider} {t.Id} {string.Join('+', t.Repositories)}"));
 
         await Assert.That(sent).DoesNotContain("A draft job fails");
     }
@@ -122,7 +123,7 @@ public class TheChosenRepositoryCrossesTests
         var opened = ConsoleLoop.ConfirmedFlight(asked, actions);
 
         await Assert.That(actions.Tickets).Count().IsEqualTo(1);
-        await Assert.That(actions.Tickets[0].Repository).IsEqualTo("acme/widgets");
+        await Assert.That(actions.Tickets[0].Repositories).Contains("acme/widgets");
         await Assert.That(opened.PendingFlight).IsNull();
     }
 }

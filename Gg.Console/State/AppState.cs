@@ -339,6 +339,28 @@ public enum ComposingFor
     WorkItem,
 }
 
+/// <summary>Which half of "what is this flight for" is showing.</summary>
+/// <remarks>
+/// <b>Named for the mode it belongs to</b> — <c>UiMode.WorkKindChoice</c> —
+/// like <c>FlightTab</c>, <c>WorkItemTab</c> and <c>HelpPage</c> are for
+/// theirs. Not "compose": that word is taken, by the question of whether an
+/// editor or an agent writes the intent, and <c>ComposeChoiceTests</c> forbids
+/// a field holding THAT because a later flight could inherit it. This is a
+/// different question and is reset when the modal opens, which
+/// <c>Reducer.Asked</c> does explicitly.
+/// </remarks>
+/// <remarks>
+/// <b>The kind first, because it is the question the modal asks.</b> Which
+/// repositories a flight names is the rarer answer — most flights want whatever
+/// the console is already set to — so it sits behind a tab rather than in front
+/// of the question a person opened this to answer.
+/// </remarks>
+public enum WorkKindTab
+{
+    Kind,
+    Repositories,
+}
+
 public enum HelpPage
 {
     /// <summary>The keys. What help has always been for, so it opens here.</summary>
@@ -1368,15 +1390,70 @@ public sealed record AppState
     public int CredentialRepoSelected { get; init; }
 
     /// <summary>
-    /// The repository every flight this console opens will name, or null.
+    /// The repositories a flight opened from this console starts out naming.
     /// </summary>
     /// <remarks>
-    /// <b>Null is the ordinary state</b> and means the envelope resolves it,
+    /// <para>
+    /// <b>Empty is the ordinary state</b> and means the envelope resolves it,
     /// which is what every flight does today. This is an override, so it is
     /// announced in the activity line rather than living only inside a pane:
     /// invisible state that changes what a write does is the worst kind.
+    /// </para>
+    /// <para>
+    /// <b>A DEFAULT rather than a command, which is what changed when the
+    /// compose modal grew a tab of its own.</b> It used to be the answer: every
+    /// flight this console opened named this repository and there was nowhere
+    /// else to say otherwise. Now it seeds <see cref="FlyingWith"/> when a
+    /// flight is being composed, and that is what actually flies — so the
+    /// common case is still one setting, and the flight that differs can differ
+    /// without anybody going back to change a console-wide switch.
+    /// </para>
+    /// <para>
+    /// <b>A list, because a flight may name several.</b>
+    /// <c>FlightLaunchRequest</c> has carried both the singular and the plural
+    /// since contract 0.161.0; the client fills whichever fits.
+    /// </para>
     /// </remarks>
-    public string? ChosenRepository { get; init; }
+    public IReadOnlyList<string> ChosenRepositories { get; init; } = [];
+
+    /// <summary>
+    /// The repositories the flight BEING COMPOSED will name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Live only while the compose modal is open</b>, seeded from
+    /// <see cref="ChosenRepositories"/> when it opens. Separate from the
+    /// default because changing your mind about one flight must not change
+    /// every flight after it — which is exactly what a single console-wide
+    /// setting made unavoidable.
+    /// </para>
+    /// <para>
+    /// <b>NULL IS "NOBODY SAID", AND AN EMPTY LIST IS NOT.</b> A person can
+    /// uncheck everything to let the envelope decide for one flight, which is
+    /// a real answer and a different one from never having been asked — and a
+    /// door that opens a flight without composing must fall back to the
+    /// default rather than silently name nothing. Caught by the crossing tests,
+    /// which fly through doors the modal never opened.
+    /// </para>
+    /// <para>
+    /// <b>Read through <see cref="Against"/>, never directly</b>, so the three
+    /// doors cannot come to disagree about what the fallback is.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? FlyingWith { get; init; }
+
+    /// <summary>
+    /// What a flight opened right now would name.
+    /// </summary>
+    /// <remarks>
+    /// <b>One answer for three doors.</b> A repository that crossed on pasting
+    /// and not on picking would be a setting that works depending on how you
+    /// started — the sentence <c>ConsoleLoop</c> already keeps about this.
+    /// </remarks>
+    public IReadOnlyList<string> Against => FlyingWith ?? ChosenRepositories;
+
+    /// <summary>Which tab of the compose modal is showing.</summary>
+    public WorkKindTab WorkKindTab { get; init; } = WorkKindTab.Kind;
 
     /// <summary>
     /// Whether each registered repository has the credential it needs, here.

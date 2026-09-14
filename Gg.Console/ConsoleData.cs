@@ -184,7 +184,7 @@ public sealed class ConsoleData(
     /// </remarks>
     public Task<VerbResult> FlyAsync(
         string pasted,
-        string? repository = null,
+        IReadOnlyList<string>? repositories = null,
         string? workKind = null,
         CancellationToken cancellationToken = default)
     {
@@ -195,11 +195,30 @@ public sealed class ConsoleData(
             : _commands.FlyAsync(
                 read.Text, read.Uri, name: null, cancellationToken,
                 provider: read.Provider, id: read.Id,
-                // NULL WHERE NOTHING WAS CHOSEN, never "". An empty string is
-                // the console asserting a repository named nothing, which the
-                // control plane refuses for a choice nobody made.
-                repositories: repository is { Length: > 0 } named ? [named] : null,
+                // NULL WHERE NOTHING WAS CHOSEN, never an empty list. Nothing
+                // is a choice not to narrow, which the envelope then resolves;
+                // a list of no repositories is the console asserting a flight
+                // names none, which is a different and refusable thing.
+                repositories: Named(repositories),
                 workKind: workKind is { Length: > 0 } kind ? kind : null);
+    }
+
+    /// <summary>The repositories worth sending, or null where none were.</summary>
+    /// <remarks>
+    /// <b>Blanks are dropped before the count is taken.</b> A list holding one
+    /// empty string is not a choice, and sending it would have the control
+    /// plane refuse a flight for a repository nobody named.
+    /// </remarks>
+    private static IReadOnlyList<string>? Named(IReadOnlyList<string>? repositories)
+    {
+        if (repositories is null)
+        {
+            return null;
+        }
+
+        var said = repositories.Where(r => r is { Length: > 0 }).ToList();
+
+        return said.Count > 0 ? said : null;
     }
 
     /// <summary>
@@ -215,12 +234,12 @@ public sealed class ConsoleData(
     public Task<VerbResult> FlyTicketAsync(
         string provider,
         string id,
-        string? repository = null,
+        IReadOnlyList<string>? repositories = null,
         string? workKind = null,
         CancellationToken cancellationToken = default) =>
         _commands.FlyAsync(
             text: null, uri: null, name: null, cancellationToken, provider: provider, id: id,
-            repositories: repository is { Length: > 0 } named ? [named] : null,
+            repositories: Named(repositories),
 
             // EMPTY IS NORMALISED TO NULL, the way the repository beside it is
             // and for the same reason: absent must stay absent, because the

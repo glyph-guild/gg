@@ -191,7 +191,7 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(13)
+        await Assert.That(built).IsEqualTo(14)
             .Because("nine calls, and the count is here so a tenth has to come past this. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
                    + "a hand-counted role column. The seventh and eighth are the RUNNER "
@@ -208,7 +208,9 @@ public class TheRunnersCursorStaysTests
                    + "asked everything. The thirteenth is the Look page's settings, which "
                    + "is a SPIKE - if that page goes, this number goes back to twelve, and "
                    + "a count that quietly absorbed its removal would be a count measuring "
-                   + "nothing.");
+                   + "nothing. The fourteenth is the compose modal's repositories, which is "
+                   + "the second list in a modal that used to be one question - a flight may "
+                   + "name several repositories and there was nowhere to say which.");
 
         // AND THE GAP BETWEEN THESE TWO NUMBERS IS THREE, ALL OF WHICH ARE
         // WIRED TO A HANDLER OF THEIR OWN. "Built but not subscribed to THIS

@@ -176,6 +176,8 @@ public static class FocusChange
     /// model against the widget instead re-places focus once a second and takes
     /// the cursor off whatever a person had just scrolled to.
     /// </param>
+    /// <param name="workKindTab">Which tab of the compose modal is showing.</param>
+    /// <param name="landedWorkKindTab">Its pair, for the reason above.</param>
     /// <param name="workItemTab">Which tab of the work item modal is showing.</param>
     /// <param name="landedWorkItemTab">Its pair, for the reason above.</param>
     /// <param name="landedHelpPage">
@@ -201,7 +203,9 @@ public static class FocusChange
         FlightTab flightTab = FlightTab.Details,
         FlightTab landedFlightTab = FlightTab.Details,
         WorkItemTab workItemTab = WorkItemTab.Details,
-        WorkItemTab landedWorkItemTab = WorkItemTab.Details) => (mode, landed) switch
+        WorkItemTab landedWorkItemTab = WorkItemTab.Details,
+        WorkKindTab workKindTab = WorkKindTab.Kind,
+        WorkKindTab landedWorkKindTab = WorkKindTab.Kind) => (mode, landed) switch
         {
             // THE FIELD FIRST, because it is not a modal and the arms below would
             // hand it to one that is not on screen.
@@ -252,7 +256,9 @@ public static class FocusChange
 
             // AND THE KINDS, for the same reason: the table IS the question, and
             // focus at the frame leaves the arrows moving nothing.
-            (UiMode.WorkKindChoice, _) when modalHasFocus => FocusTarget.LeaveAlone,
+            (UiMode.WorkKindChoice, _)
+                when modalHasFocus && landedWorkKindTab == workKindTab
+                => FocusTarget.LeaveAlone,
             (UiMode.WorkKindChoice, _) => FocusTarget.WorkKindChoices,
 
             // AND THE REGISTRY, for the third time and the same reason.

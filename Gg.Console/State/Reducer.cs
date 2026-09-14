@@ -245,6 +245,16 @@ public static class Reducer
             // where a person is standing rather than something they set, and
             // putting the modal back while they are looking behind it would
             // undo the wrong thing.
+            // THE COMPOSE MODAL'S TWO TABS, and the repository under the cursor.
+            Command.NextWorkKindTab => state with
+            {
+                WorkKindTab = state.WorkKindTab is WorkKindTab.Kind
+                    ? WorkKindTab.Repositories
+                    : WorkKindTab.Kind,
+            },
+
+            Command.ToggleFlightRepository => FlyingWithToggled(state),
+
             Command.ResetLook => state with
             {
                 Look = new Look { Selected = state.Look.Selected, Peeking = state.Look.Peeking },
@@ -912,11 +922,44 @@ public static class Reducer
 
         var path = listed.Repositories[state.RepositorySelected].Path;
 
+        // ADDS OR REMOVES, rather than replacing. A flight may name several
+        // and the registry is where the usual set is said; the compose modal's
+        // own tab is where one flight departs from it.
         return state with
         {
-            ChosenRepository = string.Equals(state.ChosenRepository, path, StringComparison.Ordinal)
-                ? null
-                : path,
+            ChosenRepositories = state.ChosenRepositories.Contains(path, StringComparer.Ordinal)
+                ? [.. state.ChosenRepositories.Where(
+                    r => !string.Equals(r, path, StringComparison.Ordinal))]
+                : [.. state.ChosenRepositories, path],
+        };
+    }
+
+    /// <summary>
+    /// Add the repository under the cursor to this flight, or take it off.
+    /// </summary>
+    /// <remarks>
+    /// <b>The registry's toggle, scoped to one flight.</b> That one changes
+    /// what every NEW flight starts with; this one changes the flight being
+    /// composed and nothing after it. They are deliberately the same gesture on
+    /// the same list, because they are the same question asked at two ranges.
+    /// </remarks>
+    private static AppState FlyingWithToggled(AppState state)
+    {
+        if (state.Repositories is not { Repositories.Count: > 0 } listed
+            || state.RepositorySelected < 0
+            || state.RepositorySelected >= listed.Repositories.Count)
+        {
+            return state;
+        }
+
+        var path = listed.Repositories[state.RepositorySelected].Path;
+
+        return state with
+        {
+            FlyingWith = state.Against.Contains(path, StringComparer.Ordinal)
+                ? [.. state.Against.Where(
+                    r => !string.Equals(r, path, StringComparison.Ordinal))]
+                : [.. state.Against, path],
         };
     }
 
@@ -1023,8 +1066,29 @@ public static class Reducer
             {
                 AskingKindFor = door,
                 KindSelected = 0,
+
+                // SEEDED FROM THE REGISTRY'S MARKS, which is what makes them a
+                // default rather than a command. The common case is a console
+                // set once; the flight that differs differs here, and nobody
+                // has to go back and change a console-wide switch to fly it.
+                FlyingWith = state.ChosenRepositories,
+                WorkKindTab = WorkKindTab.Kind,
+                RepositorySelected = 0,
+
+                // AND THE REGISTRY IS BEING FETCHED, which the second tab says
+                // rather than drawing an empty table - the credential
+                // chooser's arm one modal over, for its reason.
+                ReadInFlight = true,
             }
-            : Modal(state, UiMode.ComposeChoice) with { ComposingFor = door };
+            : Modal(state, UiMode.ComposeChoice) with
+            {
+                ComposingFor = door,
+
+                // THE OTHER DOOR SEEDS IT TOO. A tenant that declares no work
+                // kinds never sees the modal above, and a flight opened through
+                // this one must still name what the registry says.
+                FlyingWith = state.ChosenRepositories,
+            };
 
     private static AppState PickWorkKind(AppState state, int row) =>
         state with
@@ -1180,7 +1244,14 @@ public static class Reducer
         // followed put the highlight back on row zero.
         if (state.Mode is UiMode.WorkKindChoice)
         {
-            return PickWorkKind(state, row);
+            // WHICHEVER TAB IS SHOWING, because the modal has two lists now and
+            // a click lands in the one on screen. Sending every row to the
+            // kinds table would move the kind under somebody picking a
+            // repository - the defect this list of special cases exists for,
+            // one tab in.
+            return state.WorkKindTab is WorkKindTab.Repositories
+                ? state with { RepositorySelected = row }
+                : PickWorkKind(state, row);
         }
 
         // AND THE REGISTRY A CREDENTIAL IS SENT FOR, which shipped without this

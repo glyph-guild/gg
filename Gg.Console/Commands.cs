@@ -48,6 +48,18 @@ public enum Command
     ResetLook,
 
     /// <summary>
+    /// Hold the help modal out of the way, or bring it back.
+    /// </summary>
+    /// <remarks>
+    /// <b>The page changes what is behind the page.</b> Most of what the Look
+    /// page sets is panes, borders and tabs the modal is sitting on top of, so
+    /// the one thing it could not do was let somebody see their own change.
+    /// Hidden rather than closed: the mode does not move, so the keyboard still
+    /// belongs to the page and the same key brings it back.
+    /// </remarks>
+    PeekBehindTheModal,
+
+    /// <summary>
     /// Everything known about the flight under the cursor.
     /// </summary>
     /// <remarks>

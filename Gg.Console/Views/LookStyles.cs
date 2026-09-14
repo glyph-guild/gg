@@ -127,6 +127,63 @@ public static class LookStyles
         _ => throw new ArgumentOutOfRangeException(nameof(palette), palette, "unknown palette"),
     };
 
+    /// <summary>
+    /// A tab's title, marked if it is the one showing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Applied to the title the model just wrote, every render.</b> The
+    /// screen sets each tab's <c>Title</c> from <c>Tabs.Title(State, tab)</c>
+    /// before this runs, so the decoration goes on a clean value and cannot
+    /// accumulate — which it would if this were the only thing writing it.
+    /// </para>
+    /// <para>
+    /// <b><see cref="TabMark.Accent"/> answers the title unchanged</b>, because
+    /// it marks the colour instead; the caller does that part.
+    /// </para>
+    /// </remarks>
+    public static string Marked(string title, bool showing, TabMark mark)
+    {
+        if (!showing || mark is TabMark.None or TabMark.Accent)
+        {
+            return title;
+        }
+
+        return mark switch
+        {
+            TabMark.Brackets => $"[{title}]",
+            TabMark.Arrows => $"\u25b8 {title} \u25c2",
+            TabMark.Bullet => $"\u25cf {title}",
+            TabMark.Caps => title.ToUpperInvariant(),
+            _ => title,
+        };
+    }
+
+    /// <summary>The scheme a tab is drawn in, or null to leave it alone.</summary>
+    /// <remarks>
+    /// <b>Only <see cref="TabMark.Accent"/> answers anything.</b> Every other
+    /// mark is in the title, and a scheme returned here would fight the palette
+    /// the rest of the console is being drawn in.
+    /// </remarks>
+    public static Scheme? TabColours(bool showing, TabMark mark, Palette palette)
+    {
+        if (mark is not TabMark.Accent || !showing)
+        {
+            return null;
+        }
+
+        // THE PALETTE'S OWN FOCUS COLOURS, INVERTED ONTO THE TAB. A fixed
+        // accent would be invisible in half the palettes and unreadable in the
+        // rest, which is the thing a spike is for finding out cheaply.
+        return Colours(palette) is { } scheme
+            ? scheme with { Normal = scheme.Focus, HotNormal = scheme.Focus }
+            : new Scheme
+            {
+                Normal = new Attribute(ColorName16.Black, ColorName16.White),
+                HotNormal = new Attribute(ColorName16.Black, ColorName16.BrightYellow),
+            };
+    }
+
     /// <summary>A scheme from the six attributes a person actually sees.</summary>
     private static Scheme Built(
         ColorName16 normalFore, ColorName16 normalBack,

@@ -2028,7 +2028,7 @@ static Task<VerbResult> Flown(
     FlightCommands commands, CliAction.Fly fly, CancellationToken cancellationToken = default) =>
     commands.FlyAsync(
         fly.Text, fly.Uri, name: null, cancellationToken,
-        provider: fly.Provider, id: fly.Id, repository: fly.Repository,
+        provider: fly.Provider, id: fly.Id, repositories: fly.Repositories,
         runner: fly.Runner, attended: fly.Attended,
         workKind: fly.WorkKind, environment: fly.Environment);
 

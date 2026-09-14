@@ -97,6 +97,16 @@ public sealed record ExecutorCapabilities
     public required string Rung { get; init; }
 }
 
+/// <summary>
+/// One repository on disk: the slug a person knows it by, and where it is.
+/// </summary>
+/// <remarks>
+/// <b>Both halves, because neither is derivable from the other.</b> The
+/// directory is a hash of the slug, so an agent given slugs cannot find them and
+/// an agent given paths cannot tell which is which.
+/// </remarks>
+public sealed record RequestedTree(string Slug, string Path);
+
 /// <summary>What a loop is asked to do.</summary>
 public sealed record ExecutorRequest
 {
@@ -171,6 +181,28 @@ public sealed record ExecutorRequest
     /// <c>LeaseLoop.Brief</c> holds the contract's own text.
     /// </remarks>
     public string? Brief { get; init; }
+
+    /// <summary>
+    /// Every repository this flight put on disk, by the slug a person knows and
+    /// the directory it is actually in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because the directory names are hashes.</b>
+    /// <c>WorkingTreeRoot</c> puts each tree at
+    /// <c>&lt;flight&gt;/&lt;fingerprint(slug)&gt;</c> - sixteen hex characters,
+    /// deliberately, since a slug is <i>"never a directory name"</i>. An agent
+    /// standing at the flight root sees only hashes, so a list that gave slugs
+    /// without paths, or paths without slugs, would be half an answer.
+    /// </para>
+    /// <para>
+    /// <b>Empty is the honest state for a ticket, a link and a typed
+    /// sentence</b>, which resolve to no repository at all - and
+    /// <c>WorkspaceResult.Root</c> exists so those flights still have somewhere
+    /// to be worked.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<RequestedTree> Trees { get; init; } = [];
 
     /// <summary>
     /// Where to append the live view. The runner always sets one.

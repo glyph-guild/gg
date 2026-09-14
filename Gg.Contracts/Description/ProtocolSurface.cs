@@ -1582,7 +1582,8 @@ public static class ProtocolSurface
             [typeof(LeaseReleased)] = ["flightId", "disposition"],
             [typeof(FlightIntent)] = ["kind", "uri", "text", "provider", "id"],
             [typeof(FlightLaunchRequest)] =
-                ["name", "intent", "workKind", "environment", "repository", "runner", "attended"],
+                ["name", "intent", "workKind", "environment", "repository", "repositories",
+                 "runner", "attended"],
             [typeof(FlightLaunched)] = ["flightId", "flightNumber"],
             [typeof(FlightSummary)] =
                 ["flightId", "flightNumber", "name", "intent", "createdAt",

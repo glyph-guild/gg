@@ -65,7 +65,8 @@ public class FlyByHandArgTests
 
         await Assert.That(action.Provider).IsEqualTo("tracker");
         await Assert.That(action.Id).IsEqualTo("26");
-        await Assert.That(action.Repository).IsEqualTo("payments");
+        await Assert.That(action.Repositories).IsEquivalentTo(
+            (IReadOnlyList<string>)["payments"]);
         await Assert.That(action.ByHand).IsTrue();
     }
 

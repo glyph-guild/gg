@@ -36,7 +36,8 @@ public class FlyNamesARepositoryTests
         var action = CliArgs.Parse(["fly", "--ticket", "tracker#26", "--repo", "payments"]);
 
         await Assert.That(action).IsTypeOf<CliAction.Fly>();
-        await Assert.That(((CliAction.Fly)action).Repository).IsEqualTo("payments");
+        await Assert.That(((CliAction.Fly)action).Repositories).IsEquivalentTo(
+            (IReadOnlyList<string>)["payments"]);
     }
 
     [Test]
@@ -49,7 +50,8 @@ public class FlyNamesARepositoryTests
         var action = CliArgs.Parse(
             ["fly", "--uri", "https://example.invalid/board/1", "--repo", "payments"]);
 
-        await Assert.That(((CliAction.Fly)action).Repository).IsEqualTo("payments");
+        await Assert.That(((CliAction.Fly)action).Repositories).IsEquivalentTo(
+            (IReadOnlyList<string>)["payments"]);
     }
 
     [Test]
@@ -59,10 +61,13 @@ public class FlyNamesARepositoryTests
         // already, and inheriting is what the field's own contract says null
         // means. A default here would put a repository on flights nobody said
         // were about one.
+        // THE MEMBER MOVED AND THE CLAIM DID NOT. --repo repeats now, so the
+        // parse answers with a list; naming none still means inherit, and an
+        // empty list is how that is said.
         await Assert.That(((CliAction.Fly)CliArgs.Parse(["fly", "--uri", "https://example.invalid/x"]))
-            .Repository).IsNull();
+            .Repositories).IsEmpty();
         await Assert.That(((CliAction.Fly)CliArgs.Parse(["fly", "fix the thing"]))
-            .Repository).IsNull();
+            .Repositories).IsEmpty();
     }
 
     [Test]

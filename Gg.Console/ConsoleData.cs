@@ -198,7 +198,7 @@ public sealed class ConsoleData(
                 // NULL WHERE NOTHING WAS CHOSEN, never "". An empty string is
                 // the console asserting a repository named nothing, which the
                 // control plane refuses for a choice nobody made.
-                repository: repository is { Length: > 0 } named ? named : null,
+                repositories: repository is { Length: > 0 } named ? [named] : null,
                 workKind: workKind is { Length: > 0 } kind ? kind : null);
     }
 
@@ -220,7 +220,7 @@ public sealed class ConsoleData(
         CancellationToken cancellationToken = default) =>
         _commands.FlyAsync(
             text: null, uri: null, name: null, cancellationToken, provider: provider, id: id,
-            repository: repository is { Length: > 0 } named ? named : null,
+            repositories: repository is { Length: > 0 } named ? [named] : null,
 
             // EMPTY IS NORMALISED TO NULL, the way the repository beside it is
             // and for the same reason: absent must stay absent, because the

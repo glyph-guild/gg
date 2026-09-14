@@ -44,15 +44,15 @@ public class AttendedExecutorTests
 
     private static ExecutorRequest Request(
         IReadOnlyList<string>? moves = null, string? provider = null) => new()
-    {
-        WorkingDirectory = "/work/flight",
-        LoopId = "implement",
-        Moves = moves ?? [LoopMoves.Read, LoopMoves.Edit],
-        IntentProvider = provider,
-        IntentUri = "https://example.invalid/work/1",
-        WallClock = TimeSpan.FromMinutes(30),
-        TranscriptPath = "/work/flight/transcript.ndjson",
-    };
+        {
+            WorkingDirectory = "/work/flight",
+            LoopId = "implement",
+            Moves = moves ?? [LoopMoves.Read, LoopMoves.Edit],
+            IntentProvider = provider,
+            IntentUri = "https://example.invalid/work/1",
+            WallClock = TimeSpan.FromMinutes(30),
+            TranscriptPath = "/work/flight/transcript.ndjson",
+        };
 
     private static IReadOnlyList<string> Arguments(
         ExecutorRequest request, string? secret = null) =>
@@ -538,12 +538,12 @@ public class AttendedExecutorTests
 
     private static LeaseGranted ALease(GitFixture fixture, int number, int wallClockSeconds = 600)
         => new()
-    {
-        LeaseId = $"lease-{number}",
-        Generation = number,
-        FlightId = $"flight-{number}",
-        FlightNumber = FlightRef.Format(1000 + number),
-        Repos =
+        {
+            LeaseId = $"lease-{number}",
+            Generation = number,
+            FlightId = $"flight-{number}",
+            FlightNumber = FlightRef.Format(1000 + number),
+            Repos =
         [
             new LeaseRepoRef
             {
@@ -552,21 +552,21 @@ public class AttendedExecutorTests
                 PinnedRef = "refs/heads/main",
             },
         ],
-        Credentials = [],
-        ClassificationCeiling = Classifications.Internal,
-        ClassificationRules = ClassificationRules.Default,
-        ExpiresAt = T0.AddMinutes(10),
-        RenewWithinSeconds = 5,
-        IntentUri = "https://forge.example/acme/widgets/issues/1",
-        Loop = new LeaseLoop
-        {
-            LoopId = "implement",
-            Executor = ExecutorRungs.Frontier,
-            Moves = [LoopMoves.Read, LoopMoves.Edit],
-            WallClockSeconds = wallClockSeconds,
-            OnExhaustion = ExhaustionPolicies.HandoffToHuman,
-        },
-    };
+            Credentials = [],
+            ClassificationCeiling = Classifications.Internal,
+            ClassificationRules = ClassificationRules.Default,
+            ExpiresAt = T0.AddMinutes(10),
+            RenewWithinSeconds = 5,
+            IntentUri = "https://forge.example/acme/widgets/issues/1",
+            Loop = new LeaseLoop
+            {
+                LoopId = "implement",
+                Executor = ExecutorRungs.Frontier,
+                Moves = [LoopMoves.Read, LoopMoves.Edit],
+                WallClockSeconds = wallClockSeconds,
+                OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+            },
+        };
 
     /// <summary>
     /// The real attended executor with a spawn that answers instead of taking a
@@ -614,8 +614,17 @@ public class AttendedExecutorTests
                 // manifest comes from either way.
                 if (edits is { Length: > 0 } file)
                 {
-                    File.WriteAllText(
-                        Path.Combine(info.WorkingDirectory, file), "a person was here\n");
+                    // INTO THE TREE, WHICH IS NO LONGER WHERE THEY LANDED. A
+                    // hand-flown session starts in the FLIGHT's directory now,
+                    // with the repositories below it - so a person edits where
+                    // the announcement told them the checkout is, and this
+                    // stands in for that. Writing at the landing spot instead
+                    // would put the file outside every tree, where no manifest
+                    // could see it: which is exactly what this test caught when
+                    // the working directory moved.
+                    var tree = Directory.EnumerateDirectories(info.WorkingDirectory).Single();
+
+                    File.WriteAllText(Path.Combine(tree, file), "a person was here\n");
                 }
 
                 return child.Task;
@@ -651,9 +660,9 @@ public class AttendedExecutorTests
                 trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
                 executor: executor,
                 returns: returns)
-            {
-                HoldFor = TimeSpan.FromSeconds(3),
-            }
+        {
+            HoldFor = TimeSpan.FromSeconds(3),
+        }
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         return (seen, protocol);

@@ -78,7 +78,8 @@ public class FlyNamesItsWorkKindTests
         var flown = Flown("fly", "--ticket", "jdx#18599", "--repo", "payments",
                           "--work-kind", "hal-score", "--environment", "dev");
 
-        await Assert.That(flown.Repository).IsEqualTo("payments");
+        await Assert.That(flown.Repositories).IsEquivalentTo(
+            (IReadOnlyList<string>)["payments"]);
         await Assert.That(flown.WorkKind).IsEqualTo("hal-score");
         await Assert.That(flown.Environment).IsEqualTo("dev");
     }

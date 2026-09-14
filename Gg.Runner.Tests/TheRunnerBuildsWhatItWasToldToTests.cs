@@ -80,7 +80,15 @@ public class TheRunnerBuildsWhatItWasToldToTests
         {
             var upToClose = after.Split(')')[0];
 
-            await Assert.That(upToClose).Contains("Configuration", StringComparison.Ordinal)
+            // EITHER SPELLING OF THE SAME ARGUMENT: the runner path holds the
+            // configuration in a local it threads through every setting it
+            // reads, and the member path reads the property directly because
+            // its local is declared after the offer switch. What must not
+            // happen is neither, which leaves `file` defaulting to null.
+            var given = upToClose.Contains("inForce", StringComparison.Ordinal)
+                     || upToClose.Contains("InForce.Configuration", StringComparison.Ordinal);
+
+            await Assert.That(given).IsTrue()
                 .Because("every tracker-apis read has to be given the configuration in "
                        + "force, or a line in the file is written, shown by `gg config "
                        + $"show`, and ignored by the runner. Found: '{upToClose.Trim()}'");

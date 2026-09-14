@@ -536,7 +536,20 @@ public class AttendedExecutorTests
             .Where(fact => string.Equals(fact.Kind, kind, StringComparison.Ordinal)),
     ];
 
-    private static LeaseGranted ALease(GitFixture fixture, int number, int wallClockSeconds = 600)
+    /// <summary>
+    /// The lease these flights are granted, and a landing one when there is
+    /// something to land.
+    /// </summary>
+    /// <remarks>
+    /// <b>A flight cleared to push has to be able to.</b> The local provider
+    /// refuses a credential outright - file:// has nothing to authenticate to -
+    /// so a lease that carries one cannot materialize, and a lease that carries
+    /// none is refused at the write scope. Either way the push never happens,
+    /// which is how a test named for a flight that lands came to assert a
+    /// disposition on a flight that landed nothing.
+    /// </remarks>
+    private static LeaseGranted ALease(
+        GitFixture fixture, int number, int wallClockSeconds = 600, bool landing = false)
         => new()
         {
             LeaseId = $"lease-{number}",
@@ -547,12 +560,23 @@ public class AttendedExecutorTests
         [
             new LeaseRepoRef
             {
-                Provider = LocalVcsAdapter.ProviderKey,
+                Provider = landing ? AuthenticatingProvider.Key : LocalVcsAdapter.ProviderKey,
                 Slug = fixture.BarePath,
                 PinnedRef = "refs/heads/main",
             },
         ],
-            Credentials = [],
+            Credentials = landing
+                ?
+                [
+                    new CredentialReference
+                    {
+                        Kind = CredentialKinds.Local,
+                        Locator = CredentialLocator.ForRepo(fixture.BarePath),
+                        Identity = "gg-tests",
+                        Scopes = [CredentialScopes.Write],
+                    },
+                ]
+                : [],
             ClassificationCeiling = Classifications.Internal,
             ClassificationRules = ClassificationRules.Default,
             ExpiresAt = T0.AddMinutes(10),
@@ -586,8 +610,17 @@ public class AttendedExecutorTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
+        // THE FIXTURE'S OWN REPOSITORY, because a slug this flight does not hold
+        // is cleared to push something that is not here - and the landing refuses
+        // it before a remote is reached at all. A caller names the slug for
+        // readability; which repository it actually is belongs to the fixture.
+        var landing = push is not null;
+        push = push is null ? null : push with { Slug = fixture.BarePath };
+        admission = admission is null ? null : admission with { Slug = fixture.BarePath };
+
         var protocol = new FakeProtocol { Settles = settles, Push = push, Admission = admission };
-        protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, 1, wallClockSeconds)));
+        protocol.Claims.Enqueue(
+            new ClaimResult.Granted(ALease(fixture, 1, wallClockSeconds, landing)));
 
         var seen = new List<ExecutorRequest>();
 
@@ -656,9 +689,18 @@ public class AttendedExecutorTests
                     clock.Advance(span);
                     return Task.CompletedTask;
                 },
-                observer, new NoCredentialResolver(),
-                trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
+                observer,
+                landing
+                    ? new ScriptedResolver
+                    {
+                        Secrets = { [CredentialLocator.ForRepo(fixture.BarePath)] = "a-secret" },
+                    }
+                    : new NoCredentialResolver(),
+                trees.Workspace(landing
+                    ? new AuthenticatingProvider(new LocalVcsAdapter(fixture.Directory))
+                    : new LocalVcsAdapter(fixture.Directory)),
                 executor: executor,
+                destinations: landing ? [new RecordingDestination()] : null,
                 returns: returns)
         {
             HoldFor = TimeSpan.FromSeconds(3),

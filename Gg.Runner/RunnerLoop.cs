@@ -1289,9 +1289,7 @@ public sealed class RunnerLoop(
         // did not admit - the whole point of a gate - reported a conclusion.
         // `completed` maps to `landed` and the exit claim is first-writer-wins.
         var (disposition, detail) = invoked.Attended is null
-            ? (Outstanding(decision)
-                ? RunnerDisposition.Outstanding
-                : RunnerDisposition.Completed, (string?)null)
+            ? Unattended(invoked.Run, decision)
             : Decided(lease, workspace, decision);
 
         await HoldAsync(
@@ -1491,59 +1489,59 @@ public sealed class RunnerLoop(
         }
 
         var request = new ExecutorRequest
-            {
-                // ALWAYS, because this side cannot know whether anybody is
-                // watching: the console is a different process with no channel
-                // to here but the filesystem. The field's own remark carries the
-                // decision and what it costs.
-                Live = new LiveStream(Gg.Local.LocalPaths.LiveView(lease.FlightId)),
-                // PASSED THROUGH, never interpreted. The runner does not read the reason
-                // and does not derive anything from it: it hands the agent what a person
-                // said and lets the envelope keep deciding what may happen.
-                Feedback = lease.Feedback,
-                // THE CLASSIFIER'S HANDOVER, carried the same way and for the
-                // same reason: prose from outside this platform that the prompt
-                // must show and the agent must not obey.
-                NominationNote = lease.NominationNote,
-                // WHAT IT MAY ASK FOR, rendered by the contract from the
-                // destination that bounds admission. Carried rather than built:
-                // a runner with its own list would offer what admission refuses.
-                Menu = lease.Menu,
-                // THE SAME DISPOSITION. Already rendered by the contract; the runner
-                // hands it over and the prompt says whose words it holds.
-                ResumesFrom = loop.ResumesFrom,
-                // AND AGAIN, for the operator's standing instructions. Composed
-                // and rendered control-plane-side in layer order with each block's
-                // provenance attached, so re-wrapping or re-ordering here would be
-                // the second rendering LeaseLoop.Instructions exists to prevent.
-                // Sitting beside ResumesFrom because it was the absence of exactly
-                // this line that left step two green with nothing reaching an agent.
-                Instructions = loop.Instructions,
-                // The first tree when there is one, and the flight's own
-                // directory when there is not. See WorkspaceResult.Root.
-                WorkingDirectory = workspace.Trees.Count > 0
+        {
+            // ALWAYS, because this side cannot know whether anybody is
+            // watching: the console is a different process with no channel
+            // to here but the filesystem. The field's own remark carries the
+            // decision and what it costs.
+            Live = new LiveStream(Gg.Local.LocalPaths.LiveView(lease.FlightId)),
+            // PASSED THROUGH, never interpreted. The runner does not read the reason
+            // and does not derive anything from it: it hands the agent what a person
+            // said and lets the envelope keep deciding what may happen.
+            Feedback = lease.Feedback,
+            // THE CLASSIFIER'S HANDOVER, carried the same way and for the
+            // same reason: prose from outside this platform that the prompt
+            // must show and the agent must not obey.
+            NominationNote = lease.NominationNote,
+            // WHAT IT MAY ASK FOR, rendered by the contract from the
+            // destination that bounds admission. Carried rather than built:
+            // a runner with its own list would offer what admission refuses.
+            Menu = lease.Menu,
+            // THE SAME DISPOSITION. Already rendered by the contract; the runner
+            // hands it over and the prompt says whose words it holds.
+            ResumesFrom = loop.ResumesFrom,
+            // AND AGAIN, for the operator's standing instructions. Composed
+            // and rendered control-plane-side in layer order with each block's
+            // provenance attached, so re-wrapping or re-ordering here would be
+            // the second rendering LeaseLoop.Instructions exists to prevent.
+            // Sitting beside ResumesFrom because it was the absence of exactly
+            // this line that left step two green with nothing reaching an agent.
+            Instructions = loop.Instructions,
+            // The first tree when there is one, and the flight's own
+            // directory when there is not. See WorkspaceResult.Root.
+            WorkingDirectory = workspace.Trees.Count > 0
                     ? workspace.Trees[0].Path
                     : workspace.Root,
-                LoopId = loop.LoopId,
-                IntentUri = lease.IntentUri,
-                // A TICKET SAYS ITS PROVIDER; A LINK DOES NOT, so a link is
-                // asked of the host declarations. This is what gives a
-                // work-item URL a tracker tool - the reader is keyed on a
-                // provider, and without this such a flight reaches the agent
-                // with nothing able to read what it is about. It does not change
-                // what the flight is RECORDED as, and the prompt still names the
-                // link, because the person named a link.
-                IntentProvider = lease.IntentProvider
+            LoopId = loop.LoopId,
+            IntentUri = lease.IntentUri,
+            // A TICKET SAYS ITS PROVIDER; A LINK DOES NOT, so a link is
+            // asked of the host declarations. This is what gives a
+            // work-item URL a tracker tool - the reader is keyed on a
+            // provider, and without this such a flight reaches the agent
+            // with nothing able to read what it is about. It does not change
+            // what the flight is RECORDED as, and the prompt still names the
+            // link, because the person named a link.
+            IntentProvider = lease.IntentProvider
                     ?? Vcs.HostDeclaration.ProviderFor(lease.IntentUri, _hosts),
-                IntentId = lease.IntentId,
-                // THE WORDS THEMSELVES, because there is nothing to resolve.
-                // A uri and a ticket are pointers an agent goes and reads; typed
-                // words are the work, and carrying them is the only way they can
-                // reach one.
-                IntentText = lease.IntentText,
-                Moves = loop.Moves,
-                WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
-                TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),
+            IntentId = lease.IntentId,
+            // THE WORDS THEMSELVES, because there is nothing to resolve.
+            // A uri and a ticket are pointers an agent goes and reads; typed
+            // words are the work, and carrying them is the only way they can
+            // reach one.
+            IntentText = lease.IntentText,
+            Moves = loop.Moves,
+            WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
+            TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),
         };
 
         // TIMED HERE, because this is the only place that knows when the person
@@ -2260,6 +2258,53 @@ public sealed class RunnerLoop(
     /// </remarks>
     private static bool Outstanding(LandingDecision? landing) =>
         landing is { Push: not null, Admission: null };
+
+    /// <summary>
+    /// What an unattended turn is reported as, from what the loop did and what
+    /// the landing said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE LOOP'S OWN OUTCOME COMES FIRST, and it used to be unread.</b> The
+    /// disposition was chosen from the landing alone, so a loop that failed
+    /// before producing anything to push had no push - and no push read as
+    /// nothing outstanding, so <c>completed</c> went out and the flight landed.
+    /// GG-98 scored nothing, recorded <c>outcome: failed</c> with a reason, and
+    /// says <c>landed</c>.
+    /// </para>
+    /// <para>
+    /// <b>A sibling escaped it by accident, which is why it went unnoticed.</b>
+    /// The same failure on a flight that named a repository had a tree, so it
+    /// had a manifest, so it had a push - and reported outstanding. The
+    /// difference was never the failure; it was whether anything happened to be
+    /// pushed.
+    /// </para>
+    /// <para>
+    /// <b>Failed is a CONCLUSION and outstanding is not, which is why these two
+    /// split.</b> A loop that failed will fail the same way on the next runner,
+    /// so handing it on costs another lease to learn what this one already
+    /// recorded. A loop that is BLOCKED or EXHAUSTED stopped because somebody
+    /// has to do something - <c>score-hal</c> returns a question by design, and
+    /// <c>on-exhaustion: handoff-to-human</c> says so in the document - and that
+    /// is terminal without being a conclusion.
+    /// </para>
+    /// <para>
+    /// <b>A null run is not a failure and must keep its old answer.</b> A loop
+    /// with no executor configured never ran, which is the shape every
+    /// push-and-preserve fixture has; deciding those from an outcome that does
+    /// not exist would report failure on flights that did exactly what was asked.
+    /// </para>
+    /// </remarks>
+    internal static (string Disposition, string? Detail) Unattended(
+        ExecutorRun? run, LandingDecision? landing) => run?.Outcome switch
+        {
+            LoopOutcomes.Failed => (RunnerDisposition.Failed, run.Reason),
+            LoopOutcomes.Blocked or LoopOutcomes.Exhausted =>
+                (RunnerDisposition.Outstanding, run.Reason),
+            _ => (Outstanding(landing)
+                ? RunnerDisposition.Outstanding
+                : RunnerDisposition.Completed, (string?)null),
+        };
 
     private (string Disposition, string? Detail) Decided(
         LeaseGranted lease, WorkspaceResult workspace, LandingDecision? landing)

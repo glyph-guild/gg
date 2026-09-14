@@ -59,6 +59,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(DecisionRequest))]
 [JsonSerializable(typeof(DecisionRecorded))]
 [JsonSerializable(typeof(EnvelopeApplied))]
+[JsonSerializable(typeof(FlightFacts))]
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
@@ -982,6 +983,32 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FlightStory, cancellationToken);
+    }
+
+    /// <summary>What this flight actually recorded, or null when there is no such flight.</summary>
+    /// <remarks>
+    /// <b>The third read about one flight, and the only one a customer audits.</b>
+    /// The log is what the control plane did to it and the story folds that for a
+    /// reader; this is what the RUNNER shipped. Two of thirteen fact kinds reached
+    /// the story and the rest had no reader at all - including the proposal a
+    /// scoring flight exists to make, so a flight that claimed a score and
+    /// recorded none read exactly like one that did.
+    /// </remarks>
+    public async Task<FlightFacts?> GetFlightFactsAsync(
+        string sessionToken, string reference, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, $"/v1/flights/{reference}/facts", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.FlightFacts, cancellationToken);
     }
 
     public async Task<FlightLog?> GetFlightLogAsync(

@@ -77,6 +77,67 @@ public class TheRunnerBuildsWhatItWasToldToTests
     }
 
     [Test]
+    public async Task The_credential_is_asked_for_by_HOST_and_not_by_destination_id()
+    {
+        // THE SECRET BELONGS TO THE TRACKER, not to the name of a landing place.
+        // This asked for it by destination id, so two destinations aiming at one
+        // Azure DevOps project each needed their own copy of the same PAT, filed
+        // under different names - and a live runner already holding an ADO
+        // credential was refused a write because the locator did not happen to
+        // match a destination somebody had named `agentic-backlog`.
+        var asked = new List<string>();
+
+        TrackerConfiguration.FromEnvironment(
+            _ => new HttpClient(),
+            apis: "agentic-backlog=https://dev.azure.com/HRTMS/JDX",
+            secretFor: locator => { asked.Add(locator); return "a-token"; });
+
+        await Assert.That(asked).Contains("dev.azure.com/hrtms/jdx")
+            .Because("derived from the host: scheme dropped, lowercased and reduced to the "
+                   + "locator charset, so one project is one credential however many "
+                   + $"destinations aim at it. Asked for: {string.Join(", ", asked)}");
+
+        await Assert.That(asked).DoesNotContain("agentic-backlog")
+            .Because("the destination id names where work lands, which is not who may "
+                   + "change it.");
+    }
+
+    [Test]
+    public async Task An_entry_may_name_the_credential_itself()
+    {
+        // THE SIBLING'S SHAPE, because intent-hosts already pairs a host with a
+        // credential after a bar - `ado=https://…|local:hrtms/jdx`. A machine
+        // that already holds a PAT under a name of its own should point at it
+        // rather than keep a second copy under a name this derives.
+        var asked = new List<string>();
+
+        TrackerConfiguration.FromEnvironment(
+            _ => new HttpClient(),
+            apis: "agentic-backlog=https://dev.azure.com/HRTMS/JDX|jdx",
+            secretFor: locator => { asked.Add(locator); return "a-token"; });
+
+        await Assert.That(asked).Contains("jdx")
+            .Because($"named explicitly, so nothing is derived. Asked for: {string.Join(", ", asked)}");
+    }
+
+    [Test]
+    public async Task A_host_that_reduces_to_no_locator_is_refused_rather_than_guessed()
+    {
+        // ARTICLE XI, and the alternative is worse than a refusal: a host this
+        // cannot derive a locator from would otherwise ask the store for "" and
+        // report the absent-credential error, sending somebody to add a secret
+        // under a name nothing could ever hold.
+        var refused = Assert.Throws<InvalidOperationException>(() =>
+            TrackerConfiguration.FromEnvironment(
+                _ => new HttpClient(),
+                apis: "backlog=https://",
+                secretFor: _ => "a-token"));
+
+        await Assert.That(refused!.Message.Length).IsGreaterThan(60)
+            .Because($"it has to say which entry and why. Said: {refused.Message}");
+    }
+
+    [Test]
     public async Task A_declared_api_builds_one_sink_per_destination_key()
     {
         var sinks = TrackerConfiguration.FromEnvironment(

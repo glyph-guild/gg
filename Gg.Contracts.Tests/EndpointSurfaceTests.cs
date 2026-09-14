@@ -348,8 +348,22 @@ public class EndpointSurfaceTests
         // an EXISTING governed prefix, and prefixes are hashed there while
         // endpoints are not. The package version moves anyway, because the
         // control plane cannot serve a route it cannot see declared.
+        // Moved for GET /v1/flights/{ref}/facts - the third question about one
+        // flight, beside its log and its story, and the only one of the three
+        // whose answer a customer audits. The log is what the control plane DID
+        // to a flight and the story folds that for a reader; this is what the
+        // RUNNER shipped, and two of thirteen fact kinds were the whole of what
+        // had a reader before it.
+        //
+        // Developer audience, like the log and the story: a flight's evidence is
+        // the tenant's, read by the person who flew it.
+        //
+        // THE WIRE SURFACE MOVES TOO, unlike the reading above it - the response
+        // is a new type, and the closed vocabularies hash those. So the contract
+        // version moves to 0.162.0 with a ledger entry, and this fingerprint
+        // moves with it rather than instead of it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("9392c09e7da34370d6786d5c7da292727c2a78b3321791ad0722468a8b191981")
+            .IsEqualTo("c26931b160a3a3b327000934f3df0d4e0afe824288b170a03a701e2bc3614295")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

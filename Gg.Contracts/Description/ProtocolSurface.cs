@@ -776,6 +776,23 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+
+        // THE THIRD QUESTION ABOUT ONE FLIGHT, and the only one whose answer a
+        // customer audits. The log is what the control plane DID to a flight and
+        // the story folds that for a reader; this is what the RUNNER shipped.
+        // Two of thirteen fact kinds reached the story and the rest had no
+        // reader at all - including the proposal a scoring flight exists to
+        // make, so a flight that claimed a score and recorded none read exactly
+        // like one that did.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/flights/{ref}/facts",
+            Audience = Audience.Developer,
+            Response = typeof(FlightFacts),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "GET",
@@ -1602,6 +1619,8 @@ public static class ProtocolSurface
                 "waiting", "heldBy", "heldUntil", "outstanding", "entries",
             ],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
+            [typeof(RecordedFact)] = ["fact", "disposition", "recordedAt"],
+            [typeof(FlightFacts)] = ["flightNumber", "facts"],
             [typeof(FlightWithdrawalRequest)] = ["because"],
             [typeof(FlightGroundingRequest)] = ["because"],
             [typeof(RunnerSummary)] =

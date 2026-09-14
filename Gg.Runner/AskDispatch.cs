@@ -110,18 +110,18 @@ public sealed class AskDispatch(
         switch (ask.Kind)
         {
             case RunnerAskKinds.TailLog when ask.TailLog is { } asked:
-            {
-                // BOUNDED HERE TOO, not only at the far end. The bound is the
-                // contract's, and a runner that trusted the number it was sent
-                // would be a runner a console could ask for its whole disk.
-                var lines = Math.Clamp(asked.Lines, 1, RunnerAskBounds.MaxLines);
-
-                return new RunnerSaid
                 {
-                    Kind = RunnerAskKinds.TailLog,
-                    Tail = WithinBytes(_runner.Tail(lines)),
-                }.Stripped();
-            }
+                    // BOUNDED HERE TOO, not only at the far end. The bound is the
+                    // contract's, and a runner that trusted the number it was sent
+                    // would be a runner a console could ask for its whole disk.
+                    var lines = Math.Clamp(asked.Lines, 1, RunnerAskBounds.MaxLines);
+
+                    return new RunnerSaid
+                    {
+                        Kind = RunnerAskKinds.TailLog,
+                        Tail = WithinBytes(_runner.Tail(lines)),
+                    }.Stripped();
+                }
 
             case RunnerAskKinds.Status when ask.Status is not null:
                 return new RunnerSaid
@@ -136,38 +136,71 @@ public sealed class AskDispatch(
             // is what makes it not the `RunCommand` ADR-0013 names and
             // RunnerAskClosureTests plants.
             case RunnerAskKinds.ConfigureCredential when ask.ConfigureCredential is { } given:
-            {
-                // NOWHERE TO KEEP IT IS A REFUSAL, not a failure reported
-                // politely. An answer saying `written: false` would tell a
-                // console this runner COULD be configured and something went
-                // wrong; it cannot be, and those are different facts.
-                if (_credentials is null)
                 {
-                    Interlocked.Increment(ref _refused);
-                    return null;
-                }
-
-                // VALIDATED BEFORE IT BECOMES A PATH, by the contract's own
-                // rule, and refused rather than sanitised. CredentialStore holds
-                // this too; a bound only the far end enforces disappears the
-                // moment the far end is wrong, and this is the machine whose
-                // disk it would be.
-                if (CredentialLocator.Validate(given.Locator) is not null)
-                {
-                    Interlocked.Increment(ref _refused);
-                    return null;
-                }
-
-                return new RunnerSaid
-                {
-                    Kind = RunnerAskKinds.ConfigureCredential,
-                    Configured = new ConfiguredCredential
+                    // VALIDATED FIRST, AND BEFORE IT BECOMES A PATH OR AN ECHO.
+                    // By the contract's own rule, and refused rather than
+                    // sanitised. CredentialStore holds this too; a bound only the
+                    // far end enforces disappears the moment the far end is wrong,
+                    // and this is the machine whose disk it would be.
+                    //
+                    // AHEAD OF THE KEEPER CHECK so a steered locator gets the same
+                    // silence whatever this machine is wired for: the arm below
+                    // hands the locator back, and handing back `../../etc/passwd`
+                    // would be answering a question nobody legitimate asked.
+                    if (CredentialLocator.Validate(given.Locator) is not null)
                     {
-                        Locator = given.Locator,
-                        Written = _credentials.Keep(given.Locator, given.Secret),
-                    },
-                }.Stripped();
-            }
+                        Interlocked.Increment(ref _refused);
+                        return null;
+                    }
+
+                    // NOWHERE TO KEEP IT IS A REFUSAL, AND IT SAYS SO.
+                    //
+                    // This returned null, reasoning that `written: false` would
+                    // tell a console the runner COULD be configured and something
+                    // went wrong. The sender reads it the other way round - its
+                    // written-false arm names `accept-configured` and says whose
+                    // decision it is - so the two halves disagreed about what the
+                    // value meant, and that sentence could never be reached.
+                    //
+                    // WHAT SILENCE COST. It is indistinguishable from a runner too
+                    // old to have this arm at all, so a live, beating, idle machine
+                    // reported "either it is running a gg that predates this, or the
+                    // ask did not reach it" - sending somebody to compare versions
+                    // when the answer was one line in a file on that machine.
+                    //
+                    // STILL A REFUSAL: nothing is written, the counter moves, and
+                    // the boolean is the whole of the answer. Saying "I heard you
+                    // and I will not" discloses nothing that asking did not already
+                    // establish.
+                    if (_credentials is null)
+                    {
+                        Interlocked.Increment(ref _refused);
+
+                        return new RunnerSaid
+                        {
+                            Kind = RunnerAskKinds.ConfigureCredential,
+                            Configured = new ConfiguredCredential
+                            {
+                                // THE LOCATOR THE SENDER SENT, echoed so it can
+                                // name which credential in what it prints. Already
+                                // validated above, and handed straight back to the
+                                // peer that supplied it rather than used.
+                                Locator = given.Locator,
+                                Written = false,
+                            },
+                        }.Stripped();
+                    }
+
+                    return new RunnerSaid
+                    {
+                        Kind = RunnerAskKinds.ConfigureCredential,
+                        Configured = new ConfiguredCredential
+                        {
+                            Locator = given.Locator,
+                            Written = _credentials.Keep(given.Locator, given.Secret),
+                        },
+                    }.Stripped();
+                }
 
             default:
                 // A KIND WITH NO PAYLOAD LANDS HERE TOO, deliberately. `tail-log`

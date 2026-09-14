@@ -68,12 +68,24 @@ public class WhatARunnerSaysItTakesIsWhatItTakesTests
     {
         var dispatch = new AskDispatch(new Quiet());
 
-        await Assert.That(dispatch.Answer(Configuring())).IsNull()
+        // IT REFUSES OUT LOUD NOW, and the claim this test makes is unchanged:
+        // the beat and the dispatch must say the same thing. What moved is HOW
+        // the dispatch says it. Silence was indistinguishable from a runner too
+        // old to have the arm, so a machine that had simply not opted in
+        // reported "either it is running a gg that predates this, or the ask did
+        // not reach it" - and the sender's sentence about accept-configured,
+        // which is the actual remedy, could never be reached.
+        var said = dispatch.Answer(Configuring());
+
+        await Assert.That(said).IsNotNull();
+        await Assert.That(said!.Configured!.Written).IsFalse()
             .Because("a runner with nowhere to keep a credential refuses for want of a "
                    + "port, and its beat must say the same thing rather than inviting "
                    + "somebody to type a secret it will drop.");
 
-        await Assert.That(dispatch.Refused).IsEqualTo(1);
+        await Assert.That(dispatch.Refused).IsEqualTo(1)
+            .Because("answering is not accepting: nothing was written, and the counter is "
+                   + "what a hostile peer is measured by.");
     }
 
     [Test]

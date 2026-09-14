@@ -112,6 +112,38 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
     };
 
     /// <summary>
+    /// What to say when a runner answered nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three causes, and it named two.</b> The missing one is a runner new
+    /// enough to have the arm whose own file does not say
+    /// <c>accept-configured</c> - and it was the likeliest, because opting in is
+    /// a decision somebody has to have made on that machine and absence is the
+    /// default. A send to a live, beating, idle runner reported silence and this
+    /// sentence sent the reader to compare versions.
+    /// </para>
+    /// <para>
+    /// <b>The runner answers that case now</b>, so a current one reaches the
+    /// written-false arm and gets a sentence about its own file. This text is
+    /// what everything still in the field produces, and those are exactly the
+    /// machines whose reader cannot tell the three apart.
+    /// </para>
+    /// <para>
+    /// <b>What was written comes first.</b> Somebody who has just handed a token
+    /// to a machine that said nothing wants to know whether it is now somewhere
+    /// they did not intend, before they want to know why.
+    /// </para>
+    /// </remarks>
+    public static string SaidWhenNothingCameBack(string label) =>
+        $"{label} did not answer about the credential. Nothing was written, and nothing was "
+      + "left behind. Three things look like this: its own configuration does not say "
+      + "`accept-configured` and it is old enough to stay quiet about that, it is running a "
+      + "gg that predates this ask entirely, or the ask did not reach it. Check "
+      + "`gg config show` and `gg --version` on that machine, in that order - the first is a "
+      + "line in a file and the second is an upgrade.";
+
+    /// <summary>
     /// The secret to send: this machine's copy, or one typed now.
     /// </summary>
     /// <remarks>
@@ -256,13 +288,12 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
             // for this kind and drops the message without a word - which is the
             // dispatch working as designed - and a person told "it refused"
             // would go looking for a permission rather than for a version.
+            //
+            // AND IT IS NOT ONLY A VERSION EITHER, which cost a real diagnosis:
+            // see SaidWhenNothingCameBack.
             if (said?.Configured is not { } configured)
             {
-                return new Sent(
-                    SendOutcome.NotWritten,
-                    $"{runner.Label} did not answer about the credential. Either it is "
-                  + "running a gg that predates this, or the ask did not reach it. Nothing "
-                  + "was written, and nothing was left behind.");
+                return new Sent(SendOutcome.NotWritten, SaidWhenNothingCameBack(runner.Label));
             }
 
             // WRITTEN: FALSE IS AN ANSWER, and the likeliest one. A runner whose

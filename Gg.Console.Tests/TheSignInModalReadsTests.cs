@@ -264,6 +264,18 @@ public class TheSignInModalReadsTests
 
             // ON A GROUP, so the fold key's flag is exercised like the rest.
             HelpFold = UiMode.Help,
+
+            // AND ON THE LOOK PAGE, for that reason: a flag the derivation
+            // forgets to read is a key the keymap offers and the hint line
+            // never advertises, or the reverse.
+            //
+            // THE MODE ON THIS MODEL IS Normal, DELIBERATELY - it is one state
+            // with every flag raised, not a state anybody could be in. That is
+            // what caught the first version of this flag: it was derived as
+            // "Help mode AND the Look page", which no such model can satisfy.
+            // Resolve already dispatches on Mode, so asking again in the
+            // derivation was a second answer to a settled question.
+            HelpPage = HelpPage.Look,
         };
 
         var context = KeymapContext.For(state);

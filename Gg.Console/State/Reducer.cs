@@ -224,6 +224,18 @@ public static class Reducer
             // the focused pane everywhere else. A modal holds the keys for one
             // question, so the key means what the question needs - and it is
             // borrowed rather than taken: Normal mode is unchanged.
+            // THE LOOK PAGE'S THREE, and they are only meaningful on it - the
+            // keymap binds them there and nowhere else, so a guard here would
+            // be a second answer to a question the keymap has already asked.
+            Command.NextLookValue => state with { Look = Looks.Turned(state.Look, +1) },
+            Command.PreviousLookValue => state with { Look = Looks.Turned(state.Look, -1) },
+
+            // THE CURSOR SURVIVES THE RESET, because it is not a setting - it
+            // is where the person is standing, and moving them somewhere else
+            // while they undo is a second surprise on top of the one they asked
+            // for.
+            Command.ResetLook => state with { Look = new Look { Selected = state.Look.Selected } },
+
             Command.FocusNextPane when state.Mode == UiMode.Help => state with
             {
                 // THROUGH THE LIST THE BAR IS DRAWN FROM. Naming the two pages
@@ -1091,6 +1103,15 @@ public static class Reducer
     public static AppState Pointed(AppState state, int row)
     {
         ArgumentNullException.ThrowIfNull(state);
+
+        // THE LOOK PAGE'S TABLE, before the modes below it: the help modal is a
+        // mode like any other, and the row somebody clicked is which SETTING
+        // they are about to change. Falling through would move whatever list is
+        // behind the modal instead.
+        if (state.Mode is UiMode.Help && state.HelpPage is HelpPage.Look)
+        {
+            return state with { Look = state.Look with { Selected = row } };
+        }
 
         // THE SAME ARM AS Moved, for the same reason: a person clicking inside
         // a modal is pointing at the modal's list, and the row they hand over

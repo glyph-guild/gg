@@ -9,8 +9,21 @@ namespace Gg.Console;
 /// actually compute - which is what turns the hints check from a sampling into
 /// an equality.
 /// </remarks>
+/// <summary>
+/// The condition the Look page's keys carry, written once.
+/// </summary>
+/// <remarks>
+/// Four keys with one condition would otherwise spell it four ways, and the
+/// help page prints whichever each of them said.
+/// </remarks>
+internal static class LookPageCondition
+{
+    internal const string Said = "on the Look page";
+}
+
 public readonly record struct KeyStroke(
-    char? Input, bool Ctrl = false, bool Escape = false, bool Tab = false, bool Enter = false)
+    char? Input, bool Ctrl = false, bool Escape = false, bool Tab = false, bool Enter = false,
+    bool Left = false, bool Right = false)
 {
     public static KeyStroke Char(char input) => new(input);
 
@@ -35,11 +48,31 @@ public readonly record struct KeyStroke(
     /// </remarks>
     public static KeyStroke EnterKey { get; } = new(null, Enter: true);
 
+    /// <summary>
+    /// The arrows that mean "less" and "more" rather than "up" and "down".
+    /// </summary>
+    /// <remarks>
+    /// <b>Named keys for <see cref="EnterKey"/>'s reason</b>: what arrives from
+    /// a terminal is a named key rather than a rune, and matching an escape
+    /// sequence as a character would be matching one terminal's idea of it.
+    /// </remarks>
+    /// <remarks>
+    /// <c>LeftKey</c> rather than <c>Left</c>, exactly as <see cref="EnterKey"/>
+    /// is not <c>Enter</c>: the positional parameter already has the name, and
+    /// the compiler says so rather than letting the two quietly disagree.
+    /// </remarks>
+    public static KeyStroke LeftKey { get; } = new(null, Left: true);
+
+    /// <summary>The other one.</summary>
+    public static KeyStroke RightKey { get; } = new(null, Right: true);
+
     /// <summary>How this key is written where a person will read it.</summary>
     public string Name =>
         Escape ? "esc"
         : Tab ? "tab"
         : Enter ? "enter"
+        : Left ? "left"
+        : Right ? "right"
         : Ctrl ? $"ctrl+{Input}"
         : Input?.ToString() ?? "?";
 }
@@ -78,7 +111,27 @@ public readonly record struct KeymapContext(
     /// anywhere else shifts every call site that passes by position, which the
     /// compiler catches loudly here and would not in a looser language.
     /// </remarks>
-    bool OverAFold = false)
+    bool OverAFold = false,
+
+    /// <summary>
+    /// Whether the help modal is showing the Look page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The distinction `e' and `o' deliberately do NOT make, and this one
+    /// has to.</b> Those two are bound for the whole modal because knowing the
+    /// page would mean a new field here and every property test's cross-product
+    /// doubling "for a distinction a person does not feel". A person feels this
+    /// one: left and right change a VALUE, and on the Keys page there is no
+    /// value under the cursor for them to change — an advertised key that does
+    /// nothing is the dead key Article XI names.
+    /// </para>
+    /// <para>
+    /// <b>Last, because this is a positional record</b> — the reason
+    /// <see cref="OverAFold"/> gives directly above.
+    /// </para>
+    /// </remarks>
+    bool OnTheLookPage = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -199,7 +252,20 @@ public readonly record struct KeymapContext(
             // AND WHETHER THE HELP CURSOR IS ON A GROUP. Derived here with the
             // other two for their reason: the hint line and the dispatch read
             // one answer, so a key cannot be advertised where it does nothing.
-            state.HelpFold is not null)
+            state.HelpFold is not null,
+
+            // AND WHETHER THE LOOK PAGE IS SHOWING, for that same reason: four
+            // keys that change a value have nothing to act on anywhere else in
+            // this modal.
+            //
+            // THE PAGE ALONE, NOT THE PAGE AND THE MODE. Resolve dispatches on
+            // Mode first and this flag is read only in the Help arm, so testing
+            // it here too is a second answer to a question already asked - and
+            // it makes the flag underivable from any model that is not in the
+            // modal, which is what TheSignInModalReads' completeness guard sets
+            // one of everything on. HelpFold, one clause up, does not ask
+            // either.
+            state.HelpPage is HelpPage.Look)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -473,6 +539,43 @@ public static class Keymap
                 // entirely rather than adding one that does nothing.
                 Label = "Take offer",
             },
+
+            // THE LOOK PAGE'S OWN, and only there. Four keys that change a
+            // value have nothing to act on where the cursor is on a key or a
+            // setting name, and a hint line generated from this same context is
+            // what stops them being advertised there either.
+            .. context.OnTheLookPage
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.RightKey, Command.NextLookValue, "next value")
+                        { When = LookPageCondition.Said },
+                    new(KeyStroke.LeftKey, Command.PreviousLookValue, "previous value")
+                        { When = LookPageCondition.Said },
+
+                    new(KeyStroke.Char('r'), Command.ResetLook, "put it all back")
+                    {
+                        // SAYS WHEN, because it is not live in the plainest
+                        // form of its own mode - a key whose condition a person
+                        // cannot see is one they will press on the Keys page
+                        // and conclude is broken.
+                        When = LookPageCondition.Said,
+
+                        // LABELLED, because the all-or-nothing rule means it
+                        // must be: an unlabelled answer takes this page's
+                        // buttons away entirely rather than adding one that
+                        // does nothing.
+                        Label = "Reset",
+                    },
+
+                    // WHAT THE SPIKE IS FOR. The page is for trying looks on;
+                    // this is how the two that worked leave the console.
+                    new(KeyStroke.Char('c'), Command.CopyModal, "copy the changes")
+                    {
+                        When = LookPageCondition.Said,
+                        Label = "Copy changes",
+                    },
+                ]
+                : [],
 
             new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment")
             {
@@ -1496,6 +1599,12 @@ public static class Keymap
         // on no page - which is the argument the clause above it records.
         from reading in (bool[])[false, true]
 
+        // AND WHETHER THE LOOK PAGE IS SHOWING. Crossed here for the reason
+        // every clause below and above it records: its four keys resolve in the
+        // running console, and a shape this product leaves out is a key that
+        // appears on no page. Caught by exactly that test.
+        from onTheLookPage in (bool[])[false, true]
+
         // AND WHETHER THE HELP CURSOR IS ON A GROUP. Crossed here so the fold
         // key reaches the catalogue, which is what the help page is built
         // from - a key offered only in one shape and left out of this would be
@@ -1503,7 +1612,7 @@ public static class Keymap
         from overAFold in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument, reading,
-            overAFold)
+            overAFold, onTheLookPage)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

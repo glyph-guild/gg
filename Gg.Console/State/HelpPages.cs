@@ -28,7 +28,7 @@ public static class HelpPages
     /// a person did not have to ask for.
     /// </remarks>
     public static IReadOnlyList<HelpPage> All { get; } =
-        [HelpPage.Keys, HelpPage.Environment, HelpPage.Doctor];
+        [HelpPage.Keys, HelpPage.Environment, HelpPage.Doctor, HelpPage.Look];
 
     /// <summary>What the tab is called.</summary>
     public static string Title(HelpPage page) => page switch
@@ -36,6 +36,11 @@ public static class HelpPages
         HelpPage.Keys => "Keys",
         HelpPage.Environment => "Environment",
         HelpPage.Doctor => "Doctor",
+
+        // LAST ON THE STRIP, because it is the page nobody opens help to find.
+        // Keys is first for that reason and this is the other end of the same
+        // argument.
+        HelpPage.Look => "Look",
         _ => page.ToString(),
     };
 

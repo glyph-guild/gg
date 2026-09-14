@@ -35,6 +35,19 @@ public static class KeyTranslator
             return KeyStroke.EnterKey;
         }
 
+        // THE ARROWS THAT MEAN LESS AND MORE. Named for the reason enter is:
+        // they arrive as KeyCodes rather than runes, so without an arm here
+        // they became a KeyStroke with nothing set and matched no binding -
+        // which is the seam KeyTranslatorTests exists for.
+        if (key == Key.CursorLeft)
+        {
+            return KeyStroke.LeftKey;
+        }
+        if (key == Key.CursorRight)
+        {
+            return KeyStroke.RightKey;
+        }
+
         var bare = key.NoCtrl.NoAlt.NoShift;
         char? input = null;
         if (bare.AsRune.IsAscii && !System.Text.Rune.IsControl(bare.AsRune))

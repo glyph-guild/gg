@@ -275,6 +275,21 @@ public sealed class ConsoleScreen : Window
     /// <summary>The Doctor page, a list for the reason its neighbour is one.</summary>
     private readonly ListView _helpDoctor;
 
+    /// <summary>The Look page's tab, its table of settings, and the pane under it.</summary>
+    /// <remarks>
+    /// <b>A SPIKE.</b> A table above and a sentence below is the shape the
+    /// flight log and the work item's history already have, and for the reason
+    /// they have it: a value belongs in a cell and the prose that explains it
+    /// does not fit in one.
+    /// </remarks>
+    private readonly View _helpLookTab;
+
+    private readonly TableView _helpLook;
+
+    private readonly FrameView _helpLookAboutPane;
+
+    private readonly Label _helpLookAbout;
+
     /// <summary>What that page is showing. Same guard, same reason.</summary>
     private IReadOnlyList<string>? _helpDoctorShowing;
 
@@ -836,9 +851,44 @@ public sealed class ConsoleScreen : Window
         };
         _helpDoctorTab.Add(_helpDoctor);
 
+        // THE LOOK PAGE: a table of what can be changed, and a sentence about
+        // whichever row the cursor is on. The table answers its own arrows, so
+        // the cursor is the widget's and the model follows it - the pattern
+        // every other table in this console uses.
+        _helpLook = CollectionViews.Table();
+        _helpLook.ValueChanged += OnModalRowPointedAt;
+        _helpLook.KeyDown += OnModalKeyDown;
+
+        _helpLookAboutPane = new FrameView
+        {
+            Title = "What it does",
+            X = 0,
+            Y = Pos.AnchorEnd(5),
+            Width = Dim.Fill(),
+            Height = 5,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _helpLookAbout = new Label
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+        _helpLookAboutPane.Add(_helpLookAbout);
+
+        _helpLookTab = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Title = "Look",
+            CanFocus = true,
+        };
+        _helpLookTab.Add(_helpLook, _helpLookAboutPane);
+
         _helpTabs.Add(_helpKeysTab);
         _helpTabs.Add(_helpEnvironmentTab);
         _helpTabs.Add(_helpDoctorTab);
+        _helpTabs.Add(_helpLookTab);
         _helpTabs.ValueChanged += OnHelpPageChanged;
 
         // CanFocus, WHICH A PLAIN View IS NOT. Nothing inside a view that
@@ -2103,6 +2153,7 @@ public sealed class ConsoleScreen : Window
 
         var page = ReferenceEquals(chosen, _helpEnvironmentTab) ? HelpPage.Environment
                  : ReferenceEquals(chosen, _helpDoctorTab) ? HelpPage.Doctor
+                 : ReferenceEquals(chosen, _helpLookTab) ? HelpPage.Look
                  : HelpPage.Keys;
 
         if (page == State.HelpPage)
@@ -2161,6 +2212,7 @@ public sealed class ConsoleScreen : Window
             {
                 HelpPage.Environment => _helpEnvironmentTab,
                 HelpPage.Doctor => _helpDoctorTab,
+                HelpPage.Look => _helpLookTab,
                 _ => _helpKeysTab,
             };
 
@@ -2272,6 +2324,8 @@ public sealed class ConsoleScreen : Window
         Fill(_helpEnvironment, ref _helpEnvironmentShowing, HelpPage.Environment);
         Fill(_helpDoctor, ref _helpDoctorShowing, HelpPage.Doctor);
 
+        FillLookPage();
+
         void Fill(ListView list, ref IReadOnlyList<string>? showing, HelpPage page)
         {
             var lines = PaneText.HelpPageLines(State, page, CollectionViews.TextWidth(list));
@@ -2284,6 +2338,45 @@ public sealed class ConsoleScreen : Window
             showing = lines;
             list.SetSource(new ObservableCollection<string>(lines));
         }
+    }
+
+    /// <summary>
+    /// The Look page: the settings table, and the sentence about the row under
+    /// the cursor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own method rather than a line in <see cref="FillHelpPages"/>,</b>
+    /// because that one declares a local <c>Fill</c> for the two pages that are
+    /// lines and it shadows the table's. The compiler said so, which is the
+    /// only reason anybody would have noticed.
+    /// </para>
+    /// <para>
+    /// <b>Held in the sync flag</b>: filling a table raises its own selection
+    /// event, which is also how a click arrives - so without it the fill
+    /// answers itself and moves the cursor a person did not move.
+    /// </para>
+    /// </remarks>
+    private void FillLookPage()
+    {
+        _syncing = true;
+
+        try
+        {
+            Fill(
+                _helpLook,
+                null,
+                Looks.Rows(State.Look),
+                Looks.Columns,
+                State.Look.Selected,
+                row => [row.Setting, row.Value, row.Changed]);
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        _helpLookAbout.Text = Looks.About(Looks.Under(State.Look));
     }
 
     /// <summary>A page changed width, so its lines have to be broken again.</summary>
@@ -2311,6 +2404,11 @@ public sealed class ConsoleScreen : Window
     {
         HelpPage.Environment => _helpEnvironment,
         HelpPage.Doctor => _helpDoctor,
+
+        // THE TABLE, because it is the page. The sentence below it is read
+        // rather than driven, and focus there would leave the arrows moving
+        // nothing - the defect every widget page here has had once.
+        HelpPage.Look => _helpLook,
         _ => _helpKeys,
     };
 
@@ -3211,7 +3309,78 @@ public sealed class ConsoleScreen : Window
         _activity.Text = PaneText.Activity(State);
         _hints.Text = Keymap.Hints(Context());
 
+        Applied(State.Look);
+
         Focus();
+    }
+
+    /// <summary>Draw the console the way the Look page says to.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A SPIKE, and this is the whole of what it costs the view.</b> One
+    /// method, called at the end of a render, walking the tree rather than
+    /// naming every pane — because naming them is how a pane added later gets
+    /// left behind, which is the shape <c>Tabs.Offered</c>'s followers already
+    /// taught this console once.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is applied for <see cref="Palette.Default"/>.</b> A console
+    /// nobody has touched must be identical to one built before this existed,
+    /// so the palette arm answers null and the scheme is left exactly as
+    /// Terminal.Gui set it. Borders still apply, because their default IS what
+    /// the record ships with.
+    /// </para>
+    /// <para>
+    /// <b>Cheap enough to do every render.</b> Render runs on a one-second
+    /// timer, and these are property writes that no-op when the value has not
+    /// moved — the same reasoning the tab bar's <c>Value</c> assignment uses.
+    /// </para>
+    /// </remarks>
+    private void Applied(Look look)
+    {
+        var pane = LookStyles.Line(look.PaneBorder);
+        var modal = LookStyles.Line(look.ModalBorder);
+        var tabLine = LookStyles.Line(look.TabLine);
+        var side = LookStyles.Side(look.TabSide);
+        var colours = LookStyles.Colours(look.Palette);
+
+        foreach (var strip in (Terminal.Gui.Views.Tabs[])
+                 [_bar, _helpTabs, _flightTabs, _itemTabs, _filterViews, _runnerViews,
+                  _airspaceViews])
+        {
+            strip.TabLineStyle = tabLine;
+            strip.TabSide = side;
+            strip.TabDepth = look.TabDepth;
+            strip.TabSpacing = look.TabSpacing;
+        }
+
+        // THE DIALOG SEPARATELY, which is the point of it having its own
+        // setting: what tells a modal apart from the panes behind it is the
+        // line round it.
+        _modal.BorderStyle = modal;
+
+        Walk(this);
+
+        void Walk(View view)
+        {
+            foreach (var child in view.SubViews)
+            {
+                // A FRAME IS A PANE. Every region of this console is a
+                // FrameView and nothing else is, so this is the whole of
+                // "each pane" without a list to keep up to date.
+                if (child is FrameView frame)
+                {
+                    frame.BorderStyle = pane;
+                }
+
+                if (colours is not null)
+                {
+                    child.SetScheme(colours);
+                }
+
+                Walk(child);
+            }
+        }
     }
 
     /// <summary>

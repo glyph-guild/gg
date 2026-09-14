@@ -348,6 +348,17 @@ public enum HelpPage
     Environment,
 
     /// <summary>
+    /// How the console is drawn, and a way to hand the changes back.
+    /// </summary>
+    /// <remarks>
+    /// <b>A SPIKE.</b> What is being tried is whether the look of this console
+    /// is worth making adjustable at all. The page changes the live screen and
+    /// <c>c</c> puts the CHANGES on the clipboard as an instruction — which is
+    /// how an answer leaves a spike without the spike having to land.
+    /// </remarks>
+    Look,
+
+    /// <summary>
     /// What this gg is, and what it found when the console opened.
     /// </summary>
     /// <remarks>
@@ -1375,6 +1386,18 @@ public sealed record AppState
 
     /// <summary>Which page of the help modal is showing.</summary>
     public HelpPage HelpPage { get; init; } = HelpPage.Keys;
+
+    /// <summary>
+    /// How the console is drawn, as a person has set it on the Look page.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the state, which is what makes it survive a terminal release.</b>
+    /// A rebuilt session is drawn from this record, so a look held anywhere
+    /// else would revert every time somebody opened an editor — and would not
+    /// appear in <c>GG_STATE_DUMP</c>, which is how this console is asked what
+    /// the screen looks like without a screen.
+    /// </remarks>
+    public Look Look { get; init; } = new();
 
     /// <summary>
     /// Which key groups a person has folded away from their default.

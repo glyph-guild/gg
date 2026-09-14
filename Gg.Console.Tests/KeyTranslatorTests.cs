@@ -39,6 +39,14 @@ public class KeyTranslatorTests
                 { Escape: true } => KeyTranslator.Translate(Key.Esc),
                 { Tab: true } => KeyTranslator.Translate(Key.Tab),
                 { Enter: true } => KeyTranslator.Translate(Key.Enter),
+
+                // THE ARROWS THAT MEAN LESS AND MORE, on the Look page. Named
+                // keys, so each needs an arm in the translator - and this walk
+                // is what says so: without these two it fell to `default' and
+                // reported the keymap answering a key no terminal could send,
+                // which is exactly the report it is for.
+                { Left: true } => KeyTranslator.Translate(Key.CursorLeft),
+                { Right: true } => KeyTranslator.Translate(Key.CursorRight),
                 { Ctrl: true, Input: { } c } => KeyTranslator.Translate(new Key(c).WithCtrl),
                 { Input: { } c } => KeyTranslator.Translate(new Key(c)),
                 _ => default,

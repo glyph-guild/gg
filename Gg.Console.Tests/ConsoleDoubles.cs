@@ -1,4 +1,5 @@
 using Gg.Console;
+using Gg.Local;
 
 namespace Gg.Console.Tests;
 
@@ -41,6 +42,32 @@ internal static class ConsoleDoubles
     /// the thing it tests; the temptation is to go and look at the loop.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// A browser that throws if anything asks it anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>For the assertions about NOT asking.</b> A double that answered would
+    /// let a cache that does not work pass as one that does — the read would
+    /// happen, the answer would be right, and nobody would be any the wiser.
+    /// </remarks>
+    internal sealed class NeverAsked : IWorkBrowser
+    {
+        public string? Key => "a-tracker";
+
+        public Task<ItemOutcome> ReadAsync(string id, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("this item was already held and was asked for again");
+
+        public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("this history was already held and was asked for again");
+
+        public Task<BrowseOutcome> BrowseAsync(
+            string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("the listing was asked for when it should not have been");
+
+        public Task<FacetOutcome> FacetsAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("the facets were already held and were asked for again");
+    }
+
     internal sealed class TypesKeys(params Command[] keys) : IUiSession
     {
         private int _at;

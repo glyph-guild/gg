@@ -70,7 +70,24 @@ public abstract record CliAction
     /// </summary>
     public sealed record Fly(
         string? Text, string? Uri, bool Json, string? Provider = null, string? Id = null,
-        string? Repository = null,
+        /// <summary>
+        /// Which repositories this flight is about, in the order they were
+        /// named, or empty to inherit.
+        /// </summary>
+        /// <remarks>
+        /// <b>A list because some work needs two.</b> A kind whose procedure
+        /// lives in one repository and whose subject lives in another - the
+        /// rubric in one, the code it describes in the other - could name only
+        /// the one it was pinned to, and its agent stopped at the missing half.
+        /// The runner has cloned a list since it was written; this is the end
+        /// that could not say one.
+        /// <para>
+        /// <b>Order is carried, not sorted.</b> They are cloned and listed to
+        /// the agent in the order typed, so naming the one the work is about
+        /// first says something a reader can act on.
+        /// </para>
+        /// </remarks>
+        IReadOnlyList<string>? Repositories = null,
         /// <summary>A person is flying this one themselves, on this machine.</summary>
         /// <remarks>
         /// <b>A flag on the flight rather than a verb of its own.</b> A
@@ -626,6 +643,59 @@ public static class CliArgs
     /// `gg fly --runner abc "do it"` would become a flight whose text is the
     /// runner id.
     /// </remarks>
+    /// <summary>
+    /// Every value a repeatable option was given, in the order they were typed.
+    /// </summary>
+    /// <remarks>
+    /// <b>Order is carried rather than sorted.</b> A flight's repositories are
+    /// cloned and listed to the agent in the order named, so naming the one the
+    /// work is about first says something a reader can act on - and sorting
+    /// them here would take that away with nothing gained.
+    /// </remarks>
+    private static IReadOnlyList<string> Values(string[] args, string option)
+    {
+        var found = new List<string>();
+
+        for (var at = 0; at < args.Length; at++)
+        {
+            if (!string.Equals(args[at], option, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // THE SAME RULE Value USES: a value beginning with `--` is the next
+            // option rather than this one's argument, so an option given
+            // nothing contributes nothing - and the caller compares this count
+            // against how many times the option appeared to notice.
+            if (at + 1 < args.Length
+                && !args[at + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                found.Add(args[at + 1]);
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>The arguments with EVERY occurrence of an option and its value removed.</summary>
+    /// <remarks>
+    /// <b><see cref="Without"/> removes one.</b> A repeatable option leaves the
+    /// second pair behind, and a value left in the list is matched as a verb -
+    /// which is the defect that helper's own remark describes, one occurrence
+    /// further along.
+    /// </remarks>
+    private static string[] WithoutEvery(IEnumerable<string> args, string option)
+    {
+        var left = args.ToArray();
+
+        while (Array.IndexOf(left, option) >= 0)
+        {
+            left = Without(left, option);
+        }
+
+        return left;
+    }
+
     private static string[] Without(IEnumerable<string> args, string option)
     {
         var kept = new List<string>();
@@ -682,6 +752,12 @@ public static class CliArgs
         var workKind = Value(args, "--work-kind");
         var environment = Value(args, "--environment");
 
+        // AND --repo IS THE ONE THAT REPEATS, so it is collected rather than
+        // read once, and stripped every time rather than once. A kind whose
+        // procedure lives in one repository and whose subject lives in another
+        // names both; the runner has cloned a list since it was written.
+        var repositories = Values(args, "--repo");
+
         var rest = Without(
             Without(
                 Without(
@@ -690,6 +766,45 @@ public static class CliArgs
                     "--runner"),
                 "--work-kind"),
             "--environment");
+
+        // STRIPPED FOR `fly` ONLY, unlike --runner beside it. `gg credential
+        // add --repo` and `gg credential send --repo` take the same flag and
+        // read it from their own argument list; stripping it globally would
+        // take it away from both and they would refuse for want of the thing
+        // that was typed.
+        var flying = rest is ["fly", ..];
+
+        if (flying)
+        {
+            // A --repo GIVEN NOTHING TO BE is somebody who meant to name one.
+            // Values skips it, and the strip below would remove it, so without
+            // this the line reads as a flight with no repository at all - which
+            // opens work against an empty tree and reports success.
+            if (args.Count(a => string.Equals(a, "--repo", StringComparison.Ordinal))
+                > repositories.Count)
+            {
+                return Unknown(
+                    "gg fly --repo needs the name a repository is registered under, e.g. "
+                  + "--repo payments. Run gg airspace show to see them.");
+            }
+
+            // NAMED TWICE IS REFUSED. Cloning it twice is the cheap harm; the
+            // expensive one is that two trees of one repository give an agent
+            // two answers to "what does this file say" and no rule for
+            // choosing between them.
+            var twice = repositories
+                .GroupBy(r => r, StringComparer.Ordinal)
+                .FirstOrDefault(g => g.Count() > 1);
+
+            if (twice is not null)
+            {
+                return Unknown(
+                    $"gg fly names '{twice.Key}' more than once. Two trees of one repository "
+                  + "give an agent two answers to what a file says and no rule for choosing.");
+            }
+
+            rest = WithoutEvery(rest, "--repo");
+        }
 
         // AND REFUSED ON ANYTHING THAT IS NOT `fly`. Stripping it globally would
         // accept `gg flights --hand` and do nothing - a flag that reads as an
@@ -969,29 +1084,16 @@ public static class CliArgs
             // The registry KEY, never the forge path - a path is a display label
             // that may drift, and a flight naming the key keeps resolving after
             // somebody renames the repository on the forge.
-            ["fly", "--uri", var uri, "--repo", var repo] =>
-                new CliAction.Fly(null, uri, json, Repository: repo, ByHand: byHand,
-                    Runner: runner, Attended: attended, WorkKind: workKind,
-                    Environment: environment),
-            ["fly", "--ticket", var ticket, "--repo", var repo] =>
-                Ticket(ticket, json, repo, byHand, runner, attended, workKind, environment),
-            ["fly", var text, "--repo", var repo] when !Option(text) =>
-                new CliAction.Fly(text, null, json, Repository: repo, ByHand: byHand,
-                    Runner: runner, Attended: attended, WorkKind: workKind,
-                    Environment: environment),
-
-                    // A trailing `--repo` is somebody who meant to name one. Falling
-                    // through to the says-two-things arm below would diagnose the wrong
-                    // half of the line, and taking it as no repository would open work
-                    // against an empty tree and report success.
-                    ["fly", _, _, "--repo"] or ["fly", _, "--repo"] => Unknown(
-                        "gg fly --repo needs the name a repository is registered under, e.g. "
-                      + "--repo payments. Run gg airspace show to see them."),
-
-            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json, ByHand: byHand,
+            // `--repo` NO LONGER APPEARS IN THESE PATTERNS, because it repeats
+            // and a list pattern cannot say "any number of these". It is
+            // collected and stripped above, the way --runner and --work-kind
+            // already were, and arrives here as a list - so one arm serves a
+            // flight that names none, one, or two.
+            ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json,
+                Repositories: repositories, ByHand: byHand,
                 Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
-            ["fly", "--ticket", var ticket] => Ticket(ticket, json, byHand: byHand,
-                runner: runner, attended: attended, workKind: workKind, environment: environment),
+            ["fly", "--ticket", var ticket] => Ticket(
+                ticket, json, repositories, byHand, runner, attended, workKind, environment),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -1006,7 +1108,8 @@ public static class CliArgs
                 $"'{option}' is an option, and gg fly does not have it. It takes some text, "
               + "--uri <uri>, or --ticket <provider>#<id>."),
 
-            ["fly", var text] => new CliAction.Fly(text, null, json, ByHand: byHand,
+            ["fly", var text] => new CliAction.Fly(text, null, json,
+                Repositories: repositories, ByHand: byHand,
                 Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
@@ -1165,12 +1268,12 @@ public static class CliArgs
         word.StartsWith('-');
 
     private static CliAction Ticket(
-        string token, bool json, string? repository = null, bool byHand = false,
+        string token, bool json, IReadOnlyList<string>? repositories = null, bool byHand = false,
         string? runner = null, bool attended = false,
         string? workKind = null, string? environment = null) =>
         SplitTicket(token) is var (provider, id) && provider is not null
             ? new CliAction.Fly(
-                null, null, json, Provider: provider, Id: id, Repository: repository,
+                null, null, json, Provider: provider, Id: id, Repositories: repositories,
                 ByHand: byHand, Runner: runner, Attended: attended,
                 WorkKind: workKind, Environment: environment)
             : Unknown(

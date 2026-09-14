@@ -354,6 +354,21 @@ public sealed class AttendedExecutor(
         _announce.WriteLine();
         _announce.WriteLine($"Flying {request.LoopId} by hand in {request.WorkingDirectory}");
 
+        // AND WHERE THE REPOSITORIES ARE, because that directory is no longer
+        // one of them. A hand-flown session used to start INSIDE the checkout;
+        // it starts above it now, among directories named by a hash of each
+        // slug - so a person given only the line above would be standing in an
+        // unfamiliar place, and anything they edited there would be outside
+        // every tree and in no manifest.
+        //
+        // THE AGENT'S PROMPT SAYS THE SAME THING, one executor over. A person
+        // hand-flying is owed it more, not less: an agent is told once in
+        // writing and a person has to notice.
+        foreach (var tree in request.Trees)
+        {
+            _announce.WriteLine($"  {tree.Slug} is checked out at {tree.Path}");
+        }
+
         // WHAT WAS TAKEN AWAY, said rather than discovered. This session runs
         // with the operator's setting sources cleared and their tool servers
         // withheld - which is what makes the envelope's bound mean anything

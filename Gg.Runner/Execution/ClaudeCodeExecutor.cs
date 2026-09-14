@@ -622,13 +622,59 @@ public sealed class ClaudeCodeExecutor(
     /// </remarks>
     private static string Task(ExecutorRequest request) =>
         request.Brief is { Length: > 0 } brief
-            ? $"Work {Subject(request)}. {brief.TrimEnd()} Stay in this working tree."
-            : $"Work {Subject(request)}. Make the code changes it asks for, in this working "
-            + "tree only.";
+            ? $"Work {Subject(request)}. {brief.TrimEnd()}"
+            : $"Work {Subject(request)}. Make the code changes it asks for.";
+
+    /// <summary>
+    /// Where each repository is, because the directory names do not say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An agent used to START inside its checkout and be told to stay
+    /// there.</b> That was one sentence and one tree; a flight may put several
+    /// on disk, and the working directory is now the flight's own - so the
+    /// checkout an agent used to be standing in has to be named, or the move
+    /// takes away the only thing it knew.
+    /// </para>
+    /// <para>
+    /// <b>Slug AND path, because the directory is a hash of the slug.</b>
+    /// <c>WorkingTreeRoot</c> fingerprints it deliberately - a slug is "never a
+    /// directory name" - so an agent at the root sees sixteen hex characters
+    /// per repository and can derive neither from the other.
+    /// </para>
+    /// <para>
+    /// <b>Nothing at all when there are none</b>, which is every ticket, link
+    /// and typed sentence. A heading over an empty list would send an agent
+    /// looking for somewhere that is not there.
+    /// </para>
+    /// </remarks>
+    private static string Trees(ExecutorRequest request)
+    {
+        if (request.Trees.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var said = new StringBuilder(
+            "\n\nYou are in this flight's own directory, and the repositories it put on disk "
+          + "are below it. Work in these and nowhere else:\n");
+
+        foreach (var tree in request.Trees)
+        {
+            said.Append($"\n  {tree.Slug} is checked out at {tree.Path}");
+        }
+
+        said.Append(
+            "\n\nThe directory names are hashes of the slugs rather than the slugs, so use "
+          + "the paths above rather than guessing at them.");
+
+        return said.ToString();
+    }
 
     private static string Prompt(ExecutorRequest request) =>
         Task(request)
       + " Do not create a branch, do not commit, and do not push anything anywhere."
+      + Trees(request)
       + WhenItCannot
       // AFTER THE WORK AND BEFORE ANY PRIOR ATTEMPT, which is the decision
       // rather than an accident of concatenation. An agent should know what it

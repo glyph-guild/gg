@@ -289,6 +289,35 @@ public sealed record FlightLaunchRequest
     public string? Repository { get; init; }
 
     /// <summary>
+    /// Which repositories the flight is about, in the order named, or empty to
+    /// inherit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Some work needs two, and everything but this end could already carry
+    /// them.</b> <c>FlightRepo</c> has been a list on the wire since it was
+    /// written, <c>IWorkspace.PrepareAsync</c> takes that list and answers with
+    /// trees plural, and the envelope's repository bound has been a SET since
+    /// 0.112.0. A kind whose procedure lives in one repository and whose subject
+    /// lives in another could name only the one it was pinned to, and its agent
+    /// stopped at the missing half.
+    /// </para>
+    /// <para>
+    /// <b>Beside <see cref="Repository"/> rather than replacing it.</b> The
+    /// singular is what every client that has ever opened a flight sends, and a
+    /// control plane reading only the plural would drop the repository off every
+    /// one of them. Both are read; naming the same repository in both is the
+    /// same selection said twice rather than two selections.
+    /// </para>
+    /// <para>
+    /// <b>Order is carried.</b> They are cloned in it and listed to the agent in
+    /// it, so an author naming the one the work is about first is saying
+    /// something a reader can act on.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? Repositories { get; init; }
+
+    /// <summary>
     /// Which runner this flight is for, by id. Null means any runner that may
     /// take it, which is nearly every flight.
     /// </summary>

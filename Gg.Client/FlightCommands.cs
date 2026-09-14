@@ -1407,7 +1407,7 @@ public sealed class FlightCommands(
         CancellationToken cancellationToken = default,
         string? provider = null,
         string? id = null,
-        string? repository = null,
+        IReadOnlyList<string>? repositories = null,
         // WHICH MACHINE, and whether somebody will be watching it. Two flags
         // rather than one: naming a runner is an ordinary directed flight and
         // has been since it shipped; attended says a person is at the other end.
@@ -1454,7 +1454,13 @@ public sealed class FlightCommands(
             // item knows the work item, not the branch policy - and a flight
             // that named one would be pinning from the least informed place in
             // the system. Null inherits, which is what it has always meant.
-            Repository = repository is { Length: > 0 } ? repository : null,
+            // THE SINGULAR STAYS FILLED WHEN THERE IS EXACTLY ONE, because a
+            // control plane that has not learned the plural reads only this -
+            // and a flight that named one repository must reach it unchanged.
+            // Two is the case that needs the new member and could not be said
+            // before it.
+            Repository = repositories is [var only] && only.Length > 0 ? only : null,
+            Repositories = repositories is { Count: > 1 } several ? [.. several] : null,
             Runner = runner is { Length: > 0 } ? runner : null,
 
             // NULL INHERITS, which is what both have always meant and what

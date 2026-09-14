@@ -1522,11 +1522,20 @@ public sealed class RunnerLoop(
             // runner hands it over. Null is every kind that states none, which
             // is what keeps their wording exactly as it was.
             Brief = loop.Brief,
-            // The first tree when there is one, and the flight's own
-            // directory when there is not. See WorkspaceResult.Root.
-            WorkingDirectory = workspace.Trees.Count > 0
-                    ? workspace.Trees[0].Path
-                    : workspace.Root,
+            // THE FLIGHT'S OWN DIRECTORY, ALWAYS, with the repositories below
+            // it. This was the FIRST tree when there was one, which put an
+            // agent inside a checkout and left every other tree the flight had
+            // cloned unreachable and unmentioned - so a kind whose procedure is
+            // in one repository and whose subject is in another handed its
+            // agent half of itself.
+            //
+            // IT MOVES THE GROUND UNDER FLIGHTS THAT WORK TODAY: an agent that
+            // used to start inside its checkout now starts above it. What keeps
+            // that from being a regression is Trees, below, which names each
+            // repository AND the directory it is in - that directory being a
+            // hash of the slug, so nothing about it is guessable.
+            WorkingDirectory = workspace.Root,
+            Trees = [.. workspace.Trees.Select(t => new RequestedTree(t.Slug, t.Path))],
             LoopId = loop.LoopId,
             IntentUri = lease.IntentUri,
             // A TICKET SAYS ITS PROVIDER; A LINK DOES NOT, so a link is

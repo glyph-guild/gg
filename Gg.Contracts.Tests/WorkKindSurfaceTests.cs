@@ -51,7 +51,8 @@ public class WorkKindSurfaceTests
         // whose name is a number is a test that has to be renamed to stay true.
         await Assert.That(ProtocolSurface.JsonMembers[typeof(FlightLaunchRequest)])
             .IsEquivalentTo((string[])
-                ["name", "intent", "workKind", "environment", "repository", "runner", "attended"]);
+                ["name", "intent", "workKind", "environment", "repository", "repositories",
+                 "runner", "attended"]);
     }
 
     [Test]

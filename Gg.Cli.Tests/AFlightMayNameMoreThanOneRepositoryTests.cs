@@ -55,8 +55,10 @@ public class AFlightMayNameMoreThanOneRepositoryTests
             "--repo", "JDX/agile-cortex",
             "--repo", "JDX/JDNext");
 
-        await Assert.That(parsed.Repositories[0]).IsEqualTo("JDX/agile-cortex");
-        await Assert.That(parsed.Repositories[1]).IsEqualTo("JDX/JDNext");
+        var named = parsed.Repositories!;
+
+        await Assert.That(named[0]).IsEqualTo("JDX/agile-cortex");
+        await Assert.That(named[1]).IsEqualTo("JDX/JDNext");
     }
 
     [Test]

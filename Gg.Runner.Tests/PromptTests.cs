@@ -120,7 +120,8 @@ public class PromptTests
 /// </remarks>
 public class InstructionsInThePromptTests
 {
-    private static ExecutorRequest Request(string? instructions = null, string? resumesFrom = null) =>
+    private static ExecutorRequest Request(
+        string? instructions = null, string? resumesFrom = null, string? brief = null) =>
         new()
         {
             WorkingDirectory = "/tmp/gg-tree",
@@ -132,7 +133,62 @@ public class InstructionsInThePromptTests
             TranscriptPath = "/tmp/gg-transcript.ndjson",
             Instructions = instructions,
             ResumesFrom = resumesFrom,
+            Brief = brief,
         };
+
+    [Test]
+    public async Task A_kind_that_states_its_brief_is_told_that_and_not_to_write_code()
+    {
+        // THE DEFECT THIS MEMBER EXISTS FOR. Every flight opened with "Make the
+        // code changes it asks for", whatever its work kind - so score-hal,
+        // which writes a number to a tracker field and changes no code at all,
+        // sent its agent to find the files a bug report named. GG-99's agent
+        // reported that it had been "asked to make the code changes". It was.
+        var prompt = ClaudeCodeExecutor.PromptFor(
+            Request(brief: "Score this work item against the HAL rubric."));
+
+        await Assert.That(prompt).Contains("Score this work item against the HAL rubric.");
+
+        await Assert.That(prompt).DoesNotContain("Make the code changes")
+            .Because("a brief REPLACES the task rather than joining it. Two imperatives and "
+                   + "an agent picks one, and the one that reads as the job is whichever came "
+                   + "first - which is how this went wrong to begin with.");
+    }
+
+    [Test]
+    public async Task A_kind_that_states_none_is_told_exactly_what_it_always_was()
+    {
+        // EVERY WORK KIND THAT EXISTS TODAY STATES NONE. A member that changed
+        // their wording by arriving would re-aim every flight in the field, so
+        // absence has to render the sentence byte for byte.
+        await Assert.That(ClaudeCodeExecutor.PromptFor(Request()))
+            .Contains("Make the code changes it asks for");
+    }
+
+    [Test]
+    public async Task A_brief_still_names_what_the_flight_is_about()
+    {
+        // THE SUBJECT IS NOT THE TASK, and replacing one must not lose the
+        // other: an agent told to score and never told WHICH item has been
+        // given half a sentence.
+        await Assert.That(ClaudeCodeExecutor.PromptFor(Request(brief: "Score it.")))
+            .Contains("work item 26 in a-tracker");
+    }
+
+    [Test]
+    public async Task A_brief_does_not_displace_the_standing_instructions()
+    {
+        // TWO CHANNELS, AND BOTH ARRIVE. The brief says what the job is; the
+        // instructions are reviewed policy about how any job is done, and
+        // LeaseLoop.Instructions carries them verbatim for that reason. A brief
+        // that swallowed them would be the second wording that member's whole
+        // shape exists to prevent.
+        var prompt = ClaudeCodeExecutor.PromptFor(
+            Request(instructions: "\n\nKeep your summary under 120 words.", brief: "Score it."));
+
+        await Assert.That(prompt).Contains("Score it.");
+        await Assert.That(prompt).Contains("Keep your summary under 120 words.");
+    }
 
     [Test]
     public async Task An_envelope_with_none_renders_the_prompt_it_always_did()

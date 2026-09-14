@@ -41,15 +41,29 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.Flights is not { Flights.Count: > 0 } listed)
-        {
-            return null;
-        }
+        var shown = Shown(state.Flights);
 
-        var shown = listed.Flights.OrderByDescending(f => f.CreatedAt).ToList();
-
-        return shown[Math.Clamp(state.FlightSelected, 0, shown.Count - 1)];
+        return shown.Count == 0
+            ? null
+            : shown[Math.Clamp(state.FlightSelected, 0, shown.Count - 1)];
     }
+
+    /// <summary>
+    /// The flights in the order the screen puts them, newest first.
+    /// </summary>
+    /// <remarks>
+    /// <b>One answer, because two places index this list.</b> The cursor points
+    /// at a row AS SHOWN, and <c>ConsoleProjection</c> has to find that same row
+    /// again after a refresh replaces the list — so a second
+    /// <c>OrderByDescending</c> written beside it would be a second opinion
+    /// about which row is which, and the two would agree until somebody changed
+    /// one.
+    /// </remarks>
+    internal static IReadOnlyList<Gg.Contracts.FlightSummary> Shown(
+        Gg.Contracts.FlightList? flights) =>
+        flights is { Flights.Count: > 0 } listed
+            ? [.. listed.Flights.OrderByDescending(f => f.CreatedAt)]
+            : [];
 
     /// <summary>
     /// Everything known about one flight, read top to bottom.

@@ -655,10 +655,59 @@ public static class ConsoleProjection
             VerbResult.Flights flights => state with
             {
                 Flights = flights.Value,
+
+                // AND THE CURSOR FOLLOWS THE FLIGHT, not the row number.
+                // Reported from use: a flight created elsewhere lands at the
+                // top of a newest-first list, every other row shifts down one,
+                // and somebody reading a modal is suddenly reading its
+                // neighbour - which StoryOf catches and reports as "no story
+                // was fetched for this flight", about a flight they never
+                // opened.
+                FlightSelected = Anchored(state, flights.Value),
                 Diagnosis = null,
             },
             _ => state,
         };
+    }
+
+    /// <summary>
+    /// Where the flight under the cursor has got to in the list just read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>By identity, falling back to the row.</b> A person pointing at a
+    /// flight is pointing at a FLIGHT; the row it happens to occupy belongs to
+    /// the list, and the list is what just changed. When the flight is gone -
+    /// pruned, or filtered out - there is no identity left to follow, so the
+    /// row number is the best remaining answer and is clamped to what exists.
+    /// </para>
+    /// <para>
+    /// <b>Through <c>PaneText.Shown</c>, which is where the order is
+    /// decided.</b> Sorting again here would be a second opinion about which
+    /// row is which.
+    /// </para>
+    /// </remarks>
+    private static int Anchored(AppState state, FlightList read)
+    {
+        var shown = PaneText.Shown(read);
+
+        if (shown.Count == 0)
+        {
+            return 0;
+        }
+
+        if (PaneText.Detailed(state) is { } reading)
+        {
+            var moved = shown.ToList().FindIndex(
+                f => string.Equals(f.FlightId, reading.FlightId, StringComparison.Ordinal));
+
+            if (moved >= 0)
+            {
+                return moved;
+            }
+        }
+
+        return Math.Clamp(state.FlightSelected, 0, shown.Count - 1);
     }
 
     /// <summary>

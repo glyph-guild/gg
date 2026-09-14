@@ -149,11 +149,81 @@ public static class TrackerConfiguration
             }
 
             var id = entry[..split];
-            var host = entry[(split + 1)..];
+            var rest = entry[(split + 1)..];
 
-            sinks[id] = new WiqlWorkItemSink(host, secretFor?.Invoke(id), clientFor(host));
+            // `destination=host` OR `destination=host|locator`, which is the
+            // shape GG_INTENT_READERS' served entries already use - a host, then
+            // optionally the credential to speak to it with. A machine that
+            // already holds a PAT under a name of its own points at that name
+            // rather than keeping a second copy under the one derived below.
+            var bar = rest.IndexOf('|', StringComparison.Ordinal);
+            var host = (bar < 0 ? rest : rest[..bar]).Trim();
+            var named = bar < 0 ? null : rest[(bar + 1)..].Trim();
+
+            if (host.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"{ApisVariable} entry '{entry}' declares no host. A destination with "
+                  + "nowhere to write to would be advertised as writable and then write "
+                  + "nothing: name the tracker root, or remove the entry.");
+            }
+
+            // THE CREDENTIAL BELONGS TO THE TRACKER, not to the name of a
+            // landing place. This asked the store for the DESTINATION ID, so two
+            // destinations aiming at one tracker project each needed their own
+            // copy of the same secret under different names - and a runner
+            // already holding that tracker's credential was refused an admitted
+            // write because its locator did not match the destination id the
+            // envelope happened to use. A destination id says where work lands,
+            // which is not who may change it.
+            var locator = named is { Length: > 0 } ? named : LocatorFor(host);
+
+            if (locator.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"{ApisVariable} entry '{entry}' names a host no credential locator can be "
+                  + $"derived from. A locator is {Gg.Contracts.CredentialLocator.MaxLength} "
+                  + "characters of letters, digits, dot, dash, underscore and slash, and this "
+                  + "host reduces to none of them. Name the credential explicitly after a '|', "
+                  + "as 'destination=host|locator'.");
+            }
+
+            sinks[id] = new WiqlWorkItemSink(host, secretFor?.Invoke(locator), clientFor(host));
         }
 
         return sinks;
+    }
+
+    /// <summary>The credential locator a tracker host resolves to.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The scheme is dropped and the rest is reduced to the locator
+    /// charset</b>, so <c>https://Tracker.Example/Acme/Project</c> asks for
+    /// <c>tracker.example/acme/project</c>. One project is one credential
+    /// however many destinations aim at it, which is the whole point of
+    /// deriving this from the host rather than from a destination id.
+    /// </para>
+    /// <para>
+    /// <b>Lowercased, on <c>CredentialLocator.ForRepo</c>'s reasoning</b>: the
+    /// same tracker spelled two ways has to be one credential rather than two.
+    /// Reduced rather than refused, because a host legitimately carries
+    /// characters a locator may not - the port colon most of all - and a
+    /// deployment should not have to rename its tracker to have a credential.
+    /// </para>
+    /// </remarks>
+    private static string LocatorFor(string host)
+    {
+        var scheme = host.IndexOf("://", StringComparison.Ordinal);
+        var authority = scheme < 0 ? host : host[(scheme + 3)..];
+
+        var reduced = new string([.. authority.ToLowerInvariant()
+            .Select(c => char.IsAsciiDigit(c) || (c >= 'a' && c <= 'z')
+                      || c is '.' or '-' or '_' or '/'
+                ? c
+                : '-')]);
+
+        // A trailing slash would make two spellings of one tracker into two
+        // locators, which is the thing this exists to prevent.
+        return reduced.Trim('/', '-');
     }
 }

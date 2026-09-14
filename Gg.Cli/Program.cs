@@ -2336,7 +2336,7 @@ static async Task<int> RunnerUpAsync()
         // THROUGH THE ONE READER, so a tracker-apis line in the configuration
         // file reaches the sinks. Read straight from the environment this
         // would be the stun-servers defect again, one variable over.
-        apis: Settings.Value(Gg.Runner.Intent.TrackerConfiguration.ApisVariable),
+        apis: Settings.Value(Gg.Runner.Intent.TrackerConfiguration.ApisVariable, inForce),
         secretFor: destination => new FileCredentialStore().Read(destination));
 
     // WHICH AGENT THIS MACHINE HAS, and none is a real answer. Until this line
@@ -2611,8 +2611,19 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         api => new HttpClient(),
         // THROUGH THE ONE READER, so a tracker-apis line in the configuration
         // file reaches the sinks. Read straight from the environment this
-        // would be the stun-servers defect again, one variable over.
-        apis: Settings.Value(Gg.Runner.Intent.TrackerConfiguration.ApisVariable),
+        // would be the stun-servers defect again, one variable over - and for
+        // one release it WAS, because the configuration was not passed and the
+        // parameter defaults to null: the file was written, `gg config show`
+        // read it back, and the flying runner refused an admitted write saying
+        // it had no tracker declared.
+        //
+        // THE PROPERTY RATHER THAN `inForce` HERE, because this member path
+        // declares that local after the offer switch below - and tracker-apis
+        // is not in OfferableKeys, so no offer can change it and reading it
+        // before that switch is the same answer. Unlike stun-servers, which an
+        // offer CAN place, and which is read after for exactly that reason.
+        apis: Settings.Value(
+            Gg.Runner.Intent.TrackerConfiguration.ApisVariable, InForce.Configuration),
         secretFor: destination => new FileCredentialStore().Read(destination));
 
     // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this

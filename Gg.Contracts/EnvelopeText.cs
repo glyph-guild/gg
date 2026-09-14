@@ -219,6 +219,16 @@ public static class EnvelopeText
                     $"{Indent}{Indent}preserve-unadmitted: {(preserve ? "true" : "false")}\n");
             }
 
+            // SAME RULE, AND HERE IT IS A NAME. Emitting the default template
+            // for every destination that omits it would rewrite every tenant's
+            // document on the next show - and would also write down, as though
+            // somebody had chosen it, a branch shape this platform reserves the
+            // right to be the default.
+            if (destination.Branch is { } branch)
+            {
+                text.Append($"{Indent}{Indent}branch: {Scalar(branch)}\n");
+            }
+
             // SAME RULE, SAME REASON. Only a flight destination may carry this,
             // so emitting `opens: []` for the four kinds that may not would put
             // a refused key into every document that has ever been written.

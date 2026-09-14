@@ -1227,6 +1227,36 @@ public sealed record Destination
     public bool? PreserveUnadmitted { get; init; }
 
     /// <summary>
+    /// What to call the branch this destination pushes to, or null for the
+    /// flight number alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The tail only, because the prefix is not the author's to choose.</b>
+    /// <c>gg/</c> is how this platform recognises its own branches:
+    /// <see cref="DestinationBranch.IsOurs"/> is what cleanup reads and
+    /// <see cref="DestinationBranch.IsHandoff"/> tells work kept for a takeover
+    /// from work offered for merge. An envelope that could write the prefix
+    /// could write one neither predicate sees, and a remote would quietly
+    /// accumulate refs nothing will ever delete.
+    /// </para>
+    /// <para>
+    /// <b>It names <c>{flight}</c> and <c>{ticket}</c> and nothing else</b>, and
+    /// <see cref="DestinationBranch.Validate"/> refuses the rest at authoring -
+    /// including a template with no <c>{flight}</c> in it, because two flights
+    /// on one ticket is the ordinary case rather than the exotic one.
+    /// </para>
+    /// <para>
+    /// <b>Not composed, unlike its neighbours.</b> Intersecting two branch
+    /// names produces neither, and <c>And</c> is meaningless on a string; a
+    /// destination is named once and the composed envelope carries whichever
+    /// layer last spelled it - the same shape <see cref="Destination.Kind"/>
+    /// already has.
+    /// </para>
+    /// </remarks>
+    public string? Branch { get; init; }
+
+    /// <summary>
     /// The work-kind names a <see cref="DestinationKinds.Flight"/> destination
     /// may open. Refused on every other kind.
     /// </summary>
@@ -1986,6 +2016,29 @@ public sealed record Envelope
             {
                 return $"Unknown kind '{kind}' on destination '{destination.Id}'. Expected one of: "
                      + string.Join(", ", DestinationKinds.All) + ".";
+            }
+
+            // WHERE THE AUTHOR CAN STILL ACT. Each of these produces a branch
+            // nobody wanted, and two of the three would only be discovered by a
+            // flight that had already finished its work.
+            if (DestinationBranch.Validate(destination.Branch) is { } branch)
+            {
+                return $"Destination '{destination.Id}': {branch}";
+            }
+
+            // A BRANCH ON SOMETHING WITH NO BRANCH, on preserve-unadmitted's
+            // terms one arm down: a tracker destination lands by writing a
+            // field and never pushes, so naming what to call its branch is a
+            // setting somebody makes and believes they made.
+            if (destination.Branch is not null
+                && !string.Equals(
+                    destination.Kind, DestinationKinds.PullRequest, StringComparison.Ordinal)
+                && !string.Equals(
+                    destination.Kind, DestinationKinds.CheckRun, StringComparison.Ordinal))
+            {
+                return $"Destination '{destination.Id}' names a branch and is a "
+                     + $"'{destination.Kind}', which pushes nothing. Branch belongs on the "
+                     + "kinds that have one.";
             }
 
             // REFUSED RATHER THAN IGNORED. An envelope-change destination has no

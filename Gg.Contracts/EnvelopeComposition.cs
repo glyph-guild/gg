@@ -115,6 +115,10 @@ public static class EnvelopeComposition
             [$"{nameof(Destination)}.{nameof(Destination.Kind)}"] =
                 "what the destination IS; membership in the set is the composable thing, "
               + "and the sets' operator owns it",
+            [$"{nameof(Destination)}.{nameof(Destination.Branch)}"] =
+                "what the destination CALLS what it pushes, on Kind's terms. Every other "
+              + "member here is a bound that narrows; a name is not one, and intersecting "
+              + "two of them produces neither",
         };
 
     static EnvelopeComposition()

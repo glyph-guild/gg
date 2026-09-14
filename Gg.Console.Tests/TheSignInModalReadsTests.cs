@@ -276,6 +276,9 @@ public class TheSignInModalReadsTests
             // Resolve already dispatches on Mode, so asking again in the
             // derivation was a second answer to a settled question.
             HelpPage = HelpPage.Look,
+
+            // AND THE COMPOSE MODAL'S SECOND HALF, for that same reason.
+            WorkKindTab = WorkKindTab.Repositories,
         };
 
         var context = KeymapContext.For(state);

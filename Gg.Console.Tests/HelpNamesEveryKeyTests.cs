@@ -91,10 +91,16 @@ public class HelpNamesEveryKeyTests
         // up and learned twice: a flag the keymap branches on and this does not
         // cross is a binding the completeness check cannot see.
         from onTheLookPage in (bool[])[false, true]
+
+        // AND WHICH HALF OF THE COMPOSE MODAL, for the reason every clause
+        // here records: space marks a repository on one half and is not
+        // offered on the other.
+        from onTheRepositoriesHalf in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
-            OnTheLookPage: onTheLookPage)
+            OnTheLookPage: onTheLookPage,
+            OnTheRepositoriesHalf: onTheRepositoriesHalf)
         {
             SignInStarted = started,
             RunnerIsOurs = ours,
@@ -147,7 +153,7 @@ public class HelpNamesEveryKeyTests
 
         // FIFTEEN SINCE THE LOOK PAGE, whose four keys are offered only while
         // it is showing - the same shape as the fold key one page over.
-        await Assert.That(members.Count).IsEqualTo(15)
+        await Assert.That(members.Count).IsEqualTo(16)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

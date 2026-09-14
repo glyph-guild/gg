@@ -122,7 +122,7 @@ public class ARefusedPushDoesNotLandTests
     /// </para>
     /// </remarks>
     private static async Task<(RecordingObserver Observer, FakeProtocol Protocol,
-        RecordingDestination Destination)> FlownAsync(params string[] scopes)
+        RecordingDestination Destination)> FlownAsync(string[] scopes, bool byHand = false)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -173,8 +173,23 @@ public class ARefusedPushDoesNotLandTests
                 },
                 observer, resolver,
                 trees.Workspace(new AuthenticatingProvider(new LocalVcsAdapter(fixture.Directory))),
-                executor: new DidTheWork(),
-                destinations: [destination])
+                // THE OTHER EXECUTOR THROUGH THE SAME LANDING. A person held the
+                // terminal instead of an agent and said they were done; the push
+                // that follows is the runner's either way, and so is the refusal.
+                executor: byHand
+                    ? new AttendedExecutor(
+                        "claude", [], announce: TextWriter.Null,
+                        spawn: (_, _) => Task.FromResult<int?>(0),
+                        versionOf: (_, _) => Task.FromResult("2.1.261"))
+                    : new DidTheWork(),
+                destinations: [destination],
+                returns: byHand
+                    ? (_, flight) => (new TakeoverReturn
+                    {
+                        FlightId = flight,
+                        Outcome = TakeoverOutcomes.Completed,
+                    }, null)
+                    : null)
         {
             HoldFor = TimeSpan.FromSeconds(3),
         }
@@ -186,7 +201,7 @@ public class ARefusedPushDoesNotLandTests
     [Test]
     public async Task A_cleared_push_that_was_refused_does_not_report_completed()
     {
-        var (_, protocol, destination) = await FlownAsync(CredentialScopes.Read);
+        var (_, protocol, destination) = await FlownAsync([CredentialScopes.Read]);
 
         await Assert.That(destination.Calls).IsEmpty()
             .Because("the premise. A destination that was reached would make this a test "
@@ -208,7 +223,23 @@ public class ARefusedPushDoesNotLandTests
         // runner, and this one will not. The work is real, it is on a machine,
         // and a credential with the right scope is all it needs - which is a
         // thing somebody can do rather than a conclusion about the work.
-        var (observer, protocol, destination) = await FlownAsync(CredentialScopes.Read);
+        var (observer, protocol, destination) = await FlownAsync([CredentialScopes.Read]);
+
+        await Assert.That(AttendedReturnTests.ReleasedWith(protocol))
+            .IsEqualTo(RunnerDisposition.Outstanding)
+            .Because("what the runner did: " + string.Join(" | ", observer.Events));
+    }
+
+    [Test]
+    public async Task A_hand_flown_flight_is_not_concluded_by_the_person_who_flew_it_either()
+    {
+        // THE SAME HOLE ON THE OTHER ARM, and the person's word is not what is
+        // wrong with it. They say they finished THEIR work, and they did - what
+        // they cannot answer is whether the runner's push reached a remote
+        // afterwards, because it happens after they have given the terminal
+        // back. `completed` is the one disposition that ENDS a flight, so
+        // taking their word for a landing they never saw closes it.
+        var (observer, protocol, _) = await FlownAsync([CredentialScopes.Read], byHand: true);
 
         await Assert.That(AttendedReturnTests.ReleasedWith(protocol))
             .IsEqualTo(RunnerDisposition.Outstanding)
@@ -221,7 +252,7 @@ public class ARefusedPushDoesNotLandTests
         // The fact and the state have to agree. A flight whose state says
         // landed and whose evidence carries no destination.landed is exactly
         // what took a journal on the runner to notice.
-        var (_, protocol, _) = await FlownAsync(CredentialScopes.Read);
+        var (_, protocol, _) = await FlownAsync([CredentialScopes.Read]);
 
         await Assert.That(protocol.ShippedFacts.SelectMany(b => b.Items)
                 .Any(f => string.Equals(

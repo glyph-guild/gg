@@ -69,6 +69,18 @@ public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
 
     public string? Key => _readers.Keys.Count > 0 ? _readers.Keys[0] : null;
 
+    /// <summary>
+    /// Whether this can answer without starting anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>What decides whether a browse keypress is the shell's.</b> A session
+    /// may not start a reader; it may talk to one that was running before it
+    /// existed. So the first browse of a console lifetime ends the session and
+    /// the spawn happens there, and every one after it folds in beside the
+    /// console.
+    /// </remarks>
+    public bool Running => Key is { } key && _readers.Running(key);
+
     public async Task<BrowseOutcome> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken)
     {

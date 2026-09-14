@@ -85,14 +85,26 @@ public class BrowseIsAKeyAndAPaneTests
     }
 
     [Test]
-    public async Task It_is_the_shells_because_a_session_may_not_start_a_process()
+    public async Task It_falls_to_the_shell_until_a_reader_is_running()
     {
-        // THE RULE, not a preference. A UI session may read a local file and
-        // nothing else; a reader is a child process holding a credential's
-        // name. So the session ends and the loop asks.
-        await Assert.That(ShellCommands.Handled).Contains(Command.ToggleBrowse)
-            .Because("a toggle handled inside the session would have to spawn the reader "
-                   + "from inside the session, which is the one thing a session may not do.");
+        // THE RULE, not a preference, and it is about a SPAWN. A session may
+        // not start a reader - an executable launched with a credential in its
+        // environment - so the first browse of a console lifetime ends the
+        // session and the spawn happens in the shell, where every spawn does.
+        //
+        // WHAT CHANGED IS THE PREMISE, NOT THE RULE. This used to assert
+        // membership of Handled, because starting one was unavoidable on every
+        // press while ReaderSessions started them lazily. It caches what it
+        // starts - "a reader asked for twice is the same reader" - so after the
+        // first press there is nothing to start and the read folds in beside
+        // the console.
+        await Assert.That(ShellCommands.NeedsAReader).Contains(Command.ToggleBrowse)
+            .Because("a press with no reader running would have to spawn one from inside the "
+                   + "session, which is the one thing a session may not do.");
+
+        await Assert.That(ShellCommands.Handled).DoesNotContain(Command.ToggleBrowse)
+            .Because("and once one IS running, talking to it is what LiveTails already does - "
+                   + "a process owned outside every UI lifetime, handed in and asked.");
     }
 
     [Test]

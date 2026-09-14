@@ -110,6 +110,13 @@ public class ShellHandledTests
 
         var orphans = resolvable
             .Where(command => !ShellCommands.Handled.Contains(command))
+            // AND A FOURTH, WHICH IS A HOME LIKE THE OTHERS. A command in
+            // Reads is answered by the read port beside the console; that its
+            // effect arrives as a patch rather than through the reducer makes
+            // it no less handled. EveryCommandInReadsIsNamedByTheReader holds
+            // each one to an actual arm in the root, so this is not a hole for
+            // the same reason OnTheWidget is not.
+            .Where(command => !ShellCommands.Reads.Contains(command))
             .Where(command => !ShellCommands.OnTheWidget.ContainsKey(command))
             .Where(command => !reducer.Contains($"Command.{command}", StringComparison.Ordinal))
             .Select(command => command.ToString())
@@ -147,18 +154,30 @@ public class ShellHandledTests
     }
 
     [Test]
-    public async Task Browsing_is_not_a_read_however_much_it_looks_like_one()
+    public async Task Browsing_is_a_read_and_the_spawn_under_it_is_not()
     {
-        // THE MISTAKE ITSELF, NAMED. Three toggles beside it are control-plane
-        // reads and moved; this one is not. An IntentReader is a Command, its
-        // Arguments, the environment variable that is "the only place a secret
-        // may go", and a credential locator - a CHILD PROCESS HOLDING A
-        // CREDENTIAL. AutoRefresh's exception is for a read and does not
-        // stretch to a spawn, and no amount of folding-on-a-tick changes what
-        // is being folded.
-        await Assert.That(ShellCommands.Reads.Contains(Command.ToggleBrowse)).IsFalse()
-            .Because("a session may not spawn a process and may not resolve a credential, and "
-                   + "browsing does both. It ends the session, which is what that is for.");
+        // THE SENTENCE THIS USED TO ASSERT WAS RIGHT ABOUT THE SPAWN AND WRONG
+        // ABOUT THE READ. "An IntentReader is a Command, its Arguments, the
+        // environment variable that is 'the only place a secret may go', and a
+        // credential locator - a CHILD PROCESS HOLDING A CREDENTIAL.
+        // AutoRefresh's exception is for a read and does not stretch to a
+        // spawn." Every word of that is about STARTING one, and ReaderSessions
+        // starts one per console lifetime and caches it.
+        //
+        // So the two acts are held apart rather than the rule relaxed: the
+        // press that would have to start a reader is still the shell's, and
+        // the ones after it are reads.
+        await Assert.That(ShellCommands.Reads.Contains(Command.ToggleBrowse)).IsTrue()
+            .Because("asking a reader that was running before the session existed is what "
+                   + "LiveTails already does, and it costs no screen.");
+
+        await Assert.That(ShellCommands.NeedsAReader.Contains(Command.ToggleBrowse)).IsTrue()
+            .Because("and the press that finds none running still ends the session, because "
+                   + "starting one is the thing a session may not do.");
+
+        await Assert.That(ShellCommands.NeedsAReader.IsSubsetOf(ShellCommands.Reads)).IsTrue()
+            .Because("needing a reader is a property OF a read; a command that needed one and "
+                   + "was not a read would be a keypress the read port never serves.");
     }
 
     [Test]

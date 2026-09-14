@@ -2097,6 +2097,17 @@ public static class PaneText
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // WAITING IS NOT EMPTY, AND THE BLINK USED TO SAY SO. Taking the
+        // screen away and giving it back was the progress indicator; now that
+        // the answer folds in beside the console, a tracker that takes two
+        // seconds would leave a pane that looks like one that did not load.
+        // Said before the absences below, because a read in the air is a
+        // different fact from every one of them.
+        if (state.ReadInFlight && state.Browse is null)
+        {
+            return "Reading what this tracker has. The console stays up while it answers.";
+        }
+
         // NOT CONFIGURED, AND IT NAMES THE VARIABLES. The GG_POOL_ENDPOINT
         // shape: refused loudly, naming the variable, because a person looking
         // at an empty pane needs to know it is configuration and which line to

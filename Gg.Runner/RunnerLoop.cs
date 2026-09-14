@@ -1517,6 +1517,11 @@ public sealed class RunnerLoop(
             // Sitting beside ResumesFrom because it was the absence of exactly
             // this line that left step two green with nothing reaching an agent.
             Instructions = loop.Instructions,
+            // AND WHAT THIS FLIGHT IS TO DO, carried the same way and for the
+            // same reason: the contract composed it from the work kind and the
+            // runner hands it over. Null is every kind that states none, which
+            // is what keeps their wording exactly as it was.
+            Brief = loop.Brief,
             // The first tree when there is one, and the flight's own
             // directory when there is not. See WorkspaceResult.Root.
             WorkingDirectory = workspace.Trees.Count > 0

@@ -132,14 +132,15 @@ public class ModalEscapeTests
           + "already covers it.",
 
         [UiMode.WorkItemDetail] =
-            "opened after asking a reader what one item says. THE PREMISE HERE CHANGED: this "
-          + "used to say no key pressed against a fresh state reaches it, because only the "
-          + "loop could ask a reader. A press now reaches it directly once a reader is "
-          + "running - the spawn is still the shell's and the asking is not - so the reason "
-          + "it is listed is no longer unreachability. It is entered through ShowWorkItem, "
-          + "left through CloseModal, and EnterShowsTheWorkItemTests drives both ends; being "
-          + "escapable is proved by the walk above rather than assumed here, because "
-          + "StateGenerator emits every UiMode and that walk leaves this one like any other.",
+            "opened after asking a reader what one item says. A press opens it directly once "
+          + "a reader is RUNNING - browsing folds in beside the console now - but from a "
+          + "FRESH state there is none, so the first press is still the shell's and no key "
+          + "pressed against a fresh state reaches this mode. That is the state "
+          + "The_exemption_list_names_nothing_a_key_can_open walks, so the exemption holds "
+          + "for exactly the reason it always did. It is entered through ShowWorkItem and "
+          + "left through CloseModal, EnterShowsTheWorkItemTests drives both ends, and "
+          + "The_escape_hatch_always_returns_to_a_non_modal_state proves it escapable over "
+          + "states StateGenerator emits, which include this one.",
 
         [UiMode.WorkKindChoice] =
             "opened by ConsoleLoop.FlewPicked before a flight is opened, for ConfirmFlight's "
@@ -151,12 +152,12 @@ public class ModalEscapeTests
           + "walk already leaves this one.",
 
         [UiMode.BrowseFilter] =
-            "opened after asking a reader what there is to narrow by. THE PREMISE HERE "
-          + "CHANGED, for WorkItemDetail's reason one entry up: a press reaches this once a "
-          + "reader is running, so unreachability is no longer why it is listed. It is "
-          + "entered through FilterBrowse, left through CloseModal, and "
-          + "ABrowseFilterIsPickedTests drives both ends; being escapable is proved by the "
-          + "walk above, which leaves this mode like every other one StateGenerator emits.",
+            "opened after asking a reader what there is to narrow by, and unreachable from a "
+          + "fresh state for WorkItemDetail's reason one entry up: with no reader running "
+          + "the first press is the shell's. It is entered through FilterBrowse, left "
+          + "through CloseModal, ABrowseFilterIsPickedTests drives both ends, and "
+          + "The_escape_hatch_always_returns_to_a_non_modal_state proves it escapable over "
+          + "the states StateGenerator emits.",
 
         [UiMode.ConfirmGround] =
             "opened by `x` inside the flight modal, which is itself opened by the loop after "

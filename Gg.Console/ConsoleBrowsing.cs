@@ -95,12 +95,23 @@ public static class ConsoleBrowsing
             };
         }
 
+        // ALREADY HELD, ALREADY PAID FOR - ConsoleFlightLog's rule one file
+        // over. Leaving an item and coming back to it cost a request every
+        // time, which is most of what browsing used to spend. `g` drops what
+        // is held, so there is always a way past this.
+        if (string.Equals(state.WorkItemId, item.Id, StringComparison.Ordinal)
+            && state.WorkItemSaid is { Length: > 0 })
+        {
+            return current => current with { Mode = UiMode.WorkItemDetail };
+        }
+
         var said = Words(browser, item.Id);
         var happened = Happened(browser, item.Id);
 
         return current => current with
         {
             Mode = UiMode.WorkItemDetail,
+            WorkItemId = item.Id,
             WorkItemSaid = said,
             WorkItemChanges = happened.Rows,
             WorkItemHistorySaid = happened.Said,
@@ -115,6 +126,13 @@ public static class ConsoleBrowsing
         ArgumentNullException.ThrowIfNull(state);
 
         if (browser is null)
+        {
+            return current => current with { Mode = UiMode.BrowseFilter };
+        }
+
+        // THE SAME RULE, one read over. What a tracker offers to narrow by
+        // changes far less often than the work does, and `g` drops it.
+        if (state.Facets is not null)
         {
             return current => current with { Mode = UiMode.BrowseFilter };
         }

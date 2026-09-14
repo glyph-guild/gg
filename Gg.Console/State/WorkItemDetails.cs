@@ -65,7 +65,16 @@ public static class WorkItemDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.WorkItemSaid ?? "";
+        // WAITING IS NOT EMPTY. The modal opens on the keypress now and the
+        // reader answers into it, so the gap between the two has to say what
+        // it is - an empty pane reads as an item with nothing written on it.
+        if (state.WorkItemSaid is not { Length: > 0 })
+        {
+            return "Reading what this item says. The console stays up while the tracker "
+                 + "answers.";
+        }
+
+        return state.WorkItemSaid;
     }
 
     /// <summary>

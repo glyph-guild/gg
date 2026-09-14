@@ -69,7 +69,10 @@ public class AReadBesideTheConsoleSaysItIsHappeningTests
 
         var opening = Reducer.Reduce(held, Command.ShowWorkItem);
 
-        await Assert.That(opening.WorkItemSaid).DoesNotContain("PREVIOUS")
+        // CLEARED RATHER THAN OVERWRITTEN, so there is nothing to contain.
+        // Asserting DoesNotContain against it threw on the null rather than
+        // passing, which would have read as the behaviour being wrong.
+        await Assert.That(opening.WorkItemSaid).IsNull()
             .Because("this modal is about the row under the cursor, and showing the last "
                    + "item's prose under this one's title is a lie with a title on it.");
         await Assert.That(WorkItemDetails.Said(opening)).Contains("Reading")

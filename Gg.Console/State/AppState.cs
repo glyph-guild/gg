@@ -1686,6 +1686,18 @@ public sealed record AppState
     public string? WorkItemSaid { get; init; }
 
     /// <summary>
+    /// Which item the held prose and history are about, or null when none is.
+    /// </summary>
+    /// <remarks>
+    /// <b>So a second ask can be told from a first.</b> Without it the console
+    /// cannot know whether what it holds is about the row under the cursor, so
+    /// re-entering an item costs a request every time and opening a new one can
+    /// show the last one's words under this one's title. Both are answered by
+    /// knowing which item this IS.
+    /// </remarks>
+    public string? WorkItemId { get; init; }
+
+    /// <summary>
     /// What has happened to that item, as rows.
     /// </summary>
     /// <remarks>

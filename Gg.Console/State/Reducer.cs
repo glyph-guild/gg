@@ -40,6 +40,33 @@ public static class Reducer
             },
 
             // TWO TABS AND ONE KEY, so it has to come back round.
+            // THE MODE IS THIS SIDE'S AND THE CONTENT IS THE READ'S. The
+            // modal opens on the press so something happens when a key is
+            // pressed - the blink used to be that - and what the reader says
+            // arrives afterwards as a patch.
+            //
+            // AND IT CLEARS WHAT IT IS REPLACING, unless the answer it already
+            // holds is about this very row. Stale prose under a new title is
+            // worse than an empty pane, because it cannot be told from an
+            // answer.
+            Command.ShowWorkItem => Holding(state, Under(state)) ? state with
+            {
+                Mode = UiMode.WorkItemDetail,
+            } : state with
+            {
+                Mode = UiMode.WorkItemDetail,
+                WorkItemId = null,
+                WorkItemSaid = null,
+                WorkItemChanges = [],
+                WorkItemHistorySaid = null,
+                WorkItemSelected = 0,
+                WorkItemTab = WorkItemTab.Details,
+            },
+
+            // THE SAME, one modal over. FilterOffered fills it when the reader
+            // answers; this is what makes the key do something before then.
+            Command.FilterBrowse => state with { Mode = UiMode.BrowseFilter },
+
             // THE WORK ITEM MODAL'S OWN, and it cycles for the flight
             // modal's reason: one key that always works beats two that are
             // each wrong half the time.
@@ -236,7 +263,16 @@ public static class Reducer
             // ONLY THAT ONE IS WANTED. The reducer is pure and a refresh is a
             // read; the tick starts it and folds what comes back, which is what
             // stops the console tearing the terminal down to do it.
-            Command.Refresh => state with { Refresh = state.Refresh with { Wanted = true } },
+            // AND IT DROPS WHAT A READER ALREADY ANSWERED, which is what makes
+            // `g` a way past the cache. A tracker moves, and a person who
+            // suspects it has needs one gesture that always costs a request -
+            // a cache with no way past it is a stale screen nobody can fix.
+            Command.Refresh => state with
+            {
+                Refresh = state.Refresh with { Wanted = true },
+                WorkItemId = null,
+                Facets = null,
+            },
             // WHOLLY HERE, because showing the fleet reads nothing - it is in
             // the model from the boot. Its four neighbours are the shell's
             // because opening them fetches something.
@@ -260,6 +296,25 @@ public static class Reducer
     /// the modal whether or not the reader ever answered, over a list from the
     /// last time somebody asked.
     /// </remarks>
+    /// <summary>The row the cursor is on, or nothing.</summary>
+    private static BrowseRow? Under(AppState state) =>
+        state.Browse is { Items.Count: > 0 } listing
+        && state.BrowseSelected >= 0
+        && state.BrowseSelected < listing.Items.Count
+            ? listing.Items[state.BrowseSelected]
+            : null;
+
+    /// <summary>Whether what is held is about this very row.</summary>
+    /// <remarks>
+    /// Both halves, because an id with no prose behind it is a read that was
+    /// started and never landed - reopening on that would show an empty modal
+    /// and ask nobody to fill it.
+    /// </remarks>
+    private static bool Holding(AppState state, BrowseRow? row) =>
+        row is not null
+        && string.Equals(state.WorkItemId, row.Id, StringComparison.Ordinal)
+        && state.WorkItemSaid is { Length: > 0 };
+
     public static AppState FilterOffered(AppState state, BrowseFacets offered)
     {
         ArgumentNullException.ThrowIfNull(state);

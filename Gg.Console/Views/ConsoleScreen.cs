@@ -3384,6 +3384,21 @@ public sealed class ConsoleScreen : Window
                 {
                     tab.SetScheme(accent);
                 }
+
+                // AND THE ONES A PERSON IS NOT ON, PUSHED BACK. The other half
+                // of marking the selected tab: a strip of eight equally bright
+                // ones makes the eye hunt for the live one.
+                //
+                // THE BASIS IS THE STRIP'S, NOT THE TAB'S, so this never reads
+                // its own output - and DECIDED EVERY RENDER, clear included,
+                // because a tab left holding a dim scheme after the setting
+                // goes back to Normal is a change with no way back.
+                else if (!showing)
+                {
+                    tab.SetScheme(
+                        LookStyles.Dimmed(colours ?? strip.GetScheme(), look.UnselectedTabs)
+                        ?? colours);
+                }
             }
         }
 
@@ -3392,6 +3407,20 @@ public sealed class ConsoleScreen : Window
         // count is what makes "which layer" a question this can answer without
         // a list of panes to keep up to date.
         Walk(this, depth: 0);
+
+        // THE TWO LINES THAT ARE ALWAYS THERE AND RARELY READ, after the walk
+        // for the reason the tabs are excluded from it: the palette would
+        // otherwise land on top of the dimming. They are reference rather than
+        // content, and at full brightness they compete with the pane above.
+        foreach (var line in (View[])[_activity, _hints])
+        {
+            // SET EVERY RENDER, CLEAR INCLUDED. Turning the setting back to
+            // Normal has to put these back, and the walk above only reasserts
+            // where there is a palette to reassert - a console in the
+            // terminal's own colours would keep the dimming for ever.
+            line.SetScheme(
+                LookStyles.Dimmed(colours ?? GetScheme(), look.StatusText) ?? colours);
+        }
 
         void Walk(View view, int depth)
         {
@@ -3437,8 +3466,13 @@ public sealed class ConsoleScreen : Window
             }
         }
 
+        // A TAB'S OWN SCHEME IS THE TAB LOOP'S, and the walk runs after it - so
+        // without this the palette lands on top and undoes both the accent and
+        // the dimming. Only when something is actually styling them, or a
+        // console with neither set would stop taking the palette on its tabs.
         bool IsATab(View view) =>
-            look.TabMark is TabMark.Accent && view.SuperView is Terminal.Gui.Views.Tabs;
+            (look.TabMark is TabMark.Accent || look.UnselectedTabs is not Dimming.Normal)
+            && view.SuperView is Terminal.Gui.Views.Tabs;
     }
 
     /// <summary>

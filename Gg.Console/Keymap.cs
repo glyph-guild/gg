@@ -1008,6 +1008,36 @@ public static class Keymap
             // opens nothing at all. One keypress must not be able to mean both.
             new(KeyStroke.EnterKey, Command.FlyForKind, "fly it for this") { Label = "Fly" },
 
+            // THE SECOND HALF OF THE QUESTION. Which repositories a flight
+            // names used to be a console-wide switch on another tab, which is
+            // the wrong range for it - a person opening one flight against a
+            // different repository had to change what every flight after it
+            // would do.
+            new(KeyStroke.TabKey, Command.NextWorkKindTab, "kind / repositories")
+            {
+                // NOT EITHER NAME, which is wrong half the time. The strip
+                // above says which one is showing; what a person cannot see is
+                // that there is a way to the other - the help modal's own
+                // argument for this same key.
+                Label = "Turn page",
+            },
+
+            // `x', NOT SPACE, AND NOT ENTER. Enter already flies, so the first
+            // repository picked would open the flight. Space looks right and
+            // is worse: Terminal.Gui's Tabs binds it to Activate, so whether it
+            // reaches the keymap depends on which view happens to hold focus -
+            // measured, it marked a row when focus was on the table and did
+            // nothing at all when the registry had not loaded yet and focus was
+            // on the sentence in its place. A key that works depending on what
+            // else is on screen is worse than one a person has to learn.
+            //
+            // `x' is what the mark itself draws, and no widget claims it.
+            new(KeyStroke.Char('x'), Command.ToggleFlightRepository, "name it, or stop")
+            {
+                When = "on the repositories tab",
+                Label = "Name it",
+            },
+
             new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
         ],
 

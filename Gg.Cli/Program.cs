@@ -1338,7 +1338,9 @@ static async Task<int> LaunchConsoleAsync()
                     // registered" and the two would disagree on whichever
                     // arrived first.
                     Gg.Console.Command.ToggleRepositories or
-                    Gg.Console.Command.ChooseCredentialRepository =>
+                    Gg.Console.Command.ChooseCredentialRepository or
+                    Gg.Console.Command.AskHowToCompose or
+                    Gg.Console.Command.AskHowToFlyByHand =>
                         Gg.Console.ConsoleRepositories.Patch(data, current),
 
                     // WHAT THE FLIGHT RECORDED, asked for when its tab is

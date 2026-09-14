@@ -85,13 +85,23 @@ public class WhatThisTenantCanFlyAgainstTests
     }
 
     [Test]
-    public async Task Choosing_one_marks_it_and_unmarks_the_others()
+    public async Task Choosing_one_marks_it_and_leaves_the_others_alone()
     {
+        // WAS "AND UNMARKS THE OTHERS", AND THE PREMISE CHANGED DELIBERATELY.
+        // A flight may name several - FlightLaunchRequest has carried the
+        // plural since contract 0.161.0 - so these marks are a set rather than
+        // a choice of one. Naming a second repository must not silently stop
+        // naming the first.
         var chosen = Reducer.RepositoryChosen(Listed() with { RepositorySelected = 1 });
 
-        await Assert.That(chosen.ChosenRepository).IsEqualTo("acme/gadgets");
+        await Assert.That(chosen.ChosenRepositories).Contains("acme/gadgets");
         await Assert.That(PaneText.Repositories(chosen)).Contains("→ acme/gadgets");
-        await Assert.That(PaneText.Repositories(chosen)).DoesNotContain("→ acme/widgets");
+
+        var both = Reducer.RepositoryChosen(chosen with { RepositorySelected = 0 });
+
+        await Assert.That(both.ChosenRepositories).Contains("acme/gadgets");
+        await Assert.That(both.ChosenRepositories).Contains("acme/widgets");
+        await Assert.That(PaneText.Repositories(both)).Contains("→ acme/widgets");
     }
 
     [Test]
@@ -103,7 +113,7 @@ public class WhatThisTenantCanFlyAgainstTests
         var chosen = Reducer.RepositoryChosen(Listed() with { RepositorySelected = 1 });
         var cleared = Reducer.RepositoryChosen(chosen);
 
-        await Assert.That(cleared.ChosenRepository).IsNull();
+        await Assert.That(cleared.ChosenRepositories).IsEmpty();
     }
 
     [Test]

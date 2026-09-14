@@ -58,7 +58,13 @@ public interface IConsoleActions
     /// The registered repository this flight is about, or null to let the
     /// envelope resolve it — which is what every flight does by default.
     /// </param>
-    string Fly(string intent, string? repository, string? workKind);
+    /// <param name="repositories">
+    /// Which repositories the flight names, or empty to let the envelope
+    /// resolve it. A LIST since contract 0.161.0 — the client fills the
+    /// singular when there is exactly one, so a flight naming one travels
+    /// exactly as it always did.
+    /// </param>
+    string Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
     /// Open a flight for a work item somebody picked, by provider and id.
@@ -79,7 +85,8 @@ public interface IConsoleActions
     /// missing kind as <c>implement</c>, and a console that supplied that name
     /// would be declaring something nobody chose.
     /// </remarks>
-    string FlyTicket(string provider, string id, string? repository, string? workKind);
+    string FlyTicket(
+        string provider, string id, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
     /// Why opening a flight for this work item deserves a second thought, or

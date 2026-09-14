@@ -132,13 +132,13 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string Fly(string intent, string? repository, string? workKind)
+    public string Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);
 
         try
         {
-            var opened = _data.FlyAsync(intent, repository, workKind)
+            var opened = _data.FlyAsync(intent, repositories, workKind)
                 .GetAwaiter().GetResult();
 
             return opened is VerbResult.Launched launched
@@ -152,14 +152,16 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string FlyTicket(string provider, string id, string? repository, string? workKind)
+    public string FlyTicket(
+        string provider, string id, IReadOnlyList<string> repositories,
+        string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
         try
         {
-            var opened = _data.FlyTicketAsync(provider, id, repository, workKind)
+            var opened = _data.FlyTicketAsync(provider, id, repositories, workKind)
                 .GetAwaiter().GetResult();
 
             return opened is VerbResult.Launched launched

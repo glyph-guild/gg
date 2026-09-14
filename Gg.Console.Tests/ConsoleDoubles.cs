@@ -247,13 +247,13 @@ internal static class ConsoleDoubles
         /// elsewhere read that tuple, and a third member would edit tests whose
         /// subject is not the repository.
         /// </remarks>
-        internal List<(string Provider, string Id, string? Repository)> Tickets { get; } = [];
+        internal List<(string Provider, string Id, IReadOnlyList<string> Repositories)> Tickets { get; } = [];
 
         /// <summary>What each flight said it was for, null where it said nothing.</summary>
         internal List<string?> Kinds { get; } = [];
 
         /// <summary>Every pasted intent, with the repository it named.</summary>
-        internal List<(string Intent, string? Repository, string? WorkKind)> Intents { get; } = [];
+        internal List<(string Intent, IReadOnlyList<string> Repositories, string? WorkKind)> Intents { get; } = [];
 
         /// <summary>Every gate answered, in order.</summary>
         internal List<(string Flight, string Obligation, bool Approved, string? Reason)> Decided
@@ -284,19 +284,21 @@ internal static class ConsoleDoubles
             return "recorded";
         }
 
-        public string Fly(string intent, string? repository, string? workKind)
+        public string Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
         {
             Pasted.Add(intent);
-            Intents.Add((intent, repository, workKind));
+            Intents.Add((intent, repositories, workKind));
             Kinds.Add(workKind);
 
             return refusing ? "Nothing was opened — the control plane could not be reached." : "opened";
         }
 
-        public string FlyTicket(string provider, string id, string? repository, string? workKind)
+        public string FlyTicket(
+            string provider, string id, IReadOnlyList<string> repositories,
+            string? workKind)
         {
             Flown.Add((provider, id));
-            Tickets.Add((provider, id, repository));
+            Tickets.Add((provider, id, repositories));
 
             // WHAT A FLIGHT SAID IT WAS FOR, recorded so a test can ask. A
             // double that took the argument and dropped it would let the whole

@@ -130,6 +130,31 @@ public static class PaneText
             : null;
 
     /// <summary>
+    /// Why the compose modal's repositories tab has no rows, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two absences, not one.</b> A tenant that has registered nothing and
+    /// a console that has not read the registry yet are different facts, and
+    /// an empty table with no sentence claims the first when it may be the
+    /// second.
+    /// </remarks>
+    public static string FlyingWithAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Repositories is not { } listed)
+        {
+            return "The registry has not been read yet. A flight opened now names whatever "
+                 + "the envelope resolves.";
+        }
+
+        return listed.Repositories.Count > 0
+            ? ""
+            : "No repositories are registered for this tenant, so there is nothing to name. "
+            + "The envelope resolves what a flight runs against.";
+    }
+
+    /// <summary>
     /// What one tab's pane says, whichever tab it is.
     /// </summary>
     /// <remarks>
@@ -2039,7 +2064,7 @@ public static class PaneText
             // THE ARROW IS THE WHOLE POINT OF THE COLUMN. A list where the
             // chosen row looks like every other row is a list that cannot tell
             // a person what the next flight will do.
-            var mark = string.Equals(state.ChosenRepository, repository.Path, StringComparison.Ordinal)
+            var mark = state.ChosenRepositories.Contains(repository.Path, StringComparer.Ordinal)
                 ? "\u2192"
                 : " ";
 
@@ -2055,9 +2080,14 @@ public static class PaneText
         }
 
         text.AppendLine();
-        text.AppendLine(state.ChosenRepository is { Length: > 0 }
-            ? "Choosing the chosen one again lets the envelope decide instead."
-            : "Nothing chosen: the envelope decides. Choose one to name it on every flight.");
+        // SAYS WHAT THESE MARKS ARE FOR, and they stopped being a command when
+        // the compose modal grew a tab: they are what a new flight STARTS with,
+        // and the flight itself can differ without anybody coming back here.
+        text.AppendLine(state.ChosenRepositories.Count > 0
+            ? $"{state.ChosenRepositories.Count} chosen. A new flight starts with these, and "
+            + "its own tab can change that. Choosing one again removes it."
+            : "Nothing chosen: the envelope decides. Choose some to start every new flight "
+            + "with them.");
 
         return text.ToString().TrimEnd();
     }
@@ -2325,8 +2355,8 @@ public static class PaneText
         // invisible state that changes what a write does is the worst kind -
         // somebody who chose one an hour ago and forgot must not open a flight
         // against it without being told.
-        var chosen = state.ChosenRepository is { Length: > 0 } repository
-            ? $"flying against {Clean(repository)}"
+        var chosen = state.ChosenRepositories.Count > 0
+            ? "flying against " + string.Join(", ", state.ChosenRepositories.Select(r => Clean(r)))
             : "";
 
         var said = state.LastAction is { Length: > 0 } action ? Clean(action) : "";

@@ -208,6 +208,26 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _kindChoices;
 
     /// <summary>
+    /// The compose modal's two tabs: what kind of work, and against what.
+    /// </summary>
+    /// <remarks>
+    /// <b>Which repositories a flight names used to be a console-wide switch
+    /// on another tab.</b> That is the wrong range for it — one flight against
+    /// a different repository meant changing what every flight after it would
+    /// do. The registry's marks are a DEFAULT now, and this is where a flight
+    /// departs from it.
+    /// </remarks>
+    private readonly Terminal.Gui.Views.Tabs _workKindTabs;
+
+    private readonly View _composeKindTab;
+
+    private readonly View _composeRepoTab;
+
+    private readonly TableView _composeRepos;
+
+    private readonly Label _composeReposAbsent;
+
+    /// <summary>
     /// The registry a credential is being sent for, in the kinds' shape.
     /// </summary>
     /// <remarks>
@@ -236,6 +256,10 @@ public sealed class ConsoleScreen : Window
     /// a second takes the log's cursor off whatever a person had scrolled to.
     /// </remarks>
     private FlightTab _landedFlightTab;
+
+    /// <summary>Which tab of the compose modal focus was last placed in.</summary>
+    /// <remarks>Beside <see cref="_landedFlightTab"/> and for its reason.</remarks>
+    private WorkKindTab _landedWorkKindTab;
 
     /// <summary>
     /// Which tab of the work item modal focus was last placed in.
@@ -1137,7 +1161,62 @@ public sealed class ConsoleScreen : Window
         _kindChoices.Width = Dim.Fill();
         _kindChoices.Height = Dim.Fill();
 
-        _kindBody.Add(_kindSentence, _kindChoices);
+        _composeKindTab = new View
+        {
+            Title = "Kind",
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _composeKindTab.Add(_kindSentence, _kindChoices);
+
+        // AGAINST WHAT. The same registry the Repositories tab lists, marked
+        // with what THIS flight names rather than with what every new one
+        // starts as.
+        _composeRepos = CollectionViews.Table();
+        _composeRepos.ValueChanged += OnModalRowPointedAt;
+        _composeRepos.KeyDown += OnModalKeyDown;
+
+        // AND THE SENTENCE WHEN THERE ARE NONE. An empty table claims the
+        // tenant registered nothing, which is a different fact from a console
+        // that has not read the registry yet.
+        // FOCUSABLE, WHICH A LABEL IS NOT BY DEFAULT, and it is load-bearing:
+        // Terminal.Gui's Tabs follows FOCUS, so a tab with nothing focusable in
+        // it cannot be reached by tabbing at all. Measured - with the registry
+        // unread the table is hidden, and the modal's second tab was
+        // unreachable rather than merely empty.
+        _composeReposAbsent = new Label
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+        };
+
+        _composeRepoTab = new View
+        {
+            Title = "Repositories",
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _composeRepoTab.Add(_composeRepos, _composeReposAbsent);
+
+        _workKindTabs = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+        _workKindTabs.Add(_composeKindTab);
+        _workKindTabs.Add(_composeRepoTab);
+        _workKindTabs.ValueChanged += OnWorkKindTabChanged;
+
+        _kindBody.Add(_workKindTabs);
 
         // THE REGISTRY, AND THE ONE LINE ABOVE IT. The kinds' shape exactly.
         // Three rows for the sentence rather than two, because it says what
@@ -1981,6 +2060,34 @@ public sealed class ConsoleScreen : Window
         }
 
         State = Reducer.Reduce(State, Command.NextWorkItemTab);
+        Render();
+    }
+
+    /// <summary>
+    /// A person turned the compose modal to its other half.
+    /// </summary>
+    /// <remarks>
+    /// Guarded like every other bar here: assigning Value raises ValueChanged,
+    /// so without the flag the assignment answers its own event and reduces a
+    /// command for a tab nobody pressed.
+    /// </remarks>
+    private void OnWorkKindTabChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var wanted = ReferenceEquals(chosen, _composeRepoTab)
+            ? WorkKindTab.Repositories
+            : WorkKindTab.Kind;
+
+        if (wanted == State.WorkKindTab)
+        {
+            return;
+        }
+
+        State = Reducer.Reduce(State, Command.NextWorkKindTab);
         Render();
     }
 
@@ -3128,8 +3235,9 @@ public sealed class ConsoleScreen : Window
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
         // console opens will name, so a person glancing at the frame should
         // learn it without reading the rows.
-        _repositoriesPane.Title = State.ChosenRepository is { Length: > 0 } chosen
-            ? $"Repositories — flying against {chosen}"
+        _repositoriesPane.Title = State.ChosenRepositories.Count > 0
+            ? "Repositories — new flights start with "
+            + string.Join(", ", State.ChosenRepositories)
             : "Repositories";
 
         // THE TRACKER IS IN THE TITLE, because a tenant may configure more than
@@ -3319,6 +3427,30 @@ public sealed class ConsoleScreen : Window
         Applied(State.Look);
 
         Focus();
+    }
+
+    /// <summary>
+    /// Whether whatever holds the keyboard has stopped being on the screen.
+    /// </summary>
+    /// <remarks>
+    /// <b>A general answer to a hazard this console creates on purpose.</b>
+    /// Several panes answer "no rows" by hiding a table and showing a
+    /// sentence, and swap them back when rows arrive — so the view holding the
+    /// keyboard can vanish under it between two renders. <c>FocusChange</c> is
+    /// pure and cannot see visibility; this is the one thing it needs to know
+    /// that it cannot be told without handing it the widget tree.
+    /// </remarks>
+    private bool Stranded()
+    {
+        for (var view = Focused; view is not null; view = view.SuperView)
+        {
+            if (!view.Visible)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Draw the console the way the Look page says to.</summary>
@@ -3680,6 +3812,29 @@ public sealed class ConsoleScreen : Window
             Fill(
                 _kindChoices, null, rows, Rows.WorkKindColumns, State.KindSelected,
                 row => [row.Name, row.Said]);
+
+            // AND THE OTHER TAB, filled in the same guarded window: a table
+            // handed a source raises its own selection event, which is also
+            // how a click arrives.
+            var against = Rows.FlyingWith(State);
+
+            Fill(
+                _composeRepos, _composeReposAbsent, against, Rows.FlyingWithColumns,
+                State.RepositorySelected,
+                row => [row.Mark, row.Path, row.Name, row.Credential]);
+
+            _composeReposAbsent.Text = PaneText.FlyingWithAbsence(State);
+
+            // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY, guarded the way
+            // every other bar in this console is.
+            var showing = State.WorkKindTab is WorkKindTab.Repositories
+                ? _composeRepoTab
+                : _composeKindTab;
+
+            if (!ReferenceEquals(_workKindTabs.Value, showing))
+            {
+                _workKindTabs.Value = showing;
+            }
         }
         finally
         {
@@ -4283,9 +4438,25 @@ public sealed class ConsoleScreen : Window
             State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView,
             filterView: State.FilterView, landedFilterView: _landedFilterView,
             flightTab: State.FlightTab, landedFlightTab: _landedFlightTab,
-            workItemTab: State.WorkItemTab, landedWorkItemTab: _landedWorkItemTab))
+            workItemTab: State.WorkItemTab, landedWorkItemTab: _landedWorkItemTab,
+            workKindTab: State.WorkKindTab, landedWorkKindTab: _landedWorkKindTab))
         {
             case FocusTarget.LeaveAlone:
+                // UNLESS WHAT HOLDS IT HAS GONE. "Leave it where a person put
+                // it" assumes there is still something there: a pane that
+                // answers an empty list with a sentence HIDES that sentence
+                // when the rows arrive, and focus left on a hidden view is a
+                // keyboard that does nothing with no way to tell.
+                //
+                // Measured on the compose modal's second tab, whose table is
+                // invisible until the registry read lands: the modal opened,
+                // focus went to the absence label, the read hid it, and space
+                // stopped marking anything.
+                if (Stranded())
+                {
+                    break;
+                }
+
                 return;
 
             case FocusTarget.AirspacePath:
@@ -4348,10 +4519,16 @@ public sealed class ConsoleScreen : Window
                 return;
 
             case FocusTarget.WorkKindChoices:
-                // THE TABLE, because it is the whole question. A dialog that
-                // kept focus at its frame leaves the arrows moving nothing,
-                // which is the defect every widget modal here has had once.
-                _kindChoices.SetFocus();
+                // THE TABLE IN WHICHEVER TAB IS SHOWING. It was the kinds table
+                // unconditionally, which was right while that was the whole
+                // modal - the flight modal and the work item modal each learned
+                // this the same way, by putting the keyboard in a tab nobody
+                // had turned to and dragging the bar after it.
+                (State.WorkKindTab is WorkKindTab.Repositories && _composeRepos.Visible
+                    ? _composeRepos
+                    : (View)_kindChoices).SetFocus();
+
+                _landedWorkKindTab = State.WorkKindTab;
                 break;
 
             case FocusTarget.CredentialRepositoryChoices:

@@ -560,6 +560,22 @@ public static class Rows
     private static string Short(string runnerId) =>
         runnerId.Length <= 8 ? runnerId : runnerId[..8];
 
+    /// <summary>One row of the compose modal's repositories tab.</summary>
+    public sealed record FlyingWithRow
+    {
+        /// <summary>Whether this flight names it.</summary>
+        public string Mark { get; init; } = "";
+
+        /// <summary>The path the control plane knows it by.</summary>
+        public string Path { get; init; } = "";
+
+        /// <summary>What a person calls it.</summary>
+        public string Name { get; init; } = "";
+
+        /// <summary>Whether the credential it needs is here.</summary>
+        public string Credential { get; init; } = "";
+    }
+
     /// <summary>What this tenant may fly against.</summary>
     public static IReadOnlyList<RepositoryRow> Repositories(AppState state)
     {
@@ -573,7 +589,7 @@ public static class Rows
         return
         [
             .. listed.Repositories.Select(r => new RepositoryRow(
-                string.Equals(r.Path, state.ChosenRepository, StringComparison.Ordinal) ? "→" : " ",
+                state.ChosenRepositories.Contains(r.Path, StringComparer.Ordinal) ? "→" : " ",
                 r.Path,
                 r.Name,
                 r.Provider,
@@ -586,6 +602,53 @@ public static class Rows
                 r.Narrowings is { Length: > 0 } governed ? governed : "(off)")),
         ];
     }
+
+    /// <summary>
+    /// What this tenant may fly against, marked with what THIS flight names.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same list as <see cref="Repositories"/> and a different mark.</b>
+    /// That one shows what every new flight starts with; this shows what the
+    /// flight being composed will actually name. Same rows, two ranges, and a
+    /// person who has changed one for this flight can see that they have.
+    /// </para>
+    /// <para>
+    /// <b>The credential standing comes with it</b>, because that is the thing
+    /// that refuses a flight after it is opened. A person choosing what to fly
+    /// against is deciding, and deciding without it means finding out from a
+    /// grounded flight.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<FlyingWithRow> FlyingWith(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Repositories is not { } listed)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. listed.Repositories.Select(r => new FlyingWithRow
+            {
+                // A BOX RATHER THAN AN ARROW, because several can be true at
+                // once and an arrow reads as "this one". The empty box is drawn
+                // rather than left blank: a column that is sometimes absent
+                // reads as a column that failed.
+                Mark = state.Against.Contains(r.Path, StringComparer.Ordinal) ? "[x]" : "[ ]",
+                Path = r.Path,
+                Name = r.Name,
+                Credential = Gg.Client.RepositoryCredentials.StandingOf(
+                    state.RepositoryCredentials, r.Path),
+            }),
+        ];
+    }
+
+    /// <summary>The columns the compose modal's repositories tab declares.</summary>
+    public static IReadOnlyList<string> FlyingWithColumns { get; } =
+        ["", "repository", "name", "credential"];
 
     /// <summary>
     /// Everything recorded against the flight the modal is open on, oldest first.

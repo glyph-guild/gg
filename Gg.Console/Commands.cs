@@ -47,6 +47,20 @@ public enum Command
     /// </remarks>
     ResetLook,
 
+    /// <summary>Turn the compose modal between its kind and its repositories.</summary>
+    NextWorkKindTab,
+
+    /// <summary>
+    /// Name the repository under the cursor on the flight being composed, or
+    /// stop naming it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Scoped to one flight, unlike the registry's own toggle.</b> That one
+    /// says what every new flight STARTS with; this one says what this
+    /// particular flight will actually fly against.
+    /// </remarks>
+    ToggleFlightRepository,
+
     /// <summary>
     /// Hold the help modal out of the way, or bring it back.
     /// </summary>
@@ -864,6 +878,14 @@ public static class ShellCommands
         // person to type a slug the console could have read. A read that folds
         // in without the session ending is what makes that row unnecessary.
         Command.ChooseCredentialRepository,
+
+        // AND THE COMPOSE MODAL, which lists the same registry on its second
+        // tab. Without this it was empty unless somebody had happened to visit
+        // the Repositories tab first - measured by driving it, and the
+        // difference between a feature and a feature that works on the second
+        // try.
+        Command.AskHowToCompose,
+        Command.AskHowToFlyByHand,
 
         // BROWSING, WHICH THIS SET REFUSED TWICE AND NOW DOES NOT AT ALL. The
         // reason it refused is worth keeping because it was half right. "An

@@ -33,13 +33,16 @@ namespace Gg.Console.Tests;
 public class FocusReachesIntoTheFlightModalTests
 {
     [Test]
-    public async Task Opening_a_flight_puts_the_cursor_in_its_log()
+    public async Task Opening_a_flight_puts_the_cursor_in_the_tab_it_opens_on()
     {
+        // NAMED THE LOG UNTIL THE LOG BECAME A TAB. While it was the third
+        // region of the details tab, "the log" and "the tab that is showing"
+        // were the same widget; once it moved, naming the log put the keyboard
+        // in a tab nobody had turned to. See TheKeyboardFollowsTheModalsTab.
         await Assert.That(FocusChange.Wanted(
                 UiMode.FlightDetail, TabId.Flights, TabId.Flights, modalHasFocus: false))
-            .IsEqualTo(FocusTarget.FlightLog)
-            .Because("the log is the only part of this modal with a cursor, so it is the only "
-                   + "part where an arrow key does what a person expects.");
+            .IsEqualTo(FocusTarget.FlightTab)
+            .Because("the modal is made of tabs, and the arrows belong to the one in front.");
     }
 
     [Test]
@@ -158,7 +161,7 @@ public class FocusReachesIntoTheFlightModalTests
     {
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
-        await Assert.That(screen).Contains("FocusTarget.FlightLog")
+        await Assert.That(screen).Contains("FocusTarget.FlightTab")
             .Because("a target the view does not answer is a decision made twice.");
     }
 }

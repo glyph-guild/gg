@@ -190,7 +190,7 @@ public sealed class ConsoleScreen : Window
     private readonly View _itemDetailsTab;
     private readonly View _itemHistoryTab;
     private readonly FrameView _itemChangePane;
-    private readonly Label _itemChange;
+    private readonly ListView _itemChange;
     private readonly Label _itemHistoryAbsent;
     private IReadOnlyList<FlightField>? _itemFieldsShowing;
 
@@ -287,7 +287,7 @@ public sealed class ConsoleScreen : Window
     private readonly View _flightGateTab;
     private readonly View _flightLogTab;
     private readonly FrameView _flightLogDetailPane;
-    private readonly Label _flightLogDetail;
+    private readonly ListView _flightLogDetail;
     private readonly Label _flightGate;
     private readonly FrameView _flightIntentPane;
     private readonly Markdown _flightIntent;
@@ -1002,14 +1002,9 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
             CanFocus = true,
         };
-        _itemChange = new Label
-        {
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(),
-            CanFocus = true,
-        };
+        // The log's pane one modal over, and a list for its reason.
+        _itemChange = CollectionViews.Document();
+        _itemChange.ViewportChanged += OnChangeDetailResized;
         _itemChangePane.Add(_itemChange);
 
         _itemDetailsTab = new View
@@ -1220,14 +1215,15 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
             CanFocus = true,
         };
-        _flightLogDetail = new Label
-        {
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(),
-            CanFocus = true,
-        };
+        // A LIST RATHER THAN A LABEL, because a Label draws what fits and
+        // drops the rest - which for this pane is the defect it was built to
+        // fix. The reading views already scroll prose this way, so the arrows
+        // do here what they do in every other list in this console.
+        // Document rather than List, for the scroll bar: without one "a full
+        // box and a long page look exactly alike", which is this complaint
+        // said from the other side.
+        _flightLogDetail = CollectionViews.Document();
+        _flightLogDetail.ViewportChanged += OnLogDetailResized;
         _flightLogDetailPane.Add(_flightLogDetail);
 
         // FOCUSABLE, FOR THE SAME REASON AND WITH MORE AT STAKE: this one is
@@ -3466,7 +3462,9 @@ public sealed class ConsoleScreen : Window
 
             // WHAT THE ROW UNDER THE CURSOR SAYS, in the half of the tab a
             // table cannot use.
-            _itemChange.Text = WorkItemDetails.ChangeDetail(State);
+            _itemChange.SetSource(new System.Collections.ObjectModel.ObservableCollection<string>(
+                [.. WorkItemDetails.ChangeDetailLines(
+                    State, CollectionViews.TextWidth(_itemChange))]));
 
             // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY, guarded the way
             // the flight modal's is.
@@ -3751,7 +3749,8 @@ public sealed class ConsoleScreen : Window
         // measured here any more. The table used to wrap prose into
         // continuation rows because Terminal.Gui has no variable row heights;
         // a pane of its own needs no arithmetic and leaves one row per entry.
-        _flightLogDetail.Text = FlightDetails.LogDetail(State);
+        _flightLogDetail.SetSource(new System.Collections.ObjectModel.ObservableCollection<string>(
+            [.. FlightDetails.LogDetailLines(State, CollectionViews.TextWidth(_flightLogDetail))]));
         _flightLogDetail.Visible = log.Count > 0;
 
         var shown = log;
@@ -3826,6 +3825,32 @@ public sealed class ConsoleScreen : Window
         }
 
         RenderLog();
+    }
+
+    /// <summary>The detail pane changed width, so the prose is broken again.</summary>
+    /// <remarks>
+    /// <b>Only this pane.</b> A full <c>Render</c> during a layout re-asserts
+    /// focus, which is the thing the countdown taught this file not to do.
+    /// </remarks>
+    private void OnLogDetailResized(object? sender, EventArgs args)
+    {
+        if (_syncing || State.Mode is not UiMode.FlightDetail)
+        {
+            return;
+        }
+
+        RenderLog();
+    }
+
+    /// <summary>The same, one modal over.</summary>
+    private void OnChangeDetailResized(object? sender, EventArgs args)
+    {
+        if (_syncing || State.Mode is not UiMode.WorkItemDetail)
+        {
+            return;
+        }
+
+        Render();
     }
 
     /// <summary>Where an entry starts, among the rows it and its neighbours make.</summary>

@@ -381,6 +381,43 @@ public static class FlightDetails
             : NothingMoreWasSaid;
     }
 
+    /// <summary>
+    /// What the entry under the cursor said, broken to the width it is shown at.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here rather than in the view, and scrolled rather than clipped.</b> A
+    /// <c>Label</c> draws what fits and drops the rest, which for this pane is
+    /// the defect it was built to fix: the detail is prose precisely because a
+    /// cell could not hold it. Broken into lines it goes to the widget the
+    /// reading views use, which scrolls with the arrows every other list in
+    /// this console answers.
+    /// <para>
+    /// <b>A width of zero wraps nothing</b>, because a viewport has none until
+    /// it has been laid out and a wrap to no width is one row per character.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> LogDetailLines(AppState state, int width) =>
+        Lines(LogDetail(state), width);
+
+    /// <summary>One block of prose, broken to a width, or whole when there is none.</summary>
+    internal static IReadOnlyList<string> Lines(string text, int width)
+    {
+        if (width <= 0)
+        {
+            return [text];
+        }
+
+        // EACH AUTHORED LINE ON ITS OWN, then wrapped. What somebody wrote with
+        // a break in it keeps the break: joining first would turn a two-line
+        // note into one paragraph and lose the shape they gave it.
+        return
+        [
+            .. text.Split('\n').SelectMany(line => line.Length == 0
+                ? (IEnumerable<string>)[""]
+                : Rows.Wrapped(line, width)),
+        ];
+    }
+
     /// <summary>What the pane says when the entry under the cursor said nothing more.</summary>
     internal const string NothingMoreWasSaid =
         "This entry is the whole of what was recorded. Nothing further was written against it.";

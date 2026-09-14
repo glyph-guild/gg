@@ -153,6 +153,17 @@ public static class WorkItemDetails
         return changes[Math.Clamp(state.WorkItemSelected, 0, changes.Count - 1)].What;
     }
 
+    /// <summary>
+    /// What the change under the cursor says, broken to the width it is shown at.
+    /// </summary>
+    /// <remarks>
+    /// The log's pane one modal over, and the same reasoning: a Label clips and
+    /// this text is prose because a cell could not hold it. See
+    /// <see cref="FlightDetails.LogDetailLines"/>.
+    /// </remarks>
+    public static IReadOnlyList<string> ChangeDetailLines(AppState state, int width) =>
+        FlightDetails.Lines(ChangeDetail(state), width);
+
     /// <summary>The heading over the pane that holds what a cell cannot.</summary>
     public const string ChangeDetailTitle = "What the change says";
 

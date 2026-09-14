@@ -73,6 +73,33 @@ public static class PaneText
     private static string FlightDetail(AppState state) => FlightDetails.Linear(state);
 
     /// <summary>
+    /// The history tab as one reading: the changes, and what the one under the
+    /// cursor says.
+    /// </summary>
+    /// <remarks>
+    /// <b>The widgets read in order</b>, the rule the flight modal's linear
+    /// rendering already keeps. A copy that composed its own version of this
+    /// would be a second rendering nobody sees until it disagrees.
+    /// </remarks>
+    private static string WorkItemHistory(AppState state)
+    {
+        var text = new StringBuilder();
+
+        text.AppendLine(WorkItemDetails.HistoryTitle);
+
+        foreach (var change in WorkItemDetails.Changes(state))
+        {
+            text.AppendLine($"  {change.When}  {change.Who}  {change.What}");
+        }
+
+        text.AppendLine();
+        text.AppendLine(WorkItemDetails.ChangeDetailTitle);
+        text.AppendLine(WorkItemDetails.ChangeDetail(state));
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// The story this console holds for one flight, or null.
     /// </summary>
     /// <remarks>
@@ -2766,13 +2793,21 @@ public static class PaneText
             // mode and nothing else, so the one thing that says WHICH item this
             // is has to be in the body - and two items with similar names behind
             // a modal are otherwise told apart by nothing.
+            // WHICHEVER TAB IS SHOWING, because this text is what a copy
+            // takes and a copy has to hand over what a person is looking at.
+            // Answering with the description while the history tab is up would
+            // be the same fact rendered twice and disagreeing with itself,
+            // which is precisely what copying from the producer that drew it
+            // exists to prevent.
             UiMode.WorkItemDetail =>
                 (state.Browse is { Items.Count: > 0 } items
                  && state.BrowseSelected >= 0
                  && state.BrowseSelected < items.Items.Count
                     ? $"{items.Items[state.BrowseSelected].Id}\n\n"
                     : "")
-              + Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true),
+              + (state.WorkItemTab is WorkItemTab.History
+                    ? WorkItemHistory(state)
+                    : Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true)),
             _ => "",
         };
     }

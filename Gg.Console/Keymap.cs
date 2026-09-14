@@ -727,6 +727,12 @@ public static class Keymap
             // v is what shows evidence one level up, so it is already the
             // console's word for this.
             new(KeyStroke.Char('v'), Command.NextFlightTab, "gate"),
+
+            // THE COMMAND, THE CLIPBOARD AND THE WIRING ALL EXISTED, and three
+            // reading modes already bind this key to it. A modal full of
+            // somebody else's prose is exactly where a person wants to take
+            // the words with them.
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
             // THE LOG'S CURSOR, and the entry it lands on is the one that
             // unwraps. Untaught and off the hint line for the reason the queue's
@@ -821,6 +827,10 @@ public static class Keymap
             // A second word for "show me the other half" would be a second
             // thing to learn for no gain.
             new(KeyStroke.Char('v'), Command.NextWorkItemTab, "history"),
+
+            // The same key the reading modes use, and it takes whichever tab
+            // is showing - see PaneText.WorkItem.
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
 
             new(KeyStroke.Char('o'), Command.OpenWorkItem, "open it in a browser"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),

@@ -3017,8 +3017,22 @@ public static class PaneText
     /// the hint line, and the one people read when they are already confused.
     /// </remarks>
     private static string Help(AppState state) =>
-        Tabs(state.HelpPage) + "\n\n"
-        + (state.HelpPage == HelpPage.Environment ? HelpEnvironment(state) : HelpKeys(state));
+        state.HelpPage switch
+        {
+            // THE LOOK PAGE COPIES ITS CHANGES RATHER THAN ITSELF, and that is
+            // the whole reason the spike has a shortcut at all. `c' is bound to
+            // CopyModal, CopyModal copies THIS, and what somebody wants off a
+            // page for trying looks on is the two settings that worked - not a
+            // picture of the page, and not a tab strip drawn in text.
+            //
+            // No Tabs() header either, for the same reason: a person pasting
+            // this into an instruction does not want `[ Keys ] Environment'
+            // above it.
+            HelpPage.Look => Looks.Copyable(state.Look),
+
+            HelpPage.Environment => Tabs(state.HelpPage) + "\n\n" + HelpEnvironment(state),
+            _ => Tabs(state.HelpPage) + "\n\n" + HelpKeys(state),
+        };
 
     /// <summary>
     /// The tab bar, marking the page a person is on.
@@ -3108,7 +3122,8 @@ public static class PaneText
             _ => throw new ArgumentOutOfRangeException(
                 nameof(page),
                 page,
-                "The Keys page is a tree and is drawn from HelpTree, not from lines."),
+                "The Keys page is a tree and the Look page is a table; neither is drawn "
+              + "from lines."),
         };
 
         return Fitted([.. text.Split('\n')], columns);

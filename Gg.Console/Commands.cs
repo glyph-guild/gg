@@ -21,6 +21,33 @@ public enum Command
     ToggleFold,
 
     /// <summary>
+    /// The next value of the Look setting under the cursor.
+    /// </summary>
+    /// <remarks>
+    /// <b>One command for seven settings, because the cursor says which.</b>
+    /// A command per setting would be seven keys in a modal that has about
+    /// four to spare, and the page would have to advertise all of them.
+    /// </remarks>
+    NextLookValue,
+
+    /// <summary>The value before it, for walking back a step.</summary>
+    /// <remarks>
+    /// <b>Both directions, even though everything wraps.</b> Wrapping means one
+    /// key can REACH every value; it does not make eleven steps forward a
+    /// reasonable way to undo one.
+    /// </remarks>
+    PreviousLookValue,
+
+    /// <summary>Put every Look setting back to what the console ships as.</summary>
+    /// <remarks>
+    /// <b>A spike needs a way out more than a finished feature does.</b>
+    /// Somebody trying looks on will make the console unreadable at least once,
+    /// and the way back must not be a walk through eleven line styles in a
+    /// colour scheme they cannot see.
+    /// </remarks>
+    ResetLook,
+
+    /// <summary>
     /// Everything known about the flight under the cursor.
     /// </summary>
     /// <remarks>

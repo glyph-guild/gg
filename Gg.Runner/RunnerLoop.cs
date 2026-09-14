@@ -1279,7 +1279,11 @@ public sealed class RunnerLoop(
         // push the runner refused out loud still released the lease as
         // completed.
         var refused = await LandAsync(
-            lease, workspace, decision, secretsByLocator, proposed, cancellationToken);
+            lease, workspace, decision, secretsByLocator, proposed,
+            // THE ACCOUNT, HANDED DOWN. It was in scope here and read nowhere,
+            // while the landing composed a title out of the admission's
+            // obligation verdict - the nearest string rather than a chosen one.
+            invoked.Run?.Reason, cancellationToken);
 
         // WHAT THE PERSON DECIDED, and the disposition that matches it. Only an
         // attended flight has one: an agent's outcome was measured and shipped
@@ -1956,6 +1960,7 @@ public sealed class RunnerLoop(
         LandingDecision? accepted,
         IReadOnlyDictionary<string, string> secretsByLocator,
         IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
+        string? account,
         CancellationToken cancellationToken)
     {
         // THREE GATES NOW, AND THE THIRD DOES NOT PASS THROUGH THE OTHER TWO.
@@ -2048,8 +2053,23 @@ public sealed class RunnerLoop(
             Slug = push.Slug,
             Branch = push.Branch,
             BaseRef = push.BaseRef,
-            Title = $"{lease.FlightNumber}: {admission?.Reason ?? push.Reason}",
+
+            // WHAT THE AGENT SAID IT DID, and the admission's sentence only
+            // where no loop ran. That sentence answers why this was allowed to
+            // land; it is written for an audit trail and reads as nonsense on a
+            // list of changes.
+            Title = LandingTitle.For(
+                lease.FlightNumber, account, admission?.Reason ?? push.Reason),
             Secret = secretsByLocator[reference.Locator],
+
+            // FROM THE LEASE, which has carried it since a flight could be
+            // opened from a ticket. A destination that cannot say which work
+            // item a proposal answers leaves a reviewer to match it up by
+            // reading the diff.
+            Intent = lease.IntentProvider is { Length: > 0 } provider
+                  && lease.IntentId is { Length: > 0 } id
+                ? new LandingIntent { Provider = provider, Id = id, Uri = lease.IntentUri }
+                : null,
         };
 
         // THE PUSH FIRST, ALWAYS. A proposal on a branch that is not there yet is a

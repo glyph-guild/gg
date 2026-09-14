@@ -24,7 +24,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// <para>
 /// <b>And the work item was not unknown.</b> The lease carries
-/// <c>IntentProvider</c> and <c>IntentId</c> - <c>ado</c> and <c>18490</c> for
+/// <c>IntentProvider</c> and <c>IntentId</c> - the tracker key and <c>18490</c> for
 /// that flight - and <c>LandingRequest</c> had six members, none of them the
 /// intent, so the adapter could not have attached it if it had wanted to.
 /// </para>
@@ -103,9 +103,9 @@ public class APullRequestNamesItsWorkItemTests
         // match up by reading the diff.
         var posted = await PostedAsync(new LandingIntent
         {
-            Provider = "ado",
+            Provider = "a-tracker",
             Id = "18490",
-            Uri = "https://dev.azure.invalid/acme/_workitems/edit/18490",
+            Uri = "https://tracker.invalid/acme/work/18490",
         });
 
         await Assert.That(posted.TryGetProperty("workItemRefs", out var refs)).IsTrue()

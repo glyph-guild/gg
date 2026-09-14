@@ -25,6 +25,41 @@ public sealed record LandingRequest
 
     /// <summary>The credential the developer registered, resolved on this machine.</summary>
     public required string Secret { get; init; }
+
+    /// <summary>
+    /// The work item this flight was opened from, or null when it was opened
+    /// from a sentence.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried because a reviewer's first question is what this answers.</b>
+    /// The lease has held the provider and the id since flights could be opened
+    /// from a ticket at all; this record had six members and none of them was
+    /// the intent, so an adapter could not have attached it if it had wanted to.
+    /// Pull request 8629 opened against a backlog item and named it nowhere.
+    /// </remarks>
+    public LandingIntent? Intent { get; init; }
+}
+
+/// <summary>
+/// The work item a flight answers, as much of it as a destination can use.
+/// </summary>
+/// <remarks>
+/// <b>Three members because providers want different ones.</b> A ref-named
+/// forge attaches by id on the create body; one with no work items of its own
+/// can only write the link into the description. The provider is what says
+/// which of those is even meaningful, so it travels with them rather than being
+/// inferred from the shape of an id.
+/// </remarks>
+public sealed record LandingIntent
+{
+    /// <summary>Which tracker, as the lease spells it.</summary>
+    public required string Provider { get; init; }
+
+    /// <summary>The identifier within it.</summary>
+    public required string Id { get; init; }
+
+    /// <summary>Where a person reads it, when the flight was given one.</summary>
+    public string? Uri { get; init; }
 }
 
 /// <summary>

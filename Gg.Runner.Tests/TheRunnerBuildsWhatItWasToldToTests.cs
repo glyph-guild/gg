@@ -51,6 +51,43 @@ public class TheRunnerBuildsWhatItWasToldToTests
     }
 
     [Test]
+    public async Task The_tracker_api_is_resolved_through_the_configuration_file()
+    {
+        // FOUND ON A LIVE RUNNER, and the comment above the call already claimed
+        // it: "so a tracker-apis line in the configuration file reaches the
+        // sinks. Read straight from the environment this would be the
+        // stun-servers defect again, one variable over." It passed no
+        // configuration, so the file never reached the sinks and the defect it
+        // names was the one it had.
+        //
+        // The machine had `tracker-apis` in its config, `gg config show` read it
+        // back as `file GG_TRACKER_APIS ...`, and the flying runner still
+        // refused an admitted write saying it had no tracker declared - because
+        // Settings.Value's `file` parameter defaults to null and the runner path
+        // threads `inForce` through every OTHER setting it reads.
+        //
+        // ASSERTED OVER THE SOURCE, like the sink construction above it: there
+        // is no seam to inject here, and the alternative is noticing again on a
+        // live machine.
+        var root = Root();
+        var calls = root.Split("TrackerConfiguration.ApisVariable");
+
+        await Assert.That(calls.Length).IsGreaterThan(1)
+            .Because("with no call to find, this passes without checking anything.");
+
+        // The argument list runs from the variable to the close of the call.
+        foreach (var after in calls.Skip(1))
+        {
+            var upToClose = after.Split(')')[0];
+
+            await Assert.That(upToClose).Contains("Configuration", StringComparison.Ordinal)
+                .Because("every tracker-apis read has to be given the configuration in "
+                       + "force, or a line in the file is written, shown by `gg config "
+                       + $"show`, and ignored by the runner. Found: '{upToClose.Trim()}'");
+        }
+    }
+
+    [Test]
     public async Task No_write_api_declared_means_no_sink_at_all()
     {
         await Assert.That(TrackerConfiguration.FromEnvironment(

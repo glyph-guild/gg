@@ -20,11 +20,19 @@ namespace Gg.Console.Tests;
 /// grows something to open stops belonging in a list of tabs that have nothing.
 /// </para>
 /// <para>
-/// <b>A read, once a reader is running, and the shell's until then.</b> STARTING
-/// a reader is a child process holding a credential and a UI session may not do
-/// it; asking one that was started before the session existed is what
-/// <c>LiveTails</c> already does. So the first browse of a console lifetime
-/// pays for the spawn in the shell and every press after it folds in.
+/// <b>A read, and it costs no screen at all.</b> The sentence this used to give
+/// — <i>"starting a reader is a child process holding a credential and a UI
+/// session may not do it"</i> — was measured and is not what
+/// <c>SpawnedReader</c> does: it places no secret and the child talks over
+/// pipes. So the spawn folds in beside the console like the asking, under the
+/// exception scoped in <see cref="LiveStreamingTests"/>.
+/// </para>
+/// <para>
+/// <b>And the reading moved with it.</b> <c>ConsoleLoop.ShowedWorkItem</c> was
+/// the shell's half and is gone; <c>ConsoleBrowsing.ItemPatch</c> is what
+/// answers this keypress now. These assertions moved onto it rather than being
+/// dropped — a behaviour that still happens, asserted against the thing that
+/// still performs it.
 /// </para>
 /// </remarks>
 public class EnterShowsTheWorkItemTests
@@ -40,6 +48,41 @@ public class EnterShowsTheWorkItemTests
                         "https://tracker.example/acme/_workitems/edit/18515", null),
                 ],
                 null)));
+
+    /// <summary>A browser that answers without a process.</summary>
+    /// <remarks>
+    /// <b>Was two delegates handed to <c>ConsoleLoop.ShowedWorkItem</c>.</b>
+    /// The read takes a browser now, because the same port answers the listing,
+    /// the item and its history — a person reading an item is talking to the
+    /// tracker they listed it from.
+    /// </remarks>
+    private sealed class Answers(ItemOutcome said, HistoryOutcome happened) : IWorkBrowser
+    {
+        internal int Asked { get; private set; }
+
+        public string? Key => "a-tracker";
+
+        public Task<BrowseOutcome> BrowseAsync(
+            string? cursor, int limit, Gg.Local.WorkItemFilter? filter, CancellationToken token) =>
+            Task.FromResult<BrowseOutcome>(new BrowseOutcome.Silent("not asked here"));
+
+        public Task<FacetOutcome> FacetsAsync(CancellationToken token) =>
+            Task.FromResult<FacetOutcome>(
+                new FacetOutcome.Offered(Gg.Local.WorkItemFacets.Nothing));
+
+        public Task<ItemOutcome> ReadAsync(string id, CancellationToken token)
+        {
+            Asked++;
+            return Task.FromResult(said);
+        }
+
+        public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
+            Task.FromResult(happened);
+    }
+
+    /// <summary>What the modal holds once the read has landed.</summary>
+    private static AppState Shown(AppState state, ItemOutcome said, HistoryOutcome happened) =>
+        ConsoleBrowsing.ItemPatch(new Answers(said, happened), state)(state);
 
     [Test]
     public async Task Enter_on_a_browse_row_asks_about_that_row()
@@ -78,12 +121,12 @@ public class EnterShowsTheWorkItemTests
     [Test]
     public async Task What_the_reader_said_is_what_the_modal_draws()
     {
-        var shown = ConsoleLoop.ShowedWorkItem(
+        var shown = Shown(
             Browsing(),
-            _ => new ItemOutcome.Read(
+            new ItemOutcome.Read(
                 "Type: Product Backlog Item\nTitle: Oz asks guided questions\n"
               + "Description: The wizard should ask rather than assume."),
-            _ => new HistoryOutcome.Read([]));
+            new HistoryOutcome.Read([]));
 
         await Assert.That(shown.Mode).IsEqualTo(UiMode.WorkItemDetail);
 
@@ -96,10 +139,10 @@ public class EnterShowsTheWorkItemTests
     [Test]
     public async Task A_reader_that_could_not_answer_says_so_in_the_modal()
     {
-        var shown = ConsoleLoop.ShowedWorkItem(
+        var shown = Shown(
             Browsing(),
-            _ => new ItemOutcome.Nothing("the credential expired on Tuesday"),
-            _ => new HistoryOutcome.Read([]));
+            new ItemOutcome.Nothing("the credential expired on Tuesday"),
+            new HistoryOutcome.Read([]));
 
         await Assert.That(shown.Mode).IsEqualTo(UiMode.WorkItemDetail)
             .Because("the modal opens either way: a person pressed a key and something has "
@@ -116,10 +159,10 @@ public class EnterShowsTheWorkItemTests
         // history says what has already been tried; a person choosing work needs
         // both, and making the second one another key would make it the one
         // nobody presses.
-        var shown = ConsoleLoop.ShowedWorkItem(
+        var shown = Shown(
             Browsing(),
-            _ => new ItemOutcome.Read("Description: The wizard should ask."),
-            _ => new HistoryOutcome.Read(
+            new ItemOutcome.Read("Description: The wizard should ask."),
+            new HistoryOutcome.Read(
                 [new WorkItemChangeRow
                 {
                     When = "2026-09-04 10:00",
@@ -140,10 +183,10 @@ public class EnterShowsTheWorkItemTests
     [Test]
     public async Task A_reader_with_no_history_still_shows_the_item()
     {
-        var shown = ConsoleLoop.ShowedWorkItem(
+        var shown = Shown(
             Browsing(),
-            _ => new ItemOutcome.Read("Description: The wizard should ask."),
-            _ => new HistoryOutcome.Nothing("this reader does not declare that tool"));
+            new ItemOutcome.Read("Description: The wizard should ask."),
+            new HistoryOutcome.Nothing("this reader does not declare that tool"));
 
         await Assert.That(WorkItemDetails.Said(shown)).Contains("The wizard should ask.")
             .Because("a reader that answers one of the two questions is more useful than "
@@ -160,10 +203,10 @@ public class EnterShowsTheWorkItemTests
     {
         var opened = new List<string>();
 
-        var shown = ConsoleLoop.ShowedWorkItem(
+        var shown = Shown(
             Browsing(),
-            _ => new ItemOutcome.Read("Description: The wizard should ask."),
-            _ => new HistoryOutcome.Read([]));
+            new ItemOutcome.Read("Description: The wizard should ask."),
+            new HistoryOutcome.Read([]));
 
         var command = Keymap.Resolve(KeyStroke.Char('o'), KeymapContext.For(shown));
 
@@ -181,14 +224,13 @@ public class EnterShowsTheWorkItemTests
     [Test]
     public async Task Nothing_picked_asks_nothing_at_all()
     {
-        var asked = 0;
+        var reader = new Answers(
+            new ItemOutcome.Read("never reached"), new HistoryOutcome.Read([]));
 
-        var shown = ConsoleLoop.ShowedWorkItem(
-            new AppState { ActiveTab = TabId.Browse },
-            _ => { asked++; return new ItemOutcome.Read("never reached"); },
-            _ => new HistoryOutcome.Read([]));
+        var empty = new AppState { ActiveTab = TabId.Browse };
+        var shown = ConsoleBrowsing.ItemPatch(reader, empty)(empty);
 
-        await Assert.That(asked).IsEqualTo(0)
+        await Assert.That(reader.Asked).IsEqualTo(0)
             .Because("a key that appears to work on an empty pane is worse than one that is "
                    + "not offered.");
 

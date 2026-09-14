@@ -35,20 +35,6 @@ public sealed class ReaderSessions(
     /// <summary>The provider keys this console could browse, if asked.</summary>
     public IReadOnlyList<string> Keys => [.. _readers.Select(reader => reader.Key)];
 
-    /// <summary>
-    /// Whether a reader for this key is already running, WITHOUT starting one.
-    /// </summary>
-    /// <remarks>
-    /// <b>The question a session has to be able to ask, and the one
-    /// <see cref="For"/> cannot answer without changing the answer.</b> A
-    /// session may not start a reader — four guards say so and every one of
-    /// them is about the spawn — so the console needs to know whether talking
-    /// to one is possible before it decides whether the keypress is the
-    /// shell's. Calling For to find out would start the very thing being asked
-    /// about.
-    /// </remarks>
-    public bool Running(string providerKey) => _started.ContainsKey(providerKey);
-
     /// <summary>The reader for a key, started or not, or null if none is declared.</summary>
     public SpawnedReader? For(string providerKey)
     {

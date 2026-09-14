@@ -499,8 +499,8 @@ public enum WorkItemTab
     Details,
 
     /// <summary>
-    /// What has happened to it: the table, and what the change under the
-    /// cursor says.
+    /// The log: what has happened to it, as a table, and what the change under
+    /// the cursor says.
     /// </summary>
     History,
 }

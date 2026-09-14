@@ -21,6 +21,14 @@ internal static class LookPageCondition
     internal const string Said = "on the Look page";
 }
 
+/// <summary>
+/// The condition the compose modal's marking keys carry, written once.
+/// </summary>
+internal static class ComposeRepositoriesCondition
+{
+    internal const string Said = "on the repositories tab";
+}
+
 public readonly record struct KeyStroke(
     char? Input, bool Ctrl = false, bool Escape = false, bool Tab = false, bool Enter = false,
     bool Left = false, bool Right = false)
@@ -131,7 +139,18 @@ public readonly record struct KeymapContext(
     /// <see cref="OverAFold"/> gives directly above.
     /// </para>
     /// </remarks>
-    bool OnTheLookPage = false)
+    bool OnTheLookPage = false,
+
+    /// <summary>
+    /// Whether the compose modal is showing its repositories rather than its
+    /// kinds.
+    /// </summary>
+    /// <remarks>
+    /// <b>Space means something on one half and nothing on the other</b>, and
+    /// a key offered where it does nothing is the dead key Article XI names.
+    /// Last, because this is a positional record.
+    /// </remarks>
+    bool OnTheRepositoriesHalf = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -265,7 +284,11 @@ public readonly record struct KeymapContext(
             // modal, which is what TheSignInModalReads' completeness guard sets
             // one of everything on. HelpFold, one clause up, does not ask
             // either.
-            state.HelpPage is HelpPage.Look)
+            state.HelpPage is HelpPage.Look,
+
+            // AND WHICH HALF OF THE COMPOSE MODAL, for that reason: space
+            // marks a repository and there are none to mark on the other.
+            state.WorkKindTab is WorkKindTab.Repositories)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -1032,11 +1055,36 @@ public static class Keymap
             // else is on screen is worse than one a person has to learn.
             //
             // `x' is what the mark itself draws, and no widget claims it.
-            new(KeyStroke.Char('x'), Command.ToggleFlightRepository, "name it, or stop")
-            {
-                When = "on the repositories tab",
-                Label = "Name it",
-            },
+            // SPACE IS WHAT A PERSON REACHES FOR ON A LIST OF BOXES, and it
+            // needed the focus fix beside this to be trustworthy: Terminal.Gui's
+            // Tabs binds Space to Activate, so it reaches the keymap only when
+            // the keyboard is on the table rather than on the strip. It now
+            // always is - every arm of Focus() returns rather than falling
+            // through to the tab behind the modal, and a view hidden under the
+            // keyboard is treated as no focus at all.
+            //
+            // BOUND ONLY ON THE HALF WITH BOXES. On the kinds table there is
+            // nothing to mark, and a key that does nothing there is worse than
+            // one that is not offered.
+            .. context.OnTheRepositoriesHalf
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char(' '), Command.ToggleFlightRepository, "name it, or stop")
+                    {
+                        // SAYS WHEN, because it is not live in the plainest
+                        // form of its own mode: the modal opens on the kinds,
+                        // where there is nothing to mark.
+                        When = ComposeRepositoriesCondition.Said,
+                        Label = "Name it",
+                    },
+
+                    // AND NOT `x' BESIDE IT. That was a workaround for space
+                    // being unreliable, and the focus fix removed the reason:
+                    // a second key for one act is findable nowhere, which is
+                    // what TheHelpPage's own guard says about a binding that
+                    // is untaught AND off the hint line.
+                ]
+                : [],
 
             new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
         ],
@@ -1644,6 +1692,10 @@ public static class Keymap
         // appears on no page. Caught by exactly that test.
         from onTheLookPage in (bool[])[false, true]
 
+        // AND WHICH HALF OF THE COMPOSE MODAL. Crossed here so its two keys
+        // reach the catalogue, which is what the help page is built from.
+        from onTheRepositoriesHalf in (bool[])[false, true]
+
         // AND WHETHER THE HELP CURSOR IS ON A GROUP. Crossed here so the fold
         // key reaches the catalogue, which is what the help page is built
         // from - a key offered only in one shape and left out of this would be
@@ -1651,7 +1703,7 @@ public static class Keymap
         from overAFold in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument, reading,
-            overAFold, onTheLookPage)
+            overAFold, onTheLookPage, onTheRepositoriesHalf)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

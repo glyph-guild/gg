@@ -4433,8 +4433,16 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Focus()
     {
+        // A MODAL WHOSE FOCUSED VIEW HAS BEEN HIDDEN DOES NOT HAVE FOCUS, and
+        // asking it that way is what lets every arm below place the keyboard
+        // properly. The first attempt at this broke out of the LeaveAlone arm
+        // instead, which falls through to the TAB landing at the bottom of
+        // this switch - the main bar's, behind the modal. Focusing a widget in
+        // a sibling tab's pane is what raises "FocusChanging was not cancelled
+        // and the HasFocus value did not change", which is what the owner saw.
         switch (FocusChange.Wanted(
-            State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus,
+            State.Mode, State.ActiveTab, _landed, _modal.HasFocus && !Stranded(),
+            _airspacePath.HasFocus,
             State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView,
             filterView: State.FilterView, landedFilterView: _landedFilterView,
             flightTab: State.FlightTab, landedFlightTab: _landedFlightTab,
@@ -4442,21 +4450,6 @@ public sealed class ConsoleScreen : Window
             workKindTab: State.WorkKindTab, landedWorkKindTab: _landedWorkKindTab))
         {
             case FocusTarget.LeaveAlone:
-                // UNLESS WHAT HOLDS IT HAS GONE. "Leave it where a person put
-                // it" assumes there is still something there: a pane that
-                // answers an empty list with a sentence HIDES that sentence
-                // when the rows arrive, and focus left on a hidden view is a
-                // keyboard that does nothing with no way to tell.
-                //
-                // Measured on the compose modal's second tab, whose table is
-                // invisible until the registry read lands: the modal opened,
-                // focus went to the absence label, the read hid it, and space
-                // stopped marking anything.
-                if (Stranded())
-                {
-                    break;
-                }
-
                 return;
 
             case FocusTarget.AirspacePath:
@@ -4528,8 +4521,14 @@ public sealed class ConsoleScreen : Window
                     ? _composeRepos
                     : (View)_kindChoices).SetFocus();
 
+                // RETURNS, LIKE EVERY ARM AROUND IT. It ended in `break', which
+                // falls through to the TAB landing below - so placing the
+                // keyboard in this modal also placed it in the tab behind, and
+                // Terminal.Gui threw on the second move. Harmless while this
+                // arm almost never ran; the tab made it run on every turn.
+                _landed = null;
                 _landedWorkKindTab = State.WorkKindTab;
-                break;
+                return;
 
             case FocusTarget.CredentialRepositoryChoices:
                 // THE TABLE AGAIN, for the reason above it.

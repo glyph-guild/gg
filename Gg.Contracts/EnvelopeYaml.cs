@@ -184,7 +184,9 @@ public static class EnvelopeYaml
 
         return new EnvelopeParse
         {
-            Envelope = envelope, BasedOn = Consumed(document), Notes = Notes(text),
+            Envelope = envelope,
+            BasedOn = Consumed(document),
+            Notes = Notes(text),
         };
     }
 
@@ -240,7 +242,9 @@ public static class EnvelopeYaml
 
         return new EnvelopeNarrowingParse
         {
-            Narrowing = narrowing, BasedOn = Consumed(document), Notes = Notes(text),
+            Narrowing = narrowing,
+            BasedOn = Consumed(document),
+            Notes = Notes(text),
         };
     }
 
@@ -300,7 +304,9 @@ public static class EnvelopeYaml
 
         return new StrategyParse
         {
-            Strategy = strategy, BasedOn = Consumed(document), Notes = Notes(text),
+            Strategy = strategy,
+            BasedOn = Consumed(document),
+            Notes = Notes(text),
         };
     }
 
@@ -502,7 +508,7 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "description", "context", "environment", "environments",
+        Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
                "repository", "repositories", "accepts", "produces", "targeting", "instructions",
                "obligations", "loops", "destinations");
 
@@ -517,6 +523,13 @@ public static class EnvelopeYaml
             // not round trip.
             Description = root.Entries.TryGetValue("description", out var description)
                 ? RequireScalar(description, "description")
+                : null,
+
+            // THE SAME ABSENCE RULE, one member over. A brief read back as ""
+            // would be a document saying the task is nothing, where the missing
+            // key means "keep the wording every flight has always had".
+            Brief = root.Entries.TryGetValue("brief", out var brief)
+                ? RequireScalar(brief, "brief")
                 : null,
             Context = new ContextBinding
             {

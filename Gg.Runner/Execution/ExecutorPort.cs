@@ -160,6 +160,19 @@ public sealed record ExecutorRequest
     public string? Instructions { get; init; }
 
     /// <summary>
+    /// What this flight is to do, from its work kind, or null for the wording
+    /// every flight has always been given.
+    /// </summary>
+    /// <remarks>
+    /// <b>It REPLACES the task sentence rather than joining it.</b> Two
+    /// imperatives and an agent picks one, and the one that reads as the job is
+    /// whichever came first - which is how <c>score-hal</c> came to send its
+    /// agent looking for files to edit. Carried, never composed here:
+    /// <c>LeaseLoop.Brief</c> holds the contract's own text.
+    /// </remarks>
+    public string? Brief { get; init; }
+
+    /// <summary>
     /// Where to append the live view. The runner always sets one.
     /// </summary>
     /// <remarks>

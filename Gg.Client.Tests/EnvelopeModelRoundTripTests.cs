@@ -31,6 +31,7 @@ public class EnvelopeModelRoundTripTests
     private static Envelope Everything() => new()
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.10" },
+        Brief = "Score this work item against the rubric and write the score to the tracker.",
         Environments = ["aspire-payments"],
         Repositories = ["payments"],
         Accepts = [SubjectKinds.Repository],
@@ -170,7 +171,8 @@ public class EnvelopeModelRoundTripTests
         {
             Context = new ContextBinding
             {
-                Scope = EnvelopeScopes.None, Constitution = "1.10",
+                Scope = EnvelopeScopes.None,
+                Constitution = "1.10",
             },
             Accepts = [],
             Produces = [],
@@ -263,7 +265,7 @@ public class EnvelopeModelRoundTripTests
         // rendered' shipped twice because nothing forced that decision.
         string[] covered =
         [
-            nameof(Envelope.Description),
+            nameof(Envelope.Description), nameof(Envelope.Brief),
             nameof(Envelope.Context), nameof(Envelope.Environments), nameof(Envelope.Repositories),
             // THE LEGACY SPELLINGS, exempted rather than covered: they are read
             // so a stored document keeps its bound and are deliberately NEVER

@@ -1412,6 +1412,52 @@ public sealed record Envelope
     [Composes(MergeOperators.WorkKindOnly)]
     public string? Description { get; init; }
 
+    /// <summary>
+    /// One line saying what a flight of this kind is TO DO, or null for the
+    /// wording every flight has always been given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sentence the runner used to supply for everybody.</b>
+    /// <c>ClaudeCodeExecutor</c> opened every prompt with <i>"Make the code
+    /// changes it asks for"</i> whatever the kind, so <c>score-hal</c> - which
+    /// writes a number to a tracker field and changes no code at all - sent its
+    /// agent to find the files a bug report named, and the agent said so:
+    /// <i>"I was asked to make the code changes"</i>.
+    /// </para>
+    /// <para>
+    /// <b>It is not <see cref="Instructions"/>, and the difference is which
+    /// question each answers.</b> Instructions are standing policy about how any
+    /// job is done, carried verbatim because they are the one REVIEWED text an
+    /// agent sees. This is the job. Written as an instruction it arrives after
+    /// the imperative and reads as commentary on it, which is exactly what
+    /// score-hal's author hit: <i>"score that item and no other"</i> could not
+    /// beat a sentence that had already named the task.
+    /// </para>
+    /// <para>
+    /// <b>It is not <see cref="Description"/> either</b>, whose remark says it
+    /// governs nothing and an agent is never shown it, <i>"so a wrong one
+    /// misleads a person and cannot misgovern a flight"</i>. A brief drives the
+    /// whole job; giving that to the member chosen for being harmless would take
+    /// away the property it was chosen for.
+    /// </para>
+    /// <para>
+    /// <b>WORK-KIND-ONLY.</b> Root is not any one job and a narrowing narrows a
+    /// job already named, so a brief that composed would hand every kind the
+    /// floor's task or let a narrowing rewrite the kind's.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, and absence is not emptiness.</b> Every work kind in the
+    /// field states none and must keep the wording it has; a member that re-aimed
+    /// them by arriving would be worse than the defect it fixes. Nullable rather
+    /// than absorbing for the reason <see cref="Instructions"/> sets out: a
+    /// member being ADDED has no readers dereferencing it bare, and nullable is
+    /// what lets it reach a control plane that has not learned it.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public string? Brief { get; init; }
+
     [Composes(MergeOperators.Union)]
     public required IReadOnlyList<Obligation> Obligations { get; init; }
 
@@ -1807,6 +1853,11 @@ public sealed record Envelope
         if (InstructionsWithin(envelope) is { } instructions)
         {
             return instructions;
+        }
+
+        if (BriefWithin(envelope) is { } brief)
+        {
+            return brief;
         }
 
         if (Bound(envelope.Environments, "environments") is { } environment)
@@ -2409,6 +2460,47 @@ public sealed record Envelope
     /// read looks complete, and nothing downstream can tell a sentence was cut.
     /// This runs at apply, while the author can still edit the document.
     /// </remarks>
+    /// <summary>
+    /// The brief's rules: present means it says something, on one line.
+    /// </summary>
+    /// <remarks>
+    /// <b>An empty brief is worse than no brief.</b> No brief keeps the wording
+    /// every flight has always had; an empty one would replace the only sentence
+    /// telling an agent what it is doing with nothing at all. One line for the
+    /// reason an instruction block is one - it is read in a prompt and diffed in
+    /// review, and it keeps the text form exactly round-trippable.
+    /// </remarks>
+    private static string? BriefWithin(Envelope envelope)
+    {
+        if (envelope.Brief is not { } brief)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(brief))
+        {
+            return "The brief is empty. A brief that parses and says nothing replaces the one "
+                 + "sentence telling an agent what it is doing - leave it out and the flight "
+                 + "keeps the wording every flight has.";
+        }
+
+        if (brief.Contains('\n') || brief.Contains('\r'))
+        {
+            return "The brief spans more than one line. It is one sentence saying what a "
+                 + "flight of this kind is to do; standing policy about HOW belongs in "
+                 + "instructions, a block at a time.";
+        }
+
+        return brief.Length <= BriefBound
+            ? null
+            : $"the brief is {brief.Length} characters and the limit is {BriefBound}. It is "
+            + "the task, not the procedure: what an agent must do to carry it out belongs in "
+            + "instructions.";
+    }
+
+    /// <summary>The longest a brief may be. One sentence, not a procedure.</summary>
+    public const int BriefBound = 400;
+
     private static string? InstructionsWithin(Envelope envelope)
     {
         foreach (var instruction in envelope.Instructions)

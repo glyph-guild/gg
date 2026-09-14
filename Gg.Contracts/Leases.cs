@@ -433,6 +433,29 @@ public sealed record LeaseLoop
     /// </para>
     /// </remarks>
     public string? Instructions { get; init; }
+
+    /// <summary>
+    /// What a flight of this work kind is to do, from the composed envelope, or
+    /// null for the wording every flight has always been given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A different question from <see cref="Instructions"/>, carried
+    /// separately because it lands somewhere else.</b> Instructions are standing
+    /// policy about how any job is done and are appended after the task; this IS
+    /// the task, and it replaces the sentence the runner would otherwise supply.
+    /// A brief folded into the instruction block would arrive after the
+    /// imperative it is meant to replace and read as commentary on it - which is
+    /// the defect, not the fix.
+    /// </para>
+    /// <para>
+    /// <b>Absent for every work kind that states none</b>, which is all of them
+    /// until somebody writes one. Not an empty string: "no brief" keeps the
+    /// wording every flight has, and "a brief that says nothing" would replace
+    /// it with silence.
+    /// </para>
+    /// </remarks>
+    public string? Brief { get; init; }
 }
 
 /// <summary>

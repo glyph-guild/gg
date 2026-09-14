@@ -569,12 +569,12 @@ public static class PlatformToolServer
           + "written: if it does not read as the role you named, nothing is written and "
           + "you are told why, so fix it and call again. Calling it again replaces what "
           + "you wrote. "
-            // THE POINTER, HERE BECAUSE THIS IS THE ONE THAT IS READ.
-            // The tool list reaches the model before its first token, and
-            // this is the description an agent reads when it decides to
-            // write a document - which is exactly when not knowing the
-            // rules costs something. An instruction anywhere else is one
-            // it has to already be looking for.
+          // THE POINTER, HERE BECAUSE THIS IS THE ONE THAT IS READ.
+          // The tool list reaches the model before its first token, and
+          // this is the description an agent reads when it decides to
+          // write a document - which is exactly when not knowing the
+          // rules costs something. An instruction anywhere else is one
+          // it has to already be looking for.
           + $"BEFORE YOU DRAFT, call {AirspaceContextTool.Name}: these documents have "
           + "rules you cannot see from the file, and it shows you one that already "
           + "exists.");
@@ -674,11 +674,11 @@ public static class PlatformToolServer
           + $"{AirspaceContextTool.Name} says nothing has been pulled, or when a "
           + "document you need is missing. It takes no arguments and writes only this "
           + "session's working copy. "
-            // THE REFUSAL BEFORE IT IS HIT. An agent that reads a refusal
-            // as a failure retries it or works around it - the failure
-            // propose_work_item's wording was written against - and this
-            // one WILL be hit, because drafting is what makes the copy
-            // dirty.
+          // THE REFUSAL BEFORE IT IS HIT. An agent that reads a refusal
+          // as a failure retries it or works around it - the failure
+          // propose_work_item's wording was written against - and this
+          // one WILL be hit, because drafting is what makes the copy
+          // dirty.
           + "It refuses if the working copy has uncommitted changes, which protects "
           + "anything you have already drafted: that is an ordinary answer, not a "
           + "failure to route around. Pull before you draft, not after.");
@@ -1423,6 +1423,14 @@ public static class PlatformToolServer
           + "for the person choosing rather than for you. It governs nothing - no obligation "
           + "reads it and no loop is bounded by it - so it is the one key here you may word "
           + "freely. A console lists the tenant's kinds with this beside each name.");
+        said.AppendLine(
+            "  brief:              for a work kind, one line saying what a flight of that "
+          + "kind is TO DO - and the one key here an agent is told VERBATIM as its task. It "
+          + "REPLACES the sentence a flight otherwise opens with, which is `Make the code "
+          + "changes it asks for`: write one when the kind does something else, such as "
+          + "scoring an item or writing a field, and leave it out when that sentence is "
+          + "already right. It is the task; instructions are standing policy about how any "
+          + "task is carried out, and they are read after it.");
         said.AppendLine(
             $"  accepts:            for a work kind, what it takes in. Any of: "
           + $"{string.Join(", ", Gg.Contracts.SubjectKinds.All)}.");

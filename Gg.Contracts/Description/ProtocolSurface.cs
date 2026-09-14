@@ -1449,7 +1449,7 @@ public static class ProtocolSurface
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
                 ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion", "resumesFrom",
-                 "instructions"],
+                 "instructions", "brief"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
@@ -1478,7 +1478,7 @@ public static class ProtocolSurface
                  "mayWrite"],
             [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
-                ["description", "context", "obligations", "instructions", "loops",
+                ["description", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
                  "accepts", "produces", "targeting"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],

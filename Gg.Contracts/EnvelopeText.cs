@@ -84,6 +84,16 @@ public static class EnvelopeText
             text.Append($"description: {Scalar(description)}\n");
         }
 
+        // AND WHAT A FLIGHT OF THIS KIND IS TO DO, beneath the line saying what
+        // it is for, because one is read by a person picking and the other by
+        // the agent doing. Same absence rule as the line above: a key emitted
+        // empty would rewrite every document that states none, and every work
+        // kind in the field states none.
+        if (envelope.Brief is { Length: > 0 } brief)
+        {
+            text.Append($"brief: {Scalar(brief)}\n");
+        }
+
         text.Append("context:\n");
         text.Append($"{Indent}scope: {Scalar(envelope.Context.Scope)}\n");
         text.Append($"{Indent}constitution: {Scalar(envelope.Context.Constitution)}\n");

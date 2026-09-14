@@ -588,10 +588,47 @@ public sealed class ClaudeCodeExecutor(
                 ? $"work item {request.IntentId} in {request.IntentProvider}"
                 : $"on this, in this repository:\n\n{request.IntentText}\n";
 
+    /// <summary>
+    /// What this flight is to do: the work kind's brief, or the wording every
+    /// flight had before a kind could say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This sentence was a constant and it named one job.</b> Every flight
+    /// opened with <i>"Make the code changes it asks for"</i>, so a kind that
+    /// writes a number to a tracker field and changes no code - <c>score-hal</c>
+    /// - sent its agent to find the files a bug report named. GG-99's agent
+    /// reported that it had been <i>"asked to make the code changes"</i>, which
+    /// was a faithful account of its prompt.
+    /// </para>
+    /// <para>
+    /// <b>REPLACED, not joined.</b> Two imperatives and an agent picks one, and
+    /// the one that reads as the job is whichever came first - which is exactly
+    /// how the instructions saying <i>"score that item and no other"</i> lost to
+    /// the sentence above them.
+    /// </para>
+    /// <para>
+    /// <b>The tree rule survives either way</b>, because it is not the task: no
+    /// branch, no commit, no push is true of a scoring flight and an
+    /// implementing one alike, and a brief that had to restate it would be a
+    /// second place to get it wrong.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// <b>Each arm is a whole sentence, because a brief is an author's prose and
+    /// the join has to survive it.</b> Splicing a clause onto whatever somebody
+    /// wrote produces "Score this item. in this working tree only" the first
+    /// time a brief ends in a full stop.
+    /// </remarks>
+    private static string Task(ExecutorRequest request) =>
+        request.Brief is { Length: > 0 } brief
+            ? $"Work {Subject(request)}. {brief.TrimEnd()} Stay in this working tree."
+            : $"Work {Subject(request)}. Make the code changes it asks for, in this working "
+            + "tree only.";
+
     private static string Prompt(ExecutorRequest request) =>
-        $"Work {Subject(request)}. Make the code changes it asks "
-      + "for, in this working tree only. Do not create a branch, do not commit, and do not push "
-      + "anything anywhere."
+        Task(request)
+      + " Do not create a branch, do not commit, and do not push anything anywhere."
       + WhenItCannot
       // AFTER THE WORK AND BEFORE ANY PRIOR ATTEMPT, which is the decision
       // rather than an accident of concatenation. An agent should know what it

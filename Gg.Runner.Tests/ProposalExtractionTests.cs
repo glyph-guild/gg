@@ -169,6 +169,42 @@ public class ProposalExtractionTests
     }
 
     [Test]
+    public async Task A_malformed_call_the_server_refused_is_not_the_loud_case()
+    {
+        // FOUND ON A LIVE RUNNER. An agent wrote a 4044-character reason, the
+        // server refused it exactly as designed - "Refused: 'reason' is at most
+        // 2000 characters and this one is 4044. Nothing was recorded." - and the
+        // runner threw anyway and died with status=6/ABRT.
+        //
+        // THE ORDER IS THE BUG. Proposed() validates while walking the
+        // transcript, and the answered filter runs after the walk, so a call the
+        // server rejected is measured against a rule it was already refused by.
+        // The loud case is a malformed ANSWERED call, because that is a
+        // transcript that did not come from this server - which is what the
+        // remark on this class has claimed all along.
+        //
+        // Both shapes of "the platform did not take it": errored, and never
+        // answered at all.
+        var refused = Called(
+            "toolu_refused", Argue(WorkItemOperations.Field, "1421", new string('x', 4044)),
+            failed: true);
+
+        var unanswered = Called(
+            "toolu_unanswered", """{"operation":"delete","target":"1421","reason":"dup"}""",
+            paired: false);
+
+        foreach (var (what, transcript) in ((string, string)[])
+            [("the server refused it", refused), ("nothing answered it", unanswered)])
+        {
+            var proposed = TranscriptDigest.Proposals(transcript);
+
+            await Assert.That(proposed).IsEmpty()
+                .Because($"{what}, so the platform did not take it and there is nothing to "
+                       + "ship. Throwing here kills the runner over the server doing its job.");
+        }
+    }
+
+    [Test]
     public async Task A_flight_that_proposed_nothing_is_not_an_error()
     {
         // Declining is a real answer, and it is the answer an empty list states

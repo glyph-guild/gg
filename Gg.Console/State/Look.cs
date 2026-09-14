@@ -200,9 +200,16 @@ public sealed record Look
     // is the one that says something true - every table here is picked FROM
     // rather than edited.
     //
+    // AND A THIRD ROUND ADDED THE STATUS LINE, held back at Faint - the
+    // terminal's own dim rather than a grey foreground, which means this
+    // machine's terminal honours SGR 2. A console where it does not will draw
+    // those two lines at full brightness rather than wrongly, which is the
+    // right way for that to fail.
+    //
     // The rest are deliberately left alone: no palette (a console nobody has
     // touched must be the terminal's own colours), a plain inner line, no mark
-    // on the selected tab, headers shown and untinted, and nothing dimmed.
+    // on the selected tab, headers shown and untinted, and the unselected tabs
+    // at full strength.
 
     /// <summary>The colours.</summary>
     public Palette Palette { get; init; }
@@ -288,7 +295,7 @@ public sealed record Look
     /// them and past the rest of the time — and at full brightness they
     /// compete with the pane above them.
     /// </remarks>
-    public Dimming StatusText { get; init; } = Dimming.Normal;
+    public Dimming StatusText { get; init; } = Dimming.Faint;
 
     /// <summary>Which row the cursor is on.</summary>
     public int Selected { get; init; }

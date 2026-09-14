@@ -74,6 +74,7 @@ public class EnvelopeModelRoundTripTests
                 Kind = DestinationKinds.PullRequest,
                 Requires = ["human-look", "in-scope"],
                 PreserveUnadmitted = true,
+                Branch = "{ticket}-{flight}",
             },
         ],
     };
@@ -152,6 +153,10 @@ public class EnvelopeModelRoundTripTests
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.PullRequest);
         await Assert.That(destination.Requires).IsEquivalentTo(original.Destinations[0].Requires);
         await Assert.That(destination.PreserveUnadmitted!.Value).IsTrue();
+        await Assert.That(destination.Branch).IsEqualTo("{ticket}-{flight}")
+            .Because("a template survives the render and the parse with its braces intact - "
+                   + "a text form that quoted or expanded them would hand the next reader a "
+                   + "branch name nobody wrote.");
         await Assert.That(destination.Opens).IsNull()
             .Because("absent stays absent here too, and on this kind it must: `opens:` is "
                    + "refused on anything but a flight destination, so a member that "
@@ -220,6 +225,9 @@ public class EnvelopeModelRoundTripTests
             .IsEquivalentTo((string[])["ledger", "payments"]);
 
         await Assert.That(destination.PreserveUnadmitted).IsNull();
+        await Assert.That(destination.Branch).IsNull()
+            .Because("absent stays absent. A missing template read back as the default would "
+                   + "write a branch shape into every document as though somebody chose it.");
 
         // And the second render is the first, so `show` after `apply` is not a
         // diff nobody made.
@@ -283,7 +291,8 @@ public class EnvelopeModelRoundTripTests
             nameof(Loop.Budget), nameof(Loop.OnExhaustion),
             nameof(LoopBudget.WallClock), nameof(LoopBudget.Attempts),
             nameof(Destination.Id), nameof(Destination.Kind), nameof(Destination.Requires),
-            nameof(Destination.PreserveUnadmitted), nameof(Destination.Opens),
+            nameof(Destination.PreserveUnadmitted), nameof(Destination.Branch),
+            nameof(Destination.Opens),
             nameof(Destination.MaySelect), nameof(Destination.MayPerform),
             nameof(Destination.MayWrite),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),

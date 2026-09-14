@@ -704,7 +704,7 @@ public static class EnvelopeYaml
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
         Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select",
-            "may-perform", "may-write");
+            "may-perform", "may-write", "branch");
 
         return new Destination
         {
@@ -721,6 +721,13 @@ public static class EnvelopeYaml
             // AND THE SAME FOR THIS ONE. Reading a missing `opens` back as an
             // empty list would turn every pull-request destination into one
             // Validate refuses, on a document nobody edited.
+            // AND THE SAME, for a name rather than a bound. A missing `branch`
+            // read back as the default template would put a key into every
+            // document that never had one, and `envelope show` would stop
+            // round-tripping on the first destination anybody wrote.
+            Branch = entry.Body.Entries.TryGetValue("branch", out var branch)
+                ? RequireScalar(branch, $"{entry.Body.Path}.branch")
+                : null,
             Opens = entry.Body.Entries.TryGetValue("opens", out var opens)
                 ? Strings(opens, $"{entry.Body.Path}.opens")
                 : null,

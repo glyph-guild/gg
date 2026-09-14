@@ -274,7 +274,8 @@ public static class DestinationBranch
     /// branch back to a record. A name nobody can trace is a branch nobody will
     /// ever delete.
     /// </remarks>
-    public static string For(string flightNumber) => Prefix + Safe(flightNumber);
+    public static string For(string flightNumber, string? template = null, string? ticket = null) =>
+        Prefix + Rendered(template, flightNumber, ticket);
 
     /// <summary>
     /// The branch for work KEPT so somebody can take the flight over.
@@ -289,8 +290,147 @@ public static class DestinationBranch
     /// branches still sees it. A branch nobody recognises is a branch nobody deletes.
     /// </para>
     /// </remarks>
-    public static string ForHandoff(string flightNumber) =>
-        Prefix + "handoff/" + Safe(flightNumber);
+    public static string ForHandoff(
+        string flightNumber, string? template = null, string? ticket = null) =>
+        Prefix + "handoff/" + Rendered(template, flightNumber, ticket);
+
+    /// <summary>The placeholder standing for the flight this branch carries.</summary>
+    public const string FlightPlaceholder = "{flight}";
+
+    /// <summary>The placeholder standing for the work item it was opened from.</summary>
+    public const string TicketPlaceholder = "{ticket}";
+
+    /// <summary>
+    /// Why this template may not be used, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>At authoring, because the alternative is the second push.</b> Each of
+    /// these produces a branch nobody wanted, and two of the three only show up
+    /// on a flight that is already finished - which is the worst moment to
+    /// learn that a document is wrong.
+    /// </para>
+    /// <para>
+    /// <b>The flight number is required in it, for a collision rather than for
+    /// tidiness.</b> Two flights on one ticket is the ordinary case - a rerun
+    /// after a halt is exactly that - and without the number the second push is
+    /// either refused as an existing branch or overwrites the first. That is
+    /// the same argument <see cref="ForHandoff"/> already makes one case over.
+    /// </para>
+    /// <para>
+    /// <b>The prefix is not the author's to write.</b> It is how this platform
+    /// recognises its own branches, so naming it produces <c>gg/gg/</c> and
+    /// omitting the refusal invites an envelope that writes one neither
+    /// <see cref="IsOurs"/> nor <see cref="IsHandoff"/> can see.
+    /// </para>
+    /// <para>
+    /// <b>And a placeholder nothing fills is refused rather than rendered.</b>
+    /// <c>{issue}</c> is what somebody writes who has read another tool's
+    /// documentation. Rendering it literally puts braces in a ref name;
+    /// dropping it silently hands them a branch they did not ask for.
+    /// </para>
+    /// </remarks>
+    public static string? Validate(string? template)
+    {
+        if (template is null)
+        {
+            // ABSENT IS A REAL ANSWER and the commonest one: every envelope
+            // written before this member existed names no template and keeps
+            // the branch it has always had.
+            return null;
+        }
+
+        var text = template.Trim();
+
+        if (text.Length == 0)
+        {
+            return "A branch template names nothing. Leave it out to keep the default, "
+                 + $"which is '{Prefix}{FlightPlaceholder}'.";
+        }
+
+        if (text.Contains(Prefix, StringComparison.Ordinal))
+        {
+            return $"'{text}' writes '{Prefix}' itself, which this platform adds. A template "
+                 + "names the part after it, so this one would produce "
+                 + $"'{Prefix}{text}'.";
+        }
+
+        if (!text.Contains(FlightPlaceholder, StringComparison.Ordinal))
+        {
+            return $"'{text}' does not name {FlightPlaceholder}, so two flights on one ticket "
+                 + "would want the same branch - which a rerun after a halt is. The second "
+                 + "push is then refused as an existing branch, or overwrites the first.";
+        }
+
+        foreach (var named in Placeholders(text))
+        {
+            if (!string.Equals(named, FlightPlaceholder, StringComparison.Ordinal)
+                && !string.Equals(named, TicketPlaceholder, StringComparison.Ordinal))
+            {
+                return $"'{named}' is not something a branch template can name. It names "
+                     + $"{FlightPlaceholder} and {TicketPlaceholder}.";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Every <c>{word}</c> in a template, in the order written.</summary>
+    private static IEnumerable<string> Placeholders(string text)
+    {
+        for (var open = text.IndexOf('{'); open >= 0; open = text.IndexOf('{', open + 1))
+        {
+            var close = text.IndexOf('}', open);
+            if (close < 0)
+            {
+                yield break;
+            }
+
+            yield return text[open..(close + 1)];
+            open = close;
+        }
+    }
+
+    /// <summary>
+    /// The tail of a branch: the template with its placeholders filled, or the
+    /// flight number when no template was written.
+    /// </summary>
+    /// <remarks>
+    /// <b>A part with nothing to fill it takes its separators with it.</b> A
+    /// flight opened from a sentence has no ticket, and an envelope whose
+    /// branch mentions one must not refuse to land it - that would make a
+    /// formatting choice into a governance one. So the part renders empty and
+    /// the empty segments it leaves are collapsed, which is what makes
+    /// <c>{ticket}-{flight}</c> answer <c>GG-118</c> rather than <c>-GG-118</c>.
+    /// </remarks>
+    private static string Rendered(string? template, string flightNumber, string? ticket)
+    {
+        var flight = Safe(flightNumber);
+
+        if (template is not { Length: > 0 })
+        {
+            return flight;
+        }
+
+        var filled = template
+            .Replace(FlightPlaceholder, flight, StringComparison.Ordinal)
+            .Replace(TicketPlaceholder, Safe(ticket ?? ""), StringComparison.Ordinal);
+
+        // SEGMENT BY SEGMENT, because a ref's segments are what git has
+        // opinions about: an empty one is refused outright, and a leading or
+        // trailing separator inside one reads as a name somebody mistyped.
+        var segments = filled.Split('/')
+            .Select(segment => segment.Trim('-', '_'))
+            .Where(segment => segment.Length > 0);
+
+        var tail = string.Join('/', segments);
+
+        // The template rendered to nothing at all, which Validate makes
+        // unreachable from a written envelope - the flight number is required
+        // in it and never renders empty. Answering with the number rather than
+        // with an empty ref keeps that true for a template built any other way.
+        return tail.Length > 0 ? tail : flight;
+    }
 
     /// <summary>Whether this branch is one kept for a handoff rather than offered.</summary>
     /// <remarks>

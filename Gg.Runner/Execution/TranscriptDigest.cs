@@ -730,14 +730,45 @@ public static class TranscriptDigest
             }
         }
 
-        return [.. asked.Where(a => answered.Contains(a.Id)).Select(a => a.Proposal)];
+        // ANSWERED FIRST, THEN THE CONTRACT. A call the platform did not take is
+        // not a proposal at all, so it is not measured against what a whole one
+        // is - the server already refused it, and refusing it twice is how the
+        // server doing its job became a core dump.
+        //
+        // THE CONTRACT STILL DECIDES, and still loudly. One definition of a
+        // whole proposal, read by the server before it answers and by this
+        // before it ships - two would mean a proposal the tool took and the
+        // runner dropped. An ANSWERED call carrying a malformed one is a
+        // transcript that did not come from this server, which is the case
+        // worth stopping over rather than quietly shipping eleven of twelve.
+        var taken = asked.Where(a => answered.Contains(a.Id)).ToList();
+
+        foreach (var (callId, proposal) in taken)
+        {
+            // THE CALL ID, and it survived the move. A message saying a proposal
+            // was malformed, in a transcript with twelve of them, is a message
+            // with no way into the file - which is why this was inline before.
+            if (Gg.Contracts.WorkItemProposal.Validate(proposal) is { } refused)
+            {
+                throw new InvalidOperationException(
+                    $"The proposal in call '{callId}' is one this platform cannot ship: {refused} "
+                  + "The tool server refuses these before it answers, so an answered call "
+                  + "carrying one did not come from it.");
+            }
+        }
+
+        return [.. taken.Select(a => a.Proposal)];
     }
 
     /// <summary>Records a call to the proposal tool, when that is what it is.</summary>
     /// <remarks>
-    /// <b>The refusal is here rather than at the end</b>, so the diagnosis can
-    /// name the call. A message saying a proposal was malformed, in a transcript
-    /// with twelve of them, is a message with no way into the file.
+    /// <b>Records, and does not judge.</b> The refusal used to be here so the
+    /// diagnosis could name the call - a message saying a proposal was
+    /// malformed, in a transcript with twelve of them, is a message with no way
+    /// into the file. It still names the call; it just does so after the walk,
+    /// because whether a call was ANSWERED is not knowable until the transcript
+    /// has been read to the end, and refusing before that measured calls the
+    /// server had already turned away.
     /// </remarks>
     private static void Proposed(
         JsonElement block, List<(string Id, Gg.Contracts.WorkItemProposal Proposal)> asked)
@@ -778,17 +809,12 @@ public static class TranscriptDigest
             Fields = Edits(input),
         };
 
-        // THE CONTRACT DECIDES, not this. One definition of a whole proposal,
-        // read by the server before it answers and by this before it ships -
-        // two would mean a proposal the tool took and the runner dropped.
-        if (Gg.Contracts.WorkItemProposal.Validate(proposal) is { } refused)
-        {
-            throw new InvalidOperationException(
-                $"The proposal in call '{callId}' is one this platform cannot ship: {refused} "
-              + "The tool server refuses these before it answers, so an answered call carrying "
-              + "one did not come from it.");
-        }
-
+        // VALIDATED WHERE THE ANSWERED ONES ARE KNOWN, not here. This runs
+        // while the transcript is still being walked, and whether a call came
+        // back is not known until it has been - so refusing here measured every
+        // call the AGENT made, including the ones the server turned away. That
+        // killed a runner: an agent wrote a 4044-character reason, the server
+        // refused it with is_error and recorded nothing, and this threw anyway.
         asked.Add((callId, proposal));
     }
 

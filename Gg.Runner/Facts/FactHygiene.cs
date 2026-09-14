@@ -176,6 +176,35 @@ public static class FactHygiene
             Reason = Prose(nomination.Value.Reason),
         }),
 
+        FactPayload.Proposal proposal => new FactPayload.Proposal(proposal.Value with
+        {
+            // THE NOMINATION'S SPLIT, one noun over: names are names and the
+            // reason is prose. The operation is a closed vocabulary value, the
+            // target is an id "as the tracker spells its own", and the score is
+            // bounded so it cannot become the analysis - so a line break in any
+            // of the three is a value that arrived with somebody's formatting
+            // still attached rather than formatting anybody chose.
+            Operation = Text(proposal.Value.Operation),
+            Reason = Prose(proposal.Value.Reason),
+            Target = proposal.Value.Target is { } target ? Text(target) : null,
+            Score = proposal.Value.Score is { } score ? Text(score) : null,
+
+            // A PATH IS AN IDENTIFIER AND A VALUE IS NOT. The path is matched
+            // against a menu, so a line break in one is a field nobody
+            // permitted; what the field HOLDS belongs to the tracker and the
+            // rubric, and a description set over three lines is one somebody
+            // wrote that way. Flattening it would put our formatting into
+            // somebody else's backlog.
+            Fields = proposal.Value.Fields is { } fields
+                ? [.. fields.Select(f => f with { Path = Text(f.Path), Value = Prose(f.Value) })]
+                : null,
+
+            // DETAIL IS NOT TOUCHED, and that is deliberate rather than missed.
+            // It is a JsonElement whose shape is the agent's, nothing here
+            // reads it, and the server already bounds its size - so there is no
+            // string here to clean without deciding what its fields mean.
+        }),
+
         FactPayload.Question question => new FactPayload.Question(question.Value with
         {
             // PROSE, so its line breaks are its own. A question laid out over

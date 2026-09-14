@@ -443,12 +443,18 @@ public sealed class ConsoleLoop(
                     break;
 
                 case Command.ToggleBrowse:
-                    // THE READING HAPPENS HERE BECAUSE IT CANNOT HAPPEN THERE.
-                    // A UI session may read a local file and nothing else; a
-                    // reader is a child process. So the session ended, the loop
-                    // asks, and the next session is rebuilt from the model -
-                    // the same shape the editor and the take already use, for a
-                    // much smaller reason.
+                    // THE FIRST PRESS ONLY, AND THE SPAWN IS WHY. A session may
+                    // not START anything, and the first browse of a console
+                    // lifetime has no reader to talk to - so that press ends the
+                    // session, this arm starts one, and ReaderSessions caches it.
+                    // Every press after it is served beside the console through
+                    // Reducer.Reduce and never reaches here.
+                    //
+                    // WHICH IS WHY Reduce HAS AN ARM NOW. It deliberately had
+                    // none while this was the only path; with the command a read,
+                    // a missing arm meant the key worked once and then stopped.
+                    // The two do not overlap: ConsoleScreen exits BEFORE
+                    // reducing, and this switch calls the reducer by name.
                     //
                     // Only on the way IN. Hiding costs nothing, and a read
                     // costs a whole session rebuild on this path.

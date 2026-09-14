@@ -42,14 +42,19 @@ public enum FocusTarget
     FilterView,
 
     /// <summary>
-    /// The history inside the work item modal, which is the part with a cursor.
+    /// Whichever of the work item modal's two tabs is showing.
     /// </summary>
     /// <remarks>
-    /// The flight log's reason one modal over: a modal made of widgets has to
-    /// say WHICH widget, and the arrows are how a history longer than the pane
-    /// is read at all.
+    /// <b>Was <c>WorkItemHistory</c>, and the rename is the defect</b> — the
+    /// third time it has been this one. While the history was the third region
+    /// of a single pane, "the history" and "the tab that is showing" named the
+    /// same widget. It became a tab of its own and this did not move, so the
+    /// modal opened on Details and put the keyboard in History: Terminal.Gui's
+    /// <c>Tabs</c> follows FOCUS, so the bar snapped across, raised
+    /// <c>ValueChanged</c>, and the render that answered it came back inside
+    /// the focus transition to find <c>HasFocus</c> moved. It throws.
     /// </remarks>
-    WorkItemHistory,
+    WorkItemTab,
 
     /// <summary>The table of work kinds, which is the whole of that question.</summary>
     WorkKindChoices,
@@ -58,15 +63,24 @@ public enum FocusTarget
     CredentialRepositoryChoices,
 
     /// <summary>
-    /// The log inside the flight modal, which is the part of it with a cursor.
+    /// Whichever of the flight modal's three tabs is showing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A modal made of widgets has to say WHICH widget, and the frame is not an
-    /// answer - Terminal.Gui would pick the first focusable child, which is the
-    /// intent, and an arrow key there scrolls a document instead of walking the
-    /// history a person opened the modal to walk.
+    /// answer - Terminal.Gui would pick the first focusable child of whatever
+    /// it landed in.
+    /// </para>
+    /// <para>
+    /// <b>Was <c>FlightLog</c>, for the reason <see cref="RunnerView"/> was
+    /// <c>RunnerLog</c>.</b> The log was the third region of the DETAILS tab,
+    /// so naming it named something in the tab that was showing. It is its own
+    /// tab now and naming it unconditionally put the keyboard in a tab nobody
+    /// had turned to - which drags the bar after it and crashes the focus
+    /// transition that started it.
+    /// </para>
     /// </remarks>
-    FlightLog,
+    FlightTab,
 
     /// <summary>
     /// The airspace path field, which is not a modal and still owns the
@@ -155,6 +169,15 @@ public static class FocusChange
     /// out of whichever half a person had just clicked into.
     /// </param>
     /// <param name="helpPage">Which help page the model says is showing.</param>
+    /// <param name="flightTab">Which tab of the flight modal the model says is showing.</param>
+    /// <param name="landedFlightTab">
+    /// Which tab focus was last PLACED in, which is what makes a turn a turn.
+    /// <see cref="Wanted"/>'s other four pairs, for their reason: comparing the
+    /// model against the widget instead re-places focus once a second and takes
+    /// the cursor off whatever a person had just scrolled to.
+    /// </param>
+    /// <param name="workItemTab">Which tab of the work item modal is showing.</param>
+    /// <param name="landedWorkItemTab">Its pair, for the reason above.</param>
     /// <param name="landedHelpPage">
     /// Which one it was showing when focus was last placed. <b>The pair, exactly
     /// as <paramref name="landedReading"/> is the pair for the airspace tab's
@@ -174,7 +197,11 @@ public static class FocusChange
         HelpPage helpPage = HelpPage.Keys,
         HelpPage landedHelpPage = HelpPage.Keys,
         BrowseFacet filterView = BrowseFacet.AreaPath,
-        BrowseFacet landedFilterView = BrowseFacet.AreaPath) => (mode, landed) switch
+        BrowseFacet landedFilterView = BrowseFacet.AreaPath,
+        FlightTab flightTab = FlightTab.Details,
+        FlightTab landedFlightTab = FlightTab.Details,
+        WorkItemTab workItemTab = WorkItemTab.Details,
+        WorkItemTab landedWorkItemTab = WorkItemTab.Details) => (mode, landed) switch
         {
             // THE FIELD FIRST, because it is not a modal and the arms below would
             // hand it to one that is not on screen.
@@ -212,11 +239,16 @@ public static class FocusChange
                 => FocusTarget.LeaveAlone,
             (UiMode.BrowseFilter, _) => FocusTarget.FilterView,
 
-            // AND THE WORK ITEM'S HISTORY, which is the one part of that modal with
-            // a cursor. It has one place for the keyboard to be, so the ordinary
-            // guard below is enough once it has landed.
-            (UiMode.WorkItemDetail, _) when modalHasFocus => FocusTarget.LeaveAlone,
-            (UiMode.WorkItemDetail, _) => FocusTarget.WorkItemHistory,
+            // AND THE WORK ITEM, WHICH IS MADE OF TABS TOO. It had one place for
+            // the keyboard to be, so the ordinary guard below was enough - and
+            // then the history became a tab and the prose stayed a pane, which
+            // is two places with different cursors. Reported as a crash: the
+            // modal opens on Details and this put the keyboard in History, so
+            // the bar snapped across and the render answering it came back
+            // inside the focus transition that caused it.
+            (UiMode.WorkItemDetail, _) when modalHasFocus && landedWorkItemTab == workItemTab
+                => FocusTarget.LeaveAlone,
+            (UiMode.WorkItemDetail, _) => FocusTarget.WorkItemTab,
 
             // AND THE KINDS, for the same reason: the table IS the question, and
             // focus at the frame leaves the arrows moving nothing.
@@ -227,11 +259,20 @@ public static class FocusChange
             (UiMode.CredentialRepositoryChoice, _) when modalHasFocus => FocusTarget.LeaveAlone,
             (UiMode.CredentialRepositoryChoice, _) => FocusTarget.CredentialRepositoryChoices,
 
+            // AND THE FLIGHT MODAL, which answers before the blanket guard below
+            // for the reason all four above it do: the tab can turn while the
+            // modal keeps focus, so "the modal has it" is not an answer. It sat
+            // UNDER that guard while its log was a region of the details tab -
+            // the landing named a widget in the tab that was showing, so the
+            // guard was harmless. The log is its own tab now.
+            (UiMode.FlightDetail, _) when modalHasFocus && landedFlightTab == flightTab
+                => FocusTarget.LeaveAlone,
+            (UiMode.FlightDetail, _) => FocusTarget.FlightTab,
+
             (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 
-            // WHICH WIDGET, for the two modals that are made of several. The rest
+            // WHICH WIDGET, for the modals that are made of several. The rest
             // are a few lines and two keys, and the frame is the whole of them.
-            (UiMode.FlightDetail, _) => FocusTarget.FlightLog,
             (not UiMode.Normal, _) => FocusTarget.Modal,
 
             // NOTHING MOVED, so nothing is moved. The tab is the one focus was

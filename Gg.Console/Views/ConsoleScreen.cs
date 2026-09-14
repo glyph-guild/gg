@@ -226,6 +226,23 @@ public sealed class ConsoleScreen : Window
     private readonly Label _filterInForce;
     private BrowseFacet _landedFilterView;
 
+    /// <summary>
+    /// Which tab of the flight modal focus was last placed in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="_landedRunnerView"/> and for its reason.</b> The
+    /// modal's tab can turn while the modal keeps focus, so the keyboard has to
+    /// follow — and it has to follow only when the tab TURNED, or a render once
+    /// a second takes the log's cursor off whatever a person had scrolled to.
+    /// </remarks>
+    private FlightTab _landedFlightTab;
+
+    /// <summary>
+    /// Which tab of the work item modal focus was last placed in.
+    /// </summary>
+    /// <remarks>The pair above, one modal over.</remarks>
+    private WorkItemTab _landedWorkItemTab;
+
     private readonly Terminal.Gui.Views.Tabs _helpTabs;
 
     private readonly View _helpKeysTab;
@@ -4003,7 +4020,9 @@ public sealed class ConsoleScreen : Window
         switch (FocusChange.Wanted(
             State.Mode, State.ActiveTab, _landed, _modal.HasFocus, _airspacePath.HasFocus,
             State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView,
-            filterView: State.FilterView, landedFilterView: _landedFilterView))
+            filterView: State.FilterView, landedFilterView: _landedFilterView,
+            flightTab: State.FlightTab, landedFlightTab: _landedFlightTab,
+            workItemTab: State.WorkItemTab, landedWorkItemTab: _landedWorkItemTab))
         {
             case FocusTarget.LeaveAlone:
                 return;
@@ -4016,13 +4035,32 @@ public sealed class ConsoleScreen : Window
                 _landed = null;
                 return;
 
-            case FocusTarget.FlightLog:
-                // THE TABLE WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE - the
-                // same fallback the tabs make, and for the same reason: focus
-                // is what makes the arrows move a cursor a person can see, and
-                // an empty log has none to move.
-                (_flightLog.Visible ? _flightLog : (View)_modal).SetFocus();
+            case FocusTarget.FlightTab:
+                // WHICHEVER TAB IS SHOWING, because the bar follows the focused
+                // pane: a landing that always named the log made the other two
+                // tabs unreachable the moment the log became one of them, and
+                // dragging the bar from inside a focus transition is what threw
+                // "FocusChanging was not cancelled".
+                //
+                // AND THE WIDGET WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE -
+                // the runner views' fallback, for its reason: focus is what
+                // makes the arrows move a cursor a person can see, and an empty
+                // log has none to move.
+                (State.FlightTab switch
+                {
+                    FlightTab.Log when _flightLog.Visible => _flightLog,
+                    FlightTab.Gate => (View)_flightGate,
+
+                    // THE INTENT, which is the half of this tab with anything to
+                    // move. The fields below it are read, and Terminal.Gui would
+                    // pick the first of them; the intent scrolls, and an intent
+                    // taller than the pane is why it does.
+                    FlightTab.Details => _flightIntent,
+                    _ => (View)_modal,
+                }).SetFocus();
+
                 _landed = null;
+                _landedFlightTab = State.FlightTab;
                 return;
 
             case FocusTarget.RunnerView:
@@ -4061,13 +4099,28 @@ public sealed class ConsoleScreen : Window
                 _landed = null;
                 return;
 
-            case FocusTarget.WorkItemHistory:
-                // THE TABLE WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE - the
-                // flight log's fallback, for its reason: focus is what makes
-                // the arrows move a cursor a person can see, and an empty
-                // history has none to move.
-                (_itemHistory.Visible ? _itemHistory : (View)_modal).SetFocus();
+            case FocusTarget.WorkItemTab:
+                // THE TAB THAT IS SHOWING, for the reason the flight modal's
+                // arm gives: this modal gained a second tab and the landing
+                // still named the first one's table, so opening an item put the
+                // keyboard in a tab nobody had turned to.
+                //
+                // AND THE TABLE WHEN IT HAS ROWS, THE FRAME WHEN IT HAS NONE -
+                // the same fallback, for the same reason: an empty history has
+                // no cursor to move.
+                (State.WorkItemTab switch
+                {
+                    WorkItemTab.History when _itemHistory.Visible => _itemHistory,
+
+                    // THE PROSE, which is what this tab is. The fields below it
+                    // are read and would be picked first otherwise, and what a
+                    // person opened the item to do is read what it says.
+                    WorkItemTab.Details => (View)_itemSaid,
+                    _ => _modal,
+                }).SetFocus();
+
                 _landed = null;
+                _landedWorkItemTab = State.WorkItemTab;
                 return;
 
             case FocusTarget.FilterView:

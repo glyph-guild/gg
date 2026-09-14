@@ -92,14 +92,46 @@ public class TheRunnerBuildsWhatItWasToldToTests
             apis: "the-backlog=https://Tracker.Example/Acme/Project",
             secretFor: locator => { asked.Add(locator); return "a-token"; });
 
-        await Assert.That(asked).Contains("tracker.example/acme/project")
-            .Because("derived from the host: scheme dropped, lowercased and reduced to the "
-                   + "locator charset, so one project is one credential however many "
-                   + $"destinations aim at it. Asked for: {string.Join(", ", asked)}");
+        await Assert.That(asked).Contains("local:tracker.example/acme/project")
+            .Because("derived from the host: scheme dropped, lowercased, reduced to the "
+                   + "locator charset and carrying the only prefix this platform has - so "
+                   + "one project is one credential however many destinations aim at it. "
+                   + $"Asked for: {string.Join(", ", asked)}");
 
         await Assert.That(asked).DoesNotContain("the-backlog")
             .Because("the destination id names where work lands, which is not who may "
                    + "change it.");
+    }
+
+    [Test]
+    public async Task The_derived_locator_is_one_the_credential_store_would_accept()
+    {
+        // THE TWIN FOR AN ERROR THE TEST ABOVE COULD NOT CATCH. secretFor is a
+        // lambda here: it records whatever string it is handed and validates
+        // nothing, so the first version of this derivation asked for
+        // `tracker.example/acme/project` - no `local:` prefix, a string the
+        // contract refuses - and every assertion passed. PathFor would have
+        // thrown at the first admitted write, in front of nobody.
+        //
+        // So this asks the CONTRACT whether what was derived is a locator,
+        // rather than asking a double whether it was the string we expected.
+        var asked = new List<string>();
+
+        TrackerConfiguration.FromEnvironment(
+            _ => new HttpClient(),
+            apis: "the-backlog=https://Tracker.Example:8443/Acme/Project",
+            secretFor: locator => { asked.Add(locator); return "a-token"; });
+
+        await Assert.That(asked).IsNotEmpty()
+            .Because("with nothing recorded this passes without checking anything.");
+
+        foreach (var locator in asked)
+        {
+            await Assert.That(Gg.Contracts.CredentialLocator.Validate(locator)).IsNull()
+                .Because($"'{locator}' has to be something the store can hold. A port colon "
+                       + "is exactly the character a host carries and a locator may not, "
+                       + "which is why this host has one.");
+        }
     }
 
     [Test]
@@ -113,10 +145,10 @@ public class TheRunnerBuildsWhatItWasToldToTests
 
         TrackerConfiguration.FromEnvironment(
             _ => new HttpClient(),
-            apis: "the-backlog=https://Tracker.Example/Acme/Project|a-held-secret",
+            apis: "the-backlog=https://Tracker.Example/Acme/Project|local:a-held-secret",
             secretFor: locator => { asked.Add(locator); return "a-token"; });
 
-        await Assert.That(asked).Contains("a-held-secret")
+        await Assert.That(asked).Contains("local:a-held-secret")
             .Because($"named explicitly, so nothing is derived. Asked for: {string.Join(", ", asked)}");
     }
 

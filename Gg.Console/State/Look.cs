@@ -128,6 +128,28 @@ public enum HeaderTint
     Tinted,
 }
 
+/// <summary>How something is pushed into the background.</summary>
+/// <remarks>
+/// <para>
+/// <b>Two ways, because one of them is not always honoured.</b>
+/// <see cref="Faint"/> is SGR 2 — the terminal's own idea of dim, which keeps
+/// the colour and lowers the intensity, and which some terminals ignore
+/// entirely. <see cref="Grey"/> changes the foreground instead, so it works
+/// everywhere and looks the same in every palette.
+/// </para>
+/// <para>
+/// <b>Applied over whatever the view already had</b>, rather than built from a
+/// palette. That is what lets it dim a console running in the terminal's own
+/// colours without deciding what those colours are.
+/// </para>
+/// </remarks>
+public enum Dimming
+{
+    Normal,
+    Faint,
+    Grey,
+}
+
 /// <summary>One row of the Look page: a thing that can be changed.</summary>
 public enum LookSetting
 {
@@ -145,6 +167,8 @@ public enum LookSetting
     TableHeaders,
     RowSelect,
     HeaderTint,
+    UnselectedTabs,
+    StatusText,
 }
 
 /// <summary>How the console is drawn, as a person has set it.</summary>
@@ -171,9 +195,14 @@ public sealed record Look
     // spike and copying the result, which is what the copy is for - so the
     // sentence "ships as" now names these rather than the library's.
     //
+    // A SECOND ROUND ADDED THREE MORE: the tab strip along the BOTTOM, tables
+    // with no rule work at all, and the cursor marking the whole row. The last
+    // is the one that says something true - every table here is picked FROM
+    // rather than edited.
+    //
     // The rest are deliberately left alone: no palette (a console nobody has
     // touched must be the terminal's own colours), a plain inner line, no mark
-    // on the selected tab, and the strip on top.
+    // on the selected tab, headers shown and untinted, and nothing dimmed.
 
     /// <summary>The colours.</summary>
     public Palette Palette { get; init; }
@@ -219,7 +248,7 @@ public sealed record Look
     public TabMark TabMark { get; init; } = TabMark.None;
 
     /// <summary>Which side the tab strip sits on.</summary>
-    public TabEdge TabSide { get; init; } = TabEdge.Top;
+    public TabEdge TabSide { get; init; } = TabEdge.Bottom;
 
     /// <summary>How tall a tab is.</summary>
     public int TabDepth { get; init; } = 3;
@@ -232,16 +261,34 @@ public sealed record Look
     public int TabSpacing { get; init; } = 0;
 
     /// <summary>How much line work a table is drawn with.</summary>
-    public TableLines TableLines { get; init; } = TableLines.Full;
+    public TableLines TableLines { get; init; } = TableLines.None;
 
     /// <summary>Whether a table says what its columns are.</summary>
     public TableHeaders TableHeaders { get; init; } = TableHeaders.Shown;
 
     /// <summary>What a table marks when the cursor is on a row.</summary>
-    public RowSelect RowSelect { get; init; } = RowSelect.Cell;
+    public RowSelect RowSelect { get; init; } = RowSelect.FullRow;
 
     /// <summary>Whether the header row is coloured apart from the body.</summary>
     public HeaderTint HeaderTint { get; init; } = HeaderTint.Plain;
+
+    /// <summary>How the tabs a person is NOT on are pushed back.</summary>
+    /// <remarks>
+    /// <b>The other half of marking the selected one.</b> A strip of eight
+    /// equally bright tabs makes the eye work to find the one that is live;
+    /// dimming the seven does the same job from the other side, and composes
+    /// with whatever <see cref="TabMark"/> is set to.
+    /// </remarks>
+    public Dimming UnselectedTabs { get; init; } = Dimming.Normal;
+
+    /// <summary>How the activity line and the key hints are pushed back.</summary>
+    /// <remarks>
+    /// <b>Two lines that are always there and rarely read.</b> They are
+    /// reference rather than content — what a person looks at when they want
+    /// them and past the rest of the time — and at full brightness they
+    /// compete with the pane above them.
+    /// </remarks>
+    public Dimming StatusText { get; init; } = Dimming.Normal;
 
     /// <summary>Which row the cursor is on.</summary>
     public int Selected { get; init; }
@@ -320,6 +367,12 @@ public static class Looks
         LookSetting.TableHeaders,
         LookSetting.RowSelect,
         LookSetting.HeaderTint,
+
+        // AND THE TWO THAT PUSH THINGS BACK, last because they are about what
+        // you should NOT be looking at - which is the thing you decide once the
+        // rest of the screen is settled.
+        LookSetting.UnselectedTabs,
+        LookSetting.StatusText,
     ];
 
     /// <summary>What the setting is called on the page.</summary>
@@ -339,6 +392,8 @@ public static class Looks
         LookSetting.TableHeaders => "table headers",
         LookSetting.RowSelect => "row select",
         LookSetting.HeaderTint => "header tint",
+        LookSetting.UnselectedTabs => "unselected tabs",
+        LookSetting.StatusText => "status text",
         _ => setting.ToString(),
     };
 
@@ -372,6 +427,10 @@ public static class Looks
         LookSetting.RowSelect => "What the cursor marks: one cell, or the whole row you "
                                + "picked.",
         LookSetting.HeaderTint => "Whether the header row is coloured apart from the body.",
+        LookSetting.UnselectedTabs => "How far back the tabs you are NOT on sit. Faint is "
+                                    + "the terminal's own dim and some ignore it; Grey "
+                                    + "always works.",
+        LookSetting.StatusText => "How far back the activity line and the key hints sit.",
         _ => "",
     };
 
@@ -394,6 +453,8 @@ public static class Looks
             LookSetting.TableHeaders => look.TableHeaders.ToString(),
             LookSetting.RowSelect => look.RowSelect.ToString(),
             LookSetting.HeaderTint => look.HeaderTint.ToString(),
+            LookSetting.UnselectedTabs => look.UnselectedTabs.ToString(),
+            LookSetting.StatusText => look.StatusText.ToString(),
             LookSetting.TabDepth => look.TabDepth.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             LookSetting.TabSpacing => look.TabSpacing.ToString(
@@ -433,6 +494,11 @@ public static class Looks
             LookSetting.TableHeaders => look with { TableHeaders = Step(look.TableHeaders, by) },
             LookSetting.RowSelect => look with { RowSelect = Step(look.RowSelect, by) },
             LookSetting.HeaderTint => look with { HeaderTint = Step(look.HeaderTint, by) },
+            LookSetting.UnselectedTabs => look with
+            {
+                UnselectedTabs = Step(look.UnselectedTabs, by),
+            },
+            LookSetting.StatusText => look with { StatusText = Step(look.StatusText, by) },
 
             // BOUNDED RATHER THAN WRAPPED, because these two are numbers and a
             // number that jumps from its largest to its smallest reads as a

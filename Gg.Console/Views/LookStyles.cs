@@ -253,6 +253,67 @@ public static class LookStyles
                 HotNormal = new Attribute(ColorName16.Black, ColorName16.White),
             };
 
+    /// <summary>
+    /// The scheme a view already has, pushed into the background.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Built from a basis the caller supplies, never from the view being
+    /// dimmed.</b> Reading the view's own scheme would feed this render's
+    /// output into the next one — harmless for these two operations, which are
+    /// both idempotent, and a trap the moment a third is not. It also leaves
+    /// no way back: a dimmed view asked what it looks like answers "dim".
+    /// </para>
+    /// <para>
+    /// <b>The basis is the palette where there is one, and the parent's
+    /// effective scheme where there is not</b> — which is what lets this dim a
+    /// console running in the terminal's OWN colours, the default, and the one
+    /// case where this code does not know what the foreground is.
+    /// </para>
+    /// <para>
+    /// <b><see cref="Dimming.Faint"/> keeps the colour and lowers the
+    /// intensity</b> — SGR 2, which is the terminal's own idea of dim and which
+    /// some terminals ignore. <see cref="Dimming.Grey"/> changes the
+    /// foreground, so it works everywhere; both are offered because there is no
+    /// way to find out from here which one a person's terminal honours.
+    /// </para>
+    /// <para>
+    /// <b>Only Normal and HotNormal.</b> Focus is what a dimmed thing looks
+    /// like when it stops being background — a tab somebody has tabbed to, a
+    /// hint line with the keyboard in it — and dimming that would hide the one
+    /// state the dimming exists to contrast with.
+    /// </para>
+    /// </remarks>
+    public static Scheme? Dimmed(Scheme basis, Dimming how)
+    {
+        ArgumentNullException.ThrowIfNull(basis);
+
+        if (how is Dimming.Normal)
+        {
+            return null;
+        }
+
+        var scheme = basis;
+
+        return scheme with
+        {
+            Normal = Back(scheme.Normal, how),
+            HotNormal = Back(scheme.HotNormal, how),
+        };
+    }
+
+    /// <summary>One attribute, pushed back.</summary>
+    private static Attribute Back(Attribute attribute, Dimming how) => how switch
+    {
+        Dimming.Faint => new Attribute(
+            attribute.Foreground, attribute.Background, TextStyle.Faint),
+
+        Dimming.Grey => new Attribute(
+            new Color(ColorName16.DarkGray), attribute.Background, attribute.Style),
+
+        _ => attribute,
+    };
+
     /// <summary>A scheme from the six attributes a person actually sees.</summary>
     private static Scheme Built(
         ColorName16 normalFore, ColorName16 normalBack,

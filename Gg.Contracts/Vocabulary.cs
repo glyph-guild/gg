@@ -92,6 +92,8 @@ public static class Vocabulary
         typeof(EnvironmentIdentity),
         typeof(SourceProvenance),
         typeof(FactEnvelope),
+        typeof(RecordedFact),
+        typeof(FlightFacts),
         typeof(FactBatch),
         typeof(FactRejection),
         typeof(FactBatchAccepted),

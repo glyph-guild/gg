@@ -162,8 +162,50 @@ public class LiveStreamingTests
         // reads directories somebody navigates to, it writes nothing, and it
         // opens no file it finds.
         //
+        // THE THIRD: STARTING THE INTENT READER, AND IT IS THE ONE THAT LOOKS
+        // LIKE IT BREAKS THE RULE.
+        //
+        // The rule's own sentence named it as the thing a session may never do:
+        // "a reader is an executable launched with a credential in its
+        // environment, and nothing in a session may start one." That was the
+        // reason four guards gave, and the first half of it is not true of this
+        // code. SpawnedReader references neither IntentReader.EnvironmentVariable
+        // nor .Locator - it places NO secret. The shape this repository ships
+        // says so where the reader is built: "NOTHING FOR AN ENVIRONMENT BLOCK,
+        // which is the whole point: the launch has no secret to place, so it
+        // writes none." The child is handed a LOCATOR as an argument and
+        // resolves the credential itself, which is the runner's arrangement.
+        //
+        // WHAT ELSE WAS MEASURED, because "no credential" alone is not enough.
+        // All three standard streams are redirected with UseShellExecute =
+        // false, so the child talks over pipes and has nothing to write on the
+        // screen Terminal.Gui is holding - the harm a teardown actually
+        // prevents. And it runs on the background read task the composition
+        // root owns, so it blocks no UI thread. Of the three things the rule
+        // protects - a session may not START anything, resolve a credential, or
+        // block - two were already satisfied and the third was a word.
+        //
+        // WHY IT IS RECORDED HERE, and this is the whole point of writing it
+        // down. The scan below is a regex over the five files named after it,
+        // and SpawnedReader.cs is not one of them: the spawn is reached through
+        // a Func composed in Gg.Cli/Program.cs, so the guard passes whether or
+        // not this exception exists. That is the clipboard's situation exactly -
+        // "the spawn hides one layer down and the scan is the thing being
+        // fooled" - and an exception nobody told the guard about is worse than
+        // no guard, because it looks like one.
+        //
+        // WHAT IT IS NOT. It is scoped to the intent reader, started once per
+        // console lifetime by ReaderSessions, over redirected pipes, placing no
+        // credential. It grants nothing about the network and no second spawn:
+        // OpenWorkItem starts a BROWSER - a new process every time, one that
+        // takes the display - and stays the shell's, deliberately. Starting a
+        // reader AT LAUNCH is also not granted: a reader nobody asked for is a
+        // child process nobody asked for, and the console must come up without
+        // waiting on one. The spawn moved from the first keypress's shell to
+        // the first keypress's read. It did not move earlier.
+        //
         // The next feature that wants more argues for its own exception here.
-        // It does not inherit either of these.
+        // It does not inherit any of these.
 
         var sessionSources = new[]
         {

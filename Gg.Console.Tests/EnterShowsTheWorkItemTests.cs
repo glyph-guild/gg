@@ -52,17 +52,17 @@ public class EnterShowsTheWorkItemTests
     }
 
     [Test]
-    public async Task It_is_a_read_once_a_reader_is_running_and_the_shells_until_then()
+    public async Task It_is_a_read_and_costs_no_screen()
     {
-        // THE DISTINCTION THE DECLARATION DRAWS, now that the spawn and the
-        // asking are separate. Browsing "launches an executable with a
-        // credential in its environment" - true of the FIRST press and of
-        // nothing after it, and exactly as true of asking about one item as of
-        // listing them. Same door, same reason, both halves.
-        await Assert.That(ShellCommands.NeedsAReader.Contains(Command.ShowWorkItem)).IsTrue()
-            .Because("an intent reader is a child process holding a credential, and a UI "
-                   + "session may START neither - so a press with none running is the "
-                   + "shell's, and that is where the spawn happens.");
+        // THE SENTENCE THE DECLARATION USED TO DRAW THIS FROM WAS WRONG ABOUT
+        // THE CODE. Browsing "launches an executable with a credential in its
+        // environment" - and SpawnedReader references neither the environment
+        // variable nor the locator on the reader it launches. It places no
+        // secret; the child resolves its own. Same door, same reason, both
+        // halves, and now no press of either ends the session.
+        await Assert.That(ShellCommands.Handled.Contains(Command.ShowWorkItem)).IsFalse()
+            .Because("the spawn under this key holds no credential and no stream of the "
+                   + "terminal, so there is nothing for a teardown to protect.");
 
         await Assert.That(ShellCommands.Reads.Contains(Command.ShowWorkItem)).IsTrue()
             .Because("and once one is running, asking it about an item is a read like any "

@@ -92,19 +92,19 @@ public class BrowseIsAKeyAndAPaneTests
         // environment - so the first browse of a console lifetime ends the
         // session and the spawn happens in the shell, where every spawn does.
         //
-        // WHAT CHANGED IS THE PREMISE, NOT THE RULE. This used to assert
-        // membership of Handled, because starting one was unavoidable on every
-        // press while ReaderSessions started them lazily. It caches what it
-        // starts - "a reader asked for twice is the same reader" - so after the
-        // first press there is nothing to start and the read folds in beside
-        // the console.
-        await Assert.That(ShellCommands.NeedsAReader).Contains(Command.ToggleBrowse)
-            .Because("a press with no reader running would have to spawn one from inside the "
-                   + "session, which is the one thing a session may not do.");
+        // WHAT CHANGED IS THE PREMISE, NOT THE RULE, TWICE. This asserted
+        // membership of Handled while ReaderSessions started a reader lazily on
+        // every press; then membership of NeedsAReader, when the cache made the
+        // spawn one act and the asking another. The spawn folds in too now -
+        // measured, it places no credential and holds no stream of the terminal
+        // - so the key costs no screen at all. See
+        // TheSpawnFoldsInBesideTheConsoleTests for the exception that allows it.
+        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleBrowse)
+            .Because("talking to a reader is what LiveTails already does, and starting one "
+                   + "over a pipe turns out to be the same kind of act.");
 
         await Assert.That(ShellCommands.Handled).DoesNotContain(Command.ToggleBrowse)
-            .Because("and once one IS running, talking to it is what LiveTails already does - "
-                   + "a process owned outside every UI lifetime, handed in and asked.");
+            .Because("no press of this key ends the session now, first one included.");
     }
 
     [Test]

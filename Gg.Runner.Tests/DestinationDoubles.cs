@@ -22,10 +22,21 @@ internal sealed class RecordingDestination(bool pushSucceeds = true, bool propos
 
     public List<string> Calls { get; } = [];
 
+    /// <summary>Every request this was handed, so a test can read what crossed.</summary>
+    /// <remarks>
+    /// <b>Beside <see cref="Calls"/> rather than instead of it.</b> That list is
+    /// about ORDER - which gate was reached and in what sequence - and the
+    /// existing tests read it for exactly that. This one is about CONTENT, and
+    /// widening the strings to carry it would make every ordering assertion
+    /// depend on what a title happens to say.
+    /// </remarks>
+    public List<LandingRequest> Asked { get; } = [];
+
     public Task<PushOutcome> PushAsync(
         LandingRequest request, CancellationToken cancellationToken = default)
     {
         Calls.Add($"push:{request.Branch}");
+        Asked.Add(request);
 
         return Task.FromResult<PushOutcome>(pushSucceeds
             ? new PushOutcome.Pushed(request.Branch, new string('a', 40))
@@ -36,6 +47,7 @@ internal sealed class RecordingDestination(bool pushSucceeds = true, bool propos
         LandingRequest request, CancellationToken cancellationToken = default)
     {
         Calls.Add($"propose:{request.Branch}");
+        Asked.Add(request);
 
         return Task.FromResult<LandingOutcome>(proposeSucceeds
             ? new LandingOutcome.Landed(request.Branch, "https://forge.invalid/pr/1", 1)

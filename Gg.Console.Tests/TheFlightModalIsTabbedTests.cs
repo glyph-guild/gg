@@ -48,7 +48,7 @@ public class TheFlightModalIsTabbedTests
     }
 
     [Test]
-    public async Task Tab_moves_to_the_evidence_then_the_log_and_back()
+    public async Task Tab_moves_to_the_evidence_then_the_log_then_the_facts_and_back()
     {
         var evidence = Reducer.Reduce(Showing(), Command.NextFlightTab);
 
@@ -59,7 +59,14 @@ public class TheFlightModalIsTabbedTests
         await Assert.That(log.FlightTab).IsEqualTo(FlightTab.Log)
             .Because("the log became the third tab, so one key reaches three regions.");
 
-        var back = Reducer.Reduce(log, Command.NextFlightTab);
+        var facts = Reducer.Reduce(log, Command.NextFlightTab);
+
+        await Assert.That(facts.FlightTab).IsEqualTo(FlightTab.Facts)
+            .Because("what the flight RECORDED became the fourth tab. The first three say "
+                   + "what it is, what waits on a person, and what the control plane did to "
+                   + "it; none of them is what the runner shipped.");
+
+        var back = Reducer.Reduce(facts, Command.NextFlightTab);
 
         await Assert.That(back.FlightTab).IsEqualTo(FlightTab.Details)
             .Because("however many tabs and one key, the key has to come back - a person who "

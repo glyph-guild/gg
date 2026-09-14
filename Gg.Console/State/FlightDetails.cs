@@ -41,6 +41,9 @@ public static class FlightDetails
     /// </remarks>
     public const string LogTitle = "Log";
 
+    /// <summary>The facts pane's heading.</summary>
+    public const string FactsTitle = "Recorded";
+
     /// <summary>The pane beneath the log, which holds what a cell cannot.</summary>
     public const string LogDetailTitle = "What it said";
 
@@ -427,6 +430,97 @@ public static class FlightDetails
         "Nothing is selected, because nothing has happened to this flight yet.";
 
     /// <summary>The log, one line per entry, for the linear reading.</summary>
+    /// <summary>
+    /// Which absence this is, when the facts pane has nothing to draw.
+    /// </summary>
+    /// <remarks>
+    /// <b>THREE ABSENCES, on LogAbsence's reasoning one pane over.</b> A read in
+    /// the air, a read nobody made, and a flight that genuinely recorded
+    /// nothing are three different answers. The last one matters most here: a
+    /// pending read rendered as "recorded nothing" would say a flight wrote no
+    /// evidence when the truth is that nobody has looked yet, and that is the
+    /// one conclusion this pane must not invite.
+    /// </remarks>
+    public static string FactsAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.FlightFacts is not { } facts)
+        {
+            return state.ReadInFlight
+                ? "What it recorded is still coming."
+                : "Press for its facts to read what this flight recorded.";
+        }
+
+        return facts.Facts.Count == 0
+            ? "This flight has recorded nothing."
+            : "";
+    }
+
+    /// <summary>One line per fact: when, what kind, which budget, and what it says.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The disposition is a column.</b> Inline, digest and reference are what
+    /// budget the control plane held an item against, and it is the answer to
+    /// why a row carries no content of its own - a transcript drawn blank
+    /// without it reads as a defect rather than as a boundary.
+    /// </para>
+    /// <para>
+    /// <b>The runner's clock, not the ledger's.</b> Both are recorded and they
+    /// differ by however long shipping took; what a person reading a flight
+    /// wants is when the thing HAPPENED.
+    /// </para>
+    /// </remarks>
+    private static string FactsLines(AppState state)
+    {
+        var text = new StringBuilder();
+
+        foreach (var recorded in state.FlightFacts!.Facts)
+        {
+            text.AppendLine(
+                $"  {recorded.Fact.ObservedAt:u}  {recorded.Fact.Kind,-22}  "
+              + $"{recorded.Disposition,-9}  {FactSays(recorded.Fact)}");
+        }
+
+        // NOT NECESSARILY ALL OF THEM. A landing ships its own fact after the
+        // batch a loop produced, so a pane opened while a flight is still
+        // landing is correct and short by one. Saying so costs a line and stops
+        // a reader concluding a write did not happen.
+        text.AppendLine();
+        text.AppendLine(
+            "  A landing records its own fact after a loop's, so a flight still landing "
+          + "has one more coming.");
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>The one line a fact can offer about itself, or none.</summary>
+    /// <remarks>
+    /// <b>Named members only.</b> What each kind carries is the contract's to
+    /// say; this draws the half a person reads first, and <c>gg facts --json</c>
+    /// is how somebody gets all of it.
+    /// </remarks>
+    private static string FactSays(FactEnvelope fact) => fact switch
+    {
+        { Transcript: { } t } => $"{t.Bytes} bytes, {t.Scope} at {t.Locator}",
+        { Proposal: { } p } =>
+            $"{p.Operation} {p.Target}"
+          + (p.Fields is { Count: > 0 } fields
+                ? " " + string.Join(", ", fields.Select(f => $"{f.Path}={f.Value}"))
+                : ""),
+        { Source: { } src } => $"{src.Slug} at {src.ResolvedRef ?? src.RequestedRef}",
+        { Loop: { } l } => $"{l.Outcome}: {l.Reason}",
+        { Change: { } c } => $"{c.Paths?.Count ?? 0} path(s)",
+
+        // LoopDigest, never Digest - that one is the envelope's content hash,
+        // and the single word covering both is the confusion the contract warns
+        // about in as many words.
+        { LoopDigest: { } d } =>
+            $"{d.Attempts} attempt(s), {d.FilesEdited.Count} edited, "
+          + $"{d.FilesReadNotEdited.Count} read - {d.StopReason}",
+        _ => "",
+    };
+
     private static string LogLines(AppState state)
     {
         var text = new StringBuilder();
@@ -527,6 +621,18 @@ public static class FlightDetails
             text.AppendLine(LogAbsence(state) is { Length: > 0 } absence
                 ? $"  {absence}"
                 : LogLines(state));
+        }
+
+        // THE SAME SHAPE ONE TAB OVER, and for the same reason: what this text
+        // is FOR is the linear reading of the tab somebody is on, so each tab
+        // draws its own body and none of them draws another's.
+        if (state.FlightTab is FlightTab.Facts)
+        {
+            text.AppendLine();
+            text.AppendLine($"  {FactsTitle}");
+            text.AppendLine(FactsAbsence(state) is { Length: > 0 } absence
+                ? $"  {absence}"
+                : FactsLines(state));
         }
 
         return text.ToString().TrimEnd();

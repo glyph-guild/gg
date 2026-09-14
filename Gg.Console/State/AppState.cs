@@ -493,6 +493,26 @@ public enum FlightTab
     /// </para>
     /// </remarks>
     Log,
+
+    /// <summary>
+    /// What the flight RECORDED: one row per fact, and the budget that held it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The question the other three do not ask.</b> Details is what a flight
+    /// IS, Gate is what waits on a person, Log is what the control plane DID to
+    /// it. None of them is what the runner shipped - and that is the half a
+    /// customer audits, and the only one that can tell a claim from a
+    /// measurement. A flight that said it scored an item and recorded nothing
+    /// read exactly like one that did.
+    /// </para>
+    /// <para>
+    /// <b>Filled on the keypress, not at boot.</b> Every flight's log is held
+    /// because the boot already paid for it; facts are large and rarely read,
+    /// so this one asks when it is opened.
+    /// </para>
+    /// </remarks>
+    Facts,
 }
 
 /// <summary>Which half of the work item modal is showing.</summary>
@@ -915,6 +935,15 @@ public sealed record AppState
 
     /// <summary>Its log, exactly as `gg log` returned it.</summary>
     public FlightLog? FlightLog { get; init; }
+
+    /// <summary>What it recorded, exactly as `gg facts` returned it.</summary>
+    /// <remarks>
+    /// <b>Null is "not read yet" and an empty list is "recorded nothing".</b>
+    /// Two absences with different sentences: a tab that rendered both as blank
+    /// would make a read still in flight look like a flight that shipped
+    /// nothing, which is the one conclusion a reader must not reach by accident.
+    /// </remarks>
+    public FlightFacts? FlightFacts { get; init; }
 
     /// <summary>
     /// Its story, exactly as `gg show` returned it.

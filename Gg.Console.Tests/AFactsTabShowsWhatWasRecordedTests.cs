@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Description;
 
 namespace Gg.Console.Tests;
 
@@ -30,6 +31,60 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class AFactsTabShowsWhatWasRecordedTests
 {
+    private const string Id = "019fe815-6136-7518-bb57-b06d6d3f411a";
+
+    private static readonly DateTimeOffset At =
+        new(2026, 9, 14, 17, 9, 52, TimeSpan.Zero);
+
+    /// <summary>
+    /// The modal open on a flight, with the facts tab showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>A state carrying facts and no flight renders nothing at all</b>, which
+    /// is the console refusing to caption one flight's evidence with another's
+    /// name - the rule the log tab's fixture records one tab over.
+    /// </remarks>
+    private static AppState Opened(FlightFacts? facts = null) => new()
+    {
+        Mode = UiMode.FlightDetail,
+        FlightTab = FlightTab.Facts,
+        FlightFacts = facts,
+        Flights = new FlightList
+        {
+            Flights =
+            [
+                new FlightSummary
+                {
+                    FlightId = Id,
+                    FlightNumber = FlightRef.Format(42),
+                    Name = "score the work item",
+                    Intent = new FlightIntent
+                    {
+                        Kind = FlightIntentKinds.Ticket,
+                        Provider = "a-tracker",
+                        Id = "18119",
+                    },
+                    CreatedAt = At,
+                    RunnerProtocolVersion = 1,
+                    FactVocabularyVersion = "0.30.0",
+                    ConstitutionVersion = "1.0.0",
+                    EnvelopeVersion = "v7",
+                    Attempts = 1,
+                    State = FlightStates.Open,
+                    Facts = [],
+                },
+            ],
+        },
+        Story = new FlightStory
+        {
+            FlightId = Id,
+            FlightNumber = FlightRef.Format(42),
+            Stage = FlightStages.Worked,
+            State = FlightStates.Open,
+            Entries = [],
+        },
+    };
+
     private static FlightFacts Recorded() => new()
     {
         FlightNumber = "GG-42",
@@ -80,11 +135,7 @@ public class AFactsTabShowsWhatWasRecordedTests
     [Test]
     public async Task It_shows_the_kind_the_budget_and_what_the_fact_says()
     {
-        var text = PaneText.Modal(new AppState
-        {
-            FlightTab = FlightTab.Facts,
-            FlightFacts = Recorded(),
-        });
+        var text = PaneText.Modal(Opened(Recorded()));
 
         await Assert.That(text).Contains(FactKinds.WorkItemProposal, StringComparison.Ordinal);
         await Assert.That(text).Contains("digest", StringComparison.Ordinal)
@@ -101,16 +152,13 @@ public class AFactsTabShowsWhatWasRecordedTests
         // TWO ABSENCES, NOT ONE. A read still in flight and a flight that shipped
         // nothing are different answers, and a tab rendering both as blank would
         // make a pending read look like an empty record.
-        var waiting = PaneText.Modal(new AppState { FlightTab = FlightTab.Facts });
+        var waiting = PaneText.Modal(Opened());
 
         await Assert.That(waiting.Length).IsGreaterThan(20)
             .Because($"a blank pane reads as a broken tab. Said: {waiting}");
 
-        var none = PaneText.Modal(new AppState
-        {
-            FlightTab = FlightTab.Facts,
-            FlightFacts = new FlightFacts { FlightNumber = "GG-1", Facts = [] },
-        });
+        var none = PaneText.Modal(
+            Opened(new FlightFacts { FlightNumber = "GG-1", Facts = [] }));
 
         await Assert.That(none).IsNotEqualTo(waiting)
             .Because("'nothing was recorded' is a different sentence from 'not read yet'.");

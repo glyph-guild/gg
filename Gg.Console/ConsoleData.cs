@@ -237,6 +237,11 @@ public sealed class ConsoleData(
     public Task<VerbResult> RepositoriesAsync(CancellationToken cancellationToken = default) =>
         _commands.RepositoriesAsync(cancellationToken);
 
+    /// <summary>What a flight recorded, which is not what it said about itself.</summary>
+    public Task<VerbResult> FactsAsync(
+        string reference, CancellationToken cancellationToken = default) =>
+        _commands.FactsAsync(reference, cancellationToken);
+
     /// <summary>
     /// The flights already opened against one work item.
     /// </summary>
@@ -554,6 +559,15 @@ public static class ConsoleProjection
             // renders sentences from it; the log beside it stays the raw record
             // the queue's rows are derived from.
             VerbResult.Story story => state with { Story = story.Value, Diagnosis = null },
+
+            // WHAT THE FLIGHT RECORDED, which the story does not carry. Two of
+            // thirteen fact kinds reach a story; this is the rest of them, and
+            // the only surface that can tell what an agent SAID from what a
+            // machine measured. Folded here rather than in the pane's own read
+            // module, so it reaches the model by the road every other result
+            // takes - which is the parity this arm's ratchet is about.
+            VerbResult.Facts facts =>
+                state with { FlightFacts = facts.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
 
             // THE THREE THAT ANSWER "WHAT ENVIRONMENTS DO I HAVE". The chart is

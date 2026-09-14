@@ -127,11 +127,17 @@ public class TheLogIsItsOwnTabTests
 
         await Assert.That(Reducer.Reduce(state, Command.NextFlightTab).FlightTab)
             .IsEqualTo(FlightTab.Log);
+        // FOUR HALVES NOW: what the flight recorded joined the cycle after the
+        // log, so the key that reaches this one reaches that one too.
         await Assert.That(
             Reducer.Reduce(Opened() with { FlightTab = FlightTab.Log }, Command.NextFlightTab)
                 .FlightTab)
+            .IsEqualTo(FlightTab.Facts);
+        await Assert.That(
+            Reducer.Reduce(Opened() with { FlightTab = FlightTab.Facts }, Command.NextFlightTab)
+                .FlightTab)
             .IsEqualTo(FlightTab.Details)
-            .Because("cycling has to come back round, or the third tab is a place a person gets "
+            .Because("cycling has to come back round, or the last tab is a place a person gets "
                    + "stuck rather than a place they visit.");
     }
 

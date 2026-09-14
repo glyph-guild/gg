@@ -30,8 +30,16 @@ public static class WorkItemDetails
     /// <summary>The heading over the prose region.</summary>
     public const string SaidTitle = "What it says";
 
-    /// <summary>The heading over the history region.</summary>
-    public const string HistoryTitle = "What has happened to it";
+    /// <summary>
+    /// The heading over the history region.
+    /// </summary>
+    /// <remarks>
+    /// <b>The word the flight modal already uses for the same thing.</b> Both
+    /// are a list of what happened in the order it happened, and a console that
+    /// called one a log and the other "what has happened to it" asked a person
+    /// to learn that those are one idea. Short enough to be a tab, too.
+    /// </remarks>
+    public const string HistoryTitle = "Log";
 
     /// <summary>
     /// The item this modal is about, or null where the cursor is on nothing.

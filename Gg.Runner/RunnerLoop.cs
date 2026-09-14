@@ -1274,7 +1274,12 @@ public sealed class RunnerLoop(
         // while the runner waits for it.
         var decision = await AwaitLandingAsync(lease, cancellationToken);
 
-        await LandAsync(lease, workspace, decision, secretsByLocator, proposed, cancellationToken);
+        // WHAT THE LANDING DID, not what it was cleared to do. A clearance is a
+        // permission and this is the receipt; the two were never joined, so a
+        // push the runner refused out loud still released the lease as
+        // completed.
+        var refused = await LandAsync(
+            lease, workspace, decision, secretsByLocator, proposed, cancellationToken);
 
         // WHAT THE PERSON DECIDED, and the disposition that matches it. Only an
         // attended flight has one: an agent's outcome was measured and shipped
@@ -1289,8 +1294,8 @@ public sealed class RunnerLoop(
         // did not admit - the whole point of a gate - reported a conclusion.
         // `completed` maps to `landed` and the exit claim is first-writer-wins.
         var (disposition, detail) = invoked.Attended is null
-            ? Unattended(invoked.Run, decision)
-            : Decided(lease, workspace, decision);
+            ? Unattended(invoked.Run, decision, refused)
+            : Decided(lease, workspace, decision, refused);
 
         await HoldAsync(
             runnerId, labels, lease, cancellationToken, disposition, detail);
@@ -1876,24 +1881,23 @@ public sealed class RunnerLoop(
     /// nothing.
     /// </para>
     /// </remarks>
-    private async Task WriteToTrackerAsync(
+    private async Task<string?> WriteToTrackerAsync(
         LandingDecision? accepted,
         IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
         CancellationToken cancellationToken)
     {
         if (accepted?.Tracker is not { } admitted)
         {
-            return;
+            return null;
         }
 
         if (!_trackers.TryGetValue(admitted.DestinationId, out var sink))
         {
-            _observer.Landed("refused",
+            return Refused(
                 $"admitted to write to '{admitted.DestinationId}' and this runner has no "
               + $"tracker declared for it. {Intent.TrackerConfiguration.ApisVariable} names "
               + "which trackers this machine may write to, and a runner that may read one is "
               + "not thereby able to change it.");
-            return;
         }
 
         // JOINED BY KEY, and a key naming nothing is a refusal rather than a
@@ -1905,11 +1909,10 @@ public sealed class RunnerLoop(
         {
             if (!proposed.TryGetValue(key, out var proposal))
             {
-                _observer.Landed("refused",
+                return Refused(
                     $"admission named proposal '{key}' and this run shipped no such fact. "
                   + "Performing the rest would leave a backlog changed in a way nobody can "
                   + "reconcile against what was decided.");
-                return;
             }
 
             performing.Add(proposal);
@@ -1921,9 +1924,33 @@ public sealed class RunnerLoop(
             $"{written.Count} change(s) on '{admitted.DestinationId}': "
           + string.Join(", ", written.Select(w =>
                 $"{w.Operation} {w.Target}{(w.AlreadyDone ? " (already)" : "")}")));
+
+        return null;
     }
 
-    private async Task LandAsync(
+    /// <summary>
+    /// Reports a landing that was cleared and did not happen, and says so to the
+    /// caller as well as to the person watching.
+    /// </summary>
+    /// <remarks>
+    /// <b>One place, because the two had drifted.</b> Every refusal below already
+    /// told the observer; none of them told the disposition, so a flight whose
+    /// push was refused said <c>refused</c> in the journal and <c>landed</c> in
+    /// the record. Returning the same sentence that was reported is what keeps
+    /// those two from being written separately again.
+    /// </remarks>
+    private string Refused(string diagnosis, string? earlier = null)
+    {
+        _observer.Landed("refused", diagnosis);
+
+        // BOTH, when both were refused. The tracker write and the push are
+        // independent gates and a flight can be cleared for each; reporting only
+        // the second would hide a backlog that never changed behind a branch
+        // that never pushed.
+        return earlier is { Length: > 0 } ? earlier + " " + diagnosis : diagnosis;
+    }
+
+    private async Task<string?> LandAsync(
         LeaseGranted lease,
         WorkspaceResult workspace,
         LandingDecision? accepted,
@@ -1940,7 +1967,11 @@ public sealed class RunnerLoop(
         //
         // That is the rule the contract already states about these fields:
         // each is refused by its own absence, and none is derived from another.
-        await WriteToTrackerAsync(accepted, proposed, cancellationToken);
+        // HELD RATHER THAN RETURNED ON, because the gates are independent. A
+        // tracker write that was refused does not cancel a push that was
+        // cleared; it is carried down so that a flight refused at both is
+        // reported as refused at both.
+        var tracker = await WriteToTrackerAsync(accepted, proposed, cancellationToken);
 
         // TWO GATES, READ INDEPENDENTLY. The push is granted when no machine
         // obligation is violated; the proposal when every requirement is satisfied.
@@ -1963,14 +1994,13 @@ public sealed class RunnerLoop(
             // that exists PRECISELY BECAUSE a machine obligation is violated, and
             // the moment that form ships this inverts: the violation becomes the
             // reason to ask rather than the reason not to.
-            return;
+            return tracker;
         }
 
         if (workspace.Trees.FirstOrDefault(t => t.Slug == push.Slug) is not { } tree)
         {
-            _observer.Landed("refused",
-                $"cleared to push {push.Slug} and this flight does not hold it");
-            return;
+            return Refused(
+                $"cleared to push {push.Slug} and this flight does not hold it", tracker);
         }
 
         var admission = accepted.Admission;
@@ -1986,12 +2016,11 @@ public sealed class RunnerLoop(
         {
             // FAILS AT THE CREDENTIAL, which is the criterion slice one wrote
             // and could never verify - there was nothing that could try.
-            _observer.Landed("refused",
+            return Refused(
                 $"the credential registered for {push.Slug} carries "
               + $"{(reference is null ? "no scopes at all" : string.Join(",", reference.Scopes))} "
               + "and pushing needs write. An envelope declares that a flight may land somewhere; "
-              + "it cannot grant the ability to.");
-            return;
+              + "it cannot grant the ability to.", tracker);
         }
 
         // THE TWO GRANTS DESCRIBE ONE LANDING, checked before anything is done
@@ -2002,8 +2031,7 @@ public sealed class RunnerLoop(
         // says this binary must never make.
         if (LandingGrants.Disagreement(push, admission) is { } conflict)
         {
-            _observer.Landed("refused", conflict);
-            return;
+            return Refused(conflict, tracker);
         }
 
         var adapter = _destinations.FirstOrDefault(d =>
@@ -2011,8 +2039,7 @@ public sealed class RunnerLoop(
 
         if (adapter is null)
         {
-            _observer.Landed("refused", "this runner is not configured to land anywhere");
-            return;
+            return Refused("this runner is not configured to land anywhere", tracker);
         }
 
         var request = new LandingRequest
@@ -2045,13 +2072,12 @@ public sealed class RunnerLoop(
             // because the only copy of the work is here - entering a pending
             // decision with the work in a doomed tree loses it. `_landed` stays
             // unset, so the finally block holds the tree for a takeover.
-            _observer.Landed("refused", pushed switch
+            return Refused(pushed switch
             {
                 PushOutcome.Refused(var slug, var diagnosis) => $"{slug}: {diagnosis}",
                 PushOutcome.NothingToPush(var diagnosis) => diagnosis,
                 _ => "the branch was not pushed",
-            });
-            return;
+            }, tracker);
         }
 
         // WHICH KIND OF PUSH THIS WAS, from what the control plane told us to push.
@@ -2102,7 +2128,11 @@ public sealed class RunnerLoop(
         {
             // The second gate was not granted. The branch is on the remote and the
             // proposal waits on a decision, which is the whole shape of a gate.
-            return;
+            //
+            // AND THAT IS NOT A REFUSAL. Nothing was cleared to propose, so
+            // nothing failed to; what makes this flight outstanding is the open
+            // gate, which the landing decision already says.
+            return tracker;
         }
 
         var outcome = await adapter.ProposeAsync(request, cancellationToken);
@@ -2116,20 +2146,20 @@ public sealed class RunnerLoop(
                 // to a flight is a branch nobody will ever delete.
                 await ReportLandingAsync(
                     lease, branch, admission.DestinationId, uri, number, cancellationToken);
-                break;
+                return tracker;
 
             case LandingOutcome.BranchExists(var existing):
-                _observer.Landed("refused",
-                    $"{existing} already exists on the remote and was not overwritten");
-                break;
+                return Refused(
+                    $"{existing} already exists on the remote and was not overwritten", tracker);
 
             case LandingOutcome.CredentialRefused(var locator, var diagnosis):
-                _observer.Landed("refused", $"{locator}: {diagnosis}");
-                break;
+                return Refused($"{locator}: {diagnosis}", tracker);
 
             case LandingOutcome.Unsupported(var diagnosis):
-                _observer.Landed("refused", diagnosis);
-                break;
+                return Refused(diagnosis, tracker);
+
+            default:
+                return tracker;
         }
     }
 
@@ -2310,18 +2340,28 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     internal static (string Disposition, string? Detail) Unattended(
-        ExecutorRun? run, LandingDecision? landing) => run?.Outcome switch
+        ExecutorRun? run, LandingDecision? landing, string? refused) => run?.Outcome switch
         {
             LoopOutcomes.Failed => (RunnerDisposition.Failed, run.Reason),
             LoopOutcomes.Blocked or LoopOutcomes.Exhausted =>
                 (RunnerDisposition.Outstanding, run.Reason),
+
+            // A CLEARED LANDING THAT DID NOT HAPPEN, read after the loop's own
+            // outcome and before the landing's permission. After, because a
+            // failed loop had nothing to land and its own reason is the better
+            // sentence; before, because a push the control plane cleared is
+            // exactly the case where the permission says yes and the machine
+            // could not - which is where `completed` used to go out.
+            _ when refused is { Length: > 0 } =>
+                (RunnerDisposition.Outstanding, refused),
+
             _ => (Outstanding(landing)
                 ? RunnerDisposition.Outstanding
                 : RunnerDisposition.Completed, (string?)null),
         };
 
     private (string Disposition, string? Detail) Decided(
-        LeaseGranted lease, WorkspaceResult workspace, LandingDecision? landing)
+        LeaseGranted lease, WorkspaceResult workspace, LandingDecision? landing, string? refused)
     {
         if (_returns is null)
         {
@@ -2347,6 +2387,19 @@ public sealed class RunnerLoop(
                 decision.Outcome, Gg.Contracts.TakeoverOutcomes.Completed, StringComparison.Ordinal))
         {
             return (RunnerDisposition.Abandoned, decision.Note);
+        }
+
+        // AND THEY DO NOT ANSWER FOR THE PUSH EITHER. The branch goes up after
+        // they have given the terminal back, so a landing this runner refused is
+        // something they never saw. Their word about their own work stands; what
+        // it cannot do is close a flight whose work is still on this machine.
+        if (refused is { Length: > 0 })
+        {
+            return (RunnerDisposition.Outstanding,
+                "You recorded this flight as finished and the runner could not land it: "
+              + refused
+              + " Nothing was closed and your work is where you left it."
+              + (decision.Note is { Length: > 0 } said ? " You said: " + said : ""));
         }
 
         // THE PERSON ANSWERS FOR THEIR WORK; THEY DO NOT ANSWER THE GATE.

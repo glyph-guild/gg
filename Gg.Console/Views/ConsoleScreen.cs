@@ -3182,7 +3182,14 @@ public sealed class ConsoleScreen : Window
         // NOT "anything but Normal", which drew an empty dialog over the
         // airspace field the moment its mode opened - on top of the one
         // thing that mode exists to focus.
-        _modal.Visible = Modals.IsDrawn(State.Mode);
+        // HELD OUT OF THE WAY RATHER THAN CLOSED, when somebody is looking at
+        // what the Look page just changed. The MODE does not move, so the
+        // keyboard still belongs to the page and `h' brings it back - closing
+        // it would lose the cursor, the page, and everything they had set.
+        _modal.Visible = Modals.IsDrawn(State.Mode)
+            && !(State.Mode is UiMode.Help
+                 && State.HelpPage is HelpPage.Look
+                 && State.Look.Peeking);
 
         // THE FLIGHT NAMES ITSELF UP THERE. Every other mode keeps the title
         // written for it, because a refusal is a refusal whichever one it is;
@@ -3338,11 +3345,21 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Applied(Look look)
     {
-        var pane = LookStyles.Line(look.PaneBorder);
-        var modal = LookStyles.Line(look.ModalBorder);
+        var outer = LookStyles.Line(look.PaneBorder);
+        var inner = LookStyles.Line(look.InnerBorder);
+        var colours = LookStyles.Colours(look.Palette);
+
+        // THE APPLICATION'S OWN FRAME, which the walk below cannot reach: this
+        // is a Window rather than a FrameView, and it is the biggest line on
+        // the screen.
+        BorderStyle = LookStyles.Line(look.AppBorder);
+
+        // AND THE DIALOG, separately from either layer of pane, because what
+        // tells a modal apart from what is behind it is the line round it.
+        _modal.BorderStyle = LookStyles.Line(look.ModalBorder);
+
         var tabLine = LookStyles.Line(look.TabLine);
         var side = LookStyles.Side(look.TabSide);
-        var colours = LookStyles.Colours(look.Palette);
 
         foreach (var strip in (Terminal.Gui.Views.Tabs[])
                  [_bar, _helpTabs, _flightTabs, _itemTabs, _filterViews, _runnerViews,
@@ -3352,35 +3369,69 @@ public sealed class ConsoleScreen : Window
             strip.TabSide = side;
             strip.TabDepth = look.TabDepth;
             strip.TabSpacing = look.TabSpacing;
+
+            // THE TAB A PERSON IS ON, MARKED. Terminal.Gui offers nothing for
+            // this, so it goes on the title the model wrote a moment ago - and
+            // because the model rewrites it every render, the decoration lands
+            // on a clean value instead of stacking up.
+            foreach (var tab in strip.TabCollection)
+            {
+                var showing = ReferenceEquals(strip.Value, tab);
+
+                tab.Title = LookStyles.Marked(tab.Title, showing, look.TabMark);
+
+                if (LookStyles.TabColours(showing, look.TabMark, look.Palette) is { } accent)
+                {
+                    tab.SetScheme(accent);
+                }
+            }
         }
 
-        // THE DIALOG SEPARATELY, which is the point of it having its own
-        // setting: what tells a modal apart from the panes behind it is the
-        // line round it.
-        _modal.BorderStyle = modal;
+        // EVERY LAYER, COUNTED. A pane inside a pane gets its own line, which
+        // is what stops a screen three frames deep reading as a grid - and the
+        // count is what makes "which layer" a question this can answer without
+        // a list of panes to keep up to date.
+        Walk(this, depth: 0);
 
-        Walk(this);
-
-        void Walk(View view)
+        void Walk(View view, int depth)
         {
             foreach (var child in view.SubViews)
             {
+                var below = depth;
+
+                // A DIALOG IS A LAYER EVEN THOUGH IT IS NOT A FRAME. Dialog
+                // descends from Runnable rather than FrameView, so counting
+                // frames alone put the modal's panes at the same depth as the
+                // ones behind it - and `inner border' reached NOTHING, which is
+                // a setting that appears to work. Measured by driving it: three
+                // borders set, two lines on the screen.
+                if (child is Runnable)
+                {
+                    below = depth + 1;
+                }
+
                 // A FRAME IS A PANE. Every region of this console is a
                 // FrameView and nothing else is, so this is the whole of
                 // "each pane" without a list to keep up to date.
                 if (child is FrameView frame)
                 {
-                    frame.BorderStyle = pane;
+                    frame.BorderStyle = depth == 0 ? outer : inner;
+                    below = depth + 1;
                 }
 
-                if (colours is not null)
+                // THE TAB TITLES ARE ALREADY DONE, and a palette assigned after
+                // an accent would undo it. Everything else takes the palette.
+                if (colours is not null && !IsATab(child))
                 {
                     child.SetScheme(colours);
                 }
 
-                Walk(child);
+                Walk(child, below);
             }
         }
+
+        bool IsATab(View view) =>
+            look.TabMark is TabMark.Accent && view.SuperView is Terminal.Gui.Views.Tabs;
     }
 
     /// <summary>

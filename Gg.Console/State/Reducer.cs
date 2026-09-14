@@ -234,7 +234,19 @@ public static class Reducer
             // is where the person is standing, and moving them somewhere else
             // while they undo is a second surprise on top of the one they asked
             // for.
-            Command.ResetLook => state with { Look = new Look { Selected = state.Look.Selected } },
+            // THE PEEK SURVIVES THE RESET TOO, for the cursor's reason: it is
+            // where a person is standing rather than something they set, and
+            // putting the modal back while they are looking behind it would
+            // undo the wrong thing.
+            Command.ResetLook => state with
+            {
+                Look = new Look { Selected = state.Look.Selected, Peeking = state.Look.Peeking },
+            },
+
+            Command.PeekBehindTheModal => state with
+            {
+                Look = state.Look with { Peeking = !state.Look.Peeking },
+            },
 
             Command.FocusNextPane when state.Mode == UiMode.Help => state with
             {

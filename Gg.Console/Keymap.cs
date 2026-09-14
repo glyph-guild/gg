@@ -552,6 +552,15 @@ public static class Keymap
                     new(KeyStroke.LeftKey, Command.PreviousLookValue, "previous value")
                         { When = LookPageCondition.Said },
 
+                    // WHAT THE PAGE IS SITTING ON TOP OF. Bound before reset
+                    // because it is the key somebody reaches for second, right
+                    // after changing something they cannot see.
+                    new(KeyStroke.Char('h'), Command.PeekBehindTheModal, "hide this / bring it back")
+                    {
+                        When = LookPageCondition.Said,
+                        Label = "Hide",
+                    },
+
                     new(KeyStroke.Char('r'), Command.ResetLook, "put it all back")
                     {
                         // SAYS WHEN, because it is not live in the plainest

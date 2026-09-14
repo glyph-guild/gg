@@ -53,13 +53,38 @@ public enum TabEdge
     Right,
 }
 
+/// <summary>How the tab a person is on is marked out from the rest.</summary>
+/// <remarks>
+/// <b>Terminal.Gui's <c>Tabs</c> offers nothing for this</b> — it has a line
+/// style, a side, a depth and a spacing, and no notion of a selected-tab
+/// appearance. What it does have is one <c>View</c> per tab, whose
+/// <c>Title</c> it draws and whose scheme it uses, so both of those are
+/// reachable: the first four mark the TEXT and the last marks the COLOUR.
+/// </remarks>
+public enum TabMark
+{
+    /// <summary>Nothing. The strip's own line is the only indication.</summary>
+    None,
+
+    Brackets,
+    Arrows,
+    Bullet,
+    Caps,
+
+    /// <summary>The scheme rather than the text.</summary>
+    Accent,
+}
+
 /// <summary>One row of the Look page: a thing that can be changed.</summary>
 public enum LookSetting
 {
     Palette,
+    AppBorder,
     PaneBorder,
+    InnerBorder,
     ModalBorder,
     TabLine,
+    TabMark,
     TabSide,
     TabDepth,
     TabSpacing,
@@ -85,8 +110,30 @@ public sealed record Look
     /// <summary>The colours.</summary>
     public Palette Palette { get; init; }
 
+    /// <summary>The line round the whole application.</summary>
+    /// <remarks>
+    /// <b>The outermost frame, which is the one nothing else was reaching.</b>
+    /// It is a Window rather than a FrameView, so the walk that styles panes
+    /// steps straight past it — and it is the biggest line on the screen.
+    /// </remarks>
+    public Edge AppBorder { get; init; } = Edge.Single;
+
     /// <summary>The line round a pane on a tab.</summary>
+    /// <remarks>
+    /// <b>The first layer in, and only the first.</b> This console nests frames
+    /// two and three deep — a log pane inside a tab inside a modal — and giving
+    /// every one of them the same line is what makes a busy screen read as a
+    /// grid. See <see cref="InnerBorder"/>.
+    /// </remarks>
     public Edge PaneBorder { get; init; } = Edge.Single;
+
+    /// <summary>The line round a pane inside another pane.</summary>
+    /// <remarks>
+    /// <b>Everything deeper than the first layer.</b> Lighter than the pane's
+    /// is the usual answer — the outer line groups and the inner one divides —
+    /// but the point of a spike is that you can try the other way round.
+    /// </remarks>
+    public Edge InnerBorder { get; init; } = Edge.Single;
 
     /// <summary>The line round a dialog.</summary>
     /// <remarks>
@@ -99,6 +146,9 @@ public sealed record Look
 
     /// <summary>The line the tab strip is drawn with.</summary>
     public Edge TabLine { get; init; } = Edge.Rounded;
+
+    /// <summary>How the tab a person is on is marked out.</summary>
+    public TabMark TabMark { get; init; } = TabMark.None;
 
     /// <summary>Which side the tab strip sits on.</summary>
     public TabEdge TabSide { get; init; } = TabEdge.Top;
@@ -115,6 +165,28 @@ public sealed record Look
 
     /// <summary>Which row the cursor is on.</summary>
     public int Selected { get; init; }
+
+    /// <summary>
+    /// Whether the help modal is being held out of the way so the console
+    /// behind it can be seen.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The page changes what is behind the page.</b> Six of these settings
+    /// are about panes, borders and tabs that the modal is sitting on top of,
+    /// so the one thing this page could not do was let somebody see their own
+    /// change. The modal is hidden rather than closed: the mode does not move,
+    /// so the keyboard still belongs to the Look page and the same key brings
+    /// it back.
+    /// </para>
+    /// <para>
+    /// <b>Not a setting, which is why it is not in
+    /// <see cref="Looks.All"/>.</b> It is where a person is standing, like
+    /// <see cref="Selected"/> — and it must not appear in what gets copied,
+    /// because "the modal was hidden" is not something to make permanent.
+    /// </para>
+    /// </remarks>
+    public bool Peeking { get; init; }
 }
 
 /// <summary>
@@ -146,9 +218,17 @@ public static class Looks
     public static IReadOnlyList<LookSetting> All { get; } =
     [
         LookSetting.Palette,
+
+        // THE BORDERS OUTSIDE IN, because that is the order somebody looking at
+        // the screen would name them: the frame round everything, the panes on
+        // a tab, the panes inside those, and the dialog on top.
+        LookSetting.AppBorder,
         LookSetting.PaneBorder,
+        LookSetting.InnerBorder,
         LookSetting.ModalBorder,
+
         LookSetting.TabLine,
+        LookSetting.TabMark,
         LookSetting.TabSide,
         LookSetting.TabDepth,
         LookSetting.TabSpacing,
@@ -158,9 +238,12 @@ public static class Looks
     public static string Title(LookSetting setting) => setting switch
     {
         LookSetting.Palette => "colours",
+        LookSetting.AppBorder => "app border",
         LookSetting.PaneBorder => "pane border",
+        LookSetting.InnerBorder => "inner border",
         LookSetting.ModalBorder => "modal border",
         LookSetting.TabLine => "tab line",
+        LookSetting.TabMark => "selected tab",
         LookSetting.TabSide => "tab side",
         LookSetting.TabDepth => "tab depth",
         LookSetting.TabSpacing => "tab spacing",
@@ -176,10 +259,17 @@ public static class Looks
     public static string About(LookSetting setting) => setting switch
     {
         LookSetting.Palette => "The colours everything is drawn in.",
-        LookSetting.PaneBorder => "The line round each pane on a tab.",
+        LookSetting.AppBorder => "The line round the whole application - the "
+                               + "outermost frame on the screen.",
+        LookSetting.PaneBorder => "The line round each pane on a tab. The first layer in, "
+                                + "and only the first.",
+        LookSetting.InnerBorder => "The line round a pane INSIDE a pane - a log above its "
+                                 + "detail, a table above its prose.",
         LookSetting.ModalBorder => "The line round a dialog, which is what tells "
                                  + "one apart from the panes behind it.",
         LookSetting.TabLine => "The line the tab strip is drawn with.",
+        LookSetting.TabMark => "How the tab you are on is marked out. The first four "
+                             + "change its text; Accent changes its colour.",
         LookSetting.TabSide => "Which side of the pane the tab strip sits on.",
         LookSetting.TabDepth => "How tall a tab is, in rows.",
         LookSetting.TabSpacing => "Room between tabs. -1 overlaps their borders "
@@ -195,9 +285,12 @@ public static class Looks
         return setting switch
         {
             LookSetting.Palette => look.Palette.ToString(),
+            LookSetting.AppBorder => look.AppBorder.ToString(),
             LookSetting.PaneBorder => look.PaneBorder.ToString(),
+            LookSetting.InnerBorder => look.InnerBorder.ToString(),
             LookSetting.ModalBorder => look.ModalBorder.ToString(),
             LookSetting.TabLine => look.TabLine.ToString(),
+            LookSetting.TabMark => look.TabMark.ToString(),
             LookSetting.TabSide => look.TabSide.ToString(),
             LookSetting.TabDepth => look.TabDepth.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
@@ -227,9 +320,12 @@ public static class Looks
         return Under(look) switch
         {
             LookSetting.Palette => look with { Palette = Step(look.Palette, by) },
+            LookSetting.AppBorder => look with { AppBorder = Step(look.AppBorder, by) },
             LookSetting.PaneBorder => look with { PaneBorder = Step(look.PaneBorder, by) },
+            LookSetting.InnerBorder => look with { InnerBorder = Step(look.InnerBorder, by) },
             LookSetting.ModalBorder => look with { ModalBorder = Step(look.ModalBorder, by) },
             LookSetting.TabLine => look with { TabLine = Step(look.TabLine, by) },
+            LookSetting.TabMark => look with { TabMark = Step(look.TabMark, by) },
             LookSetting.TabSide => look with { TabSide = Step(look.TabSide, by) },
 
             // BOUNDED RATHER THAN WRAPPED, because these two are numbers and a

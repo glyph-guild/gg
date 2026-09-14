@@ -94,12 +94,28 @@ public class ARunnerKeepsACredentialItIsGivenTests
 
         var said = dispatch.Answer(Configuring("local:acme/widgets"));
 
-        await Assert.That(said).IsNull()
-            .Because("a runner with nowhere to keep a credential must refuse rather than "
-                   + "answer that it kept one.");
+        // AND IT SAYS SO, which it did not. Returning null made this
+        // indistinguishable from a runner too old to have the arm at all - and
+        // the sender prints "either it is running a gg that predates this, or
+        // the ask did not reach it" for silence, which sends somebody to check
+        // versions when the answer is one line in a file on this machine.
+        //
+        // THE SENTENCE FOR THIS CASE ALREADY EXISTED AND WAS UNREACHABLE.
+        // SendACredential's written-false arm names accept-configured and says
+        // whose decision it is; nothing could ever trigger it.
+        await Assert.That(said).IsNotNull();
+        await Assert.That(said!.Kind).IsEqualTo(RunnerAskKinds.ConfigureCredential);
+        await Assert.That(said.Configured!.Written).IsFalse()
+            .Because("it heard and did not keep it, which is a different fact from never "
+                   + "having heard - and only one of the two is fixed on this machine.");
+        await Assert.That(said.Configured.Locator).IsEqualTo("local:acme/widgets")
+            .Because("the sender names the locator in what it prints, and it is the locator "
+                   + "the sender itself sent - nothing is disclosed by echoing it.");
+
         await Assert.That(dispatch.Refused).IsEqualTo(1)
             .Because("counted rather than logged, like every other refusal here - a hostile "
-                   + "peer must not be able to make a runner write to its own disk.");
+                   + "peer must not be able to make a runner write to its own disk. Answering "
+                   + "does not make it less of a refusal.");
     }
 
     [Test]
@@ -120,7 +136,11 @@ public class ARunnerKeepsACredentialItIsGivenTests
             var said = dispatch.Answer(Configuring(steered));
 
             await Assert.That(said).IsNull()
-                .Because($"'{steered}' is not a locator, and a locator is what becomes a path.");
+                .Because($"'{steered}' is not a locator, and a locator is what becomes a path. "
+                       + "SILENT, UNLIKE THE ARM ABOVE, and the asymmetry is deliberate: a "
+                       + "machine that is not opted in is answering somebody who typed a real "
+                       + "command, and a steered locator is not something the sender can "
+                       + "produce - so one is a person to help and the other is not.");
         }
 
         await Assert.That(store.Written).IsEmpty()

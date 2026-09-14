@@ -3,39 +3,35 @@ using Gg.Console;
 namespace Gg.Console.Tests;
 
 /// <summary>
-/// Browsing stops taking the screen away, and the one thing a session still
-/// may not do is start the reader.
+/// Browsing stops taking the screen away, and now it stops on the first press
+/// as well as every one after.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The guards were right, and they were right about a SPAWN.</b> Four of
-/// them said browsing is the shell's, and every one gives the same reason: an
-/// <c>IntentReader</c> is an executable launched with a credential in its
-/// environment, and <i>"a toggle handled inside the session would have to spawn
-/// the reader from inside the session"</i>. That premise held while
-/// <c>ReaderSessions</c> started one lazily, on the keypress. It is the premise
-/// that changes here, not the rule.
+/// <b>This class landed in two steps and the second one is the interesting
+/// one.</b> The first moved browsing out of the shell for every press but the
+/// first: four guards said browsing was the shell's, each giving the same
+/// reason — an <c>IntentReader</c> is an executable launched with a credential
+/// in its environment — and <c>ReaderSessions</c> caches what it starts, so the
+/// spawn is ONE act and the asking is another. The first press did the spawn in
+/// the shell; the rest folded in.
 /// </para>
 /// <para>
-/// <b>So the first browse still ends the session, and nothing else does.</b>
-/// The reader is started once per console lifetime, by the shell, where every
-/// spawn already happens — and every browse, item and filter after it folds in
-/// beside the console the way a flight's detail already does. Nothing starts at
-/// launch: a reader that nobody asked for is a child process nobody asked for,
-/// and the console must come up without waiting on one.
+/// <b>Then the reason was measured and it was not true of this code.</b>
+/// <c>SpawnedReader</c> reads neither <c>EnvironmentVariable</c> nor
+/// <c>Locator</c>: it places no secret, redirects all three streams so the child
+/// cannot touch the terminal, and on the read task blocks nothing. The three
+/// things the rule protects — a session may not START anything, resolve a
+/// credential, or block — had two already satisfied, and the third was a word
+/// with no harm under it. So the spawn folds in too, under an exception written
+/// down in <see cref="LiveStreamingTests"/> beside the clipboard's.
 /// </para>
 /// <para>
-/// <b>What the rule now says is what it always protected:</b> a session may not
-/// START a process, resolve a credential or block. Talking to a reader that was
-/// running before the session existed is the shape <c>LiveTails</c> already has
-/// — owned outside every UI lifetime, handed in, asked.
-/// </para>
-/// <para>
-/// <b>And the blink was the progress indicator.</b> Taking the screen away said
-/// something was happening. Folding the read in beside the console means a slow
-/// tracker looks like an idle pane unless the pane says otherwise, so
-/// <c>ReadInFlight</c> has to reach the browse pane rather than only the ones
-/// that already had it.
+/// <b>What that leaves: the console takes the screen away for an editor, a
+/// take, a runner and a browser, and for nothing about reading a tracker.</b>
+/// Nothing is started at launch, which is the constraint that did not move —
+/// the spawn went from the first keypress's shell to the first keypress's read,
+/// not earlier. See <see cref="TheSpawnFoldsInBesideTheConsoleTests"/>.
 /// </para>
 /// </remarks>
 public class BrowsingFoldsInBesideTheConsoleTests
@@ -63,50 +59,24 @@ public class BrowsingFoldsInBesideTheConsoleTests
     {
         // THE CONTROL, and the one that must not move. Opening an item starts a
         // BROWSER - a new process every time, not a pipe to one already
-        // running - so it is a spawn in the sense the guards mean and stays
-        // where every spawn is.
+        // running, and one that takes the display - so it is a spawn in a sense
+        // the granted exception says nothing about.
         await Assert.That(ShellCommands.Handled).Contains(Command.OpenWorkItem);
         await Assert.That(ShellCommands.Reads).DoesNotContain(Command.OpenWorkItem);
     }
 
     [Test]
-    public async Task A_read_whose_reader_is_not_running_yet_is_the_shells_for_that_one_press()
+    public async Task A_console_with_no_reads_port_still_answers_the_key()
     {
-        // THE WHOLE OF THE SPAWN RULE, AS A DECISION THE SCREEN CAN MAKE. The
-        // first browse of a console lifetime has nothing to talk to, and
-        // starting one is the act a session may not perform - so that press
-        // ends the session exactly as it does today, the shell starts the
-        // reader, and the answer comes back with the next one built.
-        var reads = new BackgroundReads(
-            (_, state) => Task.FromResult<Func<AppState, AppState>>(s => s),
-            ready: _ => false);
+        // NO PORT IS NOT A REFUSAL. A console composed without one - every test
+        // that builds a screen, and any caller that supplies no reader - has to
+        // go on behaving as it did rather than routing the key to a shell that
+        // has nothing to serve it with either. The pane opens and says what it
+        // is waiting for; it does not cost a terminal.
+        var opened = Reducer.Reduce(new AppState(), Command.ToggleBrowse);
 
-        await Assert.That(reads.Ready(Command.ToggleBrowse)).IsFalse();
-    }
-
-    [Test]
-    public async Task And_is_served_beside_the_console_once_it_is()
-    {
-        var reads = new BackgroundReads(
-            (_, state) => Task.FromResult<Func<AppState, AppState>>(s => s),
-            ready: _ => true);
-
-        await Assert.That(reads.Ready(Command.ToggleBrowse)).IsTrue();
-    }
-
-    [Test]
-    public async Task A_command_that_reads_nothing_is_ready_by_definition()
-    {
-        // NO PREDICATE IS NOT A REFUSAL. A console composed without one - every
-        // test that builds a screen, and any caller that supplies no reader -
-        // must go on behaving as it did rather than routing every read to a
-        // shell that has nothing to serve it with.
-        var reads = new BackgroundReads(
-            (_, state) => Task.FromResult<Func<AppState, AppState>>(s => s));
-
-        await Assert.That(reads.Ready(Command.ShowFlight)).IsTrue()
-            .Because("the predicate is an addition, and its absence is the behaviour that was "
-                   + "there before it.");
+        await Assert.That(opened.BrowseVisible).IsTrue();
+        await Assert.That(opened.ActiveTab).IsEqualTo(TabId.Browse);
     }
 
     [Test]
@@ -116,6 +86,10 @@ public class BrowsingFoldsInBesideTheConsoleTests
         // back said something was happening; folding the answer in says nothing
         // until it arrives, and a tracker that takes two seconds would look
         // like a pane that had simply not loaded.
+        //
+        // AND IT NOW COVERS THE SPAWN AS WELL AS THE ASK, which is the slowest
+        // moment there is: the first press starts a process and waits for it to
+        // answer, and that is precisely the press that used to be a blink.
         var reading = new AppState { ActiveTab = TabId.Browse, ReadInFlight = true };
 
         await Assert.That(PaneText.Browse(reading)).Contains("Reading")

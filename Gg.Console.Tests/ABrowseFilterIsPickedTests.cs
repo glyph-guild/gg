@@ -70,16 +70,15 @@ public class ABrowseFilterIsPickedTests
     }
 
     [Test]
-    public async Task Opening_the_filter_needs_a_reader_and_is_a_read_once_there_is_one()
+    public async Task Opening_the_filter_is_a_read_and_costs_no_screen()
     {
-        // THE CHOICES COME FROM A CHILD PROCESS HOLDING A CREDENTIAL, and a UI
-        // session may not START one - so a press that finds none running is
-        // the shell's, which is where it gets started. Asking a reader that is
-        // already up for the shape of a tracker is a read like asking it for
-        // work, and folds in the same way.
+        // THE CHOICES COME FROM A CHILD PROCESS, and the sentence used to end
+        // "holding a credential" - which SpawnedReader does not do. It places
+        // no secret and the child talks over pipes, so asking a tracker what
+        // there is to narrow by folds in beside the console like any other
+        // read, including the press that has to start the reader first.
         foreach (var command in (Command[])[Command.FilterBrowse, Command.BrowseFiltered])
         {
-            await Assert.That(ShellCommands.NeedsAReader).Contains(command);
             await Assert.That(ShellCommands.Reads).Contains(command);
             await Assert.That(ShellCommands.Handled).DoesNotContain(command);
         }

@@ -157,27 +157,24 @@ public class ShellHandledTests
     public async Task Browsing_is_a_read_and_the_spawn_under_it_is_not()
     {
         // THE SENTENCE THIS USED TO ASSERT WAS RIGHT ABOUT THE SPAWN AND WRONG
-        // ABOUT THE READ. "An IntentReader is a Command, its Arguments, the
-        // environment variable that is 'the only place a secret may go', and a
-        // credential locator - a CHILD PROCESS HOLDING A CREDENTIAL.
-        // AutoRefresh's exception is for a read and does not stretch to a
-        // spawn." Every word of that is about STARTING one, and ReaderSessions
-        // starts one per console lifetime and caches it.
+        // ABOUT THE READ, AND THEN IT WAS MEASURED AND WAS NOT TRUE OF THE
+        // CODE. "An IntentReader is a Command, its Arguments, the environment
+        // variable that is 'the only place a secret may go', and a credential
+        // locator - a CHILD PROCESS HOLDING A CREDENTIAL." SpawnedReader reads
+        // neither the variable nor the locator: it places no secret, and the
+        // child resolves its own from the store on its own side.
         //
-        // So the two acts are held apart rather than the rule relaxed: the
-        // press that would have to start a reader is still the shell's, and
-        // the ones after it are reads.
+        // So the rule was sharpened twice. First the spawn and the asking were
+        // held apart, which left one blink per console lifetime. Then the spawn
+        // itself was measured - no credential, no stream of the terminal, no
+        // block - and granted an exception in LiveStreamingTests beside the
+        // clipboard's. Nothing about this key ends the session now.
         await Assert.That(ShellCommands.Reads.Contains(Command.ToggleBrowse)).IsTrue()
-            .Because("asking a reader that was running before the session existed is what "
-                   + "LiveTails already does, and it costs no screen.");
+            .Because("asking a reader is what LiveTails already does, and starting one over "
+                   + "a pipe turns out to be the same kind of act.");
 
-        await Assert.That(ShellCommands.NeedsAReader.Contains(Command.ToggleBrowse)).IsTrue()
-            .Because("and the press that finds none running still ends the session, because "
-                   + "starting one is the thing a session may not do.");
-
-        await Assert.That(ShellCommands.NeedsAReader.IsSubsetOf(ShellCommands.Reads)).IsTrue()
-            .Because("needing a reader is a property OF a read; a command that needed one and "
-                   + "was not a read would be a keypress the read port never serves.");
+        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleBrowse)).IsFalse()
+            .Because("no press of this key costs the screen, first one included.");
     }
 
     [Test]

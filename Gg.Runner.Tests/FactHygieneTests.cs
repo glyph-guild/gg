@@ -126,6 +126,48 @@ public class FactHygieneTests
     }
 
     [Test]
+    public async Task A_proposal_is_stripped_like_everything_else_the_runner_produces()
+    {
+        // FOUND ON A LIVE RUNNER, by the first flight that ever proposed
+        // anything. FactPayload.Proposal reached the pipeline without an arm
+        // here, so it fell to the throw below and took the PROCESS with it -
+        // systemd logged status=6/ABRT, and because the flight was handed out
+        // again the restart policy and the flight formed a loop between them.
+        //
+        // The throw is RIGHT about a type nobody added, and the test below still
+        // holds it to that. What was wrong is that this was such a type: a
+        // payload the runner really produces, guarded against as though it were
+        // a mistake.
+        var clean = FactHygiene.Clean(new GatheredFacts(
+        [
+            new FactPayload.Proposal(new WorkItemProposal
+            {
+                Operation = WorkItemOperations.Field,
+                Reason = Poison,
+                Target = Poison,
+                Score = Poison,
+                Fields = [new WorkItemFieldEdit { Path = Poison, Value = Poison }],
+            }),
+        ]));
+
+        var strings = Strings(clean).ToList();
+
+        await Assert.That(strings).IsNotEmpty()
+            .Because("with nothing collected this passes without checking anything.");
+
+        foreach (var value in strings)
+        {
+            await Assert.That(value).DoesNotContain(Esc)
+                .Because("a proposal carries the agent's own words to a field a person reads "
+                       + "in a tracker, so an escape here is a terminal somebody else drives.");
+            await Assert.That(value).DoesNotContain(Bel);
+        }
+
+        await Assert.That(strings).Contains(Clean)
+            .Because("stripped rather than dropped: the value still says what it said.");
+    }
+
+    [Test]
     public async Task A_fact_type_nobody_added_to_the_strip_fails_loudly()
     {
         // Article XI. The failure mode this class exists to prevent is a NEW

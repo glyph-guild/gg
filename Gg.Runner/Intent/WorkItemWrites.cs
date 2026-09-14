@@ -178,14 +178,18 @@ public static class TrackerConfiguration
             // which is not who may change it.
             var locator = named is { Length: > 0 } ? named : LocatorFor(host);
 
-            if (locator.Length == 0)
+            // THE CONTRACT DECIDES WHETHER IT IS ONE, and this asks rather than
+            // assuming. A derived locator that the store would refuse is worse
+            // than a refusal here: PathFor throws on it, so the runner would
+            // fail at the first admitted write in front of nobody - which is
+            // the failure this class's own remark says start-up exists to
+            // prevent.
+            if (Gg.Contracts.CredentialLocator.Validate(locator) is { } problem)
             {
                 throw new InvalidOperationException(
-                    $"{ApisVariable} entry '{entry}' names a host no credential locator can be "
-                  + $"derived from. A locator is {Gg.Contracts.CredentialLocator.MaxLength} "
-                  + "characters of letters, digits, dot, dash, underscore and slash, and this "
-                  + "host reduces to none of them. Name the credential explicitly after a '|', "
-                  + "as 'destination=host|locator'.");
+                    $"{ApisVariable} entry '{entry}' resolves to credential locator "
+                  + $"'{locator}', which this platform refuses: {problem} Name the credential "
+                  + "explicitly after a '|', as 'destination=host|local:some-name'.");
             }
 
             sinks[id] = new WiqlWorkItemSink(host, secretFor?.Invoke(locator), clientFor(host));
@@ -224,6 +228,13 @@ public static class TrackerConfiguration
 
         // A trailing slash would make two spellings of one tracker into two
         // locators, which is the thing this exists to prevent.
-        return reduced.Trim('/', '-');
+        var body = reduced.Trim('/', '-');
+
+        // AND THE PREFIX, because a locator without one is not a locator -
+        // `local:` is the only kind this platform has, and PathFor reads the
+        // body after it. Deriving the body and forgetting the prefix produced a
+        // string the contract refuses, which the test double could not catch
+        // because it only records what it is handed.
+        return body.Length == 0 ? "" : Gg.Contracts.CredentialLocator.LocalPrefix + body;
     }
 }

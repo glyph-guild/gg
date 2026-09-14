@@ -484,6 +484,27 @@ public enum FlightTab
     Log,
 }
 
+/// <summary>Which half of the work item modal is showing.</summary>
+/// <remarks>
+/// <b>Two, for the flight modal's reason and with the same shape.</b> What an
+/// item SAYS and what has HAPPENED to it are different questions, and they were
+/// three regions in one view where each paid for the others: the prose was
+/// capped so the fields and the history fitted beneath it, and the history took
+/// whatever was left. A long description and a long history are the two reasons
+/// anybody opens this modal.
+/// </remarks>
+public enum WorkItemTab
+{
+    /// <summary>What the tracker said, and the scalars that describe it.</summary>
+    Details,
+
+    /// <summary>
+    /// What has happened to it: the table, and what the change under the
+    /// cursor says.
+    /// </summary>
+    History,
+}
+
 public enum TabId
 {
     /// <summary>Flights needing me, and the detail of the selected one.</summary>
@@ -1690,6 +1711,14 @@ public sealed record AppState
     /// somebody reads a history would change which item the modal is about.
     /// </remarks>
     public int WorkItemSelected { get; init; }
+
+    /// <summary>Which half of the work item modal has the body.</summary>
+    /// <remarks>
+    /// Details when it opens, because what an item says is what somebody
+    /// pressed the key for; its history is the second thing they go looking
+    /// for and never the first thing they are shown.
+    /// </remarks>
+    public WorkItemTab WorkItemTab { get; init; }
 
 
     /// <summary>

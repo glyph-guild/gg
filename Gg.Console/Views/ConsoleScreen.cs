@@ -186,6 +186,11 @@ public sealed class ConsoleScreen : Window
     private readonly View _itemFields;
     private readonly FrameView _itemHistoryPane;
     private readonly TableView _itemHistory;
+    private readonly Terminal.Gui.Views.Tabs _itemTabs;
+    private readonly View _itemDetailsTab;
+    private readonly View _itemHistoryTab;
+    private readonly FrameView _itemChangePane;
+    private readonly Label _itemChange;
     private readonly Label _itemHistoryAbsent;
     private IReadOnlyList<FlightField>? _itemFieldsShowing;
 
@@ -918,13 +923,18 @@ public sealed class ConsoleScreen : Window
         // THE WORK ITEM'S THREE REGIONS, laid out like the flight's and for its
         // reasons - see that body for why every container on the way down is a
         // TabStop, and why the fields are focusable at all.
+        // WHAT IT SAYS, WITH THE ROOM THE TAB GIVES IT. This was capped at 45%
+        // to leave space for the fields and the history below; the history is
+        // on its own tab now and the fields are sized from their own count, so
+        // the prose takes what is left rather than a fraction chosen against
+        // regions that have gone.
         _itemSaidPane = new FrameView
         {
             Title = WorkItemDetails.SaidTitle,
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
-            Height = Dim.Percent(45),
+            Height = Dim.Fill(),
             TabStop = TabBehavior.TabStop,
         };
 
@@ -940,7 +950,7 @@ public sealed class ConsoleScreen : Window
         _itemFields = new View
         {
             X = 0,
-            Y = Pos.Bottom(_itemSaidPane),
+            Y = Pos.AnchorEnd(),
             Width = Dim.Fill(),
 
             // SET PER RENDER, from the number of fields there are. A tracker
@@ -951,13 +961,14 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
         };
 
+        // THE TOP OF ITS OWN TAB, and sharing it with what a change says.
         _itemHistoryPane = new FrameView
         {
             Title = WorkItemDetails.HistoryTitle,
             X = 0,
-            Y = Pos.Bottom(_itemFields),
+            Y = 0,
             Width = Dim.Fill(),
-            Height = Dim.Fill(),
+            Height = Dim.Percent(60),
             TabStop = TabBehavior.TabStop,
         };
 
@@ -978,6 +989,60 @@ public sealed class ConsoleScreen : Window
 
         _itemHistoryPane.Add(_itemHistory, _itemHistoryAbsent);
 
+        // WHAT THE CHANGE UNDER THE CURSOR SAYS. `What` is a sentence a tracker
+        // wrote and a cell shows as much of it as the column is wide, which is
+        // the log's problem one modal over and gets the log's answer.
+        _itemChangePane = new FrameView
+        {
+            Title = WorkItemDetails.ChangeDetailTitle,
+            X = 0,
+            Y = Pos.Bottom(_itemHistoryPane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            TabStop = TabBehavior.TabStop,
+            CanFocus = true,
+        };
+        _itemChange = new Label
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+        };
+        _itemChangePane.Add(_itemChange);
+
+        _itemDetailsTab = new View
+        {
+            Title = "Details",
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _itemDetailsTab.Add(_itemSaidPane, _itemFields);
+
+        _itemHistoryTab = new View
+        {
+            Title = WorkItemDetails.HistoryTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _itemHistoryTab.Add(_itemHistoryPane, _itemChangePane);
+
+        _itemTabs = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+        };
+        _itemTabs.Add(_itemDetailsTab);
+        _itemTabs.Add(_itemHistoryTab);
+        _itemTabs.ValueChanged += OnWorkItemTabChanged;
+
         _itemBody = new View
         {
             Width = Dim.Fill(),
@@ -987,7 +1052,7 @@ public sealed class ConsoleScreen : Window
             TabStop = TabBehavior.TabStop,
         };
 
-        _itemBody.Add(_itemSaidPane, _itemFields, _itemHistoryPane);
+        _itemBody.Add(_itemTabs);
 
         // THE KINDS, AND THE ONE LINE ABOVE THEM. Two rows for the sentence
         // because it wraps at this width; the table takes the rest.
@@ -1828,6 +1893,34 @@ public sealed class ConsoleScreen : Window
     /// decides. Neither tab is a READ, so unlike the bar's handler there is no
     /// session to end: both halves are already in the state.
     /// </remarks>
+    /// <summary>
+    /// A tab picked with the mouse, turned into the command that means it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Guarded like the flight modal's and the console's own bar.</b>
+    /// Assigning Value raises ValueChanged, so without the flag the assignment
+    /// answers its own event and reduces a command for a tab nobody pressed.
+    /// </remarks>
+    private void OnWorkItemTabChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var wanted = ReferenceEquals(chosen, _itemHistoryTab)
+            ? WorkItemTab.History
+            : WorkItemTab.Details;
+
+        if (wanted == State.WorkItemTab)
+        {
+            return;
+        }
+
+        State = Reducer.Reduce(State, Command.NextWorkItemTab);
+        Render();
+    }
+
     private void OnFlightTabChanged(object? sender, ValueChangedEventArgs<View?> args)
     {
         if (_syncing || args.NewValue is not { } chosen)
@@ -3370,6 +3463,21 @@ public sealed class ConsoleScreen : Window
                 row => [row.When, row.Who, row.What]);
 
             _itemHistoryAbsent.Text = WorkItemDetails.HistoryAbsence(State);
+
+            // WHAT THE ROW UNDER THE CURSOR SAYS, in the half of the tab a
+            // table cannot use.
+            _itemChange.Text = WorkItemDetails.ChangeDetail(State);
+
+            // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY, guarded the way
+            // the flight modal's is.
+            var showing = State.WorkItemTab is WorkItemTab.History
+                ? _itemHistoryTab
+                : _itemDetailsTab;
+
+            if (!ReferenceEquals(_itemTabs.Value, showing))
+            {
+                _itemTabs.Value = showing;
+            }
         }
         finally
         {

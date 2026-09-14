@@ -70,6 +70,17 @@ public enum Command
     /// </remarks>
     NextFlightTab,
 
+    /// <summary>
+    /// Moves the work item modal to its other tab.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own command rather than a shared one</b>, because the two modals
+    /// are never up at once and a command that meant "whichever modal is
+    /// showing" would be a dispatch decided somewhere other than the reducer.
+    /// The KEY is shared, which is the part a person experiences.
+    /// </remarks>
+    NextWorkItemTab,
+
     /// <summary>Attach or detach the live view. Recorded as a fact.</summary>
     ToggleLive,
 

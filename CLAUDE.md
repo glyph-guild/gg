@@ -40,16 +40,31 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   - On a machine with no terminal to host on — CI, a pipe, Windows — the
     unhosted spawn is still the path, and `PtyEditorSession` is the one place
     that decides which.
-- **A UI session may read a local file, and nothing else.** The live pane
-  advances on an `Application.AddTimeout` tick during a session, which is the
-  only mid-session effect in this console — everything else happens between
-  sessions with the terminal provably free. The exception is deliberately the
-  narrowest one available: **a session may advance state from a local file
-  whose path the console already holds. It may not make a network call, resolve
-  a credential, or spawn a process.** `LiveStreamingTests` asserts that over
-  what `TerminalGuiSession`, `ConsoleScreen`, `LiveTails` and `LiveTail` may
-  reach, so the scope is structural rather than a comment. A feature that wants
-  more argues for its own exception; it does not inherit this one.
+- **A UI session may not START anything, resolve a credential, or block.** It
+  may fold in an answer that arrives from somewhere owned outside it. That is
+  the rule as it now stands, and it is narrower than the one it replaces — *"a
+  UI session may read a local file and nothing else"* — which was a proxy that
+  three mechanisms have since outgrown: the live pane's tick, `AutoRefresh`,
+  and `BackgroundReads`. Each reads on a task owned outside every UI lifetime
+  and hands the result back through `Invoke`, which is Terminal.Gui's own
+  guidance; the session never waits.
+  - **The spawn is the part that never moved.** A reader is an executable
+    launched with a credential in its environment, and nothing in a session
+    may start one. `ReaderSessions` starts one per provider per console
+    lifetime and caches it, so the FIRST browse still ends the session and the
+    spawn happens in the shell; every press after it talks to a process that
+    existed before the session did, which is the shape `LiveTails` already has.
+    `ShellCommands.NeedsAReader` names those commands and
+    `BackgroundReads.Ready` decides which press is which.
+  - **Nothing is started at launch.** A reader nobody asked for is a child
+    process nobody asked for, and the console must come up without waiting on
+    one.
+  - `LiveStreamingTests` asserts the scope structurally over what
+    `TerminalGuiSession`, `ConsoleScreen`, `LiveTails` and `LiveTail` may
+    reach — no `Process.Start`, no credential store, no `HttpClient` — and
+    that scan is unchanged by the above, which is the test of whether this was
+    a widening or a sharpening. A feature that wants more argues for its own
+    exception; it does not inherit this one.
 - **`Keymap.Resolve` is pure** — no Terminal.Gui types; only
   `Views/KeyTranslator` touches `Key`. Status hints come from
   `Keymap.Hints(context)`, the same context dispatch uses.

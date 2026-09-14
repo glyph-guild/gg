@@ -70,15 +70,19 @@ public class ABrowseFilterIsPickedTests
     }
 
     [Test]
-    public async Task Opening_the_filter_is_the_shells_work_because_it_starts_a_reader()
+    public async Task Opening_the_filter_needs_a_reader_and_is_a_read_once_there_is_one()
     {
-        // NOT A BACKGROUND READ. The choices come from a child process holding a
-        // credential, and a UI session may not spawn one - the same four guards
-        // that keep ToggleBrowse out of ShellCommands.Reads.
-        await Assert.That(ShellCommands.Handled).Contains(Command.FilterBrowse);
-        await Assert.That(ShellCommands.Reads).DoesNotContain(Command.FilterBrowse);
-
-        await Assert.That(ShellCommands.Handled).Contains(Command.BrowseFiltered);
+        // THE CHOICES COME FROM A CHILD PROCESS HOLDING A CREDENTIAL, and a UI
+        // session may not START one - so a press that finds none running is
+        // the shell's, which is where it gets started. Asking a reader that is
+        // already up for the shape of a tracker is a read like asking it for
+        // work, and folds in the same way.
+        foreach (var command in (Command[])[Command.FilterBrowse, Command.BrowseFiltered])
+        {
+            await Assert.That(ShellCommands.NeedsAReader).Contains(command);
+            await Assert.That(ShellCommands.Reads).Contains(command);
+            await Assert.That(ShellCommands.Handled).DoesNotContain(command);
+        }
     }
 
     [Test]

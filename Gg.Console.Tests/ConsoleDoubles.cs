@@ -61,7 +61,13 @@ internal static class ConsoleDoubles
             {
                 var key = keys[_at++];
 
-                if (ShellCommands.Handled.Contains(key))
+                // THE SCREEN'S OWN RULE, because a double that routes
+                // differently from the thing it stands in for tests a console
+                // nobody runs. A read that needs a reader running falls to the
+                // shell until one is - and this double has no background reads
+                // at all, so for it that is always.
+                if (ShellCommands.Handled.Contains(key)
+                    || ShellCommands.NeedsAReader.Contains(key))
                 {
                     return new UiOutcome(key, state);
                 }

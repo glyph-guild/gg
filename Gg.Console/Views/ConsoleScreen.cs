@@ -2348,7 +2348,13 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        if (ShellCommands.Handled.Contains(command))
+        // THE SHELL'S, OR A READ NOTHING CAN SERVE YET. The second is the
+        // spawn rule as a decision rather than a list: a reader is started once
+        // per console lifetime and a session may not be what starts it, so the
+        // first browse ends the session exactly as it always did and every one
+        // after it folds in beside the console.
+        if (ShellCommands.Handled.Contains(command)
+            || (ShellCommands.NeedsAReader.Contains(command) && _reads?.Ready(command) != true))
         {
             ExitCommand = command;
             _app.RequestStop(this);
@@ -2812,7 +2818,13 @@ public sealed class ConsoleScreen : Window
     {
         // ONE DECLARATION, READ HERE. A literal list is what this was, and it
         // silently excluded four commands the shell already had arms for.
-        if (ShellCommands.Handled.Contains(command))
+        // THE SHELL'S, OR A READ NOTHING CAN SERVE YET. The second is the
+        // spawn rule as a decision rather than a list: a reader is started once
+        // per console lifetime and a session may not be what starts it, so the
+        // first browse ends the session exactly as it always did and every one
+        // after it folds in beside the console.
+        if (ShellCommands.Handled.Contains(command)
+            || (ShellCommands.NeedsAReader.Contains(command) && _reads?.Ready(command) != true))
         {
             ExitCommand = command;
             _app.RequestStop(this);

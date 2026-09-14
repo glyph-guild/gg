@@ -800,13 +800,6 @@ public static class ShellCommands
         // the read function decides rather than the screen - a toggle that shut
         // a pane and then fetched what to put in it is a request nobody asked
         // for.
-        // NOT ToggleBrowse, AND THAT IS NOT AN OVERSIGHT. Browsing is not a
-        // read: an IntentReader is a Command, its Arguments, the environment
-        // variable "the only place a secret may go", and a credential locator -
-        // it is a CHILD PROCESS HOLDING A CREDENTIAL, and a session may do
-        // neither. AutoRefresh's exception is for a read and does not stretch
-        // to a spawn. Four guards said so before this was tried, each with the
-        // reason written out, and they were right.
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
 
@@ -816,6 +809,56 @@ public static class ShellCommands
         // person to type a slug the console could have read. A read that folds
         // in without the session ending is what makes that row unnecessary.
         Command.ChooseCredentialRepository,
+
+        // BROWSING, WHICH THIS SET REFUSED AND NOW DOES NOT - and the reason it
+        // refused is worth keeping because it was right. "An IntentReader is a
+        // Command, its Arguments, the environment variable 'the only place a
+        // secret may go', and a credential locator - it is a CHILD PROCESS
+        // HOLDING A CREDENTIAL, and a session may do neither. AutoRefresh's
+        // exception is for a read and does not stretch to a spawn."
+        //
+        // Every word of that is about STARTING one. ReaderSessions starts a
+        // reader once per console lifetime and caches it - "a reader asked for
+        // twice is the same reader" - so the spawn is one act and the asking is
+        // another. The first browse still ends the session and starts it there,
+        // where every spawn already happens; BackgroundReads.Ready is what says
+        // which press that is, because membership of a static set cannot.
+        Command.ToggleBrowse,
+        Command.ShowWorkItem,
+        Command.FilterBrowse,
+        Command.BrowseFiltered,
+    };
+
+    /// <summary>
+    /// Reads that need a reader running, and fall to the shell until one is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A subset of <see cref="Reads"/>, and the whole of what the four
+    /// guards were protecting.</b> They said browsing is the shell's because
+    /// "a toggle handled inside the session would have to spawn the reader
+    /// from inside the session". That is true exactly once per console
+    /// lifetime: <c>ReaderSessions</c> caches what it starts, so the first
+    /// browse is a spawn and every one after it is a pipe.
+    /// </para>
+    /// <para>
+    /// <b>So membership of a static set cannot answer it</b> — the same key is
+    /// the shell's the first time and a read every time after. This names
+    /// which commands have to ask; <c>BackgroundReads.Ready</c> answers.
+    /// </para>
+    /// <para>
+    /// <b>And a console with no background reads at all falls here too.</b>
+    /// Not ready and no port are the same fact to a keypress: nothing beside
+    /// the console can serve it, so the shell does, which is what every
+    /// composition without a reads port already did.
+    /// </para>
+    /// </remarks>
+    public static readonly IReadOnlySet<Command> NeedsAReader = new HashSet<Command>
+    {
+        Command.ToggleBrowse,
+        Command.ShowWorkItem,
+        Command.FilterBrowse,
+        Command.BrowseFiltered,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
@@ -905,29 +948,19 @@ public static class ShellCommands
         Command.AddCredential,
         Command.Invite,
 
-        // BROWSING STAYS, AND THE THREE BESIDE IT DID NOT. The reason written
-        // here was "showing the browser starts a reader, and a session may read
-        // a local file and nothing else" - and it is exactly right about
-        // browsing, which launches an executable with a credential in its
-        // environment. It was over-broad about the checklist, the envelope and
-        // the repositories, which are control-plane reads like any other and
-        // are in `Reads` now. Ending the whole session was one way to honour
-        // the rule; for a read it costs a screen taken away and given back.
-        Command.ToggleBrowse,
-
-        // AND ASKING ABOUT ONE OF THEM, for the sentence directly above. Reading
-        // one item launches the same executable with the same credential in its
-        // environment as listing them does; that it fetches less is not a
-        // difference the rule turns on.
-        Command.ShowWorkItem,
+        // OPENING ONE IN A BROWSER STAYS, AND THE FOUR BESIDE IT DID NOT. The
+        // reason written here was "a reader is a child process holding a
+        // credential, and a session may start neither" - exactly right, and
+        // about STARTING one. A reader is started once per console lifetime
+        // and cached; every browse after the first talks to a process that was
+        // running before the session existed, which is what LiveTails already
+        // does. The first press is still this set's, decided by
+        // BackgroundReads.Ready rather than by membership here.
+        //
+        // This one does not move, because it is the spawn the others stopped
+        // being: opening an item starts a BROWSER, a new process every time
+        // rather than a pipe to one already running.
         Command.OpenWorkItem,
-
-        // AND ASKING WHAT THERE IS TO FILTER BY, which is the same spawn again.
-        // Both of these run the reader; one asks it for work and the other asks
-        // it for the shape of the tracker, and the rule turns on the child and
-        // the credential rather than on what is fetched.
-        Command.FilterBrowse,
-        Command.BrowseFiltered,
 
         Command.ForgetCredential,
 

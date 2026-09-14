@@ -1263,6 +1263,13 @@ static async Task<int> LaunchConsoleAsync()
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)), TimeSpan.FromSeconds(15));
 
+    // ONE BROWSER, TWO CALLERS. The loop uses it for the first browse of a
+    // console lifetime - the one that starts the reader, which a session may
+    // not do - and the background read uses it for every one after. A second
+    // instance would be a second answer to which tracker a person is talking
+    // to, which is ConsoleLoop's own sentence about this object.
+    var browsing = new Gg.Console.ConfiguredWorkBrowser(readers);
+
     // THE TAB IN FRONT OF SOMEBODY, EVERY THIRTY SECONDS. On a task, so the
     // session folds a finished answer rather than waiting for one - the
     // argument for that is written out in AutoRefresh, and the short of it is
@@ -1337,6 +1344,30 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.ShowFlight =>
                         Gg.Console.ConsoleFlightLog.Patch(data, current),
 
+                    // BROWSING, WHICH THIS READER REFUSED TO SERVE UNTIL THE
+                    // SPAWN AND THE ASKING WERE TOLD APART. Four guards said
+                    // browsing is the shell's and each gave one reason - a
+                    // reader is an executable launched with a credential in
+                    // its environment, and a session may start neither. Every
+                    // word of that is about STARTING one; ReaderSessions
+                    // starts a reader once per console lifetime and caches it,
+                    // so the first browse is still the shell's and does the
+                    // spawn there, and these serve every one after it.
+                    //
+                    // THE SAME BROWSER THE LOOP USES, so a person reading an
+                    // item is talking to the tracker they listed it from -
+                    // ConsoleLoop's own sentence, and a second browser here
+                    // would be a second answer to which tracker that is.
+                    Gg.Console.Command.ToggleBrowse or
+                    Gg.Console.Command.BrowseFiltered =>
+                        Gg.Console.ConsoleBrowsing.Patch(browsing, current),
+
+                    Gg.Console.Command.ShowWorkItem =>
+                        Gg.Console.ConsoleBrowsing.ItemPatch(browsing, current),
+
+                    Gg.Console.Command.FilterBrowse =>
+                        Gg.Console.ConsoleBrowsing.FacetsPatch(browsing, current),
+
                     // AND A FOURTH THROWS RATHER THAN GUESSING, which is the
                     // rule this codebase applies wherever a value decides
                     // what happens: ConsoleLoop throws on an exit command it
@@ -1349,7 +1380,17 @@ static async Task<int> LaunchConsoleAsync()
                         $"'{asked}' is in ShellCommands.Reads and this reader has no arm "
                       + "for it, so a keypress would fetch somebody else's answer. Add "
                       + "one, or take the command out of Reads."),
-                }))),
+                }),
+                // WHETHER THE READER IS ALREADY RUNNING, and nothing else. A
+                // session may not START one - four guards say so, each about
+                // the spawn - so the first browse of a console lifetime is the
+                // shell's, which is where the spawn then happens. Every read
+                // that needs no reader is ready by definition.
+                ready: asked => asked is not (Gg.Console.Command.ToggleBrowse
+                                           or Gg.Console.Command.ShowWorkItem
+                                           or Gg.Console.Command.FilterBrowse
+                                           or Gg.Console.Command.BrowseFiltered)
+                                || browsing.Running)),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -1646,7 +1687,7 @@ static async Task<int> LaunchConsoleAsync()
                 envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
                 .Draft(Airspace()),
         },
-        browser: new Gg.Console.ConfiguredWorkBrowser(readers))
+        browser: browsing)
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

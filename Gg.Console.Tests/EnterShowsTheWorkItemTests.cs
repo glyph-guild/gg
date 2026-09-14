@@ -20,10 +20,11 @@ namespace Gg.Console.Tests;
 /// grows something to open stops belonging in a list of tabs that have nothing.
 /// </para>
 /// <para>
-/// <b>The shell's, so it happens between sessions.</b> Asking a reader starts a
-/// child process holding a credential, which a UI session may not do — the same
-/// sentence that made <c>b</c> a shell command rather than an in-session toggle,
-/// and the reason this is not in <c>Reads</c> beside the control-plane ones.
+/// <b>A read, once a reader is running, and the shell's until then.</b> STARTING
+/// a reader is a child process holding a credential and a UI session may not do
+/// it; asking one that was started before the session existed is what
+/// <c>LiveTails</c> already does. So the first browse of a console lifetime
+/// pays for the spawn in the shell and every press after it folds in.
 /// </para>
 /// </remarks>
 public class EnterShowsTheWorkItemTests
@@ -51,19 +52,27 @@ public class EnterShowsTheWorkItemTests
     }
 
     [Test]
-    public async Task It_is_the_shells_and_not_a_read()
+    public async Task It_is_a_read_once_a_reader_is_running_and_the_shells_until_then()
     {
-        // THE DISTINCTION THE DECLARATION ITSELF DRAWS. `Reads` is for
-        // control-plane reads, which cost a request; ToggleBrowse is in
-        // `Handled` instead because browsing "launches an executable with a
-        // credential in its environment", and that is exactly what asking about
-        // one item does. Same door, same reason.
-        await Assert.That(ShellCommands.Handled.Contains(Command.ShowWorkItem)).IsTrue()
+        // THE DISTINCTION THE DECLARATION DRAWS, now that the spawn and the
+        // asking are separate. Browsing "launches an executable with a
+        // credential in its environment" - true of the FIRST press and of
+        // nothing after it, and exactly as true of asking about one item as of
+        // listing them. Same door, same reason, both halves.
+        await Assert.That(ShellCommands.NeedsAReader.Contains(Command.ShowWorkItem)).IsTrue()
             .Because("an intent reader is a child process holding a credential, and a UI "
-                   + "session may start neither.");
+                   + "session may START neither - so a press with none running is the "
+                   + "shell's, and that is where the spawn happens.");
 
-        await Assert.That(ShellCommands.Reads.Contains(Command.ShowWorkItem)).IsFalse()
-            .Because("a command is the shell's or a read and never both.");
+        await Assert.That(ShellCommands.Reads.Contains(Command.ShowWorkItem)).IsTrue()
+            .Because("and once one is running, asking it about an item is a read like any "
+                   + "other: the answer folds in beside the console rather than costing the "
+                   + "screen.");
+
+        await Assert.That(ShellCommands.Handled.Contains(Command.ShowWorkItem)).IsFalse()
+            .Because("a command is the shell's or a read and never both - the guard the last "
+                   + "attempt at this tripped over by adding to one set and not removing from "
+                   + "the other.");
     }
 
     [Test]

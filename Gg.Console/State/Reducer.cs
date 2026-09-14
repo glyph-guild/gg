@@ -273,6 +273,27 @@ public static class Reducer
                 WorkItemId = null,
                 Facets = null,
             },
+            // THE LOCAL HALF OF A READ, and it was missing. This arm did not
+            // exist while the command was the shell's, and BrowseToggled's own
+            // remark gave the reason: a shell command with a reducer arm too
+            // has two effects, the local one happening whether or not the
+            // remote one did. The command is a read now - only the FIRST press
+            // of a console lifetime falls to the shell, because only that one
+            // has to start the reader - so every press after it arrived here
+            // and found nothing. The pane stayed open and the tracker was
+            // asked again each time, which is worse than a dead key: it spends
+            // a request to do nothing.
+            //
+            // BOTH HALVES STILL HAPPEN ONCE, because the two paths do not
+            // overlap. ConsoleScreen exits BEFORE reducing when a command is
+            // the shell's, and ConsoleLoop switches on the exit command and
+            // calls BrowseToggled by name rather than going through here.
+            //
+            // AND THE READ RUNS AFTER THIS, on the state this returns - so a
+            // press that shuts the pane leaves ConsoleBrowsing.Patch with
+            // nothing to fetch, which is the sentence that file already keeps.
+            Command.ToggleBrowse => BrowseToggled(state),
+
             // WHOLLY HERE, because showing the fleet reads nothing - it is in
             // the model from the boot. Its four neighbours are the shell's
             // because opening them fetches something.
@@ -906,12 +927,15 @@ public static class Reducer
     /// rather than being drawn over them.
     /// </para>
     /// <para>
-    /// <b>NOT REACHABLE THROUGH <see cref="Reduce"/>, and a ratchet says so.</b>
-    /// <c>ToggleBrowse</c> is a shell command because showing this pane starts
-    /// a reader, and a shell command that ALSO has a reducer arm has two
-    /// effects - the local one happening whether or not the remote one did. So
-    /// the loop calls this directly, the way it already does for the data that
-    /// arrives from outside.
+    /// <b>REACHED BOTH WAYS, and it used to be reached one.</b> While
+    /// <c>ToggleBrowse</c> was the shell's, this was deliberately absent from
+    /// <see cref="Reduce"/>: a shell command with a reducer arm too has two
+    /// effects, the local one happening whether or not the remote one did. The
+    /// command is a read now and only the FIRST press of a console lifetime
+    /// falls to the shell, so a <c>Reduce</c> with no arm meant the key worked
+    /// once and then stopped - reported from use, in those words. The two paths
+    /// still do not overlap: <c>ConsoleScreen</c> exits before reducing when a
+    /// command is the shell's, and <c>ConsoleLoop</c> calls this by name.
     /// </para>
     /// <para>
     /// <b>The listing survives hiding.</b> Somebody who closes the pane and
@@ -1285,11 +1309,13 @@ public static class Reducer
 
     /// <summary>Shows or hides the envelope, and gives it the region.</summary>
     /// <remarks>
-    /// Not reachable through <see cref="Reduce"/>, and a ratchet says so:
-    /// showing this pane is a READ, so the loop calls it directly the way it
-    /// already does for browse. A shell command that also had a reducer arm
-    /// would have two effects, the local one happening whether or not the
-    /// remote one did.
+    /// Not reachable through <see cref="Reduce"/>: showing this pane is a read
+    /// the shell serves, so the loop calls this directly and a reducer arm too
+    /// would be two effects for one keypress - the local one happening whether
+    /// or not the remote one did. Browse used to be the example here and is now
+    /// the counter-example: its command moved into
+    /// <see cref="ShellCommands.Reads"/>, so only its FIRST press is the
+    /// shell's and its arm had to arrive.
     /// </remarks>
     public static AppState EnvelopeToggled(AppState state)
     {

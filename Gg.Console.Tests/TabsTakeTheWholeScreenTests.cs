@@ -72,10 +72,11 @@ public class TabsTakeTheWholeScreenTests
         await Assert.That(Tabs.Showing(new AppState(), TabId.Queue)).IsTrue()
             .Because("the queue is where a console opens, and it is a tab like the others.");
 
-        // BrowseToggled rather than Reduce, and the difference is real: showing
-        // that pane is a READ, so the shell calls the reducer directly and
-        // Reduce has no arm for the command at all. A test that went through
-        // Reduce would have asserted nothing.
+        // BrowseToggled rather than Reduce, and it is the shell's path being
+        // asserted: the first press of a console lifetime is the one that has
+        // to start the reader, so ConsoleLoop calls this by name. Reduce has an
+        // arm too now, for every press after it - the two are asserted to agree
+        // in TheBrowseKeyTogglesEveryPressTests.
         var state = Reducer.BrowseToggled(new AppState());
 
         await Assert.That(Tabs.Showing(state, TabId.Queue)).IsFalse()

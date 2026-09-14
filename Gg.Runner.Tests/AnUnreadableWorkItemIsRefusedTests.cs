@@ -63,7 +63,21 @@ public class AnUnreadableWorkItemIsRefusedTests
         },
     };
 
-    private static async Task<string> ShippedReasonAsync(string declaration)
+    private static async Task<string> ShippedReasonAsync(string declaration) =>
+        (await RanAsync(declaration)).ShippedFacts
+            .SelectMany(b => b.Items)
+            .Single(f => f.Kind == FactKinds.LoopOutcome)
+            .Loop!.Reason;
+
+    /// <summary>Drives the whole loop over an unreadable item and hands back the protocol.</summary>
+    /// <remarks>
+    /// <b>The protocol rather than one fact, because the refusal has two halves
+    /// and only one was ever read.</b> What the flight SAYS is the loop outcome;
+    /// what the flight BECOMES is the release disposition. A flight whose fact
+    /// says <c>failed</c> and whose state says <c>landed</c> is one nobody will
+    /// think to re-run.
+    /// </remarks>
+    private static async Task<FakeProtocol> RanAsync(string declaration)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -92,15 +106,50 @@ public class AnUnreadableWorkItemIsRefusedTests
                 trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
                 executor: new NeverInvoked(),
                 readers: IntentConfiguration.FromEnvironment(declaration))
-            {
-                HoldFor = TimeSpan.FromSeconds(3),
-            }
+        {
+            HoldFor = TimeSpan.FromSeconds(3),
+        }
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
-        return protocol.ShippedFacts
-            .SelectMany(b => b.Items)
-            .Single(f => f.Kind == FactKinds.LoopOutcome)
-            .Loop!.Reason;
+        return protocol;
+    }
+
+    [Test]
+    public async Task A_loop_that_failed_does_not_report_the_flight_as_completed()
+    {
+        // GG-98, EXACTLY. A work item this runner could not read, the loop
+        // ending `failed` before any agent was invoked, and the flight LANDED -
+        // because the disposition was chosen from the landing alone:
+        //
+        //   Outstanding(landing) => landing is { Push: not null, Admission: null }
+        //
+        // A loop that fails before producing a push has no push, and no push
+        // read as nothing outstanding, so `completed` went out and `landed` came
+        // back. The run's own outcome was sitting at that line, unread.
+        //
+        // GG-93 ESCAPED THIS BY ACCIDENT and that is why it went unnoticed: it
+        // named a repository, so it had a tree, so it had a manifest to push -
+        // and the same failure reported outstanding.
+        var protocol = await RanAsync(declaration: "");
+
+        await Assert.That(AttendedReturnTests.ReleasedWith(protocol))
+            .IsNotEqualTo(RunnerDisposition.Completed)
+            .Because("`completed` maps to `landed` and the exit claim is first-writer-wins, "
+                   + "so a flight that scored nothing is recorded as finished and nothing "
+                   + "corrects it afterwards.");
+    }
+
+    [Test]
+    public async Task It_ends_the_flight_rather_than_leaving_it_for_another_runner()
+    {
+        // FAILED IS A CONCLUSION, which is what separates it from abandoned.
+        // Nothing here is going to come good on a second runner: the item is
+        // unreadable by this fleet's declaration, so handing the flight on
+        // would fly it into the same refusal and cost another lease to learn it.
+        var protocol = await RanAsync(declaration: "");
+
+        await Assert.That(AttendedReturnTests.ReleasedWith(protocol))
+            .IsEqualTo(RunnerDisposition.Failed);
     }
 
     [Test]

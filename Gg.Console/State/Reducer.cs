@@ -40,6 +40,16 @@ public static class Reducer
             },
 
             // TWO TABS AND ONE KEY, so it has to come back round.
+            // THE WORK ITEM MODAL'S OWN, and it cycles for the flight
+            // modal's reason: one key that always works beats two that are
+            // each wrong half the time.
+            Command.NextWorkItemTab => state with
+            {
+                WorkItemTab = state.WorkItemTab is WorkItemTab.Details
+                    ? WorkItemTab.History
+                    : WorkItemTab.Details,
+            },
+
             // THREE NOW, AND IT COMES BACK ROUND. A cycle that stopped at the
             // last tab would make the third one a place a person reaches and
             // cannot leave by the key that got them there.

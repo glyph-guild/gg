@@ -117,6 +117,46 @@ public static class WorkItemDetails
     }
 
     /// <summary>
+    /// What the change under the cursor says, for the pane beneath the table.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The log's problem, one modal over.</b> <c>WorkItemChangeRow.What</c>
+    /// is a sentence a tracker wrote — a state transition with the reason
+    /// somebody typed after it — and a cell shows as much of it as the column
+    /// happens to be wide. The table stays scannable and the prose goes where
+    /// prose fits.
+    /// </para>
+    /// <para>
+    /// <b>An absence answers with the absence.</b> The three cases this modal
+    /// already distinguishes do not collapse here: a reader that could not be
+    /// asked says so in its own words, and a tracker with nothing to report
+    /// says that. A blank pane would claim the second when it may be the
+    /// first.
+    /// </para>
+    /// </remarks>
+    public static string ChangeDetail(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var changes = Changes(state);
+
+        if (changes.Count == 0)
+        {
+            return HistoryAbsence(state);
+        }
+
+        // CLAMPED, BECAUSE THE CURSOR OUTLIVES THE LIST. A history read again
+        // is a different length, and a cursor past the end would render
+        // nothing - which reads as a pane that broke rather than a list that
+        // got shorter.
+        return changes[Math.Clamp(state.WorkItemSelected, 0, changes.Count - 1)].What;
+    }
+
+    /// <summary>The heading over the pane that holds what a cell cannot.</summary>
+    public const string ChangeDetailTitle = "What the change says";
+
+    /// <summary>
     /// Why the history table is empty, or empty when it is not.
     /// </summary>
     /// <remarks>

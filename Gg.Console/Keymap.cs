@@ -817,6 +817,11 @@ public static class Keymap
             new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
                 { Untaught = true, OffTheHintLine = true },
 
+            // THE SAME KEY THE FLIGHT MODAL USES, because it is the same act.
+            // A second word for "show me the other half" would be a second
+            // thing to learn for no gain.
+            new(KeyStroke.Char('v'), Command.NextWorkItemTab, "history"),
+
             new(KeyStroke.Char('o'), Command.OpenWorkItem, "open it in a browser"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],

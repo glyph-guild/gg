@@ -3419,6 +3419,13 @@ public sealed class ConsoleScreen : Window
                     below = depth + 1;
                 }
 
+                // AND EVERY TABLE, which is most of this console: nine panes
+                // and four modals are a table with something beside it.
+                if (child is TableView table)
+                {
+                    LookStyles.Table(table, look);
+                }
+
                 // THE TAB TITLES ARE ALREADY DONE, and a palette assigned after
                 // an accent would undo it. Everything else takes the palette.
                 if (colours is not null && !IsATab(child))

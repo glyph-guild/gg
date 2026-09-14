@@ -75,6 +75,59 @@ public enum TabMark
     Accent,
 }
 
+/// <summary>How much line work a table is drawn with.</summary>
+/// <remarks>
+/// <b>Named looks rather than the twelve booleans underneath.</b>
+/// <c>TableStyle</c> has a flag per line — headers, their overline and
+/// underline, the verticals, the two outer verticals, a bottom line — and
+/// offering all of them would be a page of knobs where what a person wants is
+/// "less line work". Each of these sets the whole group at once.
+/// </remarks>
+public enum TableLines
+{
+    /// <summary>Headers ruled above and below, verticals between every cell.</summary>
+    Full,
+
+    /// <summary>The same, closed off with a line underneath the last row.</summary>
+    Boxed,
+
+    /// <summary>Headers ruled, and no verticals. Rows read across.</summary>
+    Horizontal,
+
+    /// <summary>One line under the headers and nothing else.</summary>
+    Minimal,
+
+    /// <summary>No rules at all. Columns are held apart by spacing alone.</summary>
+    None,
+}
+
+/// <summary>Whether a table says what its columns are.</summary>
+public enum TableHeaders
+{
+    Shown,
+    Hidden,
+}
+
+/// <summary>What a table marks when the cursor is on a row.</summary>
+/// <remarks>
+/// <b>The one that changes how a table FEELS rather than how it looks.</b>
+/// Marking a cell says "you are editing this"; marking the row says "this is
+/// the one you picked" — and every table in this console is picked from rather
+/// than edited.
+/// </remarks>
+public enum RowSelect
+{
+    Cell,
+    FullRow,
+}
+
+/// <summary>Whether the header row is coloured apart from the body.</summary>
+public enum HeaderTint
+{
+    Plain,
+    Tinted,
+}
+
 /// <summary>One row of the Look page: a thing that can be changed.</summary>
 public enum LookSetting
 {
@@ -88,6 +141,10 @@ public enum LookSetting
     TabSide,
     TabDepth,
     TabSpacing,
+    TableLines,
+    TableHeaders,
+    RowSelect,
+    HeaderTint,
 }
 
 /// <summary>How the console is drawn, as a person has set it.</summary>
@@ -107,6 +164,17 @@ public enum LookSetting
 /// </remarks>
 public sealed record Look
 {
+    // WHAT THIS SHIPS AS WAS CHOSEN ON THIS PAGE. Five of these are not
+    // Terminal.Gui's defaults: no line at all round the application, heavy
+    // lines round the panes and the dialog, a dotted-round tab strip, and tabs
+    // that sit flush instead of overlapping. They were picked by running the
+    // spike and copying the result, which is what the copy is for - so the
+    // sentence "ships as" now names these rather than the library's.
+    //
+    // The rest are deliberately left alone: no palette (a console nobody has
+    // touched must be the terminal's own colours), a plain inner line, no mark
+    // on the selected tab, and the strip on top.
+
     /// <summary>The colours.</summary>
     public Palette Palette { get; init; }
 
@@ -116,7 +184,7 @@ public sealed record Look
     /// It is a Window rather than a FrameView, so the walk that styles panes
     /// steps straight past it — and it is the biggest line on the screen.
     /// </remarks>
-    public Edge AppBorder { get; init; } = Edge.Single;
+    public Edge AppBorder { get; init; } = Edge.None;
 
     /// <summary>The line round a pane on a tab.</summary>
     /// <remarks>
@@ -125,7 +193,7 @@ public sealed record Look
     /// every one of them the same line is what makes a busy screen read as a
     /// grid. See <see cref="InnerBorder"/>.
     /// </remarks>
-    public Edge PaneBorder { get; init; } = Edge.Single;
+    public Edge PaneBorder { get; init; } = Edge.Heavy;
 
     /// <summary>The line round a pane inside another pane.</summary>
     /// <remarks>
@@ -142,10 +210,10 @@ public sealed record Look
     /// thing anybody tries here is a heavier line on the dialog than on what is
     /// behind it.
     /// </remarks>
-    public Edge ModalBorder { get; init; } = Edge.Single;
+    public Edge ModalBorder { get; init; } = Edge.Heavy;
 
     /// <summary>The line the tab strip is drawn with.</summary>
-    public Edge TabLine { get; init; } = Edge.Rounded;
+    public Edge TabLine { get; init; } = Edge.RoundedDotted;
 
     /// <summary>How the tab a person is on is marked out.</summary>
     public TabMark TabMark { get; init; } = TabMark.None;
@@ -161,7 +229,19 @@ public sealed record Look
     /// <b>Terminal.Gui's default is -1</b>, which overlaps the borders of
     /// neighbouring tabs so they share a line. Widening it separates them.
     /// </remarks>
-    public int TabSpacing { get; init; } = -1;
+    public int TabSpacing { get; init; } = 0;
+
+    /// <summary>How much line work a table is drawn with.</summary>
+    public TableLines TableLines { get; init; } = TableLines.Full;
+
+    /// <summary>Whether a table says what its columns are.</summary>
+    public TableHeaders TableHeaders { get; init; } = TableHeaders.Shown;
+
+    /// <summary>What a table marks when the cursor is on a row.</summary>
+    public RowSelect RowSelect { get; init; } = RowSelect.Cell;
+
+    /// <summary>Whether the header row is coloured apart from the body.</summary>
+    public HeaderTint HeaderTint { get; init; } = HeaderTint.Plain;
 
     /// <summary>Which row the cursor is on.</summary>
     public int Selected { get; init; }
@@ -232,6 +312,14 @@ public static class Looks
         LookSetting.TabSide,
         LookSetting.TabDepth,
         LookSetting.TabSpacing,
+
+        // THE TABLES LAST, because they are the densest part of this console
+        // and the group somebody arrives at once the frame around them is
+        // settled. Nearly every pane here is a table.
+        LookSetting.TableLines,
+        LookSetting.TableHeaders,
+        LookSetting.RowSelect,
+        LookSetting.HeaderTint,
     ];
 
     /// <summary>What the setting is called on the page.</summary>
@@ -247,6 +335,10 @@ public static class Looks
         LookSetting.TabSide => "tab side",
         LookSetting.TabDepth => "tab depth",
         LookSetting.TabSpacing => "tab spacing",
+        LookSetting.TableLines => "table lines",
+        LookSetting.TableHeaders => "table headers",
+        LookSetting.RowSelect => "row select",
+        LookSetting.HeaderTint => "header tint",
         _ => setting.ToString(),
     };
 
@@ -274,6 +366,12 @@ public static class Looks
         LookSetting.TabDepth => "How tall a tab is, in rows.",
         LookSetting.TabSpacing => "Room between tabs. -1 overlaps their borders "
                                 + "so neighbours share a line.",
+        LookSetting.TableLines => "How much rule work a table carries, from every cell "
+                                + "boxed to none at all.",
+        LookSetting.TableHeaders => "Whether a table says what its columns are.",
+        LookSetting.RowSelect => "What the cursor marks: one cell, or the whole row you "
+                               + "picked.",
+        LookSetting.HeaderTint => "Whether the header row is coloured apart from the body.",
         _ => "",
     };
 
@@ -292,6 +390,10 @@ public static class Looks
             LookSetting.TabLine => look.TabLine.ToString(),
             LookSetting.TabMark => look.TabMark.ToString(),
             LookSetting.TabSide => look.TabSide.ToString(),
+            LookSetting.TableLines => look.TableLines.ToString(),
+            LookSetting.TableHeaders => look.TableHeaders.ToString(),
+            LookSetting.RowSelect => look.RowSelect.ToString(),
+            LookSetting.HeaderTint => look.HeaderTint.ToString(),
             LookSetting.TabDepth => look.TabDepth.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             LookSetting.TabSpacing => look.TabSpacing.ToString(
@@ -327,6 +429,10 @@ public static class Looks
             LookSetting.TabLine => look with { TabLine = Step(look.TabLine, by) },
             LookSetting.TabMark => look with { TabMark = Step(look.TabMark, by) },
             LookSetting.TabSide => look with { TabSide = Step(look.TabSide, by) },
+            LookSetting.TableLines => look with { TableLines = Step(look.TableLines, by) },
+            LookSetting.TableHeaders => look with { TableHeaders = Step(look.TableHeaders, by) },
+            LookSetting.RowSelect => look with { RowSelect = Step(look.RowSelect, by) },
+            LookSetting.HeaderTint => look with { HeaderTint = Step(look.HeaderTint, by) },
 
             // BOUNDED RATHER THAN WRAPPED, because these two are numbers and a
             // number that jumps from its largest to its smallest reads as a

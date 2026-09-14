@@ -145,6 +145,9 @@ public abstract record CliAction
 
     public sealed record Log(string Reference, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>What a flight recorded, which is not what it said.</summary>
+    public sealed record Facts(string Reference, bool Json) : CliAction, IEmitsResult;
+
     public sealed record Runners(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>The chart: every environment name an envelope may select.</summary>
@@ -545,6 +548,7 @@ public static class CliArgs
         "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
+        "gg facts <flight>              what a flight recorded, and which budget held it",
         "gg runners                     the runners this tenant has",
         "gg plan [flight]               what must hold before a flight can start",
         "gg gates                       flights stopped, waiting on somebody",
@@ -1066,6 +1070,7 @@ public static class CliArgs
 
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),
+            ["facts", var reference] => new CliAction.Facts(reference, json),
 
             // One payload, never two. Which one wins would otherwise be
             // decided by whoever wrote this method.
@@ -1130,6 +1135,8 @@ public static class CliArgs
 
             ["show"] => Unknown("gg show needs a flight: gg show GG-42, or the id."),
             ["log"] => Unknown("gg log needs a flight: gg log GG-42, or the id."),
+            ["facts"] => Unknown(
+                "gg facts needs a flight: gg facts GG-42, or the id."),
 
             [var verb, ..] => Unknown($"'{verb}' is not a gg command."),
             _ => Unknown("unrecognised arguments."),

@@ -365,6 +365,23 @@ public sealed class FlightCommands(
             ?? throw NoSuchFlight(reference));
     }
 
+    /// <summary>What a flight recorded, which is not what it said about itself.</summary>
+    /// <remarks>
+    /// <b>The third read about one flight.</b> A log is what the control plane
+    /// did to it and a story folds that for a reader; this is what the runner
+    /// shipped, and the only one of the three whose contents a customer audits.
+    /// </remarks>
+    public async Task<VerbResult> FactsAsync(
+        string reference, CancellationToken cancellationToken = default)
+    {
+        var token = Session();
+        var resolved = Readable(reference);
+
+        return new VerbResult.Facts(
+            await _client.GetFlightFactsAsync(token, resolved, cancellationToken)
+            ?? throw NoSuchFlight(reference));
+    }
+
     /// <summary>The tenant's runners, as the control plane derives them.</summary>
     public async Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));

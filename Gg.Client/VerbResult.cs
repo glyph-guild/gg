@@ -48,6 +48,19 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Log;
     }
 
+    /// <summary>What a flight recorded, as the ledger holds it.</summary>
+    /// <remarks>
+    /// <b>Beside <see cref="Log"/> and <see cref="Story"/>, and the only one of
+    /// the three a customer audits.</b> The log is what the control plane DID to
+    /// a flight; the story folds that for a reader; this is what the RUNNER
+    /// shipped. Two of thirteen fact kinds reached the story and the rest had no
+    /// reader - including the proposal a scoring flight exists to make.
+    /// </remarks>
+    public sealed record Facts(FlightFacts Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Facts;
+    }
+
     /// <summary>A flight's whole story: what happened, and where it now stands.</summary>
     /// <remarks>
     /// <b>Beside <see cref="Log"/>, never instead of it.</b> The story is composed
@@ -393,6 +406,9 @@ public static class VerbResultKinds
     public const string Flight = "flight";
     public const string Launched = "launched";
     public const string Log = "log";
+
+    /// <summary>What a flight recorded.</summary>
+    public const string Facts = "facts";
     public const string Story = "story";
     public const string Runners = "runners";
     public const string Chart = "environment-chart";
@@ -470,6 +486,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightLog))]
+[JsonSerializable(typeof(FlightFacts))]
 [JsonSerializable(typeof(FlightStory))]
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(DoctorReport))]
@@ -552,6 +569,7 @@ public static class VerbOutput
         VerbResult.Flight r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightSummary),
         VerbResult.Launched r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLaunched),
         VerbResult.Log r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLog),
+        VerbResult.Facts r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightFacts),
         VerbResult.Story r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightStory),
         VerbResult.Runners r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerList),
         VerbResult.Invited r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.InvitationIssued),
@@ -633,6 +651,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightLaunched))),
         VerbResultKinds.Log => new VerbResult.Log(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightLog))),
+        VerbResultKinds.Facts => new VerbResult.Facts(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightFacts))),
         VerbResultKinds.Story => new VerbResult.Story(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.FlightStory))),
         VerbResultKinds.Runners => new VerbResult.Runners(Require(
@@ -714,6 +734,7 @@ public static class VerbOutput
         VerbResult.Flight r => Flight(r.Value),
         VerbResult.Launched r => Launched(r.Value),
         VerbResult.Log r => Log(r.Value),
+        VerbResult.Facts r => Facts(r.Value),
         VerbResult.Story r => StoryText(r.Value),
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Invited r => Invited(r.Value),
@@ -1709,6 +1730,91 @@ public static class VerbOutput
         }
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>What a flight recorded, one row per fact.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The disposition is a column</b>, because it is the answer to why a row
+    /// has no content of its own. Inline, digest and reference are what budget
+    /// the control plane held an item against; a transcript row rendered blank
+    /// without saying `reference` reads as a defect rather than as a boundary.
+    /// </para>
+    /// <para>
+    /// <b>A reference row shows its locator and nothing it does not have.</b>
+    /// The bytes stay on the machine that produced them - dereferencing is a
+    /// capability this platform does not have - so what this can offer is where
+    /// they are, which is the first time that has been visible anywhere.
+    /// </para>
+    /// <para>
+    /// <b>And it does not claim to be complete.</b> A landing ships its own fact
+    /// AFTER the batch a loop produced, so a read taken while a flight is still
+    /// landing is correct and short by one. Saying so costs a line and stops a
+    /// reader concluding a write did not happen.
+    /// </para>
+    /// </remarks>
+    private static string Facts(FlightFacts facts)
+    {
+        var text = new StringBuilder();
+        text.AppendLine($"  {Clean(facts.FlightNumber)}  {facts.Facts.Count} fact(s)");
+
+        if (facts.Facts.Count == 0)
+        {
+            text.AppendLine("  (this flight has recorded nothing)");
+            return text.ToString().TrimEnd();
+        }
+
+        foreach (var recorded in facts.Facts)
+        {
+            text.AppendLine(
+                $"  {recorded.Fact.ObservedAt:u}  {Clean(recorded.Fact.Kind),-22}  "
+              + $"{Clean(recorded.Disposition),-9}  {Clean(recorded.Fact.IdempotencyKey)}");
+
+            if (Says(recorded.Fact) is { Length: > 0 } said)
+            {
+                text.AppendLine($"      {said}");
+            }
+        }
+
+        text.AppendLine();
+        text.AppendLine(
+            "  A landing ships its own fact after a loop's, so a flight still landing "
+          + "has one more coming.");
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>The one line a fact can offer about itself, or none.</summary>
+    /// <remarks>
+    /// <b>Named members only, never a re-serialisation.</b> What each kind
+    /// carries is the contract's to say and this renders the half a person reads
+    /// first; <c>--json</c> is how somebody gets all of it, which is why that
+    /// form is the one a script should use.
+    /// </remarks>
+    private static string Says(FactEnvelope fact) => fact switch
+    {
+        { Transcript: { } t } =>
+            $"{t.Bytes} bytes, {Clean(t.MediaType)}, {Clean(t.Scope)} at {Clean(t.Locator)}",
+        { Proposal: { } p } =>
+            $"{Clean(p.Operation)} {Clean(p.Target ?? "")}"
+          + (p.Fields is { Count: > 0 } fields
+                ? " " + string.Join(", ", fields.Select(f => $"{Clean(f.Path)}={Clean(f.Value)}"))
+                : "")
+          + (p.Score is { Length: > 0 } score ? $" score {Clean(score)}" : ""),
+        { Source: { } s } =>
+            $"{Clean(s.Slug)} at {Clean(s.ResolvedRef ?? s.RequestedRef ?? "")}",
+        { Loop: { } l } => $"{Clean(l.Outcome)}: {Clean(l.Reason)}",
+        { Change: { } c } => $"{c.Paths?.Count ?? 0} path(s)",
+        // NOT `Digest`, which is this envelope's content hash - the extracted
+        // account of what the loop did is its own member, and the one word
+        // covering both is exactly the confusion the contract warns about.
+        { LoopDigest: { } d } =>
+            $"{d.Attempts} attempt(s), {d.FilesEdited.Count} edited, "
+          + $"{d.FilesReadNotEdited.Count} read, {d.Searches.Count} search(es)"
+          + (d.RefusedMoves is { Count: > 0 } refused
+                ? $", refused {string.Join("/", refused.Select(m => Clean(m)))}"
+                : "")
+          + $" - {Clean(d.StopReason)}",
+        _ => "",
+    };
 
     /// <summary>The chart, one row per charted name.</summary>
     /// <remarks>

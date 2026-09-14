@@ -27,28 +27,6 @@ namespace Gg.Console.Tests;
 public class TheBrowserSurvivesItsOwnReloadTests
 {
 
-    private sealed class Browses : IWorkBrowser
-    {
-        public string? Key => "a-tracker";
-
-        public Task<BrowseOutcome> BrowseAsync(string? cursor, int limit, WorkItemFilter? filter, CancellationToken token) =>
-            Task.FromResult<BrowseOutcome>(new BrowseOutcome.Listed(new WorkItemPage(
-                [
-                    new WorkItemSummary("18398", "A draft job fails", "New", "", null),
-                    new WorkItemSummary("18471", "Story 3", "Active", "", null),
-                ],
-                null)));
-
-        public Task<FacetOutcome> FacetsAsync(CancellationToken token) =>
-            Task.FromResult<FacetOutcome>(new FacetOutcome.Offered(WorkItemFacets.Nothing));
-
-        public Task<ItemOutcome> ReadAsync(string id, CancellationToken token) =>
-            Task.FromResult<ItemOutcome>(new ItemOutcome.Read("an item"));
-
-        public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
-            Task.FromResult<HistoryOutcome>(new HistoryOutcome.Read([]));
-    }
-
     /// <summary>
     /// What the read plane answers, threaded onto what it was handed.
     /// </summary>
@@ -72,14 +50,36 @@ public class TheBrowserSurvivesItsOwnReloadTests
         ],
     };
 
+    /// <summary>
+    /// A pane somebody is already looking at, which is what the loop now
+    /// inherits rather than fetches.
+    /// </summary>
+    /// <remarks>
+    /// <b>The browse key used to end the session, so this test pressed it and
+    /// let the loop do the listing.</b> Nothing about browsing ends a session
+    /// any more — the reader is started and asked beside the console — so the
+    /// listing is seeded here instead. What is under test never was the fetch:
+    /// it is that <c>Reloaded</c> carries the browse fields over a boot-shaped
+    /// state, and that is unchanged.
+    /// </remarks>
+    private static AppState Listed() =>
+        Reducer.Browsed(
+            Reducer.BrowseToggled(new AppState()),
+            "a-tracker",
+            new BrowseOutcome.Listed(new WorkItemPage(
+                [
+                    new WorkItemSummary("18398", "A draft job fails", "New", "", null),
+                    new WorkItemSummary("18471", "Story 3", "Active", "", null),
+                ],
+                null)));
+
     private static AppState AfterFlyingFromTheBrowser() =>
         new ConsoleLoop(
-            new ConsoleDoubles.TypesKeys(Command.ToggleBrowse, Command.SelectNext, Command.FlyPicked),
+            new ConsoleDoubles.TypesKeys(Command.SelectNext, Command.FlyPicked),
             new ConsoleDoubles.NoEditor(),
             actions: new ConsoleDoubles.Records(),
-            browser: new Browses(),
             reload: Reload)
-        .Run(new AppState());
+        .Run(Listed());
 
     [Test]
     public async Task The_browser_is_still_open_after_flying_from_it()
@@ -92,9 +92,9 @@ public class TheBrowserSurvivesItsOwnReloadTests
     [Test]
     public async Task The_listing_is_still_there_after_flying_from_it()
     {
-        // Re-reading costs a whole session rebuild on this path, so losing the
-        // listing is not just a redraw - it is a tracker round trip a person
-        // did not ask for.
+        // Losing the listing is a tracker round trip a person did not ask for.
+        // It used to also cost a whole session rebuild, which is the half of
+        // this that stopped being true when browsing folded in.
         var after = AfterFlyingFromTheBrowser();
 
         await Assert.That(after.Browse).IsNotNull();

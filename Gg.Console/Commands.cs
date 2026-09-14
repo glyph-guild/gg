@@ -810,51 +810,27 @@ public static class ShellCommands
         // in without the session ending is what makes that row unnecessary.
         Command.ChooseCredentialRepository,
 
-        // BROWSING, WHICH THIS SET REFUSED AND NOW DOES NOT - and the reason it
-        // refused is worth keeping because it was right. "An IntentReader is a
-        // Command, its Arguments, the environment variable 'the only place a
-        // secret may go', and a credential locator - it is a CHILD PROCESS
-        // HOLDING A CREDENTIAL, and a session may do neither. AutoRefresh's
-        // exception is for a read and does not stretch to a spawn."
+        // BROWSING, WHICH THIS SET REFUSED TWICE AND NOW DOES NOT AT ALL. The
+        // reason it refused is worth keeping because it was half right. "An
+        // IntentReader is a Command, its Arguments, the environment variable
+        // 'the only place a secret may go', and a credential locator - it is a
+        // CHILD PROCESS HOLDING A CREDENTIAL, and a session may do neither.
+        // AutoRefresh's exception is for a read and does not stretch to a
+        // spawn."
         //
-        // Every word of that is about STARTING one. ReaderSessions starts a
-        // reader once per console lifetime and caches it - "a reader asked for
-        // twice is the same reader" - so the spawn is one act and the asking is
-        // another. The first browse still ends the session and starts it there,
-        // where every spawn already happens; BackgroundReads.Ready is what says
-        // which press that is, because membership of a static set cannot.
-        Command.ToggleBrowse,
-        Command.ShowWorkItem,
-        Command.FilterBrowse,
-        Command.BrowseFiltered,
-    };
-
-    /// <summary>
-    /// Reads that need a reader running, and fall to the shell until one is.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A subset of <see cref="Reads"/>, and the whole of what the four
-    /// guards were protecting.</b> They said browsing is the shell's because
-    /// "a toggle handled inside the session would have to spawn the reader
-    /// from inside the session". That is true exactly once per console
-    /// lifetime: <c>ReaderSessions</c> caches what it starts, so the first
-    /// browse is a spawn and every one after it is a pipe.
-    /// </para>
-    /// <para>
-    /// <b>So membership of a static set cannot answer it</b> — the same key is
-    /// the shell's the first time and a read every time after. This names
-    /// which commands have to ask; <c>BackgroundReads.Ready</c> answers.
-    /// </para>
-    /// <para>
-    /// <b>And a console with no background reads at all falls here too.</b>
-    /// Not ready and no port are the same fact to a keypress: nothing beside
-    /// the console can serve it, so the shell does, which is what every
-    /// composition without a reads port already did.
-    /// </para>
-    /// </remarks>
-    public static readonly IReadOnlySet<Command> NeedsAReader = new HashSet<Command>
-    {
+        // EVERY WORD OF THAT IS ABOUT STARTING ONE, which first bought the
+        // asking: ReaderSessions caches what it starts - "a reader asked for
+        // twice is the same reader" - so the spawn is one act and every press
+        // after it is a pipe.
+        //
+        // AND THEN THE SPAWN WAS MEASURED. SpawnedReader reads neither the
+        // environment variable nor the locator; it places no secret, redirects
+        // all three streams so the child cannot touch the terminal, and runs on
+        // the read task, so it blocks nothing. The sentence was true of what an
+        // IntentReader DECLARES and false of what this console does with one.
+        // The exception is granted and scoped in LiveStreamingTests, beside the
+        // clipboard's - which is where it has to be, because the scan there
+        // cannot see a spawn reached through a Func composed in the root.
         Command.ToggleBrowse,
         Command.ShowWorkItem,
         Command.FilterBrowse,

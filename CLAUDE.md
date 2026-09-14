@@ -48,14 +48,21 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
   and `BackgroundReads`. Each reads on a task owned outside every UI lifetime
   and hands the result back through `Invoke`, which is Terminal.Gui's own
   guidance; the session never waits.
-  - **The spawn is the part that never moved.** A reader is an executable
-    launched with a credential in its environment, and nothing in a session
-    may start one. `ReaderSessions` starts one per provider per console
-    lifetime and caches it, so the FIRST browse still ends the session and the
-    spawn happens in the shell; every press after it talks to a process that
-    existed before the session did, which is the shape `LiveTails` already has.
-    `ShellCommands.NeedsAReader` names those commands and
-    `BackgroundReads.Ready` decides which press is which.
+  - **The intent reader's spawn is an EXCEPTION, granted and scoped.** The
+    rule's old sentence named it as the thing a session may never do — *"a
+    reader is an executable launched with a credential in its environment"* —
+    and that half is not true of this code: `SpawnedReader` reads neither
+    `IntentReader.EnvironmentVariable` nor `.Locator`, so it places no secret;
+    the child is handed a locator and resolves the credential itself. All three
+    standard streams are redirected, so it cannot touch the terminal, and it
+    runs on the read task, so it blocks nothing. `ReaderSessions` starts one
+    per provider per console lifetime and caches it. **The exception is written
+    down in `LiveStreamingTests`**, beside the clipboard's and the file
+    dialog's, because the scan there is a regex over five named files and
+    cannot see this spawn at all — an exception nobody told the guard about is
+    worse than no guard. It grants nothing about the network and no second
+    spawn: `OpenWorkItem` starts a browser that takes the display and stays the
+    shell's.
   - **Nothing is started at launch.** A reader nobody asked for is a child
     process nobody asked for, and the console must come up without waiting on
     one.

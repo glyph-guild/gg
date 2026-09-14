@@ -16,7 +16,6 @@ public sealed class ConsoleLoop(
     IHandSession? hand = null,
     IConsoleActions? actions = null,
     LiveTails? tails = null,
-    IWorkBrowser? browser = null,
     Func<AppState, AppState>? reload = null,
     Func<AppState, AppState>? envelope = null,
     Func<AppState, AppState>? repositories = null,
@@ -442,31 +441,6 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
-                case Command.ToggleBrowse:
-                    // THE FIRST PRESS ONLY, AND THE SPAWN IS WHY. A session may
-                    // not START anything, and the first browse of a console
-                    // lifetime has no reader to talk to - so that press ends the
-                    // session, this arm starts one, and ReaderSessions caches it.
-                    // Every press after it is served beside the console through
-                    // Reducer.Reduce and never reaches here.
-                    //
-                    // WHICH IS WHY Reduce HAS AN ARM NOW. It deliberately had
-                    // none while this was the only path; with the command a read,
-                    // a missing arm meant the key worked once and then stopped.
-                    // The two do not overlap: ConsoleScreen exits BEFORE
-                    // reducing, and this switch calls the reducer by name.
-                    //
-                    // Only on the way IN. Hiding costs nothing, and a read
-                    // costs a whole session rebuild on this path.
-                    state = Reducer.BrowseToggled(state);
-
-                    if (state.BrowseVisible && browser is not null)
-                    {
-                        state = Browsed(state, browser);
-                    }
-
-                    break;
-
                 case Command.StartRunner:
                     // A CHILD, so the session ends first. The runner is treated
                     // as hostile and the OS is what keeps it apart from the
@@ -808,46 +782,8 @@ public sealed class ConsoleLoop(
 
                     break;
 
-                case Command.ShowWorkItem:
-                    // ASKED BETWEEN SESSIONS, like browsing and for its reason:
-                    // the reader is a child process holding a credential. The
-                    // same browser answers both, so a person reading an item is
-                    // talking to the tracker they listed it from.
-                    state = ShowedWorkItem(
-                        state,
-                        browser is null
-                            ? null
-                            : id => browser.ReadAsync(id, CancellationToken.None)
-                                .GetAwaiter().GetResult(),
-                        browser is null
-                            ? null
-                            : id => browser.HistoryAsync(id, CancellationToken.None)
-                                .GetAwaiter().GetResult());
-                    break;
-
                 case Command.OpenWorkItem:
                     state = OpenedWorkItem(state, openUri);
-                    break;
-
-                case Command.FilterBrowse:
-                    // THE SAME SPAWN AGAIN, and it happens here for the same
-                    // sentence: asking a reader what there is to narrow by
-                    // starts a child holding a credential, which a UI session
-                    // may not do.
-                    state = Offered(state, browser);
-                    break;
-
-                case Command.BrowseFiltered:
-                    // THE MODAL CLOSES FIRST. A listing fetched under a dialog
-                    // that stays up is a person looking at the choices instead
-                    // of at what they chose.
-                    state = state with { Mode = UiMode.Normal };
-
-                    if (browser is not null)
-                    {
-                        state = Browsed(state, browser);
-                    }
-
                     break;
 
                 case Command.ForgetCredential:
@@ -1359,107 +1295,6 @@ public sealed class ConsoleLoop(
     /// somebody's words attributes a guess to them.
     /// </remarks>
     /// <summary>
-    /// Ask the reader, and turn whatever happens into something drawable.
-    /// </summary>
-    /// <remarks>
-    /// <b>The last line, and it catches.</b> <see cref="IWorkBrowser"/> answers
-    /// with an outcome and never throws, which is the contract - but a bug in
-    /// an implementation is not a failure that contract modelled, and a person
-    /// should not lose their console to one. The sentence says the fault is
-    /// here rather than at the tracker, because that is where to go and look.
-    /// </remarks>
-    /// <summary>
-    /// Ask the reader what there is to narrow by, and offer it.
-    /// </summary>
-    /// <remarks>
-    /// <b>The modal opens either way.</b> A key that did nothing visible when a
-    /// reader could not answer would read as a key that is broken; what comes
-    /// back instead of choices is a sentence, and the modal draws it.
-    /// </remarks>
-    private static AppState Offered(AppState state, IWorkBrowser? browser)
-    {
-        if (browser is null)
-        {
-            return Reducer.FilterOffered(state, new BrowseFacets
-            {
-                Why = "This console is not configured to browse a tracker.",
-            });
-        }
-
-        var key = browser.Key ?? "the reader";
-
-        try
-        {
-            return Reducer.FilterOffered(
-                state,
-                browser.FacetsAsync(CancellationToken.None).GetAwaiter().GetResult() switch
-                {
-                    FacetOutcome.Offered(var facets) => new BrowseFacets
-                    {
-                        AreaPaths = facets.AreaPaths,
-                        Iterations = facets.Iterations,
-                        States = facets.States,
-                    },
-
-                    FacetOutcome.Nothing(var why) => new BrowseFacets { Why = why },
-
-                    _ => new BrowseFacets
-                    {
-                        Why = $"The reader for '{key}' answered in a way this console does not "
-                            + "have a sentence for.",
-                    },
-                });
-        }
-        catch (Exception problem) when (problem is not OperationCanceledException)
-        {
-            return Reducer.FilterOffered(state, new BrowseFacets
-            {
-                Why = $"Asking '{key}' what there is to filter by failed inside this console "
-                    + $"rather than at the tracker: {problem.Message}",
-            });
-        }
-    }
-
-    private static AppState Browsed(AppState state, IWorkBrowser browser)
-    {
-        var key = browser.Key ?? "the reader";
-
-        try
-        {
-            return Reducer.Browsed(
-                state, key,
-                browser.BrowseAsync(
-                    cursor: null, limit: 50, Narrowing(state), CancellationToken.None)
-                    .GetAwaiter().GetResult(),
-                BrowseFilters.Said(state));
-        }
-        catch (Exception problem) when (problem is not OperationCanceledException)
-        {
-            return Reducer.Browsed(state, key, new BrowseOutcome.Unintelligible(
-                $"Browsing '{key}' failed inside this console rather than at the tracker: "
-              + problem.Message));
-        }
-    }
-
-    /// <summary>
-    /// What the person picked, as the reader's shape, or null if they picked nothing.
-    /// </summary>
-    /// <remarks>
-    /// <b>Null rather than a filter of three blanks.</b> The reader is entitled
-    /// to tell "nobody narrowed" from "somebody narrowed by nothing", and a
-    /// console that always sent a filter would make every reader that cannot
-    /// filter refuse every listing.
-    /// </remarks>
-    private static WorkItemFilter? Narrowing(AppState state)
-    {
-        var filter = new WorkItemFilter(
-            state.ChosenAreaPath, state.ChosenIteration,
-            state.ChosenStates.Count > 0 ? state.ChosenStates : null);
-
-        return filter.Narrows ? filter : null;
-    }
-
-    /// <summary>
     /// Open a flight for the work item the browser has selected.
     /// </summary>
     /// <remarks>
@@ -1651,81 +1486,6 @@ public sealed class ConsoleLoop(
     /// </remarks>
     private static AppState Spent(AppState state) =>
         state with { KindSelected = 0, AskingKindFor = ComposingFor.Nothing };
-
-    /// <summary>
-    /// Ask the reader about the row under the cursor, and show what it said.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The modal opens either way.</b> A person pressed a key and something
-    /// has to answer them; a failure that closed the modal would be the console
-    /// swallowing the keypress, which is indistinguishable from a key that does
-    /// nothing.
-    /// </para>
-    /// <para>
-    /// <b>Nothing picked asks nothing.</b> A key that appears to work on an
-    /// empty pane is worse than one that is not offered - the browse pane's own
-    /// rule, one method over.
-    /// </para>
-    /// </remarks>
-    public static AppState ShowedWorkItem(
-        AppState state,
-        Func<string, ItemOutcome>? read,
-        Func<string, HistoryOutcome>? history = null)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-
-        if (state.Browse is not { Items.Count: > 0 } listing
-            || state.BrowseSelected < 0
-            || state.BrowseSelected >= listing.Items.Count)
-        {
-            return state with { LastRunner = "There is no work item under the cursor to read." };
-        }
-
-        if (read is null)
-        {
-            return state with
-            {
-                Mode = UiMode.WorkItemDetail,
-                WorkItemSaid = "This console is not configured to read work items.",
-            };
-        }
-
-        var id = listing.Items[state.BrowseSelected].Id;
-
-        // BOTH, AND THE ITEM FIRST. What it IS comes before what has happened to
-        // it, because the second only means anything once you know the first -
-        // and each half says its own failure, so a reader that answers one is
-        // more useful than one refused for not answering both.
-        var happened = history is null
-            ? new HistoryOutcome.Nothing(
-                "This console is not configured to read what has happened to an item.")
-            : history(id);
-
-        return state with
-        {
-            Mode = UiMode.WorkItemDetail,
-            WorkItemSaid = Words(read(id)),
-
-            // A NEW LIST STARTS AT THE TOP. A cursor left where the last item's
-            // history had it points at somebody else's change.
-            WorkItemSelected = 0,
-
-            // ROWS AND A SENTENCE ARE DIFFERENT ANSWERS, so they are held
-            // apart: an empty table claims the tracker had nothing to say,
-            // where a reader that cannot be asked said something else.
-            WorkItemChanges = happened is HistoryOutcome.Read(var changes) ? changes : [],
-            WorkItemHistorySaid = happened is HistoryOutcome.Nothing(var why) ? why : null,
-        };
-    }
-
-    /// <summary>Whatever the reader said, whichever way it ended.</summary>
-    private static string Words(ItemOutcome outcome) => outcome switch
-    {
-        ItemOutcome.Read(var said) => said,
-        ItemOutcome.Nothing(var why) => why,
-        _ => "The reader answered something this console could not read.",
-    };
 
     /// <summary>
     /// Hand the item to a browser, or say why there is nowhere to go.

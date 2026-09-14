@@ -32,42 +32,10 @@ namespace Gg.Console;
 /// </para>
 /// </remarks>
 /// <param name="read">What to ask, and what comes back as a patch.</param>
-/// <param name="ready">
-/// Whether a command can be served WITHOUT starting anything, or null when
-/// nothing this console reads needs starting.
-/// </param>
 public sealed class BackgroundReads(
-    Func<Command, AppState, Task<Func<AppState, AppState>>> read,
-    Func<Command, bool>? ready = null)
+    Func<Command, AppState, Task<Func<AppState, AppState>>> read)
 {
     private Task<Func<AppState, AppState>>? _running;
-
-    /// <summary>
-    /// Whether this can be answered beside the console, or needs the shell once.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The spawn is the whole of it.</b> Four guards say browsing is the
-    /// shell's and each gives one reason: a reader is an executable launched
-    /// with a credential in its environment, and a session may start neither.
-    /// They are right, and they are about STARTING one. Asking a reader that
-    /// was running before the session existed is what <c>LiveTails</c> already
-    /// does.
-    /// </para>
-    /// <para>
-    /// <b>So the first browse of a console lifetime is still the shell's</b> -
-    /// it has nothing to talk to, and making one is the act a session may not
-    /// perform. Every one after it folds in. Nothing is started at launch: a
-    /// reader nobody asked for is a child nobody asked for, and the console
-    /// comes up without waiting on one.
-    /// </para>
-    /// <para>
-    /// <b>No predicate means ready</b>, because its absence has to be the
-    /// behaviour that was there before it - every console composed without a
-    /// reader, and every test that builds a screen.
-    /// </para>
-    /// </remarks>
-    public bool Ready(Command command) => ready is null || ready(command);
 
     /// <summary>
     /// Asks for one, replacing whatever was already in the air.

@@ -1380,17 +1380,7 @@ static async Task<int> LaunchConsoleAsync()
                         $"'{asked}' is in ShellCommands.Reads and this reader has no arm "
                       + "for it, so a keypress would fetch somebody else's answer. Add "
                       + "one, or take the command out of Reads."),
-                }),
-                // WHETHER THE READER IS ALREADY RUNNING, and nothing else. A
-                // session may not START one - four guards say so, each about
-                // the spawn - so the first browse of a console lifetime is the
-                // shell's, which is where the spawn then happens. Every read
-                // that needs no reader is ready by definition.
-                ready: asked => asked is not (Gg.Console.Command.ToggleBrowse
-                                           or Gg.Console.Command.ShowWorkItem
-                                           or Gg.Console.Command.FilterBrowse
-                                           or Gg.Console.Command.BrowseFiltered)
-                                || browsing.Running)),
+                }))),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -1686,8 +1676,7 @@ static async Task<int> LaunchConsoleAsync()
                 Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
                 envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
                 .Draft(Airspace()),
-        },
-        browser: browsing)
+        })
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

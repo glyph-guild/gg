@@ -90,11 +90,10 @@ internal static class ConsoleDoubles
 
                 // THE SCREEN'S OWN RULE, because a double that routes
                 // differently from the thing it stands in for tests a console
-                // nobody runs. A read that needs a reader running falls to the
-                // shell until one is - and this double has no background reads
-                // at all, so for it that is always.
-                if (ShellCommands.Handled.Contains(key)
-                    || ShellCommands.NeedsAReader.Contains(key))
+                // nobody runs. It briefly had a second half - a read that needed
+                // a reader running fell to the shell until one was - and that
+                // went when the spawn folded in beside the console too.
+                if (ShellCommands.Handled.Contains(key))
                 {
                     return new UiOutcome(key, state);
                 }

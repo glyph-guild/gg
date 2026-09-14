@@ -140,7 +140,16 @@ public sealed class RefNamedDestinationAdapter(string provider, string host, Htt
                     SourceRefName = $"refs/heads/{request.Branch}",
                     TargetRefName = $"refs/heads/{request.BaseRef}",
                     Title = request.Title,
-                    Description = $"Opened by a governed flight. Branch `{request.Branch}`.",
+                    Description = Describing(request),
+
+                    // ATTACHED ON THE CREATE BODY, which is where this provider
+                    // takes it. NULL AND NOT AN EMPTY LIST for a flight opened
+                    // from a sentence: an empty array is a claim that the
+                    // question was asked and answered nothing, and a provider is
+                    // entitled to treat that differently from silence.
+                    WorkItemRefs = request.Intent is { Id.Length: > 0 } intent
+                        ? [new RefNamedWorkItem { Id = intent.Id }]
+                        : null,
                 },
                 RefNamedJson.Default.RefNamedNewProposal),
         };
@@ -176,6 +185,18 @@ public sealed class RefNamedDestinationAdapter(string provider, string host, Htt
                 ProposalUrl(proposal.Repository?.WebUrl ?? "", proposal.PullRequestId),
                 proposal.PullRequestId);
     }
+
+    /// <summary>
+    /// What the proposal says about itself, beyond its title.
+    /// </summary>
+    /// <remarks>
+    /// The link is repeated here as well as attached, because an attachment is
+    /// a panel somebody has to look at and a line in the description is in the
+    /// mail everybody gets.
+    /// </remarks>
+    private static string Describing(LandingRequest request) =>
+        $"Opened by a governed flight. Branch `{request.Branch}`."
+      + (request.Intent?.Uri is { Length: > 0 } uri ? $"\n\nFor {uri}" : "");
 
     /// <summary>The clone url this provider takes, without a <c>.git</c> suffix.</summary>
     private static string PathScopedCloneUrl(string host, string slug)
@@ -296,6 +317,27 @@ internal sealed record RefNamedNewProposal
 
     [JsonPropertyName("description")]
     public string Description { get; init; } = "";
+
+    /// <summary>
+    /// The work items this proposal answers, or null when it answers none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nullable so the member is absent rather than empty</b>, which the
+    /// serializer's ignore-null default then honours. A list of one, because a
+    /// flight is opened from one intent - the shape is the provider's and it
+    /// takes several.
+    /// </remarks>
+    [JsonPropertyName("workItemRefs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RefNamedWorkItem>? WorkItemRefs { get; init; }
+}
+
+/// <summary>One work item, as this provider names one on a proposal.</summary>
+internal sealed record RefNamedWorkItem
+{
+    /// <summary>A STRING, which is this provider's spelling even for a number.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = "";
 }
 
 /// <summary>Source-generated, because this ships in a Native AOT binary.</summary>
@@ -303,4 +345,5 @@ internal sealed record RefNamedNewProposal
 [JsonSerializable(typeof(RefNamedProposal))]
 [JsonSerializable(typeof(RefNamedProposalList))]
 [JsonSerializable(typeof(RefNamedNewProposal))]
+[JsonSerializable(typeof(RefNamedWorkItem))]
 internal sealed partial class RefNamedJson : JsonSerializerContext;

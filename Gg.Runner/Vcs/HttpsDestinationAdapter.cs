@@ -122,7 +122,13 @@ public sealed class HttpsDestinationAdapter(
                     Title = request.Title,
                     Head = request.Branch,
                     Base = request.BaseRef,
-                    Body = $"Opened by a governed flight. Branch `{request.Branch}`.",
+                    // NO ATTACHMENT HERE, because this provider has nothing to
+                    // attach to: its work items are issues in the same
+                    // repository and a flight's intent is usually somewhere
+                    // else entirely. The link in the body is the whole of what
+                    // this shape can honestly offer.
+                    Body = $"Opened by a governed flight. Branch `{request.Branch}`."
+                         + (request.Intent?.Uri is { Length: > 0 } uri ? $"\n\nFor {uri}" : ""),
                 },
                 DestinationJson.Default.NewProposal),
         };

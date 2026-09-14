@@ -62,11 +62,12 @@ public class ALandingCarriesTheFlightsIntentTests
         ExpiresAt = T0.AddMinutes(10),
         RenewWithinSeconds = 5,
 
-        // THE TICKET THE FLIGHT WAS OPENED FROM, which is what `gg fly --ticket
-        // ado#18490` puts here and what a reviewer wants a link back to.
-        IntentProvider = "ado",
+        // THE TICKET THE FLIGHT WAS OPENED FROM, which is what `gg fly
+        // --ticket <provider>#<id>` puts here and what a reviewer wants a link
+        // back to.
+        IntentProvider = "a-tracker",
         IntentId = "18490",
-        IntentUri = "https://dev.azure.invalid/acme/_workitems/edit/18490",
+        IntentUri = "https://tracker.invalid/acme/work/18490",
 
         Loop = new LeaseLoop
         {
@@ -128,7 +129,15 @@ public class ALandingCarriesTheFlightsIntentTests
                 observer, resolver,
                 trees.Workspace(new AuthenticatingProvider(new LocalVcsAdapter(fixture.Directory))),
                 executor: new DidTheWork(),
-                destinations: [destination])
+                destinations: [destination],
+
+                // DECLARED, BECAUSE A NAMED INTENT IS REFUSED WITHOUT ONE. A
+                // runner with no reader for the provider a lease names refuses
+                // before the executor is invoked - correctly - and the loop's
+                // account becomes that refusal, which is the sentence this test
+                // would then have measured instead of the agent's.
+                readers: Gg.Local.IntentConfiguration.FromEnvironment(
+                    "a-tracker=a-reader --stdio"))
         {
             HoldFor = TimeSpan.FromSeconds(3),
         }
@@ -147,7 +156,7 @@ public class ALandingCarriesTheFlightsIntentTests
         await Assert.That(proposed).IsNotNull()
             .Because("nothing was proposed at all: " + string.Join(", ", destination.Calls));
 
-        await Assert.That(proposed!.Intent?.Provider).IsEqualTo("ado");
+        await Assert.That(proposed!.Intent?.Provider).IsEqualTo("a-tracker");
         await Assert.That(proposed.Intent?.Id).IsEqualTo("18490");
     }
 

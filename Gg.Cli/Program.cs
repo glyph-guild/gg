@@ -1341,6 +1341,13 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.ChooseCredentialRepository =>
                         Gg.Console.ConsoleRepositories.Patch(data, current),
 
+                    // WHAT THE FLIGHT RECORDED, asked for when its tab is
+                    // opened. Not at boot: the log is held per flight because
+                    // the boot already fetches one, and facts are large and
+                    // rarely wanted.
+                    Gg.Console.Command.ShowFlightFacts =>
+                        Gg.Console.ConsoleFacts.Patch(data, current),
+
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.
                     Gg.Console.Command.ShowFlight =>

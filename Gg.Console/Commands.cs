@@ -69,6 +69,16 @@ public enum Command
     /// </remarks>
     ShowFlight,
 
+    /// <summary>What the selected flight RECORDED, rather than what it said.</summary>
+    /// <remarks>
+    /// <b>Reads, unlike <see cref="ShowFlight"/> beside it.</b> The flight and
+    /// its log are what the boot already fetched; facts are not, because they
+    /// are large and rarely wanted, so this is the press that asks. It folds in
+    /// beside the console rather than ending the session - the pane is already
+    /// open and the flight already on it.
+    /// </remarks>
+    ShowFlightFacts,
+
     /// <summary>What can be done to the selected flight.</summary>
     ToggleFlightActions,
 
@@ -841,6 +851,12 @@ public static class ShellCommands
         // for.
         Command.ToggleEnvelope,
         Command.ToggleRepositories,
+
+        // THE FACTS TAB, for the same reason one press over: the pane is
+        // already open and the flight already on it, so ending the session to
+        // fetch what goes in it would blink a terminal for a question about
+        // something a person is looking at.
+        Command.ShowFlightFacts,
 
         // THE SAME REGISTRY, WANTED BY A DIFFERENT SCREEN. The credential
         // chooser lists what has no credential yet, which it cannot do without

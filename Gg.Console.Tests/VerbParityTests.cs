@@ -212,6 +212,7 @@ public class VerbParityTests
               + "the wire requires one and this console asks for a sentence the way it asks "
               + "for an intent.",
             ["Log"] = "fetched at boot for the queue and discarded; the pane is step 2.",
+            ["Facts"] = "the facts tab reads it on the keypress; not at boot, because they are large and rarely opened.",
             ["Runners"] = "fetched at boot into a local and never assigned to state; step 2.",
 
             // --- absent, and each of these is a gap this slice closes ---

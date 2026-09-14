@@ -86,9 +86,16 @@ public static class Reducer
                 {
                     FlightTab.Details => FlightTab.Gate,
                     FlightTab.Gate => FlightTab.Log,
+                    FlightTab.Log => FlightTab.Facts,
                     _ => FlightTab.Details,
                 },
             },
+            // THE READ ITS OWN COMMAND, so the tab can be reached by the cycle
+            // AND asked for directly - and so ShellCommands can name it a read
+            // without naming the cycle one. Landing on the tab is not what
+            // fetches; pressing for it is.
+            Command.ShowFlightFacts => state with { FlightTab = FlightTab.Facts },
+
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.ToggleAirspaceActions => Modal(state, UiMode.AirspaceActions),
 

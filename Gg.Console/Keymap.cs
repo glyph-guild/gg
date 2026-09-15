@@ -1539,6 +1539,46 @@ public static class Keymap
             .Select(b => $"{b.Key.Name} {b.Description}"));
 
     /// <summary>
+    /// Which columns of the hint line are the countdown's seconds, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Answered here because this is what builds the line.</b> The view
+    /// paints those columns a different colour as they run down; searching the
+    /// finished string for a number would find whichever <c>30s</c> came first,
+    /// and the description that carries it is written four lines up.
+    /// </para>
+    /// <para>
+    /// <b>Columns rather than a split into three strings.</b> The line is one
+    /// label and stays one label - what goes over the top is three characters
+    /// wide - so a caller that got two halves would have to measure one of them
+    /// to find out where to put the other.
+    /// </para>
+    /// <para>
+    /// <b>Nothing where nothing is counting.</b> A read in the air shows a mark
+    /// instead of a number, and inside a modal the key is not offered at all -
+    /// in both cases there are no seconds on the line to paint.
+    /// </para>
+    /// </remarks>
+    public static (int At, int Length)? Counting(KeymapContext context)
+    {
+        if (context.Refresh is not { Length: > 0 } counted
+            || !counted.EndsWith('s')
+            || !char.IsAsciiDigit(counted[0]))
+        {
+            return null;
+        }
+
+        // THE WHOLE DESCRIPTION, so the seconds are located by what the line
+        // says rather than by looking for digits in it. `refresh 30s` appears
+        // once; `30s` on its own could be anybody's.
+        var said = $"refresh {counted}";
+        var at = Hints(context).IndexOf(said, StringComparison.Ordinal);
+
+        return at < 0 ? null : (at + said.Length - counted.Length, counted.Length);
+    }
+
+    /// <summary>
     /// Every key this console answers, in any context, once each.
     /// </summary>
     /// <remarks>

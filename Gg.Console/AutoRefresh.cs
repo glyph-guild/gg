@@ -102,8 +102,47 @@ public sealed class AutoRefresh(
                 NextIn = _running is not null
                     ? 0
                     : (int)Math.Max(0, Math.Ceiling((_due - now).TotalSeconds)),
+
+                // WRITTEN DOWN BY WHATEVER KNOWS IT. The renderer fades the
+                // seconds from one end of this to the other, and the
+                // alternative was a second copy of the interval sitting beside
+                // the one this loop was constructed with.
+                Every = (int)Math.Round(every.TotalSeconds),
             },
         };
+    }
+
+    /// <summary>
+    /// How much of the wait is still to come, from one at the top of the count
+    /// to nothing at the last second.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fraction rather than a colour</b>, so it can be answered here where
+    /// there is no screen. What the hint line does with it is the view's, and
+    /// the view's version of this would be arithmetic nothing could check.
+    /// </para>
+    /// <para>
+    /// <b>The bottom of the ramp is one second, not zero.</b> The countdown
+    /// never shows <c>0s</c> - <see cref="Says"/> answers a mark once a read is
+    /// in the air - so <c>1s</c> is the dimmest thing anybody sees, and a ramp
+    /// measured to zero would stop one shade short of the bottom.
+    /// </para>
+    /// <para>
+    /// <b>One where there is nothing to divide by.</b> A model nobody has
+    /// ticked carries zeroes, and the line is drawn once before the first tick;
+    /// the top of the ramp is the honest answer for "no count has started".
+    /// </para>
+    /// </remarks>
+    public static double Left(RefreshState refresh)
+    {
+        ArgumentNullException.ThrowIfNull(refresh);
+
+        var whole = refresh.Every - 1;
+
+        return whole <= 0
+            ? 1.0
+            : Math.Clamp((refresh.NextIn - 1) / (double)whole, 0.0, 1.0);
     }
 
     /// <summary>

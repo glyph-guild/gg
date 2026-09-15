@@ -29,6 +29,16 @@ public static class StoryKinds
     /// <summary>Admission opened it, on the strength of another flight's work.</summary>
     public const string OpenedByAdmission = "opened-by-admission";
 
+    /// <summary>It asked for another kind of work to exist.</summary>
+    /// <remarks>
+    /// <b>The mirror of <see cref="OpenedByAdmission"/>, on the other flight.</b>
+    /// That one says a flight exists because of somebody else's classification;
+    /// this says a flight made one. Both name the KIND and neither names the
+    /// other flight - no field on either points at the other, and the
+    /// nomination is what relates them.
+    /// </remarks>
+    public const string Nominated = "nominated";
+
     // ---- it is up for grabs ----
 
     /// <summary>A claim was refused.</summary>
@@ -108,7 +118,7 @@ public static class StoryKinds
 
     public static IReadOnlyList<string> All { get; } =
     [
-        Created, OpenedByAdmission,
+        Created, OpenedByAdmission, Nominated,
         LeaseRefused, CredentialUnresolved,
         LeaseGranted, LeaseRenewed, LeaseReleased, LeaseExpired, LeaseAbandoned,
         LoopRan, LoopAsked,

@@ -107,6 +107,11 @@ public class HelpNamesEveryKeyTests
         // decides whether the actions modal offers the two acts or only the
         // reading one. The reason every clause above records, four times now.
         from aGateWaits in (bool[])[false, true]
+        // AND WHETHER THAT GATE ASKS FOR AN AGENT LOGIN, for the reason
+        // written three clauses up and learned twice: a flag counted by the
+        // ratchet below and never crossed here is a binding the completeness
+        // check cannot see. This one binds `s` in the gate modal.
+        from gateAsksForAgentLogin in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
@@ -118,6 +123,7 @@ public class HelpNamesEveryKeyTests
             SignInStarted = started,
             RunnerIsOurs = ours,
             RunnerIsBeating = flying,
+            GateAsksForAgentLogin = gateAsksForAgentLogin,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
             Refresh = refresh,
@@ -170,7 +176,7 @@ public class HelpNamesEveryKeyTests
         // intent names one and a reader here can read it.
         // EIGHTEEN SINCE THE QUEUE'S ENTER, whose modal offers two acts only
         // where there is a gate to act on.
-        await Assert.That(members.Count).IsEqualTo(18)
+        await Assert.That(members.Count).IsEqualTo(19)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

@@ -1581,6 +1581,16 @@ static async Task<int> LaunchConsoleAsync()
         sendCredential: current => Gg.Console.ConsoleSendCredential.Give(
             current,
             send: (runnerId, repository) => SendFromTheConsole(runnerId, repository)),
+        // LOGGING AN AGENT IN FROM THE GATE THAT ASKS FOR IT, in exactly the
+        // slot above: between sessions, with the terminal free, because this
+        // prints a URL a person opens and then reads a code with the echo off.
+        //
+        // THE SAME CEREMONY `gg agent login` USES, for the send's reason: a
+        // second implementation would be a second answer to where the token
+        // comes from, and these two would drift on the question that matters.
+        logAgentIn: current => Gg.Console.ConsoleAgentLogin.Begin(
+            current,
+            ceremony: (runnerId, provider) => LoginFromTheConsole(runnerId, provider)),
         // FLYING BY HAND, which is `n new flight` with the terminal handed over.
         // What only this project can supply: this machine's labels, which gg the
         // child would be, and how to run it. The order - refuse before asking,
@@ -1889,6 +1899,43 @@ static string SendFromTheConsole(string runnerId, string? chosen)
         .GetResult();
 
     return sent.Said;
+}
+
+// THE CEREMONY, DRIVEN FROM THE CONSOLE'S GATE. The same client the verb
+// uses, with the browser opened through the console's own opener and the code
+// read with the echo off - all of it between sessions, with the terminal free.
+static string LoginFromTheConsole(string runnerId, string provider)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return "Not signed in, so no login was started. `gg login` first.";
+    }
+
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    var ended = new LogAnAgentIn(
+        new ControlPlaneClient(http),
+        new ConsoleChannel(
+            Gg.Runner.StunConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+            TimeSpan.FromSeconds(20)))
+        .LoginAsync(
+            session.SessionToken,
+            runnerId,
+            provider,
+            new PinnedRunnerKeys(),
+            DateTimeOffset.UtcNow,
+            new ConsoleSecretPrompt(),
+            openBrowser: url => _ = ConsoleLink.Open(new AppState(), url, Ran),
+            // TO STDOUT HERE, not stderr: the terminal is the person's and
+            // there is nothing else on it. The URL is the line they act on.
+            saying: line => Console.WriteLine($"gg: {line}"))
+        .GetAwaiter()
+        .GetResult();
+
+    return ended.Said;
 }
 
 static Task<int> SendCredentialAsync(CliAction.CredentialSend send) =>

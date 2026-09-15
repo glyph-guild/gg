@@ -514,6 +514,27 @@ public enum Command
     /// </remarks>
     SendCredential,
 
+    /// <summary>
+    /// Logs the agent in on the runner an agent-login gate names.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The act that CLEARS this gate, rather than an answer to it.</b> A
+    /// runner whose agent cannot start holds, reports it, and the control
+    /// plane mints a maintenance flight whose gate asks a person to sign the
+    /// agent in. Approving that gate answers nothing: the machine is still
+    /// unable to fly. So the modal offers this first, and the gate goes away
+    /// when the runner next reports ready.
+    /// </para>
+    /// <para>
+    /// <b>It takes the terminal for the same reason <see cref="SendCredential"/>
+    /// does, and one more.</b> It reads a code with the echo off - which a
+    /// Terminal.Gui session cannot arrange - and it prints a URL a person has
+    /// to select and open. Both need the terminal back.
+    /// </para>
+    /// </remarks>
+    LogAgentIn,
+
     /// <summary>Asks whether to ground the flight the modal is about.</summary>
     /// <remarks>
     /// Separate from <see cref="GroundFlight"/>, which is now the ANSWER. The
@@ -1111,6 +1132,12 @@ public static class ShellCommands
         // has to be off and a Terminal.Gui session cannot turn it off, so this
         // needs the terminal back exactly as the editor does.
         Command.SendCredential,
+
+        // TAKES THE TERMINAL TO PRINT A URL AND READ A CODE, which is the
+        // send's reason with a person's browser in the middle of it. The
+        // conversation stays open while they are away from the keyboard, so
+        // this is the longest thing on this list.
+        Command.LogAgentIn,
 
         // OPENS AN EDITOR AND THEN A FLIGHT, which is what `n` does; the only
         // difference is what the editor opens on.

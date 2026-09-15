@@ -317,6 +317,20 @@ public class TheSignInModalReadsTests
                         AwaitingSince = DateTimeOffset.UnixEpoch,
                         Attempt = 1,
                         ManifestHash = "sha256:0000",
+
+                        // AND WHAT IT IS ASKING FOR, because the gate modal
+                        // binds a key only where there is one to act on. This
+                        // model sets one of everything, so a gate with no
+                        // maintenance ask would leave GateAsksForAgentLogin
+                        // false and the completeness check below would call
+                        // the derivation unread.
+                        Maintenance = new Gg.Contracts.GateMaintenance
+                        {
+                            Kind = Gg.Contracts.GateMaintenanceKinds.AgentLogin,
+                            Runner = "019fe8a2-0707-70c2-9ff8-be3adb54cef0",
+                            RunnerLabel = "somebody's laptop",
+                            Provider = "claude",
+                        },
                     },
                 ],
             },

@@ -375,6 +375,20 @@ public readonly record struct KeyBinding(KeyStroke Key, Command Command, string 
     public string? When { get; init; }
 
     /// <summary>
+    /// Whether this key is about the console rather than about what is on the
+    /// screen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Quit, refresh and help, and the hint line draws them at its
+    /// right-hand end.</b> They are true on every tab and in every state,
+    /// where everything else on the line changes as somebody moves around -
+    /// so they are pinned to one place and the left-hand end is what the tab
+    /// decides. Not a second way to hide a key: both ends are advertised, and
+    /// <see cref="Keymap.Hints"/> is still the union.
+    /// </remarks>
+    public bool Standing { get; init; }
+
+    /// <summary>
     /// What a button for this key says, for a modal that draws them.
     /// </summary>
     /// <remarks>
@@ -1230,13 +1244,24 @@ public static class Keymap
 
         _ =>
         [
-            new(KeyStroke.Char('q'), Command.Quit, "quit"),
+            // THE THREE THAT ARE ALWAYS TRUE, drawn at the other end of the
+            // line - see KeyBinding.Standing.
+            //
+            // AND DECLARED IN THE ORDER THEY ARE DRAWN IN, which is the owner's
+            // order and puts quit hardest against the right edge: the one that
+            // ends the session is furthest from everything else, and the one
+            // that moves on its own is furthest from the corner. Declared here
+            // rather than sorted in the renderer, because the help page is
+            // built from this order too and two orders is one that drifts.
+            //
             // `g` for "get again". `r` is reject inside the gate modal and `R`
             // would be the only capital in the map, which is a shape somebody
             // has to learn rather than read.
             new(KeyStroke.Char('g'), Command.Refresh,
-                context.Refresh is { Length: > 0 } says ? $"refresh {says}" : "refresh"),
-            new(KeyStroke.Char('?'), Command.ToggleHelp, "help"),
+                context.Refresh is { Length: > 0 } says ? $"refresh {says}" : "refresh")
+                { Standing = true },
+            new(KeyStroke.Char('?'), Command.ToggleHelp, "help") { Standing = true },
+            new(KeyStroke.Char('q'), Command.Quit, "quit") { Standing = true },
             // WHERE THE FLIGHTS ARE. Both tabs that list them, because the
             // cursor is on a flight in either and this opens what the cursor
             // is on. Scoped, not hidden: the binding is unchanged and `a`
@@ -1534,8 +1559,37 @@ public static class Keymap
     /// A hand-written hint string is a second list, and a second list drifts.
     /// </remarks>
     public static string Hints(KeymapContext context) =>
+        HintsHere(context) is { Length: > 0 } here
+        && HintsStanding(context) is { Length: > 0 } standing
+            ? here + " · " + standing
+            : HintsHere(context) + HintsStanding(context);
+
+    /// <summary>
+    /// The advertised keys about what is on the screen - the left-hand end.
+    /// </summary>
+    /// <remarks>
+    /// <b>What the tab decides, and it changes as somebody moves around.</b>
+    /// Read left to right, this is the half worth reading, so it goes first
+    /// and it starts in the same column whatever else is true.
+    /// </remarks>
+    public static string HintsHere(KeymapContext context) =>
+        Line(context, standing: false);
+
+    /// <summary>
+    /// The advertised keys about the console - the right-hand end.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pinned, because they never change and are rarely read.</b> Left in
+    /// the flow they sat in a different column on every tab; at the right edge
+    /// they are always in the same one. Empty inside a modal, which offers none
+    /// of them - so there the line is exactly the line it always was.
+    /// </remarks>
+    public static string HintsStanding(KeymapContext context) =>
+        Line(context, standing: true);
+
+    private static string Line(KeymapContext context, bool standing) =>
         string.Join(" · ", Bindings(context)
-            .Where(b => !b.OffTheHintLine)
+            .Where(b => !b.OffTheHintLine && b.Standing == standing)
             .Select(b => $"{b.Key.Name} {b.Description}"));
 
     /// <summary>
@@ -1572,8 +1626,12 @@ public static class Keymap
         // THE WHOLE DESCRIPTION, so the seconds are located by what the line
         // says rather than by looking for digits in it. `refresh 30s` appears
         // once; `30s` on its own could be anybody's.
+        //
+        // AND MEASURED AGAINST THE END THAT DRAWS IT. Refresh is a standing
+        // key, so its seconds are columns of the right-hand label - an offset
+        // into the whole line would land somewhere in the left-hand one.
         var said = $"refresh {counted}";
-        var at = Hints(context).IndexOf(said, StringComparison.Ordinal);
+        var at = HintsStanding(context).IndexOf(said, StringComparison.Ordinal);
 
         return at < 0 ? null : (at + said.Length - counted.Length, counted.Length);
     }

@@ -61,9 +61,37 @@ public static class Reducer
                 WorkItemHistorySaid = null,
                 WorkItemFields = [],
                 WorkItemFieldsSaid = null,
+                WorkItemRow = null,
                 WorkItemSelected = 0,
                 WorkItemTab = WorkItemTab.Details,
             },
+
+            // THE FLIGHT'S OWN ITEM, HELD BESIDE THE LISTING. The row is
+            // synthesised from the intent because the item is usually not on
+            // the page anybody browsed - and replacing the listing to make room
+            // for it would throw away a filtered page somebody assembled. What
+            // the reader answers arrives afterwards, as every other read does.
+            Command.OpenTheTicket => FlightDetails.TicketAReaderHere(state) is var ticket
+                                  && ticket is not null
+                ? state with
+                {
+                    Mode = UiMode.WorkItemDetail,
+                    WorkItemId = ticket.Value.Id,
+                    WorkItemRow = new BrowseRow
+                    {
+                        Id = ticket.Value.Id,
+                        Title = "",
+                        State = "",
+                    },
+                    WorkItemSaid = null,
+                    WorkItemChanges = [],
+                    WorkItemHistorySaid = null,
+                    WorkItemFields = [],
+                    WorkItemFieldsSaid = null,
+                    WorkItemSelected = 0,
+                    WorkItemTab = WorkItemTab.Details,
+                }
+                : state,
 
             // THE SAME, one modal over. FilterOffered fills it when the reader
             // answers; this is what makes the key do something before then.
@@ -214,6 +242,12 @@ public static class Reducer
                     AskingKindFor = ComposingFor.Nothing,
                     KindSelected = 0,
                     AirspacePathTyped = null,
+
+                    // AND THE ITEM HELD BESIDE THE LISTING GOES WITH THE MODAL
+                    // THAT WAS ABOUT IT. Left behind, it would make the next
+                    // browse modal open about a flight's ticket instead of the
+                    // row under the cursor.
+                    WorkItemRow = null,
                 },
 
             // ANSWERING OPENS; IT DOES NOT DECIDE, which is the shape the two

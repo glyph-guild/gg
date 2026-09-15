@@ -1885,6 +1885,30 @@ public sealed record AppState
     /// <summary>Why there is no inventory, already worded, or null.</summary>
     public string? WorkItemFieldsSaid { get; init; }
 
+    /// <summary>
+    /// The item this modal is about when it did not come from the listing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the listing, not in it.</b> A flight's ticket is usually not on
+    /// the page somebody last browsed, and seeding the listing with one row to
+    /// give the modal an item would throw away a filtered page they assembled -
+    /// silently, and noticed only the next time they pressed `b`. Null is the
+    /// ordinary case: the modal is about the row under the browse cursor.
+    /// </remarks>
+    public BrowseRow? WorkItemRow { get; init; }
+
+    /// <summary>
+    /// The providers this machine has a reader declared for.
+    /// </summary>
+    /// <remarks>
+    /// <b>In the model because the keymap is pure.</b> Whether a key is offered
+    /// is decided from a context derived from this state and nothing else, and
+    /// "can this tracker be read here" is half of whether opening a flight's
+    /// ticket leads anywhere. Names only - a declaration carries a command and
+    /// at most a locator, and neither belongs in a model that is serialized.
+    /// </remarks>
+    public IReadOnlyList<string> ReaderKeys { get; init; } = [];
+
     /// <summary>Which row of that history the cursor is on.</summary>
     /// <remarks>
     /// A cursor of its own, for <see cref="BrowseSelected"/>'s reason twice

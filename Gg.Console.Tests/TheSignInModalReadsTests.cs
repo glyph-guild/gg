@@ -279,6 +279,40 @@ public class TheSignInModalReadsTests
 
             // AND THE COMPOSE MODAL'S SECOND HALF, for that same reason.
             WorkKindTab = WorkKindTab.Repositories,
+
+            // AND A FLIGHT NAMING A TICKET THIS MACHINE HAS A READER FOR, which
+            // is two facts from two places for one flag - the flight's intent,
+            // which the control plane recorded, and the declarations this
+            // console was started with. A model carrying one of them leaves the
+            // flag false however the derivation is written, which is the trap
+            // RunnerIsOurs set above.
+            ReaderKeys = ["a-tracker"],
+            Flights = new Gg.Contracts.FlightList
+            {
+                Flights =
+                [
+                    new()
+                    {
+                        FlightId = "019fe815-6136-7518-bb57-b06d6d3f411a",
+                        FlightNumber = "GG-118",
+                        Name = "the login form loses focus",
+                        Intent = new Gg.Contracts.FlightIntent
+                        {
+                            Kind = Gg.Contracts.FlightIntentKinds.Ticket,
+                            Provider = "a-tracker",
+                            Id = "17864",
+                        },
+                        CreatedAt = DateTimeOffset.UnixEpoch,
+                        RunnerProtocolVersion = 1,
+                        FactVocabularyVersion = "0.31.0",
+                        ConstitutionVersion = "1.0.0",
+                        EnvelopeVersion = "v7",
+                        Attempts = 1,
+                        State = Gg.Contracts.FlightStates.Open,
+                        Facts = [],
+                    },
+                ],
+            },
         };
 
         var context = KeymapContext.For(state);

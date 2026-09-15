@@ -63,7 +63,9 @@ public class WorkItemToolServerTests
 
         public Task<IReadOnlyList<WorkItemField>> FieldsAsync(
             string id, CancellationToken token) =>
-            Task.FromResult<IReadOnlyList<WorkItemField>>([]);
+            Task.FromResult<IReadOnlyList<WorkItemField>>(
+                [new("Microsoft.VSTS.Scheduling.StoryPoints", "5"),
+                 new("System.AssignedTo", "A Colleague")]);
     }
 
     /// <summary>A source that answers one row and remembers what it was asked.</summary>
@@ -88,7 +90,9 @@ public class WorkItemToolServerTests
 
         public Task<IReadOnlyList<WorkItemField>> FieldsAsync(
             string id, CancellationToken token) =>
-            Task.FromResult<IReadOnlyList<WorkItemField>>([]);
+            Task.FromResult<IReadOnlyList<WorkItemField>>(
+                [new("Microsoft.VSTS.Scheduling.StoryPoints", "5"),
+                 new("System.AssignedTo", "A Colleague")]);
 
         public Task<WorkItemFacets> FacetsAsync(CancellationToken token) =>
             Task.FromResult(new WorkItemFacets(
@@ -234,6 +238,47 @@ public class WorkItemToolServerTests
 
         await Assert.That(source.Called).IsTrue();
         await Assert.That(source.Asked).IsNull();
+    }
+
+    [Test]
+    public async Task The_inventory_it_answers_with_is_json_a_caller_can_read()
+    {
+        // FOUND BY DRIVING THE BINARY, not by this suite, and this is the
+        // assertion that would have caught it: Write() closes the object it was
+        // handed, so a body that closes its own leaves a spare `}` on the wire.
+        // Every reply here is JSON-RPC that parses; the damage was inside the
+        // CONTENT, which only a caller that parses the text can see - and it
+        // reached the console as `'}' is invalid without a matching open.` in
+        // the pane where the fields should have been.
+        var documents = await ExchangeAsync(
+            new RecordingSource(),
+            Initialize(),
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+          + "{\"name\":\"" + Gg.Local.ItemTool.FieldsName + "\",\"arguments\":{\"id\":\"26\"}}}");
+
+        var text = documents[1].RootElement.GetProperty("result").GetProperty("content")[0]
+            .GetProperty("text").GetString()!;
+
+        var fields = JsonDocument.Parse(text).RootElement
+            .GetProperty(Gg.Local.ItemTool.Inventory.Fields);
+
+        await Assert.That(fields.GetProperty("Microsoft.VSTS.Scheduling.StoryPoints").GetString())
+            .IsEqualTo("5");
+        await Assert.That(fields.GetProperty("System.AssignedTo").GetString())
+            .IsEqualTo("A Colleague");
+    }
+
+    [Test]
+    public async Task And_it_is_declared_so_a_caller_knows_to_ask()
+    {
+        var documents = await ExchangeAsync(Initialize(), List(1));
+
+        var tools = documents[1].RootElement.GetProperty("result").GetProperty("tools")
+            .EnumerateArray().Select(tool => tool.GetProperty("name").GetString()).ToList();
+
+        await Assert.That(tools).Contains(Gg.Local.ItemTool.FieldsName)
+            .Because("a tool a reader does not declare is one the console decides not to call, "
+                   + "and it decides that from tools/list rather than by probing.");
     }
 
     [Test]

@@ -742,6 +742,23 @@ public enum Command
     /// </remarks>
     OpenWorkItem,
 
+    /// <summary>
+    /// Shows the work item a flight was opened against.
+    /// </summary>
+    /// <remarks>
+    /// <b>The modal next door, about the item this flight names.</b> The flight
+    /// modal already shows <c>provider#id</c>; reaching what that item actually
+    /// says meant leaving the modal, opening Browse and finding the row by eye
+    /// - and the row is usually not on the page anybody last browsed.
+    /// <para>
+    /// <b>Offered only where it leads somewhere.</b> The intent has to be a
+    /// ticket and a reader has to be declared for its provider, because a key
+    /// that opens a modal to say it could not ask is the dead key Article XI
+    /// names.
+    /// </para>
+    /// </remarks>
+    OpenTheTicket,
+
     /// <summary>Shows or hides every allowance in the fleet.</summary>
     ToggleAllowances,
 
@@ -910,6 +927,11 @@ public static class ShellCommands
         // cannot see a spawn reached through a Func composed in the root.
         Command.ToggleBrowse,
         Command.ShowWorkItem,
+
+        // THE SAME READ, REACHED FROM THE OTHER MODAL. It asks the same reader
+        // the same three questions about one item; the only difference is that
+        // the id came off a flight rather than off a row.
+        Command.OpenTheTicket,
         Command.FilterBrowse,
         Command.BrowseFiltered,
     };

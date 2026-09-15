@@ -48,6 +48,14 @@ public static class WorkItemDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // WHAT THE MODAL WAS OPENED ABOUT, else the row under the cursor. The
+        // first is set only by a flight naming its ticket, which is an item
+        // that is usually nowhere on the page somebody browsed.
+        if (state.WorkItemRow is { } held)
+        {
+            return held;
+        }
+
         return state.Browse is { Items.Count: > 0 } listing
             && state.BrowseSelected >= 0
             && state.BrowseSelected < listing.Items.Count
@@ -64,9 +72,16 @@ public static class WorkItemDetails
     /// person carries to the tracker.
     /// </remarks>
     public static string Title(AppState state) =>
-        Item(state) is { } item
-            ? $"{ControlText.Strip(item.Id)} — {ControlText.Strip(item.Title)}"
-            : "The work item";
+        Item(state) is not { } item
+            ? "The work item"
+
+            // THE DASH NEEDS SOMETHING ON BOTH SIDES OF IT. An item opened from
+            // a flight was never listed, so this console has its id and no
+            // title - and `18490 — ` reads as a title the tracker lost rather
+            // than as one nobody here ever had.
+            : ControlText.Strip(item.Title) is { Length: > 0 } named
+                ? $"{ControlText.Strip(item.Id)} — {named}"
+                : ControlText.Strip(item.Id);
 
     /// <summary>What the reader said about it, as prose.</summary>
     public static string Said(AppState state)
@@ -163,6 +178,17 @@ public static class WorkItemDetails
         if (Item(state) is not { } item)
         {
             return [];
+        }
+
+        // UNLESS IT NEVER CAME FROM A LISTING. The seven are a listing's
+        // columns; an item opened from a flight was never listed, so emitting
+        // them would put `title` on screen as a blank row directly above the
+        // tracker's own System.Title with the title in it - an absence this
+        // console invented, reading as one it lost.
+        if (state.WorkItemRow is not null)
+        {
+            return [.. state.WorkItemFields.Select(f => new Gg.Local.WorkItemField(
+                ControlText.Strip(f.Name), ControlText.Strip(f.Value)))];
         }
 
         // THE NAMED SEVEN ARE ALWAYS ROWS, even the ones the tracker said

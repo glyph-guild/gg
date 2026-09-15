@@ -199,6 +199,19 @@ public class ProjectionParityTests
             // pair of arms would leave it half-built between them.
             ["AirspaceDiffed"] = "read by ConsoleEstate and unwrapped there, because the "
                                + "estate record joins two reads and an arm fills one field.",
+            // THE ENVIRONMENT ROWS EXIST, which is what makes this
+            // RepositoryAdded's argument rather than NameDeclared's: there is a
+            // surface, and what a chart mostly produces is not a row for it. A
+            // chart entry is reach that did not exist a moment ago, so it rides
+            // a gate - and projecting it onto EnvironmentRows would put a name
+            // on the pane that no envelope may select yet, which is exactly the
+            // belief the rendered sentence exists to prevent.
+            ["EnvironmentCharted"] = "the answer to charting an environment, and mostly a "
+                                   + "gate rather than an entry. The environment rows "
+                                   + "project the CHART; a row for something still riding a "
+                                   + "flight would say the name is selectable when it is "
+                                   + "not.",
+
             ["NameDeclared"] = "the answer to declaring a topology name. Not a working-copy "
                              + "result like the three above - it needs no tree - so it is "
                              + "absent only until the estate pane it belongs on exists.",

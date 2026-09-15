@@ -95,6 +95,18 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public RegistrationPending? NamePending { get; set; }
 
+    /// <summary>The 202 a chart rides, which is the ordinary answer.</summary>
+    public RegistrationPending? ChartPending { get; set; }
+
+    /// <summary>The 200 for a name already charted.</summary>
+    public EnvironmentCharted? ChartLive { get; set; }
+
+    /// <summary>The 400 sentence, when the door refuses the name.</summary>
+    public string? ChartRefusal { get; set; }
+
+    /// <summary>What arrived at the chart door, so a test can read it.</summary>
+    public ChartEnvironmentRequest? ChartedEnvironment { get; private set; }
+
     /// <summary>The entry a declaration gets when the name is already there.</summary>
     public TopologyName? NameLive { get; set; }
 
@@ -607,6 +619,35 @@ public sealed class StubControlPlane : IAsyncDisposable
                     await WriteAsync(
                         context, 500,
                         "This stub was asked to register a repository and no answer was "
+                      + "configured.");
+                }
+
+                return;
+
+            case "/v1/environments" when context.Request.HttpMethod == "POST":
+                ChartedEnvironment = JsonSerializer.Deserialize<ChartEnvironmentRequest>(
+                    LastBody, JsonSerializerOptions.Web);
+
+                if (ChartRefusal is { } chartRefusal)
+                {
+                    await WriteAsync(context, 400, chartRefusal);
+                }
+                else if (ChartLive is { } chartedAlready)
+                {
+                    await WriteJsonAsync(context, 200, chartedAlready);
+                }
+                else if (ChartPending is { } chartPending)
+                {
+                    await WriteJsonAsync(context, 202, chartPending);
+                }
+                else
+                {
+                    // NOT A SILENT 200, for the name door's reason: a stub with
+                    // no answer configured has been set up wrong, and success
+                    // would make the test pass against nothing.
+                    await WriteAsync(
+                        context, 500,
+                        "This stub was asked to chart an environment and no answer was "
                       + "configured.");
                 }
 

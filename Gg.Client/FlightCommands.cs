@@ -869,6 +869,42 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
+    /// Charts an environment name, so an envelope may select it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The last act of standing an environment up that had no verb.</b> The
+    /// browser-environment spike stood a second one up on a pool host and
+    /// reached this door with <c>curl</c>, because
+    /// <c>ChartEnvironmentRequest</c> had every registration except a caller.
+    /// </para>
+    /// <para>
+    /// <b>The meaning is passed through, including its absence.</b> Null is
+    /// what the door reads as "this name is a claim", and an empty string would
+    /// be a meaning nobody wrote.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> ChartEnvironmentAsync(
+        string name, string? meaning, CancellationToken cancellationToken = default)
+    {
+        var (live, pending) = await _client.ChartEnvironmentAsync(
+            Session(),
+            new ChartEnvironmentRequest { Name = name, Meaning = meaning },
+            cancellationToken);
+
+        return new VerbResult.EnvironmentCharted(new EnvironmentChartEntry
+        {
+            Name = live?.Name ?? name,
+            Meaning = live?.Meaning ?? meaning,
+            Disposition = live?.Disposition,
+            ChartedBy = live?.ChartedBy,
+            Flight = pending?.Flight,
+            Awaiting = pending?.Awaiting,
+            Widens = pending?.Widens,
+        });
+    }
+
+    /// <summary>
     /// Declares a name in the topology, so a document can be applied to it.
     /// </summary>
     /// <remarks>

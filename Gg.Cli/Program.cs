@@ -67,6 +67,8 @@ return CliArgs.Parse(args) switch
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
     CliAction.Environments charted =>
         await EmitAsync(charted.Json, c => c.EnvironmentsAsync()),
+    CliAction.EnvironmentChart charting => await EmitAsync(
+        charting.Json, c => c.ChartEnvironmentAsync(charting.Name, charting.Meaning)),
     CliAction.Strategies strategies =>
         await EmitAsync(strategies.Json, c => c.StrategiesAsync()),
     CliAction.Pools pools => await EmitAsync(pools.Json, c => c.PoolsAsync()),

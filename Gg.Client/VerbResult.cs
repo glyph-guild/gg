@@ -150,6 +150,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.AirspaceApplied;
     }
 
+    /// <summary>What charting an environment came to: an entry, or a gate.</summary>
+    public sealed record EnvironmentCharted(Gg.Client.EnvironmentChartEntry Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.EnvironmentCharted;
+    }
+
     /// <summary>What declaring a name came to: an entry, or a gate.</summary>
     public sealed record NameDeclared(Gg.Client.NameDeclared Value) : VerbResult
     {
@@ -448,6 +454,14 @@ public static class VerbResultKinds
 
     public const string AirspaceDiffed = "airspace-diffed";
 
+    /// <summary>What charting one came to - an entry, or the gate it rides.</summary>
+    /// <remarks>
+    /// Its own kind rather than <see cref="Chart"/>, which is the LIST, for the
+    /// reason the repository pair carries: a reader of a stream cannot tell
+    /// "here is the chart" from "one was charted" if both say the same word.
+    /// </remarks>
+    public const string EnvironmentCharted = "environment-charted";
+
     public const string NameDeclared = "name-declared";
 
     /// <summary>What registering one came to - an entry, or the gate it rides.</summary>
@@ -517,6 +531,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(TreeWritten))]
 [JsonSerializable(typeof(EstateApplied))]
+[JsonSerializable(typeof(EnvironmentChartEntry))]
 [JsonSerializable(typeof(NameDeclared))]
 [JsonSerializable(typeof(RepositoryAdded))]
 [JsonSerializable(typeof(NameRetired))]

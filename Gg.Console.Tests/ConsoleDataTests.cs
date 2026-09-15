@@ -251,6 +251,19 @@ public class ConsoleDataTests
             // something a person cannot then see or use.
             "DeclareNameAsync",
 
+            // CHARTING AN ENVIRONMENT, AND THE ROWS IT WOULD APPEAR ON EXIST -
+            // so this is RegisterRepositoryAsync's exemption rather than the
+            // one above it, and it is just as weak. What is missing is not a
+            // surface but the COLLECTION: a name, and optionally a meaning in
+            // somebody's own words. Nothing in this console is written by
+            // typing, and a write that opens a gate asks first - so it is a
+            // form, and a form is its own change.
+            //
+            // REMOVE THIS LINE when that form lands, beside the repository one.
+            // Both are a sequence rather than a property of the verb, and one
+            // form could plausibly serve both.
+            "ChartEnvironmentAsync",
+
             // REGISTERING A REPOSITORY, AND THE PANE IT BELONGS ON EXISTS -
             // which makes this the weakest exemption on the list, and it is
             // written down as such. The Repositories tab already shows the

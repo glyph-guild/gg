@@ -376,6 +376,20 @@ public class VerbParityTests
             // because there is no estate surface to put it on yet - the
             // console's new-document action is this verb followed by a pull -
             // which is an order of work rather than a property of the verb.
+            // NOT AirspaceName's REASON, because the pane it belongs on is
+            // already there. The Environments rows render the chart, so what is
+            // missing is the collection rather than the surface: a name and,
+            // optionally, a meaning in somebody's own words. Nothing in this
+            // console is written by typing, and a write that opens a gate asks
+            // first, so this is a form.
+            //
+            // REMOVE THIS LINE when that form lands, beside RepositoryRegister.
+            ["EnvironmentChart"] = "charts an environment so an envelope may select it. The "
+                                 + "Environments rows already show the chart, so the missing "
+                                 + "half is a typed name and an optional meaning - a form, "
+                                 + "like registering a repository, and a form is its own "
+                                 + "change.",
+
             ["AirspaceName"] = "declares a topology name; takes no file, so the working-copy "
                              + "reason above does not apply. Absent until the estate pane "
                              + "exists, which is where it belongs.",

@@ -228,6 +228,16 @@ public abstract record CliAction
     public sealed record AirspaceApply(bool Json, bool DeclareNames)
         : CliAction, IEmitsResult;
 
+    /// <summary>Charts an environment name, so an envelope may select it.</summary>
+    /// <remarks>
+    /// <b>The meaning is a flag because it is optional and the name is not.</b>
+    /// Absent means the name is a claim - <c>stated</c> - and registering a
+    /// meaning is what earns <c>measured</c>. A positional second argument
+    /// would make "chart a name I cannot yet describe" look like a mistake.
+    /// </remarks>
+    public sealed record EnvironmentChart(string Name, string? Meaning, bool Json)
+        : CliAction, IEmitsResult;
+
     /// <summary>What the working copy would change, per document.</summary>
     public sealed record AirspaceDiff(bool Json) : CliAction, IEmitsResult;
 
@@ -586,6 +596,8 @@ public static class CliArgs
         "                               make a repository nameable - a new one rides a gate",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
+        "gg environment chart <name> [--means <predicate>]",
+        "                               chart one, so an envelope may select it - rides a gate",
         "gg environments                every environment name an envelope may select",
         "gg strategies                  what furnishes each of them, and inside which bounds",
         "gg pools                       what each managed pool last attested, and when",
@@ -918,6 +930,18 @@ public static class CliArgs
                 "gg flights takes --all, --json, and --intent <provider>#<id> or a uri."),
             ["runners"] => new CliAction.Runners(json),
             ["environments"] => new CliAction.Environments(json),
+            // SINGULAR VERB, PLURAL LIST, the way envelope/envelopes and
+            // strategy/strategies already read. The list arm is above this one
+            // and matches its own word exactly, so the two cannot take each
+            // other's traffic.
+            ["environment", "chart", var charting, "--means", var means] =>
+                new CliAction.EnvironmentChart(charting, means, json),
+            ["environment", "chart", var charting] =>
+                new CliAction.EnvironmentChart(charting, null, json),
+            ["environment", ..] => Unknown(
+                "gg environment chart <name> [--means <predicate>] charts an environment so an "
+              + "envelope may select it. A name with no meaning is a claim; a meaning is what "
+              + "earns `measured`. Run gg environments to see what is charted already."),
             ["pools"] => new CliAction.Pools(json),
             ["strategies"] => new CliAction.Strategies(json),
             // A NAME NARROWS IT TO ONE DOCUMENT. Without one this answers the

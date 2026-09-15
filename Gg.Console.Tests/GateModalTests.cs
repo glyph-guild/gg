@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Gg.Console;
+using Gg.Contracts;
 
 namespace Gg.Console.Tests;
 
@@ -58,6 +59,102 @@ public class GateModalTests
             .Because("exactly one escape - two ways out of a modal is two things to explain "
                    + "and one of them will be wrong.");
     }
+
+    [Test]
+    public async Task An_agent_login_gate_offers_log_in_first_and_an_ordinary_gate_does_not()
+    {
+        // THE THIRD THING A GATE CAN OFFER, and only this kind of gate offers
+        // it. What clears a runner's agent-login gate is not an answer: it is
+        // logging the agent in, after which the runner reports ready and the
+        // control plane withdraws the flight. So `s` sits beside the two
+        // answers rather than replacing them - somebody who has decided this
+        // machine is never coming back still rejects it - and it is FIRST,
+        // because RenderModalButtons focuses the first button and the act
+        // that fixes the machine is the one to land on.
+        var asking = Keymap.Bindings(
+            new KeymapContext(UiMode.GateDecision) { GateAsksForAgentLogin = true });
+        var ordinary = Keymap.Bindings(new KeymapContext(UiMode.GateDecision));
+
+        await Assert.That(asking.Select(b => b.Command)).Contains(Command.LogAgentIn);
+        await Assert.That(asking[0].Command).IsEqualTo(Command.LogAgentIn)
+            .Because("the first binding is the focused button, and the act that clears this "
+                   + "gate is the one a person should land on.");
+        await Assert.That(asking.Select(b => b.Command)).Contains(Command.ApproveGate)
+            .Because("a person who has decided the machine is not coming back still answers "
+                   + "the gate the ordinary way.");
+        await Assert.That(asking.Select(b => b.Command)).Contains(Command.RejectGate);
+        await Assert.That(asking.Count(b => b.Command == Command.CloseModal)).IsEqualTo(1);
+
+        await Assert.That(ordinary.Select(b => b.Command)).DoesNotContain(Command.LogAgentIn)
+            .Because("a key that does nothing on the gate in front of somebody is the thing "
+                   + "AModalDoesNotAdvertiseDeadKeys refuses.");
+    }
+
+    [Test]
+    public async Task The_login_key_is_offered_only_for_the_kind_this_build_knows()
+    {
+        // GateMaintenanceKinds IS CLOSED so that a kind a newer control plane
+        // invents renders as an ordinary gate here rather than offering a key
+        // that would start the wrong ceremony.
+        var known = KeymapContext.For(WaitingOn(new GateMaintenance
+        {
+            Kind = GateMaintenanceKinds.AgentLogin,
+            Runner = "runner-1",
+            Provider = "claude",
+        }));
+        var unknown = KeymapContext.For(WaitingOn(new GateMaintenance
+        {
+            Kind = "reboot-the-host",
+            Runner = "runner-1",
+            Provider = "claude",
+        }));
+        var none = KeymapContext.For(WaitingOn(null));
+
+        await Assert.That(known.GateAsksForAgentLogin).IsTrue();
+        await Assert.That(unknown.GateAsksForAgentLogin).IsFalse()
+            .Because("a maintenance kind this build does not know is a gate to read, not an "
+                   + "act to offer.");
+        await Assert.That(none.GateAsksForAgentLogin).IsFalse();
+    }
+
+    /// <summary>A queue sitting on one gate, with the maintenance ask given.</summary>
+    private static AppState WaitingOn(GateMaintenance? maintenance) => new()
+    {
+        Mode = UiMode.GateDecision,
+        Gates = new GateList
+        {
+            Gates =
+            [
+                new PendingGate
+                {
+                    FlightNumber = "GG-24-0001",
+                    ObligationId = "check-human",
+                    Approver = "the-runner-decider",
+                    Branch = null,
+                    Commit = null,
+                    ManifestHash = new string('e', 64),
+                    Condition = "a person signs the agent in",
+                    Because = "this obligation declares no condition, so it always applies",
+                    AwaitingSince = DateTimeOffset.UnixEpoch,
+                    Attempt = 1,
+                    Maintenance = maintenance,
+                },
+            ],
+        },
+        Queue =
+        [
+            new QueueRow
+            {
+                Key = "f1",
+                Reference = "GG-24-0001",
+                FlightId = "f1",
+                FlightNumber = "GG-24-0001",
+                Name = "maintain gg-pool-ui-3 agent-login",
+                Reason = QueueReason.AwaitingDecision,
+                Since = DateTimeOffset.UnixEpoch,
+            },
+        ],
+    };
 
     [Test]
     public async Task Nothing_else_answers_a_gate_while_the_modal_is_open()

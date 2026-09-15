@@ -238,6 +238,17 @@ public readonly record struct KeymapContext(
     public bool RunnerIsBeating { get; init; }
 
     /// <summary>
+    /// Whether the gate under the queue's cursor asks for an agent login.
+    /// </summary>
+    /// <remarks>
+    /// <b>Derived from the closed kind</b>, in the one place contexts are
+    /// built, so the button and the dispatch read one answer - and so a
+    /// maintenance kind a newer control plane invents renders as an ordinary
+    /// gate rather than offering a key that would start the wrong ceremony.
+    /// </remarks>
+    public bool GateAsksForAgentLogin { get; init; }
+
+    /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
     /// </summary>
@@ -337,6 +348,11 @@ public readonly record struct KeymapContext(
             // WHETHER THERE IS ANYTHING TO REACH. Derived here with the rest,
             // so the hint line and the dispatch cannot disagree about whether
             // the key is live.
+            // WHETHER THE GATE IN FRONT OF SOMEBODY ASKS FOR A LOGIN, read
+            // through the one method that knows which kinds this build can
+            // act on, so the key and the act cannot disagree.
+            GateAsksForAgentLogin = ConsoleAgentLogin.Asking(state) is not null,
+
             RunnerIsBeating = Rows.Selected(state) is { } watchable
                 && !watchable.State.StartsWith(Gg.Contracts.RunnerStates.Offline, StringComparison.Ordinal),
 
@@ -673,6 +689,25 @@ public static class Keymap
         // behind the modal - and exactly one of them is a way out, which decides nothing.
         UiMode.GateDecision =>
         [
+            // FIRST, AND ONLY WHERE THERE IS ONE TO DO. RenderModalButtons
+            // focuses the first button, and on a gate asking for a login the
+            // act that fixes the machine is the one to land on: approving it
+            // answers nothing, because the runner still cannot start its
+            // agent. The two answers stay bound - somebody who has decided
+            // the machine is not coming back still rejects it - and a gate
+            // that asks for nothing offers no such key, which is the rule
+            // AModalDoesNotAdvertiseDeadKeysTests holds.
+            .. context.GateAsksForAgentLogin
+                ? (IReadOnlyList<KeyBinding>)
+                    [new(KeyStroke.Char('s'), Command.LogAgentIn, "log the agent in")
+                    {
+                        // SAID, because a person whose fleet is healthy will
+                        // never meet this key on a gate, and the help page is
+                        // where they find out it exists before the day they
+                        // need it.
+                        When = "when this gate is a runner's agent-login ask",
+                    }]
+                : [],
             new(KeyStroke.Char('a'), Command.ApproveGate, "approve"),
             new(KeyStroke.Char('r'), Command.RejectGate, "reject"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
@@ -1907,6 +1942,14 @@ public static class Keymap
         // they are bound only over a row with something to answer, which is
         // exactly the shape a product that left it out could not produce.
         from aGateWaits in (bool[])[false, true]
+
+        // AND WHETHER THAT GATE ASKS FOR AN AGENT LOGIN. Crossed here for the
+        // reason every clause above it records, and this one is the clearest
+        // case of it: `s log the agent in` is bound only over a gate that
+        // asks, so a person whose fleet is healthy will never see it on a
+        // gate - and the help page is the only place they find out it exists
+        // before the day they need it.
+        from gateAsksForAgentLogin in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument, reading,
             overAFold, onTheLookPage, onTheRepositoriesHalf, overAReadableTicket,
@@ -1917,6 +1960,7 @@ public static class Keymap
             RunnerIsBeating = runnerIsBeating,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
+            GateAsksForAgentLogin = gateAsksForAgentLogin,
         };
 
     /// <summary>

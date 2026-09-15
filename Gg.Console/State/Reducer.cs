@@ -224,6 +224,11 @@ public static class Reducer
             // clothing, which is the dangerous kind, because the demo works.
             Command.ApproveGate => state,
             Command.RejectGate => state,
+
+            // THE SHELL DOES IT, so the reducer does nothing - and it must do
+            // nothing, because a local effect here would land whether or not
+            // the remote half did.
+            Command.LogAgentIn => state,
             // CLOSING A CONFIRMATION IS AN ANSWER, not a dismissal. Leaving
             // PendingFlight behind would let the next 'y' - aimed at something
             // else entirely - open the flight this person just declined.

@@ -71,6 +71,7 @@ public sealed class ConsoleLoop(
     // GIVING A RUNNER A CREDENTIAL, which is watching's shape with one more
     // thing it may not do inside a session: read a secret with the echo off.
     Func<AppState, AppState>? sendCredential = null,
+    Func<AppState, AppState>? logAgentIn = null,
 
     /// <summary>
     /// Folds what is known about the runner this console started into the model.
@@ -465,6 +466,19 @@ public sealed class ConsoleLoop(
                     // WHICH REPOSITORY WAS ALREADY ANSWERED, on the screen that
                     // holds the registry. Only the secret is left to ask for.
                     state = Given(state, sendCredential);
+                    break;
+
+                case Command.LogAgentIn:
+                    // THE SESSION IS OVER HERE for the send's reasons and one
+                    // more: this prints a URL a person selects and opens, then
+                    // reads a code with the echo off. Both want the terminal
+                    // back, and the conversation stays open while they are
+                    // away from the keyboard.
+                    //
+                    // AND THE GATE IS NOT ANSWERED. What clears it is the
+                    // runner reporting ready afterwards, which the next reload
+                    // picks up.
+                    state = LoggedIn(state, logAgentIn);
                     break;
 
                 case Command.WatchRunner:
@@ -990,6 +1004,14 @@ public sealed class ConsoleLoop(
                 LastCredential = "This console is not configured to send a credential.",
             }
             : give(state);
+
+    private static AppState LoggedIn(AppState state, Func<AppState, AppState>? login) =>
+        login is null
+            ? state with
+            {
+                LastCredential = "This console is not configured to log an agent in.",
+            }
+            : login(state);
 
     private static AppState Stopped(AppState state, Func<AppState, AppState>? stop) =>
         stop is null

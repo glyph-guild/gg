@@ -265,6 +265,51 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
     /// tracker and is about to be drawn in a terminal.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Everything the tracker records about one item.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No <c>fields=</c>, and that is the whole point.</b> On this endpoint
+    /// that parameter is an allowlist of what to send back, so the listing's
+    /// five-field request is a request that CANNOT answer "everything" - which
+    /// is why this could not be a column on a browse row and had to be a verb.
+    /// </para>
+    /// <para>
+    /// <b>Cheap because it is one item.</b> The listing keeps its allowlist;
+    /// this is paid for when somebody opens the modal, exactly like the history
+    /// beside it.
+    /// </para>
+    /// <para>
+    /// <b>A missing item is no fields, not a failure.</b> An id that has been
+    /// deleted since the listing was drawn is a stale row, and the modal
+    /// already has a sentence for an item that says nothing.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<WorkItemField>> FieldsAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        using var answer = await _client.GetAsync(
+            $"{_host}/_apis/wit/workitems/{Uri.EscapeDataString(id)}"
+          + $"?api-version={ApiVersion}",
+            cancellationToken);
+
+        if (answer.StatusCode == HttpStatusCode.NotFound)
+        {
+            return [];
+        }
+
+        answer.EnsureSuccessStatusCode();
+
+        using var body = Answered(await answer.Content.ReadAsStringAsync(cancellationToken));
+
+        return body.RootElement.TryGetProperty("fields", out var fields)
+            ? Everything(fields)
+            : [];
+    }
+
     public async Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
         string id, CancellationToken cancellationToken = default)
     {
@@ -654,7 +699,13 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             Url: $"{_host}/_workitems/edit/{Uri.EscapeDataString(id)}",
             Updated: Field(fields, ChangedField),
             AreaPath: Field(fields, AreaField),
-            Iteration: Field(fields, IterationField));
+            Iteration: Field(fields, IterationField),
+
+            // AND EVERYTHING ELSE IT SENT. The seven above are what the
+            // listing is built to choose by; a modal about one item wants
+            // what the tracker actually holds, and this source was already
+            // being handed all of it and throwing the rest away.
+            Fields: Everything(fields));
     }
 
     /// <summary>An id, whether the tracker quoted it or not.</summary>
@@ -667,6 +718,28 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
                 _ => null,
             }
             : null;
+
+    /// <summary>
+    /// Every field the tracker sent, in its order, as text.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Through <c>WorkItemFields.Text</c>, because these are not all
+    /// strings.</b> <see cref="Field"/> below answers null for anything that is
+    /// not a JSON string - which is right for the seven, every one of which is
+    /// one - and would have rendered a story point as an empty cell.
+    /// </para>
+    /// <para>
+    /// <b>The tracker's order, not ours.</b> A tracker groups related fields
+    /// together and an alphabetical sort would scatter them; what arrives is
+    /// what somebody looking at the same item in the tracker's own UI sees.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<WorkItemField> Everything(JsonElement fields) =>
+        fields.ValueKind == JsonValueKind.Object
+            ? [.. fields.EnumerateObject().Select(
+                f => new WorkItemField(f.Name, WorkItemFields.Text(f.Value)))]
+            : [];
 
     private static string? Field(JsonElement fields, string name) =>
         fields.ValueKind == JsonValueKind.Object && fields.TryGetProperty(name, out var value)

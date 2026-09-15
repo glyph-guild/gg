@@ -52,6 +52,18 @@ public sealed record BrowseRow
     /// assembled and discarded.
     /// </remarks>
     public string? Sprint { get; init; }
+
+    /// <summary>
+    /// Everything else the tracker records about it, in the order it sent them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried rather than drawn, like <see cref="Sprint"/> above.</b> The
+    /// listing shows what a person chooses BY; this is what the modal about one
+    /// item shows. A value that crosses the wire and stops at this boundary is
+    /// one assembled and discarded - which is what happened to every field but
+    /// seven until the owner went looking for a story point.
+    /// </remarks>
+    public IReadOnlyList<Gg.Local.WorkItemField> Fields { get; init; } = [];
 }
 
 /// <summary>

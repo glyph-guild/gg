@@ -125,6 +125,104 @@ public static class WorkItemDetails
         }
     }
 
+    /// <summary>The heading over the fields tab.</summary>
+    public const string FieldsTitle = "What the tracker records";
+
+    /// <summary>The columns the fields table declares.</summary>
+    public static IReadOnlyList<string> FieldColumns { get; } = ["field", "value"];
+
+    /// <summary>
+    /// Everything the tracker records about this item: the named ones first,
+    /// then whatever else it sent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The seven first, in the contract's order.</b> They are the ones this
+    /// console can promise and the ones a person came for, and putting them
+    /// where <c>BrowseTool.Fields</c> lists them means a reader of both sees
+    /// one ordering rather than two.
+    /// </para>
+    /// <para>
+    /// <b>Then everything else, in the tracker's order, under the tracker's own
+    /// names.</b> Not alphabetised: a tracker groups related fields and sorting
+    /// scatters them, so what arrives is what somebody looking at the same item
+    /// in the tracker's own UI sees. Not renamed either - a person who wants to
+    /// know what <c>Microsoft.VSTS.Scheduling.StoryPoints</c> is will search
+    /// for that, and a friendlier label would be a word only this console uses.
+    /// </para>
+    /// <para>
+    /// <b>And nothing is dropped for looking like noise.</b> The owner chose
+    /// that explicitly: a field this console decided not to show is one nobody
+    /// can discover is there.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<Gg.Local.WorkItemField> AllFields(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Item(state) is not { } item)
+        {
+            return [];
+        }
+
+        // THE NAMED SEVEN ARE ALWAYS ROWS, even the ones the tracker said
+        // nothing for. Fields() above leaves an absent value out, because a
+        // caption over nothing reads as a tracker that answered emptily - but
+        // this table is the inventory, and a row missing from an inventory
+        // reads as a field that does not exist.
+        List<Gg.Local.WorkItemField> rows =
+        [
+            new(Gg.Local.BrowseTool.Fields.Id, ControlText.Strip(item.Id)),
+            new(Gg.Local.BrowseTool.Fields.Title, ControlText.Strip(item.Title)),
+            new(Gg.Local.BrowseTool.Fields.State, ControlText.Strip(item.State)),
+            new(Gg.Local.BrowseTool.Fields.Url, ControlText.Strip(item.Url ?? "")),
+            new(Gg.Local.BrowseTool.Fields.Updated, ControlText.Strip(item.Updated ?? "")),
+            new(Gg.Local.BrowseTool.Fields.AreaPath, ControlText.Strip(item.Where ?? "")),
+            new(Gg.Local.BrowseTool.Fields.Iteration, ControlText.Strip(item.Sprint ?? "")),
+        ];
+
+        // WHAT WAS ASKED ABOUT THIS ITEM, else whatever the row happened to
+        // carry. Two conformant shapes: a reader answers `get_work_item_fields`
+        // for the item somebody opened, or - finding them cheap - hangs them on
+        // a listed item. The per-item answer wins where there is one, because
+        // it is the one asked about THIS item and the row's may be a page old.
+        var inventory = state.WorkItemFields.Count > 0 ? state.WorkItemFields : item.Fields;
+
+        // STRIPPED AT THE BOUNDARY LIKE EVERY OTHER EXTERNAL STRING. These are
+        // a tracker's words arriving through a child process, and the console
+        // rule is that control sequences come out at ingress rather than at
+        // render - but a name is also a key, so both halves are cleaned.
+        rows.AddRange(inventory.Select(f => new Gg.Local.WorkItemField(
+            ControlText.Strip(f.Name), ControlText.Strip(f.Value))));
+
+        return rows;
+    }
+
+    /// <summary>Why the fields table has nothing but the seven, or nothing.</summary>
+    /// <remarks>
+    /// <b>Three absences, as everywhere else in this modal.</b> A reader that
+    /// does not declare the verb, a tracker that answered and records nothing
+    /// more, and an inventory with rows in it are three different facts - and
+    /// an empty table under the seven claims the second when it may be the
+    /// first. The reader's own words are preferred where there are any, because
+    /// it already said what was wrong and naming the missing tool is the thing
+    /// an operator can act on.
+    /// </remarks>
+    public static string FieldsAbsence(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.WorkItemFields.Count > 0 || Item(state) is not { Fields.Count: 0 })
+        {
+            return "";
+        }
+
+        return state.WorkItemFieldsSaid is { Length: > 0 } why
+            ? ControlText.Strip(why)
+            : "This tracker records nothing about this item beyond the fields a listing is "
+            + "built from.";
+    }
+
     /// <summary>The history, as rows.</summary>
     public static IReadOnlyList<WorkItemChangeRow> Changes(AppState state)
     {

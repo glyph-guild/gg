@@ -191,7 +191,7 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(14)
+        await Assert.That(built).IsEqualTo(15)
             .Because("nine calls, and the count is here so a tenth has to come past this. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
                    + "a hand-counted role column. The seventh and eighth are the RUNNER "
@@ -205,7 +205,7 @@ public class TheRunnersCursorStaysTests
                    + "a credential is sent for, which was a question typed at a bare prompt "
                    + "after the terminal had already been handed back - so the console that "
                    + "holds the registry asked nothing and the place holding none of it "
-                   + "asked everything. The thirteenth is the Look page's settings, which "
+                   + "asked everything. And one more is the work item modal's inventory - everything the tracker records about it, which is a list of names and values and so is a table where the prose beside it is not. The thirteenth is the Look page's settings, which "
                    + "is a SPIKE - if that page goes, this number goes back to twelve, and "
                    + "a count that quietly absorbed its removal would be a count measuring "
                    + "nothing. The fourteenth is the compose modal's repositories, which is "

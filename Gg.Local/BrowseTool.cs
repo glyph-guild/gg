@@ -87,6 +87,19 @@ public static class BrowseTool
         /// <summary>The sprint it is in, or absent where the tracker says nothing.</summary>
         public const string Iteration = "iteration";
 
+        /// <summary>
+        /// Everything else the tracker records, as an object of name to value.
+        /// </summary>
+        /// <remarks>
+        /// <b>OPTIONAL, and the only optional thing here.</b> The seven above
+        /// are what a reader must answer; this is what it MAY add, and a reader
+        /// that omits it is fully conformant. Values may be any JSON - a story
+        /// point is a number and an assignee is an object - because a contract
+        /// that demanded strings would be asking a tracker to lie about what it
+        /// holds.
+        /// </remarks>
+        public const string Extra = "fields";
+
         /// <summary>All of them, for a reader asserting it answers them.</summary>
         public static IReadOnlyList<string> All { get; } =
             [Id, Title, State, Url, Updated, AreaPath, Iteration];

@@ -262,6 +262,73 @@ public sealed class ReaderConversation(
         _ => "The reader answered something this console could not read.",
     };
 
+    /// <summary>
+    /// Everything one item records, in the reader's own names and order.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own verb, and a reader may not have it</b> - the history's
+    /// sentence one method up, for the same reason. A reader that says what an
+    /// item IS without listing what it records is still a useful reader, so
+    /// this says so by name rather than failing the modal.
+    /// </remarks>
+    public async Task<FieldsOutcome> FieldsAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        if (await OpenAsync(cancellationToken) is { } refused)
+        {
+            return new FieldsOutcome.Nothing(Why(refused));
+        }
+
+        if (!ItemTool.HasFields(_declared))
+        {
+            return new FieldsOutcome.Nothing(ItemTool.NoFields(_key));
+        }
+
+        var call = await CallAsync(
+            ItemTool.FieldsName,
+            arguments => arguments.WriteString(ItemTool.Id, id),
+            cancellationToken);
+
+        if (call.Outcome is { } ended)
+        {
+            return new FieldsOutcome.Nothing(Why(ended));
+        }
+
+        if (call.Text is not { } text)
+        {
+            return new FieldsOutcome.Nothing(Saying("answered a call with no content."));
+        }
+
+        try
+        {
+            using var body = JsonDocument.Parse(text);
+
+            return new FieldsOutcome.Read(Inventory(body.RootElement));
+        }
+        catch (JsonException)
+        {
+            return new FieldsOutcome.Nothing(
+                Saying("declared " + ItemTool.FieldsName + " and answered with something "
+                     + "that is not the shape it promised: " + Short(text)));
+        }
+    }
+
+    /// <summary>The fields of an inventory, in the order they arrived.</summary>
+    /// <remarks>
+    /// <b>The tracker's order, kept.</b> A tracker groups related fields
+    /// together; an alphabetical sort here would scatter them and this console
+    /// would be re-filing somebody else's record.
+    /// </remarks>
+    private static IReadOnlyList<Gg.Local.WorkItemField> Inventory(JsonElement body) =>
+        body.ValueKind == JsonValueKind.Object
+        && body.TryGetProperty(ItemTool.Inventory.Fields, out var fields)
+        && fields.ValueKind == JsonValueKind.Object
+            ? [.. fields.EnumerateObject().Select(f => new Gg.Local.WorkItemField(
+                f.Name, Gg.Local.WorkItemFields.Text(f.Value)))]
+            : [];
+
     /// <summary>What there is to narrow a listing by, or why there is nothing to offer.</summary>
     /// <remarks>
     /// <b>Asked of the same conversation the listing comes from.</b> A person
@@ -555,7 +622,25 @@ public sealed class ReaderConversation(
         Url: Field(item, BrowseTool.Fields.Url) ?? "",
         Updated: Field(item, BrowseTool.Fields.Updated),
         AreaPath: Field(item, BrowseTool.Fields.AreaPath),
-        Iteration: Field(item, BrowseTool.Fields.Iteration));
+        Iteration: Field(item, BrowseTool.Fields.Iteration),
+        Fields: Extra(item));
+
+    /// <summary>
+    /// Everything else the reader sent about one item, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Values as text, whatever shape they arrived in.</b> A reader is free
+    /// to send a story point as a number and an assignee as an object - the
+    /// contract says so deliberately, because demanding strings would ask a
+    /// tracker to lie about what it holds.
+    /// </remarks>
+    private static IReadOnlyList<Gg.Local.WorkItemField> Extra(JsonElement item) =>
+        item.ValueKind == JsonValueKind.Object
+        && item.TryGetProperty(BrowseTool.Fields.Extra, out var fields)
+        && fields.ValueKind == JsonValueKind.Object
+            ? [.. fields.EnumerateObject().Select(f => new Gg.Local.WorkItemField(
+                f.Name, Gg.Local.WorkItemFields.Text(f.Value)))]
+            : [];
 
     private static string? Field(JsonElement item, string name) =>
         item.ValueKind == JsonValueKind.Object && item.TryGetProperty(name, out var value)

@@ -47,7 +47,7 @@ public class EveryFieldTheTrackerSentTests
         Where = "Platform",
         Sprint = "Sprint 142",
         Updated = "2026-09-14T18:17Z",
-        Url = "https://dev.azure.com/HRTMS/JDX/_workitems/edit/17864",
+        Url = "https://tracker.example/acme/_workitems/edit/17864",
     };
 
     private static AppState Showing() => new()
@@ -61,7 +61,7 @@ public class EveryFieldTheTrackerSentTests
         WorkItemFields =
         [
             new("Microsoft.VSTS.Scheduling.StoryPoints", "5"),
-            new("System.AssignedTo", "Kevin Deenanauth"),
+            new("System.AssignedTo", "A Colleague"),
             new("System.Rev", "47"),
         ],
     };
@@ -219,9 +219,9 @@ public class EveryFieldTheTrackerSentTests
         // ADO SENDS System.AssignedTo AS AN OBJECT. Rendered as raw JSON it is
         // a wall of urls and descriptors with the one useful word buried in it.
         var said = WorkItemFields.Text(System.Text.Json.JsonDocument.Parse(
-            """{"displayName":"Kevin Deenanauth","uniqueName":"kdeenanauth@jdxpert.com"}""")
+            """{"displayName":"A Colleague","uniqueName":"a.person@example.com"}""")
             .RootElement);
 
-        await Assert.That(said).IsEqualTo("Kevin Deenanauth");
+        await Assert.That(said).IsEqualTo("A Colleague");
     }
 }

@@ -214,6 +214,27 @@ public static class WorkItemToolServer
             writer.WriteEndObject();
 
             writer.WriteStartObject();
+            writer.WriteString("name", Gg.Local.ItemTool.FieldsName);
+            writer.WriteString("description",
+                "Every field one work item records, under the tracker's own names - story "
+              + "points, assignee, priority, tags and whatever else this team added. Use "
+              + "this when a specific field matters; " + ReadName + " is the readable "
+              + "summary.");
+            writer.WriteStartObject("inputSchema");
+            writer.WriteString("type", "object");
+            writer.WriteStartObject("properties");
+            writer.WriteStartObject("id");
+            writer.WriteString("type", "string");
+            writer.WriteString("description", "The work item's numeric id.");
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.WriteStartArray("required");
+            writer.WriteStringValue("id");
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+
+            writer.WriteStartObject();
             writer.WriteString("name", BrowseTool.Name);
             writer.WriteString("description",
                 "List work items to choose from: id, title, state, url and when each last "
@@ -317,6 +338,8 @@ public static class WorkItemToolServer
                 ReadName => await ReadAsync(id, arguments, source, cancellationToken),
                 Gg.Local.ItemTool.HistoryName =>
                     await HistoryAsync(id, arguments, source, cancellationToken),
+                Gg.Local.ItemTool.FieldsName =>
+                    await FieldsAsync(id, arguments, source, cancellationToken),
                 BrowseTool.Name => await BrowseAsync(id, arguments, source, cancellationToken),
                 FacetTool.Name => await FacetsAsync(id, source, cancellationToken),
                 _ => Error(id, -32602,
@@ -352,6 +375,46 @@ public static class WorkItemToolServer
         return item is null
             ? Failed(id, $"There is no work item {wanted} at this tracker.")
             : Content(id, Rendered(item));
+    }
+
+    /// <summary>
+    /// Every field one item records, under the tracker's own names.
+    /// </summary>
+    /// <remarks>
+    /// <b>An object, not a rendering.</b> The caller is a pane that puts these
+    /// in two columns, and joining them into lines here would flatten the shape
+    /// at the last point anybody could still see it had one - the same argument
+    /// the history's rows make one method down.
+    /// </remarks>
+    private static async Task<string> FieldsAsync(
+        JsonElement id, JsonElement arguments, IWorkItemSource source,
+        CancellationToken cancellationToken)
+    {
+        var wanted = arguments.ValueKind == JsonValueKind.Object
+                  && arguments.TryGetProperty(Gg.Local.ItemTool.Id, out var given)
+            ? Text(given)
+            : null;
+
+        if (string.IsNullOrWhiteSpace(wanted))
+        {
+            return Failed(id, "This tool needs the work item's id, and none was given.");
+        }
+
+        var inventory = await source.FieldsAsync(wanted, cancellationToken);
+
+        return Content(id, Write(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteStartObject(Gg.Local.ItemTool.Inventory.Fields);
+
+            foreach (var field in inventory)
+            {
+                writer.WriteString(field.Name, field.Value);
+            }
+
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+        }));
     }
 
     /// <summary>
@@ -524,6 +587,21 @@ public static class WorkItemToolServer
                 writer.WriteString(BrowseTool.Fields.Updated, item.Updated);
                 writer.WriteString(BrowseTool.Fields.AreaPath, item.AreaPath);
                 writer.WriteString(BrowseTool.Fields.Iteration, item.Iteration);
+
+                // AND EVERYTHING ELSE THE TRACKER SENT, as an object of name
+                // to value. Written only when there is something: an empty
+                // object is a reader claiming the tracker records nothing but
+                // the seven, where absent is this reader declining to say.
+                if (item.Fields is { Count: > 0 } extra)
+                {
+                    writer.WriteStartObject(BrowseTool.Fields.Extra);
+                    foreach (var field in extra)
+                    {
+                        writer.WriteString(field.Name, field.Value);
+                    }
+                    writer.WriteEndObject();
+                }
+
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();

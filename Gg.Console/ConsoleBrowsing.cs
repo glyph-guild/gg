@@ -126,6 +126,7 @@ public static class ConsoleBrowsing
 
         var said = Words(browser, item.Id);
         var happened = Happened(browser, item.Id);
+        var records = Records(browser, item.Id);
 
         return current => current with
         {
@@ -134,6 +135,8 @@ public static class ConsoleBrowsing
             WorkItemSaid = said,
             WorkItemChanges = happened.Rows,
             WorkItemHistorySaid = happened.Said,
+            WorkItemFields = records.Fields,
+            WorkItemFieldsSaid = records.Said,
             WorkItemSelected = 0,
             WorkItemTab = WorkItemTab.Details,
         };
@@ -343,6 +346,25 @@ public static class ConsoleBrowsing
         catch (Exception problem) when (problem is not OperationCanceledException)
         {
             return "This item could not be read: " + problem.Message;
+        }
+    }
+
+    private static (IReadOnlyList<Gg.Local.WorkItemField> Fields, string? Said) Records(
+        IWorkBrowser browser, string id)
+    {
+        try
+        {
+            return browser.FieldsAsync(id, CancellationToken.None).GetAwaiter().GetResult()
+                switch
+            {
+                FieldsOutcome.Read(var fields) => (fields, null),
+                FieldsOutcome.Nothing(var why) => ([], why),
+                _ => ([], "The reader answered nothing about what this item records."),
+            };
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return ([], "What this item records could not be read: " + problem.Message);
         }
     }
 

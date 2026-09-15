@@ -60,6 +60,10 @@ internal static class ConsoleDoubles
         public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("this history was already held and was asked for again");
 
+        public Task<FieldsOutcome> FieldsAsync(string id, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(
+                "these fields were already held and were asked for again");
+
         public Task<BrowseOutcome> BrowseAsync(
             string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("the listing was asked for when it should not have been");

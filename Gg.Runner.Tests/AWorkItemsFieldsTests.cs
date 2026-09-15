@@ -66,8 +66,8 @@ public class AWorkItemsFieldsTests
            "System.Title":"Sonar cleanup: correctness risks",
            "System.State":"Active",
            "Microsoft.VSTS.Scheduling.StoryPoints":5,
-           "System.AssignedTo":{"displayName":"Kevin Deenanauth",
-                                "uniqueName":"kdeenanauth@example.com"},
+           "System.AssignedTo":{"displayName":"A Colleague",
+                                "uniqueName":"a.person@example.com"},
            "System.Rev":47,
            "Custom.Blocked":false}}
         """;
@@ -116,7 +116,7 @@ public class AWorkItemsFieldsTests
         await Assert.That(said.Single(f => f.Name == "Microsoft.VSTS.Scheduling.StoryPoints").Value)
             .IsEqualTo("5");
         await Assert.That(said.Single(f => f.Name == "System.AssignedTo").Value)
-            .IsEqualTo("Kevin Deenanauth");
+            .IsEqualTo("A Colleague");
         await Assert.That(said.Single(f => f.Name == "Custom.Blocked").Value)
             .IsEqualTo("false");
     }

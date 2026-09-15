@@ -70,6 +70,9 @@ public class ABrowseRestoresWhatWasNarrowedTests
 
         public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
             Task.FromResult<HistoryOutcome>(new HistoryOutcome.Nothing("not asked here"));
+
+        public Task<FieldsOutcome> FieldsAsync(string id, CancellationToken token) =>
+            Task.FromResult<FieldsOutcome>(new FieldsOutcome.Nothing("not asked here"));
     }
 
     private static AppState Browsing() => new()

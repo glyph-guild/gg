@@ -217,7 +217,17 @@ public static class PaneText
         };
     }
 
-    /// <summary>One line per flight needing me.</summary>
+    /// <summary>One line per thing needing me.</summary>
+    /// <remarks>
+    /// <b>Not one line per FLIGHT any more, and the difference shows in the
+    /// first column.</b> The queue's other kind of row is a standing
+    /// nomination - work that has not started - and it has no flight number,
+    /// because it has no flight. Interpolating the number straight in still
+    /// COMPILED once it became optional and would have printed a blank cell,
+    /// which reads as a row about a flight whose number nobody minted. So the
+    /// first column is what a person can recognise the row by, whatever it is
+    /// about.
+    /// </remarks>
     public static IReadOnlyList<string> QueueRows(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -251,7 +261,7 @@ public static class PaneText
             .. state.Queue.Select(row =>
             {
                 var unread = row.UnreadArrivals > 0 ? $" ({row.UnreadArrivals})" : "";
-                return Clean($"{row.FlightNumber,-9} {Reason(row.Reason),-18} {row.Name}{unread}");
+                return Clean($"{Recognised(row),-9} {Reason(row.Reason),-18} {row.Name}{unread}");
             }),
         ];
     }
@@ -272,7 +282,23 @@ public static class PaneText
             ? $"! {notice.Detail} - {remedy}"
             : $"! {notice.Detail}");
 
-    /// <summary>Why a flight is in the queue, in words rather than an enum name.</summary>
+    /// <summary>
+    /// What a person recognises this row by, in nine columns.
+    /// </summary>
+    /// <remarks>
+    /// <b>A flight's number, or enough of a nomination's id to tell two
+    /// apart.</b> A nomination's reference is a whole uuid because that is what
+    /// <c>gg board open</c> parses; nine columns cannot hold one, and the pane
+    /// is not where a person types it - the row is selected and the modal
+    /// carries the id. So this is a label rather than an argument, which is the
+    /// opposite of the rule the CLI listing follows and for the opposite
+    /// reason.
+    /// </remarks>
+    private static string Recognised(QueueRow row) =>
+        row.FlightNumber
+        ?? (row.Reference.Length > 8 ? row.Reference[..8] : row.Reference);
+
+    /// <summary>Why something is in the queue, in words rather than an enum name.</summary>
     public static string Reason(QueueReason reason) => reason switch
     {
         QueueReason.AwaitingDecision => "awaiting a decision",
@@ -282,6 +308,12 @@ public static class PaneText
         // would not say what to go and do; the cell is narrow, so it spends its
         // width on the noun rather than on the verb.
         QueueReason.CredentialUnresolved => "credential missing",
+        // NOT "awaiting a decision", which is the row above and about a FLIGHT.
+        // A person reading that goes looking for the flight, and for this row
+        // there is none: what they are answering is whether there should be
+        // one. The cell is narrow and spends its width saying which question
+        // it is.
+        QueueReason.NominationStanding => "nominated · open it?",
         // Article XI: a reason nothing can render halts rather than showing a
         // blank cell that reads as "nothing wrong".
         _ => throw new InvalidOperationException(

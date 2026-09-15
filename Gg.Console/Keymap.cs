@@ -1336,6 +1336,18 @@ public static class Keymap
             // which is one line, keeps only the keys that have nowhere else to
             // be advertised. Bound, not advertised twice: the rule
             // KeyBinding.Hidden was written for.
+            // THE TWO THAT CANNOT BE CLOSED, so they show rather than toggle -
+            // and punctuation rather than letters, because there are no
+            // letters left. Tabs.KeyFor carries the argument; these are the
+            // same two keys read out of it, and EveryTabIsOnTheBarTests
+            // asserts the bar and the keymap agree about them.
+            //
+            // OFF THE HINT LINE like the other six: the key is on the tab.
+            new(KeyStroke.Char(','), Command.ShowQueueTab, "queue")
+                { OffTheHintLine = true },
+            new(KeyStroke.Char('.'), Command.ShowFlightsTab, "flights")
+                { OffTheHintLine = true },
+
             new(KeyStroke.Char('l'), Command.ToggleLive, Closes(context, TabId.Live, "live"))
                 { OffTheHintLine = true },
             new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse"))

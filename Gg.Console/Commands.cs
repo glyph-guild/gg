@@ -762,6 +762,28 @@ public enum Command
     /// <summary>Shows or hides every allowance in the fleet.</summary>
     ToggleAllowances,
 
+    /// <summary>
+    /// Goes to the queue.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shows, where the other tab keys toggle.</b> The six that can be
+    /// closed land on the queue when they are, which only works because the
+    /// queue is the thing they land on - so there is nothing for a second
+    /// press of this to do but leave somebody where they already are.
+    /// <para>
+    /// <b>Reads nothing.</b> The queue is derived from flights the boot already
+    /// fetched, so this is the reducer's alone.
+    /// </para>
+    /// </remarks>
+    ShowQueueTab,
+
+    /// <summary>Goes to the list of every recent flight.</summary>
+    /// <remarks>
+    /// <see cref="ShowQueueTab"/>'s shape and its reasons: it shows rather than
+    /// toggles, because this tab cannot be closed either, and it reads nothing.
+    /// </remarks>
+    ShowFlightsTab,
+
     /// <summary>Opens the question of how much of this allowance to keep.</summary>
     AskToKeepAShare,
 

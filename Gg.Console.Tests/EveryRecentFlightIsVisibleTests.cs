@@ -167,16 +167,18 @@ public class EveryRecentFlightIsVisibleTests
     [Test]
     public async Task The_tab_is_open_before_anybody_asks_for_it()
     {
-        // NO KEY, DELIBERATELY. Every letter that reads as 'flights' is taken -
-        // f is freeze and fly-this, l is live - and a person who has to learn a
-        // key to find out what their flights did will not learn it. Two
-        // permanent tabs and one tab key is the whole discovery path.
+        // NO LETTER, DELIBERATELY, and that is still the reason: every letter
+        // that reads as 'flights' is taken - f is freeze and fly-this, l is
+        // live, and i g h t are bound elsewhere. What it has instead is `.`,
+        // which spends nothing anybody else wanted; discovery is unchanged,
+        // because the tab is on the bar from the start and the key is printed
+        // on it.
         await Assert.That(Tabs.All).Contains(TabId.Flights);
         await Assert.That(Tabs.Title(new AppState(), TabId.Flights))
             .Contains("Flights", StringComparison.Ordinal);
         await Assert.That(Tabs.Next(new AppState())).IsEqualTo(TabId.Flights)
             .Because("one press of tab from where a console opens.");
-        await Assert.That(Tabs.KeyFor(TabId.Flights)).IsNull()
-            .Because("no key, deliberately: every letter that reads as 'flights' is taken.");
+        await Assert.That(char.IsAsciiLetter(Tabs.KeyFor(TabId.Flights)!.Value.Name[0])).IsFalse()
+            .Because("no letter, deliberately: every letter that reads as 'flights' is taken.");
     }
 }

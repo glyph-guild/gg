@@ -77,7 +77,37 @@ public class BoardSurfaceTests
             nameof(NominationSummary.FlightNumber),
             nameof(NominationSummary.MadeAt),
             nameof(NominationSummary.EndedAt),
+            nameof(NominationSummary.IntentKey),
         });
+    }
+
+    [Test]
+    public async Task A_row_says_what_it_is_about_and_says_nothing_when_it_cannot()
+    {
+        // THE THING A PERSON IS ACTUALLY DECIDING ABOUT. A line reading
+        // "research-27" says which governance regime would apply and nothing
+        // about which piece of work - and a board is a list somebody scans to
+        // choose. The row already records the key; a summary that dropped it
+        // made every renderer print a kind and call it a description.
+        var key = typeof(NominationSummary).GetProperty(nameof(NominationSummary.IntentKey))!;
+
+        await Assert.That(key.PropertyType).IsEqualTo(typeof(string));
+
+        await Assert.That(new NominationSummary
+        {
+            NominationId = Guid.Parse("01a0792a-5e1f-7030-a5d8-52fd66e510b0"),
+            Nominator = "flight:019260e0-1f6d-7a1e-9b53-6f2f4c9d0a11",
+            Subject = "flight:019260e0-1f6d-7a1e-9b53-6f2f4c9d0a11",
+            Version = "an-idempotency-key",
+            WorkKind = "research-27",
+            Mode = DestinationOpening.Gated,
+            State = NominationStates.Standing,
+            MadeAt = DateTimeOffset.UnixEpoch,
+        }.IntentKey).IsNull()
+            .Because("OPTIONAL, AND ABSENT MEANS UNCOUNTABLE. A free-text intent names "
+                   + "nothing outside gg, so it has no key - and a hash of its words would "
+                   + "look like the others and group nothing. Absent says 'this cannot be "
+                   + "counted', which is true.");
     }
 
     [Test]

@@ -482,6 +482,7 @@ public static class VerbResultKinds
     WriteIndented = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
 [JsonSerializable(typeof(InvitationIssued))]
+[JsonSerializable(typeof(BoardPage))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightLaunched))]

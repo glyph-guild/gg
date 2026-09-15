@@ -29,6 +29,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightLaunchRequest))]
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightSummary))]
+[JsonSerializable(typeof(BoardPage))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(FlightStory))]
@@ -439,6 +440,37 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.FlightList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no flight list.");
+    }
+
+    /// <summary>
+    /// The board: what this tenant's agents have nominated, and what became of it.
+    /// </summary>
+    /// <param name="includeEnded">
+    /// Whether to include rows that have ended. False answers with what is
+    /// still standing, which is what somebody deciding is asking for.
+    /// </param>
+    /// <remarks>
+    /// <b>The page says which of those it gave back</b>, rather than leaving a
+    /// reader to infer it. A page of standing rows and a page that happens to
+    /// contain no ended ones look identical, and reading "nothing was declined"
+    /// off the second would be reading a filter rather than a fact.
+    /// </remarks>
+    public async Task<BoardPage> GetBoardAsync(
+        string sessionToken,
+        bool includeEnded = false,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get,
+            includeEnded ? "/v1/board?ended=true" : "/v1/board",
+            sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+                   ProtocolJsonContext.Default.BoardPage, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no board.");
     }
 
     /// <summary>

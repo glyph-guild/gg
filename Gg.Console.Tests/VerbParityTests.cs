@@ -290,6 +290,11 @@ public class VerbParityTests
                                     + "modal. Until then the verb is the command line's: "
                                     + "`gg credential send --runner <id> --agent claude`, which "
                                     + "the held runner's console observer names.",
+            ["AgentLogin"] = "absent, and deliberate for now: the agent-login gate's `s` (the "
+                           + "plan's slice 6) is the console's way in, BETWEEN SESSIONS like "
+                           + "CredentialSend, because it reads a code with the echo off. Until "
+                           + "then the verb is the command line's: `gg agent login --runner "
+                           + "<id>`.",
             ["CredentialRemove"] = "absent, and a gap: a dead wrapper with no key. Step 5, "
                                  + "and it is the half of credential management that matters "
                                  + "when one leaks.",

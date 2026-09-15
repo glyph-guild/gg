@@ -276,6 +276,12 @@ public sealed class RunnerChannel(
         // serves whatever arrives on it and can start nothing of its own.
         peer.ondatachannel += channel =>
         {
+            // ONE ASK AT A TIME PER CONVERSATION. The dispatch's path is async
+            // now - a login ceremony waits on a child - and two asks served
+            // concurrently could answer out of order on a channel with no
+            // correlation id. The console asks one at a time too.
+            var serial = new SemaphoreSlim(1, 1);
+
             channel.onopen += () => opened.TrySetResult(true);
             channel.onmessage += (_, _, data) =>
             {
@@ -290,7 +296,7 @@ public sealed class RunnerChannel(
                 // moment a console is closed or killed.
                 serving?.Heard(_now());
 
-                Serve(dispatch, channel, data);
+                _ = ServeAsync(dispatch, channel, data, serial);
             };
 
             // AND ALREADY OPEN BY THE TIME WE ARE TOLD ABOUT IT, which is the
@@ -399,7 +405,8 @@ public sealed class RunnerChannel(
     /// runner emit anything it did not ask for has a channel wider than the
     /// vocabulary says.
     /// </remarks>
-    private static void Serve(AskDispatch dispatch, RTCDataChannel channel, byte[] data)
+    private static async Task ServeAsync(
+        AskDispatch dispatch, RTCDataChannel channel, byte[] data, SemaphoreSlim serial)
     {
         RunnerAsk? ask;
 
@@ -412,12 +419,32 @@ public sealed class RunnerChannel(
             return;
         }
 
-        if (ask is null || dispatch.Answer(ask) is not { } said)
+        if (ask is null)
         {
             return;
         }
 
-        channel.send(JsonSerializer.SerializeToUtf8Bytes(said, ChannelJson.Default.RunnerSaid));
+        await serial.WaitAsync();
+        try
+        {
+            if (await dispatch.AnswerAsync(ask, CancellationToken.None) is not { } said)
+            {
+                return;
+            }
+
+            channel.send(JsonSerializer.SerializeToUtf8Bytes(said, ChannelJson.Default.RunnerSaid));
+        }
+        catch (Exception failure) when (failure is InvalidOperationException
+                                            or ObjectDisposedException
+                                            or IOException)
+        {
+            // THE CHANNEL WENT AWAY UNDER THE ANSWER. A console closed mid-ask
+            // is the ordinary case, and nothing here may take the runner down.
+        }
+        finally
+        {
+            serial.Release();
+        }
     }
 }
 

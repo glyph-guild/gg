@@ -428,6 +428,20 @@ public abstract record CliAction
     public sealed record AgentCredentialSend(
         string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Logs a runner's agent in from here, over the channel.
+    /// </summary>
+    /// <remarks>
+    /// <b>A verb of its own rather than a flag on <c>credential send</c></b>,
+    /// because it is a different act: a send carries a value this machine
+    /// holds or a person types; this makes a RUNNER run its agent's own
+    /// ceremony, shows the person a URL, and carries back the code they were
+    /// given - read with the echo off, never an argument. Three members, and
+    /// <c>AgentLoginArgsTests</c> holds the shape.
+    /// </remarks>
+    public sealed record AgentLogin(
+        string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult;
+
     public sealed record CredentialList(bool Json) : CliAction, IEmitsResult;
 
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
@@ -671,6 +685,9 @@ public static class CliArgs
         "                                 put one on a machine that cannot be reached any other way",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
+        "gg agent login --runner <id> [--agent <name>]",
+        "                                 log a runner's agent in from here: it runs the ceremony,",
+        "                                 you visit the URL and bring back the code",
         // WAS "the repositories this tenant has registered", which describes
         // neither `show` (the topology - envelope names and their roles) nor
         // the working-copy verbs beside it. Repositories are a different read
@@ -933,11 +950,13 @@ public static class CliArgs
         // that reads as an instruction and is not one.
         if (runner is not null
             && rest is not ["fly", ..]
-            && rest is not ["credential", "send", ..])
+            && rest is not ["credential", "send", ..]
+            && rest is not ["agent", "login", ..])
         {
             return Unknown(
-                "--runner is a flag on `gg fly` and `gg credential send`: it says which "
-              + "machine. On any other verb it would read as an instruction and do nothing.");
+                "--runner is a flag on `gg fly`, `gg credential send` and `gg agent login`: it "
+              + "says which machine. On any other verb it would read as an instruction and do "
+              + "nothing.");
         }
 
         // THE SAME RULE, AND THE SAME REASON. Stripped globally these would let
@@ -1270,6 +1289,7 @@ public static class CliArgs
                 "gg fly takes one of some text, --uri or --ticket, and this has more than one. "
               + "An intent that says two things says nothing."),
 
+            ["agent", "login", .. var login] => AgentLogin(login, runner, json),
             ["credential", "list"] => new CliAction.CredentialList(json),
             ["credential", "rm", var credentialId] => new CliAction.CredentialRemove(credentialId, json),
             ["credential", "rm", ..] => Unknown("gg credential rm needs one credential id. Run gg credential list."),
@@ -1472,6 +1492,73 @@ public static class CliArgs
             : Unknown("gg credential add needs --repo <slug>: which repository this credential is for.");
     }
 
+    /// <summary>The refusal's own sentence, without the parameter note.</summary>
+    /// <remarks>
+    /// <c>ArgumentException.Message</c> appends <c>(Parameter 'x')</c> - a note
+    /// to whoever wrote the call, sitting at the end of a sentence a person
+    /// reads. The contract's sentence names the value and says what is wrong
+    /// with it, which is all somebody at a command line needs.
+    /// </remarks>
+    private static string Sentence(ArgumentException refused) =>
+        refused.Message.Split(" (Parameter", StringSplitOptions.None)[0];
+
+    /// <summary>
+    /// Parses the options of <c>gg agent login</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pairs, and an unknown option refused by name</b>, for the same
+    /// reason <c>credential send</c> refuses one: the option somebody reaches
+    /// for when scripting this is the one that would carry the code, and
+    /// dropping it silently would put the code in shell history AND then ask
+    /// for it anyway. The agent defaults to the one adapter there is, and is
+    /// validated as a locator segment at the parse - refused, not tidied.
+    /// </remarks>
+    private static CliAction AgentLogin(
+        IReadOnlyList<string> options, string? runner, bool json)
+    {
+        var agent = Gg.Local.ExecutorDeclaration.Claude;
+
+        for (var i = 0; i < options.Count; i += 2)
+        {
+            if (i + 1 >= options.Count)
+            {
+                return Unknown($"'{options[i]}' was given nothing to be.");
+            }
+
+            var value = options[i + 1];
+            switch (options[i])
+            {
+                case "--agent":
+                    agent = value;
+                    break;
+
+                default:
+                    return Unknown(
+                        $"'{options[i]}' is not something gg agent login takes. It takes --runner "
+                      + "and --agent; the code is read from you after the URL is shown, never "
+                      + "from the command line.");
+            }
+        }
+
+        if (runner is not { Length: > 0 })
+        {
+            return Unknown(
+                "gg agent login needs --runner <id>: which machine's agent to log in. "
+              + "`gg runners` lists them.");
+        }
+
+        try
+        {
+            _ = CredentialLocator.ForAgent(agent);
+        }
+        catch (ArgumentException refused)
+        {
+            return Unknown($"gg agent login --agent: {Sentence(refused)}");
+        }
+
+        return new CliAction.AgentLogin(runner, agent, json);
+    }
+
     /// <summary>
     /// Parses the options of <c>gg credential send</c>.
     /// </summary>
@@ -1554,7 +1641,7 @@ public static class CliArgs
             }
             catch (ArgumentException refused)
             {
-                return Unknown($"gg credential send --agent: {refused.Message}");
+                return Unknown($"gg credential send --agent: {Sentence(refused)}");
             }
 
             return new CliAction.AgentCredentialSend(runner, agent, json);

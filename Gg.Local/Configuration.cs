@@ -150,6 +150,31 @@ public sealed record Configuration
     /// </remarks>
     public bool? AcceptConfigured { get; init; }
 
+    /// <summary>
+    /// Whether a person may make this machine run its agent's login ceremony
+    /// over the channel.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own key, because this is the first SPAWNING verb.</b>
+    /// <see cref="AcceptConfigured"/> lets a person put a secret on this
+    /// machine; this lets a person make this machine START a program that
+    /// mints one. A machine that agreed to the first has not agreed to the
+    /// second, and the channel's own tests refuse a verb that inherits a
+    /// gate without somebody deciding it is enough.
+    /// </para>
+    /// <para>
+    /// <b>Off unless it is here and true, no environment variable, and not
+    /// offerable</b> - the same three rules, for the same reasons, and a
+    /// fourth: <b>a member never writes it.</b> A member's first start opens
+    /// <c>accept-configured</c> on the authority of its nonce and nothing
+    /// else; members take their token by <c>gg credential send --agent</c>.
+    /// The ceremony runs on residents and laptops, whose files a person can
+    /// open.
+    /// </para>
+    /// </remarks>
+    public bool? AcceptAgentLogin { get; init; }
+
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 

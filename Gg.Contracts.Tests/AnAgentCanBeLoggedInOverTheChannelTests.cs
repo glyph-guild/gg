@@ -71,7 +71,9 @@ public class AnAgentCanBeLoggedInOverTheChannelTests
         // A CODE IS SHORT. The bound is the contract's so that both ends refuse
         // the same thing; a runner that trusted the length it was sent would be
         // a runner a console could type a file into its agent.
-        await Assert.That(RunnerAskBounds.MaxLoginCode).IsEqualTo(512);
+        var bound = typeof(RunnerAskBounds).GetField(nameof(RunnerAskBounds.MaxLoginCode))!
+            .GetRawConstantValue();
+        await Assert.That(bound).IsEqualTo(512);
     }
 
     [Test]

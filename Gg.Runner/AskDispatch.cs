@@ -79,10 +79,20 @@ public sealed class AskDispatch(
     // keep a credential refuses to be given one, which is the same shape as a
     // runner handed no private key being unreachable - a wiring decision
     // somebody made, rather than a capability the contract handed out.
-    IKeepACredential? credentials = null)
+    IKeepACredential? credentials = null,
+    // THE CEREMONY, OR NOTHING - the same shape one door over. A runner
+    // nobody wired with it refuses to begin a login, and says so, because
+    // the port is decided by a key of its own (accept-agent-login) and a
+    // person who set the other key would otherwise go looking for a version.
+    AgentLoginCeremony? login = null,
+    // WHO TO TELL WHEN A CREDENTIAL LANDS. The held loop looks again the
+    // moment it hears, rather than on its next cadence; null tells nobody.
+    Action<string>? kept = null)
 {
     private readonly IAnswersAboutItself _runner = runner;
     private readonly IKeepACredential? _credentials = credentials;
+    private readonly AgentLoginCeremony? _login = login;
+    private readonly Action<string>? _kept = kept;
     private int _refused;
 
     /// <summary>How many asks this runner did not recognise.</summary>
@@ -191,13 +201,19 @@ public sealed class AskDispatch(
                         }.Stripped();
                     }
 
+                    var written = _credentials.Keep(given.Locator, given.Secret);
+                    if (written)
+                    {
+                        _kept?.Invoke(given.Locator);
+                    }
+
                     return new RunnerSaid
                     {
                         Kind = RunnerAskKinds.ConfigureCredential,
                         Configured = new ConfiguredCredential
                         {
                             Locator = given.Locator,
-                            Written = _credentials.Keep(given.Locator, given.Secret),
+                            Written = written,
                         },
                     }.Stripped();
                 }
@@ -235,6 +251,144 @@ public sealed class AskDispatch(
     /// stays true whichever bound did the cutting.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Answers the whole vocabulary: the two ceremony kinds here, everything
+    /// else by <see cref="Answer"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Async because the ceremony waits on a child</b> - eight seconds for
+    /// a URL, a person's browser visit for a token - and the three older kinds
+    /// answer from memory. The channel serves through this one path and
+    /// serialises per conversation, so an ask is never answered out of order.
+    /// </para>
+    /// <para>
+    /// <b>The refusals, in order.</b> A provider that is not a locator segment
+    /// or a code the contract bounds out is malformed: counted and dropped,
+    /// as every malformed ask is. No port is a SENTENCE naming
+    /// <c>accept-agent-login</c> - the <c>Written=false</c> lesson, learned
+    /// once: silence is indistinguishable from a runner too old to have the
+    /// arm. A provider this runner's adapter is not is counted and dropped:
+    /// the console named an agent this machine does not run.
+    /// </para>
+    /// </remarks>
+    public async Task<RunnerSaid?> AnswerAsync(RunnerAsk ask, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ask);
+
+        switch (ask.Kind)
+        {
+            case RunnerAskKinds.BeginAgentLogin when ask.BeginAgentLogin is { } begin:
+                {
+                    if (LocatorFor(begin.Provider) is null)
+                    {
+                        Interlocked.Increment(ref _refused);
+                        return null;
+                    }
+
+                    if (_login is null)
+                    {
+                        Interlocked.Increment(ref _refused);
+                        return new RunnerSaid
+                        {
+                            Kind = RunnerAskKinds.BeginAgentLogin,
+                            LoginBegun = new AgentLoginBegun
+                            {
+                                Provider = begin.Provider,
+                                Started = false,
+                                Diagnosis = NoPort,
+                            },
+                        }.Stripped();
+                    }
+
+                    if (!string.Equals(begin.Provider, _login.Provider, StringComparison.Ordinal))
+                    {
+                        Interlocked.Increment(ref _refused);
+                        return null;
+                    }
+
+                    // NEVER WHILE FLYING, and the flight is named so the person
+                    // knows what to wait for. The status report is the one
+                    // place the dispatch already reads that from.
+                    var flying = _runner.Status().FlightNumber;
+                    return new RunnerSaid
+                    {
+                        Kind = RunnerAskKinds.BeginAgentLogin,
+                        LoginBegun = await _login.BeginAsync(flying, cancellationToken),
+                    }.Stripped();
+                }
+
+            case RunnerAskKinds.FinishAgentLogin when ask.FinishAgentLogin is { } finish:
+                {
+                    // THE CODE IS TYPED INTO A TERMINAL. Empty is not a code,
+                    // over the bound is not a code, and a control character in
+                    // one is a keystroke somebody else chose.
+                    if (LocatorFor(finish.Provider) is not { } locator
+                        || finish.Code is not { Length: > 0 and <= RunnerAskBounds.MaxLoginCode }
+                        || finish.Code.Any(char.IsControl))
+                    {
+                        Interlocked.Increment(ref _refused);
+                        return null;
+                    }
+
+                    if (_login is null)
+                    {
+                        Interlocked.Increment(ref _refused);
+                        return new RunnerSaid
+                        {
+                            Kind = RunnerAskKinds.FinishAgentLogin,
+                            LoginFinished = new AgentLoginFinished
+                            {
+                                Provider = finish.Provider,
+                                Locator = locator,
+                                Written = false,
+                                Diagnosis = NoPort,
+                            },
+                        }.Stripped();
+                    }
+
+                    if (!string.Equals(finish.Provider, _login.Provider, StringComparison.Ordinal))
+                    {
+                        Interlocked.Increment(ref _refused);
+                        return null;
+                    }
+
+                    return new RunnerSaid
+                    {
+                        Kind = RunnerAskKinds.FinishAgentLogin,
+                        LoginFinished = await _login.FinishAsync(finish.Code, cancellationToken),
+                    }.Stripped();
+                }
+
+            default:
+                return Answer(ask);
+        }
+    }
+
+    /// <summary>What a runner says when nothing wired it to run the ceremony.</summary>
+    private const string NoPort =
+        "this machine's configuration does not say `accept-agent-login`, so it will not start its "
+      + "agent's login ceremony. A person opens that file on the machine. A pool member is closed "
+      + "to this by decision, and takes its token by `gg credential send --agent` instead.";
+
+    /// <summary>The agent's locator for a provider, or null when the name is not a segment.</summary>
+    private static string? LocatorFor(string? provider)
+    {
+        if (provider is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        try
+        {
+            return CredentialLocator.ForAgent(provider);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     private static LogTail WithinBytes(LogTail tail)
     {
         var budget = RunnerAskBounds.MaxBytes;

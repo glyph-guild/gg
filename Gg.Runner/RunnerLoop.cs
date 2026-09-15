@@ -310,6 +310,9 @@ public sealed class RunnerLoop(
     // told is a liability, and the two are separate ports so that wiring one
     // cannot wire the other by accident.
     IForgetACredential? forget = null,
+    // THE AGENT'S LOGIN CEREMONY, swept on the beat: a ceremony nobody
+    // finished is ended at its patience, on the one clock this loop turns.
+    AgentLoginCeremony? login = null,
     // WHETHER THIS MACHINE WILL KEEP A CREDENTIAL IT IS HANDED, declared on
     // every beat so a person is not asked for a secret the far end will refuse.
     //
@@ -570,6 +573,12 @@ public sealed class RunnerLoop(
             // is only real if something enforces it, and a beat happens whether
             // or not anybody is watching - which is exactly the case that leaks.
             attended?.ForgetTheQuiet(_clock.UtcNow);
+
+            // AND A LOGIN NOBODY FINISHED, on the same clock and for the same
+            // reason: a child waiting for a code nobody will type is a process
+            // nobody asked for, and a beat happens whether or not anybody is
+            // watching.
+            login?.Expire(_clock.UtcNow);
 
             // WHAT THIS MACHINE HAS SPENT, beside the beat and never inside
             // it. The heartbeat is liveness only - a runner able to report

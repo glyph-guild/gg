@@ -1619,7 +1619,8 @@ public static class ProtocolSurface
             // EvidenceReference's sentence about a different body.
             [typeof(RunnerSealedOffer)] = ["sealed"],
             [typeof(RunnerSealedAnswer)] = ["runnerId", "sealed"],
-            [typeof(RunnerAsk)] = ["kind", "tailLog", "status", "configureCredential"],
+            [typeof(RunnerAsk)] =
+                ["kind", "tailLog", "status", "configureCredential", "beginAgentLogin", "finishAgentLogin"],
             // THE ONE DECLARED MEMBER ON THIS SURFACE THAT IS A SECRET, and it
             // is declared for the reason everything else here is: a member
             // nobody wrote down is a member nobody can audit. What keeps it safe
@@ -1628,11 +1629,18 @@ public static class ProtocolSurface
             // can enter.
             [typeof(ConfigureCredentialAsk)] = ["locator", "secret"],
             [typeof(ConfiguredCredential)] = ["locator", "written"],
+            // THE CODE IS THE OTHER DECLARED MEMBER THAT IS A SECRET, on the
+            // same argument: channel-only, asserted, and the runner echoes it
+            // in nothing it says back.
+            [typeof(BeginAgentLoginAsk)] = ["provider"],
+            [typeof(AgentLoginBegun)] = ["provider", "started", "url", "diagnosis", "expiresAt"],
+            [typeof(FinishAgentLoginAsk)] = ["provider", "code"],
+            [typeof(AgentLoginFinished)] = ["provider", "locator", "written", "diagnosis"],
             [typeof(TailLogAsk)] = ["lines"],
             // Empty on purpose: the ask is "how are you", and a member here
             // would be a filter - which is the first step toward a query.
             [typeof(StatusAsk)] = [],
-            [typeof(RunnerSaid)] = ["kind", "tail", "status", "configured"],
+            [typeof(RunnerSaid)] = ["kind", "tail", "status", "configured", "loginBegun", "loginFinished"],
             [typeof(LogTail)] = ["lines", "truncated"],
             [typeof(RunnerStatusReport)] = ["doing", "diagnosis", "at", "flightNumber", "beatAt"],
             [typeof(RunnerRetirementRequest)] = [],

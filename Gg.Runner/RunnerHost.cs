@@ -253,7 +253,12 @@ public static class RunnerHost
         Execution.IAuthenticateAnAgent? agent = null,
         // THE TOKEN GG HOLDS FOR IT, read fresh each time. A thunk for the
         // keeper's reason: Gg.Runner does not go looking for a store.
-        Func<string?>? agentToken = null)
+        Func<string?>? agentToken = null,
+        // WHETHER THIS MACHINE RUNS ITS AGENT'S LOGIN CEREMONY on a console's
+        // ask, or null for never. Both ports as one decision, made by the
+        // machine's own file (accept-agent-login) and handed in here because
+        // this project may not allocate the terminal the ceremony needs.
+        AgentLoginPorts? login = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -382,12 +387,28 @@ public static class RunnerHost
         // that stays. Gg.Runner never goes looking for the private key - it
         // lives on the machine and never leaves it - so the composition root
         // either hands in a way to open a session or does not.
+        // THE LOOP, TOLD LATER. The dispatch is built before the loop and
+        // has to tell it when a credential lands, so a held runner looks
+        // again now rather than on its next cadence; a closure over a variable
+        // assigned below is how the earlier object reaches the later one.
+        RunnerLoop? started = null;
+        void Kept(string locator) => started?.CredentialKept(locator);
+
+        // THE CEREMONY, OR NOTHING. The adapter is the one the executor came
+        // from - a ceremony for an agent this runner does not run would mint a
+        // token nothing here reads - and the ports are the machine's decision.
+        using var ceremony = login is null || agent is null
+            ? null
+            : new AgentLoginCeremony(
+                agent, login, new SystemClock(), kept: Kept,
+                saying: line => System.Console.WriteLine($"gg: {line}"));
+
         using var attended = identityKey is null
             ? null
             : new AttendedSession(
                 identityKey,
                 new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
-                new AskDispatch(says, keepCredential),
+                new AskDispatch(says, keepCredential, ceremony, kept: Kept),
                 says);
 
         var loop = new RunnerLoop(
@@ -434,10 +455,12 @@ public static class RunnerHost
             credentialExpiresAt: credentialExpiresAt,
             agent: agent,
             agentToken: agentToken,
-            initialStanding: standing)
+            initialStanding: standing,
+            login: ceremony)
         {
             HoldFor = holdFor,
         };
+        started = loop;
 
         System.Console.WriteLine(
             $"gg-runner {runnerId} (pid {Environment.ProcessId}) against {controlPlane} " +

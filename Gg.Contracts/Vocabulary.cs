@@ -183,6 +183,7 @@ public static class Vocabulary
         // The member-identity exchange, registered so the build refuses a wire
         // type nobody put in the vocabulary.
         typeof(MemberCredentialRequest),
+        typeof(RunnerCredentialRenewed),
         typeof(MemberCredentialMinted),
         typeof(MemberCredentialRedemption),
         typeof(MemberCredentialIssued),

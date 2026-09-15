@@ -424,6 +424,25 @@ public static class ProtocolSurface
         },
         new()
         {
+            // RENEWAL, AUTHORIZED BY THE CREDENTIAL BEING RENEWED. No id in the
+            // path, on /v1/runner/hello's precedent: the runner header names who
+            // is asking, and a path id would offer a runner the chance to name
+            // somebody else's - which is a 404 to write and a fleet to
+            // enumerate.
+            //
+            // 409 IS THE MEMBER. A pool member's twelve hours are the container
+            // boundary, and a member that renewed itself would erase it - so
+            // "this credential is not renewable" is a settled answer with its
+            // own status, not a 403 that reads like a misconfiguration.
+            Method = "POST",
+            Path = "/v1/runner/renewal",
+            Audience = Audience.Runner,
+            Response = typeof(RunnerCredentialRenewed),
+            Statuses = [200, 401, 403, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             Method = "POST",
             Path = "/v1/runners/{id}/heartbeat",
             Audience = Audience.Runner,
@@ -1450,6 +1469,7 @@ public static class ProtocolSurface
             // a member redeems across a process boundary, so a renamed property
             // is a bootstrap that stops working with no compiler to say so.
             [typeof(MemberCredentialRequest)] = ["protocolVersion"],
+            [typeof(RunnerCredentialRenewed)] = ["expiresAt"],
             [typeof(MemberCredentialMinted)] = ["nonce", "expiresAt"],
             [typeof(MemberCredentialRedemption)] = ["nonce"],
             [typeof(MemberCredentialIssued)] =

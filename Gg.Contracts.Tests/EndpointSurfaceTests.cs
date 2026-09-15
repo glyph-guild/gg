@@ -362,8 +362,27 @@ public class EndpointSurfaceTests
         // is a new type, and the closed vocabularies hash those. So the contract
         // version moves to 0.162.0 with a ledger entry, and this fingerprint
         // moves with it rather than instead of it.
+        // Moved for POST /v1/runner/renewal - a runner asking for more time on
+        // the credential it already holds, so a machine nobody visits does not
+        // need visiting every thirty days. `gg runner maintain` refused on a
+        // pool host saying a runner token "cannot be renewed - so a person signs
+        // in once to mint a new one", which stopped the one process whose job is
+        // keeping a pool warm with nobody present.
+        //
+        // WHAT STAYS A PERSON'S ACT IS REGISTRATION. The ask is authorized by
+        // the credential being renewed, so it grants nothing the runner did not
+        // have: revoking or retiring ends it at once, and a runner dark past its
+        // expiry cannot ask at all. Nothing is minted from nothing.
+        //
+        // NO ID IN THE PATH, on /v1/runner/hello's precedent - the runner header
+        // names who is asking, and a path id would offer a runner the chance to
+        // name somebody else's.
+        //
+        // THE WIRE SURFACE MOVES TOO: the response is a new type, so the
+        // contract version moves to 0.170.0 with a ledger entry and this
+        // fingerprint moves with it rather than instead of it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("1fdbc98eee33f4ff443ac464c003ad25a0e93a0bed944fdd344b25d4a8950206")
+            .IsEqualTo("eca74928002d195e66c0e2940197eba3b96b883615ca28596df32608dcfa99df")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

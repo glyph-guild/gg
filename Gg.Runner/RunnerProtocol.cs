@@ -187,6 +187,35 @@ public enum KeyOfferResult
     Refused,
 }
 
+/// <summary>
+/// Asking for more time on the credential this runner already holds.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Its own interface, because two loops need it and neither needs the
+/// other's.</b> The maintain loop speaks <see cref="Pools.IPoolProtocol"/> and
+/// the flight loop speaks <see cref="IRunnerProtocol"/>; a renewal is about the
+/// credential rather than about pools or leases, so it sits beside both and
+/// <c>RunnerProtocolClient</c> implements all three.
+/// </para>
+/// <para>
+/// <b>Null is a settled refusal and an exception is a bad moment.</b> "This
+/// credential is not renewable" is a member being told what its twelve hours
+/// are for, and a caller that retried it would write to the control plane every
+/// cycle for the rest of the credential's life. A 503 from a deploy is the
+/// opposite: nothing is settled, and a runner that stopped asking on the first
+/// one would reach its expiry with nothing having gone wrong.
+/// </para>
+/// </remarks>
+public interface IRunnerCredential
+{
+    /// <summary>
+    /// Asks for more time, or null when this credential may not have any.
+    /// </summary>
+    Task<Gg.Contracts.RunnerCredentialRenewed?> RenewCredentialAsync(
+        CancellationToken cancellationToken = default);
+}
+
 public interface IRunnerProtocol
 {
     /// <summary>

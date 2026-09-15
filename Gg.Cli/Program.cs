@@ -2815,16 +2815,19 @@ static async Task<int> RunnerMaintainAsync(string pool)
             var signedIn = new FileSessionStore().Read();
             if (signedIn is null)
             {
-                // NAMES THE CADENCE. "Not signed in" on a host that ran
-                // yesterday reads like a broken machine rather than a
-                // credential reaching the end of its life. Nothing renews a
-                // runner token - the protocol's renew is for a LEASE - so this
-                // is a person's action every thirty days, by design.
+                // NAMES THE CADENCE, AND IT IS NO LONGER EVERY THIRTY
+                // DAYS. A running maintainer renews its own credential while
+                // it still holds one, so this is reached by a host that was
+                // DOWN when its credential ran out, or one that never had one.
+                // Registering is still a person's act - a renewal is
+                // authorized by the credential being renewed, so nothing can
+                // be minted from nothing.
                 throw new InvalidOperationException(
                     "no usable runner credential, and not signed in. A pool host runs on its own "
-                  + "runner token, which lasts thirty days and cannot be renewed - so a person signs "
-                  + "in once to mint a new one: run `gg login`, then start this again. Registering a "
-                  + "runner is a person's action.");
+                  + "runner token; a running one renews itself, but a credential that ran out "
+                  + "while this host was down cannot be renewed by anybody - so a person signs "
+                  + "in once to mint a new one: run `gg login`, then start this again. "
+                  + "Registering a runner is a person's action.");
             }
 
             var fresh = await new ControlPlaneClient(http)
@@ -2877,7 +2880,24 @@ static async Task<int> RunnerMaintainAsync(string pool)
         controlPlane: Gg.Runner.Pools.MemberBootstrap.ControlPlaneFor(
             baseAddress,
             Environment.GetEnvironmentVariable(
-                Gg.Runner.Pools.MemberBootstrap.ReachableAsVariable)));
+                Gg.Runner.Pools.MemberBootstrap.ReachableAsVariable)),
+
+        // AND HOW THIS HOST KEEPS ITS OWN CREDENTIAL. The same client the pool
+        // work goes through, because a renewal is authorized by exactly the
+        // credential it renews - a second connection would be a second answer
+        // to who is asking.
+        credential: protocol,
+        credentialExpiresAt: identity.ExpiresAt,
+
+        // WRITTEN BACK THROUGH THE STORE THIS FILE ALREADY HOLDS. Gg.Runner
+        // cannot see Gg.Client, so the loop hands the date out here rather than
+        // reaching for a file it is not allowed to know about - the same shape
+        // as the identity key and the takeover reader.
+        credentialRenewed: renewedTo =>
+        {
+            runners.Write(identity with { ExpiresAt = renewedTo });
+            return Task.CompletedTask;
+        });
 
     return await loop.RunAsync(pool, stopping.Token);
 }

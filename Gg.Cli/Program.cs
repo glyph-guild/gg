@@ -915,8 +915,13 @@ static async Task<int> DoctorAsync(bool json)
     // WHAT THIS MACHINE IS, read here because this is where the environment
     // belongs. Gg.Client references only Gg.Contracts, so the doctor is handed
     // facts rather than going looking for variables.
-    var executor = Settings.Value(
-        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration);
+    // PARSED, NOT TAKEN AS A PATH. A keyed entry reported bare would have
+    // the doctor say "the configured agent binary is not there: claude=/…",
+    // which is a true sentence about a file nobody named.
+    var executor = Gg.Local.ExecutorDeclaration.ParseOrNull(
+        Settings.Value(
+            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration),
+        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable)?.Binary;
 
     // NOT EstateRoot(): the doctor reports what is CONFIGURED, and the fallback
     // to the current directory is what the verbs do rather than something the
@@ -2132,13 +2137,17 @@ static async Task<int> HoldAsync(
     // machine and the fleet runner treats that as "this host has no agent" - on
     // a hand-flight there is a person waiting at a terminal for one, so it is
     // said rather than discovered as a session that never starts.
-    if (Environment.GetEnvironmentVariable(
-            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is not { Length: > 0 } binary)
+    if (Gg.Local.ExecutorDeclaration.ParseOrNull(
+            Environment.GetEnvironmentVariable(
+                Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable),
+            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is not { } declared)
     {
         return Fail(
             $"this machine declares no agent — set {Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable} "
           + "to the binary you want handed the flight.");
     }
+
+    var binary = declared.Binary;
 
     var name = Gg.Client.AttendedRunner.NameFor(Environment.MachineName);
 

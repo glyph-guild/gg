@@ -321,6 +321,108 @@ public sealed class FlightCommands(
     public async Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Gates(await _client.GatesAsync(Session(), cancellationToken));
 
+    /// <summary>What has been nominated and has not become a flight yet.</summary>
+    public async Task<VerbResult> BoardAsync(
+        bool ended = false, CancellationToken cancellationToken = default) =>
+        new VerbResult.Board(
+            await _client.GetBoardAsync(Session(), ended, cancellationToken));
+
+    /// <summary>
+    /// Answers a nomination, then reads the board to see what came of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>SUBMIT, THEN OBSERVE - and here the observation can disagree with the
+    /// submission.</b> `gg decide` observes because the write is a command;
+    /// this observes for a second reason on top of that: answering <c>open</c>
+    /// starts the admission pass, which applies the menu, the selection, the
+    /// chain and composition, and may refuse. Reporting "opened" because gg
+    /// posted <c>opened</c> would tell a person a flight exists on the day the
+    /// row reads <c>refused</c>.
+    /// </para>
+    /// <para>
+    /// <b>Null from the observer means NOT YET, never no.</b> A row still
+    /// standing is the board not having settled - the ending is what settles it
+    /// - so the observer answers null there and the loop keeps looking. Mapping
+    /// that to an outcome is the failure <c>SubmitAndObserve</c>'s own remark
+    /// says it exists to prevent.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> DecideNominationAsync(
+        Guid nomination,
+        string outcome,
+        string because,
+        ObservationBound? bound = null,
+        SubmitAndObserve? loop = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!NominationDecisions.All.Contains(outcome, StringComparer.Ordinal))
+        {
+            // REFUSED HERE RATHER THAN AT THE DOOR. The door refuses it too,
+            // and the sentence there is about a field where this one can name
+            // what a person may actually cause.
+            throw new DecisionRefusedException(
+                $"'{outcome}' is not a decision this version of gg can record about a "
+              + "nomination. It knows: " + string.Join(", ", NominationDecisions.All)
+              + ". The other endings belong to the board, the world, the clock and the rules.");
+        }
+
+        var clean = because?.Trim();
+
+        if (string.IsNullOrEmpty(clean))
+        {
+            throw new DecisionRefusedException(
+                "A decision must say why. It is the only thing that survives to tell a later "
+              + "reader why a person opened work nobody had asked for, or declined work "
+              + "somebody had.");
+        }
+
+        var token = Session();
+
+        NominationSummary? settled = null;
+
+        var observed = await (loop ?? Waiting()).RunAsync(
+            async ct =>
+            {
+                try
+                {
+                    await _client.DecideNominationAsync(token, nomination, outcome, clean, ct);
+
+                    return null;
+                }
+                catch (HttpRequestException refused)
+                {
+                    // A REFUSAL IS AN ANSWER, so the loop stops rather than
+                    // waiting for something nobody wrote. Somebody answering
+                    // second lands here - the door's 409 - and being told who
+                    // already had is the useful half. A protocol refusal is
+                    // NOT caught: that one is about versions rather than about
+                    // this decision, and swallowing it into an outcome would
+                    // report a stale gg as a declined nomination.
+                    return refused.Message;
+                }
+            },
+            async ct =>
+            {
+                var board = await _client.GetBoardAsync(token, includeEnded: true, ct);
+
+                settled = board.Nominations.FirstOrDefault(
+                    n => n.NominationId == nomination);
+
+                // STILL STANDING IS NOT SETTLED. The ending is what settles a
+                // row, so a standing row answers null and the loop looks again.
+                return settled?.Ending;
+            },
+            bound ?? ObservationBound.Default,
+            cancellationToken);
+
+        return new VerbResult.NominationDecided(new NominationDecisionReport
+        {
+            Nomination = settled,
+            Observation = observed,
+        });
+    }
+
     public async Task<VerbResult> WhyAsync(
         string reference, string? obligation, CancellationToken cancellationToken = default)
     {

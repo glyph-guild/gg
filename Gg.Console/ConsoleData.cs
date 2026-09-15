@@ -165,6 +165,45 @@ public sealed class ConsoleData(
             reference, obligation, outcome, observations, reason,
             cancellationToken: cancellationToken);
 
+    /// <summary>
+    /// `gg board` - what has been nominated and has not become a flight yet.
+    /// </summary>
+    /// <remarks>
+    /// The console shows the same page the verb does, from the same fetch, for
+    /// the reason every method here exists: two fetches would be two answers to
+    /// one question, and the day they differ a person is looking at the older
+    /// one with no way to tell.
+    /// </remarks>
+    public Task<VerbResult> BoardAsync(
+        bool ended = false, CancellationToken cancellationToken = default) =>
+        _commands.BoardAsync(ended, cancellationToken);
+
+    /// <summary>
+    /// `gg board open` / `gg board decline` - answers a standing nomination.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Present for parity and wired to no key yet</b>, which is exactly
+    /// where <see cref="DecideAsync"/> sat one step before its modal arrived.
+    /// The console pane is S37.4-01 and this is the data path it will use - the
+    /// same one the verb uses, so the console cannot end up with a second way
+    /// to answer a nomination.
+    /// </para>
+    /// <para>
+    /// <b>It records nothing locally.</b> The board is what the pane will show,
+    /// and answering `open` starts an admission pass that may refuse - so a
+    /// pane that marked a row opened when a key was pressed would advance on a
+    /// claim rather than on what happened.
+    /// </para>
+    /// </remarks>
+    public Task<VerbResult> DecideNominationAsync(
+        Guid nomination,
+        string outcome,
+        string because,
+        CancellationToken cancellationToken = default) =>
+        _commands.DecideNominationAsync(
+            nomination, outcome, because, cancellationToken: cancellationToken);
+
     /// <summary>`gg fly`, from whatever a person pasted.</summary>
     /// <remarks>
     /// <para>

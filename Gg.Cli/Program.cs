@@ -103,6 +103,14 @@ return CliArgs.Parse(args) switch
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
+    // THE SAME QUESTION ONE NOUN EARLIER. A gate is a flight that stopped; a
+    // standing nomination is work that has not started, and both are waiting on
+    // a person.
+    CliAction.Board board => await EmitAsync(board.Json, c => c.BoardAsync(board.Ended)),
+    CliAction.BoardDecide decide => await EmitAsync(
+        decide.Json,
+        c => c.DecideNominationAsync(
+            Guid.Parse(decide.Nomination), decide.Outcome, decide.Because)),
     CliAction.Decide decide => await EmitAsync(decide.Json, c => c.DecideAsync(
         decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json), decide.Reason)),
     // STOPPING A FLIGHT THAT COULD STILL HAVE BEEN DONE. Not withdrawing: the

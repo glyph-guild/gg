@@ -1,3 +1,5 @@
+using Gg.Contracts;
+
 namespace Gg.Cli;
 
 public abstract record CliAction
@@ -458,6 +460,46 @@ public abstract record CliAction
     public sealed record Gates(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>
+    /// What has been nominated and is waiting to become a flight.
+    /// </summary>
+    /// <remarks>
+    /// <b>The standing rows by default, and the ended ones on asking.</b> The
+    /// page reports whether it included them, because a reader cannot infer it:
+    /// a page of standing rows and a page that happens to contain no declined
+    /// ones look identical, and somebody reading "nothing was declined" off the
+    /// second would be reading a filter rather than a fact.
+    /// </remarks>
+    public sealed record Board(bool Ended, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>
+    /// Answers a nomination that is waiting for somebody.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE OUTCOME IS THE ENDING THE ROW WILL CARRY, not a word this verb
+    /// mints.</b> `open` and `decline` are what a person types; what travels is
+    /// <c>NominationEndings.Opened</c> or <c>Declined</c>. A second pair of
+    /// words would be two spellings to keep agreeing, and the day they stop is
+    /// the day gg sends something no row can record.
+    /// </para>
+    /// <para>
+    /// <b>The sentence is positional and required</b>, which is
+    /// <see cref="Ground"/>'s shape and for its reason: the door refuses a
+    /// blank one, so an optional flag would only move the refusal to a round
+    /// trip later - and the refusal here can say what the reason is FOR.
+    /// </para>
+    /// <para>
+    /// <b>A nomination is named by its id and never by a flight reference.</b>
+    /// It has no number and may never have a flight at all, so there is no
+    /// GG-42 for one - and accepting one would send a string the door answers
+    /// 404 to, for a reason that reads like the row is gone.
+    /// </para>
+    /// </remarks>
+    public sealed record BoardDecide(
+        string Nomination, string Outcome, string Because, bool Json)
+        : CliAction, IEmitsResult;
+
+    /// <summary>
     /// Records a decision about an obligation waiting on a person.
     /// </summary>
     /// <remarks>
@@ -534,6 +576,24 @@ public abstract record CliAction
 public static class CliArgs
 {
     /// <summary>
+    /// The ending a board word means, or null when it means none of them.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONE VOCABULARY, TRANSLATED ONCE.</b> A person types the verb they
+    /// would say out loud and the wire carries the ending the row will record.
+    /// Mapping it here rather than accepting the ending directly keeps
+    /// <c>gg board superseded &lt;id&gt;</c> from being typeable at all: the
+    /// words this answers to are the two a person can cause, and the other four
+    /// have no spelling on this side.
+    /// </remarks>
+    private static string? BoardOutcome(string word) => word switch
+    {
+        "open" => NominationEndings.Opened,
+        "decline" => NominationEndings.Declined,
+        _ => null,
+    };
+
+    /// <summary>
     /// What gg actually does today.
     /// </summary>
     /// <remarks>
@@ -562,6 +622,12 @@ public static class CliArgs
         "gg runners                     the runners this tenant has",
         "gg plan [flight]               what must hold before a flight can start",
         "gg gates                       flights stopped, waiting on somebody",
+        // BESIDE GATES, because it is the same question one noun earlier: what
+        // is waiting on a person. A gate is a flight that has stopped; a
+        // standing nomination is work that has not started.
+        "gg board [--all]               what has been nominated and needs somebody",
+        "gg board open <id> <why>       turn a standing nomination into a flight",
+        "gg board decline <id> <why>    say it is not going to be one",
         "gg why <flight> [obligation]   why a flight is stopped, and what would open it",
         // <outcome> rather than the two words it takes, because spelling them
         // here trips the guard that forbids advertising a `gg approve` verb
@@ -1034,6 +1100,41 @@ public static class CliArgs
               + "that survives to tell a later reader why work that could have been done was "
               + "not. Quote it - gg ground GG-42 \"the fleet cannot serve this yet\"."),
             ["gates"] => new CliAction.Gates(json),
+
+            // THE LONGER ARMS FIRST, or `gg board open <id> <why>` parses as a
+            // bare board listing with three stray values - the same ordering
+            // `ground` states above it.
+            ["board", var word, var nomination, var because]
+                when BoardOutcome(word) is { } outcome =>
+                    Guid.TryParse(nomination, out _)
+                        ? new CliAction.BoardDecide(nomination, outcome, because, json)
+                        : Unknown(
+                            $"'{nomination}' is not a nomination id. A nomination has no flight "
+                          + "number - having no flight yet is the whole point of one - so this "
+                          + "takes the id `gg board` prints, not GG-42."),
+
+            // NAMED ARGUMENTS MISSING RATHER THAN GUESSED. A decision with no
+            // sentence is refused by the door, and the person who typed it
+            // should hear that from the thing they typed it into.
+            ["board", var word, ..] when BoardOutcome(word) is not null => Unknown(
+                "gg board open <id> <why> and gg board decline <id> <why>, and the why is not "
+              + "optional: it is the only thing that survives to tell a later reader why a "
+              + "person opened work nobody had asked for, or declined work somebody had. "
+              + "Quote it - gg board open 01a0792a-… \"this one blocks the release\"."),
+
+            // A WORD A PERSON CANNOT CAUSE IS NOT A VERB HERE. Superseding is
+            // the board's, withdrawal is the world's, lapsing is the clock's
+            // and refusal is the rules'; a verb that took one of those would
+            // let somebody record that the clock did what they did.
+            ["board", var word, ..] => Unknown(
+                $"'{word}' is not something a person decides about a nomination. It is open or "
+              + "decline; the other endings belong to the board, the world, the clock and the "
+              + "rules. `gg board` lists what is waiting."),
+
+            // `--all` is stripped above with `--json`, so it arrives as a flag
+            // rather than as a word to match - which is why there is one arm
+            // here and not two.
+            ["board"] => new CliAction.Board(all, json),
             ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
             ["why", var flight] => new CliAction.Why(flight, null, json),
 

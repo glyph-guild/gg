@@ -80,6 +80,32 @@ public class ProjectionParityTests
         {
             // --- arms this slice adds, each with the step that adds it ---
 
+            // THE BOARD, AND ITS ARM ARRIVES WITH ITS PANE. `gg board` renders
+            // a page today and the console reaches the same fetch through
+            // ConsoleData, but nothing draws it yet: the queue cannot hold a
+            // standing nomination until QueueRow stops requiring a flight id
+            // and a flight number, which is the excavation S37.4-01 names and
+            // the reason that criterion is not met by a sort strategy alone.
+            //
+            // REMOVE THIS ENTRY when the queue takes a row that is not a
+            // flight. An arm before then would put a nomination in a model
+            // nothing can render it from.
+            ["Board"] = "not projected yet: the queue's row requires a flight id and a "
+                      + "flight number, and a standing nomination has neither - having no "
+                      + "flight yet is the whole point of one. S37.4-01 is that excavation.",
+
+            // AND ITS ANSWER MUST NEVER GET ONE. What comes back from
+            // answering a nomination is one row plus how long gg waited for it
+            // - a report about this invocation, not state about the tenant.
+            // Projecting it would put "we looked twice over 1.4s" into the
+            // model a pane draws the BOARD from, which is the two-cursor
+            // defect this console has already met: a pane and its title
+            // answering one question from different places.
+            ["NominationDecided"] = "not projected, and not pending an arm: it is a report "
+                                  + "about one invocation - a row plus how long gg waited - "
+                                  + "and the pane's own refresh is what shows the board "
+                                  + "afterwards.",
+
             // THE CHECKLIST TAB WAS WITHDRAWN AND ITS ARM WENT WITH IT. Plan
             // is still a verb - `gg plan` renders it - and the console still
             // ASKS for one: ConsoleHandFlight reads a checklist to refuse a

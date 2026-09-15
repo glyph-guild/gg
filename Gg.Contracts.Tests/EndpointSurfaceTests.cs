@@ -363,7 +363,7 @@ public class EndpointSurfaceTests
         // version moves to 0.162.0 with a ledger entry, and this fingerprint
         // moves with it rather than instead of it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("c26931b160a3a3b327000934f3df0d4e0afe824288b170a03a701e2bc3614295")
+            .IsEqualTo("920498309f45fe4ffac993177c428db7ea62ba78d5d61b0bfb41e173b6f503da")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

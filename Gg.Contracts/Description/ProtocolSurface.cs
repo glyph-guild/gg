@@ -137,7 +137,7 @@ public static class ProtocolSurface
     /// /v1/credentials came in on.
     /// </remarks>
     public static IReadOnlyList<string> GovernedPrefixes { get; } =
-        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/telemetry", "/v1/credentials",
+        ["/v1/auth", "/v1/runner", "/v1/leases", "/v1/flights", "/v1/board", "/v1/telemetry", "/v1/credentials",
          "/v1/envelope", "/v1/invitations", "/v1/environments", "/v1/introductions",
          // The topology decides which envelope names are REACHABLE, so an
          // undeclared route under it would be an unaudited way to widen what
@@ -520,6 +520,23 @@ public static class ProtocolSurface
             Response = typeof(LeaseReleased),
             Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
+        },
+
+        // THE BOARD, and it is the flight list one step earlier. Every
+        // nomination a tenant's agents have made, including the ones nobody has
+        // decided about yet - so the argument below applies with more force
+        // rather than less, and a runner credential opens none of it.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/board",
+            Audience = Audience.Developer,
+            Request = null,
+            Response = typeof(BoardPage),
+            // 200: the board is a store rather than a perspective, so a read
+            // sees what the last write left. Nothing here is asynchronous.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
         },
 
         // The flight read surface. Developer audience throughout: a runner that
@@ -1625,6 +1642,10 @@ public static class ProtocolSurface
             [typeof(FlightFacts)] = ["flightNumber", "facts"],
             [typeof(FlightWithdrawalRequest)] = ["because"],
             [typeof(FlightGroundingRequest)] = ["because"],
+            [typeof(NominationSummary)] =
+                ["nominationId", "nominator", "subject", "version", "workKind", "mode",
+                 "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt"],
+            [typeof(BoardPage)] = ["nominations", "includedEnded"],
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels", "registeredByPrincipalId", "registeredBy",

@@ -230,19 +230,30 @@ public class MaintainSurvivesRefusalTests
     {
         // THE TWIN THAT KEEPS THE FIX HONEST, and the same line RunnerLoop holds.
         // A 401 is this machine's credential, and no amount of waiting fixes one.
+        //
+        // STOPPING IS THE RULE; THROWING WAS NEVER THE RULE. This asserted the
+        // exception because the exception was how the loop happened to stop,
+        // and on a pool host that is a stack trace in a journal with the
+        // process gone - the same thing a pool member took literally and exited
+        // 139 over. What is loud now is the sentence and the exit code, and
+        // TheMaintainerSaysWhyItStoppedTests holds both in detail.
         var stop = new CancellationTokenSource();
         var protocol = new RefusingProtocol(new Queue<Exception>(
             [Answering(HttpStatusCode.Unauthorized)]));
+        var said = new List<string>();
 
         var loop = new MaintainLoop(
             protocol, new SteadyAdapter(), new MovableClock(T0),
             (_, _) => Task.CompletedTask,
-            narrate: _ => { });
+            narrate: said.Add);
 
-        var thrown = await Assert.ThrowsAsync<HttpRequestException>(async () =>
-            await loop.RunAsync("gg-pool-dev", stop.Token));
+        var exit = await loop.RunAsync("gg-pool-dev", stop.Token);
 
-        await Assert.That(thrown!.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
+        await Assert.That(exit).IsNotEqualTo(0)
+            .Because("a pull point nobody authorized is maintaining nothing, and a zero "
+                   + "would read as a session that ended tidily.");
+        await Assert.That(said).IsNotEmpty()
+            .Because("the stack trace was the only thing that said why it left.");
     }
 
     [Test]

@@ -1515,6 +1515,22 @@ public static class PlatformToolServer
         said.AppendLine(
             "    preserve-unadmitted:   whether work nobody admitted is kept rather than "
           + "discarded.");
+
+        // THREE KEYS THAT WERE NOT EXPLAINED, and one of them passed the guard
+        // on a coincidence: `branch` is a word this document already used in
+        // prose, and the check is a substring match, so the key arrived
+        // undocumented while the test stayed green. Said plainly here, in the
+        // shape the keys are actually written.
+        said.AppendLine(
+            "    branch:           what to call the branch pushed here. A template over "
+          + "{flight} and {ticket}; `gg/` is added and is not yours to write, and {flight} "
+          + "has to be in it or two flights on one ticket collide.");
+        said.AppendLine(
+            "    title:            how you want the agent to name what this opens. Prose "
+          + "for whoever does the work, and it only reaches them if the loop is granted "
+          + "the `propose-landing` move.");
+        said.AppendLine(
+            "    description:      what you want its description to say, on title's terms.");
         said.AppendLine();
 
         Destinations(said);

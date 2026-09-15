@@ -106,6 +106,13 @@ public static class FactCategories
         [FactKinds.LoopAttended] = Flight,
         [FactKinds.DestinationPushed] = Flight,
         [FactKinds.DestinationLanded] = Flight,
+
+        // WORDING FOR THIS EPISODE'S OWN LANDING, so Flight on the two above
+        // it: what the agent asks a proposal be called is about the proposal
+        // this flight is opening and about nothing that outlives it. Tree would
+        // be wrong for a nearer reason than the proposal's - a title is not a
+        // property of the source at all.
+        [FactKinds.LandingProposal] = Flight,
     };
 
     /// <summary>Whether this family has a decided category. The guard reads it.</summary>

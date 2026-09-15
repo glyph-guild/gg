@@ -72,6 +72,13 @@ public static class MoveKinds
             // it happens at all - is the runner's, after a destination admits
             // it. An agent that proposes has still not acted.
             [LoopMoves.ProposeWorkItem] = RecordOnly,
+
+            // RECORD-ONLY, and more plainly so than its neighbour. A proposal
+            // asks that somebody else's backlog change; this asks what to call
+            // a pull request that may never be opened. Nothing outside the
+            // flight has moved when it is called, and admission can still
+            // refuse the whole landing.
+            [LoopMoves.ProposeLanding] = RecordOnly,
         };
 
     /// <summary>The kind of a declared move. THROWS on one nobody classified.</summary>

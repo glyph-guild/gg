@@ -229,6 +229,20 @@ public static class EnvelopeText
                 text.Append($"{Indent}{Indent}branch: {Scalar(branch)}\n");
             }
 
+            // THE TWO INSTRUCTIONS, on the same rule. Written only when
+            // declared, because a default sentence emitted for every
+            // destination would be this repository putting words in a tenant's
+            // document and then showing them the diff.
+            if (destination.Title is { } titled)
+            {
+                text.Append($"{Indent}{Indent}title: {Scalar(titled)}\n");
+            }
+
+            if (destination.Description is { } described)
+            {
+                text.Append($"{Indent}{Indent}description: {Scalar(described)}\n");
+            }
+
             // SAME RULE, SAME REASON. Only a flight destination may carry this,
             // so emitting `opens: []` for the four kinds that may not would put
             // a refused key into every document that has ever been written.

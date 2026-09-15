@@ -170,6 +170,19 @@ public static class FactKinds
     /// </remarks>
     public const string WorkItemProposal = "work-item.proposal";
 
+    /// <summary>
+    /// What an agent asks its own proposal be called.
+    /// </summary>
+    /// <remarks>
+    /// The THIRD kind that is a request rather than a measurement, and it asks
+    /// for less than either of the others: a nomination asks that a flight
+    /// exist and a work-item proposal asks that a backlog change, while this
+    /// asks only for wording on something the same flight is already opening.
+    /// Recorded anyway, because a person reading the record has to be able to
+    /// see what the agent asked for beside what was published.
+    /// </remarks>
+    public const string LandingProposal = "landing.proposal";
+
     /// <summary>Every kind that validates.</summary>
     /// <remarks>
     /// <c>check.verdict</c> is deliberately NOT here. It is a fact a
@@ -184,7 +197,8 @@ public static class FactKinds
          DestinationPushed,
          LoopDigest,
          HumanAccount,
-         FlightNomination, LoopQuestion, LoopAttended, WorkItemProposal];
+         FlightNomination, LoopQuestion, LoopAttended, WorkItemProposal,
+         LandingProposal];
 }
 
 /// <summary>
@@ -346,7 +360,7 @@ public static class FactVocabulary
     /// No gap VALUE is added for it; loop.attended already says the session
     /// was attended, and a closed vocabulary's values are the expensive kind.
     /// NO VALUE MOVED and no kind changed.
-    public const string Version = "0.30.0";
+    public const string Version = "0.31.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -1018,6 +1032,11 @@ public sealed record FactEnvelope
     /// </remarks>
     public WorkItemProposal? Proposal { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.LandingProposal"/>.
+    /// </summary>
+    public LandingProposal? Landing { get; init; }
+
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
@@ -1062,6 +1081,7 @@ public sealed record FactEnvelope
             (FactKinds.HumanAccount, envelope.Human is not null),
             (FactKinds.FlightNomination, envelope.Nomination is not null),
             (FactKinds.WorkItemProposal, envelope.Proposal is not null),
+            (FactKinds.LandingProposal, envelope.Landing is not null),
             (FactKinds.LoopQuestion, envelope.Question is not null),
             (FactKinds.LoopAttended, envelope.Attended is not null),
         };
@@ -1116,6 +1136,12 @@ public sealed record FactEnvelope
             && LoopAttended.Validate(attended) is { } badAttended)
         {
             return badAttended;
+        }
+
+        if (envelope.Landing is { } proposedLanding
+            && LandingProposal.Validate(proposedLanding) is { } badProposedLanding)
+        {
+            return badProposedLanding;
         }
 
         if (envelope.LoopDigest is { } summary && LoopDigest.Validate(summary) is { } badDigest)

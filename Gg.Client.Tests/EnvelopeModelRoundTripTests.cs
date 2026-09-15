@@ -75,6 +75,8 @@ public class EnvelopeModelRoundTripTests
                 Requires = ["human-look", "in-scope"],
                 PreserveUnadmitted = true,
                 Branch = "{ticket}-{flight}",
+                Title = "Imperative mood, under seventy characters.",
+                Description = "Say what changed and why. Do not repeat the diff.",
             },
         ],
     };
@@ -153,6 +155,10 @@ public class EnvelopeModelRoundTripTests
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.PullRequest);
         await Assert.That(destination.Requires).IsEquivalentTo(original.Destinations[0].Requires);
         await Assert.That(destination.PreserveUnadmitted!.Value).IsTrue();
+        await Assert.That(destination.Title)
+            .IsEqualTo("Imperative mood, under seventy characters.");
+        await Assert.That(destination.Description)
+            .IsEqualTo("Say what changed and why. Do not repeat the diff.");
         await Assert.That(destination.Branch).IsEqualTo("{ticket}-{flight}")
             .Because("a template survives the render and the parse with its braces intact - "
                    + "a text form that quoted or expanded them would hand the next reader a "
@@ -225,6 +231,8 @@ public class EnvelopeModelRoundTripTests
             .IsEquivalentTo((string[])["ledger", "payments"]);
 
         await Assert.That(destination.PreserveUnadmitted).IsNull();
+        await Assert.That(destination.Title).IsNull();
+        await Assert.That(destination.Description).IsNull();
         await Assert.That(destination.Branch).IsNull()
             .Because("absent stays absent. A missing template read back as the default would "
                    + "write a branch shape into every document as though somebody chose it.");
@@ -292,6 +300,7 @@ public class EnvelopeModelRoundTripTests
             nameof(LoopBudget.WallClock), nameof(LoopBudget.Attempts),
             nameof(Destination.Id), nameof(Destination.Kind), nameof(Destination.Requires),
             nameof(Destination.PreserveUnadmitted), nameof(Destination.Branch),
+            nameof(Destination.Title), nameof(Destination.Description),
             nameof(Destination.Opens),
             nameof(Destination.MaySelect), nameof(Destination.MayPerform),
             nameof(Destination.MayWrite),

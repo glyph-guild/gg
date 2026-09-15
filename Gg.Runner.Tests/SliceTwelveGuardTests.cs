@@ -154,7 +154,7 @@ public class SliceTwelveGuardTests
     /// own record and its own prefix, which is the attestation's argument that
     /// the count guard above was written to defend.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.30.0";
+    private const string VocabularyAtSliceStart = "0.31.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -227,7 +227,7 @@ public class SliceTwelveGuardTests
     /// writes, and the thing that has held it back so far is that every ask
     /// crosses as a value and is answered by an admission.
     /// </para>
-    private const int KindsThatCross = 13;
+    private const int KindsThatCross = 14;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()
@@ -242,8 +242,10 @@ public class SliceTwelveGuardTests
             .Because("an attestation from a resident runner is runner-origin and measured - "
                    + "it survives both prior arguments against new kinds - and it is STILL "
                    + "not a fact, because a fact belongs to a flight and a routine action "
-                   + "has none. A tenth kind here is somebody grafting a flightless path "
-                   + "under the fact name.");
+                   + "has none. A kind here is somebody grafting a flightless path under "
+                   + "the fact name - and landing.proposal, the fourteenth, is the opposite "
+                   + "case: it belongs to one flight's own landing and to nothing that "
+                   + "outlives it.");
     }
 
     [Test]

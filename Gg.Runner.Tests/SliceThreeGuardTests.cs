@@ -67,7 +67,7 @@ public class SliceThreeGuardTests
     /// are answered by an admission against a menu a person wrote, which is the
     /// property that made a second ask arguable at all.
     /// </remarks>
-    private const int KindsThatCross = 13;
+    private const int KindsThatCross = 14;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -158,6 +158,18 @@ public class SliceThreeGuardTests
         // a value and is answered by an admission, which is the property that
         // made a second ask arguable at all; the number worth watching from here
         // is that one, two of thirteen, and not the total.
+        //
+        // FOURTEEN, AND THE NUMBER WORTH WATCHING IS NOW THREE. landing.proposal
+        // is what an agent asks its own proposal be called, and it is the
+        // WEAKEST of the three asks: a nomination asks that a flight exist, a
+        // work-item proposal asks that somebody else's backlog change, and this
+        // asks only for wording on something the same flight is already opening.
+        // It does not cross to be answered by an admission - nothing admits a
+        // title - so it does not have the property that made the second ask
+        // arguable, and what earns it a place instead is the alternative: the
+        // runner cutting a title out of the agent's prose, which it did, and
+        // which produced a pull request named after an obligation verdict.
+        // A FOURTH ASK NEEDS A BETTER ARGUMENT THAN THIS ONE HAD.
         // This test
         // used to say "no fact
         // kind has been added" and the halt it produced is what sent the decision
@@ -178,6 +190,7 @@ public class SliceThreeGuardTests
                 FactKinds.LoopAttended,
                 FactKinds.LoopDigest,
                 FactKinds.LoopOutcome,
+                FactKinds.LandingProposal,
                 FactKinds.LoopQuestion,
                 FactKinds.LoopTranscript,
                 FactKinds.SourceProvenance,

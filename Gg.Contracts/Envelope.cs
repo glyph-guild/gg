@@ -247,8 +247,36 @@ public static class LoopMoves
     /// </remarks>
     public const string ProposeWorkItem = "propose-work-item";
 
+    /// <summary>
+    /// Say what the proposal this flight opens should be called.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because a title cut out of prose is not one the agent chose.</b> The
+    /// landing composes one from the loop's account and that is a fallback with
+    /// every fallback's failure mode - it is whatever the agent happened to
+    /// write first. This is the agent saying it, once, deliberately.
+    /// </para>
+    /// <para>
+    /// <b>Not an instruction in a summary, and the difference is who reads
+    /// it.</b> A convention like <i>end your summary with a line beginning
+    /// TITLE:</i> changes what an agent WRITES and nothing downstream reads it -
+    /// the reason's own first-paragraph rule cuts a trailing line before it
+    /// reaches a fact at all. A move grants a tool, the tool is answered by this
+    /// platform's own server, and the digest extracts what was answered.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version</b>, on <see cref="Propose"/>'s reasoning: the
+    /// only safe response to an unknown value in a closed vocabulary is to halt,
+    /// so an added value breaks every prior reader by design. Envelopes in force
+    /// are unchanged in meaning - they cannot propose a landing, which they
+    /// could not before either.
+    /// </para>
+    /// </remarks>
+    public const string ProposeLanding = "propose-landing";
+
     public static IReadOnlyList<string> All { get; } =
-        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem];
+        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding];
 }
 
 /// <summary>What happens when a loop runs out of budget.</summary>
@@ -1257,6 +1285,37 @@ public sealed record Destination
     public string? Branch { get; init; }
 
     /// <summary>
+    /// How this destination wants what it opens to be named, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An instruction to the agent, not a template.</b> <see cref="Branch"/>
+    /// beside it is rendered by this platform from values it holds; this is
+    /// prose a person wrote for whoever does the work, and the only thing that
+    /// reads it is the agent. A team whose review convention wants an imperative
+    /// under seventy characters has nowhere else to say so that reaches one.
+    /// </para>
+    /// <para>
+    /// <b>It is only met by an agent granted <see cref="LoopMoves.ProposeLanding"/>.</b>
+    /// Without the move there is no tool to state a title with, and the
+    /// instruction would be advice about something the agent cannot do - which
+    /// is a document that reads as a policy and is not one.
+    /// </para>
+    /// </remarks>
+    public string? Title { get; init; }
+
+    /// <summary>
+    /// What this destination wants the description to say, or null.
+    /// </summary>
+    /// <remarks>
+    /// On <see cref="Title"/>'s terms, and separate from it because they are
+    /// answered separately: an agent may have a clear name for a change and
+    /// nothing to add about it, and a body it was told to write anyway is
+    /// padding under somebody's name.
+    /// </remarks>
+    public string? Description { get; init; }
+
+    /// <summary>
     /// The work-kind names a <see cref="DestinationKinds.Flight"/> destination
     /// may open. Refused on every other kind.
     /// </summary>
@@ -2039,6 +2098,18 @@ public sealed record Envelope
                 return $"Destination '{destination.Id}' names a branch and is a "
                      + $"'{destination.Kind}', which pushes nothing. Branch belongs on the "
                      + "kinds that have one.";
+            }
+
+            // AND THE SAME FOR THE WORDING. A tracker destination opens no
+            // proposal, so how to name one is advice about something that will
+            // never happen - which reads as a policy and is not one.
+            if ((destination.Title is not null || destination.Description is not null)
+                && !string.Equals(
+                    destination.Kind, DestinationKinds.PullRequest, StringComparison.Ordinal))
+            {
+                return $"Destination '{destination.Id}' says how to name what it opens and is "
+                     + $"a '{destination.Kind}', which opens no proposal. Title and body belong "
+                     + "on a destination that opens one.";
             }
 
             // REFUSED RATHER THAN IGNORED. An envelope-change destination has no

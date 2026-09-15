@@ -92,11 +92,11 @@ public class AnAgentProposesItsLandingTests
     }
 
     [Test]
-    public async Task A_title_is_required_and_a_body_is_not()
+    public async Task A_title_is_required_and_a_description_is_not()
     {
-        // THE TITLE IS THE POINT. A body is a courtesy - the description
-        // already carries the branch and the work item - so an agent that has
-        // nothing to add leaves it out rather than padding it.
+        // THE TITLE IS THE POINT. A description is a courtesy - the one a
+        // destination writes already carries the branch and the work item, so
+        // an agent with nothing to add leaves it out rather than padding it.
         await Assert.That(
                 LandingProposal.Validate(new LandingProposal { Title = "Name the change" }))
             .IsNull();
@@ -132,12 +132,12 @@ public class AnAgentProposesItsLandingTests
     }
 
     [Test]
-    public async Task A_body_past_its_bound_is_refused_too()
+    public async Task A_description_past_its_bound_is_refused_too()
     {
         await Assert.That(LandingProposal.Validate(new LandingProposal
         {
             Title = "Name the change",
-            Body = new string('b', LandingProposal.MaxBody + 1),
+            Description = new string('b', LandingProposal.MaxDescription + 1),
         })).IsNotNull();
     }
 
@@ -153,11 +153,11 @@ public class AnAgentProposesItsLandingTests
             Kind = DestinationKinds.PullRequest,
             Requires = ["in-scope"],
             Title = "Imperative mood, under seventy characters, name the change.",
-            Body = "Say what changed and why. Do not repeat the diff.",
+            Description = "Say what changed and why. Do not repeat the diff.",
         };
 
         await Assert.That(destination.Title).IsNotEmpty();
-        await Assert.That(destination.Body).IsNotEmpty();
+        await Assert.That(destination.Description).IsNotEmpty();
     }
 
     [Test]
@@ -224,11 +224,11 @@ public class AnAgentProposesItsLandingTests
             Landing = new LeaseLanding
             {
                 Title = "Imperative mood, under seventy characters.",
-                Body = "Say what changed and why.",
+                Description = "Say what changed and why.",
             },
         };
 
         await Assert.That(loop.Landing!.Title).IsNotEmpty();
-        await Assert.That(loop.Landing!.Body).IsNotEmpty();
+        await Assert.That(loop.Landing!.Description).IsNotEmpty();
     }
 }

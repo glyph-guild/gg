@@ -704,7 +704,7 @@ public static class EnvelopeYaml
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
         Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select",
-            "may-perform", "may-write", "branch");
+            "may-perform", "may-write", "branch", "title", "description");
 
         return new Destination
         {
@@ -727,6 +727,16 @@ public static class EnvelopeYaml
             // round-tripping on the first destination anybody wrote.
             Branch = entry.Body.Entries.TryGetValue("branch", out var branch)
                 ? RequireScalar(branch, $"{entry.Body.Path}.branch")
+                : null,
+            // PROSE RATHER THAN A TEMPLATE, and absent for the same reason the
+            // one above it is: a missing instruction read back as a default
+            // sentence would put words into a tenant's document that nobody
+            // wrote, attributed to them.
+            Title = entry.Body.Entries.TryGetValue("title", out var title)
+                ? RequireScalar(title, $"{entry.Body.Path}.title")
+                : null,
+            Description = entry.Body.Entries.TryGetValue("description", out var described)
+                ? RequireScalar(described, $"{entry.Body.Path}.description")
                 : null,
             Opens = entry.Body.Entries.TryGetValue("opens", out var opens)
                 ? Strings(opens, $"{entry.Body.Path}.opens")

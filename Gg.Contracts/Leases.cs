@@ -456,6 +456,32 @@ public sealed record LeaseLoop
     /// </para>
     /// </remarks>
     public string? Brief { get; init; }
+
+    /// <summary>
+    /// What the flight's destination asks about the proposal it will open, or
+    /// null when it asks nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Carried, not rendered</b>, on <see cref="Brief"/>'s terms: one layer,
+    /// two strings, nothing to order or attribute, so wrapping them here would
+    /// be this repository writing sentences the tenant's document already wrote.
+    /// </para>
+    /// <para>
+    /// <b>On the loop although it comes from a destination.</b> The lease
+    /// carries no destinations - a runner learns where it may land from the
+    /// landing decision, long after the agent has finished - and the agent needs
+    /// this while it works. So it travels with the thing the agent is governed
+    /// by rather than with the thing it describes.
+    /// </para>
+    /// <para>
+    /// <b>It only means anything to a loop granted
+    /// <c>LoopMoves.ProposeLanding</c></b>, which is what turns an instruction
+    /// into something the agent can act on. Absent otherwise, and absent for
+    /// every envelope written before it.
+    /// </para>
+    /// </remarks>
+    public LeaseLanding? Landing { get; init; }
 }
 
 /// <summary>

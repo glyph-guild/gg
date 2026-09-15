@@ -1450,6 +1450,8 @@ public static class ProtocolSurface
             [typeof(LoopQuestion)] = ["question"],
             [typeof(WorkItemProposal)] =
                 ["operation", "reason", "target", "score", "detail", "fields"],
+            [typeof(LandingProposal)] = ["title", "description"],
+            [typeof(LeaseLanding)] = ["title", "description"],
             [typeof(WorkItemFieldEdit)] = ["path", "value"],
             [typeof(LoopAttended)] =
                 ["loopId", "rung", "binary", "binaryVersion", "budgetSeconds", "heldSeconds",
@@ -1466,7 +1468,7 @@ public static class ProtocolSurface
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
                 ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion", "resumesFrom",
-                 "instructions", "brief"],
+                 "instructions", "brief", "landing"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
@@ -1491,8 +1493,8 @@ public static class ProtocolSurface
             [typeof(Loop)] =
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
             [typeof(Destination)] =
-                ["id", "kind", "requires", "preserveUnadmitted", "branch", "opens", "maySelect",
-                 "mayPerform", "mayWrite"],
+                ["id", "kind", "requires", "preserveUnadmitted", "branch", "title", "description",
+                 "opens", "maySelect", "mayPerform", "mayWrite"],
             [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
                 ["description", "brief", "context", "obligations", "instructions", "loops",
@@ -1701,7 +1703,7 @@ public static class ProtocolSurface
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
                  "loop", "transcript", "landed", "pushed", "loopDigest", "human", "nomination",
-                 "question", "attended", "proposal"],
+                 "question", "attended", "proposal", "landing"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             // Refusals only: accepted and duplicates are answers the write has,

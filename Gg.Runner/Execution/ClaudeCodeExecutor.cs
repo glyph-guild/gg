@@ -902,6 +902,10 @@ public sealed class ClaudeCodeExecutor(
         // move granting both would be exactly the prefix grant the comment
         // above refuses, arriving by a different route.
         LoopMoves.ProposeWorkItem => WorkItemProposalTool.Qualified,
+        // THE THIRD, ON THE SECOND'S TERMS. Its own move and its own whole
+        // name: one move granting two tools is the prefix grant the comment
+        // above refuses, arriving by a different route.
+        LoopMoves.ProposeLanding => LandingProposalTool.Qualified,
         _ => move,
     };
 

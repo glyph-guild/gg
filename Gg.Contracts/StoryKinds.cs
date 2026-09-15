@@ -103,6 +103,14 @@ public static class StoryKinds
     /// <summary>The pool this flight's machine came from had a bad time.</summary>
     public const string PoolIncident = "pool-incident";
 
+    /// <summary>A runner this maintenance flight is about reported something a person has to fix.</summary>
+    /// <remarks>
+    /// Declared here because the control plane's own closure test refuses a
+    /// log kind this contract has not named: an undeclared one makes every
+    /// story of that flight throw rather than merely miss a line.
+    /// </remarks>
+    public const string RunnerIncident = "runner-incident";
+
     /// <summary>
     /// Nobody came to fly it by hand, and it was given up on.
     /// </summary>
@@ -125,7 +133,7 @@ public static class StoryKinds
         Evaluated, EvidenceRejected, ObligationHalted, LoopWaitingForPerson,
         DecisionAsked, DecisionMade,
         Ended,
-        TakenOver, HoldExpired, PoolIncident, AttendedNobodyCame,
+        TakenOver, HoldExpired, PoolIncident, RunnerIncident, AttendedNobodyCame,
     ];
 
     /// <summary>

@@ -443,6 +443,22 @@ public static class ProtocolSurface
         },
         new()
         {
+            // WHETHER THIS RUNNER'S AGENT CAN START. A reading, on the allowance
+            // readings' argument: its own route rather than a field on the
+            // beat, because a heartbeat is liveness only, and a measurement
+            // with its own MeasuredAt rather than a status a runner declares.
+            // No id in the path, on /v1/runner/renewal's reason. 202 and
+            // nothing back: what the control plane made of it - a gate, or a
+            // gate closing - is a read of its own.
+            Method = "POST",
+            Path = "/v1/runner/agent",
+            Audience = Audience.Runner,
+            Request = typeof(AgentReading),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             Method = "POST",
             Path = "/v1/runners/{id}/heartbeat",
             Audience = Audience.Runner,
@@ -1483,9 +1499,11 @@ public static class ProtocolSurface
                 ["flightNumber", "obligationId", "outcome", "decidedBy", "decidedAt", "admission"],
             [typeof(PendingGate)] =
                 ["flightNumber", "obligationId", "approver", "branch", "commit", "manifestHash",
-                 "condition", "because", "awaitingSince", "attempt", "nomination"],
+                 "condition", "because", "awaitingSince", "attempt", "nomination", "maintenance"],
             [typeof(GateNomination)] =
                 ["reason", "workKind", "note", "environment", "repository"],
+            [typeof(GateMaintenance)] =
+                ["kind", "runner", "runnerLabel", "provider", "diagnosis"],
             [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
                 ["flightNumber", "envelopeVersion", "obligations", "halt"],
@@ -1539,6 +1557,7 @@ public static class ProtocolSurface
                  // either side can compute them from the counts.
                  "cacheWriteTokens", "limit", "tokens", "reported", "resetsAt", "reportedAt"],
             [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
+            [typeof(AgentReading)] = ["provider", "standing", "source", "measuredAt", "diagnosis"],
             [typeof(AllowanceSummary)] =
                 ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],
             [typeof(AllowanceFloor)] = ["sessionFraction", "weekFraction"],

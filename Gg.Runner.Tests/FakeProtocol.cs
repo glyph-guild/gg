@@ -219,6 +219,24 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.CompletedTask;
     }
 
+    /// <summary>Every agent reading the loop posted, in order.</summary>
+    internal List<AgentReading> AgentReadings { get; } = [];
+
+    /// <summary>A control plane that cannot take a reading - not yet serving the route, most likely.</summary>
+    internal Queue<Exception> AgentThrows { get; } = [];
+
+    public Task ReportAgentAsync(
+        string runnerId, AgentReading reading, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("agent");
+        Record(reading);
+
+        if (AgentThrows.Count > 0) { throw AgentThrows.Dequeue(); }
+
+        AgentReadings.Add(reading);
+        return Task.CompletedTask;
+    }
+
     /// <summary>What this control plane offers, or null for nothing.</summary>
     /// <remarks>
     /// Carried on every beat rather than dequeued like an introduction, because
@@ -435,6 +453,11 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void Idle() => Record("idle");
 
     public void Parked() => Record("parked");
+
+    public void AgentHeld(string provider, string diagnosis) =>
+        Record($"agent-held:{diagnosis}");
+
+    public void AgentReady(string provider) => Record("agent-ready");
 
     public void AllowanceSpent() { }
 

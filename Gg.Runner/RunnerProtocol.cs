@@ -282,6 +282,19 @@ public interface IRunnerProtocol
         string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says whether this runner's agent can start.
+    /// </summary>
+    /// <remarks>
+    /// The allowance reading's shape and its reason: a measurement with its
+    /// own MeasuredAt, on its own route, never on the beat. 202 and nothing
+    /// back - a gate opening or closing is a read of its own. Best-effort at
+    /// the caller: a control plane that does not serve the route yet must not
+    /// end the hold that the reading is about.
+    /// </remarks>
+    Task ReportAgentAsync(
+        string runnerId, AgentReading reading, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Asks for work. Two calls rather than one, deliberately.
     /// </summary>
     /// <remarks>

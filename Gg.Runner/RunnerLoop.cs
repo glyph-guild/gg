@@ -108,6 +108,21 @@ public interface IRunnerObserver
     void AllowanceSpent();
 
     /// <summary>
+    /// This machine's agent cannot start, and the runner is holding: beating,
+    /// never claiming, until a credential arrives.
+    /// </summary>
+    /// <remarks>
+    /// <b>Separate from <see cref="Parked"/> and <see cref="AllowanceSpent"/>
+    /// for their reason:</b> three ways of taking no work with three different
+    /// things to do about it, and this is the one a person fixes from a gate
+    /// without visiting the machine.
+    /// </remarks>
+    void AgentHeld(string provider, string diagnosis);
+
+    /// <summary>The agent can start again; the hold is over.</summary>
+    void AgentReady(string provider);
+
+    /// <summary>
     /// A flight is ready and its lease cannot be completed yet.
     /// </summary>
     /// <remarks>
@@ -209,6 +224,8 @@ public sealed class SilentObserver : IRunnerObserver
     public void Parked() { }
 
     public void AllowanceSpent() { }
+    public void AgentHeld(string provider, string diagnosis) { }
+    public void AgentReady(string provider) { }
     public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
     public void Materialized(string slug, string headCommit, long bytes) { }
@@ -322,7 +339,17 @@ public sealed class RunnerLoop(
     // registered before a member existed is in that state - and it is
     // deliberately NOT inferred from anything, because a guess here turns
     // somebody revoking a runner into a tidy exit 0.
-    DateTimeOffset? credentialExpiresAt = null)
+    DateTimeOffset? credentialExpiresAt = null,
+    // HOW THIS MACHINE'S AGENT AUTHENTICATES, or null for a runner that
+    // declares none - and then nothing below holds, probes or reports.
+    Execution.IAuthenticateAnAgent? agent = null,
+    // THE TOKEN GG HOLDS FOR IT, read fresh on every probe so a credential
+    // kept mid-life is the one measured. A thunk rather than a value for the
+    // same reason the store itself is not here: Gg.Runner does not go looking.
+    Func<string?>? agentToken = null,
+    // WHAT THE HOST MEASURED BEFORE THIS LOOP EXISTED, so the first turn does
+    // not launch a process to learn what startup just learned.
+    Execution.AgentStanding? initialStanding = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -711,6 +738,15 @@ public sealed class RunnerLoop(
         {
             while (!cancellationToken.IsCancellationRequested && !_boundBroke)
             {
+                // AN AGENT THAT CANNOT START IS A RUNNER THAT MUST NOT CLAIM,
+                // and holding rather than exiting is what keeps it reachable:
+                // it beats inside, so introductions still arrive, and a
+                // credential sent over the channel ends the hold without a
+                // restart.
+                if (await HeldForLoginAsync(runnerId, labels, cancellationToken))
+                {
+                    continue;
+                }
 
                 // BEFORE asking, so a runner that never gets work still reports
                 // being alive. This is the call whose absence made an idle
@@ -899,6 +935,171 @@ public sealed class RunnerLoop(
 
     /// <summary>Whether a session's probe found the bound broken.</summary>
     private bool _boundBroke;
+
+    private readonly Execution.IAuthenticateAnAgent? _agent = agent;
+    private readonly Func<string?> _agentToken = agentToken ?? (() => null);
+
+    /// <summary>The agent's standing as last measured, or null when never.</summary>
+    private Execution.AgentStanding? _standing = initialStanding;
+
+    /// <summary>The standing last REPORTED, so an unchanged one is not said again.</summary>
+    private Execution.AgentStanding? _reported;
+
+    /// <summary>Whether this loop is holding for a login.</summary>
+    private bool _agentHeld = initialStanding is { Authenticated: false };
+
+    /// <summary>
+    /// Whether the hold was entered because a RUN could not log in, in which
+    /// case a probe that says "has a source" proves nothing - it said that
+    /// before the run failed - and only a credential kept since clears it.
+    /// </summary>
+    private bool _heldByRun;
+
+    /// <summary>A credential for the agent was written since the last probe.</summary>
+    private bool _kept;
+
+    /// <summary>How long a held runner waits between looking again.</summary>
+    /// <remarks>
+    /// The probe is a local process launch and nothing else, so this is about
+    /// not spinning rather than about cost. A kept credential skips it.
+    /// </remarks>
+    public static readonly TimeSpan AgentRecheck = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Tells the loop a credential was written, so a held runner looks again
+    /// now rather than at the next recheck.
+    /// </summary>
+    /// <remarks>
+    /// Called by whoever wired the channel's keeper, after the store has it.
+    /// Any locator: the loop compares to the agent's, because the store
+    /// cannot know which of its files a runner is holding for.
+    /// </remarks>
+    public void CredentialKept(string locator)
+    {
+        if (_agent is not null && string.Equals(locator, _agent.Locator, StringComparison.Ordinal))
+        {
+            _kept = true;
+        }
+    }
+
+    /// <summary>
+    /// Holds when the agent cannot start: beats, probes on a cadence or at
+    /// once when a credential arrives, reports a change, and never claims.
+    /// </summary>
+    /// <returns>True when this turn was spent holding and the caller should not ask for work.</returns>
+    private async Task<bool> HeldForLoginAsync(
+        string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        if (_agent is null || (!_agentHeld && !_kept))
+        {
+            return false;
+        }
+
+        // WHAT THE HOST MEASURED IS SAID ONCE, at the first turn, before any
+        // probe of this loop's own: the hold began then.
+        if (_agentHeld && _reported is null && _standing is not null)
+        {
+            _observer.AgentHeld(_agent.Provider, _standing.Diagnosis);
+            await ReportAgentAsync(runnerId, _standing, cancellationToken);
+        }
+
+        var kept = _kept;
+        _kept = false;
+
+        var fresh = await _agent.ProbeAsync(_agentToken(), cancellationToken);
+        var recovered = fresh.Authenticated && (!_heldByRun || kept);
+
+        if (recovered)
+        {
+            if (_agentHeld)
+            {
+                _agentHeld = false;
+                _heldByRun = false;
+                _observer.AgentReady(_agent.Provider);
+                await ReportAgentAsync(runnerId, fresh, cancellationToken);
+            }
+
+            _standing = fresh;
+            return false;
+        }
+
+        // STILL HELD. A changed sentence is worth saying; the same one is not.
+        if (!_agentHeld)
+        {
+            _agentHeld = true;
+            _observer.AgentHeld(_agent.Provider, fresh.Diagnosis);
+        }
+
+        if (!fresh.Authenticated && !SameStanding(_reported, fresh))
+        {
+            await ReportAgentAsync(runnerId, fresh, cancellationToken);
+        }
+
+        _standing = fresh;
+
+        await BeatIfDueAsync(runnerId, labels, cancellationToken);
+        await _delay(AgentRecheck, cancellationToken);
+        return true;
+    }
+
+    /// <summary>Enters the hold from a run that could not log in.</summary>
+    private async Task HoldAfterRunAsync(
+        string runnerId, string reason, CancellationToken cancellationToken)
+    {
+        var standing = new Execution.AgentStanding(
+            Authenticated: false,
+            Source: _agentToken() is { Length: > 0 }
+                ? Gg.Contracts.AgentCredentialSources.Token
+                : Gg.Contracts.AgentCredentialSources.None,
+            Diagnosis: reason,
+            MeasuredAt: _clock.UtcNow);
+
+        _agentHeld = true;
+        _heldByRun = true;
+        _standing = standing;
+        _observer.AgentHeld(_agent!.Provider, reason);
+        await ReportAgentAsync(runnerId, standing, cancellationToken);
+    }
+
+    private static bool SameStanding(Execution.AgentStanding? a, Execution.AgentStanding b) =>
+        a is not null
+        && a.Authenticated == b.Authenticated
+        && string.Equals(a.Source, b.Source, StringComparison.Ordinal)
+        && string.Equals(a.Diagnosis, b.Diagnosis, StringComparison.Ordinal);
+
+    /// <summary>Best-effort, like the allowance reading: the hold does not depend on being heard.</summary>
+    private async Task ReportAgentAsync(
+        string runnerId, Execution.AgentStanding standing, CancellationToken cancellationToken)
+    {
+        _reported = standing;
+
+        var diagnosis = standing.Authenticated ? null : standing.Diagnosis;
+        if (diagnosis is { Length: > Gg.Contracts.AgentReading.MaxDiagnosis })
+        {
+            diagnosis = diagnosis[..Gg.Contracts.AgentReading.MaxDiagnosis];
+        }
+
+        try
+        {
+            await _protocol.ReportAgentAsync(runnerId, new Gg.Contracts.AgentReading
+            {
+                Provider = _agent!.Provider,
+                Standing = standing.Authenticated
+                    ? Gg.Contracts.AgentStandings.Ready
+                    : Gg.Contracts.AgentStandings.NeedsLogin,
+                Source = standing.Source,
+                MeasuredAt = standing.MeasuredAt,
+                Diagnosis = diagnosis,
+            }, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // A control plane that does not serve the route yet, most likely.
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
 
     /// <summary>
     /// Resolves every credential the lease named, or reports the first that
@@ -1282,6 +1483,21 @@ public sealed class RunnerLoop(
         // fly. The runner then stops taking work, because a broken bound is a
         // property of the machine rather than of the lease, and the next claim
         // would fly ungoverned on the same machine.
+        // THE AGENT COULD NOT LOG IN, which is the flight's misfortune and not
+        // its fault, and not a broken bound either. The token was fine at
+        // startup and is dead now - a revocation, an expiry. The flight goes
+        // back untouched for somebody else to fly, and this machine holds
+        // rather than exiting: nothing about the bound was measured wrong.
+        if (_agent is not null
+            && (probe is { Bound: false, Held.Count: 0, Broke.Count: 0 } && _agent.NeedsLogin(probe.Diagnosis)
+                || invoked.Run is { Outcome: LoopOutcomes.Failed } failed && _agent.NeedsLogin(failed.Reason)))
+        {
+            var reason = invoked.Run?.Reason ?? probe!.Diagnosis;
+            await ReleaseAsync(lease, RunnerDisposition.Abandoned, reason, cancellationToken);
+            await HoldAfterRunAsync(runnerId, reason, cancellationToken);
+            return;
+        }
+
         if (probe is { Bound: false })
         {
             _observer.BoundBroken(probe.Diagnosis);

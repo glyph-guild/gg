@@ -27,8 +27,13 @@ namespace Gg.Runner.Execution;
 /// </remarks>
 public static class ExecutorConfiguration
 {
-    /// <summary>Where the agent binary is, when this machine has one.</summary>
-    public const string BinaryVariable = "GG_EXECUTOR_BINARY";
+    /// <summary>Which agent this machine has and where, when it has one.</summary>
+    /// <remarks>
+    /// Spelled in <see cref="ExecutorDeclaration"/>, which is also what parses
+    /// it: a bare path is claude, <c>agent=path</c> names one, and the doctor
+    /// reads it through the same parser from a project that cannot see this one.
+    /// </remarks>
+    public const string BinaryVariable = ExecutorDeclaration.Variable;
 
     /// <summary>The executor this machine is configured for, or null for none.</summary>
     /// <remarks>
@@ -40,9 +45,17 @@ public static class ExecutorConfiguration
     public static IExecutorPort? FromEnvironment(
         IReadOnlyList<IntentReader>? readers = null,
         Func<string, string?>? secretFor = null) =>
-        Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
+        // THE CHOICE IS MADE HERE, IN THE DEFAULT, which is where the vcs and
+        // destination seams learned it has to be: "the adapterFor parameter
+        // was passed only from tests, which is the same bug one layer up".
+        // ExecutorDeclaration.Known has one member, so this is not a switch
+        // yet - and the day it is, the second arm is here rather than in a
+        // caller that assumed the first.
+        ExecutorDeclaration.ParseOrNull(
+            Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable)
+            is { } declared
             ? new ClaudeCodeExecutor(
-                binary,
+                declared.Binary,
                 readers ?? IntentConfiguration.FromEnvironment(),
                 secretFor,
                 // THE ONE PLACE, again. How this process re-execs itself is a
@@ -50,6 +63,43 @@ public static class ExecutorConfiguration
                 // between reads - but it is resolved here anyway, beside the
                 // trackers, because an executor that had it and was never given
                 // it is the shape this type exists to remove.
-                SelfInvocation.Current)
+                SelfInvocation.Current,
+                // AND HOW ITS AGENT AUTHENTICATES, from the same parse, so a
+                // runner cannot pick an executor for one agent and an adapter
+                // for another.
+                AgentFor(declared))
             : null;
+
+    /// <summary>How this machine's agent authenticates, or null for none - from the environment.</summary>
+    /// <remarks>
+    /// A second read of the same variable through the same parser, for the
+    /// composition root that needs the adapter beside the executor and cannot
+    /// reach into one to ask.
+    /// </remarks>
+    public static IAuthenticateAnAgent? AgentFromEnvironment() =>
+        ExecutorDeclaration.ParseOrNull(
+            Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable) is { } declared
+            ? AgentFor(declared)
+            : null;
+
+    /// <summary>How the declared agent authenticates.</summary>
+    /// <remarks>
+    /// The choice is here, in the default, for the reason the executor's is.
+    /// <see cref="ExecutorDeclaration.Parse"/> has already refused an agent
+    /// nobody has an adapter for, so the arm below is unreachable by
+    /// construction - and it throws rather than defaults, because "unknown
+    /// means claude" is the assumption this whole declaration exists to end.
+    /// </remarks>
+    public static IAuthenticateAnAgent AgentFor(ExecutorDeclaration declared)
+    {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        return declared.Agent switch
+        {
+            ExecutorDeclaration.Claude => new ClaudeAgentAuthentication(declared.Binary),
+            var other => throw new InvalidOperationException(
+                $"'{other}' is an agent ExecutorDeclaration admits and this build has no "
+              + "adapter for. The two lists have drifted; add the adapter here."),
+        };
+    }
 }

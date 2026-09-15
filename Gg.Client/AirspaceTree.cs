@@ -598,6 +598,52 @@ public sealed record NameRetired
 /// one - and two record types for "it landed" and "it is waiting" would be two
 /// things to render and two ways to ask which happened.
 /// </remarks>
+/// <summary>A charted environment name, live here now or riding a gate.</summary>
+/// <remarks>
+/// <b>One record for both answers</b>, the way <see cref="NameDeclared"/> and
+/// <see cref="AppliedDocument"/> already fold a gated act into the same shape as
+/// a landed one. A chart entry is reach that did not exist a moment ago - every
+/// envelope in the tenant may then select the name - so the gated arm is the
+/// ordinary one.
+/// </remarks>
+public sealed record EnvironmentChartEntry
+{
+    public required string Name { get; init; }
+
+    /// <summary>What the name means as a fact predicate, or null for a claim.</summary>
+    public string? Meaning { get; init; }
+
+    /// <summary>
+    /// One of <c>LabelDispositions</c>, as the door derived it - or null while
+    /// the entry is riding a gate and there is nothing to derive it from yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read, never computed here.</b> <i>"Derived from the meaning, never
+    /// typed"</i> is the contract's own rule about this member, and a client
+    /// that worked it out from whether a meaning was passed would be a second
+    /// opinion about somebody else's rule - one that disagrees the moment a
+    /// meaning is registered separately.
+    /// </remarks>
+    public string? Disposition { get; init; }
+
+    /// <summary>Who charted it, when the entry is live here now.</summary>
+    /// <remarks>
+    /// Null while it rides a flight, for NameDeclared's reason: the attribution
+    /// is minted when the gate opens, and filling it with the asker would name
+    /// somebody who has not decided anything.
+    /// </remarks>
+    public string? ChartedBy { get; init; }
+
+    /// <summary>The flight the chart rides, when it diverted.</summary>
+    public string? Flight { get; init; }
+
+    /// <summary>Who the gate awaits, when it diverted.</summary>
+    public string? Awaiting { get; init; }
+
+    /// <summary>What the registration widens, when it diverted.</summary>
+    public string? Widens { get; init; }
+}
+
 public sealed record NameDeclared
 {
     public required string Name { get; init; }

@@ -609,6 +609,65 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// The entry when the name is live, or null with <paramref name="pending"/>
     /// set when it rode a flight. Exactly one of the two.
     /// </returns>
+    /// <summary>
+    /// Charts an environment name, so an envelope may select it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>202 is the ordinary answer and 200 is the narrow one</b>, read by
+    /// status code rather than by which body parsed - <see cref="DeclareNameAsync"/>'s
+    /// rule, for its reason: the two bodies are different types and a reader
+    /// that tried the live one first would deserialize a pending answer into a
+    /// shape with none of its fields set, and report a name as charted.
+    /// </para>
+    /// <para>
+    /// <b>400 carries the door's own sentence.</b> Its declaration says why it
+    /// matters: <i>"the registry is what apply refusals point people at, and a
+    /// chart that could hold a blank line would make that advice a trap."</i>
+    /// Rewording it here would be a second opinion about what is wrong with a
+    /// name.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// The entry when the name is charted, or null with the pending answer when
+    /// it rode a flight. Exactly one of the two.
+    /// </returns>
+    public async Task<(EnvironmentCharted? Live, RegistrationPending? Pending)>
+        ChartEnvironmentAsync(
+            string sessionToken,
+            ChartEnvironmentRequest body,
+            CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/environments", sessionToken);
+        request.Content = JsonContent.Create(
+            body, ProtocolJsonContext.Default.ChartEnvironmentRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new PermissionRefusedException(
+                await RefusalAsync(response, cancellationToken)
+              + " Charting an environment widens what every envelope in this tenant may "
+              + "select, so it is an administrator's act.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return response.StatusCode == HttpStatusCode.Accepted
+            ? (null, await response.Content.ReadFromJsonAsync(
+                  ProtocolJsonContext.Default.RegistrationPending, cancellationToken))
+            : (await response.Content.ReadFromJsonAsync(
+                  ProtocolJsonContext.Default.EnvironmentCharted, cancellationToken), null);
+    }
+
     public async Task<(TopologyName? Live, RegistrationPending? Pending)> DeclareNameAsync(
         string sessionToken,
         DeclareNameRequest body,

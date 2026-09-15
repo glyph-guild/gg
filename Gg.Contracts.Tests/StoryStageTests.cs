@@ -108,7 +108,7 @@ public class StoryStageTests
         var interruptions = new[]
         {
             StoryKinds.TakenOver, StoryKinds.HoldExpired, StoryKinds.PoolIncident,
-            StoryKinds.AttendedNobodyCame,
+            StoryKinds.RunnerIncident, StoryKinds.AttendedNobodyCame,
         };
 
         foreach (var kind in StoryKinds.All.Where(k => !interruptions.Contains(k)))

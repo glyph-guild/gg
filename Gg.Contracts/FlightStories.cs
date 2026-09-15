@@ -220,6 +220,11 @@ public sealed record FlightStory
             StoryKinds.PoolIncident =>
                 $"the pool it came from had trouble: {At(parameters, 0, "unnamed")}",
 
+            // THE RUNNER'S OWN SENTENCE, whole. The entry's diagnosis is what
+            // the machine composed about itself, and it is all a person reads.
+            StoryKinds.RunnerIncident =>
+                $"the runner it is about reported: {At(parameters, 0, "nothing recorded")}",
+
             _ => throw new InvalidOperationException(
                 $"'{kind}' is not a story kind this build knows. A sentence cannot be derived "
               + "for it, and deriving silence instead would read as health."),

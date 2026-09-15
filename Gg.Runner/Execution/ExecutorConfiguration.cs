@@ -70,6 +70,18 @@ public static class ExecutorConfiguration
                 AgentFor(declared))
             : null;
 
+    /// <summary>How this machine's agent authenticates, or null for none - from the environment.</summary>
+    /// <remarks>
+    /// A second read of the same variable through the same parser, for the
+    /// composition root that needs the adapter beside the executor and cannot
+    /// reach into one to ask.
+    /// </remarks>
+    public static IAuthenticateAnAgent? AgentFromEnvironment() =>
+        ExecutorDeclaration.ParseOrNull(
+            Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable) is { } declared
+            ? AgentFor(declared)
+            : null;
+
     /// <summary>How the declared agent authenticates.</summary>
     /// <remarks>
     /// The choice is here, in the default, for the reason the executor's is.
@@ -84,7 +96,7 @@ public static class ExecutorConfiguration
 
         return declared.Agent switch
         {
-            ExecutorDeclaration.Claude => new ClaudeAgentAuthentication(),
+            ExecutorDeclaration.Claude => new ClaudeAgentAuthentication(declared.Binary),
             var other => throw new InvalidOperationException(
                 $"'{other}' is an agent ExecutorDeclaration admits and this build has no "
               + "adapter for. The two lists have drifted; add the adapter here."),

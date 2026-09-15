@@ -381,8 +381,22 @@ public class EndpointSurfaceTests
         // THE WIRE SURFACE MOVES TOO: the response is a new type, so the
         // contract version moves to 0.170.0 with a ledger entry and this
         // fingerprint moves with it rather than instead of it.
+        // Moved for POST /v1/runner/agent - a runner saying whether its agent
+        // can start, on its own route for the allowance readings' reason: a
+        // heartbeat is liveness only, and this is a measurement with its own
+        // MeasuredAt. Measured on a live pool member whose agent answered "Not
+        // logged in" in 137 ms while the runner read an empty tree as a held
+        // bound; now the runner holds, beats, and says so, and a gate opens.
+        //
+        // NO ID IN THE PATH, on renewal's precedent. STANDING, NOT STATE: the
+        // surface tests refuse a request member named State, because a runner's
+        // state is the control plane's to derive - and this is the AGENT's.
+        //
+        // THE WIRE SURFACE MOVES TOO - the request is a new type, and so is the
+        // gate's maintenance member - so the contract version moves to 0.172.0
+        // with a ledger entry and this fingerprint moves with it.
         await Assert.That(Fingerprint())
-            .IsEqualTo("eca74928002d195e66c0e2940197eba3b96b883615ca28596df32608dcfa99df")
+            .IsEqualTo("7e579cfa7a0a62b9be5153acd277d67236ee39f8249056c2191bc2e1806ee857")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

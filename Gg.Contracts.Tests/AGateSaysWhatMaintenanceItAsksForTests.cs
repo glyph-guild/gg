@@ -94,7 +94,7 @@ public class AGateSaysWhatMaintenanceItAsksForTests
         await Assert.That(StoryKinds.All).Contains(StoryKinds.RunnerIncident);
         await Assert.That(StoryKinds.RunnerIncident).IsEqualTo("runner-incident");
 
-        var sentence = FlightStories.Sentence(
+        var sentence = FlightStory.Sentence(
             StoryKinds.RunnerIncident, ["gg-pool-ui-1 reports its claude agent is not logged in"]);
 
         await Assert.That(sentence).Contains("gg-pool-ui-1 reports its claude agent is not logged in")

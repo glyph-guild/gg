@@ -55,6 +55,13 @@ internal sealed class ConsoleObserver : IRunnerObserver
             "allowance spent: the subscription this machine spends from is at the floor "
           + "its owner keeps. Nobody withheld this machine - it takes work again when "
           + "the window rolls over.");
+    public void AgentHeld(string provider, string diagnosis) =>
+        System.Console.Error.WriteLine(
+            $"holding: the {provider} agent is not logged in - {diagnosis} This runner "
+          + "keeps beating and takes no work. Send it a token with `gg credential send "
+          + $"--runner <id> --agent {provider}`, or log it in from the console.");
+    public void AgentReady(string provider) =>
+        System.Console.WriteLine($"the {provider} agent can start again; taking work.");
 
     /// <summary>
     /// Which repositories, because that is the sentence somebody can act on.
@@ -238,7 +245,15 @@ public static class RunnerHost
         // forgetting one is not, and a machine that would not forget when told
         // is a liability. Separate ports so that wiring one cannot wire the
         // other by accident.
-        IForgetACredential? forgetCredential = null)
+        IForgetACredential? forgetCredential = null,
+        // HOW THIS MACHINE'S AGENT AUTHENTICATES, or null for none. Probed
+        // before anything else is decided, because an agent that cannot start
+        // makes the move-bound probe meaningless and the runner a machine that
+        // must hold rather than fly - or exit.
+        Execution.IAuthenticateAnAgent? agent = null,
+        // THE TOKEN GG HOLDS FOR IT, read fresh each time. A thunk for the
+        // keeper's reason: Gg.Runner does not go looking for a store.
+        Func<string?>? agentToken = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -275,23 +290,56 @@ public static class RunnerHost
         // measurement measures the machine as it was before any session existed.
         // The capability read that stood here - a compile-time constant standing
         // where a measurement belonged - died with it.
-        if (Execution.MoveBoundProbe.Required(executor) is { } why)
+        // THE AGENT FIRST. A probe run against an agent that cannot start
+        // measures the absence again and reads it as a bound; the adapter is
+        // asked once, and a "no" skips the probe.
+        Execution.AgentStanding? standing = null;
+        if (agent is not null)
+        {
+            standing = await agent.ProbeAsync(agentToken?.Invoke(), cancellationToken);
+            System.Console.WriteLine(
+                $"{agent.Provider} agent: {(standing.Authenticated ? $"ready ({standing.Source})" : "needs a login")}"
+              + (standing.Authenticated ? "" : $" - {standing.Diagnosis}"));
+        }
+
+        Execution.ProbeResult? probe = null;
+        if (standing is not { Authenticated: false }
+            && Execution.MoveBoundProbe.Required(executor) is { } why)
         {
             System.Console.WriteLine($"probing whether declared moves bound this executor. {why}");
 
-            var probe = await Execution.MoveBoundProbe.RunAsync(executor!, cancellationToken);
+            probe = await Execution.MoveBoundProbe.RunAsync(executor!, cancellationToken);
 
             System.Console.WriteLine(
                 $"move bound: {(probe.Bound ? "held" : "NOT HELD")} "
               + $"in {probe.Took.TotalSeconds:F1}s - {probe.Diagnosis}");
+        }
 
-            if (!probe.Bound)
-            {
+        switch (Execution.StartupDecision.Decide(standing, probe, agent))
+        {
+            case Execution.StartupOutcome.Refuse:
                 System.Console.Error.WriteLine(
                     "This runner will not take work. Nothing is claimed, nothing is cloned and "
                   + "no agent is invoked.");
                 return 69;
-            }
+
+            case Execution.StartupOutcome.Hold:
+                // SAID HERE ONCE; the loop says it again as an observer event
+                // and reports it. A probe that was unmeasured for want of a
+                // login is the same hold as an adapter that said so.
+                if (standing is null or { Authenticated: true })
+                {
+                    standing = new Execution.AgentStanding(
+                        Authenticated: false,
+                        Source: standing?.Source ?? Gg.Contracts.AgentCredentialSources.None,
+                        Diagnosis: probe!.Diagnosis,
+                        MeasuredAt: probe.MeasuredAt);
+                }
+
+                break;
+
+            default:
+                break;
         }
 
         // A RUNNER THAT CAME FOR ONE FLIGHT GOES HOME WHEN IT IS DONE, and that
@@ -383,7 +431,10 @@ public static class RunnerHost
                 ? null
                 : now => allowance.ReadAsync(now, stopping.Token),
             attended: attended,
-            credentialExpiresAt: credentialExpiresAt)
+            credentialExpiresAt: credentialExpiresAt,
+            agent: agent,
+            agentToken: agentToken,
+            initialStanding: standing)
         {
             HoldFor = holdFor,
         };

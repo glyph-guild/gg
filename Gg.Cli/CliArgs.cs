@@ -406,6 +406,28 @@ public abstract record CliAction
     public sealed record CredentialSend(
         string RunnerId, string Repo, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Puts an agent's own long-lived token onto one runner.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same verb as <see cref="CredentialSend"/>, because it is the same
+    /// act</b> - a credential this machine holds, or a person types with the
+    /// echo off, travels over the sealed channel to a runner's own store. What
+    /// differs is which locator: a repository's is derived from a slug, an
+    /// agent's from the adapter key <c>GG_EXECUTOR_BINARY</c> declares.
+    /// </para>
+    /// <para>
+    /// <b>Its own record rather than a nullable fourth member.</b>
+    /// <c>CredentialSend</c>'s shape - three members and no fourth - is
+    /// asserted, and this one gets the same guard in
+    /// <c>AnAgentTokenCanBeSentTests</c> instead of the first growing an
+    /// optional half every reader has to null-check.
+    /// </para>
+    /// </remarks>
+    public sealed record AgentCredentialSend(
+        string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult;
+
     public sealed record CredentialList(bool Json) : CliAction, IEmitsResult;
 
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
@@ -645,7 +667,7 @@ public static class CliArgs
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
-        "gg credential send --runner <id> --repo <slug>",
+        "gg credential send --runner <id> --repo <slug>|--agent <name>",
         "                                 put one on a machine that cannot be reached any other way",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
@@ -1471,6 +1493,7 @@ public static class CliArgs
         IReadOnlyList<string> options, string? runner, bool json)
     {
         string? repo = null;
+        string? agent = null;
 
         for (var i = 0; i < options.Count; i += 2)
         {
@@ -1490,11 +1513,16 @@ public static class CliArgs
                     repo = value;
                     break;
 
+                case "--agent":
+                    agent = value;
+                    break;
+
                 default:
                     return Unknown(
                         $"'{options[i]}' is not something gg credential send takes. It takes "
-                      + "--runner and --repo; the secret is never an argument, because an "
-                      + "argument is in shell history and in ps output before gg has run.");
+                      + "--runner and one of --repo or --agent; the secret is never an "
+                      + "argument, because an argument is in shell history and in ps output "
+                      + "before gg has run.");
             }
         }
 
@@ -1505,11 +1533,39 @@ public static class CliArgs
               + "`gg runners` lists them.");
         }
 
+        // ONE SEND, ONE CREDENTIAL. Two locators would be two files and one
+        // secret, and the refusal says which flag to drop.
+        if (repo is { Length: > 0 } && agent is { Length: > 0 })
+        {
+            return Unknown(
+                "gg credential send takes --repo or --agent, not both: one send puts one "
+              + "credential under one locator.");
+        }
+
+        if (agent is { Length: > 0 })
+        {
+            // THE CONTRACT'S RULE, BEFORE ANY NETWORK. An agent's name is a
+            // key, and ForAgent refuses rather than tidies; refusing here means
+            // the person is told before an introduction is spent on a send that
+            // could not derive a locator.
+            try
+            {
+                _ = CredentialLocator.ForAgent(agent);
+            }
+            catch (ArgumentException refused)
+            {
+                return Unknown($"gg credential send --agent: {refused.Message}");
+            }
+
+            return new CliAction.AgentCredentialSend(runner, agent, json);
+        }
+
         return repo is { Length: > 0 }
             ? new CliAction.CredentialSend(runner, repo, json)
             : Unknown(
-                "gg credential send needs --repo <slug>: which credential to send. It is "
-              + "the same slug `gg credential add` registered.");
+                "gg credential send needs --repo <slug> or --agent <name>: which credential "
+              + "to send. A slug is the one `gg credential add` registered; an agent's name "
+              + "is the one GG_EXECUTOR_BINARY declares, such as claude.");
     }
 
     /// <summary>

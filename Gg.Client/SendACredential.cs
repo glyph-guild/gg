@@ -167,9 +167,18 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
     /// with no way back to here.</i> Writing one to a runner is exactly that,
     /// on somebody else's machine.
     /// </para>
+    /// <para>
+    /// <b>The caller may say what it is asking for.</b> "Secret for
+    /// local:agent/claude" is a locator, not an instruction: a person sending
+    /// an agent's token has to have minted one first, with a command they may
+    /// never have run, and this prompt is the one line they read before
+    /// typing. Only the sentence changes; where the secret comes from and what
+    /// is said about it do not.
+    /// </para>
     /// </remarks>
     public static string? SecretFor(
-        ICredentialStore store, string locator, ISecretPrompt prompt, Action<string>? saying)
+        ICredentialStore store, string locator, ISecretPrompt prompt, Action<string>? saying,
+        string? asking = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(prompt);
@@ -199,7 +208,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
 
         say($"this machine holds no credential for {locator}");
 
-        var typed = prompt.ReadSecret($"Secret for {locator} (not echoed): ");
+        var typed = prompt.ReadSecret(asking ?? $"Secret for {locator} (not echoed): ");
 
         return typed is { Length: > 0 } ? typed : null;
     }

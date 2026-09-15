@@ -371,6 +371,45 @@ public abstract record VerbResult
     }
 
     /// <summary>
+    /// What has been nominated and has not become a flight yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>The page carries whether it included the ended rows, and this keeps
+    /// it.</b> A reader cannot infer the filter from the contents: a page of
+    /// standing rows and a page that happens to contain no declined ones look
+    /// identical, and "nothing was declined" read off the second is a filter
+    /// mistaken for a fact.
+    /// </remarks>
+    public sealed record Board(BoardPage Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Board;
+    }
+
+    /// <summary>
+    /// What a nomination came to after somebody answered it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Observed, never computed, and here that is not a formality.</b>
+    /// Answering <c>open</c> records a decision; what happens next is the
+    /// admission pass, which applies the menu, the selection, the chain and
+    /// composition - and may refuse. A client that reported "opened" because it
+    /// posted <c>opened</c> would tell a person a flight exists when the row
+    /// says <c>refused</c> and carries the rule's own sentence.
+    /// </para>
+    /// <para>
+    /// <b>The row is the answer and the observation is how long it took.</b>
+    /// Both, for <see cref="Decided"/>'s reason: a reader has to be able to
+    /// tell "the board says this" from "the board had not said anything yet
+    /// when gg stopped waiting".
+    /// </para>
+    /// </remarks>
+    public sealed record NominationDecided(NominationDecisionReport Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.NominationDecided;
+    }
+
+    /// <summary>
     /// What the control plane did with a decision.
     /// </summary>
     /// <remarks>
@@ -443,6 +482,18 @@ public static class VerbResultKinds
     public const string ConfigOffered = "config-offered";
 
     public const string Plan = "plan";
+
+    /// <summary>What has been nominated and needs somebody.</summary>
+    public const string Board = "board";
+
+    /// <summary>What one nomination came to once a person answered it.</summary>
+    /// <remarks>
+    /// Its own kind rather than <see cref="Board"/>, which is the LIST: a
+    /// reader of a stream cannot tell "here is the board" from "one was
+    /// answered" if both say the same word - <c>repository-added</c>'s
+    /// argument, two kinds down.
+    /// </remarks>
+    public const string NominationDecided = "nomination-decided";
     public const string AirspaceTopology = "airspace-topology";
 
     /// <summary>What this tenant has registered.</summary>
@@ -497,6 +548,7 @@ public static class VerbResultKinds
     DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
 [JsonSerializable(typeof(InvitationIssued))]
 [JsonSerializable(typeof(BoardPage))]
+[JsonSerializable(typeof(NominationDecisionReport))]
 [JsonSerializable(typeof(NominationDecision))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightSummary))]
@@ -583,6 +635,9 @@ public static class VerbOutput
     public static string ToJson(VerbResult result) => result switch
     {
         VerbResult.Flights r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightList),
+        VerbResult.Board r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.BoardPage),
+        VerbResult.NominationDecided r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NominationDecisionReport),
         VerbResult.Flight r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightSummary),
         VerbResult.Launched r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLaunched),
         VerbResult.Log r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightLog),
@@ -765,6 +820,8 @@ public static class VerbOutput
         VerbResult.EnvelopeShown r => Envelope(r.Value),
         VerbResult.Why r => WhyText(r.Value),
         VerbResult.Gates r => GatesText(r.Value),
+        VerbResult.Board r => BoardText(r.Value),
+        VerbResult.NominationDecided r => NominationDecidedText(r.Value),
         VerbResult.Identity r => IdentityText(r.Value),
         VerbResult.Decided r => DecidedText(r.Value),
         VerbResult.EnvelopeApplied r => EnvelopeApplied(r.Value, r.Notes),
@@ -2438,6 +2495,143 @@ public static class VerbOutput
     /// The commit is abbreviated for reading and carried whole in the json, which is
     /// what a script would read.
     /// </remarks>
+    /// <summary>
+    /// The board, as a list somebody scans for what needs them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The id is printed short and the mode is printed at all.</b> A person
+    /// reading this is deciding whether to type <c>gg board open</c>, and the
+    /// two things that answer that are "is anybody expected to look at this"
+    /// and "what do I type". Everything else on the line is context for those.
+    /// </remarks>
+    private static string BoardText(BoardPage board)
+    {
+        var rows = board.Nominations;
+
+        if (rows.Count == 0)
+        {
+            // AN ANSWER RATHER THAN AN EMPTY TABLE - GatesText's rule one noun
+            // later. A header over nothing reads as a query that failed.
+            return board.IncludedEnded
+                ? "Nothing has been nominated here."
+                : "Nothing is waiting to become a flight.";
+        }
+
+        var text = new StringBuilder();
+
+        var standing = rows.Count(r => r.Ending is null);
+
+        // WHAT THE PAGE INCLUDED, SAID RATHER THAN LEFT TO INFERENCE. A page of
+        // standing rows and a page that happens to contain no ended ones look
+        // identical, and "nothing was declined" read off the second is a filter
+        // mistaken for a fact.
+        text.AppendLine(board.IncludedEnded
+            ? $"{rows.Count} nomination(s), every ending included; {standing} still standing."
+            : $"{standing} nomination(s) standing. Ended ones are not shown - gg board --all.");
+
+        foreach (var row in rows)
+        {
+            text.AppendLine();
+            // THE WHOLE ID, because `gg board open` parses a uuid and nothing
+            // shorter. A truncated one would be a listing that prints something
+            // the verb beside it refuses, which is worse than a long line.
+            text.AppendLine($"{row.NominationId} - {Clean(row.WorkKind)}");
+            text.AppendLine($"  nominated by: {Clean(row.Nominator)}");
+
+            if (row.Ending is { Length: > 0 } ending)
+            {
+                text.AppendLine($"  ended:        {Clean(ending)}");
+
+                // THE SENTENCE IS WHY THE ENDING IS WORTH PRINTING. Whoever
+                // reads an ended row is asking why rather than what, and the
+                // sentence is the only place the answer exists.
+                text.AppendLine(row.Because is { Length: > 0 } because
+                    ? $"  because:      {Clean(because)}"
+                    : "  because:      no reason was recorded");
+
+                if (row.FlightNumber is { Length: > 0 } number)
+                {
+                    text.AppendLine($"  flight:       {Clean(number)}");
+                }
+            }
+            else
+            {
+                // `gated` IS THE ONE WORD ON THE LINE A PERSON CAN ACT ON, so
+                // it is spelled out rather than shown as a mode code. An `auto`
+                // row is visible without being asked about - hold-expired's
+                // argument - and says so, because a row nobody need look at
+                // sitting in a list of rows that need looking at is how the
+                // ones that do get missed.
+                text.AppendLine(
+                    string.Equals(row.Mode, DestinationOpening.Gated, StringComparison.Ordinal)
+                        ? "  standing:     gated - it is waiting for somebody"
+                        : $"  standing:     {Clean(row.Mode)} - nobody need answer it");
+            }
+
+            text.AppendLine($"  nominated:    {row.MadeAt:u}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// What one nomination came to, and how long the board took to say.
+    /// </summary>
+    private static string NominationDecidedText(NominationDecisionReport report)
+    {
+        var text = new StringBuilder();
+
+        if (report.Nomination is not { } row)
+        {
+            // NOT YET IS NOT NO. The decision is recorded; the board had not
+            // settled when gg stopped waiting, and saying "declined" or
+            // "opened" here would be gg answering for a pass it never saw.
+            text.AppendLine("The decision was recorded. The board has not said what came of it "
+                          + "yet - gg board --all.");
+            text.AppendLine();
+            text.AppendLine(Looked(report.Observation));
+
+            return text.ToString().TrimEnd();
+        }
+
+        text.AppendLine($"{row.NominationId} - {Clean(row.WorkKind)}");
+        text.AppendLine($"  ended:        {Clean(row.Ending ?? "still standing")}");
+
+        if (row.Because is { Length: > 0 } because)
+        {
+            text.AppendLine($"  because:      {Clean(because)}");
+        }
+
+        // THE FLIGHT IS THE POINT OF OPENING ONE, and its absence on an opened
+        // row is a fact rather than a gap: the number is minted when the Flight
+        // context handles what admission dispatched, so a row read straight
+        // after the decision may legitimately have none yet.
+        if (row.FlightNumber is { Length: > 0 } number)
+        {
+            text.AppendLine($"  flight:       {Clean(number)}");
+        }
+        else if (string.Equals(row.Ending, NominationEndings.Opened, StringComparison.Ordinal))
+        {
+            text.AppendLine("  flight:       opened, and its number is not minted yet");
+        }
+
+        text.AppendLine();
+        text.AppendLine(Looked(report.Observation));
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>How long a person waited, and against what bound.</summary>
+    /// <remarks>
+    /// <b>The same line <see cref="DecidedText"/> prints, and for its
+    /// reason.</b> A reader has to be able to tell a slow board from a silent
+    /// one, and the only thing that separates them is how many times gg looked
+    /// before it stopped.
+    /// </remarks>
+    private static string Looked(Observation seen) =>
+        $"  looked:   {seen.Polls} time(s) over {seen.WaitedSeconds:0.#}s "
+      + $"of a {seen.BoundSeconds:0.#}s bound";
+
     private static string GatesText(GateList gates)
     {
         if (gates.Gates.Count == 0)

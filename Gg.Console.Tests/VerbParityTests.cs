@@ -115,6 +115,22 @@ public class VerbParityTests
                       + "member, because an attestation carries no member name - so whatever "
                       + "draws it may say what a pool last reported and never what a "
                       + "container is doing.",
+            // THE BOARD'S TWO VERBS, and the decision is the same for both
+            // because they are one act read and answered. The data path exists
+            // on ConsoleData - the same fetch and the same door the verb uses,
+            // so the console cannot end up with a second way to answer a
+            // nomination - and no key reaches it yet.
+            //
+            // REMOVE THESE LINES when the pane lands. The absence is a
+            // sequence rather than a decision, and what it waits on is named:
+            // the queue's row requires a flight id and a flight number, and a
+            // standing nomination has neither.
+            ["Board"] = "reaches ConsoleData; no pane yet. It is the queue's other kind of "
+                      + "row - work that has not started, beside flights that have stopped "
+                      + "- and S37.4-01 is the excavation that lets a row be either.",
+            ["BoardDecide"] = "reaches ConsoleData; no key yet. `gg decide`'s shape one noun "
+                            + "earlier: the modal arrives with the pane, and the write "
+                            + "happens through the same door the verb uses.",
             ["AllowanceFloor"] = "reachable: `o` on the runners pane offers a share to keep "
                                + "back, and the write happens between sessions with the "
                                + "terminal free - like every other write here.",

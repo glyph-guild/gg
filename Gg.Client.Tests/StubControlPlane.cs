@@ -53,6 +53,19 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, every request is refused with 426.</summary>
     public string? ProtocolFloorMessage { get; set; }
 
+    /// <summary>
+    /// Doors that answer 426 while the rest answer normally.
+    /// </summary>
+    /// <remarks>
+    /// <b>Per-door, where <see cref="ProtocolFloorMessage"/> is the whole
+    /// plane.</b> One run of the doctor makes several calls, and the control
+    /// plane can be upgraded between two of them - so a refusal that arrives
+    /// AFTER the protocol check passed is a real state and not a contrived
+    /// one. It is also the only way to make a single check throw while every
+    /// other one answers.
+    /// </remarks>
+    public HashSet<string> UpgradeRequiredPaths { get; } = [];
+
     /// <summary>Degradations whoami reports for this tenant.</summary>
     public IReadOnlyList<TenantNotice> Notices { get; set; } = [];
 
@@ -387,6 +400,24 @@ public sealed class StubControlPlane : IAsyncDisposable
         if (ProtocolFloorMessage is { } refusal)
         {
             await WriteAsync(context, 426, refusal);
+            return;
+        }
+
+        if (UpgradeRequiredPaths.Contains(path))
+        {
+            await WriteAsync(context, 426, "this door has moved past the protocol you speak");
+            return;
+        }
+
+        // A REVOKED SESSION IS REVOKED EVERYWHERE. Answering 401 at whoami and
+        // 200 at every other door is a control plane nobody runs, and it is the
+        // one shape in which a doctor holding a dead session looks healthy -
+        // which is precisely the state its checks have to survive.
+        if (context.Request.Headers["X-Gg-Session"] is { Length: > 0 } presented
+            && RevokedTokens.Contains(presented)
+            && !path.StartsWith("/v1/auth/", StringComparison.Ordinal))
+        {
+            await WriteAsync(context, 401, "");
             return;
         }
 

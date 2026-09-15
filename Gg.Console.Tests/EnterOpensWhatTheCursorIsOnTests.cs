@@ -85,7 +85,11 @@ public class EnterOpensWhatTheCursorIsOnTests
         var opened = Reducer.FlightShown(Listing());
 
         await Assert.That(opened.Mode).IsEqualTo(UiMode.FlightDetail);
-        await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, new KeymapContext(UiMode.Normal)))
+        // ON THE FLIGHTS TAB, which is where this key still means "open it".
+        // The default context is the queue, and the queue's enter now opens
+        // what can be done - see TheQueuesEnterOpensWhatCanBeDoneTests.
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.EnterKey, new KeymapContext(UiMode.Normal, TabId.Flights)))
             .IsEqualTo(Command.ShowFlight)
             .Because("enter is the key a person presses on a row without being told to.");
 

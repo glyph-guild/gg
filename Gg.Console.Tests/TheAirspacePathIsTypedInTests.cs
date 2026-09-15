@@ -52,8 +52,16 @@ public class TheAirspacePathIsTypedInTests
     {
         // THE CONTROL ON THE KEY. `enter` is tab-scoped already, and taking it
         // for this tab must not take it from the two that had it.
+        // THE QUEUE'S ENTER MOVED, AND THE CONTROL STILL HOLDS. What this
+        // guards is that taking the key for the airspace tab did not take it
+        // from the tabs that had one - so what matters is that the other tabs
+        // still answer, not which answer the queue gives.
         await Assert.That(Keymap.Resolve(
                 KeyStroke.EnterKey, new KeymapContext(UiMode.Normal, TabId.Queue)))
+            .IsEqualTo(Command.ToggleFlightActions);
+
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.EnterKey, new KeymapContext(UiMode.Normal, TabId.Flights)))
             .IsEqualTo(Command.ShowFlight);
 
         await Assert.That(Keymap.Resolve(

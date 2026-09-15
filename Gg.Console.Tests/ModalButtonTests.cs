@@ -66,11 +66,45 @@ public class ModalButtonTests
             (new(UiMode.FlightDetail), false, "grounds a flight"),
 
             // NOTHING TO OFFER, and this falls out of the rule rather than being
-            // decided here: both have only a way out, and escape is never a
-            // button. If either grows an answer, this row is what says whether
-            // it gets one.
-            (new(UiMode.FlightActions), false, "has only a way out"),
+            // decided here: it has only a way out, and escape is never a
+            // button.
             (new(UiMode.HandFlight), false, "has only a way out"),
+
+            // AND THE ACTIONS MODAL CROSSED, WHICH IS THE ROW TO ARGUE WITH.
+            // It read "has only a way out", which was never quite true - it
+            // offered `d` and `v` as letters in its own prose - and is not
+            // true at all now: the queue's enter opens this, so it is the
+            // working surface of the tab a person spends the day on.
+            //
+            // TWO OF ITS THREE OFFERS ARE THE SAFE KIND. Opening the flight and
+            // opening the decision page are both undone by escaping.
+            //
+            // THE THIRD IS NOT, AND THAT IS THE COST. Approve is attributed to
+            // whoever pressed it, which is the exact thing the sentence above
+            // says keeps a modal keys-only. It is here because the owner asked
+            // for both answers to be reachable from the queue without learning
+            // a letter, and three things are true of it that are not true of a
+            // stray click in general: the gate is RENDERED IN THIS MODAL, so
+            // the click is aimed at a question that is on the screen rather
+            // than at a menu item; the button exists only where a gate is
+            // actually waiting; and it is declared LAST, so the default button
+            // and the initial focus are on the one that only reads - which
+            // matters more here than anywhere, because this modal is now opened
+            // with enter and enter is what a person will press next.
+            //
+            // WHAT IT LEAVES INCONSISTENT, said out loud rather than discovered:
+            // GateDecision is still keys-only, so approving is one click here
+            // and a keystroke there. If that reads wrong, the fix is to take
+            // this button away rather than to give that one buttons - the
+            // decision page is where a reason gets typed, and a reason is not
+            // something to click.
+            (new(UiMode.FlightActions) { AGateWaits = true }, true,
+                "offers the flight, the decision page and the answer"),
+
+            // AND WITH NOTHING WAITING IT HAS ONE OFFER, which still draws -
+            // opening the flight is the safe kind, and a row with no gate is
+            // most of the queue.
+            (new(UiMode.FlightActions), true, "offers the flight"),
 
             // NOT OURS TO STOP. Over somebody else's runner the two keys are not
             // bound at all, so there is nothing to put on a button - the same

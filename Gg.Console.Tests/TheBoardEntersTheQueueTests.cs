@@ -161,6 +161,40 @@ public class TheBoardEntersTheQueueTests
     }
 
     [Test]
+    public async Task The_line_says_what_the_row_is_and_never_leaves_a_blank_cell()
+    {
+        // THE DEFECT THE NULLABLE MEMBERS MADE POSSIBLE, and it compiles.
+        // The queue line interpolated the flight number straight in; once that
+        // became optional, a nomination row printed an empty first column -
+        // which reads as a row about a flight whose number nobody minted,
+        // rather than as a row that is not about a flight at all.
+        var state = new AppState { Queue = QueueOf(ABoard(ANomination())) };
+
+        var line = PaneText.QueueRows(state).Single();
+
+        await Assert.That(line.TrimStart()).IsNotEmpty();
+        await Assert.That(line).Contains("01a0792a")
+            .Because("a person has to be able to tell two nominations apart, and the id is "
+                   + "the only thing that does it.");
+        await Assert.That(line).Contains("research-27")
+            .Because("what was nominated is what they are deciding about.");
+    }
+
+    [Test]
+    public async Task The_reason_asks_the_question_this_row_poses_rather_than_a_flights()
+    {
+        // NOT "awaiting a decision", which is the reason above it and is about
+        // a FLIGHT. A person reading that goes looking for the flight, and for
+        // this row there is none: what they are answering is whether there
+        // should be one.
+        var said = PaneText.Reason(QueueReason.NominationStanding);
+
+        await Assert.That(said).IsNotEmpty();
+        await Assert.That(said).IsNotEqualTo(PaneText.Reason(QueueReason.AwaitingDecision))
+            .Because("two rows posing different questions must not read as the same row.");
+    }
+
+    [Test]
     public async Task A_flight_row_still_carries_its_flight()
     {
         // THE OTHER DIRECTION, because the excavation must not cost the thing

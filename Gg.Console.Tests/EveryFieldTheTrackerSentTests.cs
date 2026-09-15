@@ -48,12 +48,6 @@ public class EveryFieldTheTrackerSentTests
         Sprint = "Sprint 142",
         Updated = "2026-09-14T18:17Z",
         Url = "https://dev.azure.com/HRTMS/JDX/_workitems/edit/17864",
-        Fields =
-        [
-            new("Microsoft.VSTS.Scheduling.StoryPoints", "5"),
-            new("System.AssignedTo", "Kevin Deenanauth"),
-            new("System.Rev", "47"),
-        ],
     };
 
     private static AppState Showing() => new()
@@ -63,6 +57,13 @@ public class EveryFieldTheTrackerSentTests
         Mode = UiMode.WorkItemDetail,
         BrowseSelected = 0,
         Browse = new BrowseListing { ProviderKey = "ado", Items = [Item()] },
+        WorkItemId = "17864",
+        WorkItemFields =
+        [
+            new("Microsoft.VSTS.Scheduling.StoryPoints", "5"),
+            new("System.AssignedTo", "Kevin Deenanauth"),
+            new("System.Rev", "47"),
+        ],
     };
 
     [Test]
@@ -114,20 +115,55 @@ public class EveryFieldTheTrackerSentTests
     [Test]
     public async Task An_item_the_reader_sent_nothing_extra_for_still_shows_the_seven()
     {
-        // THE ORDINARY READER, and the reason the extras are optional: one that
-        // answers the declared contract and no more must be unchanged by this.
-        var bare = Showing() with
-        {
-            Browse = new BrowseListing
-            {
-                ProviderKey = "ado",
-                Items = [Item() with { Fields = [] }],
-            },
-        };
+        // THE ORDINARY READER, and the reason the whole thing is optional: one
+        // that answers the declared contract and no more must be unchanged by
+        // this.
+        var bare = Showing() with { WorkItemFields = [] };
 
         var rows = WorkItemDetails.AllFields(bare);
 
         await Assert.That(rows).Count().IsEqualTo(7);
+    }
+
+    [Test]
+    public async Task A_reader_that_cannot_be_asked_says_so_rather_than_going_blank()
+    {
+        // THE THREE-ABSENCE RULE, which this modal already keeps about a
+        // history. A reader that does not declare the tool, a tracker that
+        // records nothing beyond the seven, and an inventory with rows in it
+        // are three different facts. An empty table under the seven claims the
+        // second when it may be the first.
+        var unasked = Showing() with
+        {
+            WorkItemFields = [],
+            WorkItemFieldsSaid = "The reader for 'ado' does not declare 'get_work_item_fields'.",
+        };
+
+        await Assert.That(WorkItemDetails.FieldsAbsence(unasked))
+            .Contains("get_work_item_fields")
+            .Because("the person reading it is usually the operator who installed the reader, "
+                   + "and the missing tool name is the one thing they can act on.");
+    }
+
+    [Test]
+    public async Task A_reader_that_put_them_on_the_listing_row_is_read_that_way_too()
+    {
+        // TWO CONFORMANT SHAPES, because the contract offers both. A reader
+        // that finds the extras cheap may hang them on a listed item; one that
+        // does not answers the per-item verb. The per-item answer wins where
+        // there is one, because it is the one asked about THIS item.
+        var listed = Showing() with
+        {
+            WorkItemFields = [],
+            Browse = new BrowseListing
+            {
+                ProviderKey = "ado",
+                Items = [Item() with { Fields = [new("System.Tags", "sonar; debt")] }],
+            },
+        };
+
+        await Assert.That(WorkItemDetails.AllFields(listed).Select(r => r.Name).ToList())
+            .Contains("System.Tags");
     }
 
     [Test]

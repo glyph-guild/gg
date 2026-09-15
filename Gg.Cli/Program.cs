@@ -2197,7 +2197,10 @@ static async Task<int> HoldAsync(
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)),
             secretFor: locator => new FileCredentialStore().Read(locator),
-            self: Gg.Local.SelfInvocation.Current),
+            self: Gg.Local.SelfInvocation.Current,
+            // AND THE SAME ADAPTER, so a hand-flight on a machine holding an
+            // agent token runs under it exactly as a fleet flight would.
+            agent: Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared)),
         flightId: flightId,
         // WHEN THIS MACHINE'S CREDENTIAL ENDS. Thirty days here, and a person
         // is sitting in front of it, so the sentence matters more than the exit
@@ -2786,7 +2789,19 @@ static VerbResult AllowanceNow()
 static Gg.Runner.AllowanceReporter? Allowance() =>
     Gg.Runner.AllowanceReporter.For(
         Settings.Value("GG_ALLOWANCE", InForce.Configuration),
-        Settings.Value("GG_ALLOWANCE_LIMITS", InForce.Configuration));
+        Settings.Value("GG_ALLOWANCE_LIMITS", InForce.Configuration),
+        // THE AGENT'S OWN TOKEN FOR THE METER'S REFRESH, from the same
+        // declaration and the same store a flight reads. Without it a member
+        // that authenticates its agent through gg could fly and could not
+        // refresh its meter - and a refresh that silently fails leaves a
+        // reading that is merely older.
+        agent: Gg.Local.ExecutorDeclaration.ParseOrNull(
+            Settings.Value(
+                Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration),
+            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is { } declared
+            ? Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared)
+            : null,
+        secretFor: locator => new FileCredentialStore().Read(locator));
 
 static async Task<int> RunnerMaintainAsync(string pool)
 {

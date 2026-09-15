@@ -63,6 +63,31 @@ public static class ExecutorConfiguration
                 // between reads - but it is resolved here anyway, beside the
                 // trackers, because an executor that had it and was never given
                 // it is the shape this type exists to remove.
-                SelfInvocation.Current)
+                SelfInvocation.Current,
+                // AND HOW ITS AGENT AUTHENTICATES, from the same parse, so a
+                // runner cannot pick an executor for one agent and an adapter
+                // for another.
+                AgentFor(declared))
             : null;
+
+    /// <summary>How the declared agent authenticates.</summary>
+    /// <remarks>
+    /// The choice is here, in the default, for the reason the executor's is.
+    /// <see cref="ExecutorDeclaration.Parse"/> has already refused an agent
+    /// nobody has an adapter for, so the arm below is unreachable by
+    /// construction - and it throws rather than defaults, because "unknown
+    /// means claude" is the assumption this whole declaration exists to end.
+    /// </remarks>
+    public static IAuthenticateAnAgent AgentFor(ExecutorDeclaration declared)
+    {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        return declared.Agent switch
+        {
+            ExecutorDeclaration.Claude => new ClaudeAgentAuthentication(),
+            var other => throw new InvalidOperationException(
+                $"'{other}' is an agent ExecutorDeclaration admits and this build has no "
+              + "adapter for. The two lists have drifted; add the adapter here."),
+        };
+    }
 }

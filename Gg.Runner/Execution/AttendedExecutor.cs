@@ -84,9 +84,13 @@ public sealed class AttendedExecutor(
     SelfInvocation? self = null,
     TextWriter? announce = null,
     Func<ProcessStartInfo, CancellationToken, Task<int?>>? spawn = null,
-    Func<string, CancellationToken, Task<string>>? versionOf = null) : IExecutorPort
+    Func<string, CancellationToken, Task<string>>? versionOf = null,
+    IAuthenticateAnAgent? agent = null) : IExecutorPort
 {
     private readonly string _binary = binary;
+
+    /// <summary>How the agent authenticates, or null - the headless executor's reason.</summary>
+    private readonly IAuthenticateAnAgent? _agent = agent;
     private readonly IReadOnlyList<IntentReader> _readers = readers;
     private readonly Func<string, string?> _secretFor = secretFor ?? (_ => null);
     private readonly SelfInvocation? _self = self;
@@ -153,7 +157,9 @@ public sealed class AttendedExecutor(
         IReadOnlyList<IntentReader> readers,
         string? secret = null,
         SelfInvocation? self = null,
-        string binary = "claude")
+        string binary = "claude",
+        IAuthenticateAnAgent? agent = null,
+        string? token = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -184,6 +190,11 @@ public sealed class AttendedExecutor(
             info.ArgumentList.Add(argument);
         }
 
+        // THE SAME PLACEMENT AS THE HEADLESS PATH, from the one method that
+        // knows it. A laptop with a stored token behaves like a member: the
+        // hand-flight runs under the credential gg holds, not the one the
+        // person's shell happens to have.
+        ClaudeCodeExecutor.PlaceToken(info, agent, token);
         return info;
     }
 
@@ -212,7 +223,9 @@ public sealed class AttendedExecutor(
             }
         }
 
-        var info = StartInfoFor(request, _readers, secret, _self, _binary);
+        var info = StartInfoFor(
+            request, _readers, secret, _self, _binary,
+            _agent, ClaudeCodeExecutor.TokenFor(_agent, _secretFor));
 
         // SAID BEFORE THE CHILD STARTS, because once it starts the screen is
         // its own and nothing of ours will be read again until it exits.

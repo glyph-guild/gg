@@ -130,6 +130,40 @@ public static class CredentialLocator
     public const int MaxLength = 96;
 
     /// <summary>The diagnosis, or null when the locator is well formed.</summary>
+    /// <summary>
+    /// The first segment reserved for agents' own credentials, so a repository
+    /// slug cannot derive the same file.
+    /// </summary>
+    /// <remarks>
+    /// <c>ForRepo</c> reduces a slug through the same character set a locator
+    /// validates, so a repository called <c>agent/claude</c> derived the
+    /// identical string as the claude agent's token - one file, whichever was
+    /// written last. The two derivations are disjoint only if one refuses the
+    /// other's namespace, and the repository side is the one that takes prose.
+    /// </remarks>
+    public const string AgentSegment = "agent";
+
+    /// <summary>The locator an agent's own credential lives under.</summary>
+    /// <remarks>
+    /// <b>Refused rather than reduced.</b> An agent's name is a key - the same
+    /// key <c>GG_EXECUTOR_BINARY</c> declares it with - and a key that does not
+    /// validate as a segment is a mistake to name, not a value to tidy: tidying
+    /// would let the console and the executor derive two locators from two
+    /// spellings of one agent.
+    /// </remarks>
+    public static string ForAgent(string provider)
+    {
+        var locator = $"{LocalPrefix}{AgentSegment}/{provider}";
+        if (Validate(locator) is { } refused)
+        {
+            throw new ArgumentException(
+                $"'{provider}' is not a name an agent's locator can carry: {refused}",
+                nameof(provider));
+        }
+
+        return locator;
+    }
+
     public static string? Validate(string? locator)
     {
         if (string.IsNullOrEmpty(locator))
@@ -193,6 +227,18 @@ public static class CredentialLocator
         var segments = reduced.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.TrimStart('.', '-', '_'))
             .Where(s => s.Length > 0);
+
+        // THE AGENTS' NAMESPACE, refused here rather than shared. See
+        // AgentSegment: a slug reduces through the same alphabet a locator
+        // validates, so this is the only place the two derivations can be
+        // kept apart.
+        if (string.Equals(segments.FirstOrDefault(), AgentSegment, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"'{repoSlug}' begins with '{AgentSegment}', which is reserved for agents' own "
+              + "credentials - a repository under that owner would share a file with an "
+              + "agent's token.", nameof(repoSlug));
+        }
 
         var body = string.Join('/', segments);
         if (body.Length == 0)

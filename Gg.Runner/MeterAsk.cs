@@ -13,10 +13,13 @@ namespace Gg.Runner;
 /// every flight, and the command line is explicit by construction.
 /// </para>
 /// <para>
-/// <b>It passes no credential and receives none.</b> The executor already
-/// holds the subscription's, which is the entire reason gg may have this
-/// number at all — the alternative was reading another tool's
-/// <c>.credentials.json</c> and calling an API with it.
+/// <b>It places the runner's own stored token, when there is one, and
+/// receives none.</b> The executor holds the subscription's credential, which
+/// is the entire reason gg may have this number at all — the alternative was
+/// reading another tool's <c>.credentials.json</c> and calling an API with
+/// it. The token goes where a flight's would, so a member that authenticates
+/// its agent through gg refreshes its meter too; before this, only a machine
+/// with a login of its own could.
 /// </para>
 /// <para>
 /// <b>Measured:</b> <c>claude -p "/usage"</c> rewrote
@@ -39,11 +42,40 @@ public static class MeterAsk
     /// </remarks>
     public static readonly TimeSpan Patience = TimeSpan.FromSeconds(90);
 
+    /// <summary>The launch, whole, for a test that needs to see its environment.</summary>
+    public static ProcessStartInfo StartInfoFor(
+        string binary, string? tokenVariable = null, string? token = null)
+    {
+        var info = new ProcessStartInfo(binary)
+        {
+            // THE PROMPT AS ONE ARGUMENT, never a shell string. gg builds
+            // argument lists everywhere for the reason a shell would
+            // reintroduce: quoting is somebody else's parser.
+            ArgumentList = { "-p", Usage },
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        // Under the same variable a flight's launch uses, and only when there
+        // is something to place: an absent token leaves the environment as
+        // this process had it.
+        if (tokenVariable is { Length: > 0 } && token is { Length: > 0 })
+        {
+            info.Environment[tokenVariable] = token;
+        }
+
+        return info;
+    }
+
     /// <summary>
     /// Runs the configured executor's usage command. False when there is none.
     /// </summary>
     public static async Task<bool> RefreshAsync(
-        string? binary, CancellationToken cancellationToken = default)
+        string? binary,
+        CancellationToken cancellationToken = default,
+        string? tokenVariable = null,
+        string? token = null)
     {
         if (binary is not { Length: > 0 } || !File.Exists(binary))
         {
@@ -52,19 +84,7 @@ public static class MeterAsk
             return false;
         }
 
-        using var running = new Process
-        {
-            StartInfo = new ProcessStartInfo(binary)
-            {
-                // THE PROMPT AS ONE ARGUMENT, never a shell string. gg builds
-                // argument lists everywhere for the reason a shell would
-                // reintroduce: quoting is somebody else's parser.
-                ArgumentList = { "-p", Usage },
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            },
-        };
+        using var running = new Process { StartInfo = StartInfoFor(binary, tokenVariable, token) };
 
         running.Start();
 

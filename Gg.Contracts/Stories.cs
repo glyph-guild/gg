@@ -126,7 +126,7 @@ public static class FlightStages
 
         // NOT A GAP. These interrupt at any stage and belong to none of the six.
         StoryKinds.TakenOver or StoryKinds.HoldExpired or StoryKinds.PoolIncident
-            or StoryKinds.AttendedNobodyCame => null,
+            or StoryKinds.RunnerIncident or StoryKinds.AttendedNobodyCame => null,
 
         _ => throw new InvalidOperationException(
             $"'{kind}' is not a story kind this build knows, so the stage it belongs to "

@@ -266,6 +266,19 @@ public sealed class WhatThisRunnerSays(
         _inner.AllowanceSpent();
     }
 
+    public void AgentHeld(string provider, string diagnosis)
+    {
+        Doing($"holding: the {provider} agent is not logged in", diagnosis);
+        FlyingNothing();
+        _inner.AgentHeld(provider, diagnosis);
+    }
+
+    public void AgentReady(string provider)
+    {
+        Doing($"the {provider} agent can start again");
+        _inner.AgentReady(provider);
+    }
+
     public void Waiting(IReadOnlyList<string> repositories)
     {
         Doing($"waiting on {repositories.Count} repositor{(repositories.Count == 1 ? "y" : "ies")}");

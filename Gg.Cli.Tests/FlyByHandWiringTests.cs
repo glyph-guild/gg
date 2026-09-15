@@ -173,6 +173,8 @@ public class FlyByHandWiringTests
         public void BoundBroken(string diagnosis) => Calls.Add("bound-broken");
 
         public void CannotBeFlownByHand(string diagnosis) => Calls.Add("cannot-be-flown");
+        public void AgentHeld(string provider, string diagnosis) => Calls.Add("agent-held");
+        public void AgentReady(string provider) => Calls.Add("agent-ready");
         public void ControlPlaneRefused(string diagnosis, TimeSpan retryIn) => Calls.Add("refused");
         public void Idle() => Calls.Add("idle");
         public void Parked() => Calls.Add("parked");

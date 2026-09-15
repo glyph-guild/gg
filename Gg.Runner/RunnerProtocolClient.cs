@@ -25,6 +25,7 @@ namespace Gg.Runner;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(RunnerHeartbeat))]
 [JsonSerializable(typeof(AllowanceReading))]
+[JsonSerializable(typeof(AgentReading))]
 [JsonSerializable(typeof(HeartbeatAccepted))]
 [JsonSerializable(typeof(RunnerSignalAnswer))]
 [JsonSerializable(typeof(RunnerKeyOffer))]
@@ -163,6 +164,21 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         using var request = Request(HttpMethod.Post, "/v1/allowances/readings");
         request.Content = JsonContent.Create(
             reading, RunnerJsonContext.Default.AllowanceReading);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ReportAgentAsync(
+        string runnerId, AgentReading reading, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        // NO ID IN THE PATH, on renewal's reason: the credential names the
+        // runner, and a path id would be a fleet to enumerate.
+        using var request = Request(HttpMethod.Post, "/v1/runner/agent");
+        request.Content = JsonContent.Create(reading, RunnerJsonContext.Default.AgentReading);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         ThrowIfProtocolRefused(response);

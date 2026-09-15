@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Description;
 using Gg.Runner;
 using Gg.Runner.Execution;
 using Gg.Runner.Vcs;
@@ -51,7 +52,7 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
 
         public string TokenVariable => "CLAUDE_CODE_OAUTH_TOKEN";
 
-        public AgentStanding Standing { get; set; } = NeedsLogin(T0);
+        public AgentStanding Standing { get; set; } = HeldStanding(T0);
 
         public int Probes { get; private set; }
 
@@ -64,17 +65,17 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
             return Task.FromResult(Standing);
         }
 
-        public bool NeedsLogin(string? runReason) =>
-            runReason?.Contains("/login", StringComparison.Ordinal) == true;
+        public bool NeedsLogin(string? said) =>
+            said?.Contains("/login", StringComparison.Ordinal) == true;
     }
 
-    private static AgentStanding NeedsLogin(DateTimeOffset at) => new(
+    private static AgentStanding HeldStanding(DateTimeOffset at) => new(
         Authenticated: false,
         Source: AgentCredentialSources.None,
         Diagnosis: "the agent is not logged in and gg holds no token for it",
         MeasuredAt: at);
 
-    private static AgentStanding Ready(DateTimeOffset at) => new(
+    private static AgentStanding ReadyStanding(DateTimeOffset at) => new(
         Authenticated: true,
         Source: AgentCredentialSources.Token,
         Diagnosis: "",
@@ -122,6 +123,12 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
         Credentials = [],
         UnresolvedRepos = [],
         ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
+        ExpiresAt = T0.AddMinutes(10),
+        RenewWithinSeconds = 5,
+        // A LOOP RUNS ONLY FOR A LEASE THAT NAMES WORK; without this the
+        // executor is never asked and the test would be about nothing.
+        IntentText = "make the greeting say hello",
         Loop = new LeaseLoop
         {
             LoopId = "implement",
@@ -174,7 +181,7 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
     public async Task A_held_runner_beats_and_never_asks_for_work()
     {
         var agent = new FakeAgent();
-        var rig = Build(agent, NeedsLogin(T0), turns: 3);
+        var rig = Build(agent, HeldStanding(T0), turns: 3);
 
         var exit = await rig.Loop.RunAsync("runner-1", [], rig.Stop.Token);
 
@@ -194,7 +201,7 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
     public async Task The_hold_is_reported_once_and_not_on_every_re_probe()
     {
         var agent = new FakeAgent();
-        var rig = Build(agent, NeedsLogin(T0), turns: 4);
+        var rig = Build(agent, HeldStanding(T0), turns: 4);
 
         _ = await rig.Loop.RunAsync("runner-1", [], rig.Stop.Token);
 
@@ -204,7 +211,7 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
             .Because("the standing did not change, so nothing new was said: a machine "
                    + "repeating one sentence every thirty seconds is a table growing for "
                    + "no reader. Re-probes: " + agent.Probes);
-        await Assert.That(readings[0].State).IsEqualTo(AgentStates.NeedsLogin);
+        await Assert.That(readings[0].Standing).IsEqualTo(AgentStandings.NeedsLogin);
         await Assert.That(readings[0].Provider).IsEqualTo("claude");
         await Assert.That(readings[0].Source).IsEqualTo(AgentCredentialSources.None);
         await Assert.That(agent.Probes).IsGreaterThan(1)
@@ -215,15 +222,16 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
     public async Task A_credential_kept_for_the_agent_is_probed_at_once_and_claims_resume()
     {
         var agent = new FakeAgent();
-        var rig = Build(agent, NeedsLogin(T0), turns: 3);
+        var rig = Build(agent, HeldStanding(T0), turns: 3);
 
         // What the channel's configure-credential arm does after it writes:
         // tells the loop, which is the one thing the store cannot.
-        rig.Observer.OnEvent = _ =>
+        rig.Observer.OnEvent = said =>
         {
-            if (agent.Probes >= 1 && agent.Standing.Authenticated is false)
+            // The moment the hold is announced, the credential lands.
+            if (said.StartsWith("agent-held:", StringComparison.Ordinal))
             {
-                agent.Standing = Ready(T0);
+                agent.Standing = ReadyStanding(T0);
                 rig.Loop.CredentialKept(agent.Locator);
             }
         };
@@ -234,8 +242,8 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
             .IsTrue()
             .Because("a runner given the credential it was holding for takes work again "
                    + "without anybody restarting it.");
-        await Assert.That(rig.Protocol.AgentReadings.Select(r => r.State))
-            .IsEquivalentTo([AgentStates.NeedsLogin, AgentStates.Ready])
+        await Assert.That(rig.Protocol.AgentReadings.Select(r => r.Standing))
+            .IsEquivalentTo([AgentStandings.NeedsLogin, AgentStandings.Ready])
             .Because("once for the hold and once for the recovery, which is what lets the "
                    + "gate open and then close.");
         await Assert.That(rig.Observer.Events).Contains("agent-ready");
@@ -250,8 +258,8 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
         // A token that dies is discovered by the run that fails. Probing an idle
         // runner every turn would be a process launch per poll on every machine
         // in the fleet, to learn a thing the next flight will learn anyway.
-        var agent = new FakeAgent { Standing = Ready(T0) };
-        var rig = Build(agent, Ready(T0), turns: 3);
+        var agent = new FakeAgent { Standing = ReadyStanding(T0) };
+        var rig = Build(agent, ReadyStanding(T0), turns: 3);
 
         _ = await rig.Loop.RunAsync("runner-1", [], rig.Stop.Token);
 
@@ -266,9 +274,9 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
         // MID-LIFE DEMOTION. The token was fine at startup and is dead now - a
         // revocation, an expiry - and the first flight to find out must not be
         // marked failed for it, and the machine must not read as a broken bound.
-        var agent = new FakeAgent { Standing = Ready(T0) };
+        var agent = new FakeAgent { Standing = ReadyStanding(T0) };
         var rig = Build(
-            agent, Ready(T0), turns: 4,
+            agent, ReadyStanding(T0), turns: 4,
             executor: new CannotLogIn(), workspace: new EmptyWorkspace());
         rig.Protocol.Claims.Enqueue(new ClaimResult.Granted(ALease()));
 
@@ -276,13 +284,13 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
 
         await Assert.That(rig.Observer.Events).Contains($"released:{RunnerDisposition.Abandoned}")
             .Because("the flight is untouched and somebody else can fly it; failed would say "
-                   + "the work was wrong.");
+                   + "the work was wrong. Seen: " + string.Join(" | ", rig.Observer.Events));
         await Assert.That(rig.Observer.Events.Any(e => e.StartsWith("bound-broke:", StringComparison.Ordinal)))
             .IsFalse()
             .Because("nothing about the bound was measured wrong - the agent could not start.");
         await Assert.That(rig.Observer.Events.Any(e => e.StartsWith("agent-held:", StringComparison.Ordinal)))
             .IsTrue();
-        await Assert.That(rig.Protocol.AgentReadings.Any(r => r.State == AgentStates.NeedsLogin))
+        await Assert.That(rig.Protocol.AgentReadings.Any(r => r.Standing == AgentStandings.NeedsLogin))
             .IsTrue();
         await Assert.That(rig.Protocol.Calls.Count(c => c.StartsWith("claim:", StringComparison.Ordinal)))
             .IsEqualTo(1)
@@ -296,7 +304,7 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
         // The report is best-effort, like the allowance reading - the runner's
         // not-claiming is the mechanism, and it does not depend on being heard.
         var agent = new FakeAgent();
-        var rig = Build(agent, NeedsLogin(T0), turns: 3);
+        var rig = Build(agent, HeldStanding(T0), turns: 3);
         rig.Protocol.AgentThrows.Enqueue(new HttpRequestException(
             "Response status code does not indicate success: 404 (Not Found).",
             inner: null, statusCode: System.Net.HttpStatusCode.NotFound));
@@ -331,16 +339,16 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
             .IsEqualTo(StartupOutcome.Fly)
             .Because("a runner with no agent and nothing to measure flies as it always did.");
 
-        await Assert.That(StartupDecision.Decide(NeedsLogin(T0), probe: null, agent))
+        await Assert.That(StartupDecision.Decide(HeldStanding(T0), probe: null, agent))
             .IsEqualTo(StartupOutcome.Hold)
             .Because("the agent said so before any probe ran, and a probe would only "
                    + "measure the absence again.");
 
-        await Assert.That(StartupDecision.Decide(Ready(T0), AProbe(true, "held"), agent))
+        await Assert.That(StartupDecision.Decide(ReadyStanding(T0), AProbe(true, "held"), agent))
             .IsEqualTo(StartupOutcome.Fly);
 
         await Assert.That(StartupDecision.Decide(
-                Ready(T0),
+                ReadyStanding(T0),
                 AProbe(false, "could not be measured: Invalid API key · Please run /login"),
                 agent))
             .IsEqualTo(StartupOutcome.Hold)
@@ -348,13 +356,13 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
                    + "one unmeasured cause a person on a gate can fix without visiting.");
 
         await Assert.That(StartupDecision.Decide(
-                Ready(T0), AProbe(false, "could not be measured: the binary is not there"), agent))
+                ReadyStanding(T0), AProbe(false, "could not be measured: the binary is not there"), agent))
             .IsEqualTo(StartupOutcome.Refuse)
             .Because("gg#502's rule stands for every other cause: an unmeasured bound is a "
                    + "machine whose governance is unproven, and it exits 69.");
 
         await Assert.That(StartupDecision.Decide(
-                Ready(T0), AProbe(false, "An agent with only 'read' declared put bytes on disk"), agent))
+                ReadyStanding(T0), AProbe(false, "An agent with only 'read' declared put bytes on disk"), agent))
             .IsEqualTo(StartupOutcome.Refuse)
             .Because("a bound that BROKE is never a hold.");
     }

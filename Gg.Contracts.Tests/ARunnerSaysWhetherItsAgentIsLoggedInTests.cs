@@ -37,7 +37,7 @@ public class ARunnerSaysWhetherItsAgentIsLoggedInTests
     private static AgentReading Ready() => new()
     {
         Provider = "claude",
-        State = AgentStates.Ready,
+        Standing = AgentStandings.Ready,
         Source = AgentCredentialSources.Token,
         MeasuredAt = T0,
     };
@@ -70,10 +70,10 @@ public class ARunnerSaysWhetherItsAgentIsLoggedInTests
     }
 
     [Test]
-    public async Task The_states_and_sources_are_closed()
+    public async Task The_standings_and_sources_are_closed()
     {
-        await Assert.That(AgentStates.All).IsEquivalentTo(
-            (string[])[AgentStates.Ready, AgentStates.NeedsLogin]);
+        await Assert.That(AgentStandings.All).IsEquivalentTo(
+            (string[])[AgentStandings.Ready, AgentStandings.NeedsLogin]);
         await Assert.That(AgentCredentialSources.All).IsEquivalentTo(
             (string[])[AgentCredentialSources.Token, AgentCredentialSources.Machine, AgentCredentialSources.None]);
     }
@@ -84,16 +84,16 @@ public class ARunnerSaysWhetherItsAgentIsLoggedInTests
         await Assert.That(AgentReading.Validate(Ready())).IsNull();
         await Assert.That(AgentReading.Validate(Ready() with
         {
-            State = AgentStates.NeedsLogin,
+            Standing = AgentStandings.NeedsLogin,
             Source = AgentCredentialSources.None,
             Diagnosis = "the agent is not logged in and gg holds no token for it",
         })).IsNull();
     }
 
     [Test]
-    public async Task An_unknown_state_or_source_is_refused()
+    public async Task An_unknown_standing_or_source_is_refused()
     {
-        await Assert.That(AgentReading.Validate(Ready() with { State = "expired" })).IsNotNull()
+        await Assert.That(AgentReading.Validate(Ready() with { Standing = "expired" })).IsNotNull()
             .Because("an unknown state read as ready would clear a gate over a broken machine.");
         await Assert.That(AgentReading.Validate(Ready() with { Source = "keychain" })).IsNotNull();
         await Assert.That(AgentReading.Validate(Ready() with { Provider = " " })).IsNotNull();

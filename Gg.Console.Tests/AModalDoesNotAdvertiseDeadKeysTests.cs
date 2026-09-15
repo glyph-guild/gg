@@ -57,23 +57,52 @@ public class AModalDoesNotAdvertiseDeadKeysTests
             },
         ],
         SelectedRow = 0,
+
+        // AND THE GATE IT IS WAITING ON. The prose above says "two gates were
+        // waiting" and this fixture had none - a queue row whose REASON said a
+        // decision was awaited, with no decision in hand. The two are different
+        // facts and the acts are bound to the second: you can only answer a
+        // gate this console is holding.
+        Gates = new Gg.Contracts.GateList
+        {
+            Gates =
+            [
+                new Gg.Contracts.PendingGate
+                {
+                    FlightNumber = "GG-89",
+                    ObligationId = "a-human-reviews-it",
+                    Approver = "somebody",
+                    Because = "a person reviews what the agent wrote",
+                    AwaitingSince = DateTimeOffset.UnixEpoch,
+                    Attempt = 1,
+                    ManifestHash = "sha256:0000",
+                },
+            ],
+        },
     };
 
     [Test]
     public async Task The_actions_modal_resolves_every_key_it_lists()
     {
+        // ITS MENU IS BUTTONS NOW, so what it lists is what it draws rather
+        // than letters in prose - the shape every other modal with answers
+        // already has. The defect this guards is unchanged and so is the
+        // sentence: a menu whose items do nothing is the worst form of the
+        // advertised-key defect, because the person did not guess, they were
+        // told. Only the surface moved.
         var state = Waiting();
         var context = KeymapContext.For(state);
         var body = PaneText.Modal(state);
 
-        var offered = Offer.Matches(body)
-            .Select(m => m.Groups["key"].Value[0])
+        var offered = Keymap.Buttons(context)
+            .Where(b => b.Key.Input is not null)
+            .Select(b => b.Key.Input!.Value)
             .Distinct()
             .ToList();
 
         await Assert.That(offered).IsNotEmpty()
-            .Because("this modal IS a menu - if nothing reads as an offer the guard is "
-                   + $"asserting nothing. Body:\n{body}");
+            .Because("this modal IS a menu - if it offers nothing the guard is asserting "
+                   + $"nothing. Body:\n{body}");
 
         var dead = offered
             .Where(key => Keymap.Resolve(KeyStroke.Char(key), context) is null)

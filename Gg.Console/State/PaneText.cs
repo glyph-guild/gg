@@ -3449,6 +3449,20 @@ public static class PaneText
         state.Selected is not { } row
             ? "  No flight selected."
             : $"  {Clean(row.FlightNumber)}  {Clean(row.Name)}\n\n"
+
+            // WHAT IS BEING APPROVED, ON THE SCREEN THAT APPROVES IT. The rule
+            // written beside `d` in Normal mode is that a gate is decided from
+            // the modal that put the question up and named the approver - so an
+            // Approve button here is only honest if this modal is that modal.
+            // It is the decision page's own rendering, because two renderings
+            // of one question are two chances to disagree about it.
+            + (state.SelectedGate is { } gate
+                ? Clean(
+                    Gg.Client.VerbOutput.ToText(
+                        new Gg.Client.VerbResult.Gates(
+                            new Gg.Contracts.GateList { Gates = [gate] })),
+                    lines: true) + "\n\n"
+                : "")
             // WHAT THIS CONSOLE CAN DO, and why the one thing it cannot is
             // absent. `t` is offered only when a tree is held and this console
             // never holds one, so the key is correctly missing - but nothing
@@ -3457,14 +3471,10 @@ public static class PaneText
             // The previous text promised takeover "arrives in slice two". It
             // arrived. A sentence that was true once and wrong ever since is
             // the failure this pane exists to avoid.
-            + "  d  decide a gate on this flight\n"
-
-            // SAYS WHAT THE KEY DOES, rather than what is behind two of them.
-            // `v' opens the flight; the evidence is its gate tab, one key
-            // further in - and a menu item that names the destination of a
-            // journey rather than the step it takes is how somebody presses it
-            // and believes it failed.
-            + "  v  open the flight - its gate tab shows what is holding it\n\n"
+            // THE OFFERS ARE BUTTONS NOW, so listing them here as letters
+            // would be the same menu twice - and the copy that nobody looks at
+            // is the copy that goes stale. What stays is what the buttons
+            // cannot say: why one of them is missing.
             + "  Taking this flight over is not offered here. It needs the flight's\n"
             + "  working tree, and this console never holds one — the branch is what\n"
             + "  is authoritative. It can be done on the machine that ran the flight.";

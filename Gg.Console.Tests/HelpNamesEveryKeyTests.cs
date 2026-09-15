@@ -102,12 +102,18 @@ public class HelpNamesEveryKeyTests
         // reason every clause above records, and the mistake this product has
         // now made three times.
         from overAReadableTicket in (bool[])[false, true]
+
+        // AND WHETHER A GATE IS WAITING ON THE ROW UNDER THE CURSOR, which
+        // decides whether the actions modal offers the two acts or only the
+        // reading one. The reason every clause above records, four times now.
+        from aGateWaits in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
             OnTheLookPage: onTheLookPage,
             OnTheRepositoriesHalf: onTheRepositoriesHalf,
-            OverAReadableTicket: overAReadableTicket)
+            OverAReadableTicket: overAReadableTicket,
+            AGateWaits: aGateWaits)
         {
             SignInStarted = started,
             RunnerIsOurs = ours,
@@ -162,7 +168,9 @@ public class HelpNamesEveryKeyTests
         // it is showing - the same shape as the fold key one page over.
         // SEVENTEEN SINCE A FLIGHT'S TICKET, whose key exists only where the
         // intent names one and a reader here can read it.
-        await Assert.That(members.Count).IsEqualTo(17)
+        // EIGHTEEN SINCE THE QUEUE'S ENTER, whose modal offers two acts only
+        // where there is a gate to act on.
+        await Assert.That(members.Count).IsEqualTo(18)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

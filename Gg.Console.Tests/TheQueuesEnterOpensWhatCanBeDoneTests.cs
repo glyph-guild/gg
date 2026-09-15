@@ -106,7 +106,7 @@ public class TheQueuesEnterOpensWhatCanBeDoneTests
             .Because("and the other answer, with the question and the reason field, is one "
                    + "button rather than a letter nobody was told. Found: "
                    + string.Join(", ", labels));
-        await Assert.That(labels).Contains("Open the flight");
+        await Assert.That(labels).Contains("Open flight");
     }
 
     [Test]
@@ -118,7 +118,7 @@ public class TheQueuesEnterOpensWhatCanBeDoneTests
         var buttons = Keymap.Buttons(
             KeymapContext.For(OnTheQueue(waiting: true) with { Mode = UiMode.FlightActions }));
 
-        await Assert.That(buttons[0].Label).IsEqualTo("Open the flight");
+        await Assert.That(buttons[0].Label).IsEqualTo("Open flight");
         await Assert.That(buttons[^1].Label).IsEqualTo("Approve")
             .Because("and the one that cannot be taken back is the furthest from a reflex.");
     }
@@ -136,7 +136,7 @@ public class TheQueuesEnterOpensWhatCanBeDoneTests
 
         await Assert.That(labels).DoesNotContain("Approve");
         await Assert.That(labels).DoesNotContain("Decide");
-        await Assert.That(labels).Contains("Open the flight")
+        await Assert.That(labels).Contains("Open flight")
             .Because("what is left is what is always true of a row: there is a flight behind "
                    + "it and it can be read.");
     }

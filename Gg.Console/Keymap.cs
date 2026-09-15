@@ -161,7 +161,19 @@ public readonly record struct KeymapContext(
     /// has no reader declared here opens a modal that can only say it could not
     /// ask. Last, because this is a positional record.
     /// </remarks>
-    bool OverAReadableTicket = false)
+    bool OverAReadableTicket = false,
+
+    /// <summary>
+    /// Whether a gate is waiting on the row the queue's cursor is on.
+    /// </summary>
+    /// <remarks>
+    /// <b>What separates a row that can be answered from one that can only be
+    /// read.</b> The two acts an approval offers are bound only where there is
+    /// something to approve - a decision page about no decision is a button
+    /// that opens a sentence saying so. Last, because this is a positional
+    /// record.
+    /// </remarks>
+    bool AGateWaits = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -303,7 +315,12 @@ public readonly record struct KeymapContext(
             // AND WHICH HALF OF THE COMPOSE MODAL, for that reason: space
             // marks a repository and there are none to mark on the other.
             state.WorkKindTab is WorkKindTab.Repositories,
-            FlightDetails.TicketAReaderHere(state) is not null)
+            FlightDetails.TicketAReaderHere(state) is not null,
+
+            // AND WHETHER THE ROW UNDER THE QUEUE'S CURSOR IS WAITING ON AN
+            // ANSWER, derived here with the rest so the buttons and the keys
+            // cannot disagree about whether there is one.
+            state.SelectedGate is not null)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -672,8 +689,33 @@ public static class Keymap
         // violation of that rule.
         UiMode.FlightActions =>
         [
-            new(KeyStroke.Char('d'), Command.OpenGate, "decide a gate on this flight"),
-            new(KeyStroke.Char('v'), Command.ShowFlight, "open the flight"),
+            // THE READING ONE FIRST, AND THAT IS THE SAFETY RATHER THAN A
+            // PREFERENCE. RenderModalButtons focuses the first button and marks
+            // it as the default, so declaration order is what a reflex does -
+            // and this modal is now opened with enter, which makes enter twice
+            // the commonest thing a person will do to it.
+            new(KeyStroke.Char('v'), Command.ShowFlight, "open the flight")
+                { Label = "Open flight" },
+
+            // THE TWO ANSWERS, ONLY WHERE THERE IS A QUESTION. `d` was bound
+            // here unconditionally and opened a decision page that said "there
+            // is no decision waiting on this row any more" - a true sentence
+            // reached by a key that should not have been offered.
+            //
+            // AND `a` MEANS APPROVE HERE, as it does in the decision modal, for
+            // the reason a modal owns the keyboard at all: inside one the
+            // letters are free, and the letter somebody already knows for this
+            // act is the one to use.
+            .. context.AGateWaits
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('d'), Command.OpenGate, "decide a gate on this flight")
+                        { Label = "Decide", When = "when a gate is waiting on this flight" },
+                    new(KeyStroke.Char('a'), Command.ApproveGate, "approve it")
+                        { Label = "Approve", When = "when a gate is waiting on this flight" },
+                ]
+                : [],
+
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
@@ -1665,10 +1707,23 @@ public static class Keymap
                 { OffTheHintLine = true, When = "on the airspace tab" },
         ],
 
-        TabId.Flights or TabId.Queue =>
+        // THE TAB THAT IS A LIST OF THINGS WAITING ON A PERSON, so enter
+        // reaches the doing. It opened the flight - the reading modal, which
+        // deliberately binds nothing that acts on its flight - and the way to
+        // act from there was esc, then `a`, then a key off the hint line.
+        TabId.Queue =>
+        [
+            new(KeyStroke.EnterKey, Command.ToggleFlightActions, "what can be done")
+                { OffTheHintLine = true, When = "on the queue tab" },
+        ],
+
+        // AND THE TAB THAT IS A LIST OF EVERY FLIGHT KEEPS ITS OWN, because
+        // that one is for reading. One key, two meanings, and the tab decides
+        // which - the shape `a` two hundred lines up already uses.
+        TabId.Flights =>
         [
             new(KeyStroke.EnterKey, Command.ShowFlight, "open this flight")
-                { OffTheHintLine = true, When = "on the flights and queue tabs" },
+                { OffTheHintLine = true, When = "on the flights tab" },
         ],
 
         _ => [],
@@ -1736,9 +1791,16 @@ public static class Keymap
         // flights until one names a ticket. The help page is where they find
         // out it exists at all.
         from overAReadableTicket in (bool[])[false, true]
+
+        // AND WHETHER A GATE IS WAITING. Crossed here so the two acts an
+        // approval offers reach the catalogue the help page is built from -
+        // they are bound only over a row with something to answer, which is
+        // exactly the shape a product that left it out could not produce.
+        from aGateWaits in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument, reading,
-            overAFold, onTheLookPage, onTheRepositoriesHalf, overAReadableTicket)
+            overAFold, onTheLookPage, onTheRepositoriesHalf, overAReadableTicket,
+            aGateWaits)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

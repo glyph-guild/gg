@@ -37,9 +37,15 @@ public class EnterBelongsToATabTests
     {
         await Assert.That(Enter(TabId.Flights)).IsEqualTo(Command.ShowFlight);
 
-        await Assert.That(Enter(TabId.Queue)).IsEqualTo(Command.ShowFlight)
-            .Because("the queue is a list of flights and the console opens on it, so enter "
-                   + "there is the obvious thing to try and it works.");
+        // AND THE QUEUE OPENS WHAT CAN BE DONE, which is the same argument
+        // arriving at a different answer. Enter is still the obvious thing to
+        // try there; what it is obvious to WANT on that tab is not the reading
+        // modal. The queue lists what is waiting on a person, so the key goes
+        // to the doing - and opening the flight is the first button on it.
+        await Assert.That(Enter(TabId.Queue)).IsEqualTo(Command.ToggleFlightActions)
+            .Because("the queue is a list of things waiting on somebody, so enter reaches "
+                   + "what can be done about one rather than the modal that deliberately "
+                   + "binds nothing that acts.");
     }
 
     [Test]

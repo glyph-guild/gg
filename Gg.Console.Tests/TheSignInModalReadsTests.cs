@@ -287,6 +287,39 @@ public class TheSignInModalReadsTests
             // flag false however the derivation is written, which is the trap
             // RunnerIsOurs set above.
             ReaderKeys = ["a-tracker"],
+
+            // AND A GATE WAITING ON THE ROW UNDER THE QUEUE'S CURSOR, which is
+            // again two facts from two places: the queue row, and the gate list
+            // holding one for that flight. A model with the row and no gate
+            // leaves the flag false however the derivation is written.
+            Queue =
+            [
+                new QueueRow
+                {
+                    FlightId = "019fe815-6136-7518-bb57-b06d6d3f411a",
+                    FlightNumber = "GG-118",
+                    Name = "the login form loses focus",
+                    Reason = QueueReason.AwaitingDecision,
+                    Since = DateTimeOffset.UnixEpoch,
+                },
+            ],
+            SelectedRow = 0,
+            Gates = new Gg.Contracts.GateList
+            {
+                Gates =
+                [
+                    new Gg.Contracts.PendingGate
+                    {
+                        FlightNumber = "GG-118",
+                        ObligationId = "a-human-reviews-it",
+                        Approver = "somebody",
+                        Because = "a person reviews what the agent wrote",
+                        AwaitingSince = DateTimeOffset.UnixEpoch,
+                        Attempt = 1,
+                        ManifestHash = "sha256:0000",
+                    },
+                ],
+            },
             Flights = new Gg.Contracts.FlightList
             {
                 Flights =

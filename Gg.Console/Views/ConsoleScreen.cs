@@ -415,6 +415,9 @@ public sealed class ConsoleScreen : Window
     private readonly Terminal.Gui.Drawing.Scheme _muted = ConsoleTheme.Muted();
     private readonly Label _hints;
 
+    /// <summary>The keys about the console, at the line's right-hand end.</summary>
+    private readonly Label _hintsStanding;
+
     /// <summary>The countdown's seconds, painted over the hint line as they fade.</summary>
     private readonly Label _hintsCounting;
     private readonly Label _activity;
@@ -839,7 +842,24 @@ public sealed class ConsoleScreen : Window
         //
         // Added after _hints and before _modal, because that is the order
         // these are drawn in.
-        _hintsCounting = new Label { Y = Pos.AnchorEnd(1), Visible = false };
+        // THE OTHER END OF THE LINE, pinned to the right edge. Auto-width
+        // rather than Dim.Fill with the text aligned: a full-width label draws
+        // its own background across the row and would wipe the end it shares
+        // the line with. Drawn after the left one, so where a long line would
+        // have run under it, what is lost is the tail of the context keys and
+        // `q quit' stays on the screen.
+        _hintsStanding = new Label
+        {
+            X = Pos.AnchorEnd(),
+            Y = Pos.AnchorEnd(1),
+            Width = Dim.Auto(DimAutoStyle.Text),
+        };
+
+        // AND THE SECONDS GO INSIDE IT, because that is the end that draws
+        // them - Keymap.Counting answers columns of this label's text, so a
+        // child of it needs no arithmetic about where the label itself is.
+        _hintsCounting = new Label { Visible = false };
+        _hintsStanding.Add(_hintsCounting);
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
         // indistinguishable from a key that does nothing.
@@ -1781,7 +1801,7 @@ public sealed class ConsoleScreen : Window
         Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
-        Add(_bar, _activity, _hints, _hintsCounting, _modal);
+        Add(_bar, _activity, _hints, _hintsStanding, _modal);
 
         KeyDown += OnScreenKeyDown;
 
@@ -2364,7 +2384,8 @@ public sealed class ConsoleScreen : Window
         }
 
         State = State with { HelpFold = over };
-        _hints.Text = Keymap.Hints(Context());
+        _hints.Text = Keymap.HintsHere(Context());
+        _hintsStanding.Text = Keymap.HintsStanding(Context());
         Counting();
     }
 
@@ -3497,7 +3518,8 @@ public sealed class ConsoleScreen : Window
         _modal.Height = document ? Dim.Percent(88) : Math.Max(12, tall);
 
         _activity.Text = PaneText.Activity(State);
-        _hints.Text = Keymap.Hints(Context());
+        _hints.Text = Keymap.HintsHere(Context());
+        _hintsStanding.Text = Keymap.HintsStanding(Context());
 
         Applied(State.Look);
 
@@ -3539,7 +3561,7 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        var line = _hints.Text;
+        var line = _hintsStanding.Text;
 
         // THE CHARACTERS THE LINE ITSELF HAS THERE. Re-deriving them would be a
         // second rendering of one number, and the two would disagree on
@@ -3556,7 +3578,7 @@ public sealed class ConsoleScreen : Window
         _hintsCounting.Visible = true;
 
         _hintsCounting.SetScheme(LookStyles.Counting(
-            _hints.GetScheme(), AutoRefresh.Left(State.Refresh)));
+            _hintsStanding.GetScheme(), AutoRefresh.Left(State.Refresh)));
     }
 
     /// <summary>
@@ -3674,7 +3696,7 @@ public sealed class ConsoleScreen : Window
         // for the reason the tabs are excluded from it: the palette would
         // otherwise land on top of the dimming. They are reference rather than
         // content, and at full brightness they compete with the pane above.
-        foreach (var line in (View[])[_activity, _hints])
+        foreach (var line in (View[])[_activity, _hints, _hintsStanding])
         {
             // SET EVERY RENDER, CLEAR INCLUDED. Turning the setting back to
             // Normal has to put these back, and the walk above only reasserts

@@ -89,8 +89,10 @@ public class TheCountdownFadesAsItRunsDownTests
     [Test]
     public async Task The_seconds_are_found_where_the_line_actually_says_them()
     {
+        // AGAINST THE RIGHT-HAND END, which is where refresh is drawn - see
+        // TheHintLineHasTwoEndsTests. The columns are that label's.
         var state = Counting(30);
-        var line = Keymap.Hints(KeymapContext.For(state));
+        var line = Keymap.HintsStanding(KeymapContext.For(state));
         var at = Keymap.Counting(KeymapContext.For(state));
 
         await Assert.That(at).IsNotNull()
@@ -107,7 +109,7 @@ public class TheCountdownFadesAsItRunsDownTests
         // TWO DIGITS AND THEN ONE. `9s` is a column narrower than `10s`, so an
         // offset measured once would paint over the space beside it.
         var state = Counting(9);
-        var line = Keymap.Hints(KeymapContext.For(state));
+        var line = Keymap.HintsStanding(KeymapContext.For(state));
         var at = Keymap.Counting(KeymapContext.For(state))!.Value;
 
         await Assert.That(line.Substring(at.At, at.Length)).IsEqualTo("9s");

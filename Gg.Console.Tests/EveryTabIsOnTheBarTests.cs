@@ -84,18 +84,27 @@ public class EveryTabIsOnTheBarTests
     }
 
     [Test]
-    public async Task The_two_that_cannot_be_closed_need_no_key()
+    public async Task The_two_that_cannot_be_closed_spend_no_letter()
     {
-        // The queue and the flights are always there and one tab press apart,
-        // so a letter spent on either is a letter taken from something a person
-        // cannot otherwise reach.
-        await Assert.That(Tabs.KeyFor(TabId.Queue)).IsNull();
-        await Assert.That(Tabs.KeyFor(TabId.Flights)).IsNull();
-
-        foreach (var tab in Tabs.All.Where(t => t is not (TabId.Queue or TabId.Flights)))
+        // THE ARGUMENT THIS GUARD WAS MAKING, KEPT - and it was about letters.
+        // It read "the queue and the flights are always there and one tab press
+        // apart, so a letter spent on either is a letter taken from something a
+        // person cannot otherwise reach", and concluded they should have no key
+        // at all. The premise is still true and there are still no free letters
+        // that read as anything; the conclusion was wider than the premise.
+        // They have punctuation now - see Tabs.KeyFor - and tab from the
+        // airspace to the queue is no longer four presses.
+        foreach (var tab in Tabs.All)
         {
             await Assert.That(Tabs.KeyFor(tab)).IsNotNull()
-                .Because($"{tab} is not where a console opens, so something has to reach it.");
+                .Because($"{tab} is a tab, and the bar is where a tab's key is advertised.");
+        }
+
+        foreach (var tab in (TabId[])[TabId.Queue, TabId.Flights])
+        {
+            await Assert.That(char.IsAsciiLetter(Tabs.KeyFor(tab)!.Value.Name[0])).IsFalse()
+                .Because($"{tab} is one tab press from where the console opens, so it does not "
+                       + "get to spend a letter that a view nobody can otherwise reach needs.");
         }
     }
 
@@ -135,14 +144,11 @@ public class EveryTabIsOnTheBarTests
 
         foreach (var tab in Tabs.Offered(offering))
         {
+            // ALL EIGHT NOW, where two used to be exempt. They were exempt
+            // because they had no key, not because a click on them meant
+            // nothing - and a tab that answers a keypress has to answer a
+            // click the same way or the bar is a second path.
             var command = Tabs.CommandFor(tab);
-
-            if (tab is TabId.Queue or TabId.Flights)
-            {
-                await Assert.That(command).IsNull()
-                    .Because($"{tab} is always there; nothing has to be asked for.");
-                continue;
-            }
 
             await Assert.That(command).IsNotNull();
             await Assert.That(Keymap.Bindings(KeymapContext.For(offering))

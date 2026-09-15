@@ -330,6 +330,14 @@ public static class Reducer
             // next thing" is the next tab and focus follows it.
             Command.FocusNextPane => state with { ActiveTab = Tabs.Next(state) },
 
+            // STRAIGHT THERE, AND NOT THROUGH Showing. That helper closes a
+            // view by clearing its visibility flag, and these two have none to
+            // clear - they are always there, which is what makes them the
+            // things a close lands on. Nothing else about the screen moves:
+            // whatever was open stays open behind the tab a person asked for.
+            Command.ShowQueueTab => state with { ActiveTab = TabId.Queue },
+            Command.ShowFlightsTab => state with { ActiveTab = TabId.Flights },
+
             // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
             // two lists, and moving the queue underneath a person reading work
             // items would change what the flight pane shows for a keystroke

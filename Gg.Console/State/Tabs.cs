@@ -106,7 +106,24 @@ public static class Tabs
     /// </remarks>
     public static KeyStroke? KeyFor(TabId tab) => tab switch
     {
-        TabId.Queue or TabId.Flights => null,
+        // PUNCTUATION, BECAUSE THE LETTERS RAN OUT, and these two are the
+        // leftmost tabs so they take the leftmost pair. `,` and `.` are free in
+        // every mode, so neither means a second thing one keypress later, and
+        // they are engraved with the arrows that mean "along".
+        //
+        // WHAT WAS TRIED FIRST. Every letter that says anything about either
+        // word is taken: q is quit, u is the runners tab, e is the airspace;
+        // of `flights', f is freeze and fly, l is live, and i g h t are bound.
+        // Capitals are not an option at all - KeyTranslator strips shift and
+        // lowercases before the keymap sees a keystroke, on purpose, so one
+        // letter is one key. The digits belong to the floor modal, which opens
+        // from Normal with `o`.
+        //
+        // AND NO LETTER IS SPENT, which is what the old argument for giving
+        // these two nothing was actually about - see
+        // EveryTabIsOnTheBarTests.
+        TabId.Queue => KeyStroke.Char(','),
+        TabId.Flights => KeyStroke.Char('.'),
         TabId.Live => KeyStroke.Char('l'),
         TabId.Browse => KeyStroke.Char('b'),
         TabId.Repositories => KeyStroke.Char('r'),
@@ -137,7 +154,11 @@ public static class Tabs
     /// </remarks>
     public static Command? CommandFor(TabId tab) => tab switch
     {
-        TabId.Queue or TabId.Flights => null,
+        // SHOW, NOT TOGGLE. Neither of these can be closed, so a second press
+        // has nothing to do - and neither reads anything, so unlike four of the
+        // six below they are the reducer's own.
+        TabId.Queue => Command.ShowQueueTab,
+        TabId.Flights => Command.ShowFlightsTab,
         TabId.Live => Command.ToggleLive,
         TabId.Browse => Command.ToggleBrowse,
         TabId.Repositories => Command.ToggleRepositories,

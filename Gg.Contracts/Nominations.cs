@@ -162,6 +162,32 @@ public sealed record NominationSummary
     public required DateTimeOffset MadeAt { get; init; }
 
     public DateTimeOffset? EndedAt { get; init; }
+
+    /// <summary>What this nomination is about, when the thing has a name.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE THING A PERSON IS DECIDING ABOUT, which the work kind is not.</b>
+    /// A line reading <c>research-27</c> says which governance regime would
+    /// apply and nothing about which piece of work — and a board is a list
+    /// somebody scans to choose. Without this every renderer printed a kind and
+    /// called it a description.
+    /// </para>
+    /// <para>
+    /// <b>Optional, and absent means uncountable rather than unrecorded.</b> A
+    /// uri or a ticket reference names something outside gg; a sentence
+    /// somebody typed names nothing, so it has no key. A hash of the words
+    /// would look like the others and group nothing, which is worse than an
+    /// absence: a budget keyed on it would bound each retyping separately while
+    /// reading as though it bounded the work.
+    /// </para>
+    /// <para>
+    /// <b>The key and not the intent.</b> A whole intent would put the text
+    /// somebody typed on every line of a queue, and the reason
+    /// <c>NominationSummary</c> carries no digest and no layer list is the same
+    /// one: a thing a person scans should not be mostly provenance.
+    /// </para>
+    /// </remarks>
+    public string? IntentKey { get; init; }
 }
 
 /// <summary>What the board answers with.</summary>

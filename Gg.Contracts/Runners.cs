@@ -196,6 +196,32 @@ public sealed record RunnerReserved
 public sealed record RunnerRetirementRequest;
 
 /// <summary>
+/// A runner credential given more time, on its own authority.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The token does not change and is not here.</b> Only the expiry moves, so
+/// nothing secret crosses on the way back and a runner that fails to record the
+/// answer has lost a date rather than its identity. Rotation would put the one
+/// thing a runner cannot re-obtain on the wire and make a failed disk write the
+/// end of the machine.
+/// </para>
+/// <para>
+/// <b>Authorized by the credential being renewed.</b> It grants nothing the
+/// runner did not already have: revoking or retiring ends it at once, because
+/// the credential that would ask is the one that was taken away, and a runner
+/// dark past its expiry cannot ask at all - so registration stays a person's
+/// act and a machine that stopped still needs one.
+/// </para>
+/// </remarks>
+[PinnedId("64430051-7cae-4156-b593-9fb55b536ad8")]
+public sealed record RunnerCredentialRenewed
+{
+    /// <summary>When the credential now ends.</summary>
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
+/// <summary>
 /// A runner's retirement, as it stands after the call.
 /// </summary>
 /// <remarks>

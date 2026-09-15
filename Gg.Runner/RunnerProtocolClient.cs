@@ -43,6 +43,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(PoolAttestation))]
 [JsonSerializable(typeof(MemberCredentialRequest))]
 [JsonSerializable(typeof(MemberCredentialMinted))]
+[JsonSerializable(typeof(RunnerCredentialRenewed))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -61,7 +62,7 @@ public sealed partial class RunnerJsonContext : JsonSerializerContext;
 /// </para>
 /// </remarks>
 public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerToken)
-    : IRunnerProtocol, Pools.IPoolProtocol
+    : IRunnerProtocol, Pools.IPoolProtocol, IRunnerCredential
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly string _runnerToken = runnerToken;
@@ -388,6 +389,41 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
             ? await response.Content.ReadFromJsonAsync(
                 RunnerJsonContext.Default.MemberCredentialMinted, cancellationToken)
             : null;
+    }
+
+    /// <summary>
+    /// Asks for more time on this runner's own credential, or null when it may
+    /// not have any.
+    /// </summary>
+    /// <remarks>
+    /// <b>No id is sent, and that is the security property.</b> The runner
+    /// header names who is asking; a path id would offer a runner the chance to
+    /// name somebody else's, which is a 404 to write and a fleet to enumerate.
+    /// <para>
+    /// 409 and 403 are settled answers and come back as null - a member being
+    /// told what its twelve hours are for, or a runner that may not renew at
+    /// all. Everything else throws, including 401: a credential the control
+    /// plane will not authenticate is not a renewal question.
+    /// </para>
+    /// </remarks>
+    public async Task<RunnerCredentialRenewed?> RenewCredentialAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/runner/renewal");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode is System.Net.HttpStatusCode.Conflict
+                                or System.Net.HttpStatusCode.Forbidden)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.RunnerCredentialRenewed, cancellationToken);
     }
 
     /// <summary>Attests one action's outcome. Idempotent on the attestation id.</summary>

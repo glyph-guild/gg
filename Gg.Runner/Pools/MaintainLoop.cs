@@ -34,7 +34,22 @@ public sealed class MaintainLoop(
     IClock clock,
     Func<TimeSpan, CancellationToken, Task> delay,
     Action<string>? narrate = null,
-    string controlPlane = "")
+    string controlPlane = "",
+    // WHO TO ASK FOR MORE TIME, or nobody. Separate from the pool protocol
+    // because a renewal is about this machine's credential rather than about
+    // its pool - and a test about warming should not have to answer questions
+    // about credentials.
+    IRunnerCredential? credential = null,
+    // WHEN THIS MACHINE'S CREDENTIAL ENDS. Null means unrecorded, and unrecorded
+    // never asks: renewing on a guess would have every runner registered before
+    // this asking on every cycle, forever.
+    DateTimeOffset? credentialExpiresAt = null,
+    // WHERE A NEW EXPIRY IS WRITTEN DOWN. Handed in for the reason the control
+    // plane address is: the store belongs to Gg.Client, which Gg.Runner cannot
+    // see. A renewal only the running process knows about dies with it - the
+    // next start reads the stored identity, finds it expired, and asks for a
+    // person who has nothing to do.
+    Func<DateTimeOffset, Task>? credentialRenewed = null)
 {
     private readonly IPoolProtocol _protocol = protocol;
     private readonly IPoolAdapter _adapter = adapter;
@@ -49,6 +64,27 @@ public sealed class MaintainLoop(
     /// runner is.
     /// </remarks>
     private readonly string _controlPlane = controlPlane;
+
+    private readonly IRunnerCredential? _credential = credential;
+    private readonly Func<DateTimeOffset, Task>? _credentialRenewed = credentialRenewed;
+
+    /// <summary>When this machine's credential ends, as last known here.</summary>
+    private DateTimeOffset? _credentialExpiresAt = credentialExpiresAt;
+
+    /// <summary>Whether the control plane has settled that this one may not be renewed.</summary>
+    private bool _credentialIsNotRenewable;
+
+    /// <summary>
+    /// How close to the end is close enough to ask.
+    /// </summary>
+    /// <remarks>
+    /// <b>Days rather than minutes, because the ask has to survive a bad
+    /// week.</b> A runner that first asked an hour before its expiry would get
+    /// one attempt against a control plane that might be mid-deploy; three days
+    /// is room for the transient arm to do its work without the window being so
+    /// wide that a renewal is really a monthly poll.
+    /// </remarks>
+    public static readonly TimeSpan RenewWithin = TimeSpan.FromDays(3);
 
 
     /// <summary>How long to wait before asking again. Zero while things are well.</summary>
@@ -91,6 +127,12 @@ public sealed class MaintainLoop(
         {
             try
             {
+            // ITS OWN CREDENTIAL FIRST, because everything below it is done
+            // with that credential. A maintainer that reached its expiry used
+            // to stop and wait for a person to sign in on a machine nobody
+            // visits, and every environment downstream of it went cold.
+            await RenewIfDueAsync(cancellationToken);
+
             var members = await _adapter.ListAsync(pool, cancellationToken);
 
             // THE EMPTY POOL ANNOUNCES ITSELF. The first attestation is the
@@ -175,6 +217,49 @@ public sealed class MaintainLoop(
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Asks for more time when the credential is close to ending, and writes
+    /// the answer down.
+    /// </summary>
+    /// <remarks>
+    /// <b>Inside the cycle's try, deliberately.</b> A control plane having a
+    /// moment is the maintain loop's own well-worn case and it already has the
+    /// backoff for it - so a transient failure here is retried on the next
+    /// cycle, exactly like a failed pull. A settled refusal is not retried at
+    /// all, because it will not change and writing to the control plane every
+    /// five seconds for the rest of a credential's life is its own outage.
+    /// </remarks>
+    private async Task RenewIfDueAsync(CancellationToken cancellationToken)
+    {
+        if (_credential is null
+            || _credentialIsNotRenewable
+            || _credentialExpiresAt is not { } ends
+            || ends - _clock.UtcNow > RenewWithin)
+        {
+            return;
+        }
+
+        if (await _credential.RenewCredentialAsync(cancellationToken) is not { } renewed)
+        {
+            // SAID, AND NOT ASKED AGAIN. A member hears this and it is the
+            // container boundary working; anybody else hearing it is a machine
+            // whose credential really does end on a date, and the sentence is
+            // the only warning they get.
+            _credentialIsNotRenewable = true;
+            _narrate(
+                $"this runner's credential ends at {ends:yyyy-MM-dd HH:mm}Z and the control "
+              + "plane will not extend it. Nothing here can change that.");
+            return;
+        }
+
+        _credentialExpiresAt = renewed.ExpiresAt;
+
+        if (_credentialRenewed is not null)
+        {
+            await _credentialRenewed(renewed.ExpiresAt);
+        }
     }
 
     private async Task<PoolObservation> ExecuteAsync(

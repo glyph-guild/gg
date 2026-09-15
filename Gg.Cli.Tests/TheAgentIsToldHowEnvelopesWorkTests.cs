@@ -400,6 +400,86 @@ public class TheAgentIsToldHowEnvelopesWorkTests
         }
     }
 
+    /// <summary>
+    /// Just the rules block, so a word appearing elsewhere does not answer for
+    /// a rule nobody wrote.
+    /// </summary>
+    /// <remarks>
+    /// <b>Scoped because the unscoped version passed before the rule existed.</b>
+    /// Every move is enumerated in the key glosses above, so
+    /// <c>Contains(propose-landing)</c> was true of a document that never said
+    /// what the move has to do with a title - which is the same coincidence that
+    /// let `branch` ship as a key nothing explained while
+    /// <c>Every_key_a_document_may_carry_is_explained</c> stayed green.
+    /// </remarks>
+    private static string RulesBlock(string said)
+    {
+        var from = said.IndexOf("RULES BETWEEN THOSE KEYS", StringComparison.Ordinal);
+        var to = said.IndexOf("WHAT A STRATEGY SAYS", StringComparison.Ordinal);
+
+        return from >= 0 && to > from ? said[from..to] : "";
+    }
+
+    [Test]
+    public async Task An_instruction_with_no_move_behind_it_is_said_to_be_silent()
+    {
+        // THE SECOND SILENT ONE, and the same class as the score below it.
+        // `title:` and `description:` on a destination are prose for the agent,
+        // and an agent only ever sees them if its loop declares
+        // `propose-landing` - which is a different section of a different
+        // document. Nothing refuses the pair, and nothing can: a root may
+        // declare the destination while a work kind supplies the loop, so a
+        // validator refusing across them would refuse a correct topology.
+        //
+        // What is left is a document that reads as a policy, applies, and does
+        // nothing - with the proposal still named by whatever the runner cut out
+        // of the agent's prose, which is the defect all of this started at.
+        var tree = Somewhere();
+        try
+        {
+            var rules = RulesBlock(Said((await RecordingAsync(tree.FullName, null, Call()))[0]));
+
+            await Assert.That(rules).IsNotEmpty()
+                .Because("the block this rule belongs in has to be findable, or the "
+                       + "assertion below passes over a document that lost it.");
+
+            await Assert.That(rules).Contains(LoopMoves.ProposeLanding, StringComparison.Ordinal)
+                .Because("an instruction the agent is never granted the means to act on is "
+                       + "the silent kind of wrong, and the move is the half that is not "
+                       + "written beside it. Rules said: " + rules);
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task A_branch_template_says_what_it_must_contain()
+    {
+        // REFUSED RATHER THAN SILENT, so this is the cheaper half - but a
+        // refusal costs a turn and a sentence costs nothing, which is the
+        // argument the rules block already makes about its first two bullets.
+        var tree = Somewhere();
+        try
+        {
+            var rules = RulesBlock(Said((await RecordingAsync(tree.FullName, null, Call()))[0]));
+
+            await Assert.That(rules)
+                .Contains(DestinationBranch.FlightPlaceholder, StringComparison.Ordinal)
+                .Because("a template without it collides on the second flight for one "
+                       + "ticket, which a rerun after a halt is. Rules said: " + rules);
+
+            await Assert.That(rules).Contains(DestinationBranch.Prefix, StringComparison.Ordinal)
+                .Because("the prefix is added and is not the author's to write, and a "
+                       + "document that spells it produces `gg/gg/`.");
+        }
+        finally
+        {
+            tree.Delete(recursive: true);
+        }
+    }
+
     [Test]
     public async Task The_one_thing_the_validator_cannot_catch_is_said()
     {

@@ -1307,6 +1307,19 @@ public sealed record AppState
     /// </remarks>
     public BrowseFacets? Facets { get; init; }
 
+    /// <summary>
+    /// The tracker whose remembered filter this session has already restored,
+    /// or null before the first browse.
+    /// </summary>
+    /// <remarks>
+    /// <b>Once per reader per console lifetime</b>, and named rather than
+    /// counted: a boolean would restore nothing after somebody switched
+    /// trackers, and re-reading on every browse would undo a filter the moment
+    /// it was cleared - the file still says what it said until the browse that
+    /// writes it.
+    /// </remarks>
+    public string? FiltersRestoredFor { get; init; }
+
     /// <summary>Which of the filter modal's three tabs is showing.</summary>
     /// <remarks>
     /// <b>Three questions, not three renderings of one.</b> Area paths, sprints

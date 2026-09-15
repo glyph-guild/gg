@@ -251,6 +251,15 @@ public static class EnvelopeText
                 Sequence(text, "opens", opens, depth: 2);
             }
 
+            // ABSENT STAYS ABSENT. Emitting `opens-as: auto` where nothing was
+            // written would add a line to every flight destination in every
+            // tenant's document, saying what they already meant - and a diff
+            // nobody made is how a review practice gets abandoned.
+            if (destination.OpensAs is { Length: > 0 } opensAs)
+            {
+                text.Append($"{Indent}{Indent}opens-as: {Scalar(opensAs)}\n");
+            }
+
             // SAME RULE, THIRD KNOB. Only a tracker may carry this, so emitting
             // it for the five kinds that may not would put a refused key into
             // every document anybody has written.

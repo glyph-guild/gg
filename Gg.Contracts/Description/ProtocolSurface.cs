@@ -1511,7 +1511,7 @@ public static class ProtocolSurface
                 ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
             [typeof(Destination)] =
                 ["id", "kind", "requires", "preserveUnadmitted", "branch", "title", "description",
-                 "opens", "maySelect", "mayPerform", "mayWrite"],
+                 "opens", "opensAs", "maySelect", "mayPerform", "mayWrite"],
             [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
                 ["description", "brief", "context", "obligations", "instructions", "loops",

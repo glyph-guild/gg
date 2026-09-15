@@ -101,6 +101,14 @@ public class DirectionCoverageTests
         doc with { Destinations = [change(doc.Destinations[0])] };
 
     /// <summary>A flight destination, because `opens:` is legal on no other kind.</summary>
+    private static Envelope OpeningAs(string? opensAs) => Opening(["research"]) with
+    {
+        Destinations =
+        [
+            Opening(["research"]).Destinations![0] with { OpensAs = opensAs },
+        ],
+    };
+
     private static Envelope Opening(IReadOnlyList<string> opens) => Doc() with
     {
         Context = new ContextBinding { Scope = EnvelopeScopes.None, Constitution = "1.0.0" },
@@ -278,6 +286,16 @@ public class DirectionCoverageTests
 
         new("Destination.Opens", "opens",
             Opening(["research"]), Opening(["implement", "research"]),
+            ReverseAlsoWidens: false),
+
+        // TAKING THE PERSON OUT IS THE WIDENING, and it is the only direction
+        // that is. A nomination that used to stand until somebody opened it now
+        // becomes a flight with nobody in between - the menu still bounds WHICH
+        // kind may be named, and this was the only thing bounding whether
+        // naming one was enough. Putting a person back in front of it removes
+        // reach and is not shown.
+        new("Destination.OpensAs", "opens-as",
+            OpeningAs(DestinationOpening.Gated), OpeningAs(DestinationOpening.Auto),
             ReverseAlsoWidens: false),
 
         // A MENU THAT GROWS IS A WIDENING, the way opens is. A destination that

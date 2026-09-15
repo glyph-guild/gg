@@ -1362,6 +1362,53 @@ public sealed record Destination
     public IReadOnlyList<string>? Opens { get; init; }
 
     /// <summary>
+    /// Whether a nomination this destination admits opens by itself, or waits
+    /// for somebody. <c>auto</c> or <c>gated</c>; absent means <c>auto</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A second bound beside the menu, answering a different question.</b>
+    /// <see cref="Opens"/> says WHICH work kinds a nomination may name; this
+    /// says whether one that named a permitted kind becomes a flight without
+    /// anybody seeing it. A menu of one kind that opens unattended is a
+    /// narrower grant than a menu of six a person looks at first, and a tenant
+    /// that could only set the menu could not express either.
+    /// </para>
+    /// <para>
+    /// <b>ABSENT MEANS <c>auto</c>, and that is an exception to the rule this
+    /// vault has reached five times</b> - a line that can be dropped is a
+    /// constraint that can be dropped silently. It holds here because absent is
+    /// not a dropped constraint: opening on admission is the only behaviour a
+    /// flight destination has ever had, so silence means what it has always
+    /// meant. <c>gated</c> is the word that ADDS a constraint.
+    /// </para>
+    /// <para>
+    /// <b>Refused on any other kind</b>, on <see cref="Opens"/>' terms: nothing
+    /// else opens a flight, so a mode for opening one would be a key that
+    /// parses and does nothing - which reads to an author as a control they
+    /// have set.
+    /// </para>
+    /// <para>
+    /// <b>Exempt from composition, and the direction rule is written by
+    /// hand.</b> Intersecting two modes produces neither, and an operator in
+    /// the composition table is not a direction rule - which is how
+    /// <c>accepts:</c> once shipped able to be narrowed with no gate.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// <b><c>and</c>, because the governed quantity is reach and this is a
+    /// two-point order.</b> <c>gated</c> is the tight end and <c>auto</c> the
+    /// loose one, so any layer may put a person in front of an opening and none
+    /// may take one away - which is <c>preserve-unadmitted</c>'s rule with a
+    /// different pair of words. Absence stays what it has always meant, and
+    /// here that is the LOOSE end rather than the tight one: every flight
+    /// destination that exists opens on admission, so reading silence as
+    /// <c>gated</c> would change what a written document does.
+    /// </remarks>
+    [Composes(MergeOperators.And)]
+    public string? OpensAs { get; init; }
+
+    /// <summary>
     /// What a nomination admitted here may select, or null when it selects
     /// nothing.
     /// </summary>
@@ -2137,6 +2184,30 @@ public sealed record Envelope
                 return $"Destination '{destination.Id}' declares opens and is a "
                      + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
                      + "anything, so on this kind the list bounds nothing.";
+            }
+
+            // THE SAME SENTENCE, ONE KNOB OVER. A mode for opening a flight
+            // means nothing on a kind that opens none, and a key that parses
+            // and does nothing reads to whoever wrote it as a control they set.
+            if (destination.OpensAs is not null && !opensAFlight)
+            {
+                return $"Destination '{destination.Id}' declares opens-as and is a "
+                     + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
+                     + "anything, so on this kind there is nothing for a mode to describe.";
+            }
+
+            // AND THE WORD ITSELF IS CLOSED. A third value would be a mode
+            // nothing implements - a destination parsing into behaviour nobody
+            // wrote, which is worse than one refused where the author can still
+            // act. Absent is legal and means auto; this is only about what is
+            // written down.
+            if (destination.OpensAs is { Length: > 0 } mode
+                && !DestinationOpening.All.Contains(mode, StringComparer.Ordinal))
+            {
+                return $"Destination '{destination.Id}' opens-as '{mode}', and this reads only "
+                     + $"{string.Join(" or ", DestinationOpening.All)}. Absent is legal and "
+                     + $"means '{DestinationOpening.Auto}', which is what every flight "
+                     + "destination has always done.";
             }
 
             // THE SAME SENTENCE AGAIN, A THIRD KNOB. Only a tracker performs
@@ -2945,5 +3016,49 @@ public sealed record EnvelopeNarrowing
         }
 
         return null;
+    }
+}
+
+/// <summary>
+/// How a flight destination opens what it admits.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Two words and no third.</b> A mode nothing implements is a destination
+/// that parses into a behaviour nobody wrote, which is worse than one refused -
+/// so the set is closed and <see cref="Of"/> is the only reader, because two
+/// places deciding what absent means is how they come to disagree.
+/// </para>
+/// <para>
+/// <b>The contract ledger and not the fact one</b>, on <c>FlightStates</c>'
+/// membership: these appear in an envelope and in what a board row records, and
+/// no runner ever ships one inside a fact. A value added here changes what a
+/// document can say and never what a measurement can.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class DestinationOpening
+{
+    /// <summary>It becomes a flight on admission, with nobody in between.</summary>
+    public const string Auto = "auto";
+
+    /// <summary>It stands on the board until a person opens it.</summary>
+    public const string Gated = "gated";
+
+    public static IReadOnlyList<string> All { get; } = [Auto, Gated];
+
+    /// <summary>
+    /// How this destination opens, reading absent as <see cref="Auto"/>.
+    /// </summary>
+    /// <remarks>
+    /// ONE READER, so "what does absent mean" has one answer. A second caller
+    /// spelling `?? Auto` itself is a second place that rule lives, and the day
+    /// one of them changes is the day a tenant's document means two things.
+    /// </remarks>
+    public static string Of(Destination destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        return string.IsNullOrWhiteSpace(destination.OpensAs) ? Auto : destination.OpensAs;
     }
 }

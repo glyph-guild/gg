@@ -425,6 +425,29 @@ public static class EnvelopeDirection
             // recorded above. A work kind gained here is a governance regime an
             // agent can newly nominate, so the omission would be a menu growing
             // with no approver in sight.
+            // WRITTEN BY HAND FOR THE REASON ABOVE, and asymmetric on purpose.
+            // Putting a person in front of an opening takes reach away from the
+            // agent and needs no approval; taking one out means a nomination
+            // that used to wait becomes a flight with nobody in between, which
+            // is new reach and exactly what a reviewer must be shown.
+            //
+            // READ THROUGH DestinationOpening.Of, so absent and `auto` compare
+            // as the same thing. A comparator that treated writing `gated` over
+            // silence as a change of meaning would make the safest edit in the
+            // document the expensive one, which is how a gate comes to be
+            // approved past without being read.
+            if (string.Equals(DestinationOpening.Of(was), DestinationOpening.Gated,
+                    StringComparison.Ordinal)
+                && string.Equals(DestinationOpening.Of(now), DestinationOpening.Auto,
+                    StringComparison.Ordinal))
+            {
+                return Widen($"{at}.opens-as",
+                    "a nomination admitted here used to stand until somebody opened it, and now "
+                  + "becomes a flight with nobody in between. That is reach the agent did not "
+                  + "have: the menu still bounds WHICH kind it may name, and this was the only "
+                  + "thing bounding whether naming one was enough.");
+            }
+
             var opened = (now.Opens ?? []).Except(was.Opens ?? [], StringComparer.Ordinal).ToList();
             if (opened.Count > 0)
             {

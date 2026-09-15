@@ -49,7 +49,17 @@ public class MaintainLoopTests
         {
             Calls.Add($"list:{pool}");
             return Task.FromResult<IReadOnlyList<PoolMember>>(
-                [.. Verifications.Keys.Select(name => new PoolMember { Name = name })]);
+                [.. Verifications.Select(v => new PoolMember
+                {
+                    Name = v.Key,
+
+                    // A MEMBER IS RUNNING WHEN ITS VERIFY SAYS SO, which is the
+                    // adapter's own rule: VerifyAsync reports Verified only for
+                    // a container that runs. Saying it twice in a fake is how a
+                    // fixture ends up describing a pool the daemon could not.
+                    Running = string.Equals(
+                        v.Value.Outcome, PoolOutcomes.Verified, StringComparison.Ordinal),
+                })]);
         }
 
         public Task<PoolObservation> VerifyAsync(

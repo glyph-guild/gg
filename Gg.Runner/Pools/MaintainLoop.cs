@@ -235,18 +235,37 @@ public sealed class MaintainLoop(
     }
 
     /// <summary>
-    /// The lowest member index not present: containers are cattle, named
+    /// The lowest member index not RUNNING: containers are cattle, named
     /// <c>&lt;pool&gt;-1..N</c>, and the bound on N is the decider's — a
     /// refresh is only ever decided inside the strategy's inventory.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A stopped member is a slot, not an occupant.</b> This read a name
+    /// that EXISTS as a name that is TAKEN, and the listing asks for
+    /// <c>?all=true</c> precisely so the pool can see members that are not
+    /// running — so a member that reached the end of its twelve-hour credential
+    /// kept its number forever and every later refresh took the next one. A
+    /// pool whose members die of old age grew a name per member per lifetime,
+    /// and each corpse cost an inspect and an attestation on every sweep.
+    /// </para>
+    /// <para>
+    /// <b>Running is what is asked, not living.</b> The adapter decides what to
+    /// do with the slot once it has it — start what can come back, replace what
+    /// finished — and that decision needs the container, which this does not
+    /// have and must not fetch a second opinion about.
+    /// </para>
+    /// </remarks>
     private async Task<string> NextSlotAsync(string pool, CancellationToken cancellationToken)
     {
-        var taken = (await _adapter.ListAsync(pool, cancellationToken))
+        var members = await _adapter.ListAsync(pool, cancellationToken);
+        var running = members
+            .Where(m => m.Running)
             .Select(m => m.Name)
             .ToHashSet(StringComparer.Ordinal);
 
         var slot = 1;
-        while (taken.Contains($"{pool}-{slot}"))
+        while (running.Contains($"{pool}-{slot}"))
         {
             slot++;
         }

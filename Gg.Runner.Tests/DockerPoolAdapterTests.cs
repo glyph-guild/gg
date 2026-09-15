@@ -74,7 +74,8 @@ public class DockerPoolAdapterTests
         var adapter = Adapter();
         await ClearAsync("gg-e2e-pool-2");
         _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-2", Spec(Image));
-        var before = await adapter.VerifyAsync(new PoolMember { Name = "gg-e2e-pool-2" });
+        var before = await adapter.VerifyAsync(
+            new PoolMember { Name = "gg-e2e-pool-2", Running = true });
 
         var observation = await adapter.ResetAsync("gg-e2e-pool-2", Spec(Image));
 

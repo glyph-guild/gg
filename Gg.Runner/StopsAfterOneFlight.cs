@@ -72,6 +72,10 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void AllowanceSpent() => _inner.AllowanceSpent();
 
+    public void AgentHeld(string provider, string diagnosis) => _inner.AgentHeld(provider, diagnosis);
+
+    public void AgentReady(string provider) => _inner.AgentReady(provider);
+
     public void Waiting(IReadOnlyList<string> repos) => _inner.Waiting(repos);
 
     public void Materialized(string slug, string headCommit, long bytes) =>

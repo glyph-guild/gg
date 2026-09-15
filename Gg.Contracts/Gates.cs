@@ -134,6 +134,74 @@ public sealed record PendingGate
     /// </para>
     /// </remarks>
     public GateNomination? Nomination { get; init; }
+
+    /// <summary>
+    /// What the platform is asking a person to do about a machine, when this
+    /// gate is on a maintenance flight the platform opened. Null on every
+    /// gate a person's own flight raised.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A gate cannot say what it is for through <see cref="Because"/>.</b>
+    /// For an unconditional obligation the engine writes "this obligation
+    /// declares no condition, so it always applies", and a flight's name is
+    /// what somebody called the flight. A console offering the act that clears
+    /// a runner-login gate - rather than approve or reject - needs to be TOLD,
+    /// on <see cref="Nomination"/>'s argument: one fact with one standing gets
+    /// its own type.
+    /// </para>
+    /// <para>
+    /// <b>Null rather than an empty ask</b> - absence is silence, the rule
+    /// <see cref="Commit"/> and <see cref="Nomination"/> already state. A
+    /// control plane that never sets it renders as an ordinary gate, which is
+    /// what an older one is.
+    /// </para>
+    /// </remarks>
+    public GateMaintenance? Maintenance { get; init; }
+}
+
+/// <summary>The kinds of maintenance a gate can ask a person for.</summary>
+/// <remarks>
+/// <b>One, and closed.</b> The console dispatches an act on this value, so a
+/// kind this build does not know is a gate it renders as ordinary rather than
+/// one it guesses an act for.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class GateMaintenanceKinds
+{
+    /// <summary>A runner's agent is not logged in; a person can log it in from the console.</summary>
+    public const string AgentLogin = "agent-login";
+
+    public static IReadOnlyList<string> All { get; } = [AgentLogin];
+}
+
+/// <summary>
+/// The machine a maintenance gate is about, and what it needs.
+/// </summary>
+/// <remarks>
+/// <b>The runner id is what the console reaches the machine BY</b>, over the
+/// sealed channel, to run the act - so it is required and the label is only for
+/// the person reading. The provider says which adapter's act: a second agent is
+/// a second ceremony, and the gate is where that is decided rather than the
+/// console guessing from the flight's name.
+/// </remarks>
+[PinnedId("a3d5c8e1-7f42-4b96-8c1d-5e2a9f0b3c74")]
+public sealed record GateMaintenance
+{
+    /// <summary>One of <see cref="GateMaintenanceKinds"/>.</summary>
+    public required string Kind { get; init; }
+
+    /// <summary>The runner this is about, by id.</summary>
+    public required string Runner { get; init; }
+
+    /// <summary>The runner's label, for the person; null when the platform no longer has one.</summary>
+    public string? RunnerLabel { get; init; }
+
+    /// <summary>Which agent adapter: the key <c>GG_EXECUTOR_BINARY</c> declares.</summary>
+    public required string Provider { get; init; }
+
+    /// <summary>The runner's own sentence about why, as it last reported.</summary>
+    public string? Diagnosis { get; init; }
 }
 
 /// <summary>

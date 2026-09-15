@@ -2229,6 +2229,12 @@ static async Task<int> HoldAsync(
             // agent token runs under it exactly as a fleet flight would.
             agent: Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared)),
         flightId: flightId,
+        // AND HOW ITS AGENT AUTHENTICATES, for the hold: a laptop whose stored
+        // token has died holds and says so, rather than handing a person a
+        // flight whose agent exits at once.
+        agent: Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared),
+        agentToken: () => new FileCredentialStore().Read(
+            Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared).Locator),
         // WHEN THIS MACHINE'S CREDENTIAL ENDS. Thirty days here, and a person
         // is sitting in front of it, so the sentence matters more than the exit
         // code - but it is the same sentence either way.
@@ -2428,6 +2434,7 @@ static async Task<int> RunnerUpAsync()
     // secret goes into the server's own environment and never into the agent's.
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
         secretFor: locator => new FileCredentialStore().Read(locator));
+    var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment();
 
     // WHERE THIS RUNNER IS RUNNING, for any console that wants to look. A
     // runner outlives the console that started it - reparented to init a moment
@@ -2476,6 +2483,12 @@ static async Task<int> RunnerUpAsync()
             new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
             destinations: destinations, trackers: trackers, executor: executor,
             allowance: Allowance(),
+            // HOW THE AGENT AUTHENTICATES, from the same declaration the
+            // executor came from, and the token from the same store the
+            // channel's keeper writes - so a token sent over the channel is
+            // the one the next probe measures.
+            agent: agent,
+            agentToken: () => agent is null ? null : new FileCredentialStore().Read(agent.Locator),
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine
@@ -2716,6 +2729,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     // secret goes into the server's own environment and never into the agent's.
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
         secretFor: locator => new FileCredentialStore().Read(locator));
+    var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment();
 
     // THE KEY THIS MEMBER CAN BE REACHED ON, and it had none. Everything else
     // about the channel was built and correct; a member simply never got one,
@@ -2755,6 +2769,10 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
         destinations: destinations, trackers: trackers, executor: executor,
         allowance: Allowance(),
+        // A MEMBER IS THE MACHINE THIS EXISTS FOR: no login of its own, so it
+        // holds until a token is sent, and the hold is what keeps it reachable.
+        agent: agent,
+        agentToken: () => agent is null ? null : new FileCredentialStore().Read(agent.Locator),
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
         // TWELVE HOURS, AND THEN THIS MEMBER IS DONE. A member token is not
         // renewable and a member cannot mint itself another - the pool warms a

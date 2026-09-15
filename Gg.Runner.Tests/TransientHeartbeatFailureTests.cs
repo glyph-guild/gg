@@ -153,16 +153,24 @@ public class TransientHeartbeatFailureTests
         // having a moment - it is this machine's credential, and no amount of
         // waiting fixes it. Retrying forever is a misconfigured machine
         // hammering a control plane where nobody can see it.
+        //
+        // The claim-side twin explains why this stopped being an exception: the
+        // loop still stops on the first one, and now says so somewhere a
+        // container log keeps.
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.HeartbeatThrows.Enqueue(Answering(HttpStatusCode.Unauthorized));
         var observer = new RecordingObserver();
 
         using var stopping = new CancellationTokenSource();
-        var thrown = await Assert.ThrowsAsync<HttpRequestException>(async () =>
-            await Build(protocol, clock, observer).RunAsync("runner-1", [], stopping.Token));
+        var exit = await Build(protocol, clock, observer)
+            .RunAsync("runner-1", [], stopping.Token);
 
-        await Assert.That(thrown!.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
+        await Assert.That(exit).IsNotEqualTo(0);
+
+        await Assert.That(observer.Events.Any(
+                e => e.StartsWith("control-plane-refused:", StringComparison.Ordinal)))
+            .IsTrue();
     }
 
     [Test]

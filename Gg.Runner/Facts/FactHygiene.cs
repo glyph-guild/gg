@@ -205,6 +205,18 @@ public static class FactHygiene
             // string here to clean without deciding what its fields mean.
         }),
 
+        // A TITLE IS TEXT AND A DESCRIPTION IS PROSE, which is the same split
+        // the proposal above makes: one is a line somebody reads in a list, and
+        // the contract already refuses a title carrying a line break, so
+        // stripping one here would be stripping what cannot arrive. The
+        // description is a paragraph a reviewer reads and keeps its breaks.
+        FactPayload.ProposedLanding landing => new FactPayload.ProposedLanding(
+            landing.Value with
+            {
+                Title = Text(landing.Value.Title),
+                Description = landing.Value.Description is { } said ? Prose(said) : null,
+            }),
+
         FactPayload.Question question => new FactPayload.Question(question.Value with
         {
             // PROSE, so its line breaks are its own. A question laid out over

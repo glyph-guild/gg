@@ -1283,7 +1283,9 @@ public sealed class RunnerLoop(
             // THE ACCOUNT, HANDED DOWN. It was in scope here and read nowhere,
             // while the landing composed a title out of the admission's
             // obligation verdict - the nearest string rather than a chosen one.
-            invoked.Run?.Reason, cancellationToken);
+            invoked.Run?.Reason,
+            // AND WHAT THE AGENT ACTUALLY ASKED FOR, which outranks it.
+            invoked.Run?.Landing, cancellationToken);
 
         // WHAT THE PERSON DECIDED, and the disposition that matches it. Only an
         // attended flight has one: an agent's outcome was measured and shipped
@@ -1759,6 +1761,16 @@ public sealed class RunnerLoop(
             {
                 payloads.Add(new FactPayload.Proposal(proposal));
             }
+
+            // AND WHAT IT ASKED THE PROPOSAL BE CALLED, recorded whether or not
+            // the flight goes on to land. A title on a pull request and a title
+            // in the record that do not match is a thing somebody has to be
+            // able to SEE - and a flight refused at the gate still shows what
+            // the agent would have called it.
+            if (run.Landing is { } landing)
+            {
+                payloads.Add(new FactPayload.ProposedLanding(landing));
+            }
         }
         else if (invoked.Attended is { } attended)
         {
@@ -1961,6 +1973,7 @@ public sealed class RunnerLoop(
         IReadOnlyDictionary<string, string> secretsByLocator,
         IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
         string? account,
+        Gg.Contracts.LandingProposal? proposedLanding,
         CancellationToken cancellationToken)
     {
         // THREE GATES NOW, AND THE THIRD DOES NOT PASS THROUGH THE OTHER TWO.
@@ -2059,7 +2072,8 @@ public sealed class RunnerLoop(
             // land; it is written for an audit trail and reads as nonsense on a
             // list of changes.
             Title = LandingTitle.For(
-                lease.FlightNumber, account, admission?.Reason ?? push.Reason),
+                lease.FlightNumber, account, admission?.Reason ?? push.Reason, proposedLanding),
+            Description = proposedLanding?.Description,
             Secret = secretsByLocator[reference.Locator],
 
             // FROM THE LEASE, which has carried it since a flight could be

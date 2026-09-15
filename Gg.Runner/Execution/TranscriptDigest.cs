@@ -635,6 +635,151 @@ public static class TranscriptDigest
     }
 
     /// <summary>
+    /// What the agent asked its own proposal be called, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE, and the last answered call wins</b> - the nomination's rule
+    /// rather than the proposal list's. A list of proposals is a dozen asks a
+    /// person answers separately; a title is one thing, and an agent that
+    /// called twice reconsidered.
+    /// </para>
+    /// <para>
+    /// <b>Answered only.</b> The server refuses a malformed payload before it
+    /// answers, so an unanswered call is one this platform turned away and
+    /// reading it would put a declined title on somebody's pull request.
+    /// </para>
+    /// <para>
+    /// <b>And an answered one the contract refuses THROWS</b>, on the
+    /// proposal's terms: the server owns what a whole one is and refuses it
+    /// first, so an answered call carrying a bad one is a transcript that did
+    /// not come from this server. Dropping it quietly would name the landing
+    /// from whatever came next, which is the behaviour this whole path exists
+    /// to replace.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// A call the server answered carries a payload the contract refuses.
+    /// </exception>
+    public static Gg.Contracts.LandingProposal? Landing(string transcript)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+
+        var asked = new List<(string Id, Gg.Contracts.LandingProposal Landing)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                // A half-written last line is ordinary while a file is still
+                // being appended to, which is the digest's own rule.
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            Named(block, asked);
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        for (var i = asked.Count - 1; i >= 0; i--)
+        {
+            if (!answered.Contains(asked[i].Id))
+            {
+                continue;
+            }
+
+            if (Gg.Contracts.LandingProposal.Validate(asked[i].Landing) is { } refused)
+            {
+                throw new InvalidOperationException(
+                    $"The landing proposed in call '{asked[i].Id}' is one this platform "
+                  + $"cannot use: {refused} The tool server refuses these before it answers, "
+                  + "so an answered call carrying one did not come from it.");
+            }
+
+            return asked[i].Landing;
+        }
+
+        return null;
+    }
+
+    /// <summary>Records a call to the landing tool, when that is what it is.</summary>
+    /// <remarks>
+    /// <b>Records, and does not judge</b>, for the reason its sibling gives:
+    /// whether a call was ANSWERED is not knowable until the transcript has been
+    /// read to the end, and refusing before that measures calls the server
+    /// already turned away.
+    /// <para>
+    /// An absent title is carried through as the empty string rather than
+    /// invented or defaulted - this extractor may not complete a payload, and
+    /// the contract owns what a whole one is.
+    /// </para>
+    /// </remarks>
+    private static void Named(
+        JsonElement block, List<(string Id, Gg.Contracts.LandingProposal Landing)> asked)
+    {
+        if (!block.TryGetProperty("name", out var name)
+            || !string.Equals(
+                name.GetString(), LandingProposalTool.Qualified, StringComparison.Ordinal)
+            || !block.TryGetProperty("id", out var id)
+            || id.GetString() is not { Length: > 0 } callId
+            || !block.TryGetProperty("input", out var input)
+            || input.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        asked.Add((callId, new Gg.Contracts.LandingProposal
+        {
+            Title = input.TryGetProperty(LandingProposalTool.TitleArgument, out var title)
+                ? title.GetString() ?? ""
+                : "",
+            Description =
+                input.TryGetProperty(LandingProposalTool.DescriptionArgument, out var described)
+                    ? described.GetString()
+                    : null,
+        }));
+    }
+
+    /// <summary>
     /// Every change the agent proposed, in the order it proposed them.
     /// </summary>
     /// <remarks>

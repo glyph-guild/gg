@@ -27,6 +27,18 @@ public sealed record LandingRequest
     public required string Secret { get; init; }
 
     /// <summary>
+    /// What the proposal should say beyond its title, or null when the agent
+    /// said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The agent's, and only the agent's.</b> What a destination writes
+    /// about the branch and the work item is the adapter's and is written
+    /// either way; this is added to it rather than replacing it, because a
+    /// reviewer needs the link whatever the agent chose to say.
+    /// </remarks>
+    public string? Description { get; init; }
+
+    /// <summary>
     /// The work item this flight was opened from, or null when it was opened
     /// from a sentence.
     /// </summary>

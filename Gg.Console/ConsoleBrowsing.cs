@@ -256,6 +256,40 @@ public static class ConsoleBrowsing
         }
     }
 
+    /// <summary>
+    /// What the reader says about the item a flight named.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same three questions as <c>ItemPatch</c>, about an id that came
+    /// off a flight rather than off a row.</b> The reducer has already put the
+    /// modal up with the id in it, so this only fills what the reader answers -
+    /// which is why there is no held-already shortcut: the modal was opened
+    /// about a specific item and the state it would have been compared against
+    /// was cleared when it opened.
+    /// </remarks>
+    public static Func<AppState, AppState> TicketPatch(IWorkBrowser? browser, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (browser is null || state.WorkItemId is not { Length: > 0 } id)
+        {
+            return current => current;
+        }
+
+        var said = Words(browser, id);
+        var happened = Happened(browser, id);
+        var records = Records(browser, id);
+
+        return current => current with
+        {
+            WorkItemSaid = said,
+            WorkItemChanges = happened.Rows,
+            WorkItemHistorySaid = happened.Said,
+            WorkItemFields = records.Fields,
+            WorkItemFieldsSaid = records.Said,
+        };
+    }
+
     /// <summary>What there is to narrow by.</summary>
     public static Func<AppState, AppState> FacetsPatch(IWorkBrowser? browser, AppState state)
     {

@@ -1123,9 +1123,22 @@ static async Task<int> LaunchConsoleAsync()
                 Settings.Value(Gg.Runner.StunConfiguration.Variable)))
             .RunAsync(cancellationToken: token);
 
+    // WHICH TRACKERS CAN BE READ HERE, READ ONCE AND CARRIED. Parsing a
+    // declaration is reading configuration, not starting anything - the
+    // ReaderSessions below does the starting, and it does it lazily. The model
+    // needs the NAMES because the keymap is pure: whether a flight's ticket can
+    // be opened is decided from state alone, and "is there a reader for this
+    // provider" is half of that question.
+    var declaredReaders = Gg.Local.IntentConfiguration.FromEnvironment(
+        Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
+        Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration));
+
     var initial = LocalFacts(
         ConsoleStart.LoadAsync(data, principal, doctor: Health).GetAwaiter().GetResult(),
-        client, sessions);
+        client, sessions) with
+    {
+        ReaderKeys = [.. declaredReaders.Select(reader => reader.Key)],
+    };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
     // arguments that only tests ever supplied, so the console's takeover key
@@ -1260,10 +1273,7 @@ static async Task<int> LaunchConsoleAsync()
     // it. A tracker that has not answered in fifteen seconds is one the pane
     // should say so about rather than keep a keystroke waiting on; SpawnedReader
     // turns this into a deadline and reports the number it waited.
-    await using var readers = new Gg.Console.ReaderSessions(
-        Gg.Local.IntentConfiguration.FromEnvironment(
-            Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
-            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)), TimeSpan.FromSeconds(15));
+    await using var readers = new Gg.Console.ReaderSessions(declaredReaders, TimeSpan.FromSeconds(15));
 
     // ONE BROWSER, TWO CALLERS. The loop uses it for the first browse of a
     // console lifetime - the one that starts the reader, which a session may
@@ -1375,6 +1385,11 @@ static async Task<int> LaunchConsoleAsync()
 
                     Gg.Console.Command.ShowWorkItem =>
                         Gg.Console.ConsoleBrowsing.ItemPatch(browsing, current),
+
+                    // THE SAME READ FROM THE OTHER MODAL, about an id that came
+                    // off a flight rather than off a row.
+                    Gg.Console.Command.OpenTheTicket =>
+                        Gg.Console.ConsoleBrowsing.TicketPatch(browsing, current),
 
                     Gg.Console.Command.FilterBrowse =>
                         Gg.Console.ConsoleBrowsing.FacetsPatch(browsing, current),

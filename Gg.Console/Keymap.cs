@@ -150,7 +150,18 @@ public readonly record struct KeymapContext(
     /// a key offered where it does nothing is the dead key Article XI names.
     /// Last, because this is a positional record.
     /// </remarks>
-    bool OnTheRepositoriesHalf = false)
+    bool OnTheRepositoriesHalf = false,
+
+    /// <summary>
+    /// Whether the flight on screen names a ticket this machine can read.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both halves, because either one alone leads nowhere.</b> A flight
+    /// opened from words has no ticket to go to, and a ticket whose provider
+    /// has no reader declared here opens a modal that can only say it could not
+    /// ask. Last, because this is a positional record.
+    /// </remarks>
+    bool OverAReadableTicket = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -286,9 +297,13 @@ public readonly record struct KeymapContext(
             // either.
             state.HelpPage is HelpPage.Look,
 
+            // AND WHETHER THE FLIGHT ON SCREEN NAMES A TICKET THIS MACHINE CAN
+            // READ, derived here with the rest so the hint line and the
+            // dispatch read one answer.
             // AND WHICH HALF OF THE COMPOSE MODAL, for that reason: space
             // marks a repository and there are none to mark on the other.
-            state.WorkKindTab is WorkKindTab.Repositories)
+            state.WorkKindTab is WorkKindTab.Repositories,
+            FlightDetails.TicketAReaderHere(state) is not null)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -862,6 +877,15 @@ public static class Keymap
             // v is what shows evidence one level up, so it is already the
             // console's word for this.
             new(KeyStroke.Char('v'), Command.NextFlightTab, "gate"),
+
+            // THE ITEM THIS FLIGHT IS ABOUT, where there is one and this
+            // machine can read it. Not offered otherwise: a flight opened from
+            // words has nowhere to go, and a ticket whose provider has no
+            // reader here would open a modal that could only say so.
+            .. context.OverAReadableTicket
+                ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.OpenTheTicket, "the ticket")
+                    { When = "when the flight names a ticket a reader here can read" }]
+                : [],
 
             // THE COMMAND, THE CLIPBOARD AND THE WIRING ALL EXISTED, and three
             // reading modes already bind this key to it. A modal full of
@@ -1704,9 +1728,17 @@ public static class Keymap
         // from - a key offered only in one shape and left out of this would be
         // advertised nowhere.
         from overAFold in (bool[])[false, true]
+
+        // AND WHETHER THE FLIGHT ON SCREEN NAMES A TICKET A READER HERE CAN
+        // READ. Crossed here so the key that opens it reaches the catalogue -
+        // and this one matters more than most, because the whole point of it
+        // being conditional is that a person will not see it on their own
+        // flights until one names a ticket. The help page is where they find
+        // out it exists at all.
+        from overAReadableTicket in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument, reading,
-            overAFold, onTheLookPage, onTheRepositoriesHalf)
+            overAFold, onTheLookPage, onTheRepositoriesHalf, overAReadableTicket)
         {
             SignInStarted = signInStarted,
             RunnerIsOurs = runnerIsOurs,

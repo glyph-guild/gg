@@ -96,11 +96,18 @@ public class HelpNamesEveryKeyTests
         // here records: space marks a repository on one half and is not
         // offered on the other.
         from onTheRepositoriesHalf in (bool[])[false, true]
+
+        // AND WHETHER THE FLIGHT ON SCREEN NAMES A TICKET A READER HERE CAN
+        // READ, which decides whether the key that opens it exists at all - the
+        // reason every clause above records, and the mistake this product has
+        // now made three times.
+        from overAReadableTicket in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
             OnTheLookPage: onTheLookPage,
-            OnTheRepositoriesHalf: onTheRepositoriesHalf)
+            OnTheRepositoriesHalf: onTheRepositoriesHalf,
+            OverAReadableTicket: overAReadableTicket)
         {
             SignInStarted = started,
             RunnerIsOurs = ours,
@@ -153,7 +160,9 @@ public class HelpNamesEveryKeyTests
 
         // FIFTEEN SINCE THE LOOK PAGE, whose four keys are offered only while
         // it is showing - the same shape as the fold key one page over.
-        await Assert.That(members.Count).IsEqualTo(16)
+        // SEVENTEEN SINCE A FLIGHT'S TICKET, whose key exists only where the
+        // intent names one and a reader here can read it.
+        await Assert.That(members.Count).IsEqualTo(17)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

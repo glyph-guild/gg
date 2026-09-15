@@ -412,7 +412,10 @@ public static class WorkItemToolServer
                 writer.WriteString(field.Name, field.Value);
             }
 
-            writer.WriteEndObject();
+            // ONE `}` ONLY. Write() closes the object it was handed - every
+            // other body here ends one short for that reason, and a second
+            // close reaches the console as `'}' is invalid without a matching
+            // open.` in the pane where the fields should be.
             writer.WriteEndObject();
         }));
     }

@@ -156,6 +156,41 @@ public static class FlightDetails
     }
 
     /// <summary>
+    /// The ticket this flight names, where a reader is declared for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both halves or nothing.</b> A flight opened from words has no ticket
+    /// to go to, and a ticket whose provider has no reader declared on this
+    /// machine - a colleague's tracker, or one nobody has configured yet - can
+    /// only be asked about by a reader that is not here. Either way the answer
+    /// is null and the key that reads it is not offered.
+    /// </para>
+    /// <para>
+    /// <b>Ordinal, because a provider key is a name and not a word.</b> It is
+    /// the tool-name prefix an operator chose, matched against the declarations
+    /// this console was started with; a case-insensitive match would let two
+    /// different declarations answer to one intent.
+    /// </para>
+    /// </remarks>
+    public static (string Provider, string Id)? TicketAReaderHere(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (PaneText.Detailed(state) is not { } flight
+            || !string.Equals(flight.Intent.Kind, FlightIntentKinds.Ticket, StringComparison.Ordinal)
+            || flight.Intent.Provider is not { Length: > 0 } provider
+            || flight.Intent.Id is not { Length: > 0 } id)
+        {
+            return null;
+        }
+
+        return state.ReaderKeys.Contains(provider, StringComparer.Ordinal)
+            ? (ControlText.Strip(provider), ControlText.Strip(id))
+            : null;
+    }
+
+    /// <summary>
     /// The intent as a person would have typed it, for seeding a new flight.
     /// </summary>
     /// <remarks>

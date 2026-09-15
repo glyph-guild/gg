@@ -30,6 +30,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(BoardPage))]
+[JsonSerializable(typeof(NominationDecision))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightLog))]
 [JsonSerializable(typeof(FlightStory))]
@@ -471,6 +472,41 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.BoardPage, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no board.");
+    }
+
+    /// <summary>
+    /// Answers a nomination that is waiting for somebody.
+    /// </summary>
+    /// <param name="outcome">
+    /// One of <see cref="NominationDecisions.All"/> - the two endings a person
+    /// may cause. The other four belong to the board, the world, the clock and
+    /// the rules.
+    /// </param>
+    /// <param name="because">
+    /// Why. Required, because every ending carries a sentence and a decision is
+    /// the one most worth being able to ask about.
+    /// </param>
+    /// <remarks>
+    /// <b>202 and nothing back</b>, on ADR-0012: the write is a command, and
+    /// the caller learns what happened by reading the board. A 409 means
+    /// somebody already answered it, which is a different fact from a refusal.
+    /// </remarks>
+    public async Task DecideNominationAsync(
+        string sessionToken,
+        Guid nomination,
+        string outcome,
+        string because,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/board/{nomination}/decisions", sessionToken);
+        request.Content = JsonContent.Create(
+            new NominationDecision { Outcome = outcome, Because = because },
+            ProtocolJsonContext.Default.NominationDecision);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     /// <summary>

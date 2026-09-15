@@ -483,6 +483,7 @@ public static class VerbResultKinds
     DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
 [JsonSerializable(typeof(InvitationIssued))]
 [JsonSerializable(typeof(BoardPage))]
+[JsonSerializable(typeof(NominationDecision))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(FlightLaunched))]

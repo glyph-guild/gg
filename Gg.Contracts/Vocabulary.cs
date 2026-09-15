@@ -78,6 +78,7 @@ public static class Vocabulary
         typeof(FlightWithdrawalRequest),
         typeof(FlightGroundingRequest),
         typeof(NominationSummary),
+        typeof(NominationDecision),
         typeof(BoardPage),
         typeof(RunnerSummary),
         typeof(RunnerList),

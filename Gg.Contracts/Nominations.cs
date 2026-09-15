@@ -180,3 +180,45 @@ public sealed record BoardPage
     /// <summary>Whether ended rows were included, rather than simply absent.</summary>
     public required bool IncludedEnded { get; init; }
 }
+
+/// <summary>What a person answers a standing nomination with.</summary>
+/// <remarks>
+/// <b>The outcome is an ENDING rather than a word of its own.</b> Opening a
+/// nomination ends it <c>opened</c> and declining ends it <c>declined</c>, so
+/// the door speaks the vocabulary the row records. A second set of words for
+/// the same two states would be two spellings to keep agreeing, and the day
+/// they stop is the day a door produces something no row can carry.
+/// </remarks>
+[PinnedId("c41d6e1a-2845-474e-9611-2d4c9ca3228c")]
+public sealed record NominationDecision
+{
+    /// <summary>One of <see cref="NominationDecisions.All"/>.</summary>
+    public required string Outcome { get; init; }
+
+    /// <summary>
+    /// Why, in a sentence somebody can read.
+    /// </summary>
+    /// <remarks>
+    /// <b>Required, because every ending carries one.</b> A row whose reason is
+    /// blank tells whoever finds it that something happened and nothing about
+    /// what - and a decision is the ending most worth being able to ask about,
+    /// because a person made it and can be asked why.
+    /// </remarks>
+    public required string Because { get; init; }
+}
+
+/// <summary>
+/// The endings a person may cause.
+/// </summary>
+/// <remarks>
+/// <b>Two of the six, and the other four are nobody's to type.</b> Superseding
+/// is the board's, withdrawal is the world's, lapsing is the clock's and
+/// refusal is the rules'. A door that accepted one of those would let somebody
+/// record that the clock did what they did.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class NominationDecisions
+{
+    public static IReadOnlyList<string> All { get; } =
+        [NominationEndings.Opened, NominationEndings.Declined];
+}

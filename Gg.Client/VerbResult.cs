@@ -2538,6 +2538,15 @@ public static class VerbOutput
             text.AppendLine($"{row.NominationId} - {Clean(row.WorkKind)}");
             text.AppendLine($"  nominated by: {Clean(row.Nominator)}");
 
+            // WHAT IT IS ABOUT, and it is the line a person chooses on. The
+            // work kind says which rules would apply; this says which piece of
+            // work. Said rather than omitted when there is none, because a
+            // missing line reads as a row that forgot to say - and "free text"
+            // is a real answer that also happens to mean nobody can count it.
+            text.AppendLine(row.IntentKey is { Length: > 0 } about
+                ? $"  about:        {Clean(about)}"
+                : "  about:        free text - there is no reference to name");
+
             if (row.Ending is { Length: > 0 } ending)
             {
                 text.AppendLine($"  ended:        {Clean(ending)}");
@@ -2595,6 +2604,12 @@ public static class VerbOutput
         }
 
         text.AppendLine($"{row.NominationId} - {Clean(row.WorkKind)}");
+
+        if (row.IntentKey is { Length: > 0 } about)
+        {
+            text.AppendLine($"  about:        {Clean(about)}");
+        }
+
         text.AppendLine($"  ended:        {Clean(row.Ending ?? "still standing")}");
 
         if (row.Because is { Length: > 0 } because)

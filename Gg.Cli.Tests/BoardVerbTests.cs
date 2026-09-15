@@ -44,6 +44,7 @@ public class BoardVerbTests
         Mode = DestinationOpening.Gated,
         State = NominationStates.Standing,
         MadeAt = new DateTimeOffset(2026, 9, 15, 9, 0, 0, TimeSpan.Zero),
+        IntentKey = "https://example.test/issues/41",
     };
 
     [Test]
@@ -156,6 +157,25 @@ public class BoardVerbTests
         await Assert.That(text).Contains(Id[..8])
             .Because("the id is what `gg board open` takes, so the listing has to print "
                    + "enough of it to type.");
+        await Assert.That(text).Contains("https://example.test/issues/41")
+            .Because("the work kind says which rules would apply and this says which piece "
+                   + "of work - and a board is a list somebody scans to choose.");
+    }
+
+    [Test]
+    public async Task A_row_about_free_text_says_so_rather_than_leaving_the_line_out()
+    {
+        // ABSENT IS AN ANSWER, SO IT IS SAID. A missing line reads as a row
+        // that forgot to say what it is about; "free text" says that nobody
+        // can name the thing, which is true of the intent and also happens to
+        // be why nothing can count it.
+        var text = VerbOutput.ToText(new VerbResult.Board(new BoardPage
+        {
+            Nominations = [AStandingRow() with { IntentKey = null }],
+            IncludedEnded = false,
+        }));
+
+        await Assert.That(text).Contains("free text");
     }
 
     [Test]

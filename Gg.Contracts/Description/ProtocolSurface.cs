@@ -1686,7 +1686,8 @@ public static class ProtocolSurface
             [typeof(FlightGroundingRequest)] = ["because"],
             [typeof(NominationSummary)] =
                 ["nominationId", "nominator", "subject", "version", "workKind", "mode",
-                 "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt"],
+                 "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt",
+                 "intentKey"],
             [typeof(BoardPage)] = ["nominations", "includedEnded"],
             [typeof(NominationDecision)] = ["outcome", "because"],
             [typeof(RunnerSummary)] =

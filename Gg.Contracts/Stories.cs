@@ -105,6 +105,12 @@ public static class FlightStages
     {
         StoryKinds.Created or StoryKinds.OpenedByAdmission => Created,
 
+        // NOT `Created`, though its mirror is. A flight is opened by admission
+        // at its beginning; a flight NOMINATES after its loop has done the work
+        // that decided what to ask for, which is the same stage the loop's own
+        // entries sit in.
+        StoryKinds.Nominated => Worked,
+
         StoryKinds.LeaseRefused or StoryKinds.CredentialUnresolved => Ready,
 
         StoryKinds.LeaseGranted or StoryKinds.LeaseRenewed or StoryKinds.LeaseReleased

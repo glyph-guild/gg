@@ -202,6 +202,7 @@ return CliArgs.Parse(args) switch
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
     CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
+    CliAction.AgentLogin login => await AgentLoginAsync(login),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
     CliAction.CredentialRemove remove =>
         await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
@@ -1921,6 +1922,56 @@ static string AgentTokenPrompt(string agent) => agent switch
     _ => $"Long-lived token for {agent} (not echoed): ",
 };
 
+// THE OTHER WAY A TOKEN ARRIVES: the runner mints it. This console shows the
+// person the URL the runner's agent printed, opens a browser best-effort,
+// reads the code with the echo off, and hands it back over the same sealed
+// channel a credential travels by. Nothing this machine holds is involved,
+// and the token never passes through here at all.
+static async Task<int> AgentLoginAsync(CliAction.AgentLogin login)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return Fail(
+            "not signed in — run `gg login` first. Logging a runner's agent in is a person's "
+          + "action.");
+    }
+
+    var baseAddress = ControlPlaneAddress();
+    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+
+    using var stopping = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
+
+    var ended = await new LogAnAgentIn(
+        new ControlPlaneClient(http),
+        new ConsoleChannel(
+            Gg.Runner.StunConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+            TimeSpan.FromSeconds(20)))
+        .LoginAsync(
+            session.SessionToken,
+            login.RunnerId,
+            login.Agent,
+            new PinnedRunnerKeys(),
+            DateTimeOffset.UtcNow,
+            new ConsoleSecretPrompt(),
+            // BEST-EFFORT, AND SAID FIRST BY THE CLIENT: the URL is on the
+            // terminal before the browser is asked, for the shell with no
+            // display and for the browser that does not open.
+            openBrowser: url => _ = ConsoleLink.Open(new AppState(), url, Ran),
+            saying: line => Console.Error.WriteLine($"gg: {line}"),
+            cancellationToken: stopping.Token);
+
+    if (ended.Outcome is LoginOutcome.LoggedIn)
+    {
+        Console.WriteLine(ended.Said);
+        return 0;
+    }
+
+    return Fail(ended.Said);
+}
+
 static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, string? asking)
 {
     var session = new FileSessionStore().Read();
@@ -2489,6 +2540,15 @@ static async Task<int> RunnerUpAsync()
             // the one the next probe measures.
             agent: agent,
             agentToken: () => agent is null ? null : new FileCredentialStore().Read(agent.Locator),
+            // WHETHER A CONSOLE MAY MAKE THIS MACHINE RUN ITS AGENT'S LOGIN
+            // CEREMONY: null unless this machine's own file says
+            // accept-agent-login, through the one gate, for the same
+            // declaration the agent came from. A member never asks this.
+            login: Gg.Local.ExecutorDeclaration.ParseOrNull(
+                Environment.GetEnvironmentVariable(Gg.Local.ExecutorDeclaration.Variable),
+                Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
+                ? LocalAgentLogin.For(inForce, new FileCredentialStore(), declaredAgent)
+                : null,
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine

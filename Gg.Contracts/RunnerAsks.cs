@@ -95,8 +95,51 @@ public static class RunnerAskKinds
     /// </remarks>
     public const string ConfigureCredential = "configure-credential";
 
+    /// <summary>
+    /// Start this runner's agent's own login ceremony, and say the URL a
+    /// person visits.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The fourth value, and the first that makes a runner START a
+    /// program.</b> The agent's login is a browser ceremony its own binary
+    /// drives (<c>claude setup-token</c>), and a runner nobody can open a
+    /// shell on has no other way to run it. So the runner runs it on a
+    /// console's say-so, hands back the one thing a person needs - the URL -
+    /// and waits for the code they bring.
+    /// </para>
+    /// <para>
+    /// <b>Its own gate, because a spawning verb must not inherit a writing
+    /// verb's.</b> <c>accept-configured</c> lets a person put a secret on this
+    /// machine; this lets a person make this machine run something. The
+    /// machine's file says <c>accept-agent-login</c> or the runner is handed
+    /// no port and refuses for want of one - and says so, because silence is
+    /// indistinguishable from a runner too old to have the arm.
+    /// </para>
+    /// <para>
+    /// <b>The URL is safe to show.</b> Measured in the spike: the ceremony is
+    /// PKCE, so the code the URL leads to is useless without the verifier the
+    /// child on the runner holds. What is minted at the end is kept on the
+    /// runner under the agent's locator and crosses nothing.
+    /// </para>
+    /// </remarks>
+    public const string BeginAgentLogin = "begin-agent-login";
+
+    /// <summary>
+    /// Give the runner the code the person was shown, so it can finish the
+    /// ceremony it began.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second half of the same act, and the same port.</b> The code is
+    /// typed into the child <see cref="BeginAgentLogin"/> started; what the
+    /// agent then prints is kept under the agent's locator, and the answer is
+    /// <c>ConfiguredCredential</c>'s shape - locator and whether - never the
+    /// value. A finish with no ceremony open writes nothing and says so.
+    /// </remarks>
+    public const string FinishAgentLogin = "finish-agent-login";
+
     public static IReadOnlyList<string> All { get; } =
-        [TailLog, Status, ConfigureCredential];
+        [TailLog, Status, ConfigureCredential, BeginAgentLogin, FinishAgentLogin];
 }
 
 /// <summary>
@@ -123,6 +166,15 @@ public static class RunnerAskBounds
     /// their own credentials.
     /// </remarks>
     public const int MaxBytes = 64 * 1024;
+
+    /// <summary>The longest a login code may be.</summary>
+    /// <remarks>
+    /// A code is short - the ones measured are well under a hundred
+    /// characters - and the bound is the contract's so that both ends refuse
+    /// the same thing. A runner that trusted the length it was sent would be a
+    /// runner a console could type a file into its agent's terminal.
+    /// </remarks>
+    public const int MaxLoginCode = 512;
 }
 
 /// <summary>Asks for the last lines the runner wrote.</summary>
@@ -224,6 +276,91 @@ public sealed record ConfiguredCredential
     public required bool Written { get; init; }
 }
 
+/// <summary>Asks the runner to begin its agent's login ceremony.</summary>
+/// <remarks>
+/// <b>The provider names which adapter</b>, and a runner whose adapter it is
+/// not refuses without a word, as it refuses any malformed ask. There is no
+/// other member: what the ceremony does is the agent's own binary's business.
+/// </remarks>
+[PinnedId("b7e2c4a9-3f61-4d58-9a0b-6c2e8f1d5a73")]
+[RunnerAskKind(RunnerAskKinds.BeginAgentLogin)]
+public sealed record BeginAgentLoginAsk
+{
+    /// <summary>Which agent: the adapter key <c>GG_EXECUTOR_BINARY</c> declares.</summary>
+    public required string Provider { get; init; }
+}
+
+/// <summary>What the runner says once asked to begin.</summary>
+/// <remarks>
+/// <para>
+/// <b>Started is a fact, not an apology</b>, for <see cref="LogTail.Truncated"/>'s
+/// reason. A ceremony that is running and one that was refused must not
+/// read alike, because the person's next act depends on which: visit the
+/// URL, or read the diagnosis.
+/// </para>
+/// <para>
+/// <b>The URL and the diagnosis are lines off a hostile machine</b>, stripped
+/// like every other, and the URL may not contain a line break: a URL that
+/// can is a URL that can hide a second one.
+/// </para>
+/// </remarks>
+[PinnedId("4d19f6b2-8c7e-4a35-b0d4-1e9a7c3f2b58")]
+public sealed record AgentLoginBegun
+{
+    public required string Provider { get; init; }
+
+    /// <summary>Whether a ceremony is now running on the runner.</summary>
+    public required bool Started { get; init; }
+
+    /// <summary>The URL the person visits, when started.</summary>
+    public string? Url { get; init; }
+
+    /// <summary>Why not, when not started.</summary>
+    public string? Diagnosis { get; init; }
+
+    /// <summary>When the runner will give up waiting for the code.</summary>
+    public DateTimeOffset? ExpiresAt { get; init; }
+}
+
+/// <summary>Carries the code the person was shown back to the runner.</summary>
+/// <remarks>
+/// <b>Bounded by <see cref="RunnerAskBounds.MaxLoginCode"/></b>, and refused
+/// without a word beyond it. The code is the person's to carry in; nothing
+/// the runner says ever carries it back out.
+/// </remarks>
+[PinnedId("9f3a1c7d-6b28-4e94-8d5f-0a4c2e7b1d36")]
+[RunnerAskKind(RunnerAskKinds.FinishAgentLogin)]
+public sealed record FinishAgentLoginAsk
+{
+    public required string Provider { get; init; }
+
+    /// <summary>The code the browser showed the person.</summary>
+    public required string Code { get; init; }
+}
+
+/// <summary>What the runner says once the ceremony has ended.</summary>
+/// <remarks>
+/// <b><see cref="ConfiguredCredential"/>'s shape</b>, because it is the same
+/// fact about the same file: a credential landed under a locator, or did not.
+/// The value is never here. What differs is that the runner minted it rather
+/// than being handed it, and that is a difference in where the secret came
+/// from, not in what the machine ends up holding.
+/// </remarks>
+[PinnedId("2c8e5b4f-1a97-4d63-9e2b-7f0d6a3c8e15")]
+public sealed record AgentLoginFinished
+{
+    public required string Provider { get; init; }
+
+    /// <summary>Which credential, by the name the agent's adapter derives.</summary>
+    public required string Locator { get; init; }
+
+    /// <summary>Whether the token is now on this machine.</summary>
+    public required bool Written { get; init; }
+
+    /// <summary>Why not, when not written.</summary>
+    public string? Diagnosis { get; init; }
+}
+
 /// <summary>
 /// One question for one runner.
 /// </summary>
@@ -243,6 +380,10 @@ public sealed record RunnerAsk
     public StatusAsk? Status { get; init; }
 
     public ConfigureCredentialAsk? ConfigureCredential { get; init; }
+
+    public BeginAgentLoginAsk? BeginAgentLogin { get; init; }
+
+    public FinishAgentLoginAsk? FinishAgentLogin { get; init; }
 }
 
 /// <summary>The lines a runner wrote about itself.</summary>
@@ -354,6 +495,10 @@ public sealed record RunnerSaid
 
     public ConfiguredCredential? Configured { get; init; }
 
+    public AgentLoginBegun? LoginBegun { get; init; }
+
+    public AgentLoginFinished? LoginFinished { get; init; }
+
     /// <summary>
     /// The same answer with every control sequence removed.
     /// </summary>
@@ -413,6 +558,28 @@ public sealed record RunnerSaid
         {
             Locator = ControlText.Strip(Configured.Locator, allowLineBreaks: false),
             Written = Configured.Written,
+        },
+        // THE URL IS A LINE that is about to be printed and handed to a
+        // browser: no escape sequence, and no line break, because a URL that
+        // can contain one can hide a second URL after it.
+        LoginBegun = LoginBegun is null ? null : new AgentLoginBegun
+        {
+            Provider = ControlText.Strip(LoginBegun.Provider, allowLineBreaks: false),
+            Started = LoginBegun.Started,
+            Url = LoginBegun.Url is null ? null : ControlText.Strip(LoginBegun.Url, allowLineBreaks: false),
+            Diagnosis = LoginBegun.Diagnosis is null
+                ? null
+                : ControlText.Strip(LoginBegun.Diagnosis, allowLineBreaks: true),
+            ExpiresAt = LoginBegun.ExpiresAt,
+        },
+        LoginFinished = LoginFinished is null ? null : new AgentLoginFinished
+        {
+            Provider = ControlText.Strip(LoginFinished.Provider, allowLineBreaks: false),
+            Locator = ControlText.Strip(LoginFinished.Locator, allowLineBreaks: false),
+            Written = LoginFinished.Written,
+            Diagnosis = LoginFinished.Diagnosis is null
+                ? null
+                : ControlText.Strip(LoginFinished.Diagnosis, allowLineBreaks: true),
         },
     };
 }

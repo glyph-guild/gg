@@ -174,7 +174,7 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
                    + "holds.");
         await Assert.That(begun.ExpiresAt).IsEqualTo(T0 + AgentLoginCeremony.Patience)
             .Because("a person told when the ceremony ends can decide whether to hurry.");
-        await Assert.That(rig.Login.Children).HasCount().EqualTo(1);
+        await Assert.That(rig.Login.Children).Count().IsEqualTo(1);
         await Assert.That(rig.Ceremony.InProgress).IsTrue();
     }
 
@@ -192,7 +192,7 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
         await Assert.That(begun.Diagnosis).Contains("already")
             .Because("two ceremonies would be two children waiting for one person.");
         await Assert.That(begun.ExpiresAt).IsEqualTo(T0 + AgentLoginCeremony.Patience);
-        await Assert.That(rig.Login.Children).HasCount().EqualTo(1)
+        await Assert.That(rig.Login.Children).Count().IsEqualTo(1)
             .Because("refused means nothing was started.");
     }
 
@@ -224,7 +224,10 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
         // in what was said, so the scan can see the kind of thing it hunts.
         await Assert.That(Json(said)).DoesNotContain(TheToken);
         await Assert.That(Json(begun)).DoesNotContain(TheToken);
-        await Assert.That(Json(begun)).Contains(TheUrl);
+        // The serializer escapes '&' and '?', so the twin looks for the part
+        // of the URL that survives encoding rather than the whole string.
+        await Assert.That(Json(begun)).Contains("claude.com/cai/oauth/authorize");
+        await Assert.That(begun!.LoginBegun!.Url).IsEqualTo(TheUrl);
 
         await Assert.That(child.Disposed).IsTrue()
             .Because("the ceremony is over, and the child with it.");
@@ -375,7 +378,7 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
         rig.Clock.UtcNow = T0 + AgentLoginCeremony.Patience;
         var again = await rig.Dispatch.AnswerAsync(Beginning(), CancellationToken.None);
         await Assert.That(again!.LoginBegun!.Started).IsTrue();
-        await Assert.That(rig.Login.Children).HasCount().EqualTo(2);
+        await Assert.That(rig.Login.Children).Count().IsEqualTo(2);
     }
 
     [Test]
@@ -448,7 +451,7 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
         _ = await rig.Dispatch.AnswerAsync(Beginning(), CancellationToken.None);
         _ = await rig.Dispatch.AnswerAsync(Finishing("the-code"), CancellationToken.None);
 
-        await Assert.That(rig.Said).HasCount().EqualTo(2)
+        await Assert.That(rig.Said).Count().IsEqualTo(2)
             .Because("started, and ended: a journal line per event, not per byte.");
         foreach (var line in rig.Said)
         {

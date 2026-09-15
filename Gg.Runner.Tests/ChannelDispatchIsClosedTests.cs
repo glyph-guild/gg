@@ -235,6 +235,21 @@ public class ChannelDispatchIsClosedTests
                     Secret = "not-a-real-token",
                 },
             },
+            // THE TWO CEREMONY KINDS ANSWER WITHOUT A PORT, deliberately: a
+            // runner nobody wired to run the ceremony says so, in a sentence,
+            // rather than staying silent like a runner one version behind. So
+            // an arm EXISTS for each, which is this test's subject; what it
+            // says is ARunnerLogsItsAgentInOverTheChannelTests' subject.
+            [RunnerAskKinds.BeginAgentLogin] = new()
+            {
+                Kind = RunnerAskKinds.BeginAgentLogin,
+                BeginAgentLogin = new BeginAgentLoginAsk { Provider = "claude" },
+            },
+            [RunnerAskKinds.FinishAgentLogin] = new()
+            {
+                Kind = RunnerAskKinds.FinishAgentLogin,
+                FinishAgentLogin = new FinishAgentLoginAsk { Provider = "claude", Code = "a-code" },
+            },
         };
 
         foreach (var kind in RunnerAskKinds.All)
@@ -242,7 +257,9 @@ public class ChannelDispatchIsClosedTests
             await Assert.That(asks.ContainsKey(kind)).IsTrue()
                 .Because($"'{kind}' is in the vocabulary and this test does not know how to "
                        + "ask it, which means nobody checked the runner can answer it.");
-            await Assert.That(dispatch.Answer(asks[kind])).IsNotNull()
+            // THE ASYNC PATH, which is the one the channel serves through and
+            // the only one that has every arm.
+            await Assert.That(await dispatch.AnswerAsync(asks[kind], CancellationToken.None)).IsNotNull()
                 .Because($"'{kind}' is in the vocabulary and the dispatch refused it.");
         }
     }

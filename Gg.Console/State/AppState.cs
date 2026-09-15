@@ -701,15 +701,90 @@ public enum QueueReason
     /// somebody to look at machines that are perfectly healthy.
     /// </remarks>
     CredentialUnresolved,
+
+    /// <summary>
+    /// A nomination is waiting for somebody to open it or decline it.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE FIRST ROW HERE THAT IS NOT ABOUT A FLIGHT.</b> Every reason above
+    /// describes a flight that has stopped; this one is work that has not
+    /// started, and the act is the same shape - somebody looks and answers. It
+    /// is here rather than folded into <see cref="AwaitingDecision"/> because a
+    /// person reading "awaiting decision" goes looking for the flight, and for
+    /// this row there is none: what they answer is whether there should be.
+    /// </remarks>
+    NominationStanding,
 }
 
 /// <summary>One row of the queue.</summary>
+/// <remarks>
+/// <para>
+/// <b>A ROW IS NOT NECESSARILY A FLIGHT, and that cost this record its two
+/// required members.</b> The queue's other kind of row is a standing
+/// nomination - work that has not started, beside flights that have stopped -
+/// and it has no flight id and no number, because having no flight yet is the
+/// whole point of one. A blank number would have made "no flight yet" and "a
+/// flight called nothing" the same value, and every pane that reads one would
+/// have drawn the second.
+/// </para>
+/// <para>
+/// <b><see cref="Key"/> and <see cref="Reference"/> are what every row has,
+/// and they exist so the ORDERING does not have to ask what kind of row it is
+/// looking at.</b> <c>OldestFirst</c> broke its ties on the flight number and
+/// then the flight id; for a row with neither that is a tie broken against
+/// null, which is not an ordering. If sorting the queue needed a case per
+/// kind, <c>QueueSort</c>'s promise - that replacing it is a new class rather
+/// than an excavation - would be spent on the first real urgency signal it
+/// was left for.
+/// </para>
+/// </remarks>
 public sealed record QueueRow
 {
-    public required string FlightId { get; init; }
+    /// <summary>
+    /// This row's identity, whatever it is about. The ordering's last resort.
+    /// </summary>
+    /// <remarks>
+    /// A flight's id or a nomination's, and neither is ever the other - both
+    /// are uuids from the same tenant, and nothing here needs to tell them
+    /// apart. What it is FOR is being total: a sort that is unstable under
+    /// equal keys makes the cursor appear to move on its own.
+    /// </remarks>
+    public required string Key { get; init; }
+
+    /// <summary>What a person types to name this row.</summary>
+    /// <remarks>
+    /// A flight's number - GG-42 - or a nomination's id. Beside
+    /// <see cref="Key"/> rather than instead of it, because they differ for a
+    /// flight: the number is what a person reads and the id is what is unique
+    /// in the face of a number nobody has minted yet.
+    /// </remarks>
+    public required string Reference { get; init; }
+
+    /// <summary>
+    /// The flight this row is about, when it is about one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null means there is no flight, and every reader has to answer for
+    /// that rather than substituting a blank.</b> A standing nomination has no
+    /// log, no story, no lease, no live view and nothing to take over - so the
+    /// paths that read those must not run, and the compiler is what says where
+    /// they are.
+    /// </remarks>
+    public string? FlightId { get; init; }
 
     /// <summary>Rendered, e.g. GG-42. What a person types.</summary>
-    public required string FlightNumber { get; init; }
+    public string? FlightNumber { get; init; }
+
+    /// <summary>
+    /// The nomination this row is about, when it is about one.
+    /// </summary>
+    /// <remarks>
+    /// It is what <c>gg board open</c> takes and what the modal sends. Exactly
+    /// one of this and <see cref="FlightId"/> is set on any row the queue
+    /// builds; the record does not enforce that, because a constructor that
+    /// threw would move a modelling question into a crash.
+    /// </remarks>
+    public Guid? NominationId { get; init; }
 
     public required string Name { get; init; }
 

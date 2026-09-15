@@ -233,12 +233,12 @@ public class LivePaneTests
         [
             new QueueRow
             {
-                FlightId = "flight-1", FlightNumber = "GG-1", Name = "first",
+                FlightId = "flight-1", FlightNumber = "GG-1", Key = "flight-1", Reference = "GG-1", Name = "first",
                 Reason = QueueReason.RunnerOffline, Since = T0,
             },
             new QueueRow
             {
-                FlightId = "flight-2", FlightNumber = "GG-2", Name = "second",
+                FlightId = "flight-2", FlightNumber = "GG-2", Key = "flight-2", Reference = "GG-2", Name = "second",
                 Reason = QueueReason.LeaseExpiredTwice, Since = T0,
             },
         ],

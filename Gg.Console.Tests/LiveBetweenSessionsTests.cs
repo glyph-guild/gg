@@ -64,7 +64,7 @@ public class LiveBetweenSessionsTests
         Queue = [.. flightIds.Select((id, i) => new QueueRow
         {
             FlightId = id,
-            FlightNumber = $"GG-{i + 1}",
+            FlightNumber = $"GG-{i + 1}", Key = id, Reference = $"GG-{i + 1}",
             Name = "a flight",
             Reason = QueueReason.AwaitingDecision,
             Since = DateTimeOffset.UnixEpoch,

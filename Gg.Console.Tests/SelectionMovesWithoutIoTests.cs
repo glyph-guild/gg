@@ -53,13 +53,13 @@ public class SelectionMovesWithoutIoTests
         [
             new QueueRow
             {
-                FlightId = "a", FlightNumber = FlightRef.Format(1), Name = "first",
+                FlightId = "a", FlightNumber = FlightRef.Format(1), Key = "a", Reference = FlightRef.Format(1), Name = "first",
                 Reason = QueueReason.AwaitingDecision,
                 Since = new DateTimeOffset(2026, 9, 5, 9, 0, 0, TimeSpan.Zero),
             },
             new QueueRow
             {
-                FlightId = "b", FlightNumber = FlightRef.Format(2), Name = "second",
+                FlightId = "b", FlightNumber = FlightRef.Format(2), Key = "b", Reference = FlightRef.Format(2), Name = "second",
                 Reason = QueueReason.AwaitingDecision,
                 Since = new DateTimeOffset(2026, 9, 5, 9, 30, 0, TimeSpan.Zero),
             },

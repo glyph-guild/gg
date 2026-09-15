@@ -805,7 +805,8 @@ public static class ConsoleProjection
         FlightList flights,
         IReadOnlyDictionary<string, FlightLog> logs,
         RunnerList runners,
-        GateList? gates = null)
+        GateList? gates = null,
+        BoardPage? board = null)
     {
         ArgumentNullException.ThrowIfNull(flights);
         ArgumentNullException.ThrowIfNull(logs);
@@ -887,15 +888,73 @@ public static class ConsoleProjection
             }
         }
 
+        // AND WHAT HAS NOT STARTED, beside what has stopped. A standing gated
+        // nomination is the same act as a gate - somebody looks and answers -
+        // one noun earlier: what they answer is whether there should be a
+        // flight at all.
+        //
+        // GATED ONLY, which is hold-expired's argument one noun over. Nobody
+        // need answer an `auto` row: admission opens it. A row nobody need
+        // answer, sitting in a list of rows that need answering, is how the
+        // ones that do get missed - so an `auto` nomination is visible on the
+        // board and absent from here.
+        //
+        // AND STANDING ONLY. An ended row was answered, and a queue of things
+        // that have been decided is a list somebody has to read to discover
+        // they need nothing from it.
+        foreach (var nomination in board?.Nominations ?? [])
+        {
+            if (nomination.Ending is null
+                && string.Equals(
+                    nomination.Mode, DestinationOpening.Gated, StringComparison.Ordinal))
+            {
+                rows.Add(Row(nomination));
+            }
+        }
+
         return QueueSort.Default.Order(rows);
     }
 
     private static QueueRow Row(FlightSummary flight, QueueReason reason, DateTimeOffset since) => new()
     {
+        // THE KEY IS THE ID AND THE REFERENCE IS THE NUMBER, which differ for a
+        // flight and are both kept: the number is what a person reads and types,
+        // and the id is what is unique even before a number is minted.
+        Key = flight.FlightId,
+        Reference = flight.FlightNumber,
         FlightId = flight.FlightId,
         FlightNumber = flight.FlightNumber,
         Name = flight.Name,
         Reason = reason,
         Since = since,
+    };
+
+    /// <summary>
+    /// A standing nomination as a queue row.
+    /// </summary>
+    /// <remarks>
+    /// <b>No flight, and nothing standing in for one.</b> Having no flight yet
+    /// is the whole point of a standing nomination, so both flight members stay
+    /// null and every reader of them has to answer for that - which is what the
+    /// compiler made them do when the two stopped being required.
+    /// </remarks>
+    private static QueueRow Row(NominationSummary nomination) => new()
+    {
+        Key = nomination.NominationId.ToString(),
+        // THE ID IS ALSO THE REFERENCE HERE, because `gg board open` parses a
+        // uuid and nothing shorter. A flight's two differ; a nomination's do
+        // not, and inventing a short form would print something the verb
+        // beside it refuses.
+        Reference = nomination.NominationId.ToString(),
+        NominationId = nomination.NominationId,
+        // WHAT WAS NOMINATED, which is the whole of what a person is deciding
+        // about. The board carries no agent's reason on a summary - a queue
+        // line of provenance is mostly provenance - so the work kind is the
+        // name, and what governed it is asked for by id.
+        Name = nomination.WorkKind,
+        Reason = QueueReason.NominationStanding,
+        // HOW LONG IT HAS STOOD, and it is the only urgency signal a nomination
+        // has. The default sort orders on exactly this.
+        Since = nomination.MadeAt,
     };
 }

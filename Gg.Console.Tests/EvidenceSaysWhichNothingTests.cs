@@ -33,6 +33,8 @@ public class EvidenceSaysWhichNothingTests
     private static QueueRow Row(string id, int number) => new()
     {
         FlightId = id,
+        Key = id,
+        Reference = FlightRef.Format(number),
         FlightNumber = FlightRef.Format(number),
         Name = "waiting",
         Reason = QueueReason.AwaitingDecision,

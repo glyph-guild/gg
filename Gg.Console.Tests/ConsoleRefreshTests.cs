@@ -35,6 +35,8 @@ public class ConsoleRefreshTests
 
     private static QueueRow Row(string id, int number) => new()
     {
+        Key = id,
+        Reference = FlightRef.Format(number),
         FlightId = id,
         FlightNumber = FlightRef.Format(number),
         Name = "waiting",

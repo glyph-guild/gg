@@ -50,7 +50,7 @@ public class AModalDoesNotAdvertiseDeadKeysTests
             new QueueRow
             {
                 FlightId = "01a092f2-fba6-73a6-91e0-6b7f8f278991",
-                FlightNumber = "GG-89",
+                FlightNumber = "GG-89", Key = "01a092f2-fba6-73a6-91e0-6b7f8f278991", Reference = "GG-89",
                 Name = "widen repositories",
                 Reason = QueueReason.AwaitingDecision,
                 Since = DateTimeOffset.UnixEpoch,

@@ -297,7 +297,7 @@ public class ModalButtonTests
                 new QueueRow
                 {
                     FlightId = "01a0776a-cacb-76dc-b444-2b7031e840d8",
-                    FlightNumber = "GG-52",
+                    FlightNumber = "GG-52", Key = "01a0776a-cacb-76dc-b444-2b7031e840d8", Reference = "GG-52",
                     Name = "create a PR for a python script",
                     Reason = QueueReason.AwaitingDecision,
                     Since = DateTimeOffset.UnixEpoch,

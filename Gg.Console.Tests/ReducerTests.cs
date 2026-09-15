@@ -10,6 +10,8 @@ public class ReducerTests
     private static QueueRow Row(string id, QueueReason reason = QueueReason.RunnerOffline) => new()
     {
         FlightId = id,
+        Key = id,
+        Reference = "GG-1",
         FlightNumber = "GG-1",
         Name = id,
         Reason = reason,

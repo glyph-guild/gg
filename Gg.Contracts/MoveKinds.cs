@@ -56,6 +56,32 @@ public static class MoveKinds
             // manifest measures, run-tests produces outcomes the verdicts read.
             [LoopMoves.Read] = RecordOnly,
             [LoopMoves.Edit] = RecordOnly,
+
+            // RUN-TESTS IS THE ONE THIS IS NOT QUITE TRUE OF, AND IT IS SAID
+            // HERE BECAUSE HERE IS WHERE SOMEBODY READS THE CLASSIFICATION.
+            // ClaudeCodeExecutor grants it `Bash`, and states one consequence:
+            // "run-tests maps onto Bash, which can also edit files." The
+            // sharper one was measured from inside a pool member -
+            //
+            //     cloudflared tunnel --url http://localhost:PORT
+            //
+            // - which dials OUT, publishes a URL to anybody who has it, opens
+            // no port on the host, asks nothing of a firewall, and consults no
+            // envelope. That is an act nothing can recall, which is the
+            // definition of the kind this is not.
+            //
+            // IT IS STILL RECORD-ONLY, AND ON PURPOSE. The refusal above means
+            // an outward act nothing can probe is refused at authoring, so
+            // reclassifying this would refuse every envelope that runs a test.
+            // The honest answer does not exist yet: it needs a bound a probe
+            // can confirm WHILE the tool is granted, the way ScopeProbe reaches
+            // outside the pool prefix and requires a refusal. A network bound
+            // with that property is a SANDBOX, and gg does not have one.
+            //
+            // So this is a declared gap rather than a decision pending - the
+            // shape ArtifactScopes carries for its single member. When a
+            // sandbox ships, this line is the second input the paragraph above
+            // says the first confirmable enforcement adds.
             [LoopMoves.RunTests] = RecordOnly,
             [LoopMoves.Search] = RecordOnly,
             [LoopMoves.Write] = RecordOnly,

@@ -47,10 +47,25 @@ public sealed record PoolCapabilities
     public required string Provider { get; init; }
 }
 
-/// <summary>One member of a managed pool, by name.</summary>
+/// <summary>One member of a managed pool, by name and by whether it runs.</summary>
 public sealed record PoolMember
 {
     public required string Name { get; init; }
+
+    /// <summary>Whether the container is running right now.</summary>
+    /// <remarks>
+    /// <b>Required rather than defaulted, because the wrong default is
+    /// destructive in one direction.</b> A member wrongly read as stopped is a
+    /// warm member somebody's flight is standing in, taken away; there is no
+    /// value safe enough to assume, so every listing says.
+    /// <para>
+    /// The listing already asks the daemon for <c>?all=true</c> and has always
+    /// been handed this - each entry carries its state - and threw it away.
+    /// That is why a member that stopped kept its name, and a name that exists
+    /// reads as a slot that is taken.
+    /// </para>
+    /// </remarks>
+    public required bool Running { get; init; }
 }
 
 /// <summary>What one action observed, in the attestation's own words.</summary>

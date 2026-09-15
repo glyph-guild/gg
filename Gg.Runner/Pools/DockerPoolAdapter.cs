@@ -49,7 +49,18 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
             var name = container.GetProperty("Names")[0].GetString()!.TrimStart('/');
             if (name.StartsWith($"{pool}-", StringComparison.Ordinal))
             {
-                members.Add(new PoolMember { Name = name });
+                // THE DAEMON HAS ALWAYS SAID THIS and the listing threw it
+                // away. "running" is the daemon's own word, and anything else -
+                // exited, created, paused, dead - is a member not doing the one
+                // thing a member is for.
+                members.Add(new PoolMember
+                {
+                    Name = name,
+                    Running = string.Equals(
+                        container.GetProperty("State").GetString(),
+                        "running",
+                        StringComparison.Ordinal),
+                });
             }
         }
 
@@ -99,7 +110,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
         // person to check a runner that is fine.
         //
         // 404 is not this. Absent is a real answer with its own branch below.
-        (bool Running, string Status, string? ImageDigest, string? MadeFrom)? inspected;
+        (bool Running, string Status, int ExitCode, string? ImageDigest, string? MadeFrom)? inspected;
 
         try
         {
@@ -120,6 +131,28 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
         if (inspected is null)
         {
             return await CreateAndStartAsync(pool, member, spec, cancellationToken);
+        }
+
+        // A MEMBER THAT FINISHED HAS NOTHING LEFT TO START. Exit 0 out of a
+        // member's loop means its credential ended - the one condition starting
+        // it again cannot fix, because a member token is not renewable and the
+        // nonce it was bought with is spent. The process would read an ended
+        // credential and exit, and this would attest Verified every sweep: a
+        // restart loop wearing the costume of a repair.
+        //
+        // Reset rather than refuse, because the slot is the thing the pool
+        // wants. Removing and recreating puts a WORKING member back in the name
+        // that just died, which is the whole of "the pool refills without
+        // intervention" on this side.
+        //
+        // NOT EVERY STOPPED MEMBER, though. A daemon restart or a reboot stops
+        // one whose stored identity is still good, and that member comes back
+        // by being started - cheaper than a replacement and exactly as warm.
+        // The exit code is what tells them apart, and it only became worth
+        // reading when a credential ending stopped arriving as a signal.
+        if (!inspected.Value.Running && inspected.Value.ExitCode == 0)
+        {
+            return await ResetAsync(member, spec, cancellationToken);
         }
 
         if (!inspected.Value.Running)
@@ -352,8 +385,8 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
     /// reference would compare two spellings of different things and reset
     /// forever.
     /// </remarks>
-    private async Task<(bool Running, string Status, string? ImageDigest, string? MadeFrom)?> InspectAsync(
-        string member, CancellationToken cancellationToken)
+    private async Task<(bool Running, string Status, int ExitCode, string? ImageDigest, string? MadeFrom)?>
+        InspectAsync(string member, CancellationToken cancellationToken)
     {
         using var response = await _httpClient.GetAsync(
             $"/containers/{member}/json", cancellationToken);
@@ -370,6 +403,14 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
 
         return (state.GetProperty("Running").GetBoolean(),
                 state.GetProperty("Status").GetString() ?? "unknown",
+
+                // ABSENT MEANS UNKNOWN, AND UNKNOWN IS NOT "FINISHED". A
+                // daemon that does not report an exit code must not have one
+                // inferred: -1 is no exit code any process produces, so the
+                // startable arm takes it, which is the arm that destroys
+                // nothing.
+                state.TryGetProperty("ExitCode", out var exit) ? exit.GetInt32() : -1,
+
                 inspected.RootElement.GetProperty("Image").GetString(),
                 inspected.RootElement.TryGetProperty("Config", out var config)
                     && config.TryGetProperty("Image", out var madeFrom)

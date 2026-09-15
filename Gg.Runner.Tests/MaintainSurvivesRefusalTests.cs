@@ -59,7 +59,7 @@ public class MaintainSurvivesRefusalTests
 
         public Task<IReadOnlyList<PoolMember>> ListAsync(
             string pool, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<PoolMember>>([new PoolMember { Name = $"{pool}-1" }]);
+            Task.FromResult<IReadOnlyList<PoolMember>>([new PoolMember { Name = $"{pool}-1", Running = true }]);
 
         public Task<PoolObservation> VerifyAsync(
             PoolMember member, CancellationToken cancellationToken = default) =>

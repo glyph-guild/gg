@@ -50,10 +50,19 @@ public class WhyOnAFlightNothingHasJudgedTests
         // 404 it replaced, because it sounds authoritative.
         var text = VerbOutput.ToText(new VerbResult.Why(NothingJudged()));
 
-        await Assert.That(text).DoesNotContain("declares no obligation")
+        // THE CLAIM, NOT THE WORDS. This asserted the absence of the phrase
+        // "declares no obligation", which the honest sentence also uses - as
+        // one of two readings, hedged. What must not appear is the unhedged
+        // assertion that FOLLOWED it, which is where the falsehood lived: the
+        // envelope declares none, THEREFORE nothing governed this flight.
+        await Assert.That(text).DoesNotContain("so nothing governed this flight")
             .Because("the attribution carries no obligations; that is not the same fact as "
                    + "an envelope that declares none, and this rendering cannot tell them "
-                   + "apart.");
+                   + "apart - so it may offer both readings and must assert neither.");
+
+        await Assert.That(text).Contains("Either")
+            .Because("and offering both is how it says so out loud, rather than by leaving "
+                   + "the reader to wonder which it meant.");
     }
 
     [Test]

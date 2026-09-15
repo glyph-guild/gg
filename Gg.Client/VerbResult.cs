@@ -2325,8 +2325,32 @@ public static class VerbOutput
 
         if (attribution.Obligations.Count == 0)
         {
+            // TWO ABSENCES THIS CANNOT TELL APART, so it reports the absence
+            // and names both rather than picking one. An envelope that
+            // declares no obligation and a flight nothing has evaluated yet
+            // both arrive as an empty list, and the second is the ordinary one
+            // - every flight is in that state between being opened and being
+            // judged, which is exactly when somebody runs this verb.
+            //
+            // THE SENTENCE THAT STOOD HERE PICKED ONE, and it picked the rare
+            // one: "This envelope declares no obligation, so nothing governed
+            // this flight." That is an assertion about a document this
+            // rendering never saw. It went unnoticed because the branch could
+            // not fire - AttributionReader answers null rather than an empty
+            // list and the endpoint 404'd on it, so `gg why` said "No flight
+            // GG-117" about a flight a runner was holding. good-grief#418
+            // fixed the endpoint; this is the other half.
+            //
+            // GUESSING WOULD BE THE THING THIS VERB REFUSES TO DO. A client
+            // that re-derived which absence it was would be explaining a fact
+            // it was not sent, which is the same rule that keeps it from
+            // re-evaluating a predicate to explain a verdict.
             text.AppendLine();
-            text.AppendLine("This envelope declares no obligation, so nothing governed this flight.");
+            text.AppendLine("Nothing has been judged against this flight.");
+            text.AppendLine();
+            text.AppendLine("Either its envelope declares no obligation, or nothing has been "
+                          + "evaluated yet - a flight that has not reached its first gate "
+                          + "reads this way. `gg show` says which stage it is at.");
             return text.ToString().TrimEnd();
         }
 

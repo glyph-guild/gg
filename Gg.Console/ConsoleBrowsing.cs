@@ -37,7 +37,15 @@ public static class ConsoleBrowsing
     /// then fetched what to put in it is a request nobody asked for — the same
     /// sentence the other toggles' read function already keeps.
     /// </remarks>
-    public static Func<AppState, AppState> Patch(IWorkBrowser? browser, AppState state)
+    /// <param name="stateHome">
+    /// Where the remembered filter is kept, for a caller that has its own.
+    /// Production passes nothing - the override exists because
+    /// <c>XDG_STATE_HOME</c> is process-global and a suite that runs four-wide
+    /// cannot have one test setting it while another reads it, which is the
+    /// reason every path in <c>LocalPaths</c> takes one.
+    /// </param>
+    public static Func<AppState, AppState> Patch(
+        IWorkBrowser? browser, AppState state, string? stateHome = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -50,15 +58,26 @@ public static class ConsoleBrowsing
 
         try
         {
+            // WHAT THEY NARROWED TO LAST TIME, before the query rather than
+            // after it. Restoring afterwards would list the whole backlog once
+            // and then narrow it, which is a screen that changes under somebody
+            // for no reason they can see.
+            var restored = Restored(browser, key, state, stateHome);
+
             var listing = browser.BrowseAsync(
                 cursor: null,
                 limit: 50,
-                Narrowing(state),
+                Narrowing(restored),
                 CancellationToken.None).GetAwaiter().GetResult();
 
-            var said = BrowseFilters.Said(state);
+            var said = BrowseFilters.Said(restored);
 
-            return current => Reducer.Browsed(current, key, listing, said);
+            // WRITTEN FROM WHAT WAS ACTUALLY BROWSED. A pick that never reached
+            // a listing is a person still deciding; what comes back next time
+            // is what they last looked at.
+            Remember(key, restored, stateHome);
+
+            return current => Reducer.Browsed(Carried(current, restored), key, listing, said);
         }
         catch (Exception problem) when (problem is not OperationCanceledException)
         {
@@ -118,6 +137,120 @@ public static class ConsoleBrowsing
             WorkItemSelected = 0,
             WorkItemTab = WorkItemTab.Details,
         };
+    }
+
+    /// <summary>
+    /// This session's state with the tracker's remembered filter folded in, or
+    /// unchanged.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Once per reader, and the facets are asked for while it happens.</b>
+    /// A remembered value the tracker no longer offers narrows every listing to
+    /// nothing, which reads exactly like a backlog with no work in it - so the
+    /// one browse that restores also pays for the one call that says what is
+    /// still on offer, and <c>Reducer.FilterOffered</c> drops what went. Every
+    /// browse after it costs nothing extra.
+    /// </para>
+    /// <para>
+    /// <b>Nothing remembered is the common case and costs no call at all.</b>
+    /// A tracker nobody has filtered reads back an empty filter, and there is
+    /// nothing to check against anything.
+    /// </para>
+    /// </remarks>
+    private static AppState Restored(
+        IWorkBrowser browser, string key, AppState state, string? stateHome)
+    {
+        if (string.Equals(state.FiltersRestoredFor, key, StringComparison.Ordinal))
+        {
+            return state;
+        }
+
+        // WHAT THEY JUST PICKED BEATS WHAT THEY PICKED LAST WEEK. Somebody can
+        // open the filter and narrow before the first listing of a session, and
+        // restoring over that would wipe the choice between pressing pick and
+        // pressing browse - a modal that appears to do nothing.
+        if (Narrowing(state) is not null)
+        {
+            return state with { FiltersRestoredFor = key };
+        }
+
+        var remembered = Gg.Local.BrowseFilterStore.Read(key, stateHome);
+
+        var carrying = state with
+        {
+            FiltersRestoredFor = key,
+            ChosenAreaPath = remembered.AreaPath,
+            ChosenIteration = remembered.Iteration,
+            ChosenStates = remembered.States,
+        };
+
+        if (!remembered.Narrows)
+        {
+            return carrying;
+        }
+
+        // ASKED ONCE, TO CHECK WHAT WAS RESTORED. This is the call FacetsPatch
+        // makes when somebody opens the modal; making it here means the first
+        // listing is already narrowed by things that still exist, and the
+        // modal's own read finds the answer held.
+        var offered = Offered(browser);
+
+        return offered is null
+            ? carrying
+            : Reducer.FilterOffered(carrying, offered) with { Mode = state.Mode };
+    }
+
+    /// <summary>Puts the restored filter on whatever state the tick folds into.</summary>
+    /// <remarks>
+    /// <b>Patches, not models</b> - <c>BackgroundReads</c>' own rule. The state
+    /// this read started from is a snapshot taken before the person moved, so
+    /// only the members this read is about may cross into the current one.
+    /// </remarks>
+    private static AppState Carried(AppState current, AppState restored) => current with
+    {
+        FiltersRestoredFor = restored.FiltersRestoredFor,
+        ChosenAreaPath = restored.ChosenAreaPath,
+        ChosenIteration = restored.ChosenIteration,
+        ChosenStates = restored.ChosenStates,
+        Facets = restored.Facets ?? current.Facets,
+    };
+
+    /// <summary>Remembers what this tracker is narrowed to, for the next session.</summary>
+    private static void Remember(string key, AppState state, string? stateHome) =>
+        Gg.Local.BrowseFilterStore.Write(key, new Gg.Local.RememberedFilters
+        {
+            AreaPath = state.ChosenAreaPath,
+            Iteration = state.ChosenIteration,
+            States = state.ChosenStates,
+        }, stateHome);
+
+    /// <summary>What the tracker offers to narrow by, or null when it could not say.</summary>
+    /// <remarks>
+    /// Null rather than a <c>Why</c>, because this caller is checking a
+    /// remembered filter rather than drawing a modal: a reader that could not
+    /// answer has said nothing about whether a sprint still exists, and
+    /// dropping the filter on that would lose it to a bad minute at the tracker.
+    /// </remarks>
+    private static BrowseFacets? Offered(IWorkBrowser browser)
+    {
+        try
+        {
+            return browser.FacetsAsync(CancellationToken.None).GetAwaiter().GetResult() switch
+            {
+                FacetOutcome.Offered(var facets) => new BrowseFacets
+                {
+                    AreaPaths = facets.AreaPaths,
+                    Iterations = facets.Iterations,
+                    States = facets.States,
+                },
+                _ => null,
+            };
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     /// <summary>What there is to narrow by.</summary>

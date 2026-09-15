@@ -377,6 +377,23 @@ public static class Reducer
         && string.Equals(state.WorkItemId, row.Id, StringComparison.Ordinal)
         && state.WorkItemSaid is { Length: > 0 };
 
+    /// <summary>
+    /// A chosen value the tracker still offers, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>AN EMPTY LIST IS NOT AN ANSWER ABOUT THE FILTER.</b> A reader that
+    /// answered no sprints at all - this project files nothing by sprint - has
+    /// said nothing about whether the one somebody chose still exists. Reading
+    /// that as "none of them do" would clear a filter every time a dimension
+    /// came back unpopulated, which is a person losing their narrowing to a
+    /// tracker having a quiet day.
+    /// </remarks>
+    private static string? StillOffered(string? chosen, IReadOnlyList<string> offered) =>
+        chosen is not { Length: > 0 } || offered.Count == 0
+            || offered.Contains(chosen, StringComparer.Ordinal)
+            ? chosen
+            : null;
+
     public static AppState FilterOffered(AppState state, BrowseFacets offered)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -386,6 +403,22 @@ public static class Reducer
         {
             Facets = offered,
             Mode = UiMode.BrowseFilter,
+
+            // WHAT THE TRACKER STILL HAS, and only what it still has. A sprint
+            // ends and a team is renamed; a remembered value naming one of
+            // those narrows every listing to nothing, which reads exactly like
+            // a backlog with no work in it. This is the one place both the
+            // choices and what is on offer are known.
+            //
+            // PER DIMENSION, because losing a team because a sprint ended would
+            // be the same defect one column over - and the states are a set, so
+            // only the ones that went come off.
+            ChosenAreaPath = StillOffered(state.ChosenAreaPath, offered.AreaPaths),
+            ChosenIteration = StillOffered(state.ChosenIteration, offered.Iterations),
+            ChosenStates = offered.States.Count == 0
+                ? state.ChosenStates
+                : [.. state.ChosenStates.Where(
+                       s => offered.States.Contains(s, StringComparer.Ordinal))],
 
             // EVERY LIST STARTS AT THE TOP, for Browsed's reason: a cursor left
             // pointing at row nine of a list that now has two picks the wrong
@@ -455,11 +488,25 @@ public static class Reducer
     }
 
     /// <summary>The whole filter off, in one key.</summary>
+    /// <summary>
+    /// Every pick off, and every cursor back to the top.
+    /// </summary>
+    /// <remarks>
+    /// <b>The cursors go with the picks, or the reset is not one.</b> A cursor
+    /// left on row nine of a list somebody is about to walk again picks the
+    /// wrong thing on the next press - which is the argument
+    /// <see cref="FilterOffered"/> already makes about replacing the lists, and
+    /// it is the same argument here because clearing is the other way the lists
+    /// stop meaning what the cursor was pointing at.
+    /// </remarks>
     private static AppState FilterCleared(AppState state) => state with
     {
         ChosenAreaPath = null,
         ChosenIteration = null,
         ChosenStates = [],
+        AreaSelected = 0,
+        IterationSelected = 0,
+        StateSelected = 0,
     };
 
     /// <summary>

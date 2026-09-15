@@ -1593,6 +1593,31 @@ public static class PlatformToolServer
         said.AppendLine(
             $"  · A `{Gg.Contracts.DestinationKinds.WorkItemTracker}` must name at least "
           + "one operation. One that may perform nothing can never act.");
+
+        // THE SECOND SILENT ONE, and it belongs here rather than in the gloss
+        // for the same reason the score does: each key is true alone. `title:`
+        // says what to call what this opens, `moves:` says what the agent may
+        // do, and neither says that the first is invisible without the second.
+        //
+        // NOT REFUSED, AND IT CANNOT BE. A root may declare the destination
+        // while a work kind supplies the loop, so a validator reaching across
+        // them would refuse a correct topology. A sentence is the whole of what
+        // is available.
+        said.AppendLine(
+            $"  · `title:` and `description:` are instructions for the AGENT, and it only "
+          + $"sees them if its loop names the `{Gg.Contracts.LoopMoves.ProposeLanding}` "
+          + "move. Nothing refuses the pair - the destination and the loop can come from "
+          + "different documents - so a title written without the move is valid, applies, "
+          + "and is read by nobody. The proposal is then named from whatever the agent "
+          + "happened to write first.");
+        said.AppendLine(
+            $"  · `branch:` names only the part AFTER `{Gg.Contracts.DestinationBranch.Prefix}`, "
+          + "which gg adds and which is how it recognises its own branches. It must "
+          + $"contain `{Gg.Contracts.DestinationBranch.FlightPlaceholder}` - without it two "
+          + "flights on one ticket want one branch, and a rerun after a halt is exactly "
+          + $"that. `{Gg.Contracts.DestinationBranch.TicketPlaceholder}` is the other thing "
+          + "it may name, and it renders to nothing on a flight opened from a sentence "
+          + "rather than refusing to land it.");
         said.AppendLine(
             $"  · `may-write` is the menu for `{Gg.Contracts.WorkItemOperations.Field}` and "
           + "for nothing else. Both directions are refused: that operation with no paths "

@@ -302,6 +302,54 @@ public static class LookStyles
         };
     }
 
+    /// <summary>
+    /// The countdown's seconds, bright at the top of the wait and dim at the
+    /// bottom of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here because this is the only file that builds a colour</b>, which is
+    /// the rule that keeps every other file answerable without a terminal. What
+    /// fraction of the wait is left is <c>AutoRefresh.Left</c>'s, and it is
+    /// arithmetic on the model.
+    /// </para>
+    /// <para>
+    /// <b>Grey, so three channels move together.</b> Two of them moving is a
+    /// hue, and a countdown that drifted towards green or red would be saying
+    /// something about the read that nobody meant - this says only "soon".
+    /// </para>
+    /// <para>
+    /// <b>The background is the line's own.</b> These columns are painted over
+    /// the hint line, so anything else would draw a patch a different colour
+    /// from the row it sits in.
+    /// </para>
+    /// <para>
+    /// <b>And no <c>Faint</c>.</b> The line under this is dimmed as a whole,
+    /// which is why the seconds needed their own colour at all; carrying the
+    /// dimming through would put the ramp on top of the thing it exists to
+    /// stand out from.
+    /// </para>
+    /// </remarks>
+    public static Scheme Counting(Scheme basis, double left)
+    {
+        ArgumentNullException.ThrowIfNull(basis);
+
+        // WHITE DOWN TO A GREY THAT IS STILL LEGIBLE. Below about a quarter
+        // brightness a terminal with a light background loses it altogether,
+        // and a countdown nobody can read at one second is worse than one that
+        // does not fade.
+        const int Dimmest = 78;
+
+        var level = Dimmest + (int)Math.Round((255 - Dimmest) * Math.Clamp(left, 0.0, 1.0));
+        var grey = new Color(level, level, level);
+
+        return basis with
+        {
+            Normal = new Attribute(grey, basis.Normal.Background),
+            HotNormal = new Attribute(grey, basis.Normal.Background),
+        };
+    }
+
     /// <summary>One attribute, pushed back.</summary>
     private static Attribute Back(Attribute attribute, Dimming how) => how switch
     {

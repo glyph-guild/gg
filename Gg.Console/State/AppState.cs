@@ -467,6 +467,19 @@ public sealed record RefreshState
     /// <summary>Seconds until the next one, when none is.</summary>
     public int NextIn { get; init; }
 
+    /// <summary>
+    /// How long a whole wait is, in seconds.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried so that <see cref="NextIn"/> can be read as a fraction.</b>
+    /// The hint line fades the seconds as they run down, and "how far through"
+    /// needs the top of the count as well as what is left of it - so the thing
+    /// that knows the interval writes it down rather than the renderer keeping
+    /// a second copy of the number. Zero on a model nobody has ticked, which
+    /// reads as the top of the ramp.
+    /// </remarks>
+    public int Every { get; init; }
+
     /// <summary>Whether somebody pressed the key and it has not been done yet.</summary>
     public bool Wanted { get; init; }
 }

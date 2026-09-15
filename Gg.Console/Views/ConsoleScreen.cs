@@ -414,6 +414,9 @@ public sealed class ConsoleScreen : Window
     /// </summary>
     private readonly Terminal.Gui.Drawing.Scheme _muted = ConsoleTheme.Muted();
     private readonly Label _hints;
+
+    /// <summary>The countdown's seconds, painted over the hint line as they fade.</summary>
+    private readonly Label _hintsCounting;
     private readonly Label _activity;
 
     /// <summary>
@@ -825,6 +828,18 @@ public sealed class ConsoleScreen : Window
         _runnersTable.KeyDown += OnTableKeyDown;
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
+
+        // THE SECONDS, OVER THE TOP OF THE LINE THEY ARE ALREADY ON. Three
+        // characters painted on the same row rather than the line split into
+        // pieces: a split would make every render lay out three views whose
+        // widths depend on somebody else's text, and the failure mode of
+        // getting that wrong is a truncated hint line. The failure mode of
+        // getting THIS wrong is the ordinary line showing through, which is
+        // what it says anyway.
+        //
+        // Added after _hints and before _modal, because that is the order
+        // these are drawn in.
+        _hintsCounting = new Label { Y = Pos.AnchorEnd(1), Visible = false };
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
         // indistinguishable from a key that does nothing.
@@ -1766,7 +1781,7 @@ public sealed class ConsoleScreen : Window
         Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
-        Add(_bar, _activity, _hints, _modal);
+        Add(_bar, _activity, _hints, _hintsCounting, _modal);
 
         KeyDown += OnScreenKeyDown;
 
@@ -2350,6 +2365,7 @@ public sealed class ConsoleScreen : Window
 
         State = State with { HelpFold = over };
         _hints.Text = Keymap.Hints(Context());
+        Counting();
     }
 
     /// <summary>
@@ -3485,7 +3501,62 @@ public sealed class ConsoleScreen : Window
 
         Applied(State.Look);
 
+        // AFTER THE LOOK, DELIBERATELY. Applied walks the tree setting the
+        // palette and then dims these two lines; a fade written before it is a
+        // fade that gets painted over on the same frame. It also means the
+        // basis this reads is the line's FINAL background, which is the colour
+        // the seconds have to sit on.
+        Counting();
+
         Focus();
+    }
+
+    /// <summary>
+    /// Puts the countdown's seconds over the hint line, at the brightness the
+    /// wait has got to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three answers from elsewhere, and nothing decided here.</b> Where the
+    /// columns are is <c>Keymap.Counting</c>'s, how far through the wait is
+    /// <c>AutoRefresh.Left</c>'s, and what colour that is belongs to
+    /// <c>LookStyles</c> - so the only thing this does is put a view where the
+    /// first one says and hand it what the other two answered. A screen cannot
+    /// be built in a test, and everything above can.
+    /// </para>
+    /// <para>
+    /// <b>Hidden rather than blank when nothing counts.</b> A read in the air
+    /// shows a mark instead of a number and a modal does not offer the key at
+    /// all; an empty label left over the line would be three spaces painted on
+    /// top of whatever is under it.
+    /// </para>
+    /// </remarks>
+    private void Counting()
+    {
+        if (Keymap.Counting(Context()) is not { } columns)
+        {
+            _hintsCounting.Visible = false;
+            return;
+        }
+
+        var line = _hints.Text;
+
+        // THE CHARACTERS THE LINE ITSELF HAS THERE. Re-deriving them would be a
+        // second rendering of one number, and the two would disagree on
+        // whichever frame the model moved between the two reads.
+        if (columns.At + columns.Length > line.Length)
+        {
+            _hintsCounting.Visible = false;
+            return;
+        }
+
+        _hintsCounting.Text = line.Substring(columns.At, columns.Length);
+        _hintsCounting.X = columns.At;
+        _hintsCounting.Width = columns.Length;
+        _hintsCounting.Visible = true;
+
+        _hintsCounting.SetScheme(LookStyles.Counting(
+            _hints.GetScheme(), AutoRefresh.Left(State.Refresh)));
     }
 
     /// <summary>
@@ -3648,7 +3719,12 @@ public sealed class ConsoleScreen : Window
 
                 // THE TAB TITLES ARE ALREADY DONE, and a palette assigned after
                 // an accent would undo it. Everything else takes the palette.
-                if (colours is not null && !IsATab(child))
+                // AND THE COUNTDOWN IS NOT THE WALK'S EITHER. Its colour is
+                // the one thing on this screen that changes every second, and
+                // a palette asserted over the top of it would flatten the fade
+                // to whatever the rest of the line is - which is the state it
+                // was added to escape.
+                if (colours is not null && !IsATab(child) && !ReferenceEquals(child, _hintsCounting))
                 {
                     child.SetScheme(colours);
                 }

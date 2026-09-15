@@ -1571,6 +1571,10 @@ public static class PlatformToolServer
         said.AppendLine(
             "    opens:            which gates landing here opens.");
         said.AppendLine(
+            $"    opens-as:         whether a nomination admitted here becomes a flight by "
+          + $"itself or waits for a person. {Either(Gg.Contracts.DestinationOpening.All)}. "
+          + $"Absent means {Gg.Contracts.DestinationOpening.Auto}.");
+        said.AppendLine(
             $"    may-perform:      what a flight admitted here may have done. Any of: "
           + $"{string.Join(", ", Gg.Contracts.WorkItemOperations.All)}.");
         said.AppendLine(

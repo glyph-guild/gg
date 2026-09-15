@@ -703,8 +703,8 @@ public static class EnvelopeYaml
 
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "may-select",
-            "may-perform", "may-write", "branch", "title", "description");
+        Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "opens-as",
+            "may-select", "may-perform", "may-write", "branch", "title", "description");
 
         return new Destination
         {
@@ -740,6 +740,13 @@ public static class EnvelopeYaml
                 : null,
             Opens = entry.Body.Entries.TryGetValue("opens", out var opens)
                 ? Strings(opens, $"{entry.Body.Path}.opens")
+                : null,
+            // ABSENT STAYS ABSENT, on its neighbours' terms. Reading a missing
+            // key back as `auto` would mean the same thing to the engine and a
+            // different document on disk, so `envelope show` after `envelope
+            // apply` would put a line into a tenant's file that nobody wrote.
+            OpensAs = entry.Body.Entries.TryGetValue("opens-as", out var opensAs)
+                ? RequireScalar(opensAs, $"{entry.Body.Path}.opens-as")
                 : null,
             // AND THE SAME AGAIN. Absent stays absent: a missing `may-select`
             // read back as empty sets would say the tenant permits nothing,

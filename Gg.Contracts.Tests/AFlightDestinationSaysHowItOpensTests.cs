@@ -37,7 +37,7 @@ public class AFlightDestinationSaysHowItOpensTests
     {
         Id = "open-the-flight",
         Kind = DestinationKinds.Flight,
-        Requires = [],
+        Requires = ["a-person-looks"],
         Opens = ["research"],
         OpensAs = opensAs,
     };
@@ -48,7 +48,10 @@ public class AFlightDestinationSaysHowItOpensTests
         Context = new ContextBinding { Scope = EnvelopeScopes.None, Constitution = "1.0.0" },
         Accepts = [],
         Produces = [FactKinds.FlightNomination],
-        Obligations = [],
+        Obligations =
+        [
+            new Obligation { Id = "a-person-looks", Check = ObligationChecks.Human, Approver = "a-lead" },
+        ],
         Loops =
         [
             new Loop
@@ -98,7 +101,7 @@ public class AFlightDestinationSaysHowItOpensTests
         {
             Id = "ship-it",
             Kind = DestinationKinds.PullRequest,
-            Requires = [],
+            Requires = ["a-person-looks"],
             OpensAs = DestinationOpening.Gated,
         }));
 

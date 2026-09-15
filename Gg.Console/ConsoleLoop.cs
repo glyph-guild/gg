@@ -1243,7 +1243,25 @@ public sealed class ConsoleLoop(
     /// </remarks>
     public static AppState Took(AppState state, ITakeSession? take)
     {
-        if (take is null || state.Selected is not { } row || state.TakeableTree is not { } tree)
+        // A NOMINATION IS NOT TAKEABLE, and it is refused before the tree is
+        // asked about rather than after. There is no flight to take over -
+        // having none yet is the whole point of a standing nomination - so the
+        // sentence about a working tree would be about something that does not
+        // exist, which is the exact defect the two below it were rewritten to
+        // stop.
+        if (take is not null && state.Selected is { FlightId: null, NominationId: not null })
+        {
+            return state with
+            {
+                LastTakeover = "This is a nomination, not a flight. There is nothing to take "
+                             + "over yet - open it first, and the flight it becomes can be "
+                             + "taken over like any other.",
+            };
+        }
+
+        if (take is null
+            || state.Selected is not { FlightId: { } flightId, FlightNumber: { } flightNumber } row
+            || state.TakeableTree is not { } tree)
         {
             return state with
             {
@@ -1265,8 +1283,8 @@ public sealed class ConsoleLoop(
 
         var result = take.Take(new TakeRequest
         {
-            FlightId = row.FlightId,
-            FlightNumber = row.FlightNumber,
+            FlightId = flightId,
+            FlightNumber = flightNumber,
             TreePath = tree,
             Seed = state.TakeSeed!,
         });
@@ -1277,9 +1295,9 @@ public sealed class ConsoleLoop(
             {
                 { Diagnosis: { Length: > 0 } diagnosis } => diagnosis,
                 { Decision: { } decision } =>
-                    $"{row.FlightNumber}: {decision.Outcome}"
+                    $"{flightNumber}: {decision.Outcome}"
                   + (decision.Note is { Length: > 0 } note ? $" — {note}" : ""),
-                _ => $"{row.FlightNumber}: taken over for {result.Held.TotalMinutes:F0} minute(s), "
+                _ => $"{flightNumber}: taken over for {result.Held.TotalMinutes:F0} minute(s), "
                    + "and no decision was written.",
             },
             LastTakeoverHeld = result.Held,
@@ -1535,20 +1553,30 @@ public sealed class ConsoleLoop(
 
     private static AppState HandedBack(AppState state, IHandSession? hand)
     {
-        if (hand is null || state.Selected is not { } row || state.TakeSeed is not { } seed)
+        // THE FLIGHT IS MATCHED OUT OF THE ROW, not assumed off the seed. A
+        // seed only exists after a takeover and a takeover now refuses a
+        // nomination, so reaching here without a flight should be impossible -
+        // and "should be impossible" is the reason to say it in one sentence
+        // rather than to write `!` and find out.
+        if (hand is null
+            || state.Selected is not { FlightId: { } flightId, FlightNumber: { } flightNumber }
+            || state.TakeSeed is not { } seed)
         {
             return state with
             {
                 LastHandBack = hand is null
                     ? "This console is not configured to hand flights back."
-                    : "There is nothing to hand back: this flight has not been taken over.",
+                    : state.Selected is { NominationId: not null }
+                        ? "This is a nomination rather than a flight, so there was never a "
+                        + "flight to hand back."
+                        : "There is nothing to hand back: this flight has not been taken over.",
             };
         }
 
         var outcome = hand.Hand(new HandRequest
         {
-            FlightId = row.FlightId,
-            FlightNumber = row.FlightNumber,
+            FlightId = flightId,
+            FlightNumber = flightNumber,
             TreePath = state.TakeableTree ?? "",
             By = state.Principal,
             PriorAccount = seed.Account,
@@ -1562,8 +1590,8 @@ public sealed class ConsoleLoop(
             // that only counted the answers would be a rate of answers.
             HandConfirmations =
             [
-                .. state.HandConfirmations.Where(f => f.FlightId != row.FlightId),
-                new HandConfirmationFact { FlightId = row.FlightId, Choice = outcome.Choice },
+                .. state.HandConfirmations.Where(f => f.FlightId != flightId),
+                new HandConfirmationFact { FlightId = flightId, Choice = outcome.Choice },
             ],
             // The account joins the seed, so the next person to take this flight
             // over finds it where a resuming reader looks.

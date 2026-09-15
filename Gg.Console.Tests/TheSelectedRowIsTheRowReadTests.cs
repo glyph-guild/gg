@@ -72,7 +72,7 @@ public class TheSelectedRowIsTheRowReadTests
         var rows = Enumerable.Range(0, 4).Select(at => new QueueRow
         {
             FlightId = $"f-{at}",
-            FlightNumber = FlightRef.Format(at + 1),
+            FlightNumber = FlightRef.Format(at + 1), Key = $"f-{at}", Reference = FlightRef.Format(at + 1),
             Name = $"flight {at}",
             Reason = QueueReason.AwaitingDecision,
             Since = T0,
@@ -82,14 +82,31 @@ public class TheSelectedRowIsTheRowReadTests
         {
             Queue = rows,
             Flights = new FlightList { Flights = [.. rows.Select(Summary)] },
-            Logs = rows.ToDictionary(r => r.FlightId, Log, StringComparer.Ordinal),
+            Logs = rows.ToDictionary(r => Id(r), Log, StringComparer.Ordinal),
         };
     }
 
+    /// <summary>
+    /// The row's flight, and it fails loudly rather than substituting a blank.
+    /// </summary>
+    /// <remarks>
+    /// A queue row's flight became optional when the queue learned to hold a
+    /// standing nomination. Every row in THIS fixture is a flight, so the
+    /// absence is a broken fixture rather than a state to render - and a `!`
+    /// here would turn that into a null reference three frames away.
+    /// </remarks>
+    private static string Id(QueueRow row) =>
+        row.FlightId ?? throw new InvalidOperationException(
+            "this fixture's rows are all flights, and this one has no flight id.");
+
+    private static string Number(QueueRow row) =>
+        row.FlightNumber ?? throw new InvalidOperationException(
+            "this fixture's rows are all flights, and this one has no number.");
+
     private static FlightSummary Summary(QueueRow row) => new()
     {
-        FlightId = row.FlightId,
-        FlightNumber = row.FlightNumber,
+        FlightId = Id(row),
+        FlightNumber = Number(row),
         Name = row.Name,
         Intent = new FlightIntent { Kind = FlightIntentKinds.Text, Text = "why" },
         CreatedAt = T0,
@@ -103,8 +120,8 @@ public class TheSelectedRowIsTheRowReadTests
 
     private static FlightLog Log(QueueRow row) => new()
     {
-        FlightId = row.FlightId,
-        FlightNumber = row.FlightNumber,
+        FlightId = Id(row),
+        FlightNumber = Number(row),
         Entries = [],
     };
 }

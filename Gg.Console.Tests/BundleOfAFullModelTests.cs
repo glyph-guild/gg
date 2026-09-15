@@ -36,7 +36,7 @@ public class BundleOfAFullModelTests
         [
             new QueueRow
             {
-                FlightId = "a", FlightNumber = FlightRef.Format(1), Name = "waiting",
+                FlightId = "a", FlightNumber = FlightRef.Format(1), Key = "a", Reference = FlightRef.Format(1), Name = "waiting",
                 Reason = QueueReason.AwaitingDecision, Since = T0,
             },
         ],

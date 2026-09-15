@@ -30,7 +30,7 @@ public class TakeTests
             new QueueRow
             {
                 FlightId = "019ff8aa-1111-7000-8000-000000000001",
-                FlightNumber = "GG-42",
+                FlightNumber = "GG-42", Key = "019ff8aa-1111-7000-8000-000000000001", Reference = "GG-42",
                 Name = "add the docstring",
                 Reason = QueueReason.RunnerOffline,
                 Since = T0,

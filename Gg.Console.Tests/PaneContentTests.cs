@@ -42,7 +42,15 @@ public class PaneContentTests
         await Assert.That(pane).IsNotEqualTo("loading…")
             .Because("the pane said this for ever, because nothing assigned AppState.Flight - "
                    + "ConsoleProjection.Apply has the arm and had no caller.");
-        await Assert.That(pane).Contains(booted.Selected!.FlightNumber)
+        // THE ROW IS A FLIGHT, ASSERTED RATHER THAN ASSUMED. A queue row's
+        // flight became optional when the queue learned to hold a standing
+        // nomination, so "the selected row has a number" is now a claim about
+        // this scenario - a gated flight - rather than a property of every row.
+        await Assert.That(booted.Selected!.FlightNumber).IsNotNull()
+            .Because("this scenario seeds a gated FLIGHT, and a flight pane showing one is "
+                   + "what the rest of this test is about.");
+
+        await Assert.That(pane).Contains(booted.Selected.FlightNumber!)
             .Because("the flight a person selected, not some other flight.");
         await Assert.That(pane).Contains("constitution")
             .Because("every line below PaneText's flight branch was unreachable; this is one "

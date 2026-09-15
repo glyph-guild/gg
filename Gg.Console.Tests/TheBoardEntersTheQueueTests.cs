@@ -58,7 +58,7 @@ public class TheBoardEntersTheQueueTests
     };
 
     private static IReadOnlyList<QueueRow> QueueOf(BoardPage board) =>
-        ConsoleData.Queue(
+        ConsoleProjection.Queue(
             new FlightList { Flights = [] },
             new Dictionary<string, FlightLog>(StringComparer.Ordinal),
             new RunnerList { Runners = [] },
@@ -70,7 +70,7 @@ public class TheBoardEntersTheQueueTests
     {
         var queue = QueueOf(ABoard(ANomination()));
 
-        await Assert.That(queue).HasCount(1)
+        await Assert.That(queue).Count().IsEqualTo(1)
             .Because("a nomination waiting for somebody is the queue's own subject - work "
                    + "that has not started, beside flights that have stopped.");
         await Assert.That(queue[0].Reason).IsEqualTo(QueueReason.NominationStanding);
@@ -166,7 +166,7 @@ public class TheBoardEntersTheQueueTests
         // THE OTHER DIRECTION, because the excavation must not cost the thing
         // the queue already did. Every pane that reads a flight off the
         // selected row still gets one when the row is about a flight.
-        var queue = ConsoleData.Queue(
+        var queue = ConsoleProjection.Queue(
             new FlightList
             {
                 Flights =
@@ -176,8 +176,18 @@ public class TheBoardEntersTheQueueTests
                         FlightId = "019260e0-1f6d-7a1e-9b53-6f2f4c9d0a11",
                         FlightNumber = "GG-42",
                         Name = "a flight that stopped",
-                        State = FlightStates.Flying,
+                        Intent = new FlightIntent
+                        {
+                            Kind = FlightIntentKinds.Text,
+                            Text = "a flight that stopped",
+                        },
                         CreatedAt = T0,
+                        RunnerProtocolVersion = 1,
+                        FactVocabularyVersion = "0.1.0",
+                        ConstitutionVersion = "1.0.0",
+                        EnvelopeVersion = "none",
+                        Attempts = 1,
+                        Facts = [],
                     },
                 ],
             },
@@ -194,12 +204,14 @@ public class TheBoardEntersTheQueueTests
                         Approver = "a-lead",
                         ManifestHash = "sha256:whatever",
                         AwaitingSince = T0,
+                        Attempt = 1,
+                        Because = "somebody has to look at it",
                     },
                 ],
             },
             board: null);
 
-        await Assert.That(queue).HasCount(1);
+        await Assert.That(queue).Count().IsEqualTo(1);
         await Assert.That(queue[0].FlightNumber).IsEqualTo("GG-42");
         await Assert.That(queue[0].Reference).IsEqualTo("GG-42")
             .Because("the reference is what a person types, and for a flight that is its "

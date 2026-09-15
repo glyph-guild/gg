@@ -58,7 +58,7 @@ public class LiveStreamingTests
             new QueueRow
             {
                 FlightId = "f1",
-                FlightNumber = "GG-1",
+                FlightNumber = "GG-1", Key = "f1", Reference = "GG-1",
                 Name = "a flight",
                 Reason = QueueReason.AwaitingDecision,
                 Since = DateTimeOffset.UnixEpoch,

@@ -42,7 +42,7 @@ public class TheTakeoverRefusalTellsTheTruthTests
             new QueueRow
             {
                 FlightId = "f-1",
-                FlightNumber = "gg-14",
+                FlightNumber = "gg-14", Key = "f-1", Reference = "gg-14",
                 Name = "something worth taking",
                 Reason = QueueReason.AwaitingDecision,
                 Since = DateTimeOffset.UnixEpoch,

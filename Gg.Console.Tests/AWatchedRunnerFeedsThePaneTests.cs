@@ -164,7 +164,7 @@ public class AWatchedRunnerFeedsThePaneTests
                 new QueueRow
                 {
                     FlightId = "under-the-cursor",
-                    FlightNumber = "GG-1",
+                    FlightNumber = "GG-1", Key = "under-the-cursor", Reference = "GG-1",
                     Name = "a flight needing somebody",
                     Reason = QueueReason.AwaitingDecision,
                     Since = T0,

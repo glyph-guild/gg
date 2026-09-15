@@ -189,6 +189,15 @@ public static class ConsoleStart
             var allowances = OwnFailureAsync(
                 "allowances", ct => data.AllowancesAsync(ct), partial, cancellationToken);
 
+            // AND WHAT HAS BEEN NOMINATED, on its own failure for the
+            // allowances' reason exactly: a control plane one version behind
+            // serves no board route at all, and the console must open against
+            // one. What a person loses is the queue's nomination rows; what
+            // they would lose otherwise is the console.
+            var nominated = OwnFailureAsync(
+                "the board", ct => data.BoardAsync(cancellationToken: ct),
+                partial, cancellationToken);
+
             // AND WHAT THIS MACHINE'S HEALTH IS, on its own failure like the
             // three above it. A console whose doctor could not run must still
             // open - the page says it has no report, which is a different fact
@@ -293,7 +302,10 @@ public static class ConsoleStart
                 }
             }
 
-            var queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value, gates);
+            var board = await nominated is VerbResult.Board standing ? standing.Value : null;
+
+            var queue = ConsoleProjection.Queue(
+                flights.Value, logs, runners.Value, gates, board);
 
             // THE PRINCIPAL AND THE SEED, which is what makes the takeover key do
             // anything. Before this, ConsoleStart returned a queue and nothing
@@ -320,18 +332,28 @@ public static class ConsoleStart
             // queue's rows pose. One read for one row: a read per row would be a
             // request per row on every load, and reading on the arrow key would be
             // I/O inside a UI session.
-            var seeding = selected is null
+            // AND ALL THREE ARE ABOUT A FLIGHT, so a row that is not one fetches
+            // NOTHING. The queue's other kind of row is a standing nomination:
+            // it has no takeover seed, no obligations to be stopped on and no
+            // story, because it has no flight - having none yet is the whole
+            // point of one. Reading against a blank reference would be three
+            // requests for a flight that does not exist, and the console would
+            // report their failure as a partial read rather than as a row that
+            // was never going to have them.
+            var selectedFlight = selected?.FlightNumber;
+
+            var seeding = selectedFlight is null
                 ? Task.FromResult<VerbResult?>(null)
                 : OwnFailureAsync(
                     "the takeover seed",
-                    ct => data.SeedAsync(selected.FlightNumber, ct),
+                    ct => data.SeedAsync(selectedFlight, ct),
                     partial,
                     cancellationToken);
 
-            var reason = selected is null
+            var reason = selectedFlight is null
                 ? Task.FromResult<VerbResult?>(null)
                 : OwnFailureAsync(
-                    "why", ct => data.WhyAsync(selected.FlightNumber, null, ct),
+                    "why", ct => data.WhyAsync(selectedFlight, null, ct),
                     partial, cancellationToken);
 
             // AND THE STORY THE PANE DRAWS. One read for one row, for the same
@@ -339,10 +361,10 @@ public static class ConsoleStart
             // pane's content has ever had: nothing in the console called
             // `ShowAsync`, so every line below the log came from a field
             // production never filled.
-            var story = selected is null
+            var story = selectedFlight is null
                 ? Task.FromResult<VerbResult?>(null)
                 : OwnFailureAsync(
-                    "story", ct => data.StoryAsync(selected.FlightNumber, ct),
+                    "story", ct => data.StoryAsync(selectedFlight, ct),
                     partial, cancellationToken);
 
             await Task.WhenAll(seeding, reason, story);

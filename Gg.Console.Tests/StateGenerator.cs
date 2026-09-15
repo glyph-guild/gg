@@ -173,6 +173,8 @@ internal static class StateGenerator
     private static QueueRow NextRow(Random random) => new()
     {
         FlightId = NextId(random),
+        Key = NextId(random),
+        Reference = FlightRef.Format(random.Next(1, 9999)),
         FlightNumber = FlightRef.Format(random.Next(1, 9999)),
         Name = NextText(random),
         Reason = Pick(random, Enum.GetValues<QueueReason>()),

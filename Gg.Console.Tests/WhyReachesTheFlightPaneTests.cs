@@ -106,7 +106,7 @@ public class WhyReachesTheFlightPaneTests
         var rows = new[] { "a", "b" }.Select((id, at) => new QueueRow
         {
             FlightId = id,
-            FlightNumber = FlightRef.Format(at + 1),
+            FlightNumber = FlightRef.Format(at + 1), Key = id, Reference = FlightRef.Format(at + 1),
             Name = $"flight {id}",
             Reason = QueueReason.AwaitingDecision,
             Since = T0,
@@ -123,8 +123,12 @@ public class WhyReachesTheFlightPaneTests
 
     private static FlightSummary Summary(QueueRow row) => new()
     {
-        FlightId = row.FlightId,
-        FlightNumber = row.FlightNumber,
+        // THE ROW'S FLIGHT, and it fails loudly rather than substituting a
+        // blank: a queue row's flight became optional when the queue learned
+        // to hold a standing nomination, and every row in this fixture is a
+        // flight, so an absence is a broken fixture rather than a state.
+        FlightId = row.FlightId ?? throw new InvalidOperationException("no flight id"),
+        FlightNumber = row.FlightNumber ?? throw new InvalidOperationException("no number"),
         Name = row.Name,
         Intent = new FlightIntent { Kind = FlightIntentKinds.Text, Text = "why" },
         CreatedAt = T0,

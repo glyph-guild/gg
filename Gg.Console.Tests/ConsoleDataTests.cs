@@ -579,7 +579,7 @@ public class ConsoleDataTests
             .Select(i => new QueueRow
             {
                 FlightId = $"f{i}",
-                FlightNumber = FlightRef.Format(i),
+                FlightNumber = FlightRef.Format(i), Key = $"f{i}", Reference = FlightRef.Format(i),
                 Name = $"n{i}",
                 Reason = QueueReason.RunnerOffline,
                 Since = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero),

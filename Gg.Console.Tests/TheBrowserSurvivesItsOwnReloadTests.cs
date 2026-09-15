@@ -42,7 +42,7 @@ public class TheBrowserSurvivesItsOwnReloadTests
             new QueueRow
             {
                 FlightId = "f-1",
-                FlightNumber = "gg-1",
+                FlightNumber = "gg-1", Key = "f-1", Reference = "gg-1",
                 Name = "something the boot found",
                 Reason = QueueReason.AwaitingDecision,
                 Since = DateTimeOffset.UnixEpoch,

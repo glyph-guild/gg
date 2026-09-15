@@ -132,12 +132,19 @@ public static class ConsoleRefresh
         var listing = data.ListAsync(cancellationToken);
         var fleet = data.RunnersAsync(cancellationToken);
         var waiting = data.GatesAsync(cancellationToken);
+        // AND WHAT HAS NOT STARTED, in the same round as the three above it.
+        // The queue is derived and its inputs travel together: folding a new
+        // board against a flight list from a different moment would leave rows
+        // explained by an answer that has moved, which is this method's own
+        // rule one read over.
+        var nominated = data.BoardAsync(cancellationToken: cancellationToken);
 
-        await Task.WhenAll(listing, fleet, waiting);
+        await Task.WhenAll(listing, fleet, waiting, nominated);
 
         var flights = (VerbResult.Flights)await listing;
         var runners = (VerbResult.Runners)await fleet;
         var gates = await waiting is VerbResult.Gates open ? open.Value : null;
+        var board = await nominated is VerbResult.Board standing ? standing.Value : null;
 
         // A LOG FOR EVERY FLIGHT STILL FLYING, as at boot and for the same
         // reason: those are the only ones whose log can put a row in the queue.
@@ -180,7 +187,8 @@ public static class ConsoleRefresh
 
             return Reducer.Detail(folded with
             {
-                Queue = ConsoleProjection.Queue(flights.Value, logs, runners.Value, gates),
+                Queue = ConsoleProjection.Queue(
+                    flights.Value, logs, runners.Value, gates, board),
                 Gates = gates,
                 Logs = logs,
             });

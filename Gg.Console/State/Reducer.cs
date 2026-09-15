@@ -689,7 +689,15 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.Selected is not { } row)
+        // A ROW THAT IS NOT A FLIGHT TAKES THE SAME PATH AS NO ROW AT ALL, and
+        // that is the whole of this method's answer to the queue's other kind
+        // of row. Every field below is about a flight - the summary, the log,
+        // the attribution, the story - and a standing nomination has none of
+        // them, so the honest state is the cleared one. Leaving the previous
+        // row's four fields standing is exactly the defect the story taught
+        // this method: a pane going on describing something the cursor had
+        // already left.
+        if (state.Selected is not { FlightId: { } flightId } row)
         {
             // AND THE STORY, which was the field this forgot. Approving the
             // last waiting decision empties the queue, and the pane beside it
@@ -708,8 +716,8 @@ public static class Reducer
         return state with
         {
             Flight = state.Flights?.Flights.FirstOrDefault(f =>
-                string.Equals(f.FlightId, row.FlightId, StringComparison.Ordinal)),
-            FlightLog = state.Logs.TryGetValue(row.FlightId, out var log) ? log : null,
+                string.Equals(f.FlightId, flightId, StringComparison.Ordinal)),
+            FlightLog = state.Logs.TryGetValue(flightId, out var log) ? log : null,
 
             // KEPT ONLY WHILE IT IS ABOUT THIS ROW. Unlike the two above, an
             // attribution is not held per flight anywhere - it is read for the
@@ -788,15 +796,20 @@ public static class Reducer
     /// </remarks>
     private static AppState RecordAttach(AppState state, bool attached)
     {
-        if (state.Selected is not { } row)
+        // A NOMINATION CANNOT BE WATCHED, so there is no fact to write. The
+        // live pane tails a flight's output and a standing nomination has no
+        // flight - so a fact keyed on a blank id would be one row that every
+        // unwatchable row shared, and the count on it would be a count of
+        // nothing anybody watched.
+        if (state.Selected is not { FlightId: { } flightId })
         {
             return state;
         }
 
-        var existing = state.AttachFacts.FirstOrDefault(f => f.FlightId == row.FlightId);
+        var existing = state.AttachFacts.FirstOrDefault(f => f.FlightId == flightId);
         var updated = new LiveAttachFact
         {
-            FlightId = row.FlightId,
+            FlightId = flightId,
             Attached = attached,
             AttachCount = (existing?.AttachCount ?? 0) + (attached ? 1 : 0),
         };
@@ -805,7 +818,7 @@ public static class Reducer
         {
             AttachFacts = existing is null
                 ? [.. state.AttachFacts, updated]
-                : [.. state.AttachFacts.Select(f => f.FlightId == row.FlightId ? updated : f)],
+                : [.. state.AttachFacts.Select(f => f.FlightId == flightId ? updated : f)],
         };
     }
 

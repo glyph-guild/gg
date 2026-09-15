@@ -297,7 +297,7 @@ public class TheSignInModalReadsTests
                 new QueueRow
                 {
                     FlightId = "019fe815-6136-7518-bb57-b06d6d3f411a",
-                    FlightNumber = "GG-118",
+                    FlightNumber = "GG-118", Key = "019fe815-6136-7518-bb57-b06d6d3f411a", Reference = "GG-118",
                     Name = "the login form loses focus",
                     Reason = QueueReason.AwaitingDecision,
                     Since = DateTimeOffset.UnixEpoch,

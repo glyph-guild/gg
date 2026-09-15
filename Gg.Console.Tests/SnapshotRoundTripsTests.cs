@@ -54,7 +54,7 @@ public class SnapshotRoundTripsTests
         [
             new QueueRow
             {
-                FlightId = "a", FlightNumber = FlightRef.Format(1), Name = "waiting",
+                FlightId = "a", FlightNumber = FlightRef.Format(1), Key = "a", Reference = FlightRef.Format(1), Name = "waiting",
                 Reason = QueueReason.AwaitingDecision,
                 Since = new DateTimeOffset(2026, 9, 5, 9, 0, 0, TimeSpan.Zero),
             },

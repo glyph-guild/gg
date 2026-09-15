@@ -51,6 +51,8 @@ public class TheStoryBelongsToItsRowTests
     private static QueueRow ARow(string number) => new()
     {
         FlightId = "01a08431-a096-72cf-8c8f-55ed2233f2f8",
+        Key = "01a08431-a096-72cf-8c8f-55ed2233f2f8",
+        Reference = number,
         FlightNumber = number,
         Name = "register names",
         Reason = QueueReason.AwaitingDecision,

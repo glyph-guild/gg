@@ -1137,6 +1137,7 @@ public sealed class ClaudeCodeExecutor(
             // answering a question nobody asked. Many rather than one, because
             // a triage's whole product is a dozen of them.
             Proposals = TranscriptDigest.Proposals(transcript.ToString()),
+            Landing = TranscriptDigest.Landing(transcript.ToString()),
             // BESIDE THE OUTCOME, not inside it. A run that asked and then went
             // on to finish carries both a question and `completed`: asking and
             // finishing are two facts, not one state.

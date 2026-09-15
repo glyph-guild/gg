@@ -383,6 +383,13 @@ public static class PlatformToolServer
                 Nomination(writer);
                 Decision(writer);
                 Proposal(writer);
+
+                // A FOURTH, AND THE ENVELOPE STILL DECIDES. Offered to every
+                // fleet flight for the reason the three above it are: the
+                // launch grants tools one move at a time, and a tool offered
+                // but not granted is one the agent cannot call. Withholding it
+                // here instead would put half the grant in this file.
+                Landing(writer);
             }
 
             writer.WriteEndArray();
@@ -709,6 +716,60 @@ public static class PlatformToolServer
         // will either retry it or stop.
     }
 
+    /// <summary>Declares <c>LandingProposalTool</c>.</summary>
+    /// <remarks>
+    /// <b>SAY IT ONCE AND STOP</b>, which is the half of the wording that
+    /// matters: a title is one thing, so an agent that calls this repeatedly is
+    /// reconsidering, and only the last answered call is read. Said plainly
+    /// here because the extractor cannot make an agent's intent out of three
+    /// calls, and silently keeping the last would look like the first two were
+    /// lost.
+    /// </remarks>
+    private static void Landing(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", LandingProposalTool.Name);
+        writer.WriteString("description",
+            "Say what the pull request this flight opens should be called. Call it ONCE, "
+          + "near the end, when you know what you changed - calling it again replaces "
+          + "what you said, and only the last one is read. It opens nothing and grants "
+          + "nothing: whether this flight lands at all is decided elsewhere, and if it "
+          + "does not, what you said here is recorded and unused. If you are not asked "
+          + "for a particular style, name the CHANGE rather than the ticket, in the "
+          + "imperative, as a person reviewing a list of thirty would want to read it.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+
+        writer.WriteStartObject(LandingProposalTool.TitleArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "One line, at most "
+          + Gg.Contracts.LandingProposal.MaxTitle.ToString(
+                System.Globalization.CultureInfo.InvariantCulture)
+          + " characters. It is refused rather than shortened for you, so a title that "
+          + "does not fit comes back and you write a shorter one.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(LandingProposalTool.DescriptionArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "What the proposal should say beyond its title, or leave it out. The branch "
+          + "and the work item are already written there, so repeating them is noise - "
+          + "and a description you were not asked for and have nothing to put in is "
+          + "padding under your name.");
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(LandingProposalTool.TitleArgument);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+    }
+
     /// <summary>Declares <c>WorkItemProposalTool</c>.</summary>
     private static void Proposal(Utf8JsonWriter writer)
     {
@@ -870,6 +931,11 @@ public static class PlatformToolServer
         if (string.Equals(called, WorkItemProposalTool.Name, StringComparison.Ordinal))
         {
             return Proposed(id, arguments);
+        }
+
+        if (string.Equals(called, LandingProposalTool.Name, StringComparison.Ordinal))
+        {
+            return Named(id, arguments);
         }
 
         // NOT AN UNKNOWN-TOOL ARM, deliberately. The nomination tool is what
@@ -1634,6 +1700,41 @@ public static class PlatformToolServer
           + $"that may only `{Gg.Contracts.WorkItemOperations.Score}` is valid, applies, "
           + "and writes somewhere you did not choose.");
         said.AppendLine();
+    }
+
+    /// <summary>
+    /// Takes a proposed landing, or refuses it with a sentence the agent can act
+    /// on.
+    /// </summary>
+    /// <remarks>
+    /// <b>The contract decides, here and in the extractor, and that is one
+    /// definition rather than two.</b> A title this refuses never becomes an
+    /// answered call, which is what makes the extractor's throw mean what it
+    /// says: an answered call carrying a bad payload did not come from this
+    /// server.
+    /// </remarks>
+    private static string Named(JsonElement id, JsonElement arguments)
+    {
+        var proposal = new Gg.Contracts.LandingProposal
+        {
+            Title = Text(arguments, LandingProposalTool.TitleArgument) ?? "",
+            Description = Text(arguments, LandingProposalTool.DescriptionArgument),
+        };
+
+        if (Gg.Contracts.LandingProposal.Validate(proposal) is { } refused)
+        {
+            // AN ERROR RESULT RATHER THAN A PROTOCOL ERROR, on the nomination's
+            // terms: the call reached the tool and the tool refused it, which is
+            // something the agent can read and fix.
+            return Content(id, isError: true, $"Refused: {refused} Nothing was recorded.");
+        }
+
+        // ECHOED BACK, so an agent can see what was taken rather than assume its
+        // own spelling survived.
+        return Content(id, isError: false,
+            $"Recorded: \"{proposal.Title}\". This opens nothing - whether this flight "
+          + "lands is decided elsewhere. Do not call this again unless you are changing "
+          + "what it should be called.");
     }
 
     /// <summary>A closed list, as "a or b" rather than as a bare enumeration.</summary>

@@ -26,10 +26,11 @@ namespace Gg.Runner.Vcs;
 /// number on it, so the marker comes off and the first sentence is taken.
 /// </para>
 /// <para>
-/// <b>And it is still a fallback.</b> A sentence cut out of a summary is better
-/// than a verdict and it is not a title the agent chose. What it buys is that
-/// the cheapest tier is honest while the deliberate one - a move, a tool, and a
-/// proposal in the record - is built.
+/// <b>Three tiers now, and the top one is the point.</b> An agent granted
+/// <c>propose-landing</c> states a title through this platform's own tool, and
+/// that is what a person reads. The account below it is what a flight gets when
+/// the envelope withheld the move or the agent never called it - better than a
+/// verdict, and still whatever the agent happened to write first.
 /// </para>
 /// </remarks>
 public static class LandingTitle
@@ -58,8 +59,28 @@ public static class LandingTitle
     /// <param name="flightNumber">What ties the proposal back to a record.</param>
     /// <param name="runReason">The agent's own account, or null when no loop ran.</param>
     /// <param name="fallback">The admission's sentence: poor, and never false.</param>
-    public static string For(string flightNumber, string? runReason, string fallback)
+    /// <param name="proposed">
+    /// What the agent asked for through the tool, or null when it was not
+    /// granted the move or never called it.
+    /// </param>
+    /// <remarks>
+    /// <b>The flight number leads all three.</b> An agent asked for wording, not
+    /// for the record - and a proposal nobody can trace back to a flight is a
+    /// branch nobody will ever delete.
+    /// </remarks>
+    public static string For(
+        string flightNumber, string? runReason, string fallback,
+        Gg.Contracts.LandingProposal? proposed = null)
     {
+        // WHAT THE AGENT CHOSE, and the contract has already refused anything
+        // that is not a title - one line, bounded, not blank - before it could
+        // reach here, because the extractor throws on an answered call carrying
+        // one the contract refuses.
+        if (proposed?.Title is { Length: > 0 } stated)
+        {
+            return $"{flightNumber}: {stated.Trim()}";
+        }
+
         var said = Sentence(runReason);
 
         return $"{flightNumber}: {(said is { Length: > 0 } ? said : fallback)}";

@@ -58,6 +58,9 @@ public abstract record FactPayload
     /// </remarks>
     public sealed record Proposal(WorkItemProposal Value) : FactPayload;
 
+    /// <summary>What an agent asked its own proposal be called.</summary>
+    public sealed record ProposedLanding(LandingProposal Value) : FactPayload;
+
     /// <summary>A question an agent could not answer from the work itself.</summary>
     public sealed record Question(LoopQuestion Value) : FactPayload;
 
@@ -118,6 +121,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(LoopDigest))]
 [JsonSerializable(typeof(WorkItemProposal))]
+[JsonSerializable(typeof(LandingProposal))]
 [JsonSerializable(typeof(FactEnvelope))]
 internal sealed partial class FactJsonContext : JsonSerializerContext;
 
@@ -234,6 +238,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Proposal = proposal.Value,
+                },
+
+                FactPayload.ProposedLanding proposed => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Landing = proposed.Value,
                 },
 
                 FactPayload.Landing landing => new FactEnvelope
@@ -411,6 +424,10 @@ public static class FactPipeline
         FactPayload.Attended attended => (
             FactKinds.LoopAttended,
             JsonSerializer.Serialize(attended.Value, FactJsonContext.Default.LoopAttended)),
+        FactPayload.ProposedLanding proposed => (
+            FactKinds.LandingProposal,
+            JsonSerializer.Serialize(proposed.Value, FactJsonContext.Default.LandingProposal)),
+
         FactPayload.Landing landing => (
             FactKinds.DestinationLanded,
             JsonSerializer.Serialize(landing.Value, FactJsonContext.Default.DestinationLanded)),

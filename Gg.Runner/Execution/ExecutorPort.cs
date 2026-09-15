@@ -432,6 +432,18 @@ public sealed record ExecutorRun
     public IReadOnlyList<Gg.Contracts.WorkItemProposal> Proposals { get; init; } = [];
 
     /// <summary>
+    /// What the agent asked its own proposal be called, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONE, where the list above it is many.</b> A backlog takes a dozen
+    /// proposals a person answers separately; a pull request has one title, so
+    /// an agent that called twice reconsidered and the last answered call is
+    /// what it meant. Null for every flight whose envelope withholds the move,
+    /// which is all of them until somebody grants it.
+    /// </remarks>
+    public Gg.Contracts.LandingProposal? Landing { get; init; }
+
+    /// <summary>
     /// What this run asked a person, when it asked anything.
     /// </summary>
     /// <remarks>

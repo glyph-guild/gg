@@ -1,6 +1,7 @@
 using Gg.Contracts;
 using Gg.Local;
 using Gg.Runner.Execution;
+using Gg.Runner.Facts;
 using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
@@ -108,6 +109,54 @@ public class AProposedLandingReachesTheProposalTests
         // not grant the move. Null rather than a default: a title nobody
         // proposed must fall through to what the landing composes.
         await Assert.That(TranscriptDigest.Landing("")).IsNull();
+    }
+
+    [Test]
+    public async Task It_survives_the_pipeline_that_ships_it()
+    {
+        // THE FALL-THROUGH THIS REPOSITORY HAS ALREADY BEEN BITTEN BY. Every
+        // payload passes a hygiene switch with a throwing default - deliberately,
+        // because a compile error is not available for a switch over a hierarchy
+        // - and a fact type added without an arm crashes the runner mid-flight
+        // rather than failing a build. That happened with the work-item proposal
+        // and cost a flight and a diagnosis; nothing catches it but a test that
+        // puts the payload through.
+        var batch = FactPipeline.Digest(
+            FactHygiene.Clean(new GatheredFacts(
+                [new FactPayload.ProposedLanding(new LandingProposal
+                {
+                    Title = "Remove the residual explicit local",
+                    Description = "It came in after the sweep.",
+                })])),
+            flightId: "01a0a21e-edcb-70ea-b971-03228c1a296f",
+            observedAt: DateTimeOffset.UnixEpoch);
+
+        var shipped = batch.Items.Single();
+
+        await Assert.That(shipped.Kind).IsEqualTo(FactKinds.LandingProposal);
+        await Assert.That(shipped.Landing!.Title)
+            .IsEqualTo("Remove the residual explicit local");
+        await Assert.That(shipped.Landing!.Description).IsEqualTo("It came in after the sweep.");
+        await Assert.That(FactEnvelope.Validate(shipped)).IsNull();
+    }
+
+    [Test]
+    public async Task A_control_sequence_does_not_reach_the_record()
+    {
+        // WHAT THE HYGIENE PASS IS FOR. A title is written by an agent and read
+        // by a person, in a terminal, out of a record somebody pastes into a
+        // ticket. Stripping is not deleting - what was written survives and the
+        // escape does not.
+        var batch = FactPipeline.Digest(
+            FactHygiene.Clean(new GatheredFacts(
+                [new FactPayload.ProposedLanding(new LandingProposal
+                {
+                    Title = "Remove \u001b[31mthe\u001b[0m residual",
+                })])),
+            flightId: "01a0a21e-edcb-70ea-b971-03228c1a296f",
+            observedAt: DateTimeOffset.UnixEpoch);
+
+        await Assert.That(batch.Items.Single().Landing!.Title).DoesNotContain("\u001b");
     }
 
     [Test]

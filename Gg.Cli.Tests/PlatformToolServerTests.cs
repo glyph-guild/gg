@@ -369,11 +369,13 @@ public class PlatformToolServerTests
             .IsEquivalentTo((string[])
             [
                 HelpTool.Name, NominationTool.Name, WorkItemProposalTool.Name,
+                LandingProposalTool.Name,
             ])
             .Because("a flight nominates a work kind, asks a person for a decision it may "
-                   + "not make, and proposes work items. The envelope decides which of "
-                   + "those it is granted; the server should not be offering it two more "
-                   + "that belong to the console.");
+                   + "not make, proposes work items, and says what the proposal it opens "
+                   + "should be called. The envelope decides which of those it is granted; "
+                   + "the server should not be offering it two more that belong to the "
+                   + "console.");
     }
 
     [Test]
@@ -556,26 +558,60 @@ public class PlatformToolServerTests
         // refusal is what makes the grant affordable, and the description says
         // so before an agent hits it.
         //
+        // THE EIGHTH, AND HERE IS THE ARGUMENT THE COUNT ASKED FOR.
+        // `propose_landing` is granted the way the fourth is - by a declared
+        // move, LoopMoves.ProposeLanding, whole and by name - so it extends no
+        // pattern and reuses one, which is the same answer the fourth gave and
+        // for the same reason: widening `propose-work-item` to grant both would
+        // retroactively change what every envelope already declaring it
+        // permits.
+        //
+        // WHAT MAKES IT AFFORDABLE is the fourth's property again, and more
+        // plainly. It records a title and answers that it did. It opens
+        // nothing, decides nothing, and reaches nothing - admission still
+        // decides whether the flight lands at all, and a flight refused at the
+        // gate has its proposed title recorded and unused. So it is one more
+        // thing an injected agent can reach and it is not one more thing an
+        // injected agent can DO.
+        //
+        // WHY IT HAD TO EXIST AT ALL, which is the half the count is really
+        // asking about. Without it the runner names a pull request by cutting a
+        // sentence out of the agent's closing prose, and the rung below that
+        // was worse: pull request 8629 was called "GG-118: Destination
+        // 'pull-request' requires 'in-scope', and it holds." - an obligation
+        // verdict written for an audit trail, used as a title because it was
+        // the nearest string in scope. The alternative considered first was a
+        // convention inside the summary, and this repository has the evidence
+        // against it: a CONSIDERED: line has been asked for in an airspace
+        // document for weeks, is cut by the reason's own first-paragraph rule
+        // before it reaches a fact, and is read by nothing on either side. An
+        // instruction changes what an agent WRITES; only a move changes what is
+        // READ.
+        //
+        // A NINTH NEEDS A BETTER ARGUMENT THAN THIS ONE HAD, because this one
+        // leans on an existing grant term and an existing safety property and
+        // adds neither.
+        //
         // COUNTED ACROSS THE THREE SHAPES, because no session is offered all
-        // seven any more: a tool a session cannot use is a wrong answer
+        // eight any more: a tool a session cannot use is a wrong answer
         // somebody has to be talked out of, and one was. The total is still
         // what an eighth has to argue against - the argument is about adding a
         // tool to this server, not about which session sees it.
-        // AN EIGHTH still has to make its own argument. None of these seven is it.
+        // A NINTH still has to make its own argument. None of these eight is it.
         var listed = (await OfferedAsync(intentPath: null, documentRoot: "/tmp/tree"))
             .Concat(await OfferedAsync(intentPath: "/tmp/intent", documentRoot: null))
             .Concat(await OfferedAsync(intentPath: null, documentRoot: null))
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(listed.Count).IsEqualTo(7)
-            .Because("one channel, seven tools. An eighth is a decision somebody has to "
-                   + "argue for, in this comment, where the last five were argued for. "
+        await Assert.That(listed.Count).IsEqualTo(8)
+            .Because("one channel, eight tools. A ninth is a decision somebody has to "
+                   + "argue for, in this comment, where the last six were argued for. "
                    + "And each appears in exactly one shape, or a session is being offered "
                    + "something it cannot do. Found: " + string.Join(", ", listed));
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
-                    WorkItemProposalTool.Name, DocumentTool.Name,
+                    WorkItemProposalTool.Name, LandingProposalTool.Name, DocumentTool.Name,
                     AirspaceContextTool.Name, AirspacePullTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));

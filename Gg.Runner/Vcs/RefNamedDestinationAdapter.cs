@@ -195,7 +195,11 @@ public sealed class RefNamedDestinationAdapter(string provider, string host, Htt
     /// mail everybody gets.
     /// </remarks>
     private static string Describing(LandingRequest request) =>
-        $"Opened by a governed flight. Branch `{request.Branch}`."
+        // THE AGENT'S FIRST, because it is the part a reviewer reads. What this
+        // platform says about the branch and the work item is bookkeeping and
+        // belongs under it.
+        (request.Description is { Length: > 0 } said ? said + "\n\n" : "")
+      + $"Opened by a governed flight. Branch `{request.Branch}`."
       + (request.Intent?.Uri is { Length: > 0 } uri ? $"\n\nFor {uri}" : "");
 
     /// <summary>The clone url this provider takes, without a <c>.git</c> suffix.</summary>

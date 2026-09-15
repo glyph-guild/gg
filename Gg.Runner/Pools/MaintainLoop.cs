@@ -74,6 +74,9 @@ public sealed class MaintainLoop(
     /// <summary>Whether the control plane has settled that this one may not be renewed.</summary>
     private bool _credentialIsNotRenewable;
 
+    /// <summary>How this machine's credential ended, once a 401 says one has.</summary>
+    private CredentialEnding? _endedCredential;
+
     /// <summary>
     /// How close to the end is close enough to ask.
     /// </summary>
@@ -191,6 +194,30 @@ public sealed class MaintainLoop(
                 _narrate(
                     $"{refused.Message} Asking again in {_backoff.TotalSeconds:0}s.");
             }
+            catch (HttpRequestException refused)
+                when (refused.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                // THE ONE REFUSAL THAT IS NOT WORTH WAITING FOR, and the reason
+                // this catch sits above the transient one rather than inside it.
+                // A 401 is this machine's credential; no deploy finishes and
+                // heals it. It used to leave here unhandled, which on a pool
+                // host is a stack trace in a journal with the process gone -
+                // and what stops is not one runner's work but every environment
+                // on the host staying warm.
+                //
+                // NOTHING IS ATTESTED. The broken-bound refusal above does
+                // attest before exiting, because escalation reads the ledger
+                // and its credential is fine - only the scope is broken. An
+                // attestation travels on the credential that was just refused,
+                // so the ledger is not a place this one can be said; the
+                // journal is, and a pool host is a machine whose journal
+                // somebody reads.
+                _endedCredential = CredentialEnding.For(
+                    _credentialExpiresAt, _clock.UtcNow, refused);
+
+                _narrate(_endedCredential.Said);
+                break;
+            }
             catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
             {
                 // THE CONTROL PLANE'S PROBLEM, NOT THIS MACHINE'S. A deploy, a
@@ -216,7 +243,10 @@ public sealed class MaintainLoop(
             }
         }
 
-        return 0;
+        // Cancellation is still a session that ended; a credential that was
+        // taken away is not, and the code says which without anybody parsing
+        // the sentence.
+        return _endedCredential?.Exit ?? 0;
     }
 
     /// <summary>

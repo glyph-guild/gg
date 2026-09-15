@@ -882,7 +882,8 @@ public sealed class RunnerLoop(
             // 401, so this does not retry and does not back off. What is new is
             // that it is a DIAGNOSIS rather than a trace, and that the two
             // reasons a 401 arrives are told apart.
-            _endedCredential = Ending(refused);
+            _endedCredential = CredentialEnding.For(
+                _credentialExpiresAt, _clock.UtcNow, refused);
 
             _observer.ControlPlaneRefused(_endedCredential.Said, TimeSpan.Zero);
         }
@@ -895,62 +896,6 @@ public sealed class RunnerLoop(
 
     /// <summary>How this runner's credential ended, once one has.</summary>
     private CredentialEnding? _endedCredential;
-
-    /// <summary>What a 401 means, given what this runner knows about its own credential.</summary>
-    /// <param name="Said">The sentence, for whoever reads the log.</param>
-    /// <param name="Exit">
-    /// Zero only for an ordinary ending, so a restart policy and a pool can
-    /// tell one from a machine that broke.
-    /// </param>
-    private sealed record CredentialEnding(string Said, int Exit);
-
-    /// <summary>
-    /// Which of the two things a 401 is.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>PAST ITS OWN EXPIRY IS THE DESIGN WORKING.</b> A member's credential
-    /// is deliberately short - <i>"reset is only a boundary if the credential
-    /// dies with the container"</i> - so a member reaching the end of one did
-    /// exactly what it was built to do. Exiting non-zero there would make a
-    /// restart policy fight the design.
-    /// </para>
-    /// <para>
-    /// <b>BEFORE IT, SOMEBODY ACTED.</b> A revocation or a retirement is a
-    /// person removing this machine, and that is the case the original rule was
-    /// written for. It still leaves loudly, because a tidy silent exit would
-    /// retire a runner nobody meant to retire.
-    /// </para>
-    /// <para>
-    /// <b>AND UNKNOWN IS NEITHER</b>, which is <c>ScopeProbe</c>'s rule one
-    /// concern over: <i>"unknown is not false."</i> A runner carrying no
-    /// recorded expiry - every runner registered before this member existed -
-    /// must not have the end of its credential inferred, because inferring
-    /// "expired" would make a revocation exit 0 and disappear.
-    /// </para>
-    /// </remarks>
-    private CredentialEnding Ending(HttpRequestException refused) =>
-        _credentialExpiresAt switch
-        {
-            { } ends when ends <= _clock.UtcNow => new CredentialEnding(
-                "this runner's credential expired at "
-              + $"{ends:yyyy-MM-dd HH:mm}Z and a runner token cannot be renewed in flight. "
-              + "Nothing is wrong: a machine whose credential is sized to its life has "
-              + "reached the end of one.", 0),
-
-            { } ends => new CredentialEnding(
-                "this runner's credential was refused although it does not expire until "
-              + $"{ends:yyyy-MM-dd HH:mm}Z, so it was revoked or this runner was retired. "
-              + "No waiting fixes that.", 75),
-
-            // NOT GUESSED. Said as what it is - a 401 this runner cannot
-            // explain - so a reader is told the platform does not know rather
-            // than told a guess.
-            null => new CredentialEnding(
-                $"the control plane refused this runner's credential (401) and this runner "
-              + "has no recorded expiry, so whether it ended or was taken away is not "
-              + $"known here: {refused.Message}", 75),
-        };
 
     /// <summary>Whether a session's probe found the bound broken.</summary>
     private bool _boundBroke;

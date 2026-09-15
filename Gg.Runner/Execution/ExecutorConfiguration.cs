@@ -27,8 +27,13 @@ namespace Gg.Runner.Execution;
 /// </remarks>
 public static class ExecutorConfiguration
 {
-    /// <summary>Where the agent binary is, when this machine has one.</summary>
-    public const string BinaryVariable = "GG_EXECUTOR_BINARY";
+    /// <summary>Which agent this machine has and where, when it has one.</summary>
+    /// <remarks>
+    /// Spelled in <see cref="ExecutorDeclaration"/>, which is also what parses
+    /// it: a bare path is claude, <c>agent=path</c> names one, and the doctor
+    /// reads it through the same parser from a project that cannot see this one.
+    /// </remarks>
+    public const string BinaryVariable = ExecutorDeclaration.Variable;
 
     /// <summary>The executor this machine is configured for, or null for none.</summary>
     /// <remarks>
@@ -40,9 +45,17 @@ public static class ExecutorConfiguration
     public static IExecutorPort? FromEnvironment(
         IReadOnlyList<IntentReader>? readers = null,
         Func<string, string?>? secretFor = null) =>
-        Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
+        // THE CHOICE IS MADE HERE, IN THE DEFAULT, which is where the vcs and
+        // destination seams learned it has to be: "the adapterFor parameter
+        // was passed only from tests, which is the same bug one layer up".
+        // ExecutorDeclaration.Known has one member, so this is not a switch
+        // yet - and the day it is, the second arm is here rather than in a
+        // caller that assumed the first.
+        ExecutorDeclaration.ParseOrNull(
+            Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable)
+            is { } declared
             ? new ClaudeCodeExecutor(
-                binary,
+                declared.Binary,
                 readers ?? IntentConfiguration.FromEnvironment(),
                 secretFor,
                 // THE ONE PLACE, again. How this process re-execs itself is a

@@ -102,8 +102,15 @@ public sealed class AllowanceReporter(
             AllowanceMeter.Read(AllowanceMeter.DefaultPath()),
             DateTimeOffset.UtcNow,
             ct => MeterAsk.RefreshAsync(
-                Environment.GetEnvironmentVariable(
-                    Execution.ExecutorConfiguration.BinaryVariable),
+                // THROUGH THE ONE PARSER. This took the variable as a bare
+                // path, so a keyed entry would have reached MeterAsk as a
+                // file called 'claude=/…' that does not exist - and a member
+                // that never refreshes its meter looks exactly like one whose
+                // meter is current.
+                Gg.Local.ExecutorDeclaration.ParseOrNull(
+                    Environment.GetEnvironmentVariable(
+                        Execution.ExecutorConfiguration.BinaryVariable),
+                    Execution.ExecutorConfiguration.BinaryVariable)?.Binary,
                 ct),
             cancellationToken: cancellationToken);
 

@@ -60,6 +60,10 @@ public class WorkItemToolServerTests
         public Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
             string id, CancellationToken token) =>
             Task.FromResult<IReadOnlyList<WorkItemChange>>([]);
+
+        public Task<IReadOnlyList<WorkItemField>> FieldsAsync(
+            string id, CancellationToken token) =>
+            Task.FromResult<IReadOnlyList<WorkItemField>>([]);
     }
 
     /// <summary>A source that answers one row and remembers what it was asked.</summary>
@@ -81,6 +85,10 @@ public class WorkItemToolServerTests
         public Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
             string id, CancellationToken token) =>
             Task.FromResult<IReadOnlyList<WorkItemChange>>([]);
+
+        public Task<IReadOnlyList<WorkItemField>> FieldsAsync(
+            string id, CancellationToken token) =>
+            Task.FromResult<IReadOnlyList<WorkItemField>>([]);
 
         public Task<WorkItemFacets> FacetsAsync(CancellationToken token) =>
             Task.FromResult(new WorkItemFacets(

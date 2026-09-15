@@ -87,11 +87,21 @@ public class TheWorkItemModalIsTabbedTests
         await Assert.That(Reducer.Reduce(details, Command.NextWorkItemTab).WorkItemTab)
             .IsEqualTo(WorkItemTab.History);
 
+        // THREE NOW, NOT TWO. The inventory of every field the tracker sent is
+        // the third question this modal answers, so the one key that cycles it
+        // reaches it - a tab a key cannot arrive at is a tab nobody finds.
         var history = details with { WorkItemTab = WorkItemTab.History };
 
         await Assert.That(Reducer.Reduce(history, Command.NextWorkItemTab).WorkItemTab)
+            .IsEqualTo(WorkItemTab.Fields);
+
+        var fields = details with { WorkItemTab = WorkItemTab.Fields };
+
+        await Assert.That(Reducer.Reduce(fields, Command.NextWorkItemTab).WorkItemTab)
             .IsEqualTo(WorkItemTab.Details)
-            .Because("a person who overshoots with no way back is a person stuck in a modal.");
+            .Because("a person who overshoots with no way back is a person stuck in a modal - "
+                   + "which is why the cycle wraps, and the only thing a third tab changes is "
+                   + "where it wraps from.");
     }
 
     [Test]

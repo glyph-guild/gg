@@ -56,7 +56,26 @@ public sealed record WorkItemSummary(
     string? AreaPath = null,
 
     /// <summary>The sprint it is in, or null where the tracker says nothing.</summary>
-    string? Iteration = null);
+    string? Iteration = null,
+
+    /// <summary>
+    /// Everything else the tracker records about it, in the order it sent them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>OPEN, beside the named seven rather than instead of them.</b> The
+    /// seven are a contract a reader implements and <c>Filters</c> narrows on
+    /// two; dissolving them into this list to carry a story point would trade a
+    /// vocabulary for a bag. A reader that sends nothing extra is unchanged,
+    /// which is what keeps this an addition.
+    /// </para>
+    /// <para>
+    /// <b>Not for the listing to draw.</b> The list still shows what a person
+    /// chooses by; this is what the modal about ONE item shows, which is the
+    /// case "enough to choose by, and no more" was never about.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<WorkItemField>? Fields = null);
 
 /// <summary>
 /// What a caller is asking to see, or null where it is asking for the default.
@@ -179,6 +198,16 @@ public interface IWorkItemSource
     /// browse page draws between an empty backlog and a refusal.
     /// </remarks>
     Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
+        string id, CancellationToken cancellationToken = default);
+
+    /// <summary>Everything one item records, in the tracker's own order.</summary>
+    /// <remarks>
+    /// <b>One item, because a listing cannot afford everything</b> - see
+    /// <see cref="ItemTool.FieldsName"/>. Empty is an answer here too: a
+    /// tracker that holds nothing beyond the seven a listing carries is not a
+    /// tracker that refused.
+    /// </remarks>
+    Task<IReadOnlyList<WorkItemField>> FieldsAsync(
         string id, CancellationToken cancellationToken = default);
 }
 

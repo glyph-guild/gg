@@ -556,6 +556,18 @@ public enum WorkItemTab
     /// the cursor says.
     /// </summary>
     History,
+
+    /// <summary>
+    /// Everything the tracker records about it, named as the tracker names it.
+    /// </summary>
+    /// <remarks>
+    /// <b>APPENDED, because the first member is the default.</b> Details is
+    /// what this modal opens on and what <c>default(WorkItemTab)</c> has to
+    /// mean; putting a new tab in front would silently move every state that
+    /// never set one. Appending is also what keeps a persisted value meaning
+    /// what it meant when it was written.
+    /// </remarks>
+    Fields,
 }
 
 public enum TabId
@@ -1857,6 +1869,21 @@ public sealed record AppState
     /// report are two different things, and an empty table claims the second.
     /// </remarks>
     public string? WorkItemHistorySaid { get; init; }
+
+    /// <summary>
+    /// Everything that item records, under the tracker's own names.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fetched for the item, not carried on the row.</b> A listing carries
+    /// seven fields because a page of fifty rows would otherwise cost fifty
+    /// rows' worth of everything - see <c>ItemTool.FieldsName</c>. Empty means
+    /// the tracker answered and holds nothing more;
+    /// <see cref="WorkItemFieldsSaid"/> is the other case.
+    /// </remarks>
+    public IReadOnlyList<Gg.Local.WorkItemField> WorkItemFields { get; init; } = [];
+
+    /// <summary>Why there is no inventory, already worded, or null.</summary>
+    public string? WorkItemFieldsSaid { get; init; }
 
     /// <summary>Which row of that history the cursor is on.</summary>
     /// <remarks>

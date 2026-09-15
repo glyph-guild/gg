@@ -232,6 +232,42 @@ public sealed class SpawnedReader(IntentReader reader, TimeSpan patience) : IAsy
         }
     }
 
+    /// <summary>Everything one item records, or why that could not be read.</summary>
+    /// <remarks>The lock, the deadline and the drop are the verbs' above.</remarks>
+    public async Task<FieldsOutcome> FieldsAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        await _oneAtATime.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (await StartAsync() is { } refused)
+            {
+                return new FieldsOutcome.Nothing(Said(refused));
+            }
+
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(_patience);
+
+            try
+            {
+                return await _asking!.FieldsAsync(id, deadline.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                Stop();
+
+                return new FieldsOutcome.Nothing(
+                    $"The reader for '{_reader.Key}' did not answer within "
+                  + $"{_patience.TotalMilliseconds:0}ms, so it was stopped.");
+            }
+        }
+        finally
+        {
+            _oneAtATime.Release();
+        }
+    }
+
     /// <summary>What has happened to one item, or why that could not be read.</summary>
     /// <remarks>The lock, the deadline and the drop are the two verbs' above.</remarks>
     public async Task<HistoryOutcome> HistoryAsync(

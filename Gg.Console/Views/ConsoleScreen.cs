@@ -189,6 +189,20 @@ public sealed class ConsoleScreen : Window
     private readonly Terminal.Gui.Views.Tabs _itemTabs;
     private readonly View _itemDetailsTab;
     private readonly View _itemHistoryTab;
+
+    /// <summary>
+    /// The third tab: everything the tracker records, as a table.
+    /// </summary>
+    /// <remarks>
+    /// <b>A table, because it is an inventory.</b> What the item SAYS is prose
+    /// and what has HAPPENED to it is a log; what the tracker records about it
+    /// is a list of names and values, and nothing else in this modal is.
+    /// </remarks>
+    private readonly View _itemFieldsTab;
+
+    private readonly TableView _itemFieldsTable;
+
+    private readonly Label _itemFieldsAbsent;
     private readonly FrameView _itemChangePane;
     private readonly ListView _itemChange;
     private readonly Label _itemHistoryAbsent;
@@ -1076,6 +1090,11 @@ public sealed class ConsoleScreen : Window
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(),
+
+            // THE SAME, and it was already wrong here: NoHistory names
+            // `get_work_item_history` and this label was showing it a character
+            // short. See the fields absence below.
+            HotKeySpecifier = new System.Text.Rune('\uffff'),
         };
 
         _itemHistoryPane.Add(_itemHistory, _itemHistoryAbsent);
@@ -1125,8 +1144,41 @@ public sealed class ConsoleScreen : Window
             Width = Dim.Fill(),
             Height = Dim.Fill(),
         };
+        _itemFieldsTable = CollectionViews.Table();
+        _itemFieldsTable.ValueChanged += OnModalRowPointedAt;
+        _itemFieldsTable.KeyDown += OnModalKeyDown;
+
+        // AND THE SENTENCE WHEN A READER SENDS NOTHING EXTRA. The seven are
+        // always rows, so the table is never empty - this says why there is
+        // nothing BELOW them, which is a different fact from an empty table.
+        _itemFieldsAbsent = new Label
+        {
+            X = 0,
+            Y = Pos.AnchorEnd(2),
+            Width = Dim.Fill(),
+            Height = 2,
+            // NO HOTKEY OUT OF SOMEBODY ELSE'S SENTENCE. A Label takes the
+            // character after the first `_` as a hotkey and eats the
+            // underscore, and what goes in here is a reader's own words - which
+            // name tools like `get_work_item_fields`. An operator reading
+            // `getwork_item_fields` off this line cannot act on it, and nothing
+            // anywhere would say a character had been removed.
+            HotKeySpecifier = new System.Text.Rune('\uffff'),
+        };
+
+        _itemFieldsTab = new View
+        {
+            Title = WorkItemDetails.FieldsTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _itemFieldsTab.Add(_itemFieldsTable, _itemFieldsAbsent);
+
         _itemTabs.Add(_itemDetailsTab);
         _itemTabs.Add(_itemHistoryTab);
+        _itemTabs.Add(_itemFieldsTab);
         _itemTabs.ValueChanged += OnWorkItemTabChanged;
 
         _itemBody = new View
@@ -2050,8 +2102,8 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        var wanted = ReferenceEquals(chosen, _itemHistoryTab)
-            ? WorkItemTab.History
+        var wanted = ReferenceEquals(chosen, _itemHistoryTab) ? WorkItemTab.History
+            : ReferenceEquals(chosen, _itemFieldsTab) ? WorkItemTab.Fields
             : WorkItemTab.Details;
 
         if (wanted == State.WorkItemTab)
@@ -2059,7 +2111,14 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
-        State = Reducer.Reduce(State, Command.NextWorkItemTab);
+        // CYCLED UNTIL IT MATCHES, because the command is "next" and a person
+        // clicking a tab picked one. Two tabs made this a single step and
+        // three do not - the flight modal's own sentence, one modal over.
+        while (State.WorkItemTab != wanted)
+        {
+            State = Reducer.Reduce(State, Command.NextWorkItemTab);
+        }
+
         Render();
     }
 
@@ -3905,6 +3964,23 @@ public sealed class ConsoleScreen : Window
 
             _itemHistoryAbsent.Text = WorkItemDetails.HistoryAbsence(State);
 
+            // AND THE INVENTORY. Filled in the same guarded window: a table
+            // handed a source raises its own selection event, which is also
+            // how a click arrives.
+            //
+            // NO EMPTY LABEL PASSED, because this table is never empty - the
+            // seven named fields are always rows, even the ones the tracker
+            // said nothing for. The sentence below it says why there is
+            // nothing AFTER them, which is the different fact.
+            var inventory = WorkItemDetails.AllFields(State);
+
+            Fill(
+                _itemFieldsTable, null, inventory, WorkItemDetails.FieldColumns,
+                State.WorkItemSelected,
+                row => [row.Name, row.Value]);
+
+            _itemFieldsAbsent.Text = WorkItemDetails.FieldsAbsence(State);
+
             // WHAT THE ROW UNDER THE CURSOR SAYS, in the half of the tab a
             // table cannot use.
             _itemChange.SetSource(new System.Collections.ObjectModel.ObservableCollection<string>(
@@ -3915,7 +3991,9 @@ public sealed class ConsoleScreen : Window
             // the flight modal's is.
             var showing = State.WorkItemTab is WorkItemTab.History
                 ? _itemHistoryTab
-                : _itemDetailsTab;
+                : State.WorkItemTab is WorkItemTab.Fields
+                    ? _itemFieldsTab
+                    : _itemDetailsTab;
 
             if (!ReferenceEquals(_itemTabs.Value, showing))
             {
@@ -4547,6 +4625,10 @@ public sealed class ConsoleScreen : Window
                 // no cursor to move.
                 (State.WorkItemTab switch
                 {
+                    // THE TABLE, which is the whole of this tab and the only
+                    // thing in it with a cursor.
+                    WorkItemTab.Fields when _itemFieldsTable.Visible => _itemFieldsTable,
+
                     WorkItemTab.History when _itemHistory.Visible => _itemHistory,
 
                     // THE PROSE, which is what this tab is. The fields below it

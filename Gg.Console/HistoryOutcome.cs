@@ -41,3 +41,23 @@ public abstract record HistoryOutcome
     /// <summary>It did not, and this is why.</summary>
     public sealed record Nothing(string Why) : HistoryOutcome;
 }
+
+/// <summary>
+/// How asking a reader what one item RECORDS ended.
+/// </summary>
+/// <remarks>
+/// <b>Its own type for <see cref="HistoryOutcome"/>'s reason, and the same
+/// shape.</b> An inventory that came back is a list a pane puts in columns; one
+/// that did not is a line a person reads. And empty is not absent: a tracker
+/// that answered and holds nothing beyond the seven a listing carries is
+/// <see cref="Read"/> with no rows, where a reader that does not declare the
+/// tool is <see cref="Nothing"/>.
+/// </remarks>
+public abstract record FieldsOutcome
+{
+    /// <summary>The reader answered, with however many fields it had.</summary>
+    public sealed record Read(IReadOnlyList<Gg.Local.WorkItemField> Fields) : FieldsOutcome;
+
+    /// <summary>It did not, and this is why.</summary>
+    public sealed record Nothing(string Why) : FieldsOutcome;
+}

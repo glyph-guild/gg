@@ -59,6 +59,8 @@ public static class Reducer
                 WorkItemSaid = null,
                 WorkItemChanges = [],
                 WorkItemHistorySaid = null,
+                WorkItemFields = [],
+                WorkItemFieldsSaid = null,
                 WorkItemSelected = 0,
                 WorkItemTab = WorkItemTab.Details,
             },
@@ -70,11 +72,18 @@ public static class Reducer
             // THE WORK ITEM MODAL'S OWN, and it cycles for the flight
             // modal's reason: one key that always works beats two that are
             // each wrong half the time.
+            // THREE NOW, AND IT COMES BACK ROUND - the flight modal's own
+            // sentence, one modal over: a cycle that stopped at the last tab
+            // would make the third one a place a person reaches and cannot
+            // leave by the key that got them there.
             Command.NextWorkItemTab => state with
             {
-                WorkItemTab = state.WorkItemTab is WorkItemTab.Details
-                    ? WorkItemTab.History
-                    : WorkItemTab.Details,
+                WorkItemTab = state.WorkItemTab switch
+                {
+                    WorkItemTab.Details => WorkItemTab.History,
+                    WorkItemTab.History => WorkItemTab.Fields,
+                    _ => WorkItemTab.Details,
+                },
             },
 
             // THREE NOW, AND IT COMES BACK ROUND. A cycle that stopped at the
@@ -1533,6 +1542,11 @@ public static class Reducer
                         Url = item.Url is { Length: > 0 } where ? where : null,
                         Where = Leaf(item.AreaPath),
                         Sprint = item.Iteration,
+                        // EVERYTHING ELSE THE TRACKER RECORDS, carried whole.
+                        // The seven above are picked out because the listing's
+                        // columns are built from them; these have no column and
+                        // are not interpreted, so there is nothing to pick.
+                        Fields = item.Fields ?? [],
                     })],
                     NextCursor = listed.Page.NextCursor,
                     FilterSaid = said,

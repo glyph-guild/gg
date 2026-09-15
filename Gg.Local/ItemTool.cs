@@ -48,6 +48,45 @@ public static class ItemTool
     public const string HistoryName = "get_work_item_history";
 
     /// <summary>
+    /// The tool that answers what one item RECORDS - every field, not the seven
+    /// a listing is built from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A third verb, for <see cref="HistoryName"/>'s reason.</b> What
+    /// <see cref="Name"/> answers is one rendering described to an agent, and
+    /// widening it would change what every agent already reading it sees.
+    /// </para>
+    /// <para>
+    /// <b>And per item, because a listing cannot afford it.</b>
+    /// <c>BrowseTool.Fields</c> carries seven because a page of fifty rows
+    /// costs fifty rows' worth of everything otherwise - and "everything"
+    /// includes the body, which that contract says does not cross in a listing.
+    /// One item a person has opened is the other case: its body has already
+    /// crossed, so its fields give nothing away.
+    /// </para>
+    /// </remarks>
+    public const string FieldsName = "get_work_item_fields";
+
+    /// <summary>
+    /// What one fields answer carries.
+    /// </summary>
+    /// <remarks>
+    /// <b>An object of name to value, in the tracker's own order.</b> Not an
+    /// array of pairs: a tracker's fields ARE a mapping, and the names are its
+    /// own - which is the point, because they are what a person searches its UI
+    /// for. Values may be any JSON, for <c>BrowseTool.Fields.Extra</c>'s
+    /// reason: a story point is a number and an assignee is an object, and a
+    /// contract demanding strings would ask a tracker to lie about what it
+    /// holds.
+    /// </remarks>
+    public static class Inventory
+    {
+        /// <summary>The fields, under one key so the answer is one object.</summary>
+        public const string Fields = "fields";
+    }
+
+    /// <summary>
     /// What one history answer carries.
     /// </summary>
     /// <remarks>
@@ -114,6 +153,22 @@ public static class ItemTool
     public static string NoHistory(string providerKey) =>
         $"The reader for '{providerKey}' does not declare '{HistoryName}', so what has "
       + "happened to this item can only be read at the tracker.";
+
+    /// <summary>Whether a reader that listed these tools can answer an inventory.</summary>
+    public static bool HasFields(IReadOnlyList<string>? declaredTools) =>
+        declaredTools is not null
+        && declaredTools.Contains(FieldsName, StringComparer.Ordinal);
+
+    /// <summary>What to tell a person whose reader cannot answer an inventory.</summary>
+    /// <remarks>
+    /// It names the tool for <see cref="NoHistory"/>'s reason, and it says what
+    /// is still there: the seven a listing carries are on the tab regardless,
+    /// so this is a reader that answers less rather than a tab that is broken.
+    /// </remarks>
+    public static string NoFields(string providerKey) =>
+        $"The reader for '{providerKey}' does not declare '{FieldsName}', so what else this "
+      + "item records can only be read at the tracker. The fields a listing is built from are "
+      + "above.";
 
     /// <summary>What to tell a person whose reader cannot answer about one item.</summary>
     /// <remarks>

@@ -961,7 +961,10 @@ public static class Keymap
             // THE SAME KEY THE FLIGHT MODAL USES, because it is the same act.
             // A second word for "show me the other half" would be a second
             // thing to learn for no gain.
-            new(KeyStroke.Char('v'), Command.NextWorkItemTab, "history"),
+            // AND THE HINT NAMES BOTH, because there are three tabs now and a
+            // hint that named only the next one would leave the third
+            // reachable and undiscoverable - which is the same as absent.
+            new(KeyStroke.Char('v'), Command.NextWorkItemTab, "history, then fields"),
 
             // The same key the reading modes use, and it takes whichever tab
             // is showing - see PaneText.WorkItem.

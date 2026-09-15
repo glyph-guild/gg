@@ -78,6 +78,9 @@ public class EnterShowsTheWorkItemTests
 
         public Task<HistoryOutcome> HistoryAsync(string id, CancellationToken token) =>
             Task.FromResult(happened);
+
+        public Task<FieldsOutcome> FieldsAsync(string id, CancellationToken token) =>
+            Task.FromResult<FieldsOutcome>(new FieldsOutcome.Read([]));
     }
 
     /// <summary>What the modal holds once the read has landed.</summary>

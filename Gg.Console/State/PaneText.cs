@@ -114,6 +114,38 @@ public static class PaneText
     }
 
     /// <summary>
+    /// The fields tab as one reading: every field, and why there are no more
+    /// where there are none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The widgets read in order</b>, as the history above does. The names
+    /// are padded to a column because that is what the table shows, and a copy
+    /// of a table that lost its columns is a copy somebody has to re-align by
+    /// hand.
+    /// </remarks>
+    private static string WorkItemInventory(AppState state)
+    {
+        var text = new StringBuilder();
+        var rows = WorkItemDetails.AllFields(state);
+        var widest = rows.Count > 0 ? rows.Max(field => field.Name.Length) : 0;
+
+        text.AppendLine(WorkItemDetails.FieldsTitle);
+
+        foreach (var field in rows)
+        {
+            text.AppendLine($"  {field.Name.PadRight(widest)}  {field.Value}");
+        }
+
+        if (WorkItemDetails.FieldsAbsence(state) is { Length: > 0 } why)
+        {
+            text.AppendLine();
+            text.AppendLine(why);
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// The story this console holds for one flight, or null.
     /// </summary>
     /// <remarks>
@@ -2860,9 +2892,18 @@ public static class PaneText
                  && state.BrowseSelected < items.Items.Count
                     ? $"{items.Items[state.BrowseSelected].Id}\n\n"
                     : "")
-              + (state.WorkItemTab is WorkItemTab.History
-                    ? WorkItemHistory(state)
-                    : Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true)),
+              + (state.WorkItemTab switch
+                {
+                    WorkItemTab.History => WorkItemHistory(state),
+
+                    // THE INVENTORY, AS TWO COLUMNS OF TEXT. A copy taken off
+                    // this tab that handed over the description instead would
+                    // be the same modal answering a question nobody asked - and
+                    // the field somebody copied this for is usually one they
+                    // are about to paste somewhere.
+                    WorkItemTab.Fields => WorkItemInventory(state),
+                    _ => Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true),
+                }),
             _ => "",
         };
     }

@@ -167,6 +167,13 @@ public sealed record FlightStory
                 $"opened by admission as {At(parameters, 0, "work")}, on another flight's "
               + "classification",
 
+            // WHAT IT ASKED FOR AND WHAT BECAME OF THE ASKING. A sentence that
+            // stopped at the kind would leave a reader wondering whether
+            // anything happened, which is the question the board exists to
+            // answer and the log line exists to point at.
+            StoryKinds.Nominated =>
+                $"nominated {At(parameters, 0, "work")} ({At(parameters, 1, "standing")})",
+
             StoryKinds.LeaseRefused =>
                 $"a claim was refused: {At(parameters, 0, "no reason recorded")}",
             StoryKinds.CredentialUnresolved =>

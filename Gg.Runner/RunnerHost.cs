@@ -203,6 +203,10 @@ public static class RunnerHost
         /// in a variable cannot reach two different answers.
         /// </remarks>
         AllowanceReporter? allowance = null,
+        // WHEN THIS RUNNER'S CREDENTIAL ENDS, carried from whoever read it off
+        // disk. Null means unrecorded, and the loop refuses to guess: a guess
+        // turns a revocation into a tidy exit 0.
+        DateTimeOffset? credentialExpiresAt = null,
         string? flightId = null,
         Func<string, string, (Gg.Contracts.TakeoverReturn? Decision, string? Diagnosis)>? returns = null,
         // THE PRIVATE HALF OF THIS RUNNER'S REGISTERED KEY, or null. It lives on
@@ -378,7 +382,8 @@ public static class RunnerHost
             allowance: allowance is null
                 ? null
                 : now => allowance.ReadAsync(now, stopping.Token),
-            attended: attended)
+            attended: attended,
+            credentialExpiresAt: credentialExpiresAt)
         {
             HoldFor = holdFor,
         };

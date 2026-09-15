@@ -2180,6 +2180,10 @@ static async Task<int> HoldAsync(
             secretFor: locator => new FileCredentialStore().Read(locator),
             self: Gg.Local.SelfInvocation.Current),
         flightId: flightId,
+        // WHEN THIS MACHINE'S CREDENTIAL ENDS. Thirty days here, and a person
+        // is sitting in front of it, so the sentence matters more than the exit
+        // code - but it is the same sentence either way.
+        credentialExpiresAt: registered.ExpiresAt,
         // A HAND-FLOWN FLIGHT SPENDS THE SAME ALLOWANCE, so it reports one.
         // The executor above has no stream to count and the fact carries no
         // tokens for it - but the machine's own ledger reads every transcript
@@ -2429,6 +2433,12 @@ static async Task<int> RunnerUpAsync()
             // registered with a moment ago - a second one would be a runner
             // whose console pinned a key it can no longer open anything with.
             identityKey: identity.ForOpeningWhatWasSealedToThisRunner(),
+            // AND WHEN THE SLOT IT REGISTERED FOR RUNS OUT, read off the same
+            // stored identity. Thirty days, not renewable: a resident that
+            // meets a 401 has either been retired or has reached the end of
+            // that, and saying which is the difference between a machine
+            // somebody should look at and one that did what it was told.
+            credentialExpiresAt: registered.ExpiresAt,
             // WHERE THIS MACHINE ASKS WHAT IT LOOKS LIKE FROM OUTSIDE, from the
             // environment for the reason the trackers and the hosts are: naming
             // one in source would point every runner in every deployment at a
@@ -2697,6 +2707,12 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         destinations: destinations, trackers: trackers, executor: executor,
         allowance: Allowance(),
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
+        // TWELVE HOURS, AND THEN THIS MEMBER IS DONE. A member token is not
+        // renewable and a member cannot mint itself another - the pool warms a
+        // replacement - so reaching this time is the ordinary end of a member's
+        // life, not a fault. Handed across so the loop can say that instead of
+        // dying inside an unhandled 401.
+        credentialExpiresAt: identity.ExpiresAt,
         // FROM THE ONE READER, so a stun-servers line offered to this member
         // reaches it. Read straight from the environment this would be the
         // defect that reader exists to have ended, one variable over.

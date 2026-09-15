@@ -102,3 +102,81 @@ public static class NominationEndings
     public static IReadOnlyList<string> All { get; } =
         [Opened, Superseded, Withdrawn, Declined, Refused, Lapsed];
 }
+
+/// <summary>
+/// One nomination, as the board shows it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Keyed on the nomination, and the flight is a member.</b> A standing row
+/// has opened no flight — that is the whole state the board exists to render —
+/// so <see cref="FlightId"/> is nullable and a summary keyed on a flight would
+/// have nothing to say about most of what a person is reading.
+/// </para>
+/// <para>
+/// <b>The ending and its sentence travel together, and both are absent while a
+/// row stands.</b> A sentence with no ending would be a reason for something
+/// that has not happened.
+/// </para>
+/// <para>
+/// <b>What governed it is deliberately NOT here.</b> The row records it, and a
+/// person auditing one asks for it by name; putting a digest and a layer list
+/// on every line of a queue would make the thing a person scans mostly
+/// provenance.
+/// </para>
+/// </remarks>
+[PinnedId("6e8ace42-0322-48a6-8f10-47e51d6988b0")]
+public sealed record NominationSummary
+{
+    public required Guid NominationId { get; init; }
+
+    /// <summary>Who nominated: the flight an agent ran in, or the watch that swept.</summary>
+    public required string Nominator { get; init; }
+
+    public required string Subject { get; init; }
+
+    /// <summary>The version of that subject which was nominated.</summary>
+    public required string Version { get; init; }
+
+    /// <summary>The kind to open, or the word that says a flight must decide.</summary>
+    public required string WorkKind { get; init; }
+
+    /// <summary>auto or gated, as it was in force when this was nominated.</summary>
+    public required string Mode { get; init; }
+
+    /// <summary>standing, or the ending's own word.</summary>
+    public required string State { get; init; }
+
+    /// <summary>Null exactly while the row stands.</summary>
+    public string? Ending { get; init; }
+
+    /// <summary>Why it ended, in a sentence. Null exactly while the row stands.</summary>
+    public string? Because { get; init; }
+
+    /// <summary>The flight this opened into, or null - which is every standing row.</summary>
+    public Guid? FlightId { get; init; }
+
+    /// <summary>Rendered, e.g. GG-42. Null wherever <see cref="FlightId"/> is.</summary>
+    public string? FlightNumber { get; init; }
+
+    public required DateTimeOffset MadeAt { get; init; }
+
+    public DateTimeOffset? EndedAt { get; init; }
+}
+
+/// <summary>What the board answers with.</summary>
+/// <remarks>
+/// <b>It says whether it showed the ended rows, because a reader cannot infer
+/// it.</b> A page of standing rows and a page that happens to contain no ended
+/// ones look identical, and somebody reading "nothing was declined" off the
+/// second would be reading a filter rather than a fact. The same reason
+/// <c>envelope-version: none</c> is written down rather than left absent.
+/// </remarks>
+[PinnedId("311b2c1c-c80a-4912-bf73-6e6b665bc2db")]
+public sealed record BoardPage
+{
+    public required IReadOnlyList<NominationSummary> Nominations { get; init; }
+
+    /// <summary>Whether ended rows were included, rather than simply absent.</summary>
+    public required bool IncludedEnded { get; init; }
+}

@@ -111,6 +111,17 @@ public static class DoctorChecks
     public const string Telemetry = "telemetry";
 
     /// <summary>
+    /// What the tenant is being told, when the asking itself fails.
+    /// </summary>
+    /// <remarks>
+    /// The notices themselves are named by their own codes - one line each,
+    /// and the control plane chooses the words. This name exists for the case
+    /// where none of them could be fetched at all, which is a fact about the
+    /// asking rather than about any one notice.
+    /// </remarks>
+    public const string Notices = "tenant notices";
+
+    /// <summary>
     /// Whether takeovers are getting the agent's own account, or only
     /// measurements.
     /// </summary>
@@ -467,19 +478,43 @@ public sealed class Doctor(
                 Fix = reachable ? "install a newer gg" : null,
             });
 
-        checks.Add(await BinaryCheckAsync(reachable, cancellationToken));
-        checks.Add(await SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
-        checks.Add(await TelemetryCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
-        checks.Add(RunnerCheck(stored));
+        checks.Add(await Surviving(
+            DoctorChecks.Binary, () => BinaryCheckAsync(reachable, cancellationToken)));
+
+        var session = await Surviving(
+            DoctorChecks.Session,
+            () => SessionCheckAsync(stored, reachable, protocolRefusal is null, cancellationToken));
+
+        checks.Add(session);
+
+        // HELD IS NOT HONOURED, and the check above has already paid to learn
+        // which. Everything below that asks the control plane a question with
+        // this token would otherwise ask with one the control plane has
+        // forgotten - and be answered 401, which arrives as an exception
+        // because for every other verb in this binary that is exactly right.
+        // Here it is the state being diagnosed one line up.
+        var honoured = session.Passed ? stored : null;
+
+        checks.Add(await Surviving(
+            DoctorChecks.Telemetry,
+            () => TelemetryCheckAsync(
+                honoured, reachable, protocolRefusal is null, cancellationToken)));
+
+        checks.Add(RunnerCheck(stored, honoured));
         checks.Add(MovesCheck());
-        checks.Add(await ChannelCheckAsync(cancellationToken));
+        checks.Add(await Surviving(
+            DoctorChecks.Channel, () => ChannelCheckAsync(cancellationToken)));
         checks.Add(ReachableCheck(_stunServers, await ReflexiveAsync(cancellationToken)));
         checks.Add(HandoffAccountCheck(accountsMissing));
         checks.Add(CredentialStoreCheck());
-        checks.Add(await CredentialResolutionCheckAsync(
-            stored, reachable, protocolRefusal is null, cancellationToken));
-        checks.AddRange(await TenantNoticeChecksAsync(
-            stored, reachable, protocolRefusal is null, cancellationToken));
+        checks.Add(await Surviving(
+            DoctorChecks.Credentials,
+            () => CredentialResolutionCheckAsync(
+                honoured, reachable, protocolRefusal is null, cancellationToken)));
+        checks.AddRange(await SurvivingMany(
+            DoctorChecks.Notices,
+            () => TenantNoticeChecksAsync(
+                honoured, reachable, protocolRefusal is null, cancellationToken)));
 
         // LAST, and about a different question. Everything above answers "can
         // this machine talk to the control plane"; these answer "can it do the
@@ -916,6 +951,74 @@ public sealed class Doctor(
     }
 
     /// <summary>
+    /// One check, and its failure to run reported as a finding rather than
+    /// thrown.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A doctor is the wrong program to be brittle in.</b> Every other verb
+    /// in this binary is right to let a refusal out: a person asked for one
+    /// thing, it could not be done, and the exception carries why. This verb
+    /// asked for eighteen things, and one of them failing is a line - not a
+    /// reason to withhold the other seventeen from somebody whose machine is
+    /// already misbehaving.
+    /// </para>
+    /// <para>
+    /// <b>Never blocking, because a check that could not be run has found
+    /// nothing wrong.</b> An exit code that went red here would report the
+    /// doctor's own trouble as the machine's, and the person would go looking
+    /// for a fault that the report never claimed to have found.
+    /// </para>
+    /// <para>
+    /// <b>The message, because the exceptions here are already worded for a
+    /// person.</b> <c>NotSignedInException</c> and <c>ProtocolTooOldException</c>
+    /// exist to turn a status code into something actionable, and this line is
+    /// the only place that wording would ever be seen.
+    /// </para>
+    /// </remarks>
+    private static async Task<DoctorCheck> Surviving(
+        string name, Func<Task<DoctorCheck>> check)
+    {
+        try
+        {
+            return await check();
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return Unrun(name, problem);
+        }
+    }
+
+    /// <summary>The same, for a check that answers more than one line.</summary>
+    private static async Task<IReadOnlyList<DoctorCheck>> SurvivingMany(
+        string name, Func<Task<IReadOnlyList<DoctorCheck>>> checks)
+    {
+        try
+        {
+            return await checks();
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return [Unrun(name, problem)];
+        }
+    }
+
+    /// <summary>A check that could not be run, as a line.</summary>
+    private static DoctorCheck Unrun(string name, Exception problem) => new()
+    {
+        Name = name,
+        Passed = false,
+        Detail = $"not checked: {problem.Message}",
+        Blocking = false,
+
+        // NOTHING HERE ESTABLISHED THAT THIS MACHINE IS THE PROBLEM, so there
+        // is nothing to tell somebody to do - the same reasoning the reachable
+        // and protocol checks apply when they could not run either. The fix, if
+        // there is one, is on whichever check DID diagnose something.
+        Fixable = false,
+    };
+
+    /// <summary>
     /// What the control plane says it transmits, and where.
     /// </summary>
     /// <remarks>
@@ -1350,16 +1453,29 @@ public sealed class Doctor(
         };
     }
 
-    private static DoctorCheck RunnerCheck(StoredSession? stored) =>
+    private static DoctorCheck RunnerCheck(StoredSession? stored, StoredSession? honoured) =>
         new()
         {
             Name = DoctorChecks.Runner,
-            Passed = stored is not null,
-            Detail = stored is not null
+            Passed = honoured is not null,
+
+            // HELD IS NOT HONOURED, one line below the check that draws the
+            // distinction. This read "a session is held, so gg runner up can
+            // register one" about a token the control plane had just refused -
+            // a claim from the wrong fact, and one nobody saw until the run
+            // stopped dying before it got here.
+            Detail = honoured is not null
                 ? "a session is held, so gg runner up can register one"
-                : "no session, so no runner can be registered from here",
+                : stored is not null
+                    ? "the session this machine holds is not honoured, so registering a runner "
+                    + "would be refused"
+                    : "no session, so no runner can be registered from here",
             Blocking = false,
             Fixable = true,
-            Fix = "gg runner up",
+
+            // AND THE ADVICE FOLLOWS THE FACT. `gg runner up` with no usable
+            // session fails at the first request it makes, which sends somebody
+            // to debug a runner over a sign-in they have not done.
+            Fix = honoured is not null ? "gg runner up" : "gg login",
         };
 }

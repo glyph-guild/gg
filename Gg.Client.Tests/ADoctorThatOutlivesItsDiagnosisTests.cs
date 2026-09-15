@@ -115,6 +115,42 @@ public class ADoctorThatOutlivesItsDiagnosisTests
     }
 
     [Test]
+    public async Task And_nothing_below_claims_the_dead_session_works()
+    {
+        // FOUND BY FIXING THE CRASH. With the run reaching this far for the
+        // first time, the runner check said "a session is held, so gg runner up
+        // can register one" about the token the control plane had just refused
+        // - and told somebody to run a verb that fails at its first request.
+        var runner = (await Against(Forgotten()).RunAsync()).Checks
+            .Single(c => c.Name == DoctorChecks.Runner);
+
+        await Assert.That(runner.Passed).IsFalse();
+        await Assert.That(runner.Detail).DoesNotContain("can register one");
+        await Assert.That(runner.Fix).IsEqualTo("gg login")
+            .Because("the thing standing between this machine and a runner is the sign-in, "
+                   + "and naming the runner verb sends somebody to debug the wrong half.");
+    }
+
+    [Test]
+    public async Task A_session_that_works_still_reads_as_one_that_works()
+    {
+        // ASK WHY IT PASSES: reporting every session as dead would satisfy the
+        // assertions above and abolish the distinction rather than draw it.
+        await using var stub = new StubControlPlane();
+
+        var report = await Against(stub).RunAsync();
+
+        await Assert.That(report.Checks.Single(c => c.Name == DoctorChecks.Session).Passed)
+            .IsTrue();
+        await Assert.That(report.Checks.Single(c => c.Name == DoctorChecks.Runner).Passed)
+            .IsTrue();
+        await Assert.That(report.Checks.Single(c => c.Name == DoctorChecks.Telemetry).Detail)
+            .DoesNotContain("not checked")
+            .Because("a live session is asked the question, which is the whole point of "
+                   + "asking it at all.");
+    }
+
+    [Test]
     public async Task A_check_that_throws_becomes_a_line_rather_than_a_stack_trace()
     {
         // THE WIDER HALF, and a real state rather than a contrived one: a

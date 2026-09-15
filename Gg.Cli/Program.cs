@@ -201,6 +201,7 @@ return CliArgs.Parse(args) switch
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
     CliAction.CredentialSend send => await SendCredentialAsync(send),
+    CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
     CliAction.CredentialRemove remove =>
         await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
@@ -1889,7 +1890,38 @@ static string SendFromTheConsole(string runnerId, string? chosen)
     return sent.Said;
 }
 
-static async Task<int> SendCredentialAsync(CliAction.CredentialSend send)
+static Task<int> SendCredentialAsync(CliAction.CredentialSend send) =>
+    // DERIVED, NEVER TYPED, by the contract's own rule - the same derivation
+    // `gg credential add` stored it under and the runner will look for it
+    // under. Two derivations that agree today is how a runner ends up hunting
+    // for a file the CLI never wrote.
+    SendUnderLocatorAsync(send.RunnerId, Gg.Contracts.CredentialLocator.ForRepo(send.Repo), asking: null);
+
+// THE SAME SEND, under the agent's locator - the one the runner's adapter
+// derives from the same name, and the one its held loop re-probes the moment
+// the channel's keeper writes it. The prompt is the one thing that differs: a
+// person sending an agent's token has to have minted one first, and this is
+// the line that tells them which command does that.
+static Task<int> SendAgentCredentialAsync(CliAction.AgentCredentialSend send) =>
+    SendUnderLocatorAsync(
+        send.RunnerId,
+        Gg.Contracts.CredentialLocator.ForAgent(send.Agent),
+        asking: AgentTokenPrompt(send.Agent));
+
+/// <summary>What a person is asked when this machine holds no token for the agent.</summary>
+/// <remarks>
+/// The adapter's own minting command, because that is the fact somebody needs
+/// at this prompt and nowhere else tells them. Pinned to the agent's key rather
+/// than to prose: an unknown agent gets a sentence that is at least true.
+/// </remarks>
+static string AgentTokenPrompt(string agent) => agent switch
+{
+    Gg.Local.ExecutorDeclaration.Claude =>
+        "Long-lived token for claude, from `claude setup-token` on this machine (not echoed): ",
+    _ => $"Long-lived token for {agent} (not echoed): ",
+};
+
+static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, string? asking)
 {
     var session = new FileSessionStore().Read();
     if (session is null)
@@ -1899,18 +1931,13 @@ static async Task<int> SendCredentialAsync(CliAction.CredentialSend send)
           + "person's action.");
     }
 
-    // DERIVED, NEVER TYPED, by the contract's own rule - the same derivation
-    // `gg credential add` stored it under and the runner will look for it
-    // under. Two derivations that agree today is how a runner ends up hunting
-    // for a file the CLI never wrote.
-    var locator = Gg.Contracts.CredentialLocator.ForRepo(send.Repo);
-
     // BEFORE ANYTHING IS MINTED OR ANYBODY IS ASKED FOR A TOKEN. An
     // introduction spent on a send that has nothing to send is a minute of a
     // capability nobody used.
     var secret = SendACredential.SecretFor(
         new FileCredentialStore(), locator, new ConsoleSecretPrompt(),
-        line => Console.Error.WriteLine($"gg: {line}"));
+        line => Console.Error.WriteLine($"gg: {line}"),
+        asking: asking);
 
     if (secret is null)
     {
@@ -1935,7 +1962,7 @@ static async Task<int> SendCredentialAsync(CliAction.CredentialSend send)
             TimeSpan.FromSeconds(20)))
         .SendAsync(
             session.SessionToken,
-            send.RunnerId,
+            runnerId,
             locator,
             secret,
             new PinnedRunnerKeys(),

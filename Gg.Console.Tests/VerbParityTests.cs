@@ -283,6 +283,13 @@ public class VerbParityTests
                                + "the repository rather than offering a choice, because "
                                + "nothing fetches the credential list - see CredentialList, "
                                + "still a gap, and the reason this one asks.",
+            ["AgentCredentialSend"] = "absent, and deliberate for now: the agent-login gate's "
+                                    + "`s` (the plan's slice 6) is the console's way to log an "
+                                    + "agent in, over the same channel, and it lands with the "
+                                    + "ceremony rather than as a second prompt on the runner "
+                                    + "modal. Until then the verb is the command line's: "
+                                    + "`gg credential send --runner <id> --agent claude`, which "
+                                    + "the held runner's console observer names.",
             ["CredentialRemove"] = "absent, and a gap: a dead wrapper with no key. Step 5, "
                                  + "and it is the half of credential management that matters "
                                  + "when one leaks.",

@@ -63,22 +63,58 @@ public class TheChannelHasAWritingVerbTests
     private static readonly string[] Writes =
         [RunnerAskKinds.ConfigureCredential];
 
+    /// <summary>Verbs that make this machine START a program.</summary>
+    /// <remarks>
+    /// <b>A third side, because a fourth verb must not inherit the third's
+    /// gate without somebody deciding it is enough</b> - and it is not. A
+    /// machine that agreed to be HANDED a secret (<c>accept-configured</c>)
+    /// has not agreed to run its agent's login ceremony on a console's say-so.
+    /// Both halves of the ceremony are here: the begin starts the child and
+    /// the finish types into it, and neither is answerable without the port
+    /// <c>accept-agent-login</c> hands the dispatch.
+    /// </remarks>
+    private static readonly string[] Spawns =
+        [RunnerAskKinds.BeginAgentLogin, RunnerAskKinds.FinishAgentLogin];
+
     [Test]
     public async Task Every_verb_is_on_exactly_one_side()
     {
         foreach (var kind in RunnerAskKinds.All)
         {
-            await Assert.That(Reads.Contains(kind, StringComparer.Ordinal)
-                           ^ Writes.Contains(kind, StringComparer.Ordinal))
+            var sides = new[] { Reads, Writes, Spawns }
+                .Count(side => side.Contains(kind, StringComparer.Ordinal));
+            await Assert.That(sides == 1)
                 .IsTrue()
                 .Because($"'{kind}' is in the vocabulary and this file does not say whether it "
                        + "reads or writes. That sentence is the one a reviewer needs, and it "
                        + "is the one nobody wrote when the channel's lifetime changed.");
         }
 
-        await Assert.That(Reads.Length + Writes.Length).IsEqualTo(RunnerAskKinds.All.Count)
+        await Assert.That(Reads.Length + Writes.Length + Spawns.Length).IsEqualTo(RunnerAskKinds.All.Count)
             .Because("a verb named here and retired from the vocabulary leaves a claim about "
                    + "a channel that no longer has it.");
+    }
+
+    [Test]
+    public async Task A_spawning_verb_needs_its_own_port()
+    {
+        // THE DECISION THE THIRD SIDE RECORDS. A spawning verb is not a writing
+        // verb wearing a new name: it is gated on accept-agent-login, a key of
+        // its own, so a machine that opened accept-configured is still closed
+        // to it - asserted against the gate in AnAgentLoginIsAMachinesDecisionTests
+        // and against the dispatch in ARunnerLogsItsAgentInOverTheChannelTests.
+        await Assert.That(Spawns).Contains(RunnerAskKinds.BeginAgentLogin);
+        await Assert.That(Spawns).Contains(RunnerAskKinds.FinishAgentLogin)
+            .Because("the finish types into the child the begin started; it is the same "
+                   + "program, and it needs the same port.");
+
+        foreach (var spawning in Spawns)
+        {
+            await Assert.That(Writes).DoesNotContain(spawning)
+                .Because("a spawning verb listed as a writing one would read as answerable "
+                       + "wherever accept-configured is, which is the inheritance this side "
+                       + "exists to refuse.");
+        }
     }
 
     [Test]

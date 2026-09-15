@@ -144,6 +144,40 @@ public class EveryFieldTheTrackerSentTests
     }
 
     [Test]
+    public async Task What_the_reader_sent_reaches_the_row_it_is_about()
+    {
+        // THE MIDDLE OF THE SLICE, and it was missing. Both ends were built and
+        // tested - the reader parses the extras, the modal renders whatever a
+        // row carries - and the step between them, where a listed item becomes
+        // a BrowseRow, dropped them on the floor. Every test above passes with
+        // that step broken, because every one of them builds the row by hand.
+        //
+        // FOUND BY DRIVING THE BINARY, not by the suite: the tab came up
+        // showing the seven and saying the tracker had offered nothing else,
+        // about a reader that had just sent eight.
+        var listed = new BrowseOutcome.Listed(new WorkItemPage(
+            [
+                new WorkItemSummary(
+                    Id: "17864",
+                    Title: "Sonar cleanup: correctness risks",
+                    State: "Active",
+                    Url: "https://tracker.example/acme/_workitems/edit/17864",
+                    Updated: "2026-09-14T18:17Z",
+                    AreaPath: "Platform",
+                    Iteration: @"Widgets\Sprint 142",
+                    Fields: [new("Microsoft.VSTS.Scheduling.StoryPoints", "5")]),
+            ],
+            NextCursor: null));
+
+        var after = Reducer.Browsed(new AppState(), "a-tracker", listed);
+
+        await Assert.That(after.Browse!.Items[0].Fields.Select(f => f.Name).ToList())
+            .Contains("Microsoft.VSTS.Scheduling.StoryPoints")
+            .Because("a field the reader sent and the row did not carry is a field the modal "
+                   + "cannot show, and nothing anywhere would say it had been lost.");
+    }
+
+    [Test]
     public async Task A_person_the_tracker_wrote_as_an_object_reads_as_their_name()
     {
         // ADO SENDS System.AssignedTo AS AN OBJECT. Rendered as raw JSON it is

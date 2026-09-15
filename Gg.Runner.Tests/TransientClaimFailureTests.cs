@@ -141,18 +141,39 @@ public class TransientClaimFailureTests
         // having a moment - it is this runner's credential, and no amount of
         // waiting fixes it. Retrying it forever is a machine burning a request
         // loop on something only a person can resolve.
+        //
+        // STOPPING LOUDLY IS STILL THE RULE; THROWING WAS NEVER THE RULE. This
+        // test asserted the exception because the exception was how the loop
+        // happened to stop, and a pool member then took that literally: the
+        // process died inside the throw with exit 139 and a stack trace in a
+        // container log nobody can open a shell on. The loud part is the
+        // sentence and the non-zero exit, both of which survive a container.
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
         protocol.ClaimThrows.Enqueue(Answering(HttpStatusCode.Unauthorized));
         var observer = new RecordingObserver();
 
         using var stopping = new CancellationTokenSource();
-        var thrown = await Assert.ThrowsAsync<HttpRequestException>(async () =>
-            await Build(protocol, clock, observer).RunAsync("runner-1", [], stopping.Token));
+        var exit = await Build(protocol, clock, observer)
+            .RunAsync("runner-1", [], stopping.Token);
 
-        await Assert.That(thrown!.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized)
+        await Assert.That(exit).IsNotEqualTo(0)
             .Because("a runner nobody authorized must stop loudly. Retrying it is how a "
-                   + "misconfigured machine hammers a control plane forever.");
+                   + "misconfigured machine hammers a control plane forever, and exiting "
+                   + "zero is how one disappears without anybody noticing.");
+
+        await Assert.That(observer.Events.Any(
+                e => e.StartsWith("control-plane-refused:", StringComparison.Ordinal)))
+            .IsTrue()
+            .Because("the stack trace was the only thing that said why this runner left, "
+                   + "so something has to say it now.");
+
+        // It asked once and stopped. The whole point of not retrying a 401 is
+        // that the runner does not come back round, and catching the exception
+        // is exactly the change that could have turned "stop" into "spin".
+        await Assert.That(protocol.Calls.Count(
+                c => c.StartsWith("claim:", StringComparison.Ordinal)))
+            .IsEqualTo(1);
     }
 
     [Test]

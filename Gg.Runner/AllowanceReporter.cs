@@ -71,7 +71,14 @@ public sealed class AllowanceReporter(
     /// with time handed in.
     /// </para>
     /// </remarks>
-    public static AllowanceReporter? For(string? name, string? limits) =>
+    public static AllowanceReporter? For(
+        string? name,
+        string? limits,
+        // HOW THE AGENT AUTHENTICATES, so the meter's refresh runs under the
+        // same token a flight would. Null on a machine that declares no
+        // agent, and then the refresh runs as it always did.
+        Execution.IAuthenticateAnAgent? agent = null,
+        Func<string, string?>? secretFor = null) =>
         string.IsNullOrWhiteSpace(name)
             ? null
             : new AllowanceReporter(
@@ -85,7 +92,7 @@ public sealed class AllowanceReporter(
                 // ledger re-reads the cache on every measurement, so a refresh
                 // that lands before it is picked up with no plumbing between
                 // the two - which is why this is a step rather than a value.
-                RefreshAsync);
+                ct => RefreshAsync(agent, secretFor, ct));
 
     /// <summary>
     /// Brings the meter up to date if it is behind, before anything reads it.
@@ -97,7 +104,10 @@ public sealed class AllowanceReporter(
     /// is a claim and a claim is the control plane's. What this does is the
     /// local half: do not ask when the answer here is already current.
     /// </remarks>
-    private static Task RefreshAsync(CancellationToken cancellationToken) =>
+    private static Task RefreshAsync(
+        Execution.IAuthenticateAnAgent? agent,
+        Func<string, string?>? secretFor,
+        CancellationToken cancellationToken) =>
         MeterRefresh.EnsureCurrentAsync(
             AllowanceMeter.Read(AllowanceMeter.DefaultPath()),
             DateTimeOffset.UtcNow,
@@ -111,7 +121,9 @@ public sealed class AllowanceReporter(
                     Environment.GetEnvironmentVariable(
                         Execution.ExecutorConfiguration.BinaryVariable),
                     Execution.ExecutorConfiguration.BinaryVariable)?.Binary,
-                ct),
+                ct,
+                agent?.TokenVariable,
+                Execution.ClaudeCodeExecutor.TokenFor(agent, secretFor ?? (_ => null))),
             cancellationToken: cancellationToken);
 
     /// <summary>The reading to post, or null when it is not time or there is none.</summary>

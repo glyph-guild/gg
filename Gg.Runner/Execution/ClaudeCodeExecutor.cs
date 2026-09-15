@@ -37,9 +37,21 @@ public sealed class ClaudeCodeExecutor(
     string binary = "claude",
     IReadOnlyList<IntentReader>? readers = null,
     Func<string, string?>? secretFor = null,
-    SelfInvocation? self = null) : IExecutorPort
+    SelfInvocation? self = null,
+    IAuthenticateAnAgent? agent = null) : IExecutorPort
 {
     private readonly string _binary = binary;
+
+    /// <summary>
+    /// How this agent authenticates, or null for a machine that declares none.
+    /// </summary>
+    /// <remarks>
+    /// Read at launch for the locator to look up and the variable to place the
+    /// token under. Null places nothing: a launch with no adapter has nowhere
+    /// to put a token, and guessing the variable would be the assumption the
+    /// adapter exists to end.
+    /// </remarks>
+    private readonly IAuthenticateAnAgent? _agent = agent;
 
     /// <summary>
     /// How to start this binary again, for the platform's own tool server.
@@ -144,7 +156,10 @@ public sealed class ClaudeCodeExecutor(
             }
         }
 
-        using var process = new Process { StartInfo = StartInfo(request, secret) };
+        using var process = new Process
+        {
+            StartInfo = StartInfo(request, secret, TokenFor(_agent, _secretFor)),
+        };
 
         // ONLY the start is wrapped. It used to cover the read as well, and a
         // parsing bug inside it surfaced as "this runner could not start the
@@ -248,7 +263,8 @@ public sealed class ClaudeCodeExecutor(
     /// a skill in the repository is now the answer to it, because that one
     /// travels with the code and is the same on every runner.
     /// </remarks>
-    private ProcessStartInfo StartInfo(ExecutorRequest request, string? secret = null)
+    private ProcessStartInfo StartInfo(
+        ExecutorRequest request, string? secret = null, string? token = null)
     {
         var info = new ProcessStartInfo
         {
@@ -272,8 +288,58 @@ public sealed class ClaudeCodeExecutor(
             info.ArgumentList.Add(argument);
         }
 
+        PlaceToken(info, _agent, token);
         return info;
     }
+
+    /// <summary>
+    /// Puts the agent's own token where the agent reads it, and touches
+    /// nothing else in the child's environment.
+    /// </summary>
+    /// <remarks>
+    /// <b>The environment and nowhere else.</b> Not an argument - "which every
+    /// `ps` on the host can read" - and not the tool server's env block, which
+    /// is that server's credential. Nothing is cleared or removed: the child
+    /// inherits this process's environment as it always did, an inherited
+    /// ANTHROPIC_API_KEY included, which is the owner's decision.
+    /// </remarks>
+    internal static void PlaceToken(ProcessStartInfo info, IAuthenticateAnAgent? agent, string? token)
+    {
+        if (agent is not null && token is { Length: > 0 })
+        {
+            info.Environment[agent.TokenVariable] = token;
+        }
+    }
+
+    /// <summary>
+    /// The agent's own token, read through the same lookup the tool servers
+    /// use, under the adapter's locator - or null for no adapter.
+    /// </summary>
+    public static string? TokenFor(IAuthenticateAnAgent? agent, Func<string, string?> secretFor)
+    {
+        ArgumentNullException.ThrowIfNull(secretFor);
+        return agent is null ? null : secretFor(agent.Locator);
+    }
+
+    /// <summary>
+    /// The launch, whole, for a test that needs to see the environment as
+    /// well as the arguments.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ArgumentsFor"/>'s shape, one member wider: what is placed in
+    /// the child's environment is invisible to every test that stops at the
+    /// argument list, and a token in an argument would be the defect this
+    /// exists to catch.
+    /// </remarks>
+    public static ProcessStartInfo StartInfoFor(
+        ExecutorRequest request,
+        IReadOnlyList<IntentReader> readers,
+        string? secret = null,
+        SelfInvocation? self = null,
+        IAuthenticateAnAgent? agent = null,
+        string? token = null) =>
+        new ClaudeCodeExecutor("claude", readers, secretFor: null, self, agent)
+            .StartInfo(request, secret, token);
 
     /// <summary>
     /// What bounds the session, without what makes it headless.

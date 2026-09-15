@@ -526,6 +526,28 @@ public static class ProtocolSurface
         // nomination a tenant's agents have made, including the ones nobody has
         // decided about yet - so the argument below applies with more force
         // rather than less, and a runner credential opens none of it.
+        // THE ANSWER PATH, AND THE ONLY ONE. A nomination waiting on a person
+        // is answered here, the way a flight's gate is answered at
+        // /v1/flights/{ref}/decisions - the same act one noun earlier, spelled
+        // the same way. No runner credential opens it: a runner able to answer
+        // a nomination could decide the work it is about to be handed.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/board/{id}/decisions",
+            Audience = Audience.Developer,
+            Request = typeof(NominationDecision),
+            // NO RESPONSE BODY. ADR-0012: the write is a command, so the
+            // control plane takes the decision and the caller learns what
+            // happened by reading the board.
+            Response = null,
+            // 202 because the decision is taken and nothing is answered with;
+            // 409 because a row somebody already decided is history, and being
+            // told so is a different answer from being refused.
+            Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
         new()
         {
             Method = "GET",
@@ -1646,6 +1668,7 @@ public static class ProtocolSurface
                 ["nominationId", "nominator", "subject", "version", "workKind", "mode",
                  "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt"],
             [typeof(BoardPage)] = ["nominations", "includedEnded"],
+            [typeof(NominationDecision)] = ["outcome", "because"],
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels", "registeredByPrincipalId", "registeredBy",

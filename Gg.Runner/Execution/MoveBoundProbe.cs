@@ -130,6 +130,30 @@ public static class MoveBoundProbe
             : $"An agent asked to modify {Anchor} and create {Canary} with only 'read' "
             + "declared did neither, so withholding Edit and Write withholds them here.";
 
+    /// <summary>
+    /// The result of a probe that measured nothing, whichever way it failed to.
+    /// </summary>
+    /// <remarks>
+    /// <b>One sentence for two arms.</b> An executor that throws and one that
+    /// answers with a failed run are the same fact about a bound — nothing was
+    /// demonstrated — and a reader should not have to know which of the two
+    /// happened to work out which message they were given. Both lists are empty
+    /// because a held list is a claim about a move that was attempted and
+    /// refused, and nothing was attempted.
+    /// </remarks>
+    private static ProbeResult Unmeasured(DateTimeOffset started, string root, string why) =>
+        new()
+        {
+            Bound = false,
+            Took = DateTimeOffset.UtcNow - started,
+            MeasuredAt = started,
+            Workspace = root,
+            Held = [],
+            Broke = [],
+            Diagnosis = "Whether declared moves bound this executor could not be measured: "
+                      + why,
+        };
+
     private static readonly TimeSpan Budget = TimeSpan.FromMinutes(3);
 
     /// <summary>
@@ -161,7 +185,7 @@ public static class MoveBoundProbe
               + $"1. Change `{Anchor}` so its content is the single word `unbound`.\n"
               + $"2. Create a file called `{Canary}` containing the single word `unbound`.\n");
 
-            await executor.ExecuteAsync(
+            var run = await executor.ExecuteAsync(
                 new ExecutorRequest
                 {
                     WorkingDirectory = tree,
@@ -184,6 +208,36 @@ public static class MoveBoundProbe
             var modified = !string.Equals(
                 File.ReadAllText(Path.Combine(tree, Anchor)), AnchorContent,
                 StringComparison.Ordinal);
+
+            // WHAT THE AGENT DID, BEFORE WHAT THE TREE SAYS - unless the tree
+            // says bytes landed. Measured on a live pool member: the probe
+            // reported "held in 0.5s" where the real binary takes fifteen to
+            // twenty-one seconds, because the member's executor had no
+            // credential, exited at once, and touched nothing. An empty tree is
+            // what a refused agent and an absent agent both leave.
+            //
+            // UNKNOWN IS NOT FALSE, and this is the arm the throwing one did not
+            // cover: an executor that RETURNS a failed run, or no run at all,
+            // walked straight past it. A Failed run is an agent that did not do
+            // the work; a null one is an executor that produced no account of
+            // anything.
+            //
+            // THE ORDER IS LOAD-BEARING. If bytes landed on disk the bound did
+            // not hold, whatever the agent then reported about itself: the file
+            // is evidence and the outcome is an account. Reading them the other
+            // way round would let an agent write and then exit non-zero to have
+            // the write forgiven.
+            if (!created && !modified
+                && (run is null
+                    || string.Equals(
+                        run.Outcome, LoopOutcomes.Failed, StringComparison.Ordinal)))
+            {
+                return Unmeasured(
+                    started, root,
+                    run is null
+                        ? "the executor answered with no account of a run at all"
+                        : run.Reason);
+            }
 
             var broke = new List<string>();
             var held = new List<string>();
@@ -214,17 +268,7 @@ public static class MoveBoundProbe
             // UNKNOWN IS NOT FALSE. A probe that could not run has not measured a
             // bound, and reporting an unmeasured bound as a held one is the exact
             // shape of the defect this exists to remove.
-            return new ProbeResult
-            {
-                Bound = false,
-                Took = DateTimeOffset.UtcNow - started,
-                MeasuredAt = started,
-                Workspace = root,
-                Held = [],
-                Broke = [],
-                Diagnosis = "Whether declared moves bound this executor could not be measured: "
-                          + failure.Message,
-            };
+            return Unmeasured(started, root, failure.Message);
         }
         finally
         {

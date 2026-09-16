@@ -245,20 +245,20 @@ public static class Tabs
     /// </remarks>
     public static string Name(TabId tab) => tab switch
     {
-        TabId.Queue => "Queue",
-        TabId.Flights => "Flights",
-        TabId.Live => "Live",
-        TabId.Browse => "Browse",
-        TabId.Repositories => "Repositories",
-        TabId.Runners => "Runners",
+        TabId.Queue => "queue",
+        TabId.Flights => "flights",
+        TabId.Live => "live",
+        TabId.Browse => "browse",
+        TabId.Repositories => "repositories",
+        TabId.Runners => "runners",
         // NOT "Envelope", WHICH IS THE ONE DOCUMENT IN IT. This tab is what
         // the `gg airspace` verbs act on, and a tab named for the composed
         // result while the verbs were named for the collection made a person
         // learn two words for one screen. The switch above exists for this:
         // a display name diverging from an enum name costs a line here
         // rather than a rename of the type.
-        TabId.Envelope => "Airspace",
-        TabId.Allowances => "Allowances",
+        TabId.Envelope => "airspace",
+        TabId.Allowances => "allowances",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 }

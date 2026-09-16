@@ -546,7 +546,7 @@ public sealed class ConsoleScreen : Window
 
         _queuePane = new FrameView
         {
-            Title = "Queue",
+            Title = "queue",
             X = 0,
             Y = 0,
             Width = Dim.Percent(38),
@@ -557,7 +557,7 @@ public sealed class ConsoleScreen : Window
 
         _flightPane = new FrameView
         {
-            Title = "Flight",
+            Title = "flight",
             X = Pos.Right(_queuePane),
             Y = 0,
             Width = Dim.Fill(),
@@ -568,7 +568,7 @@ public sealed class ConsoleScreen : Window
 
         _livePane = new FrameView
         {
-            Title = "Live",
+            Title = "live",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -589,7 +589,7 @@ public sealed class ConsoleScreen : Window
         // off rather than trusting the order these are added in.
         _browsePane = new FrameView
         {
-            Title = "Browse",
+            Title = "browse",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -602,7 +602,7 @@ public sealed class ConsoleScreen : Window
         // THE FOURTH OCCUPANT OF THAT ONE REGION.
         _envelopePane = new FrameView
         {
-            Title = "Envelope",
+            Title = "envelope",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -742,7 +742,7 @@ public sealed class ConsoleScreen : Window
         // AND THE SIXTH, which shares the same region as the four above it.
         _allowancesPane = new FrameView
         {
-            Title = "Allowances",
+            Title = "allowances",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -757,7 +757,7 @@ public sealed class ConsoleScreen : Window
         // are added in.
         _repositoriesPane = new FrameView
         {
-            Title = "Repositories",
+            Title = "repositories",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -771,7 +771,7 @@ public sealed class ConsoleScreen : Window
         // the boot, so this tab is never waiting on a read.
         _runnersPane = new FrameView
         {
-            Title = "Runners",
+            Title = "runners",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -806,7 +806,7 @@ public sealed class ConsoleScreen : Window
         // started go". Open from the start, like the queue.
         _flightsPane = new FrameView
         {
-            Title = "Flights",
+            Title = "flights",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -899,7 +899,7 @@ public sealed class ConsoleScreen : Window
         {
             Width = Dim.Fill(),
             Height = Dim.Fill(),
-            Title = "Keys",
+            Title = "keys",
             CanFocus = true,
         };
         _helpKeysTab.Add(_helpKeys);
@@ -908,7 +908,7 @@ public sealed class ConsoleScreen : Window
         {
             Width = Dim.Fill(),
             Height = Dim.Fill(),
-            Title = "Environment",
+            Title = "environment",
             CanFocus = true,
         };
         _helpEnvironmentTab.Add(_helpEnvironment);
@@ -919,7 +919,7 @@ public sealed class ConsoleScreen : Window
         {
             Width = Dim.Fill(),
             Height = Dim.Fill(),
-            Title = "Doctor",
+            Title = "doctor",
             CanFocus = true,
         };
         _helpDoctorTab.Add(_helpDoctor);
@@ -934,7 +934,7 @@ public sealed class ConsoleScreen : Window
 
         _helpLookAboutPane = new FrameView
         {
-            Title = "What it does",
+            Title = "what it does",
             X = 0,
             Y = Pos.AnchorEnd(5),
             Width = Dim.Fill(),
@@ -953,7 +953,7 @@ public sealed class ConsoleScreen : Window
         {
             Width = Dim.Fill(),
             Height = Dim.Fill(),
-            Title = "Look",
+            Title = "look",
             CanFocus = true,
         };
         _helpLookTab.Add(_helpLook, _helpLookAboutPane);
@@ -1154,7 +1154,7 @@ public sealed class ConsoleScreen : Window
 
         _itemDetailsTab = new View
         {
-            Title = "Details",
+            Title = "details",
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true,
@@ -1250,7 +1250,7 @@ public sealed class ConsoleScreen : Window
 
         _composeKindTab = new View
         {
-            Title = "Kind",
+            Title = "kind",
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true,
@@ -1284,7 +1284,7 @@ public sealed class ConsoleScreen : Window
 
         _composeRepoTab = new View
         {
-            Title = "Repositories",
+            Title = "repositories",
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true,
@@ -1478,7 +1478,7 @@ public sealed class ConsoleScreen : Window
         // not three that a person has to reassemble.
         _flightDetailsTab = new View
         {
-            Title = "Details",
+            Title = "details",
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true,
@@ -1725,7 +1725,7 @@ public sealed class ConsoleScreen : Window
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
         // thing.
-        var queueTab = new View { Title = "Queue", Width = Dim.Fill(), Height = Dim.Fill() };
+        var queueTab = new View { Title = "queue", Width = Dim.Fill(), Height = Dim.Fill() };
         _queuePane.Height = Dim.Fill();
         _flightPane.Height = Dim.Fill();
         queueTab.Add(_queuePane, _flightPane);
@@ -2433,7 +2433,7 @@ public sealed class ConsoleScreen : Window
         // THE TITLE SAYS WHICH PAGE, because it used to say "Keys" whichever
         // one was showing - a constant from when the modal had one page, and a
         // label that names the wrong thing is worse than none.
-        _modal.Title = $"Help — {HelpPages.Title(State.HelpPage)}";
+        _modal.Title = $"help — {HelpPages.Title(State.HelpPage)}";
 
         FillHelpPages();
 
@@ -3355,7 +3355,7 @@ public sealed class ConsoleScreen : Window
         _flights.Text = PaneText.Flights(State);
         _repositories.Text = PaneText.Repositories(State);
         _runners.Text = PaneText.Runners(State);
-        _livePane.Title = State.Frozen ? "Live (frozen — f to resume)" : "Live";
+        _livePane.Title = State.Frozen ? "live (frozen — ctrl+f to resume)" : "live";
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
         // console opens will name, so a person glancing at the frame should

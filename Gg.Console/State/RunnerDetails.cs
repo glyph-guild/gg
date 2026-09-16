@@ -30,7 +30,7 @@ namespace Gg.Console;
 public static class RunnerDetails
 {
     /// <summary>What the frame over the log says.</summary>
-    public const string LogTitle = "Log";
+    public const string LogTitle = "log";
 
     /// <summary>
     /// The runner this modal is about, named the way the grid names it.

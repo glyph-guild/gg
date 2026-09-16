@@ -39,16 +39,16 @@ public static class FlightDetails
     /// job, in the imperative, on a box that is plainly a list already. The
     /// order is the table's first column and needs no announcing.
     /// </remarks>
-    public const string LogTitle = "Log";
+    public const string LogTitle = "log";
 
     /// <summary>The facts pane's heading.</summary>
-    public const string FactsTitle = "Recorded";
+    public const string FactsTitle = "recorded";
 
     /// <summary>The pane beneath the log, which holds what a cell cannot.</summary>
-    public const string LogDetailTitle = "What it said";
+    public const string LogDetailTitle = "what it said";
 
     /// <summary>The title over the modal's second tab.</summary>
-    public const string GateTitle = "Gate";
+    public const string GateTitle = "gate";
 
     /// <summary>
     /// What a gate is putting to this person about this flight.
@@ -95,7 +95,7 @@ public static class FlightDetails
     }
 
     /// <summary>What the frame over the intent says.</summary>
-    public const string IntentTitle = "Intent";
+    public const string IntentTitle = "intent";
 
     /// <summary>
     /// The flight this modal is about, named the way a person names it.

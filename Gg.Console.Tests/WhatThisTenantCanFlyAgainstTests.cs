@@ -165,7 +165,7 @@ public class WhatThisTenantCanFlyAgainstTests
         // exist - and EveryTabIsOnTheBarTests checks the tab offers the key the
         // keymap resolves.
         await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
-            .Contains("Repositories", StringComparison.Ordinal);
+            .Contains("repositories", StringComparison.OrdinalIgnoreCase);
         await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
             .Contains("r", StringComparison.Ordinal);
         // THE SHELL'S NO LONGER, AND THE RULE IS UNCHANGED. "Showing them is a

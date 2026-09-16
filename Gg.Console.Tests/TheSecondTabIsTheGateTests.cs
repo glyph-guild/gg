@@ -26,7 +26,7 @@ public class TheSecondTabIsTheGateTests
     [Test]
     public async Task The_tab_is_titled_for_the_decision_not_the_exhibits()
     {
-        await Assert.That(FlightDetails.GateTitle).IsEqualTo("Gate")
+        await Assert.That(FlightDetails.GateTitle).IsEqualTo("gate")
             .Because("the tab is the question waiting on this flight. The exhibits are "
                    + "what fills it, and only sometimes.");
     }

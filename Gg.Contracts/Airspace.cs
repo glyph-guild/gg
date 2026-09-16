@@ -642,6 +642,35 @@ public sealed record RepositoryRegistered
     /// </remarks>
     public string? Narrowings { get; init; }
 
+    /// <summary>
+    /// What this repository's pull requests nominate under, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sharpest case of this record's own rule.</b> A declaration a
+    /// tenant can write and cannot read back is one they cannot check, and this
+    /// one decides what a webhook nobody was watching may open. Without the
+    /// echo, the only way to learn what a repository nominates is to push a
+    /// commit and watch.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, on <see cref="Narrowings"/>' asymmetry rather than
+    /// <see cref="Credential"/>'s.</b> Absent and declared are different facts
+    /// here — unbounded versus bounded — so the absence survives as an absence,
+    /// which is also what lets every registration made before this member
+    /// existed read back honestly.
+    /// </para>
+    /// </remarks>
+    public Destination? Nominates { get; init; }
+
+    /// <summary>What those nominations may spend, or null — and null is unbounded.</summary>
+    /// <remarks>
+    /// Beside <see cref="Nominates"/> for the same reason and with the same
+    /// absence, because a bound a person can see and a rate they cannot is
+    /// half an answer to one question.
+    /// </remarks>
+    public NominationBudget? Budget { get; init; }
+
     /// <summary>Who registered it - a display a person can read, not an id.</summary>
     public required string RegisteredBy { get; init; }
 

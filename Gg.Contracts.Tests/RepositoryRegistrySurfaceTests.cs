@@ -76,6 +76,12 @@ public class RepositoryRegistrySurfaceTests
             .IsEquivalentTo((string[])
             [
                 "name", "provider", "id", "path", "credential", "ref", "narrowings",
+                // THE ECHO, AND IT ARRIVED ONE VERSION LATE. 0.174.0 put these
+                // two on the request above and left them off here, so a tenant
+                // could set what its pull requests may open and had no way to
+                // read it back - which is this record's own rule broken at its
+                // sharpest point.
+                "nominates", "budget",
                 "registeredBy", "registeredAt",
             ]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisteredRepositories)])

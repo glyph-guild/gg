@@ -1812,7 +1812,22 @@ public static class Keymap
             : [];
     }
 
-    public static IReadOnlyList<KeyCatalogueEntry> Catalogue()
+    public static IReadOnlyList<KeyCatalogueEntry> Catalogue() => Catalogued.Value;
+
+    /// <summary>
+    /// The catalogue, built once.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three readers asked and three answers were built.</b> HelpTree, the
+    /// runner modal and the help page's own renderer each call this, so the
+    /// cost was paid three times for one keypress. Nothing about it can change
+    /// while the console is running - it is a pure walk over the keymap, which
+    /// is a pure function - so the second caller is asking a question that has
+    /// already been answered.
+    /// </remarks>
+    private static readonly Lazy<IReadOnlyList<KeyCatalogueEntry>> Catalogued = new(Build);
+
+    private static IReadOnlyList<KeyCatalogueEntry> Build()
     {
         var entries = new List<KeyCatalogueEntry>();
 
@@ -1913,94 +1928,96 @@ public static class Keymap
         _ => [],
     };
 
-    private static IEnumerable<KeymapContext> Shapes(UiMode mode) =>
-        // ORDER IS THE PAGE'S ORDER. The plainest shape comes first - the queue
-        // tab, nothing frozen, nothing to take - so the keys that always work
-        // are listed first and in the order they are written.
-        from showing in Enum.GetValues<TabId>()
-        from frozen in (bool[])[false, true]
-        from takeable in (bool[])[false, true]
-        from handedBack in (bool[])[false, true]
-        // THE SIGN-IN MODAL'S TWO STEPS, which are two sets of keys behind one
-        // mode. Left out, `a` resolved in the running console and appeared on
-        // no page - a key nobody could discover, which is the thing this
-        // catalogue exists to prevent.
-        from signInStarted in (bool[])[false, true]
-        // THE RUNNER MODAL'S TWO SHAPES, for the sign-in modal's reason: two
-        // sets of keys behind one mode. Left out, `x shut it down` would appear
-        // on the help page unconditionally while resolving in only one of them.
-        from runnerIsOurs in (bool[])[false, true]
-        // AND WHETHER THERE IS ANYTHING TO REACH, which is a third set of keys
-        // behind the same mode. Left out, `w watch this runner` resolved over a
-        // beating runner and appeared on no page - the sign-in modal's defect
-        // exactly, one modal over, which is what a catalogue built by
-        // enumeration rather than by hand is for.
-        from runnerIsBeating in (bool[])[false, true]
-        // AND WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM, for the reason
-        // the three clauses above it each record: a flag the bindings branch on
-        // and this product leaves out is a key that resolves in the running
-        // console and appears on no page.
-        from allowanceIsMine in (bool[])[false, true]
-        from fleetOffered in (bool[])[false, true]
-        // AND WHETHER THE AIRSPACE CURSOR IS ON A DOCUMENT, for the reason the
-        // four clauses above it each record. `v' means two different things
-        // across this flag - read this document back, or read the rules in
-        // force - so one of the two appeared on no page.
-        from overADocument in (bool[])[false, true]
-        // AND WHICH HALF HOLDS THE KEYBOARD. `w' says "the document" from one
-        // side and "the tree" from the other, so one of the two would appear
-        // on no page - which is the argument the clause above it records.
-        from reading in (bool[])[false, true]
-
-        // AND WHETHER THE LOOK PAGE IS SHOWING. Crossed here for the reason
-        // every clause below and above it records: its four keys resolve in the
-        // running console, and a shape this product leaves out is a key that
-        // appears on no page. Caught by exactly that test.
-        from onTheLookPage in (bool[])[false, true]
-
-        // AND WHICH HALF OF THE COMPOSE MODAL. Crossed here so its two keys
-        // reach the catalogue, which is what the help page is built from.
-        from onTheRepositoriesHalf in (bool[])[false, true]
-
-        // AND WHETHER THE HELP CURSOR IS ON A GROUP. Crossed here so the fold
-        // key reaches the catalogue, which is what the help page is built
-        // from - a key offered only in one shape and left out of this would be
-        // advertised nowhere.
-        from overAFold in (bool[])[false, true]
-
-        // AND WHETHER THE FLIGHT ON SCREEN NAMES A TICKET A READER HERE CAN
-        // READ. Crossed here so the key that opens it reaches the catalogue -
-        // and this one matters more than most, because the whole point of it
-        // being conditional is that a person will not see it on their own
-        // flights until one names a ticket. The help page is where they find
-        // out it exists at all.
-        from overAReadableTicket in (bool[])[false, true]
-
-        // AND WHETHER A GATE IS WAITING. Crossed here so the two acts an
-        // approval offers reach the catalogue the help page is built from -
-        // they are bound only over a row with something to answer, which is
-        // exactly the shape a product that left it out could not produce.
-        from aGateWaits in (bool[])[false, true]
-
-        // AND WHETHER THAT GATE ASKS FOR AN AGENT LOGIN. Crossed here for the
-        // reason every clause above it records, and this one is the clearest
-        // case of it: `s log the agent in` is bound only over a gate that
-        // asks, so a person whose fleet is healthy will never see it on a
-        // gate - and the help page is the only place they find out it exists
-        // before the day they need it.
-        from gateAsksForAgentLogin in (bool[])[false, true]
-        select new KeymapContext(
-            mode, showing, frozen, takeable, handedBack, overADocument, reading,
-            overAFold, onTheLookPage, onTheRepositoriesHalf, overAReadableTicket,
-            aGateWaits)
+    /// <summary>
+    /// Every shape of context that can change what one mode binds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE FLAG AT A TIME, NOT ALL OF THEM AT ONCE.</b> This was a cross
+    /// product: eight tabs by sixteen booleans is 524,288 contexts for one
+    /// mode, and twenty-four modes is twelve and a half million - each
+    /// allocating its own array of bindings, to find 137 distinct entries. It
+    /// cost ten seconds, and every flag added to the keymap doubled it, which
+    /// is a bill nobody sees until somebody presses `?`.
+    /// </para>
+    /// <para>
+    /// <b>What it has to cover, and does.</b> A binding is conditional on the
+    /// mode, the tab, and one or two of these flags - so for each tab this
+    /// walks the plainest shape, then that shape with each flag raised alone,
+    /// then every flag raised together. Any pair of flags is then covered in
+    /// all four of its combinations: neither from the plain shape, each alone
+    /// from its own, and both from the last one.
+    /// </para>
+    /// <para>
+    /// <b>And the exhaustive product is still run, in the tests.</b>
+    /// <c>HelpNamesEveryKeyTests</c> crosses every flag and asserts this
+    /// catalogue holds every key that product can resolve - so a binding that
+    /// needed a combination this misses is a failing test rather than a key
+    /// missing from the page. The proof is exhaustive; the thing a person
+    /// waits for is not.
+    /// </para>
+    /// <para>
+    /// <b>ORDER IS THE PAGE'S ORDER.</b> The plainest shape comes first - the
+    /// queue tab, nothing frozen, nothing to take - so the keys that always
+    /// work are listed first, and in the order they are written.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<KeymapContext> Shapes(UiMode mode)
+    {
+        foreach (var showing in Enum.GetValues<TabId>())
         {
-            SignInStarted = signInStarted,
-            RunnerIsOurs = runnerIsOurs,
-            RunnerIsBeating = runnerIsBeating,
-            AllowanceIsMine = allowanceIsMine,
-            FleetAllowancesOffered = fleetOffered,
-            GateAsksForAgentLogin = gateAsksForAgentLogin,
-        };
+            var plain = new KeymapContext(mode, showing);
+
+            yield return plain;
+
+            foreach (var raised in Raised)
+            {
+                yield return raised(plain);
+            }
+
+            // ALL OF THEM, which is what covers a binding that needs two at
+            // once - `w watch this runner` is bound over a runner that is ours
+            // AND beating, and neither alone reaches it.
+            var everything = plain;
+
+            foreach (var raise in Raised)
+            {
+                everything = raise(everything);
+            }
+
+            yield return everything;
+        }
+    }
+
+    /// <summary>
+    /// Each flag the keymap dispatches on, as a way to raise just that one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written out, because a flag left out of this is a key that resolves
+    /// in the running console and appears on no page</b> - the mistake the old
+    /// cross product made impossible and this one has to be told about. It is
+    /// the same list <c>KeymapContext</c> declares, and
+    /// <c>HelpNamesEveryKeyTests</c> counts them both.
+    /// </remarks>
+    private static readonly Func<KeymapContext, KeymapContext>[] Raised =
+    [
+        c => c with { Frozen = true },
+        c => c with { Takeable = true },
+        c => c with { HandedBackable = true },
+        c => c with { OverADocument = true },
+        c => c with { ReadingTheDocument = true },
+        c => c with { OverAFold = true },
+        c => c with { OnTheLookPage = true },
+        c => c with { OnTheRepositoriesHalf = true },
+        c => c with { OverAReadableTicket = true },
+        c => c with { AGateWaits = true },
+        c => c with { SignInStarted = true },
+        c => c with { RunnerIsOurs = true },
+        c => c with { RunnerIsBeating = true },
+        c => c with { AllowanceIsMine = true },
+        c => c with { FleetAllowancesOffered = true },
+        c => c with { GateAsksForAgentLogin = true },
+    ];
 
     /// <summary>
     /// A toggle's description: what a second press will do from here.

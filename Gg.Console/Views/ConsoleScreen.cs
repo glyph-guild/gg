@@ -823,6 +823,13 @@ public sealed class ConsoleScreen : Window
         _runnersTable = CollectionViews.Table();
         _runnersPane.Add(_runnersTable);
 
+        // WHAT IS OVER RECEDES, AND ITS ENDING KEEPS ITS COLOUR. Only this
+        // table: the rows are flights, and only flights have endings. Set once
+        // at construction because the getters read the table they are handed,
+        // so there is nothing to reassert when the rows change.
+        LookStyles.FlightStates(
+            _flightsTable, Rows.FlightColumns.ToList().IndexOf("state"));
+
         _flightsTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;

@@ -350,6 +350,105 @@ public static class LookStyles
         };
     }
 
+    /// <summary>
+    /// The flights table: what is over recedes, and its ending keeps its
+    /// colour.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own entry point, because it is about one table.</b>
+    /// <see cref="Table"/> above styles every table in this console the same
+    /// way; this knows what the rows MEAN, and only the flights are flights.
+    /// </para>
+    /// <para>
+    /// <b>The row recedes and the cell recedes with it</b> - the owner's call.
+    /// Faint over a colour keeps the hue, so a finished row still says which
+    /// ending it was, one shade quieter. Dimming the row and leaving the cell
+    /// bright would have made the colour loudest on exactly the rows nobody
+    /// needs to look at.
+    /// </para>
+    /// <para>
+    /// <b>Read off the cell, not off a row object.</b> The getters are handed a
+    /// table and an index, so the state is whatever is in that column of that
+    /// row - which means this cannot disagree with what is on the screen.
+    /// </para>
+    /// </remarks>
+    public static void FlightStates(TableView table, int stateColumn)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        table.Style.RowColorGetter = args =>
+            FlightLook.IsOver(Cell(args.Table, args.RowIndex, stateColumn))
+                ? Receding(table.GetScheme())
+                : null;
+
+        table.Style.GetOrCreateColumnStyle(stateColumn).ColorGetter = args =>
+            Tinted(args.RowScheme ?? table.GetScheme(), FlightLook.Tint(args.CellValue as string));
+    }
+
+    /// <summary>One cell, as text, or null where the table has no such place.</summary>
+    private static string? Cell(ITableSource source, int row, int column) =>
+        source is not null
+        && row >= 0 && row < source.Rows
+        && column >= 0 && column < source.Columns
+            ? source[row, column] as string
+            : null;
+
+    /// <summary>A whole row, pushed back because it is over.</summary>
+    private static Scheme Receding(Scheme basis) => basis with
+    {
+        Normal = new Attribute(basis.Normal.Foreground, basis.Normal.Background, TextStyle.Faint),
+        HotNormal = new Attribute(basis.HotNormal.Foreground, basis.HotNormal.Background, TextStyle.Faint),
+    };
+
+    /// <summary>
+    /// The state cell, in the colour its ending earns.
+    /// </summary>
+    /// <remarks>
+    /// <b>The background and the style come from the row.</b> The row is
+    /// already faint and already sitting on whatever the selection left behind,
+    /// so taking anything but the foreground from it would draw a patch that
+    /// does not belong to the line it is in.
+    /// </remarks>
+    private static Scheme Tinted(Scheme basis, FlightTint tint)
+    {
+        if (tint is FlightTint.None)
+        {
+            return basis;
+        }
+
+        var colour = new Color(tint switch
+        {
+            // GREEN IS THE ONE COLOUR NOBODY HAS TO BE TAUGHT.
+            FlightTint.Landed => ColorName16.Green,
+
+            // YELLOW, NOT RED. `grounded` is "a person stopped it" - a
+            // deliberate act, and red on somebody's own decision is the cry of
+            // wolf that teaches people to stop reading colour.
+            FlightTint.Grounded => ColorName16.Yellow,
+
+            // THE NON-EVENT. "The question ceased to apply" - the contract's
+            // own warning is that this is the most reachable sentence in the
+            // vocabulary, so it should look like nothing rather than like an
+            // achievement.
+            FlightTint.Withdrawn => ColorName16.DarkGray,
+
+            // THE ONE OUTCOME THAT WANTED SOMETHING AND DID NOT GET IT.
+            FlightTint.Failed => ColorName16.Red,
+
+            // NOT AN ENDING'S COLOUR AT ALL, deliberately. No ending was
+            // recorded and none can be derived - a hole in the record, and it
+            // should read as wrong rather than as a result.
+            _ => ColorName16.BrightMagenta,
+        });
+
+        return basis with
+        {
+            Normal = new Attribute(colour, basis.Normal.Background, basis.Normal.Style),
+            HotNormal = new Attribute(colour, basis.HotNormal.Background, basis.HotNormal.Style),
+        };
+    }
+
     /// <summary>One attribute, pushed back.</summary>
     private static Attribute Back(Attribute attribute, Dimming how) => how switch
     {

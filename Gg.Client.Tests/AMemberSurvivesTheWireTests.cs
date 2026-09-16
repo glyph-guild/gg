@@ -41,6 +41,47 @@ public class AMemberSurvivesTheWireTests
     }
 
     [Test]
+    public async Task Gg_runners_puts_a_member_under_its_host_and_indents_it()
+    {
+        // THE SAME SHAPE THE CONSOLE DRAWS, on the surface a person is more
+        // likely to be looking at when they go hunting for a machine. Listed
+        // flat, the three machines somebody operates scatter among the members
+        // their pools created.
+        //
+        // THE MEMBER IS FIRST HERE, which is what the fleet's own order gives
+        // once a pool has been rebuilt a few times.
+        var text = VerbOutput.ToText(new VerbResult.Runners(new RunnerList
+        {
+            Runners =
+            [
+                Member(),
+                new RunnerSummary
+                {
+                    RunnerId = "01a0a856-eac3-7671-9f0e-000000000000",
+                    Label = "vmlinux001",
+                    State = "idle",
+                },
+                Laptop(),
+            ],
+        }));
+
+        var lines = text.Split('\n');
+        var member = Array.FindIndex(
+            lines, l => l.Contains("gg-pool-ui-1", StringComparison.Ordinal));
+        var host = Array.FindIndex(
+            lines, l => l.Contains("vmlinux001", StringComparison.Ordinal));
+
+        await Assert.That(member).IsEqualTo(host + 1)
+            .Because("a member reads as belonging to the machine above it, and a row between "
+                   + "them breaks that.");
+        await Assert.That(lines[member].StartsWith("  ", StringComparison.Ordinal)).IsTrue()
+            .Because("adjacency alone is just two rows; the indent is what says one warmed "
+                   + "the other. Drawn: " + lines[member]);
+        await Assert.That(lines[host].StartsWith(" ", StringComparison.Ordinal)).IsFalse()
+            .Because("a machine is flush, or the indent says nothing.");
+    }
+
+    [Test]
     public async Task A_runner_with_no_host_writes_no_key()
     {
         // OMITTED RATHER THAN NULL. A control plane that has not learned this

@@ -2084,6 +2084,39 @@ public static class VerbOutput
                 text.Append("  narrowings: ").Append(governed);
             }
 
+            // WHAT ITS PULL REQUESTS MAY OPEN, AND HOW OFTEN. The line a
+            // person reading this list is asking about when they ask what a
+            // webhook nobody was watching is allowed to do here - and until
+            // the echo existed, the only way to find out was to push a commit
+            // and watch.
+            //
+            // SAID ONLY WHEN THERE IS ONE, unlike the credential above. An
+            // absent bound is what every repository registered before this
+            // existed has, so a line reading "nominates: -" on every row would
+            // be noise on the common case rather than an answer.
+            if (repository.Nominates is { Opens.Count: > 0 } bound)
+            {
+                text.Append("  nominates: ").Append(string.Join('|', bound.Opens));
+
+                if (!string.Equals(
+                        DestinationOpening.Of(bound),
+                        DestinationOpening.Auto,
+                        StringComparison.Ordinal))
+                {
+                    // GATED IS THE WORD A READER ACTS ON, so it is spelled out
+                    // where `auto` - nobody has said otherwise - is not.
+                    text.Append(" (").Append(Clean(DestinationOpening.Of(bound))).Append(')');
+                }
+            }
+
+            if (repository.Budget is { } budget)
+            {
+                text.Append("  budget: ")
+                    .Append(budget.Flights)
+                    .Append(" flight(s) per ")
+                    .Append(Clean(budget.Window));
+            }
+
             text.AppendLine();
         }
 

@@ -78,7 +78,45 @@ public class BoardSurfaceTests
             nameof(NominationSummary.MadeAt),
             nameof(NominationSummary.EndedAt),
             nameof(NominationSummary.IntentKey),
+            nameof(NominationSummary.GatedBecause),
         });
+    }
+
+    [Test]
+    public async Task A_gate_nobody_authored_says_so_as_a_member_rather_than_in_a_sentence()
+    {
+        // TWO WAYS TO BE GATED, AND A READER MUST NOT HAVE TO PARSE PROSE TO
+        // TELL THEM APART. `opens-as: gated` is a person put in front of an
+        // opening on purpose, and its reason is the destination somebody
+        // wrote. A budget that ran out is the same word arrived at by
+        // arithmetic, and its reason exists nowhere else - so it is carried
+        // here, and its PRESENCE is the discriminator.
+        //
+        // WHY NOT A THIRD MODE WORD. `Mode` is the destination's `opens-as`,
+        // and `DestinationOpening` reads two words and refuses a third - which
+        // `ARepositoryDeclaresWhatItNominatesTests` holds at the registration
+        // door. A third would make `opens-as: exhausted` an authorable value
+        // in a destination document, and nobody authors exhaustion.
+        var gated = typeof(NominationSummary).GetProperty(
+            nameof(NominationSummary.GatedBecause))!;
+
+        await Assert.That(gated.PropertyType).IsEqualTo(typeof(string));
+
+        await Assert.That(new NominationSummary
+        {
+            NominationId = Guid.Parse("01a0792a-5e1f-7030-a5d8-52fd66e510b0"),
+            Nominator = "observation:a-forge/acme/payments-service",
+            Subject = "pull-request:a-forge/acme/payments-service#7",
+            Version = "0f2c1a9b4e7d6c5a8b3f2e1d0c9b8a7f6e5d4c3b",
+            WorkKind = "implement",
+            Mode = DestinationOpening.Gated,
+            State = NominationStates.Standing,
+            MadeAt = DateTimeOffset.UnixEpoch,
+        }.GatedBecause).IsNull()
+            .Because("null is an AUTHORED gate: the destination says why, and the destination "
+                   + "is the record. A sentence copied onto every authored row would be this "
+                   + "repeating what a document already holds, and would leave the two kinds "
+                   + "of gate indistinguishable again.");
     }
 
     [Test]

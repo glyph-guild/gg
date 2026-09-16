@@ -109,9 +109,24 @@ public class GateModalTests
             new KeymapContext(UiMode.FlightActions, AGateWaits: true));
 
         await Assert.That(asking.Select(b => b.Command)).Contains(Command.LogAgentIn);
-        await Assert.That(asking.Select(b => b.Command)).Contains(Command.ApproveGate)
-            .Because("the two answers stay, because somebody who has decided the machine is "
-                   + "not coming back still answers the gate the ordinary way.");
+        await Assert.That(asking.Select(b => b.Command)).DoesNotContain(Command.ApproveGate)
+            .Because("APPROVING THIS GATE FIXES NOTHING. It is not a yes-or-no for a person; "
+                   + "it is a request to repair a machine, and it clears itself when the "
+                   + "runner next reports ready. An approval typed here closes the ask while "
+                   + "the member still cannot fly - and the supported way to give up on a "
+                   + "machine is grounding the flight, which `x` offers one level in.");
+        await Assert.That(asking.Select(b => b.Command)).DoesNotContain(Command.RejectGate)
+            .Because("and the asymmetry was the tell: Approve sat at the top level while "
+                   + "Reject did not, so the modal offered half an answer beside a container "
+                   + "holding both halves.");
+        await Assert.That(asking.Select(b => b.Command)).Contains(Command.OpenGate)
+            .Because("both answers stay reachable through Decide for somebody who means it. "
+                   + "This removes a shortcut, not a capability.");
+
+        await Assert.That(ordinary.Select(b => b.Command)).Contains(Command.ApproveGate)
+            .Because("an ordinary gate IS a yes-or-no a person answers, and approving it from "
+                   + "the actions modal is the whole point of the key. Nothing here changes "
+                   + "for the gates this console has always had.");
 
         await Assert.That(ordinary.Select(b => b.Command)).DoesNotContain(Command.LogAgentIn)
             .Because("an ordinary gate has no agent to log in, and a key that does nothing "

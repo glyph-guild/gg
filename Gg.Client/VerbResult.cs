@@ -2006,7 +2006,7 @@ public static class VerbOutput
         }
 
         var text = new StringBuilder();
-        foreach (var runner in list.Runners)
+        foreach (var runner in UnderTheirHosts(list.Runners))
         {
             var on = runner.CurrentFlightNumber is { Length: > 0 } number ? $"  on {Clean(number)}" : "";
             var beat = runner.LastHeartbeatAt is { } at ? $"  last seen {at:u}" : "  never seen";
@@ -2016,9 +2016,61 @@ public static class VerbOutput
             var labels = runner.Labels.Count > 0
                 ? $"  [{string.Join(", ", runner.Labels.Select(l => Clean(l.Name)))}]"
                 : "";
-            text.AppendLine($"{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{labels}");
+
+            // UNDER THE MACHINE THAT WARMED IT, which the order above has
+            // already arranged. Adjacency alone is two ordinary rows; the
+            // indent is what says one of them created the other.
+            var under = runner.HostRunnerId is { Length: > 0 } ? "  " : "";
+
+            text.AppendLine(
+                $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{labels}");
         }
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Each member directly after the machine that warmed it, everything else
+    /// in the order it arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A parallel of the console's, over the wire type rather than the row.</b>
+    /// <c>Rows.UnderTheirHosts</c> runs after an ordering this surface does not
+    /// have - mine, yours, this machine's - so the two cannot share a body
+    /// without one of them acquiring the other's ideas about what comes first.
+    /// The rule they share is small enough to state twice and is tested on both
+    /// sides: a member follows its host, an orphan keeps its place.
+    /// </para>
+    /// <para>
+    /// <b>An orphan is still a row.</b> A host that has been revoked, or a
+    /// listing read mid-change, is exactly when somebody needs to see the
+    /// machine that is asking for help.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<RunnerSummary> UnderTheirHosts(
+        IReadOnlyList<RunnerSummary> fleet)
+    {
+        var hosts = new HashSet<string>(
+            fleet.Select(r => r.RunnerId), StringComparer.OrdinalIgnoreCase);
+
+        var adopted = fleet
+            .Where(r => r.HostRunnerId is { Length: > 0 } h && hosts.Contains(h))
+            .ToList();
+
+        if (adopted.Count == 0)
+        {
+            return fleet;
+        }
+
+        var ordered = new List<RunnerSummary>(fleet.Count);
+        foreach (var runner in fleet.Where(r => !adopted.Contains(r)))
+        {
+            ordered.Add(runner);
+            ordered.AddRange(adopted.Where(m => string.Equals(
+                m.HostRunnerId, runner.RunnerId, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return ordered;
     }
 
     /// <summary>

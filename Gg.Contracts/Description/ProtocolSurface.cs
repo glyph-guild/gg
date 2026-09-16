@@ -1720,7 +1720,7 @@ public static class ProtocolSurface
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels", "registeredByPrincipalId", "registeredBy",
-                 "parkedAt", "parkedBecause"],
+                 "parkedAt", "parkedBecause", "hostRunnerId"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],

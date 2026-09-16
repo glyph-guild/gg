@@ -39,7 +39,7 @@ public class TheLookPageTests
         // enum and not to the list is one nothing can reach.
         await Assert.That(HelpPages.All).Contains(HelpPage.Look);
 
-        await Assert.That(HelpPages.Title(HelpPage.Look)).IsEqualTo("Look")
+        await Assert.That(HelpPages.Title(HelpPage.Look)).IsEqualTo("look")
             .Because("a page with no title draws its enum name, which is the same word "
                    + "by luck rather than by decision.");
     }

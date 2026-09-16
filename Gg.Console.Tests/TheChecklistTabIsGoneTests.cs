@@ -37,13 +37,13 @@ public class TheChecklistTabIsGoneTests
     {
         var named = Tabs.All.Select(Tabs.Name).ToList();
 
-        await Assert.That(named).DoesNotContain("Checklist")
+        await Assert.That(named).DoesNotContain("checklist", StringComparer.OrdinalIgnoreCase)
             .Because("the bar's job is to say what there is, so a tab left on it is a "
                    + "promise the console no longer keeps.");
 
         // THE BAR IS STILL A BAR. Without this the assertion above is satisfied
         // by a console that has no tabs at all.
-        await Assert.That(named).Contains("Queue");
+        await Assert.That(named).Contains("queue");
         await Assert.That(named.Count).IsGreaterThanOrEqualTo(6)
             .Because($"one tab went, not the bar. Saw [{string.Join(", ", named)}]");
     }

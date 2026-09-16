@@ -141,7 +141,7 @@ public class OneWordForItWhereAPersonReadsItTests
     [Test]
     public async Task The_tab_is_called_airspace()
     {
-        await Assert.That(Tabs.Name(TabId.Envelope)).IsEqualTo("Airspace")
+        await Assert.That(Tabs.Name(TabId.Envelope)).IsEqualTo("airspace")
             .Because("it is the tab the airspace verbs act on, and a tab called Envelope "
                    + "beside a verb called airspace made a person learn two words for one "
                    + "thing.");
@@ -158,7 +158,7 @@ public class OneWordForItWhereAPersonReadsItTests
         await Assert.That(Tabs.KeyFor(TabId.Envelope)).IsEqualTo(KeyStroke.Char('e'));
 
         await Assert.That(Tabs.Title(new AppState(), TabId.Envelope))
-            .StartsWith("Airspace")
+            .StartsWith("airspace", StringComparison.OrdinalIgnoreCase)
             .Because("the bar is built from the name and the key, so a person sees which "
                    + "letter reaches it rather than guessing from the word.");
     }

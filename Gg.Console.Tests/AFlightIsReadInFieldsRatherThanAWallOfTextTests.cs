@@ -372,7 +372,7 @@ public class AFlightIsReadInFieldsRatherThanAWallOfTextTests
     {
         // WHAT THE FRAME OVER THE TABLE SAYS. "what happened, in order:" was a
         // sentence doing a heading's job, and it read as an instruction.
-        await Assert.That(FlightDetails.LogTitle).IsEqualTo("Log");
+        await Assert.That(FlightDetails.LogTitle).IsEqualTo("log");
         await Assert.That(PaneText.Modal(Opened()))
             .DoesNotContain("what happened, in order");
     }

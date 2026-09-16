@@ -2575,6 +2575,18 @@ public static class VerbOutput
                     string.Equals(row.Mode, DestinationOpening.Gated, StringComparison.Ordinal)
                         ? "  standing:     gated - it is waiting for somebody"
                         : $"  standing:     {Clean(row.Mode)} - nobody need answer it");
+
+                // WHY IT IS GATED, EXACTLY WHEN THERE IS SOMEWHERE ELSE TO
+                // LOOK AND NOWHERE ELSE TO LOOK. An authored gate's reason is
+                // the destination somebody wrote, and printing a sentence for
+                // it would be gg paraphrasing a document it is not reading. A
+                // gate arithmetic reached has its reason on this row alone, and
+                // the sentence is what turns "somebody has to answer this" into
+                // something answerable.
+                if (row.GatedBecause is { Length: > 0 } exhausted)
+                {
+                    text.AppendLine($"  because:      {Clean(exhausted)}");
+                }
             }
 
             text.AppendLine($"  nominated:    {row.MadeAt:u}");

@@ -765,6 +765,27 @@ public static class Keymap
                 ]
                 : [],
 
+            // AND THE ACT THAT CLEARS THE GATE, where a person looking for
+            // what can be done will actually meet it. Binding it in the
+            // decision modal alone put it one keypress out of sight: somebody
+            // on a held runner's flight was shown three keys and none of them
+            // was the one that fixes the machine.
+            //
+            // AFTER the two answers rather than first, unlike the decision
+            // modal. There the act is the point of the page; here the reading
+            // key is the default and must stay so - enter twice is the
+            // commonest thing a person does to this modal.
+            .. context.GateAsksForAgentLogin
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('s'), Command.LogAgentIn, "log the agent in")
+                    {
+                        Label = "Log in",
+                        When = "when this flight's gate is a runner's agent-login ask",
+                    },
+                ]
+                : [],
+
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

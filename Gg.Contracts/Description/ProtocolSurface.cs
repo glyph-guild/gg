@@ -1763,7 +1763,7 @@ public static class ProtocolSurface
             [typeof(RepositoryRegistered)] =
                 [
                     "name", "provider", "id", "path", "credential", "ref", "narrowings",
-                    "registeredBy", "registeredAt",
+                    "nominates", "budget", "registeredBy", "registeredAt",
                 ],
             [typeof(RegisteredRepositories)] = ["repositories"],
             [typeof(AdvertisedLabel)] = ["name", "disposition"],

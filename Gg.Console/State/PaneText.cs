@@ -1909,13 +1909,11 @@ public static class PaneText
             // command they would have to run in another terminal.
             var work = row.Work is { Length: > 0 } flight ? $"  on {flight}" : "";
 
-            // UNDER THE MACHINE THAT WARMED IT. Rows.Runners has already put a
-            // member directly after its host; this is what says the two are
-            // not peers, because adjacency alone reads as two ordinary rows.
-            var under = row.HostRunnerId.Length > 0 ? "  " : "";
-
+            // THE INDENT IS ON THE ROW, not added here: the tab draws the same
+            // cell as a table and the two nested by different amounts while
+            // each decided it for itself.
             text.AppendLine(
-                $"{under}{row.Here} {row.Runner}  {row.State}{work}{Spent(state, row.Id)}");
+                $"{row.Here} {row.Runner}  {row.State}{work}{Spent(state, row.Id)}");
         }
 
         return text.ToString().TrimEnd();

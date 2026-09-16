@@ -835,6 +835,11 @@ public sealed class ConsoleScreen : Window
         _repositoriesTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
         _airspaceTable.ValueChanged += OnRowPointedAt;
+        // AND THE FLEET, on the flights tab's rule: a machine that will take no
+        // work recedes, and its state says whether it is gone or withheld.
+        LookStyles.RunnerStates(
+            _runnersTable, Rows.RunnerColumns.ToList().IndexOf("state"));
+
         _runnersTable.KeyDown += OnTableKeyDown;
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };

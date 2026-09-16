@@ -386,6 +386,52 @@ public static class LookStyles
             Tinted(args.RowScheme ?? table.GetScheme(), FlightLook.Tint(args.CellValue as string));
     }
 
+    /// <summary>
+    /// The fleet table: a runner that will take no work recedes, and says why.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FlightStates"/>'s shape one tab over, and the same two
+    /// decisions: the row recedes with its cell, and only the machines that
+    /// will not answer are tinted.
+    /// </remarks>
+    public static void RunnerStates(TableView table, int stateColumn)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        table.Style.RowColorGetter = args =>
+            RunnerLook.IsAside(Cell(args.Table, args.RowIndex, stateColumn))
+                ? Receding(table.GetScheme())
+                : null;
+
+        table.Style.GetOrCreateColumnStyle(stateColumn).ColorGetter = args =>
+            Aside(args.RowScheme ?? table.GetScheme(), RunnerLook.Tint(args.CellValue as string));
+    }
+
+    /// <summary>The state cell of a runner that will take no work.</summary>
+    /// <remarks>
+    /// <b>Grey for offline, yellow for parked</b> - see <c>RunnerLook</c> for
+    /// why offline is not red: most offline runners are laptops that are
+    /// closed, and a fault colour on every shut machine is the cry of wolf that
+    /// teaches people to stop reading colour.
+    /// </remarks>
+    private static Scheme Aside(Scheme basis, RunnerTint tint)
+    {
+        if (tint is RunnerTint.None)
+        {
+            return basis;
+        }
+
+        var colour = new Color(tint is RunnerTint.Parked
+            ? ColorName16.Yellow
+            : ColorName16.DarkGray);
+
+        return basis with
+        {
+            Normal = new Attribute(colour, basis.Normal.Background, basis.Normal.Style),
+            HotNormal = new Attribute(colour, basis.HotNormal.Background, basis.HotNormal.Style),
+        };
+    }
+
     /// <summary>One cell, as text, or null where the table has no such place.</summary>
     private static string? Cell(ITableSource source, int row, int column) =>
         source is not null

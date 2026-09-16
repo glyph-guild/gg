@@ -132,7 +132,19 @@ public sealed record RunnerRow(
     string State,
     string Work,
     string Labels,
-    string Heard);
+    string Heard,
+
+    /// <summary>
+    /// The machine that warmed this one, when this row is a pool member, and
+    /// empty when it is a machine in its own right.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried rather than re-derived at render.</b> The pane indents on
+    /// this, and working out which rows are members a second time in the
+    /// drawing code is how the list and the order come to disagree. Empty
+    /// rather than null, like every other absent string on this record.
+    /// </remarks>
+    string HostRunnerId = "");
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -369,6 +381,8 @@ public static class Rows
             .OrderBy(r => r.Mine ? 0 : r.Yours ? 1 : r.Machine ? 2 : 3)
             .ToList();
 
+        rows = UnderTheirHosts(rows);
+
         if (rows.Any(r => r.Mine) is false && mine is { Length: > 0 })
         {
             // REGISTERED AND NEVER HEARD FROM, which is what offline means.
@@ -502,6 +516,52 @@ public static class Rows
     /// </remarks>
     private const string Alongside = "·";
 
+    /// <summary>
+    /// Moves each member to sit directly after the machine that warmed it,
+    /// leaving everything else in the order it arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three machines under fifteen members is a list nobody can use.</b> A
+    /// member belongs in the fleet and is not a peer of the machines beside it,
+    /// so the order has to say which is which before the render can.
+    /// </para>
+    /// <para>
+    /// <b>An orphan keeps its place rather than disappearing.</b> A member
+    /// whose host is revoked, or a listing read mid-change, is exactly when
+    /// somebody needs to see the machine that is asking for help - so a host
+    /// that is not here leaves its members where they were.
+    /// </para>
+    /// <para>
+    /// <b>Stable, like the ordering above it.</b> Members keep the fleet's own
+    /// order among themselves; this only decides where the group sits.
+    /// </para>
+    /// </remarks>
+    private static List<RunnerRow> UnderTheirHosts(List<RunnerRow> rows)
+    {
+        var hosts = new HashSet<string>(
+            rows.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
+
+        var adopted = rows
+            .Where(r => r.HostRunnerId.Length > 0 && hosts.Contains(r.HostRunnerId))
+            .ToList();
+
+        if (adopted.Count == 0)
+        {
+            return rows;
+        }
+
+        var ordered = new List<RunnerRow>(rows.Count);
+        foreach (var row in rows.Where(r => !adopted.Contains(r)))
+        {
+            ordered.Add(row);
+            ordered.AddRange(adopted.Where(m => string.Equals(
+                m.HostRunnerId, row.Id, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return ordered;
+    }
+
     private static RunnerRow Row(RunnerSummary runner, bool mine, bool yours, bool machine) => new(
         Mine: mine,
         Yours: yours,
@@ -533,7 +593,12 @@ public static class Rows
             : $"{runner.State} · parked",
         Work: runner.CurrentFlightNumber ?? "",
         Labels: string.Join(", ", runner.Labels.Select(Advertised)),
-        Heard: runner.LastHeartbeatAt is { } at ? at.ToString("u") : "never");
+        Heard: runner.LastHeartbeatAt is { } at ? at.ToString("u") : "never",
+
+        // Stripped like every other string a control plane composes, even
+        // though this one is an id: the doorway cleans, and an exception here
+        // would be an exception nobody told the next reader about.
+        HostRunnerId: ControlText.Strip(runner.HostRunnerId ?? ""));
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

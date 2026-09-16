@@ -1908,7 +1908,14 @@ public static class PaneText
             // marked is a list somebody has to cross-reference against a
             // command they would have to run in another terminal.
             var work = row.Work is { Length: > 0 } flight ? $"  on {flight}" : "";
-            text.AppendLine($"{row.Here} {row.Runner}  {row.State}{work}{Spent(state, row.Id)}");
+
+            // UNDER THE MACHINE THAT WARMED IT. Rows.Runners has already put a
+            // member directly after its host; this is what says the two are
+            // not peers, because adjacency alone reads as two ordinary rows.
+            var under = row.HostRunnerId.Length > 0 ? "  " : "";
+
+            text.AppendLine(
+                $"{under}{row.Here} {row.Runner}  {row.State}{work}{Spent(state, row.Id)}");
         }
 
         return text.ToString().TrimEnd();
@@ -2965,17 +2972,17 @@ public static class PaneText
                     ? $"{items.Items[state.BrowseSelected].Id}\n\n"
                     : "")
               + (state.WorkItemTab switch
-                {
-                    WorkItemTab.History => WorkItemHistory(state),
+              {
+                  WorkItemTab.History => WorkItemHistory(state),
 
-                    // THE INVENTORY, AS TWO COLUMNS OF TEXT. A copy taken off
-                    // this tab that handed over the description instead would
-                    // be the same modal answering a question nobody asked - and
-                    // the field somebody copied this for is usually one they
-                    // are about to paste somewhere.
-                    WorkItemTab.Fields => WorkItemInventory(state),
-                    _ => Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true),
-                }),
+                  // THE INVENTORY, AS TWO COLUMNS OF TEXT. A copy taken off
+                  // this tab that handed over the description instead would
+                  // be the same modal answering a question nobody asked - and
+                  // the field somebody copied this for is usually one they
+                  // are about to paste somewhere.
+                  WorkItemTab.Fields => WorkItemInventory(state),
+                  _ => Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true),
+              }),
             _ => "",
         };
     }

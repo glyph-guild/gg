@@ -129,9 +129,18 @@ public class AMemberSitsUnderItsHostTests
 
         var paneMember = drawn.Split('\n')
             .Single(l => l.Contains("gg-pool-ui-1", StringComparison.Ordinal));
-        var cell = rows.Single(r => r.Label == "gg-pool-ui-1").Runner;
+        var paneHost = drawn.Split('\n')
+            .Single(l => l.Contains("vmlinux001", StringComparison.Ordinal));
 
-        await Assert.That(Indent(paneMember)).IsEqualTo(Indent(cell))
+        var cellMember = rows.Single(r => r.Label == "gg-pool-ui-1").Runner;
+        var cellHost = rows.Single(r => r.Label == "vmlinux001").Runner;
+
+        // BY HOW MUCH, not from which column. The pane opens every line with a
+        // one-character marker the table puts in a column of its own, so the
+        // two can never start at the same place - what has to match is the
+        // step from a machine to the member under it.
+        await Assert.That(Indent(paneMember) - Indent(paneHost))
+            .IsEqualTo(Indent(cellMember) - Indent(cellHost))
             .Because("two surfaces that nest by different amounts read as two different "
                    + "shapes for one fleet.");
     }

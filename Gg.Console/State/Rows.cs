@@ -580,9 +580,13 @@ public static class Rows
         ParkedBecause: ControlText.Strip(runner.ParkedBecause),
         Label: ControlText.Strip(runner.Label),
         Here: mine ? Ours : yours ? Owned : machine ? Alongside : " ",
-        Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
-            ? "  " + label
-            : ""),
+        // INDENTED HERE, so every surface that draws this row nests it. The
+        // tab is a TABLE and draws this cell directly; the pane draws its own
+        // line. Deciding it twice is how they came to disagree - the pane
+        // nested and the tab did not, which is what a person reported.
+        Runner: (runner.HostRunnerId is { Length: > 0 } ? "  " : "")
+            + Short(runner.RunnerId)
+            + (runner.Label is { Length: > 0 } label ? "  " + label : ""),
         // BOTH FACTS OR NEITHER. Parking sits beside the state on the wire
         // because a runner can be parked AND busy - draining, which is the
         // reason to park anything. A column that printed only State would show

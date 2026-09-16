@@ -542,7 +542,7 @@ public sealed class ConsoleScreen : Window
         _reads = reads;
         _signInLanded = signInLanded;
         State = state;
-        Title = "Good Grief";
+        Title = PaneText.WindowTitle(state);
 
         _queuePane = new FrameView
         {
@@ -3545,6 +3545,15 @@ public sealed class ConsoleScreen : Window
 
         _modal.Width = document ? Dim.Percent(92) : Math.Max(52, wide);
         _modal.Height = document ? Dim.Percent(88) : Math.Max(12, tall);
+
+        // THE WINDOW, WHICH IS READ FROM OUTSIDE THIS ONE. Only when it
+        // changes: Terminal.Gui pushes the title out as OSC 0, and re-sending
+        // it every second would be a write to the terminal on a tick that
+        // changed nothing.
+        if (PaneText.WindowTitle(State) is { } window && Title != window)
+        {
+            Title = window;
+        }
 
         _activity.Text = PaneText.Activity(State);
         _hints.Text = Keymap.HintsHere(Context());

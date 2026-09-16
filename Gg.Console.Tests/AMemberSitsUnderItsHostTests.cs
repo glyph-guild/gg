@@ -90,6 +90,53 @@ public class AMemberSitsUnderItsHostTests
     }
 
     [Test]
+    public async Task The_runners_tab_indents_a_member_too()
+    {
+        // REPORTED FROM THE RUNNING CONSOLE. The tab is a TABLE - it draws
+        // `RunnerRow.Runner` as a cell and never passes through PaneText - so
+        // indenting the pane left the surface most people actually look at
+        // flat. Ordering alone put the members after their host and said
+        // nothing about them belonging to it.
+        var rows = Rows.Runners(With(
+            Runner(HostId, "vmlinux001"),
+            Runner("m1", "gg-pool-ui-1", host: HostId),
+            Runner(OtherId, "Kevins-MBP")));
+
+        var member = rows.Single(r => r.Label == "gg-pool-ui-1");
+        var host = rows.Single(r => r.Label == "vmlinux001");
+
+        await Assert.That(member.Runner.StartsWith("  ", StringComparison.Ordinal)).IsTrue()
+            .Because("the cell the table draws carries the indent, so every surface that "
+                   + "shows this row shows it nested. Drawn: [" + member.Runner + "]");
+        await Assert.That(host.Runner.StartsWith(" ", StringComparison.Ordinal)).IsFalse()
+            .Because("a machine is flush in the same column, or the indent says nothing.");
+    }
+
+    [Test]
+    public async Task The_pane_and_the_tab_indent_by_the_same_amount()
+    {
+        // ONE DECISION, TWO SURFACES. The first fix put the indent in the pane
+        // and the tab kept its own idea; this is what stops them drifting
+        // apart again.
+        var rows = Rows.Runners(With(
+            Runner(HostId, "vmlinux001"),
+            Runner("m1", "gg-pool-ui-1", host: HostId)));
+        var drawn = PaneText.Runners(With(
+            Runner(HostId, "vmlinux001"),
+            Runner("m1", "gg-pool-ui-1", host: HostId)));
+
+        static int Indent(string line) => line.Length - line.TrimStart(' ').Length;
+
+        var paneMember = drawn.Split('\n')
+            .Single(l => l.Contains("gg-pool-ui-1", StringComparison.Ordinal));
+        var cell = rows.Single(r => r.Label == "gg-pool-ui-1").Runner;
+
+        await Assert.That(Indent(paneMember)).IsEqualTo(Indent(cell))
+            .Because("two surfaces that nest by different amounts read as two different "
+                   + "shapes for one fleet.");
+    }
+
+    [Test]
     public async Task The_pane_indents_a_member_and_leaves_a_machine_flush()
     {
         // WHAT A PERSON ACTUALLY SEES. The order alone does not say a member

@@ -341,6 +341,38 @@ public static class RepositoryCredentialModes
 /// customer's credential goes to must never be a policy edit here.
 /// </para>
 /// </remarks>
+/// <summary>
+/// What one intent's nominations may spend, inside a window.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Denominated in what actually burns.</b> ADR-0022 § 4 names flights,
+/// attempts and tokens; this counts the one a nomination directly causes — a
+/// flight opened — and leaves the others to whatever needs them.
+/// </para>
+/// <para>
+/// <b>The window is what makes it a rate rather than a lifetime cap.</b> A
+/// pull request reviewed fifty times over a year is a repository in use; fifty
+/// times in an hour is a loop, and only the second is what this exists to
+/// catch.
+/// </para>
+/// <para>
+/// <b>Absent means unbounded, and zero is refused.</b> Absent is every
+/// registration that exists today. Zero would mean a repository that may
+/// nominate nothing at all — which somebody might mean, and must therefore
+/// not be reachable by leaving a number out.
+/// </para>
+/// </remarks>
+[PinnedId("3c9b1f6a-5d20-4a7e-9c48-70b8ee1f2a35")]
+public sealed record NominationBudget
+{
+    /// <summary>How many flights one intent may open inside the window.</summary>
+    public required int Flights { get; init; }
+
+    /// <summary>The window, as <c>EnvelopeDurations</c> reads it.</summary>
+    public required string Window { get; init; }
+}
+
 [PinnedId("6e2d63b0-8a13-4561-8cd5-673b4831278a")]
 public sealed record RegisterRepositoryRequest
 {
@@ -355,6 +387,103 @@ public sealed record RegisterRepositoryRequest
 
     /// <summary>The display path, e.g. acme/payments-service. A label that may drift.</summary>
     public required string Path { get; init; }
+
+    /// <summary>
+    /// What this repository's pull requests nominate, or null for what they
+    /// open today.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A <c>flight</c> <see cref="Destination"/>, and not a menu that
+    /// resembles one.</b> ADR-0022 § 5 says it of a watch's bound and it is
+    /// the same record here: <c>opens:</c>, <c>may-select</c>,
+    /// <c>opens-as</c> and <c>requires</c> mean what they already mean, are
+    /// validated by the rules they already have, and are reached by a
+    /// narrowing through the composition that already exists.
+    /// </para>
+    /// <para>
+    /// <b>Null is today's behaviour.</b> Every repository registered before
+    /// this member existed nominates an un-kinded flight under the tenant's
+    /// current envelope, which is what it has always done — so absent adds no
+    /// constraint and a declared bound is the word that does.
+    /// </para>
+    /// </remarks>
+    public Destination? Nominates { get; init; }
+
+    /// <summary>
+    /// What this repository's nominations draw on, or null for unbounded.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the nominator rather than on the destination.</b> ADR-0022 § 5
+    /// lists a watch's budget among its <i>bounds</i> — beside its rate and
+    /// its active hours — rather than among its <i>bound</i>, which is the
+    /// destination. A pull request's nominator is the repository it is in.
+    /// </remarks>
+    public NominationBudget? Budget { get; init; }
+
+    /// <summary>What is wrong with this registration, or null.</summary>
+    /// <remarks>
+    /// <b>The bound's own rules, not a second copy of them.</b>
+    /// <c>DestinationOpening.Refused</c> is the one validator for what a
+    /// destination may say about opening, wherever it is written down.
+    /// </remarks>
+    public static string? Validate(RegisterRepositoryRequest registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+
+        if (registration.Nominates is { } bound)
+        {
+            // ONLY A FLIGHT NOMINATES, which is `opens:`' rule at the same
+            // door. A bound of any other kind governs nothing and reads to
+            // whoever wrote it as a control they set.
+            if (!string.Equals(bound.Kind, DestinationKinds.Flight, StringComparison.Ordinal))
+            {
+                return $"This repository nominates through a '{bound.Kind}' destination, and "
+                     + $"only a '{DestinationKinds.Flight}' opens anything. A bound of any "
+                     + "other kind is a control that governs nothing.";
+            }
+
+            if (DestinationOpening.Refused(bound) is { } refused)
+            {
+                return refused;
+            }
+        }
+
+        if (registration.Budget is not { } budget)
+        {
+            return null;
+        }
+
+        // A BUDGET IS A BOUND'S COMPANION. One on its own is a control over an
+        // act nothing declared: it reads as a limit somebody set, and it
+        // limits nothing, because an absent bound means this repository
+        // nominates what it opens today.
+        if (registration.Nominates is null)
+        {
+            return "This repository declares a budget and nothing to spend it on. A budget "
+                 + "bounds what a bound permits, and without one it is a limit on an act "
+                 + "nothing declared.";
+        }
+
+        // ZERO AND ABSENT MUST NOT BE THE SAME VALUE. Absent is unbounded;
+        // zero would be a repository that may nominate nothing at all, which
+        // somebody might mean and must therefore not be reachable by leaving a
+        // number out or by typing the wrong one.
+        if (budget.Flights <= 0)
+        {
+            return $"This repository's budget is {budget.Flights} flights, and a budget is a "
+                 + "number of them greater than none. Leaving the budget out is how a "
+                 + "repository nominates without one.";
+        }
+
+        if (!EnvelopeDurations.TryParse(budget.Window, out var window) || window <= TimeSpan.Zero)
+        {
+            return $"This repository's budget window is '{budget.Window}', which is not a "
+                 + "duration this reads. Whole seconds, minutes or hours - 30m, 24h.";
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// What this repository authenticates with: <see cref="RepositoryCredentialModes"/>,

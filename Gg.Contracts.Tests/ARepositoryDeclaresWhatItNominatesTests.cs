@@ -37,8 +37,13 @@ public class ARepositoryDeclaresWhatItNominatesTests
         Destination? nominates = null, NominationBudget? budget = null) => new()
     {
         Name = "payments",
-        Provider = "github",
-        Id = "R_kgDOABCDEF",
+        // NOT A REAL FORGE'S NAME. `NoSourceFileNamesAnIdentityProvider` refuses
+        // one in this repository and it is right to: gg talks only to the
+        // control plane, and a provider name in a public binary is that
+        // boundary having leaked. The provider is a KEY the registrar chose,
+        // which is exactly what makes a placeholder honest here.
+        Provider = "a-forge",
+        Id = "an-immutable-forge-id",
         Path = "acme/payments-service",
         Nominates = nominates,
         Budget = budget,

@@ -2179,35 +2179,14 @@ public sealed record Envelope
             var opensAFlight = string.Equals(
                 destination.Kind, DestinationKinds.Flight, StringComparison.Ordinal);
 
-            if (destination.Opens is not null && !opensAFlight)
+            // THE OPENING RULES, AND THEY LIVE SOMEWHERE A SECOND CALLER CAN
+            // REACH THEM. A repository's registration carries a bound that is
+            // this same record, and a bound validated by a second copy of
+            // these three sentences would be two answers to one question
+            // depending on where the destination was written down.
+            if (DestinationOpening.Refused(destination) is { } opening)
             {
-                return $"Destination '{destination.Id}' declares opens and is a "
-                     + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
-                     + "anything, so on this kind the list bounds nothing.";
-            }
-
-            // THE SAME SENTENCE, ONE KNOB OVER. A mode for opening a flight
-            // means nothing on a kind that opens none, and a key that parses
-            // and does nothing reads to whoever wrote it as a control they set.
-            if (destination.OpensAs is not null && !opensAFlight)
-            {
-                return $"Destination '{destination.Id}' declares opens-as and is a "
-                     + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
-                     + "anything, so on this kind there is nothing for a mode to describe.";
-            }
-
-            // AND THE WORD ITSELF IS CLOSED. A third value would be a mode
-            // nothing implements - a destination parsing into behaviour nobody
-            // wrote, which is worse than one refused where the author can still
-            // act. Absent is legal and means auto; this is only about what is
-            // written down.
-            if (destination.OpensAs is { Length: > 0 } mode
-                && !DestinationOpening.All.Contains(mode, StringComparer.Ordinal))
-            {
-                return $"Destination '{destination.Id}' opens-as '{mode}', and this reads only "
-                     + $"{string.Join(" or ", DestinationOpening.All)}. Absent is legal and "
-                     + $"means '{DestinationOpening.Auto}', which is what every flight "
-                     + "destination has always done.";
+                return opening;
             }
 
             // THE SAME SENTENCE AGAIN, A THIRD KNOB. Only a tracker performs
@@ -3039,6 +3018,58 @@ public sealed record EnvelopeNarrowing
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class DestinationOpening
 {
+    /// <summary>
+    /// What is wrong with how this destination says it opens, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>One validator, because there is one spelling.</b> A flight
+    /// destination is written in an envelope and, since a repository carries
+    /// the bound its pull requests nominate under, outside one — and three
+    /// sentences copied into a second place are three that can stop agreeing.
+    /// These are the rules that need no envelope around them: what
+    /// <c>opens:</c> and <c>opens-as</c> may say, and on which kind.
+    /// </remarks>
+    public static string? Refused(Destination destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        var opensAFlight = string.Equals(
+            destination.Kind, DestinationKinds.Flight, StringComparison.Ordinal);
+
+        if (destination.Opens is not null && !opensAFlight)
+        {
+            return $"Destination '{destination.Id}' declares opens and is a "
+                 + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
+                 + "anything, so on this kind the list bounds nothing.";
+        }
+
+        // THE SAME SENTENCE, ONE KNOB OVER. A mode for opening a flight
+        // means nothing on a kind that opens none, and a key that parses
+        // and does nothing reads to whoever wrote it as a control they set.
+        if (destination.OpensAs is not null && !opensAFlight)
+        {
+            return $"Destination '{destination.Id}' declares opens-as and is a "
+                 + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
+                 + "anything, so on this kind there is nothing for a mode to describe.";
+        }
+
+        // AND THE WORD ITSELF IS CLOSED. A third value would be a mode
+        // nothing implements - a destination parsing into behaviour nobody
+        // wrote, which is worse than one refused where the author can still
+        // act. Absent is legal and means auto; this is only about what is
+        // written down.
+        if (destination.OpensAs is { Length: > 0 } mode
+            && !All.Contains(mode, StringComparer.Ordinal))
+        {
+            return $"Destination '{destination.Id}' opens-as '{mode}', and this reads only "
+                 + $"{string.Join(" or ", All)}. Absent is legal and "
+                 + $"means '{Auto}', which is what every flight "
+                 + "destination has always done.";
+        }
+
+        return null;
+    }
+
     /// <summary>It becomes a flight on admission, with nobody in between.</summary>
     public const string Auto = "auto";
 

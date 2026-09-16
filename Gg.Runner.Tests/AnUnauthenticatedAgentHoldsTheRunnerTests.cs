@@ -317,6 +317,42 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
             .IsFalse();
     }
 
+    [Test]
+    public async Task A_reading_nobody_heard_is_said_again_until_it_lands()
+    {
+        // FOUND IN PRODUCTION, and the reason an agent-login gate never
+        // appeared for a member that was holding perfectly correctly. The
+        // reading was marked said at the top of the method, before the send -
+        // so one lost POST convinced the loop the control plane knew, and it
+        // stayed silent for the life of the process. Nothing on either side
+        // recorded that anything had gone wrong.
+        //
+        // A RUNNER MAY BE WRONG ABOUT ITS AGENT; it must not be wrong about
+        // whether anybody was told. Best-effort is about the hold not
+        // depending on being heard - not about giving up on being heard.
+        var agent = new FakeAgent();
+        var rig = Build(agent, HeldStanding(T0), turns: 4);
+        rig.Protocol.AgentThrows.Enqueue(new HttpRequestException(
+            "Response status code does not indicate success: 404 (Not Found).",
+            inner: null, statusCode: System.Net.HttpStatusCode.NotFound));
+
+        _ = await rig.Loop.RunAsync("runner-1", [], rig.Stop.Token);
+
+        await Assert.That(rig.Protocol.AgentReadings.Count).IsEqualTo(1)
+            .Because("the first attempt was lost and the next one was heard - and once it "
+                   + "had been heard the standing had not changed, so the runner went quiet "
+                   + "again. Both halves matter: a retry that never stops is the table "
+                   + "growing for no reader that the test above forbids.");
+        await Assert.That(rig.Protocol.AgentReadings[0].Standing)
+            .IsEqualTo(AgentStandings.NeedsLogin);
+        await Assert.That(rig.Observer.Events.Count(
+                e => e.StartsWith("agent-held:", StringComparison.Ordinal)))
+            .IsEqualTo(1)
+            .Because("saying it again to the control plane is not saying it again to the "
+                   + "person watching the runner: the hold began once, and a line repeated "
+                   + "every thirty seconds is how a log stops being read.");
+    }
+
     // ---- the startup decision, pure ----
 
     private static ProbeResult AProbe(bool bound, string diagnosis) => new()

@@ -1757,7 +1757,9 @@ public static class ProtocolSurface
                  "declaredAt"],
             [typeof(EnvelopeTopology)] = ["names"],
             [typeof(RegisterRepositoryRequest)] =
-                ["name", "provider", "id", "path", "credential", "ref", "narrowings"],
+                ["name", "provider", "id", "path", "credential", "ref", "narrowings",
+                 "nominates", "budget"],
+            [typeof(NominationBudget)] = ["flights", "window"],
             [typeof(RepositoryRegistered)] =
                 [
                     "name", "provider", "id", "path", "credential", "ref", "narrowings",

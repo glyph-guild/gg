@@ -63,7 +63,15 @@ public class RepositoryRegistrySurfaceTests
         // serializes and conformance refuses, and a declared member it does not
         // have is a name it is required to emit and cannot.
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RegisterRepositoryRequest)])
-            .IsEquivalentTo((string[])["name", "provider", "id", "path", "credential", "ref", "narrowings"]);
+            .IsEquivalentTo((string[])
+            [
+                "name", "provider", "id", "path", "credential", "ref", "narrowings",
+                // WHAT ITS PULL REQUESTS NOMINATE, AND WHAT THAT DRAWS ON. The
+                // repository is the nominator, so it carries the bound and the
+                // bounds - ADR-0022 section 5's rule for a watch, reached one
+                // nominator earlier.
+                "nominates", "budget",
+            ]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(RepositoryRegistered)])
             .IsEquivalentTo((string[])
             [

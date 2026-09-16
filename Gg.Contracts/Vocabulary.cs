@@ -200,6 +200,7 @@ public static class Vocabulary
         typeof(TopologyName),
         typeof(EnvelopeTopology),
         typeof(RegisterRepositoryRequest),
+        typeof(NominationBudget),
         typeof(RepositoryRegistered),
         typeof(RegisteredRepositories),
         typeof(AdvertisedLabel),

@@ -1,4 +1,4 @@
-using System.Text.Json;
+
 
 namespace Gg.Contracts.Tests;
 
@@ -54,36 +54,8 @@ public class AMemberSitsUnderItsHostTests
                    + "described by a control plane too old to send this.");
     }
 
-    [Test]
-    public async Task It_survives_the_wire_and_is_omitted_when_absent()
-    {
-        // OMITTED RATHER THAN NULL, so a control plane that has not learned the
-        // field sends the body it has always sent and a reader cannot tell the
-        // two apart - the property every optional member here has.
-        var member = new RunnerSummary
-        {
-            RunnerId = "01a0a8d4-ae13-74e9-af76-7aae5b144764",
-            Label = "gg-pool-ui-1",
-            State = "idle",
-            HostRunnerId = "01a0a856-eac3-7671-9f0e-000000000000",
-        };
-
-        var json = JsonSerializer.Serialize(member, ProtocolJsonContext.Default.RunnerSummary);
-        var back = JsonSerializer.Deserialize(json, ProtocolJsonContext.Default.RunnerSummary)!;
-
-        await Assert.That(back.HostRunnerId).IsEqualTo(member.HostRunnerId);
-
-        var laptop = new RunnerSummary
-        {
-            RunnerId = "01a0a81c-2d70-7393-a355-fa3d134ba06c",
-            Label = "Kevins-MBP",
-            State = "offline",
-        };
-
-        await Assert.That(
-                JsonSerializer.Serialize(laptop, ProtocolJsonContext.Default.RunnerSummary))
-            .DoesNotContain("HostRunnerId", StringComparison.Ordinal)
-            .Because("a runner with no host writes no key, so the wire an older control "
-                   + "plane produces is byte-for-byte the wire it produced before.");
-    }
+    // THE WIRE HALF IS IN Gg.Client.Tests, beside the serializer. This project
+    // holds the contract's shape and takes no dependency that could reach a
+    // JsonSerializerContext, so the round trip and the omitted-when-absent
+    // property are asserted where the context lives.
 }

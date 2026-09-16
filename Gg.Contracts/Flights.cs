@@ -804,6 +804,33 @@ public sealed record RunnerSummary
         get => field ?? [];
         init;
     } = [];
+
+    /// <summary>
+    /// The runner whose machine warmed this one, when this is a pool member.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A member is a runner without being a peer.</b> It beats, holds a
+    /// credential, takes one by send, and can be named by a maintenance ask, so
+    /// it belongs in the fleet. But a maintainer on somebody's host created it
+    /// and it dies with the pool, so a reader that shows it level with the
+    /// machines a person operates buries them: three machines under fifteen
+    /// members is a list nobody can use.
+    /// </para>
+    /// <para>
+    /// <b>Nothing else the client receives can supply this.</b> The label
+    /// cannot - <c>gg-pool-ui-1</c> says nothing about which machine warmed it -
+    /// and the pool ledger carries no runner at all. The row is the only place
+    /// the link can travel.
+    /// </para>
+    /// <para>
+    /// <b>Null is "not a member"</b>, which is what a laptop says, what a
+    /// resident says, and what every runner described by a control plane too
+    /// old to send this says. The key is omitted rather than written null, so
+    /// such a control plane's wire is unchanged byte-for-byte.
+    /// </para>
+    /// </remarks>
+    public string? HostRunnerId { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

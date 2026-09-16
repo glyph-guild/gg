@@ -951,8 +951,23 @@ public sealed class RunnerLoop(
     /// <summary>The agent's standing as last measured, or null when never.</summary>
     private Execution.AgentStanding? _standing = initialStanding;
 
-    /// <summary>The standing last REPORTED, so an unchanged one is not said again.</summary>
-    private Execution.AgentStanding? _reported;
+    /// <summary>
+    /// The standing the control plane has actually TAKEN, so an unchanged one
+    /// is not said again - and a lost one is.
+    /// </summary>
+    /// <remarks>
+    /// Written after the send, never before. It answers "what do they know",
+    /// and a reading that threw on the way out changed nothing about that.
+    /// </remarks>
+    private Execution.AgentStanding? _heard;
+
+    /// <summary>Whether the person watching this runner has been told the hold began.</summary>
+    /// <remarks>
+    /// SEPARATE FROM <see cref="_heard"/> deliberately. Saying it again to a
+    /// control plane that missed it is right; saying it again to a person who
+    /// read it thirty seconds ago is how a log stops being read.
+    /// </remarks>
+    private bool _announced;
 
     /// <summary>Whether this loop is holding for a login.</summary>
     private bool _agentHeld = initialStanding is { Authenticated: false };
@@ -1006,8 +1021,9 @@ public sealed class RunnerLoop(
 
         // WHAT THE HOST MEASURED IS SAID ONCE, at the first turn, before any
         // probe of this loop's own: the hold began then.
-        if (_agentHeld && _reported is null && _standing is not null)
+        if (_agentHeld && !_announced && _standing is not null)
         {
+            _announced = true;
             _observer.AgentHeld(_agent.Provider, _standing.Diagnosis);
             await ReportAgentAsync(runnerId, _standing, cancellationToken);
         }
@@ -1024,6 +1040,7 @@ public sealed class RunnerLoop(
             {
                 _agentHeld = false;
                 _heldByRun = false;
+                _announced = false;
                 _observer.AgentReady(_agent.Provider);
                 await ReportAgentAsync(runnerId, fresh, cancellationToken);
             }
@@ -1036,10 +1053,11 @@ public sealed class RunnerLoop(
         if (!_agentHeld)
         {
             _agentHeld = true;
+            _announced = true;
             _observer.AgentHeld(_agent.Provider, fresh.Diagnosis);
         }
 
-        if (!fresh.Authenticated && !SameStanding(_reported, fresh))
+        if (!fresh.Authenticated && !SameStanding(_heard, fresh))
         {
             await ReportAgentAsync(runnerId, fresh, cancellationToken);
         }
@@ -1065,6 +1083,7 @@ public sealed class RunnerLoop(
 
         _agentHeld = true;
         _heldByRun = true;
+        _announced = true;
         _standing = standing;
         _observer.AgentHeld(_agent!.Provider, reason);
         await ReportAgentAsync(runnerId, standing, cancellationToken);
@@ -1080,8 +1099,6 @@ public sealed class RunnerLoop(
     private async Task ReportAgentAsync(
         string runnerId, Execution.AgentStanding standing, CancellationToken cancellationToken)
     {
-        _reported = standing;
-
         var diagnosis = standing.Authenticated ? null : standing.Diagnosis;
         if (diagnosis is { Length: > Gg.Contracts.AgentReading.MaxDiagnosis })
         {
@@ -1100,10 +1117,18 @@ public sealed class RunnerLoop(
                 MeasuredAt = standing.MeasuredAt,
                 Diagnosis = diagnosis,
             }, cancellationToken);
+
+            // ONLY WHAT ARRIVED COUNTS AS SAID. Assigning this before the send
+            // is what made a member hold in silence on vmlinux001: the first
+            // POST was lost, the loop believed the control plane knew, and no
+            // gate was ever minted for a machine that was asking for one.
+            _heard = standing;
         }
         catch (HttpRequestException)
         {
-            // A control plane that does not serve the route yet, most likely.
+            // A control plane that does not serve the route yet, most likely -
+            // or one mid-deployment. Left unheard on purpose, so the next
+            // re-probe says it again; the hold itself never depended on this.
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {

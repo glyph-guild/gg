@@ -760,8 +760,27 @@ public static class Keymap
                 [
                     new(KeyStroke.Char('d'), Command.OpenGate, "decide a gate on this flight")
                         { Label = "Decide", When = "when a gate is waiting on this flight" },
+                ]
+                : [],
+
+            // APPROVE IS A SHORTCUT, and it is withheld where the shortcut is
+            // wrong. An agent-login gate is not a yes-or-no a person answers:
+            // it asks for a machine to be repaired, and it clears itself when
+            // that runner next reports ready. An approval typed here closes the
+            // ask while the member still cannot fly.
+            //
+            // NOT A CAPABILITY REMOVED. Decide still reaches both answers for
+            // somebody who means one, and giving up on a machine has its own
+            // verb - `x` grounds the flight, one level in, which the escalation
+            // now handles so a later reading asks again rather than vanishing.
+            .. context.AGateWaits && !context.GateAsksForAgentLogin
+                ? (KeyBinding[])
+                [
                     new(KeyStroke.Char('a'), Command.ApproveGate, "approve it")
-                        { Label = "Approve", When = "when a gate is waiting on this flight" },
+                    {
+                        Label = "Approve",
+                        When = "when an ordinary gate is waiting on this flight",
+                    },
                 ]
                 : [],
 

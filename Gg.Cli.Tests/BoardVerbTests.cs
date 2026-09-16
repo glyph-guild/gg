@@ -163,6 +163,45 @@ public class BoardVerbTests
     }
 
     [Test]
+    public async Task An_exhausted_gate_prints_its_story_and_an_authored_one_prints_nothing()
+    {
+        // WHAT A PERSON ANSWERING THE ROW IS ACTUALLY HOLDING. "gated - it is
+        // waiting for somebody" is true of both kinds and says nothing about
+        // which. An authored gate's reason is the destination somebody wrote,
+        // and this listing is not where that document gets reprinted; a gate
+        // arithmetic reached has its reason nowhere else at all, so the line
+        // exists exactly when there is something to say.
+        var exhausted = VerbOutput.ToText(new VerbResult.Board(new BoardPage
+        {
+            Nominations =
+            [
+                AStandingRow() with
+                {
+                    GatedBecause = "5 flights have opened under this intent in the last 24h, "
+                                 + "which is what this repository budgeted.",
+                },
+            ],
+            IncludedEnded = false,
+        }));
+
+        await Assert.That(exhausted).Contains("5 flights have opened under this intent")
+            .Because("a bare 'gated' says a person has to answer it and not whether the "
+                   + "spending it stopped was productive, which is the question they came "
+                   + "with.");
+
+        var authored = VerbOutput.ToText(new VerbResult.Board(new BoardPage
+        {
+            Nominations = [AStandingRow()],
+            IncludedEnded = false,
+        }));
+
+        await Assert.That(authored).DoesNotContain("because:")
+            .Because("an authored gate's reason is the destination somebody wrote, and a "
+                   + "listing that invented a sentence for it would be gg paraphrasing a "
+                   + "document it is not reading.");
+    }
+
+    [Test]
     public async Task A_row_about_free_text_says_so_rather_than_leaving_the_line_out()
     {
         // ABSENT IS AN ANSWER, SO IT IS SAID. A missing line reads as a row

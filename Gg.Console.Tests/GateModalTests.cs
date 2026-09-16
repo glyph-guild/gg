@@ -91,6 +91,42 @@ public class GateModalTests
     }
 
     [Test]
+    public async Task The_actions_modal_offers_the_login_too_and_an_ordinary_flight_does_not()
+    {
+        // WHERE PEOPLE ACTUALLY LOOK. The gate modal binds `s`, and reaching it
+        // means pressing `d` first - so somebody who opens "what can be done"
+        // on a held runner's flight is shown Open flight, Decide and Approve,
+        // and none of the three is the act that clears the gate in front of
+        // them. Reported from the running console, which is the only place
+        // this shows up: every test of the act itself passed.
+        //
+        // THIS MODAL'S WHOLE SUBJECT IS WHAT CAN BE DONE, so an act that can
+        // be done and is not here is the omission the modal exists to prevent.
+        var asking = Keymap.Bindings(
+            new KeymapContext(UiMode.FlightActions, AGateWaits: true)
+            { GateAsksForAgentLogin = true });
+        var ordinary = Keymap.Bindings(
+            new KeymapContext(UiMode.FlightActions, AGateWaits: true));
+
+        await Assert.That(asking.Select(b => b.Command)).Contains(Command.LogAgentIn);
+        await Assert.That(asking.Select(b => b.Command)).Contains(Command.ApproveGate)
+            .Because("the two answers stay, because somebody who has decided the machine is "
+                   + "not coming back still answers the gate the ordinary way.");
+
+        await Assert.That(ordinary.Select(b => b.Command)).DoesNotContain(Command.LogAgentIn)
+            .Because("an ordinary gate has no agent to log in, and a key that does nothing "
+                   + "on the flight in front of somebody is what this modal's own remark "
+                   + "calls a key that should not have been offered.");
+
+        // AND THE READING ONE STAYS FIRST, which this modal's remark calls the
+        // safety rather than a preference: enter twice is the commonest thing
+        // a person does to it, and the default must not be an act.
+        await Assert.That(asking[0].Command).IsEqualTo(Command.ShowFlight)
+            .Because("RenderModalButtons focuses the first button, and opening the flight is "
+                   + "the one choice here that changes nothing.");
+    }
+
+    [Test]
     public async Task The_login_key_is_offered_only_for_the_kind_this_build_knows()
     {
         // GateMaintenanceKinds IS CLOSED so that a kind a newer control plane

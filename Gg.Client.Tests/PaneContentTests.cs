@@ -69,6 +69,71 @@ public class PaneContentTests
     }
 
     [Test]
+    public async Task A_bounded_repository_says_what_its_pull_requests_may_open()
+    {
+        // THE ECHO'S WHOLE POINT. The two members landed on the wire one
+        // commit ago and a listing that dropped them would leave a tenant
+        // exactly where they were: able to set what a webhook nobody was
+        // watching may do, and able to learn it only by pushing a commit and
+        // watching.
+        var bounded = new RegisteredRepositories
+        {
+            Repositories =
+            [
+                new RepositoryRegistered
+                {
+                    Name = "payments",
+                    Provider = "atracker",
+                    Id = "1",
+                    Path = "acme/payments",
+                    Credential = RepositoryCredentialModes.Required,
+                    Nominates = new Destination
+                    {
+                        Id = "what-a-pull-request-opens",
+                        Kind = DestinationKinds.Flight,
+                        Requires = [],
+                        Opens = ["review"],
+                        OpensAs = DestinationOpening.Gated,
+                    },
+                    Budget = new NominationBudget { Flights = 5, Window = "24h" },
+                    RegisteredBy = "somebody",
+                    RegisteredAt = DateTimeOffset.UnixEpoch,
+                },
+            ],
+        };
+
+        var text = VerbOutput.ToText(new VerbResult.AirspaceRepositories(bounded, []));
+
+        await Assert.That(text).Contains("review")
+            .Because("what a pull request here may open is the question somebody reading "
+                   + "this list is asking when they ask what the integration is allowed "
+                   + "to do.");
+
+        await Assert.That(text).Contains(DestinationOpening.Gated)
+            .Because("gated is the word a reader acts on - it says a person stands in front "
+                   + "of every opening here - where `auto` is nobody having said otherwise.");
+
+        await Assert.That(text).Contains("24h")
+            .Because("a bound without its rate is half an answer: how much reach and how "
+                   + "often are one question.");
+    }
+
+    [Test]
+    public async Task An_unbounded_repository_prints_no_bound_rather_than_an_empty_one()
+    {
+        // ABSENT IS THE COMMON CASE, so it is silent. Every repository
+        // registered before 0.174.0 has no bound, and a line reading
+        // "nominates: -" on every row would be noise on the ordinary case
+        // rather than an answer - which is the opposite of the credential
+        // above, where every row has one and it is the thing that stops a
+        // flight.
+        var text = VerbOutput.ToText(new VerbResult.AirspaceRepositories(Two(), []));
+
+        await Assert.That(text).DoesNotContain("nominates");
+        await Assert.That(text).DoesNotContain("budget");
+    }
+
+    [Test]
     public async Task An_empty_registry_says_so_rather_than_answering_blank()
     {
         var text = VerbOutput.ToText(

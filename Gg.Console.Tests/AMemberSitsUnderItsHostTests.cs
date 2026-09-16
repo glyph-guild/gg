@@ -88,4 +88,35 @@ public class AMemberSitsUnderItsHostTests
         await Assert.That(rows.Select(r => r.Label)).Contains("gg-pool-ui-1")
             .Because("an orphan is still a machine somebody may have to act on.");
     }
+
+    [Test]
+    public async Task The_pane_indents_a_member_and_leaves_a_machine_flush()
+    {
+        // WHAT A PERSON ACTUALLY SEES. The order alone does not say a member
+        // belongs to the row above it - two rows in a row is just two rows -
+        // so the shape has to be drawn.
+        var drawn = PaneText.Runners(With(
+            Runner(HostId, "vmlinux001"),
+            Runner("m1", "gg-pool-ui-1", host: HostId),
+            Runner(OtherId, "Kevins-MBP")));
+
+        var lines = drawn.Split('\n');
+        var member = lines.Single(l => l.Contains("gg-pool-ui-1", StringComparison.Ordinal));
+        var host = lines.Single(l => l.Contains("vmlinux001", StringComparison.Ordinal));
+        var laptop = lines.Single(l => l.Contains("Kevins-MBP", StringComparison.Ordinal));
+
+        // RELATIVE, because every row opens with a one-character marker column
+        // and an unowned machine's marker is already a space. What matters is
+        // that a member sits further in than the machines, not what column any
+        // of them starts at.
+        static int Indent(string line) => line.Length - line.TrimStart(' ').Length;
+
+        await Assert.That(Indent(member)).IsGreaterThan(Indent(host))
+            .Because("indented, so the fleet reads as machines with their members under them. "
+                   + $"Drawn host [{host}] and member [{member}]");
+        await Assert.That(Indent(laptop)).IsEqualTo(Indent(host))
+            .Because("a laptop hosts nothing and is hosted by nothing, so it stands level "
+                   + "with the other machines - if everything were indented the indent would "
+                   + "say nothing.");
+    }
 }

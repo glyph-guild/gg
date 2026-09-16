@@ -33,14 +33,14 @@ public static class HelpPages
     /// <summary>What the tab is called.</summary>
     public static string Title(HelpPage page) => page switch
     {
-        HelpPage.Keys => "Keys",
-        HelpPage.Environment => "Environment",
-        HelpPage.Doctor => "Doctor",
+        HelpPage.Keys => "keys",
+        HelpPage.Environment => "environment",
+        HelpPage.Doctor => "doctor",
 
         // LAST ON THE STRIP, because it is the page nobody opens help to find.
         // Keys is first for that reason and this is the other end of the same
         // argument.
-        HelpPage.Look => "Look",
+        HelpPage.Look => "look",
         _ => page.ToString(),
     };
 

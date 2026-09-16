@@ -28,7 +28,7 @@ namespace Gg.Console;
 public static class WorkItemDetails
 {
     /// <summary>The heading over the prose region.</summary>
-    public const string SaidTitle = "What it says";
+    public const string SaidTitle = "what it says";
 
     /// <summary>
     /// The heading over the history region.
@@ -39,7 +39,7 @@ public static class WorkItemDetails
     /// called one a log and the other "what has happened to it" asked a person
     /// to learn that those are one idea. Short enough to be a tab, too.
     /// </remarks>
-    public const string HistoryTitle = "Log";
+    public const string HistoryTitle = "log";
 
     /// <summary>
     /// The item this modal is about, or null where the cursor is on nothing.
@@ -141,7 +141,7 @@ public static class WorkItemDetails
     }
 
     /// <summary>The heading over the fields tab.</summary>
-    public const string FieldsTitle = "What the tracker records";
+    public const string FieldsTitle = "what the tracker records";
 
     /// <summary>The columns the fields table declares.</summary>
     public static IReadOnlyList<string> FieldColumns { get; } = ["field", "value"];
@@ -306,7 +306,7 @@ public static class WorkItemDetails
         FlightDetails.Lines(ChangeDetail(state), width);
 
     /// <summary>The heading over the pane that holds what a cell cannot.</summary>
-    public const string ChangeDetailTitle = "What the change says";
+    public const string ChangeDetailTitle = "what the change says";
 
     /// <summary>
     /// Why the history table is empty, or empty when it is not.

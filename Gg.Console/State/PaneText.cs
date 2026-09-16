@@ -2425,6 +2425,16 @@ public static class PaneText
 
         var said = state.LastAction is { Length: > 0 } action ? Clean(action) : "";
 
+        // FIRST AND ALONE WHILE IT IS ON. Nothing repaints once the screen is
+        // frozen, so this is written on the last paint before everything stops
+        // - and a console that stopped answering without saying why is one a
+        // person reports as hung. It says the way out because the screen it is
+        // written on is the one that has stopped.
+        if (state.Frozen)
+        {
+            return "frozen — select and copy with your terminal · ctrl+f to carry on";
+        }
+
         return (said, chosen) switch
         {
             ("", "") => "",

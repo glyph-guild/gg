@@ -1317,6 +1317,27 @@ public static class Keymap
                 context.Refresh is { Length: > 0 } says ? $"refresh {says}" : "refresh")
                 { Standing = true },
             new(KeyStroke.Char('?'), Command.ToggleHelp, "help") { Standing = true },
+
+            // THE SCREEN STOPS AND THE MOUSE GOES BACK, so a person can select
+            // anything on it with their own terminal. On every tab: the live
+            // pane was never the only place text appears.
+            //
+            // CTRL, SO IT SPENDS NO LETTER. There is one plain letter left in
+            // this keymap and a view nobody can otherwise reach will want it;
+            // `f` alone is already fly-this on the browse tab. Ctrl is a whole
+            // keyboard nobody has spent here - and deliberately not ctrl+s,
+            // ctrl+q or ctrl+z, which are flow control and a suspend: a freeze
+            // key that stopped the console by stopping the PROGRAM would be the
+            // joke version of this.
+            //
+            // OFF THE LINE, because the line is capped at seven keys and this
+            // one has somewhere better to be advertised: while the screen is
+            // frozen the activity line says so and names the way out, which is
+            // the only moment anybody needs to be told. Found on the help page
+            // the rest of the time, like `d decide` and the cursor keys.
+            new(KeyStroke.Control('f'), Command.ToggleFreeze,
+                    context.Frozen ? "unfreeze" : "freeze to select")
+                { OffTheHintLine = true },
             new(KeyStroke.Char('q'), Command.Quit, "quit") { Standing = true },
             // WHERE THE FLIGHTS ARE. Both tabs that list them, because the
             // cursor is on a flight in either and this opens what the cursor
@@ -1420,11 +1441,8 @@ public static class Keymap
             // could not reach and the pure function could still be handed.
             // Exactly one tab is showing, so the ambiguity is gone by
             // construction rather than by a rule somebody has to maintain.
-            .. context.Showing == TabId.Live
-                ? (KeyBinding[])[new(KeyStroke.Char('f'), Command.ToggleFreeze,
-                    context.Frozen ? "unfreeze" : "freeze to copy")
-                    { When = "while the live tab is showing" }]
-                : [],
+            // FREEZE IS THE WHOLE SCREEN'S NOW, so it is not spread by tab any
+            // more - see the arm below, which binds it everywhere.
             // WHAT IS LEFT ON THE TAB ITSELF: the two keys that move around
             // what is already on screen. Pull, apply, draft and the outcome
             // moved behind `a' - see UiMode.AirspaceActions above - because a

@@ -185,15 +185,29 @@ public class KeymapTests
     }
 
     [Test]
-    public async Task Freeze_is_only_offered_where_there_is_something_to_freeze()
+    public async Task Freeze_is_offered_everywhere_because_the_screen_is_everywhere()
     {
-        // An advertised key that does nothing teaches people to distrust the
-        // hint line, which is the one thing telling them what works.
-        var hidden = new KeymapContext(UiMode.Normal, TabId.Queue);
-        var shown = new KeymapContext(UiMode.Normal, TabId.Live);
+        // THE PREMISE MOVED. This read "only offered where there is something
+        // to freeze", and what there was to freeze was the live tail - so the
+        // key was the live tab's and `f` elsewhere did nothing. Freezing now
+        // stops the whole screen and hands the mouse back so a person can
+        // select any of it, and there is text worth copying on every tab.
+        //
+        // The sentence it was defending is untouched: an advertised key that
+        // does nothing teaches people to distrust the hint line. This one is
+        // live wherever it is offered, and it is not on that line at all.
+        foreach (var tab in Enum.GetValues<TabId>())
+        {
+            var anywhere = new KeymapContext(UiMode.Normal, tab);
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), hidden)).IsNull();
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), shown)).IsEqualTo(Command.ToggleFreeze);
+            await Assert.That(Keymap.Resolve(KeyStroke.Control('f'), anywhere))
+                .IsEqualTo(Command.ToggleFreeze);
+
+            await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), anywhere))
+                .IsNotEqualTo(Command.ToggleFreeze)
+                .Because("the plain letter is the browse tab's fly-this, and a key that meant "
+                       + "two things a tab apart is what moving this to ctrl avoids.");
+        }
     }
 
     [Test]
@@ -217,12 +231,21 @@ public class KeymapTests
             .IsEqualTo("live")
             .Because("the live tab is still there behind this one, and l goes to it.");
 
-        // f IS NOT A TAB, so it stays on the line - which is the anchor for the
-        // three above: they moved because their keys moved, not because the
-        // line stopped saying what a key will do.
-        await Assert.That(Keymap.Hints(new(UiMode.Normal, TabId.Live, Frozen: true)))
-            .Contains("f unfreeze");
+        // THE ANCHOR, AND IT IS OFF THE LINE NOW. The three above moved because
+        // their keys moved onto the tabs, not because a toggle stopped saying
+        // what pressing it will do - and freeze is the proof, because it still
+        // says it. It is read from the binding rather than from the line
+        // because the line is capped at seven keys and freeze is advertised on
+        // the frozen screen itself.
+        await Assert.That(Description(new(UiMode.Normal, TabId.Live), Command.ToggleFreeze))
+            .IsEqualTo("freeze to select");
+        await Assert.That(Description(new(UiMode.Normal, TabId.Live, Frozen: true), Command.ToggleFreeze))
+            .IsEqualTo("unfreeze");
     }
+
+    /// <summary>What a binding says it will do, whether or not it is on the line.</summary>
+    private static string? Description(KeymapContext context, Command command) =>
+        Keymap.Bindings(context).FirstOrDefault(b => b.Command == command).Description;
 
     [Test]
     public async Task The_keymap_is_total_over_every_key_in_every_context()

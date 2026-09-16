@@ -152,12 +152,25 @@ public class FreezeTheScreenToCopyFromItTests
     }
 
     [Test]
-    public async Task The_way_out_is_on_the_hint_line_while_it_is_on()
+    public async Task It_does_not_take_a_slot_on_the_hint_line()
     {
+        // THE LINE IS CAPPED AT SEVEN KEYS - ten of them truncated mid-sentence
+        // at 170 columns once - and this one has somewhere better to be said.
+        // The activity line names the way out at the only moment anybody needs
+        // to be told, which is while the screen is stopped; the help page has
+        // it the rest of the time, like `d decide` and the cursor keys.
+        var running = KeymapContext.For(On(TabId.Queue));
         var frozen = KeymapContext.For(Reducer.Reduce(On(TabId.Queue), Command.ToggleFreeze));
 
-        await Assert.That(Keymap.Hints(frozen)).Contains("ctrl+f ")
-            .Because("the hint line is the last thing drawn before the screen stops, so it is "
-                   + "the one place the way out can still be advertised.");
+        await Assert.That(Keymap.Hints(running)).DoesNotContain("ctrl+f");
+        await Assert.That(Keymap.Hints(frozen)).DoesNotContain("ctrl+f");
+    }
+
+    [Test]
+    public async Task But_the_help_page_has_it()
+    {
+        // A key that is only in the source is a key nobody finds.
+        await Assert.That(Keymap.Catalogue().Any(e => e.Binding.Command == Command.ToggleFreeze))
+            .IsTrue();
     }
 }

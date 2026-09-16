@@ -3187,8 +3187,37 @@ public sealed class ConsoleScreen : Window
     private KeymapContext Context() => KeymapContext.For(State);
 
     /// <summary>One-way: model in, pixels out.</summary>
+    /// <summary>What the screen currently reflects, so a freeze is entered once.</summary>
+    /// <remarks>
+    /// Not the model's <c>Frozen</c>, which says what was ASKED for. This says
+    /// whether the pixels have already been stopped - and the difference is the
+    /// one paint in between, the one that puts the sentence up.
+    /// </remarks>
+    private bool _stopped;
+
     private void Render()
     {
+        // THE PIXELS STOP, AND THE MOUSE GOES BACK. One paint happens after the
+        // key - the one carrying "frozen" on the activity line - and then
+        // nothing, because a repaint under a selection is what takes it away.
+        //
+        // The model keeps moving underneath: reads land, the tail banks its
+        // lines, and the first paint after the thaw shows all of it.
+        if (State.Frozen)
+        {
+            if (_stopped)
+            {
+                return;
+            }
+
+            _stopped = true;
+        }
+        else if (_stopped)
+        {
+            _stopped = false;
+            TerminalMouse.ToTheConsole(_app);
+        }
+
         _queue.SetSource(new ObservableCollection<string>(PaneText.QueueRows(State)));
         if (State.Queue.Count > 0)
         {
@@ -3529,6 +3558,15 @@ public sealed class ConsoleScreen : Window
         // basis this reads is the line's FINAL background, which is the colour
         // the seconds have to sit on.
         Counting();
+
+        // AND THE MOUSE CHANGES HANDS LAST, on the paint that froze the screen.
+        // After this the terminal draws its own selection over whatever is on
+        // it, so what is on it has to be finished first - including the line
+        // that says the screen has stopped and how to start it again.
+        if (State.Frozen)
+        {
+            TerminalMouse.ToTheTerminal(_app);
+        }
 
         Focus();
     }

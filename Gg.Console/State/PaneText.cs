@@ -2610,6 +2610,36 @@ public static class PaneText
             lines: true);
     }
 
+    /// <summary>
+    /// What the terminal's own title bar says: the binary, and where you are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one line of this console that is visible when the console is
+    /// not.</b> Terminal.Gui pushes the screen's title out as <c>OSC 0</c>,
+    /// which names the window, the tab strip, and whatever somebody alt-tabs
+    /// through - so it is read most often by a person looking at something
+    /// else.
+    /// </para>
+    /// <para>
+    /// <b>`gg', not the product's name.</b> It said "Good Grief", which is what
+    /// this is; what is RUNNING in that window is the binary, and the binary is
+    /// `gg' in the prompt, in the install path, and in every command the help
+    /// page names.
+    /// </para>
+    /// <para>
+    /// <b>And the tab, because a title that never changes says nothing.</b> Two
+    /// terminals side by side - one on the queue, one reading a log - are told
+    /// apart by this and by nothing else.
+    /// </para>
+    /// </remarks>
+    public static string WindowTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return $"gg - {Gg.Console.Tabs.Name(state.ActiveTab)}";
+    }
+
     public static string ModalTitle(UiMode mode) => mode switch
     {
         UiMode.Help => "keys",

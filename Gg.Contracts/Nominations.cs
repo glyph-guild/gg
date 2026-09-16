@@ -188,6 +188,35 @@ public sealed record NominationSummary
     /// </para>
     /// </remarks>
     public string? IntentKey { get; init; }
+
+    /// <summary>Why this row is gated, when nothing authored the gate.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>TWO WAYS TO BE GATED, AND THE MEMBER'S PRESENCE IS WHICH.</b>
+    /// <c>opens-as: gated</c> is a person put in front of an opening on
+    /// purpose, and the destination somebody wrote is its reason — so an
+    /// authored gate carries nothing here, and copying a sentence onto every
+    /// one of those rows would be this repeating what a document already
+    /// holds. A budget that ran out is the same word arrived at by arithmetic,
+    /// and its reason exists nowhere else.
+    /// </para>
+    /// <para>
+    /// <b>Why not a third <see cref="Mode"/> word.</b> <c>Mode</c> is the
+    /// destination's <c>opens-as</c>, and <see cref="DestinationOpening"/>
+    /// reads two words and refuses a third. A third would make
+    /// <c>opens-as: exhausted</c> an authorable value in a destination
+    /// document, and nobody authors exhaustion. The state is real; the
+    /// vocabulary it belongs in is not that one.
+    /// </para>
+    /// <para>
+    /// <b>A sentence, because what a person needs here is a story.</b> How
+    /// much this intent has already spent inside the window, and how those
+    /// nominations ended. A bare number would say the budget is gone and not
+    /// whether the spending was productive, which is the actual question
+    /// somebody answering this row is holding.
+    /// </para>
+    /// </remarks>
+    public string? GatedBecause { get; init; }
 }
 
 /// <summary>What the board answers with.</summary>

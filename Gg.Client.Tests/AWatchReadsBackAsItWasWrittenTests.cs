@@ -78,10 +78,27 @@ public class AWatchReadsBackAsItWasWrittenTests
             .Because("the renderer's own output has to be readable, or the two halves only "
                    + "look like a pair. Refused with: " + (parsed.Diagnosis ?? "nothing"));
 
-        await Assert.That(parsed.Watch).IsEqualTo(written)
+        // COMPARED AS THE CANONICAL FORM, not with record equality, and the
+        // reason is worth the line: `Destination` carries `Requires` and
+        // `Opens` as `IReadOnlyList<string>`, so a synthesised record compares
+        // them by REFERENCE - a `string[]` and the parser's own list are never
+        // equal however identical their contents. Rendering both sides puts
+        // them in one form, which is also the form the tree actually holds.
+        await Assert.That(EnvelopeText.Render(parsed.Watch!))
+            .IsEqualTo(EnvelopeText.Render(written))
             .Because("every member, including the nested trigger, mapping, bound and bounds. "
                    + "A round trip that drops one is a `gg airspace apply` that quietly "
                    + "un-declares it.");
+
+        // AND THE NESTED MEMBERS BY HAND, because a rendering comparison would
+        // also pass if BOTH sides dropped the same member.
+        await Assert.That(parsed.Watch!.Trigger.Every).IsEqualTo(written.Trigger.Every);
+        await Assert.That(parsed.Watch.Mapping.IntentKey).IsEqualTo(written.Mapping.IntentKey);
+        await Assert.That(parsed.Watch.Nominates!.Opens).IsEquivalentTo(written.Nominates!.Opens!);
+        await Assert.That(DestinationOpening.Of(parsed.Watch.Nominates))
+            .IsEqualTo(DestinationOpening.Gated);
+        await Assert.That(parsed.Watch.Bounds!.CapPerPass).IsEqualTo(25);
+        await Assert.That(parsed.Watch.Bounds.Budget!.Flights).IsEqualTo(5);
     }
 
     [Test]
@@ -126,7 +143,9 @@ public class AWatchReadsBackAsItWasWrittenTests
 
             await Assert.That(document.Role).IsEqualTo(Roles.Watch);
             await Assert.That(document.Name).IsEqualTo("nightly-triage");
-            await Assert.That(document.Watch).IsEqualTo(AWatch());
+            await Assert.That(EnvelopeText.Render(document.Watch!))
+                .IsEqualTo(EnvelopeText.Render(AWatch()))
+                .Because("the tree holds the document, not a paraphrase of it.");
         }
         finally
         {

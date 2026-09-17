@@ -1617,6 +1617,31 @@ public static class PlatformToolServer
         said.AppendLine("  pull-point:       where machines are drawn from.");
         said.AppendLine("  active-hours:     when they may run.");
         said.AppendLine("  bounds:           the limits the whole of it sits inside.");
+        said.AppendLine();
+
+        said.AppendLine(
+            "WHAT A WATCH SAYS. Also not rules about work: it describes something to look "
+          + "at on a schedule, and what may come of what it finds. A sweep is one run of "
+          + "it and is never a flight.");
+        said.AppendLine("  shape:            what kind of thing it looks at.");
+        said.AppendLine("  trigger:          when it runs.");
+        said.AppendLine("  host:             which system of record, by name.");
+        said.AppendLine(
+            "  credential:       WHERE the credential is, never what it is. A locator - "
+          + "the runner resolves it into a tool server's environment, and neither this "
+          + "document nor anything following it ever holds the secret.");
+        said.AppendLine("  filter:           what to ask that system for.");
+        said.AppendLine(
+            "  skill:            the instructions a sweep follows, as a path in the "
+          + "repository. A PATH and never the words: the repository holds those, at a ref, "
+          + "where they are reviewed.");
+        said.AppendLine("  mapping:          how what it finds becomes a nomination.");
+        said.AppendLine("  subject:          which part of that names the thing.");
+        said.AppendLine("  intent-key:       which part names it outside gg.");
+        said.AppendLine(
+            "  nominates:        the destination its nominations stand under. Required - "
+          + "nothing else says what kind a sweep opens.");
+        said.AppendLine("  cap-per-pass:     the most it may report in one run.");
     }
 
     /// <summary>

@@ -119,6 +119,11 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
               + $"heard from {Ago(runner.LastHeartbeatAt, now)}.");
         }
 
+        if (RunnerReach.Maintains(runner.State))
+        {
+            return Nothing(WatchOutcome.Offline, RunnerReach.MaintainerSaid(runner.Label));
+        }
+
         // AND FLYING NOTHING IS NO LONGER A REFUSAL. It was, on the grounds
         // that a channel to a runner exists only while a flight does - which
         // made the one moment a person most wants to be attached, before work

@@ -81,6 +81,14 @@ public static class ConsoleSendCredential
         // that somebody is asked for a token and then told the machine was
         // never reachable. A secret typed for nothing is a secret that was
         // typed.
+        if (Gg.Client.RunnerReach.Maintains(row.State))
+        {
+            return state with
+            {
+                LastCredential = Gg.Client.RunnerReach.MaintainerSaid(row.Label),
+            };
+        }
+
         if (row.State.StartsWith(RunnerStates.Offline, StringComparison.Ordinal))
         {
             return state with

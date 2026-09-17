@@ -27,11 +27,14 @@ namespace Gg.Contracts.Tests;
 /// the door — never discover it by parking a runner in production.
 /// </para>
 /// <para>
-/// <b><c>RunnerStates</c> does NOT grow, and the asymmetry is the point.</b>
+/// <b>Parking does not join <c>RunnerStates</c>, and the asymmetry is the point.</b>
 /// State is derived from three facts, and the precedent is to carry a fourth
 /// fact BESIDE the state rather than multiply states. Busy and parked reads
 /// <i>draining</i>; idle and parked reads <i>parked</i>; and offline is still
-/// decided first, because a parked machine that died is dead.
+/// decided first, because a parked machine that died is dead. (The vocabulary
+/// did later gain <c>maintaining</c>, for this test's own reason: state says
+/// what a runner is doing, and maintaining a pool is an activity where parking
+/// is a policy. <c>AMaintainerIsAStateOfItsOwnTests</c> records it.)
 /// </para>
 /// </remarks>
 public class ARunnerCanBeParkedTests
@@ -75,7 +78,7 @@ public class ARunnerCanBeParkedTests
     }
 
     [Test]
-    public async Task RunnerStates_does_not_grow()
+    public async Task Parked_is_not_a_runner_state()
     {
         // THE ASYMMETRY IS THE POINT. Parking is a fact carried beside the
         // state, not a fifth state - the precedent RunnerSnapshot already sets

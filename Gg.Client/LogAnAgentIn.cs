@@ -124,6 +124,11 @@ public sealed class LogAnAgentIn(ControlPlaneClient control, ConsoleChannel chan
               + "it.");
         }
 
+        if (RunnerReach.Maintains(runner.State))
+        {
+            return new LoggedIn(LoginOutcome.Offline, RunnerReach.MaintainerSaid(runner.Label));
+        }
+
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
         say($"asking the control plane to introduce you to {runner.Label}");

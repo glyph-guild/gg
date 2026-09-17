@@ -682,9 +682,17 @@ public sealed record RunnerSummary
     /// When this runner was last heard from, or null if never.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Returned alongside the state rather than instead of it, so a person can
     /// see WHY a runner reads offline without having to know the staleness
     /// threshold.
+    /// </para>
+    /// <para>
+    /// <b>Heard from, not only beaten.</b> For a runner that reports on a pool,
+    /// this is the later of its heartbeat and its latest report - which is how
+    /// a <see cref="RunnerStates.Maintaining"/> runner has a last-seen at all.
+    /// Display only; nothing schedules on it.
+    /// </para>
     /// </remarks>
     public DateTimeOffset? LastHeartbeatAt { get; init; }
 
@@ -868,7 +876,30 @@ public static class RunnerStates
     /// <summary>Alive and holding nothing.</summary>
     public const string Idle = "idle";
 
-    public static IReadOnlyList<string> All { get; } = [Offline, Busy, Idle];
+    /// <summary>
+    /// Not beating, and reporting on a pool recently: a pool maintainer at work.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Derived from a pool report, which is the only thing a maintainer
+    /// sends.</b> A heartbeat is an offer to take work, and a maintainer takes
+    /// none - so it never beats, and read <see cref="Offline"/> while it
+    /// reported every few seconds. Offline is still decided first for a runner
+    /// that has gone quiet on both.
+    /// </para>
+    /// <para>
+    /// <b>Alive is not reachable.</b> An introduction is picked up on a
+    /// heartbeat, so nothing can be handed to a maintaining runner.
+    /// </para>
+    /// <para>
+    /// <b>A state where parking is not</b>, because state says what a runner is
+    /// doing and maintaining a pool is what this one is doing. That was put to
+    /// a person and chosen over carrying it beside the state.
+    /// </para>
+    /// </remarks>
+    public const string Maintaining = "maintaining";
+
+    public static IReadOnlyList<string> All { get; } = [Offline, Busy, Idle, Maintaining];
 }
 
 /// <summary>The states a flight may be derived to be in.</summary>

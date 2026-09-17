@@ -74,6 +74,14 @@ public static class ConsoleAgentLogin
             };
         }
 
+        if (Gg.Client.RunnerReach.Maintains(runner.State))
+        {
+            return state with
+            {
+                LastCredential = Gg.Client.RunnerReach.MaintainerSaid(runner.Label),
+            };
+        }
+
         if (runner.State.StartsWith(RunnerStates.Offline, StringComparison.Ordinal))
         {
             return state with

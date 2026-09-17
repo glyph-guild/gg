@@ -106,6 +106,26 @@ public sealed record StrategyParse
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
+/// <summary>A watch read from text, or the reason it could not be.</summary>
+/// <remarks>
+/// A separate result for a separate door, on <c>StrategyParse</c>'s rule: the
+/// caller decided this text is a watch by which door it knocked on.
+/// </remarks>
+public sealed record WatchParse
+{
+    /// <summary>The version the text says it was based on, or null.</summary>
+    public string? BasedOn { get; init; }
+
+    /// <summary>The watch, or null when there is a diagnosis.</summary>
+    public WatchDocument? Watch { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+
+    /// <summary>Facts about what the round trip did. Comments are the only one today.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
+}
+
 /// <summary>
 /// Envelope YAML to model. The only YAML parser in the product.
 /// </summary>
@@ -307,6 +327,175 @@ public static class EnvelopeYaml
             Strategy = strategy,
             BasedOn = Consumed(document),
             Notes = Notes(text),
+        };
+    }
+
+    /// <summary>Reads watch text, or says what is wrong with it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The closed key set is the containment</b>, as it is for a strategy: a
+    /// key for a credential VALUE, or for a script, is refused by not being
+    /// admitted. There is nowhere for either to arrive through.
+    /// </para>
+    /// <para>
+    /// <b>The schema's rule is shared rather than reimplemented</b>, so gg and
+    /// the control plane cannot disagree about what a valid watch is — and the
+    /// diagnosis a refused document carries is the schema's own sentence.
+    /// </para>
+    /// </remarks>
+    public static WatchParse ParseWatch(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new WatchParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new WatchParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        WatchDocument watch;
+        try
+        {
+            watch = MapWatch(document);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new WatchParse { Diagnosis = refusal.Message };
+        }
+
+        return WatchDocument.Validate(watch) is { } invalid
+            ? new WatchParse { Diagnosis = invalid }
+            : new WatchParse
+            {
+                Watch = watch,
+                BasedOn = Consumed(document),
+                Notes = Notes(text),
+            };
+    }
+
+    private static WatchDocument MapWatch(Node document)
+    {
+        var root = RequireMap(document, "");
+        Closed(
+            root, BasedOnKey, "shape", "trigger", "host", "credential", "filter", "skill",
+            "ref", "mapping", "pull-point", "nominates", "bounds");
+
+        // THE REQUIRED KEYS NAMED HERE, BEFORE THE GENERIC WORDING CLAIMS THEM.
+        // `Require` says "an envelope without it governs nothing", which is
+        // true of an envelope and a lie about a watch - and an author told
+        // their watch is a bad envelope goes looking for the wrong mistake.
+        // `MapStrategy` dodges the same sentence for `pull-point` and for the
+        // same reason.
+        foreach (var key in (string[])
+            ["shape", "trigger", "host", "credential", "filter", "skill", "ref", "mapping",
+             "pull-point"])
+        {
+            if (!root.Entries.ContainsKey(key))
+            {
+                throw new EnvelopeSyntaxException(
+                    $"This watch declares no '{key}'. A watch says what to sweep, how often, "
+                  + "where, with which credential, under which filter, by which skill at "
+                  + "which ref, how to map what it finds, and who performs it - and it is "
+                  + "refused here, at authoring, rather than by a sweep that does nothing.");
+            }
+        }
+
+        var trigger = RequireMap(Require(root, "trigger"), "trigger");
+        Closed(trigger, "every");
+
+        var mapping = RequireMap(Require(root, "mapping"), "mapping");
+        Closed(mapping, "subject", "version", "intent-key");
+
+        // ONE BOUND, THROUGH THE ENVELOPE'S OWN DESTINATION MAPPER. A watch
+        // declares exactly one, so a second entry is refused here rather than
+        // silently taking the first - which is the shape a `Single()` would
+        // have crashed on instead of explaining.
+        var bounds = Named(root, "nominates").ToList();
+        if (bounds.Count > 1)
+        {
+            throw new EnvelopeSyntaxException(
+                $"This watch declares {bounds.Count} things to nominate, and a watch "
+              + "nominates under one bound. Two would be two menus with no rule saying "
+              + "which governs a sweep.");
+        }
+
+        return new WatchDocument
+        {
+            Shape = RequireScalar(Require(root, "shape"), "shape"),
+            Trigger = new WatchTrigger
+            {
+                Every = RequireScalar(Require(trigger, "every"), "trigger.every"),
+            },
+            Host = RequireScalar(Require(root, "host"), "host"),
+            Credential = RequireScalar(Require(root, "credential"), "credential"),
+            Filter = RequireScalar(Require(root, "filter"), "filter"),
+            Skill = RequireScalar(Require(root, "skill"), "skill"),
+            Ref = RequireScalar(Require(root, "ref"), "ref"),
+            Mapping = new WatchMapping
+            {
+                Subject = RequireScalar(Require(mapping, "subject"), "mapping.subject"),
+                Version = RequireScalar(Require(mapping, "version"), "mapping.version"),
+                IntentKey = RequireScalar(Require(mapping, "intent-key"), "mapping.intent-key"),
+            },
+            PullPoint = RequireScalar(Require(root, "pull-point"), "pull-point"),
+            Nominates = bounds.Count == 1 ? MapDestination(bounds[0]) : null,
+            Bounds = MapWatchBounds(root),
+        };
+    }
+
+    /// <summary>
+    /// The bounds block, or null when there is none — and null is not empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>Absent stays absent.</b> Returning an empty <c>WatchBounds</c> for a
+    /// document that declared none would make a watch nobody has bounded read
+    /// back as one bounded by nothing in particular — and the next
+    /// <c>gg airspace pull</c> would report a change nobody made, on every
+    /// watch in the estate. The renderer's rule, read from the other end.
+    /// </remarks>
+    private static WatchBounds? MapWatchBounds(MapNode root)
+    {
+        if (!root.Entries.TryGetValue("bounds", out var declared))
+        {
+            return null;
+        }
+
+        var map = RequireMap(declared, "bounds");
+        Closed(map, "active-hours", "cap-per-pass", "budget");
+
+        NominationBudget? budget = null;
+        if (map.Entries.TryGetValue("budget", out var declaredBudget))
+        {
+            var block = RequireMap(declaredBudget, "bounds.budget");
+            Closed(block, "flights", "window");
+            budget = new NominationBudget
+            {
+                Flights = WholeNumber(Require(block, "flights"), "bounds.budget.flights"),
+                Window = RequireScalar(Require(block, "window"), "bounds.budget.window"),
+            };
+        }
+
+        return new WatchBounds
+        {
+            ActiveHours = map.Entries.TryGetValue("active-hours", out var hours)
+                ? RequireScalar(hours, "bounds.active-hours")
+                : null,
+            CapPerPass = map.Entries.TryGetValue("cap-per-pass", out var cap)
+                ? WholeNumber(cap, "bounds.cap-per-pass")
+                : null,
+            Budget = budget,
         };
     }
 

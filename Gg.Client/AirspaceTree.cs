@@ -60,6 +60,8 @@ public sealed record TreeDocument
     public EnvelopeNarrowing? Narrowing { get; init; }
 
     public EnvironmentStrategy? Strategy { get; init; }
+
+    public WatchDocument? Watch { get; init; }
 }
 
 /// <summary>A file that sits where a document goes and does not read as one.</summary>
@@ -458,6 +460,21 @@ public static class AirspaceTree
             return parsed.Strategy is { } strategy
                 ? (Document(name, role, path, parsed.BasedOn) with { Strategy = strategy }, null)
                 : (null, parsed.Diagnosis ?? "This does not read as a strategy.");
+        }
+
+        // A WATCH BEFORE THE FALL-THROUGH, and the fall-through is why this arm
+        // is not optional. Everything that is not a narrowing or a strategy is
+        // read as an ENVELOPE, so the moment `watches/` became a known
+        // directory a hand-authored watch started landing in `Unreadable`
+        // saying it does not read as an envelope - a confusing lie about a
+        // document that is fine. Nobody had one, so nothing broke; the trap was
+        // laid for whoever wrote the first.
+        if (string.Equals(role, Roles.Watch, StringComparison.Ordinal))
+        {
+            var parsed = EnvelopeYaml.ParseWatch(text);
+            return parsed.Watch is { } watch
+                ? (Document(name, role, path, parsed.BasedOn) with { Watch = watch }, null)
+                : (null, parsed.Diagnosis ?? "This does not read as a watch.");
         }
 
         var read = EnvelopeYaml.Parse(text);

@@ -2040,7 +2040,8 @@ public static class VerbOutput
     /// The rule they share is stated twice and tested on both sides: a host's
     /// resident sits flush and everything else on that host sits beneath it as
     /// a peer; without a machine, a member sits under the runner that warmed
-    /// it; an orphan keeps its place; one level only.
+    /// it, and a member with no machine is on its host's; an orphan keeps its
+    /// place; one level only.
     /// </para>
     /// </remarks>
     private static IReadOnlyList<(RunnerSummary Runner, bool Nested)> UnderTheirHosts(
@@ -2059,9 +2060,23 @@ public static class VerbOutput
             }
         }
 
+        // A MEMBER MINTED BEFORE ITS MAINTAINER STATED A MACHINE carries none;
+        // its machine is its host's, which is what the mint writes from then on.
+        var machines = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in fleet)
+        {
+            machines.TryAdd(r.RunnerId, r.Machine);
+        }
+
         string Parent(RunnerSummary r)
         {
-            if (r.Machine is { Length: > 0 } machine
+            var machine = r.Machine is { Length: > 0 } own
+                ? own
+                : r.HostRunnerId is { Length: > 0 } warmedBy
+                    ? machines.GetValueOrDefault(warmedBy)
+                    : null;
+
+            if (machine is { Length: > 0 }
                 && residents.TryGetValue(machine, out var resident)
                 && !string.Equals(resident, r.RunnerId, StringComparison.OrdinalIgnoreCase))
             {

@@ -368,8 +368,9 @@ public sealed class AskDispatch(
     /// <summary>What a runner says when nothing wired it to run the ceremony.</summary>
     private const string NoPort =
         "this machine's configuration does not say `accept-agent-login`, so it will not start its "
-      + "agent's login ceremony. A person opens that file on the machine. A pool member is closed "
-      + "to this by decision, and takes its token by `gg credential send --agent` instead.";
+      + "agent's login ceremony. A person opens that file on the machine; a pool member opens it "
+      + "itself when it first starts, so one saying this runs a gg from before that, and takes its "
+      + "token by `gg credential send --agent`.";
 
     /// <summary>The agent's locator for a provider, or null when the name is not a segment.</summary>
     private static string? LocatorFor(string? provider)

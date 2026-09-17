@@ -82,9 +82,21 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
     /// whatever the image had baked in - the sort of loss nobody notices until
     /// a flight cannot reach a forge.
     /// </para>
+    /// <para>
+    /// <b>And the login ceremony, by a later decision.</b> A member opened only
+    /// this door at first, so a console pressing Login on its agent-login gate
+    /// was told the member was closed to it. That was reversed on 2026-09-17: a
+    /// member is the machine nobody can open a shell on, which makes it the one
+    /// most in need of the ceremony. Both keys, one authority, still in the
+    /// member's own file - neither has a variable and neither can be offered.
+    /// </para>
     /// </remarks>
     public static Gg.Local.Configuration Opened(Gg.Local.Configuration? existing) =>
-        (existing ?? new Gg.Local.Configuration()) with { AcceptConfigured = true };
+        (existing ?? new Gg.Local.Configuration()) with
+        {
+            AcceptConfigured = true,
+            AcceptAgentLogin = true,
+        };
 
     /// <summary>
     /// Somewhere to destroy a credential. Always.

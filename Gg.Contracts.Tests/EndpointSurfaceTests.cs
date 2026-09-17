@@ -424,8 +424,17 @@ public class EndpointSurfaceTests
         //
         // The contract version moves too, to 0.182.0: the action, the skill,
         // the report and the sighting are new types.
+        //
+        // Moved for a runner naming its machine: POST /v1/runner/machine, the
+        // way a runner that predates machines gains one - RunnerKeyOffer's
+        // reason, because registration is read-or-register and a stored
+        // credential never registers again. Runner audience with no id in the
+        // path, on the agent reading's reason, and 204 with no 409: a machine is
+        // a display grouping nothing authorizes on, so a changed one is not a
+        // substitution anybody pinned. The request type is new, so the contract
+        // version moves as well, to 0.183.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("2a7ecfad3ac13f4f1f9ae68640cd694c2e50372c88aaa1b59005694b040762fe")
+            .IsEqualTo("7f34e8fca70c1622cfa67c5361558b758c0a6917ef9ff6c2c3115ff5ee32f985")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -45,6 +45,51 @@ public sealed class ConsoleSecretPrompt : ISecretPrompt
     /// a terminal that echoed the token would put it on the screen behind
     /// whoever is watching.
     /// </remarks>
+    /// <summary>
+    /// What a terminal's bracketed paste leaves behind, removed.
+    /// </summary>
+    /// <remarks>
+    /// <b>The ESC goes and the rest stays, which is the bug.</b> A terminal
+    /// wraps a paste in <c>ESC[200~</c> and <c>ESC[201~</c>; the reader below
+    /// drops the two ESCs as control characters and keeps <c>[200~</c> and
+    /// <c>[201~</c> in the secret. An agent login code mangled that way is
+    /// refused by the agent, and all the refusal can say is that no token was
+    /// printed - which is three rounds of a person pasting the same code.
+    /// <para>
+    /// <b>Only the exact markers, and only where they sit.</b> A secret is
+    /// somebody else's bytes: cutting five characters off anything that starts
+    /// with a bracket would be this side corrupting what it was handed.
+    /// </para>
+    /// </remarks>
+    public static string Pasted(string typed)
+    {
+        ArgumentNullException.ThrowIfNull(typed);
+
+        var cleaned = typed;
+        if (cleaned.StartsWith("[200~", StringComparison.Ordinal))
+        {
+            cleaned = cleaned[5..];
+        }
+
+        if (cleaned.EndsWith("[201~", StringComparison.Ordinal))
+        {
+            cleaned = cleaned[..^5];
+        }
+
+        return cleaned;
+    }
+
+    /// <summary>What to say about a secret that was read but never shown.</summary>
+    /// <remarks>
+    /// <b>A count is not an echo.</b> Nothing about the value crosses the
+    /// screen; how much of it arrived is what tells a person their paste landed,
+    /// and nothing else in this prompt can.
+    /// </remarks>
+    public static string Received(int characters) =>
+        characters == 0
+            ? "(nothing was pasted or typed)"
+            : $"({characters} characters received)";
+
     public string ReadSecret(string prompt)
     {
         System.Console.Write(prompt);
@@ -54,7 +99,7 @@ public sealed class ConsoleSecretPrompt : ISecretPrompt
             // Not a terminal. There is nothing to echo and nothing to hide, and
             // refusing here would break the one honest scripted case: piping a
             // secret in on stdin, which never touches argv or the environment.
-            var piped = System.Console.ReadLine() ?? "";
+            var piped = Pasted(System.Console.ReadLine() ?? "");
             System.Console.WriteLine();
             return piped;
         }
@@ -66,8 +111,9 @@ public sealed class ConsoleSecretPrompt : ISecretPrompt
 
             if (key.Key == ConsoleKey.Enter)
             {
-                System.Console.WriteLine();
-                return typed.ToString();
+                var read = Pasted(typed.ToString());
+                System.Console.WriteLine(Received(read.Length));
+                return read;
             }
 
             if (key.Key == ConsoleKey.Backspace)

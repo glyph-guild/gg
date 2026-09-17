@@ -162,6 +162,21 @@ public sealed class SetupTokenLogin(string binary, IReadOnlyList<string>? argume
             return await WaitForAsync(SetupTokenScreen.Token, cancellationToken);
         }
 
+        /// <summary>The tail of everything the child has written.</summary>
+        /// <remarks>
+        /// Raw, escapes and all: what is safe to show is the ceremony's
+        /// decision, because it is the one that knows the code that was typed
+        /// and what a token looks like.
+        /// </remarks>
+        public string LastWords(int characters)
+        {
+            lock (_gate)
+            {
+                var screen = _screen.ToString();
+                return screen.Length <= characters ? screen : screen[^characters..];
+            }
+        }
+
         public void Dispose()
         {
             // THE WHOLE TREE, the meter's way: the binary is a launcher on

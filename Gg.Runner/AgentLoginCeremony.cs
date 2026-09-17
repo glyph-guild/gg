@@ -39,6 +39,16 @@ public interface IAgentLoginChild : IDisposable
 
     /// <summary>Types the code, and reads the token the child mints - or null once it never will.</summary>
     Task<string?> TokenAsync(string code, CancellationToken cancellationToken);
+
+    /// <summary>The last of what the child wrote, for a refusal to carry.</summary>
+    /// <remarks>
+    /// <b>Because the one thing that knows why a login failed is the child.</b>
+    /// It says `Invalid code` or `Expired` in its own words, and without this a
+    /// refusal can only guess between them - which left a person retrying the
+    /// same paste three times with nothing to tell the attempts apart. The
+    /// caller redacts before any of it crosses.
+    /// </remarks>
+    string LastWords(int characters);
 }
 
 /// <summary>What a machine hands the runner when its file says <c>accept-agent-login</c>.</summary>
@@ -74,7 +84,7 @@ public sealed record AgentLoginPorts(IRunAnAgentLogin Runs, IKeepACredential Kee
 /// expiry on its own thread and must not wait on either.
 /// </para>
 /// </remarks>
-public sealed class AgentLoginCeremony(
+public sealed partial class AgentLoginCeremony(
     IAuthenticateAnAgent agent,
     AgentLoginPorts ports,
     IClock clock,
@@ -221,6 +231,10 @@ public sealed class AgentLoginCeremony(
 
         var token = await Bounded(ct => child.TokenAsync(code, ct), TokenPatience, cancellationToken);
 
+        // ASKED BEFORE THE CHILD IS DISPOSED, and only used when nothing was
+        // minted: a login that worked has nothing to explain.
+        var said = token is { Length: > 0 } ? "" : Sanitised(child.LastWords(LastWordsKept), code);
+
         // WRITTEN, THEN DROPPED. The keeper's answer is the whole of what is
         // remembered about the value.
         var written = token is { Length: > 0 } && ports.Keeps.Keep(agent.Locator, token);
@@ -248,8 +262,62 @@ public sealed class AgentLoginCeremony(
 
         return NotWritten(
             $"the {Provider} agent printed no token after the code was typed - the code may have "
-          + "been wrong, or the ceremony had expired on the agent's side. Begin again.");
+          + "been wrong, or the ceremony had expired on the agent's side. Begin again."
+          + (said.Length > 0 ? $" It last said: {said}" : ""));
     }
+
+    /// <summary>How much of the child's screen a refusal carries.</summary>
+    /// <remarks>
+    /// Enough for a sentence the agent wrote, not enough for a transcript: a
+    /// diagnosis is read on somebody's console, and a screen pasted whole would
+    /// be a wall nobody reads with a secret somewhere in it.
+    /// </remarks>
+    private const int LastWordsKept = 240;
+
+    /// <summary>
+    /// What the child wrote, safe to put in front of a person.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three removals, and each is its own reason.</b> A token the child
+    /// printed must not travel in a diagnosis - that is the value this whole
+    /// ceremony exists to place once, on one machine. The code a person typed is
+    /// theirs, and this side holds it only long enough to type it. And control
+    /// characters are how the child draws itself, which on the far end would be
+    /// this runner drawing on somebody else's screen.
+    /// </para>
+    /// <para>
+    /// <b>Whitespace collapses</b> so a screen's line breaks and column padding
+    /// arrive as a sentence rather than as a shape.
+    /// </para>
+    /// </remarks>
+    private static string Sanitised(string? screen, string code)
+    {
+        if (screen is not { Length: > 0 })
+        {
+            return "";
+        }
+
+        var without = TokenShaped().Replace(screen, "");
+        if (code.Length > 0)
+        {
+            without = without.Replace(code, "", StringComparison.Ordinal);
+        }
+
+        var printable = new System.Text.StringBuilder(without.Length);
+        foreach (var character in without)
+        {
+            printable.Append(char.IsControl(character) ? ' ' : character);
+        }
+
+        return Whitespace().Replace(printable.ToString(), " ").Trim();
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"sk-ant-[A-Za-z0-9_\-]{8,}")]
+    private static partial System.Text.RegularExpressions.Regex TokenShaped();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\s{2,}")]
+    private static partial System.Text.RegularExpressions.Regex Whitespace();
 
     /// <summary>Ends a ceremony nobody finished, on the beat's clock.</summary>
     public void Expire(DateTimeOffset now)

@@ -47,5 +47,12 @@ public class ASweepingRunnerIsAVerbTests
         await Assert.That(parsed).IsTypeOf<CliAction.Unknown>()
             .Because("sweeping whatever this runner could find would claim work nobody pointed "
                    + "it at.");
+        await Assert.That(((CliAction.Unknown)parsed).Message).Contains("one watch name")
+            .Because("the fall-through answered \"'runner' is not a gg command\", which is "
+                   + "false about the verb and says nothing about the mistake - and a person "
+                   + "reading it goes looking for a verb that is right there.");
+        await Assert.That(((CliAction.Unknown)parsed).Message).Contains("gg watches")
+            .Because("the fix is one command away, and a refusal that names it saves the "
+                   + "round trip.");
     }
 }

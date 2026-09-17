@@ -185,7 +185,6 @@ public static class Vocabulary
         typeof(WatchBounds),
         typeof(WatchState),
         typeof(WatchList),
-        typeof(WatchSkill),
         typeof(WatchAction),
         typeof(WatchActionList),
         typeof(WatchSighting),

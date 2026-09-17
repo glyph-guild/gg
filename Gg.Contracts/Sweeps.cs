@@ -39,33 +39,16 @@ public static class WatchOutcomes
     public static IReadOnlyList<string> All { get; } = [Swept, Unreachable];
 }
 
-/// <summary>
-/// A watch's skill as the control plane read it, handed to the runner.
-/// </summary>
+/// <summary>The shapes a git object id takes.</summary>
 /// <remarks>
-/// <para>
-/// <b>The only member on this surface that carries a customer's words, and it
-/// carries them one way.</b> ADR-0023 § 1 has the control plane fetch the
-/// skill — ADR-0018 § 5's rule, one noun over — and hand the content to the
-/// runner. It is read when the action is served and exists in the answer only:
-/// the control plane keeps <see cref="Commit"/> and <see cref="Sha"/>, which
-/// say what ran, and never <see cref="Content"/>.
-/// </para>
+/// Forty hex digits in a SHA-1 repository and sixty-four in a SHA-256 one.
+/// Anything else - a branch, a tag, <c>HEAD</c> - is a name that moves, and a
+/// pin that moves pins nothing.
 /// </remarks>
-[PinnedId("fe31444a-696b-4eb7-8111-6798f696cfdb")]
-public sealed record WatchSkill
+internal static class GitObjectIds
 {
-    /// <summary>The repository-relative path the watch names.</summary>
-    public required string Path { get; init; }
-
-    /// <summary>The commit the watch's ref resolved to when this was read.</summary>
-    public required string Commit { get; init; }
-
-    /// <summary>The blob's own digest, as the forge reported it.</summary>
-    public required string Sha { get; init; }
-
-    /// <summary>The skill's text.</summary>
-    public required string Content { get; init; }
+    public static bool IsOne(string? value) =>
+        value is { Length: 40 or 64 } && value.All(Uri.IsHexDigit);
 }
 
 /// <summary>One decided sweep, served to the pull point.</summary>
@@ -85,11 +68,19 @@ public sealed record WatchSkill
 /// was approved must not run the filter somebody replaced.
 /// </para>
 /// <para>
-/// <b>A skill or a diagnosis, never both and never neither.</b> A skill the
-/// control plane could not read is served anyway, with the reason, so the
-/// sweep attests <see cref="WatchOutcomes.Unreachable"/> and a person hears
-/// about it — rather than the row going unserved and the watch reading as
-/// missed with nobody told why.
+/// <b>The runner reads the skill; this says at which commit.</b> Decided
+/// 2026-09-16 by the owner, amending 0.182.0: the control plane reads exactly
+/// one thing from a customer's repository and no code, so it resolves the
+/// watch's ref to a commit - a metadata call - and the runner reads
+/// <see cref="WatchDocument.Skill"/> in <see cref="WatchDocument.Repository"/>
+/// there, with the customer's credential. There is no member the skill's words
+/// could travel in.
+/// </para>
+/// <para>
+/// <b>A pin or a diagnosis, never both and never neither.</b> A sweep whose ref
+/// could not be resolved is served anyway, with the reason, so the runner
+/// attests <see cref="WatchOutcomes.Unreachable"/> and a person hears about it -
+/// rather than the watch going quiet with nobody told why.
 /// </para>
 /// </remarks>
 [PinnedId("33ede0fe-aebb-40ac-bdd4-c79c01230be6")]
@@ -109,10 +100,10 @@ public sealed record WatchAction
     /// <summary>One of <see cref="WatchExecutors"/>.</summary>
     public required string Executor { get; init; }
 
-    /// <summary>The skill, when the control plane could read it.</summary>
-    public WatchSkill? Skill { get; init; }
+    /// <summary>The commit the runner reads the skill at, when the ref resolved.</summary>
+    public string? SkillCommit { get; init; }
 
-    /// <summary>Why there is no skill. Present exactly when <see cref="Skill"/> is not.</summary>
+    /// <summary>Why there is no commit. Present exactly when <see cref="SkillCommit"/> is not.</summary>
     public string? Diagnosis { get; init; }
 
     public required DateTimeOffset DecidedAt { get; init; }
@@ -135,24 +126,20 @@ public sealed record WatchAction
                  + $"of: {string.Join(", ", WatchExecutors.All)}.";
         }
 
-        if (action.Skill is null == string.IsNullOrWhiteSpace(action.Diagnosis))
+        if (action.SkillCommit is null == string.IsNullOrWhiteSpace(action.Diagnosis))
         {
-            return action.Skill is null
-                ? "This sweep carries no skill and no reason there is none. An instructions "
-                  + "executor handed nothing would run an agent on nothing, or do nothing and "
-                  + "say nothing."
-                : "This sweep carries a skill AND a reason it could not be read. That is two "
+            return action.SkillCommit is null
+                ? "This sweep carries no commit and no reason there is none. A runner handed "
+                  + "no pin would read the skill at whatever the ref says now, which is the "
+                  + "review the pin exists to hold."
+                : "This sweep carries a commit AND a reason it could not be pinned. That is two "
                   + "answers to one question, and a runner would have to pick one.";
         }
 
-        if (action.Skill is { } skill
-            && (string.IsNullOrWhiteSpace(skill.Path)
-                || string.IsNullOrWhiteSpace(skill.Commit)
-                || string.IsNullOrWhiteSpace(skill.Sha)))
+        if (action.SkillCommit is { } commit && !GitObjectIds.IsOne(commit))
         {
-            return "This sweep's skill has no path, commit or digest. Those are what the "
-                 + "control plane keeps instead of the words, so a skill without them runs and "
-                 + "leaves no record of what it said.";
+            return $"'{commit}' is not a commit. A pin is forty or sixty-four hex digits; a "
+                 + "branch or a tag moves, and a pin that moves pins nothing.";
         }
 
         return WatchDocument.Validate(action.Document);
@@ -250,6 +237,17 @@ public sealed record WatchAttestation
     /// <summary>Why the sweep could not do its job. Present exactly when it could not.</summary>
     public string? Diagnosis { get; init; }
 
+    /// <summary>
+    /// The digest of the skill the sweep followed, read at the action's commit.
+    /// </summary>
+    /// <remarks>
+    /// <b>The record of what ran, on the runner's word.</b> The control plane
+    /// pins the commit and does not read the file, so the blob's digest can only
+    /// come from the machine that read it. Required on a good pass; optional on
+    /// an unreachable one, which may never have read the skill at all.
+    /// </remarks>
+    public string? SkillSha { get; init; }
+
     /// <summary>The most one sweep may report.</summary>
     /// <remarks>
     /// A watch's own cap per pass bounds what is nominated, and is the control
@@ -296,6 +294,18 @@ public sealed record WatchAttestation
         {
             return "An unreachable sweep reports things it saw. A sweep that saw something "
                  + "reached something, and half a report under this outcome is two answers.";
+        }
+
+        if (!unreachable && attestation.SkillSha is null)
+        {
+            return "A sweep that reached its system of record does not say which skill it "
+                 + "followed. The digest is the record of what ran, and a good pass without one "
+                 + "leaves the review with nothing to point at.";
+        }
+
+        if (attestation.SkillSha is { } sha && !GitObjectIds.IsOne(sha))
+        {
+            return $"'{sha}' is not a blob digest. A digest is forty or sixty-four hex digits.";
         }
 
         if (!unreachable && attestation.Diagnosis is not null)

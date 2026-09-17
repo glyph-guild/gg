@@ -2006,7 +2006,7 @@ public static class VerbOutput
         }
 
         var text = new StringBuilder();
-        foreach (var runner in UnderTheirHosts(list.Runners))
+        foreach (var (runner, nested) in UnderTheirHosts(list.Runners))
         {
             var on = runner.CurrentFlightNumber is { Length: > 0 } number ? $"  on {Clean(number)}" : "";
             var beat = runner.LastHeartbeatAt is { } at ? $"  last seen {at:u}" : "  never seen";
@@ -2020,7 +2020,7 @@ public static class VerbOutput
             // UNDER THE MACHINE THAT WARMED IT, which the order above has
             // already arranged. Adjacency alone is two ordinary rows; the
             // indent is what says one of them created the other.
-            var under = runner.HostRunnerId is { Length: > 0 } ? "  " : "";
+            var under = nested ? "  " : "";
 
             text.AppendLine(
                 $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{labels}");
@@ -2029,46 +2029,70 @@ public static class VerbOutput
     }
 
     /// <summary>
-    /// Each member directly after the machine that warmed it, everything else
-    /// in the order it arrived.
+    /// The fleet as machines: each flush row followed by what is drawn beneath
+    /// it, with a flag saying which rows are nested.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A parallel of the console's, over the wire type rather than the row.</b>
+    /// <b>The console's rule, over the wire type rather than the row.</b>
     /// <c>Rows.UnderTheirHosts</c> runs after an ordering this surface does not
-    /// have - mine, yours, this machine's - so the two cannot share a body
-    /// without one of them acquiring the other's ideas about what comes first.
-    /// The rule they share is small enough to state twice and is tested on both
-    /// sides: a member follows its host, an orphan keeps its place.
-    /// </para>
-    /// <para>
-    /// <b>An orphan is still a row.</b> A host that has been revoked, or a
-    /// listing read mid-change, is exactly when somebody needs to see the
-    /// machine that is asking for help.
+    /// have - mine, yours, this machine's - so the two cannot share a body.
+    /// The rule they share is stated twice and tested on both sides: a host's
+    /// resident sits flush and everything else on that host sits beneath it as
+    /// a peer; without a machine, a member sits under the runner that warmed
+    /// it; an orphan keeps its place; one level only.
     /// </para>
     /// </remarks>
-    private static IReadOnlyList<RunnerSummary> UnderTheirHosts(
+    private static IReadOnlyList<(RunnerSummary Runner, bool Nested)> UnderTheirHosts(
         IReadOnlyList<RunnerSummary> fleet)
     {
-        var hosts = new HashSet<string>(
+        var present = new HashSet<string>(
             fleet.Select(r => r.RunnerId), StringComparer.OrdinalIgnoreCase);
 
-        var adopted = fleet
-            .Where(r => r.HostRunnerId is { Length: > 0 } h && hosts.Contains(h))
-            .ToList();
-
-        if (adopted.Count == 0)
+        var residents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in fleet)
         {
-            return fleet;
+            if (r.Machine is { Length: > 0 } machine
+                && string.Equals(r.Label, machine, StringComparison.OrdinalIgnoreCase))
+            {
+                residents.TryAdd(machine, r.RunnerId);
+            }
         }
 
-        var ordered = new List<RunnerSummary>(fleet.Count);
-        foreach (var runner in fleet.Where(r => !adopted.Contains(r)))
+        string Parent(RunnerSummary r)
         {
-            ordered.Add(runner);
-            ordered.AddRange(adopted.Where(m => string.Equals(
-                m.HostRunnerId, runner.RunnerId, StringComparison.OrdinalIgnoreCase)));
+            if (r.Machine is { Length: > 0 } machine
+                && residents.TryGetValue(machine, out var resident)
+                && !string.Equals(resident, r.RunnerId, StringComparison.OrdinalIgnoreCase))
+            {
+                return resident;
+            }
+
+            return r.HostRunnerId is { Length: > 0 } host && present.Contains(host)
+                ? host
+                : "";
         }
+
+        var placed = fleet.Select(r => (Runner: r, Under: Parent(r))).ToList();
+        var roots = placed.Where(p => p.Under.Length == 0).ToList();
+        var rootIds = new HashSet<string>(
+            roots.Select(p => p.Runner.RunnerId), StringComparer.OrdinalIgnoreCase);
+
+        var ordered = new List<(RunnerSummary, bool)>(placed.Count);
+        foreach (var root in roots)
+        {
+            ordered.Add((root.Runner, false));
+            ordered.AddRange(placed
+                .Where(c => string.Equals(
+                    c.Under, root.Runner.RunnerId, StringComparison.OrdinalIgnoreCase))
+                .Select(c => (c.Runner, true)));
+        }
+
+        // A row whose parent is not itself a root is listed flush rather than
+        // dropped - two depths, never three.
+        ordered.AddRange(placed
+            .Where(c => c.Under.Length > 0 && !rootIds.Contains(c.Under))
+            .Select(c => (c.Runner, false)));
 
         return ordered;
     }

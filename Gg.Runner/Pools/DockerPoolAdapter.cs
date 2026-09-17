@@ -328,6 +328,20 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
                 $"{Facts.EnvironmentSurvey.ImageDigestVariable}={spec.Image}");
             writer.WriteStringValue($"GG_CONTROL_PLANE={spec.ControlPlane}");
             writer.WriteStringValue($"{MemberBootstrap.NonceVariable}={spec.Nonce}");
+
+            // AND WHERE TO ASK FOR ITS OWN ADDRESS, when the deployment named
+            // somewhere. Without it a member offers the address it can see -
+            // 172.17.x, inside this container - and a console that asked to be
+            // introduced gets NoRouteBetweenUs after the channel is opened,
+            // which reads as a machine refusing rather than as one that was
+            // never told. Omitted rather than empty: StunConfiguration reads a
+            // missing variable and an empty one the same way, and writing the
+            // empty one claims a server nobody named.
+            if (spec.StunServers is { Length: > 0 } stun)
+            {
+                writer.WriteStringValue($"{StunConfiguration.Variable}={stun}");
+            }
+
             writer.WriteEndArray();
             writer.WriteEndObject();
         }

@@ -85,6 +85,14 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public IReadOnlyList<EnvironmentStrategyState> Strategies { get; set; } = [];
 
+    /// <summary>The watches this estate holds, read through their own door.</summary>
+    /// <remarks>
+    /// A THIRD request for the same reason there is a second: a stub that folded
+    /// watches into either list would let a test pass against an estate the
+    /// real control plane never serves.
+    /// </remarks>
+    public IReadOnlyList<WatchState> Watches { get; set; } = [];
+
     /// <summary>The gated answer a declaration gets, when it rides a flight.</summary>
     /// <remarks>
     /// The ordinary case, and it is why this and <see cref="NameLive"/> are
@@ -199,6 +207,19 @@ public sealed class StubControlPlane : IAsyncDisposable
 
     /// <summary>Whether a strategy apply answers 202 - a gate.</summary>
     public bool StrategyDiverts { get; set; }
+
+    /// <summary>
+    /// The names a watch was applied to, through the watch door.
+    /// </summary>
+    /// <remarks>
+    /// Its own list on <see cref="AppliedStrategies"/>' reasoning: a watch sent
+    /// to the envelope door arrives as an empty body, and one list for every
+    /// door could not tell a correct apply from that defect.
+    /// </remarks>
+    public List<string> AppliedWatches { get; } = [];
+
+    /// <summary>Whether a watch apply answers 202 - a gate.</summary>
+    public bool WatchDiverts { get; set; }
 
     /// <summary>The name this stub was asked to retire.</summary>
     public string? RetiredName { get; private set; }
@@ -714,6 +735,32 @@ public sealed class StubControlPlane : IAsyncDisposable
                             Flight = StrategyDiverts ? "GG-112" : null,
                             Awaiting = StrategyDiverts ? "platform-owner" : null,
                             Widens = StrategyDiverts ? "pool-max" : null,
+                        });
+                    return;
+                }
+
+            case "/v1/airspace/watches":
+                await WriteJsonAsync(context, 200, new WatchList { Watches = Watches });
+                return;
+
+            // A WATCH'S OWN DOOR, on the strategy door's shape one class over.
+            case var watch when context.Request.HttpMethod == "PUT"
+                && watch.StartsWith("/v1/airspace/watches/", StringComparison.Ordinal):
+                {
+                    AppliedWatches.Add(Uri.UnescapeDataString(
+                        watch["/v1/airspace/watches/".Length..]));
+
+                    await WriteJsonAsync(
+                        context,
+                        WatchDiverts ? 202 : 200,
+                        new EnvelopeApplied
+                        {
+                            Version = "nightly-triage@v2",
+                            AppliedAt = DateTimeOffset.UnixEpoch,
+                            Changed = !WatchDiverts,
+                            Flight = WatchDiverts ? "GG-113" : null,
+                            Awaiting = WatchDiverts ? "platform-owner" : null,
+                            Widens = WatchDiverts ? "filter" : null,
                         });
                     return;
                 }

@@ -29,6 +29,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(HeartbeatAccepted))]
 [JsonSerializable(typeof(RunnerSignalAnswer))]
 [JsonSerializable(typeof(RunnerKeyOffer))]
+[JsonSerializable(typeof(RunnerMachineOffer))]
 [JsonSerializable(typeof(LeaseClaimRequest))]
 [JsonSerializable(typeof(LeaseClaimAccepted))]
 [JsonSerializable(typeof(LeaseClaimStatus))]
@@ -90,6 +91,24 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
     /// the whole reason this travels on every request.
     /// </remarks>
     public const string FactVocabulary = Gg.Contracts.FactVocabulary.Version;
+
+    public async Task<bool> OfferMachineAsync(
+        string machine, CancellationToken cancellationToken = default)
+    {
+        // NO ID IN THE PATH: the credential names the runner.
+        using var request = Request(HttpMethod.Post, "/v1/runner/machine");
+        request.Content = JsonContent.Create(
+            new RunnerMachineOffer { Machine = machine },
+            RunnerJsonContext.Default.RunnerMachineOffer);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        // UNHEARD IS AN ANSWER. An older control plane has no such route and
+        // answers 404; the runner still takes work, and its members still
+        // group under their host until the control plane catches up.
+        return response.IsSuccessStatusCode;
+    }
 
     public async Task<KeyOfferResult> OfferKeyAsync(
         string runnerId, string publicKey, CancellationToken cancellationToken = default)

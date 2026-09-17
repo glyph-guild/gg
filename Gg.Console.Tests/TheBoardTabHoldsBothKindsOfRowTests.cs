@@ -175,8 +175,16 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     {
         // THREE THINGS AN EMPTY PANE MEANS, and two of them are not "nothing
         // was nominated". A person shown the wrong one stops looking.
+        //
+        // THIS ASSERTED "could not load" AND THAT WAS THE DEFECT, not the
+        // wording. On a fresh console nobody had asked for the board at all -
+        // the boot fetches neither of its two reads - so the pane was reporting
+        // a failure that had not happened, for as long as the countdown took.
+        // Arriving now asks; the sentence says what is happening; and the
+        // failure, when there is one, is the refresh's own words.
+        // ArrivingAtAnUnreadTabAsksForItTests holds all three.
         await Assert.That(PaneText.Board(new AppState { ActiveTab = TabId.Board }))
-            .Contains("could not load");
+            .Contains("reading the board");
 
         await Assert.That(Tabs.HasRead(new AppState
         {

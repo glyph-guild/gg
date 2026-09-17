@@ -411,7 +411,20 @@ public static class PaneText
 
         if (state.Board is null || state.Watches is null)
         {
-            return "  (could not load the board)";
+            // THREE THINGS AN EMPTY PANE MEANS, and this arm holds two of them.
+            // It said "could not load" for both, which is the one a person acts
+            // on by going to look for an outage - and on a fresh console it was
+            // wrong, because nobody had asked yet. Arriving here asks now
+            // (Reducer.Arrived), so this sentence is what a person reads for
+            // about as long as the control plane takes.
+            //
+            // AND THE FAILURE IS THE REFRESH'S OWN WORDS. Whatever tried wrote
+            // the reason into the diagnosis, and it is the only thing anybody
+            // can act on; a pane still saying "reading" while nothing is coming
+            // is the staleness every sentence in this file exists to avoid.
+            return state.Diagnosis is { Length: > 0 } why
+                ? "  " + why
+                : "  (reading the board…)";
         }
 
         if (Rows.Board(state).Count > 0)

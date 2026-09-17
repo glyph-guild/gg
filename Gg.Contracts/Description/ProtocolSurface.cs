@@ -1028,6 +1028,46 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE WATCH DOOR, on the strategy door's shape one document class
+            // over (slice thirty-nine). A watch applies to a name whose topology
+            // role is watch, through the same per-name stream and version
+            // counter. 400 is a refusal - WatchDocument.Validate's diagnosis,
+            // or an unknown name or role; 202 is a widening diverted to the
+            // gate, which obliges the control plane to serve the diversion AND
+            // the re-apply that follows it.
+            Method = "PUT",
+            Path = "/v1/airspace/watches/{name}",
+            Audience = Audience.Developer,
+            Request = typeof(WatchDocument),
+            Response = typeof(EnvelopeApplied),
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/watches/{name}",
+            Audience = Audience.Developer,
+            Response = typeof(WatchState),
+            // 404 is a name with no watch in force - different from a watch
+            // that sweeps nothing, which cannot exist: the document requires
+            // its filter.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/watches",
+            Audience = Audience.Developer,
+            Response = typeof(WatchList),
+            // Empty is 200 with nothing in it: a tenant watching nothing is a
+            // state, not an error.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // THE ESTATE'S FIRST READ OF ITSELF. Rendering a working copy is a
             // fan-out over the topology by construction - ADR-0014 accepted
             // that cost when it chose a stream per name - so the fan-out
@@ -1737,6 +1777,8 @@ public static class ProtocolSurface
             [typeof(WatchTrigger)] = ["every"],
             [typeof(WatchMapping)] = ["subject", "version", "intentKey"],
             [typeof(WatchBounds)] = ["activeHours", "capPerPass", "budget"],
+            [typeof(WatchState)] = ["name", "version", "appliedAt", "watch"],
+            [typeof(WatchList)] = ["watches"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],

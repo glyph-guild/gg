@@ -182,6 +182,8 @@ public static class Vocabulary
         typeof(WatchTrigger),
         typeof(WatchMapping),
         typeof(WatchBounds),
+        typeof(WatchState),
+        typeof(WatchList),
         typeof(EnvironmentStrategyState),
         typeof(NamedEnvelopeState),
         typeof(NamedEnvelopeList),

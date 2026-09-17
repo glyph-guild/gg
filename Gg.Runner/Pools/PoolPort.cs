@@ -85,6 +85,26 @@ public sealed record PoolMember
     /// </para>
     /// </remarks>
     public required bool Running { get; init; }
+
+    /// <summary>
+    /// The image reference this member was created from, exactly as it was
+    /// given — or null when the listing did not say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A pin, to be compared against a pin.</b> The strategy declares
+    /// <c>name@sha256:…</c> and this is the same kind of string, so equality
+    /// means what it says. The resolved image id is a different thing and
+    /// differs from a reference every time — comparing those two is a drift
+    /// check that is always true, which is a bill rather than a bug.
+    /// </para>
+    /// <para>
+    /// <b>Null is "the listing did not say", never "wrong".</b> A roll reads
+    /// silence as a member to leave alone: destroying a warm member on the
+    /// strength of a missing field is the one mistake this field can make.
+    /// </para>
+    /// </remarks>
+    public string? MadeFrom { get; init; }
 }
 
 /// <summary>What one action observed, in the attestation's own words.</summary>

@@ -176,6 +176,11 @@ public static class WatchDirection
             return bound;
         }
 
+        if (References(applied, proposed) is { } moved)
+        {
+            return moved;
+        }
+
         // ANY CHANGE AT ALL, AND THE SENTENCE SAYS WHY. A filter is a query in
         // the shape's own language, and whether one returns a superset of
         // another is not a question this side can answer - so "looser" and
@@ -217,6 +222,123 @@ public static class WatchDirection
         }
 
         return BoundsWidening(applied.Bounds, proposed.Bounds, Whose);
+    }
+
+    /// <summary>
+    /// How a change to what this watch reads or reaches widens it, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The filter's argument, ten members over, and this was a gap.</b> The
+    /// comparator once looked at the bound, the filter, the period and the
+    /// bounds, and a watch repointed at another repository, another branch,
+    /// another tracker or another credential applied with nobody asked. None of
+    /// these has an order this side can compute - a different credential is
+    /// not more or less, it is an identity whose reach is not visible from
+    /// here - so equality is the only comparison, and a change is reviewed.
+    /// </para>
+    /// <para>
+    /// <b>One arm and one sentence per member, by hand.</b> The author sent to
+    /// a reviewer is told what their change does, and that differs by member:
+    /// a ref moved skips the review the member exists to hold, while a mapping
+    /// changed makes the same sweep count as different nominations.
+    /// </para>
+    /// </remarks>
+    private static EnvelopeWidening? References(WatchDocument applied, WatchDocument proposed)
+    {
+        if (!Same(applied.Repository, proposed.Repository))
+        {
+            return Moved(
+                "repository",
+                $"this watch reads its skill from {proposed.Repository} where it read it from "
+              + $"{applied.Repository}, and the people who review that repository's words are "
+              + "not necessarily the ones who approved this watch.");
+        }
+
+        if (!Same(applied.Skill, proposed.Skill))
+        {
+            return Moved(
+                "skill",
+                $"this watch follows {proposed.Skill} where it followed {applied.Skill}. A "
+              + "different path is a different procedure, and nobody has approved that one "
+              + "as this watch's.");
+        }
+
+        if (!Same(applied.Ref, proposed.Ref))
+        {
+            return Moved(
+                "ref",
+                $"this watch reads its skill at {proposed.Ref} where it read it at "
+              + $"{applied.Ref}. The ref is what makes the words that run the words somebody "
+              + "reviewed, and whether anybody reviewed what is at the new one cannot be "
+              + "known from here - a branch is anybody's.");
+        }
+
+        if (!Same(applied.Host, proposed.Host))
+        {
+            return Moved(
+                "host",
+                $"this watch reaches {proposed.Host} where it reached {applied.Host} - a "
+              + "different system of record, whose subjects nobody granted it.");
+        }
+
+        if (!Same(applied.Credential, proposed.Credential))
+        {
+            return Moved(
+                "credential",
+                "this watch acts with a different credential. What an identity may reach is "
+              + "decided where the secret lives, not here, so a new one is reviewed rather "
+              + "than assumed to reach no further.");
+        }
+
+        if (!Same(applied.Shape, proposed.Shape))
+        {
+            return Moved(
+                "shape",
+                $"this watch sweeps {proposed.Shape} where it swept {applied.Shape}, which is a "
+              + "different kind of thing with different subjects, and a filter written for "
+              + "the old one says nothing about what the new one returns.");
+        }
+
+        if (!Same(applied.PullPoint, proposed.PullPoint))
+        {
+            return Moved(
+                "pull-point",
+                $"this watch is performed by {proposed.PullPoint} where it was performed by "
+              + $"{applied.PullPoint}. A different performer is a different machine holding "
+              + "the credential and reaching the host.");
+        }
+
+        if (!Same(applied.Mapping.Subject, proposed.Mapping.Subject))
+        {
+            return Moved(
+                "mapping.subject",
+                "what names a subject changed, so the same sweep reports different things as "
+              + "the things to nominate - and the dedupe keys on the subject, so what it "
+              + "already saw no longer counts.");
+        }
+
+        if (!Same(applied.Mapping.Version, proposed.Mapping.Version))
+        {
+            return Moved(
+                "mapping.version",
+                "what versions a subject changed, and a subject is nominated again whenever "
+              + "its version moves - so a field that moves more often is more nominations "
+              + "from the same items.");
+        }
+
+        return Same(applied.Mapping.IntentKey, proposed.Mapping.IntentKey)
+            ? null
+            : Moved(
+                "mapping.intent-key",
+                "what names a subject outside gg changed, and the budget counts nominations "
+              + "by intent - so the same items can be counted as new intents with nothing "
+              + "spent against them.");
+
+        static bool Same(string a, string b) => string.Equals(a, b, StringComparison.Ordinal);
+
+        static EnvelopeWidening Moved(string field, string because) =>
+            new() { Field = field, Because = because };
     }
 
     /// <summary>How the proposed bounds widen the applied ones, or null.</summary>

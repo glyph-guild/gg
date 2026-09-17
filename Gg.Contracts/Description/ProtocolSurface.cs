@@ -1772,8 +1772,8 @@ public static class ProtocolSurface
             [typeof(StrategyInventory)] = ["pool", "size", "warm"],
             [typeof(StrategyBounds)] = ["poolMax", "activeHours"],
             [typeof(WatchDocument)] =
-                ["shape", "trigger", "host", "credential", "filter", "skill", "ref",
-                 "mapping", "pullPoint", "nominates", "bounds"],
+                ["shape", "trigger", "host", "credential", "filter", "repository", "skill",
+                 "ref", "mapping", "pullPoint", "nominates", "bounds"],
             [typeof(WatchTrigger)] = ["every"],
             [typeof(WatchMapping)] = ["subject", "version", "intentKey"],
             [typeof(WatchBounds)] = ["activeHours", "capPerPass", "budget"],

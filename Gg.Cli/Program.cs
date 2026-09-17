@@ -3133,7 +3133,15 @@ static async Task<int> RunnerMaintainAsync(string pool)
         {
             runners.Write(identity with { ExpiresAt = renewedTo });
             return Task.CompletedTask;
-        });
+        },
+
+        // AND WHAT THIS DEPLOYMENT TOLD THIS HOST, handed to the members it
+        // warms. Read through the one reader, so a stun-servers line in this
+        // machine's file reaches them as well as the variable does - and read
+        // raw rather than parsed, because what the member needs is the spelling
+        // its own reader will parse.
+        stunServers: Settings.Value(
+            Gg.Runner.StunConfiguration.Variable, InForce.Configuration));
 
     return await loop.RunAsync(pool, stopping.Token);
 }

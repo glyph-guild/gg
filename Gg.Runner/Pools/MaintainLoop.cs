@@ -49,7 +49,12 @@ public sealed class MaintainLoop(
     // see. A renewal only the running process knows about dies with it - the
     // next start reads the stored identity, finds it expired, and asks for a
     // person who has nothing to do.
-    Func<DateTimeOffset, Task>? credentialRenewed = null)
+    Func<DateTimeOffset, Task>? credentialRenewed = null,
+    // WHERE A MEMBER SHOULD ASK FOR ITS OWN ADDRESS, as this deployment spells
+    // it. Handed in for the control plane address's reason, and it is the
+    // difference between a member a console can reach and one that answers an
+    // introduction nobody can arrive at.
+    string? stunServers = null)
 {
     private readonly IPoolProtocol _protocol = protocol;
     private readonly IPoolAdapter _adapter = adapter;
@@ -64,6 +69,9 @@ public sealed class MaintainLoop(
     /// runner is.
     /// </remarks>
     private readonly string _controlPlane = controlPlane;
+
+    /// <summary>Where a member this loop creates should ask for its own address.</summary>
+    private readonly string? _stunServers = stunServers;
 
     private readonly IRunnerCredential? _credential = credential;
     private readonly Func<DateTimeOffset, Task>? _credentialRenewed = credentialRenewed;
@@ -435,6 +443,7 @@ public sealed class MaintainLoop(
             Image = image,
             ControlPlane = _controlPlane,
             Nonce = minted?.Nonce,
+            StunServers = _stunServers,
         };
     }
 

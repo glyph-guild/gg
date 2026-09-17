@@ -38,6 +38,25 @@ public sealed record MemberSpec
     /// anybody claims nothing, reports nothing, and is counted as warm forever.
     /// </remarks>
     public string? Nonce { get; init; }
+
+    /// <summary>
+    /// Where this member should ask what its own public address is, exactly as
+    /// the deployment spells it, or null when it was told nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Deployment knowledge, carried like the control plane's address.</b> A
+    /// member offering only the address it can see - inside its container - is a
+    /// member no console can reach: the introduction is answered, ICE never
+    /// connects, and both ends read as though somebody refused.
+    /// </para>
+    /// <para>
+    /// <b>Null is told nothing</b>, and is not the same as an empty list: the
+    /// variable is then not written at all, because a variable set to nothing
+    /// claims a server that is the empty string.
+    /// </para>
+    /// </remarks>
+    public string? StunServers { get; init; }
 }
 
 /// <summary>What a pool adapter can do, and which provider it is.</summary>

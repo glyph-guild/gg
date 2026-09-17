@@ -1839,18 +1839,17 @@ public static class ProtocolSurface
             [typeof(PoolAction)] =
                 ["actionId", "pool", "action", "image", "strategyVersion", "decidedAt"],
             [typeof(PoolActionList)] = ["actions"],
-            // The sweeps surface. The action carries the skill's words one way,
-            // with the commit and digest that are all the control plane keeps;
-            // the report carries identities and versions only.
-            [typeof(WatchSkill)] = ["path", "commit", "sha", "content"],
+            // The sweeps surface. The action carries a pinned commit and never
+            // a skill's words - the runner reads them - and the report carries
+            // identities, versions and the digest of what ran.
             [typeof(WatchAction)] =
-                ["actionId", "watch", "watchVersion", "document", "executor", "skill",
+                ["actionId", "watch", "watchVersion", "document", "executor", "skillCommit",
                  "diagnosis", "decidedAt"],
             [typeof(WatchActionList)] = ["actions"],
             [typeof(WatchSighting)] = ["subject", "version", "intentKey"],
             [typeof(WatchAttestation)] =
                 ["attestationId", "watch", "actionId", "outcome", "saw", "measuredAt",
-                 "diagnosis"],
+                 "diagnosis", "skillSha"],
             [typeof(PoolStatus)] =
                 ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",
                  "diagnosis"],

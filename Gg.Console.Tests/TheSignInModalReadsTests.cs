@@ -358,6 +358,15 @@ public class TheSignInModalReadsTests
                 ],
             },
             BoardSelected = 0,
+
+            // AND AN ACTIVITY LINE SHOWING PART OF ITSELF, which is two facts
+            // as well: something was said, and the line it landed on is
+            // narrower than it is. Either alone leaves the flag false however
+            // the derivation is written - a wide terminal clips nothing, and an
+            // empty line has nothing to clip.
+            LastAction = "the runner refused the credential because its own configuration "
+                       + "does not say accept-configured",
+            SaidColumns = 40,
             Watches = new Gg.Contracts.WatchStandingList { Standings = [] },
             Flights = new Gg.Contracts.FlightList
             {

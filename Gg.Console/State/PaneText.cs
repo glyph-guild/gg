@@ -1127,6 +1127,32 @@ public static class PaneText
     /// that prompted this, the exact command that would have fixed it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The activity line's whole message, wrapped to a modal's width.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same producer the line is drawn from</b>, so this cannot be a
+    /// second rendering that says something slightly different from the thing a
+    /// person is looking at. What the line does with it is draw the first
+    /// <see cref="AppState.SaidColumns"/> of it; what this does is break it
+    /// where the modal ends.
+    /// </para>
+    /// <para>
+    /// <b>And it answers when nothing was said</b>, because a model built by
+    /// hand can open this modal over an empty line - a title over nothing is
+    /// worse than a sentence, which is the ratchet beside <c>Modal</c>.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> SaidLines(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Activity(state) is { Length: > 0 } said
+            ? Fitted([said], columns)
+            : ["This console has not said anything yet."];
+    }
+
     public static IReadOnlyList<string> ApplyLines(AppState state, int columns)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -2753,6 +2779,11 @@ public static class PaneText
         UiMode.ReadingEnvelope => "the floor - what governs every flight",
         UiMode.ReadingChangeset => "what would change",
         UiMode.ReadingOutcome => "what the apply came to",
+
+        // WHAT IT IS RATHER THAN WHERE IT CAME FROM. A person opens this
+        // having just read the front of the same sentence, so the title
+        // says which sentence this is the whole of.
+        UiMode.ReadingSaid => "the whole message",
         UiMode.ConfirmFlyAgain => "fly this again?",
         UiMode.GateDecision => "waiting on you",
 
@@ -3029,6 +3060,7 @@ public static class PaneText
             UiMode.ReadingEnvelope => string.Join('\n', EnvelopeLines(state, 0)),
             UiMode.ReadingChangeset => string.Join('\n', ChangesetLines(state, 0)),
             UiMode.ReadingOutcome => string.Join('\n', ApplyLines(state, 0)),
+            UiMode.ReadingSaid => string.Join('\n', SaidLines(state, 0)),
 
             UiMode.FlightDetail => FlightDetail(state),
             UiMode.HandFlight => HandFlight(state),

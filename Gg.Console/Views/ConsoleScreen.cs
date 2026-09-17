@@ -897,6 +897,13 @@ public sealed class ConsoleScreen : Window
         // indistinguishable from a key that does nothing.
         _activity = new Label { X = 0, Y = Pos.AnchorEnd(2), Width = Dim.Fill() };
 
+        // AND HOW WIDE IT CAME OUT, back into the model. A Label draws what
+        // fits and drops the rest, so whether the whole message is on the
+        // screen is the text against THIS number - and the keymap, which
+        // advertises the key that opens the rest, can see a model and never a
+        // view.
+        _activity.ViewportChanged += OnSaidResized;
+
         // A DIALOG FOR THE BUTTON ROW AND THE SHADOW, and NOT run as one.
         // Dialog derives from Runnable and its own shape is run-me-and-take-a-
         // Result, which would put the answer inside Terminal.Gui: where Keymap
@@ -3480,7 +3487,7 @@ public sealed class ConsoleScreen : Window
         // PaneText's to answer, and it answers by mode - so this asks only
         // whether a person is reading.
         var reading = State.Mode is UiMode.ReadingEnvelope or UiMode.ReadingChangeset
-                                 or UiMode.ReadingOutcome;
+                                 or UiMode.ReadingOutcome or UiMode.ReadingSaid;
 
         var helping = State.Mode is UiMode.Help;
         var filtering = State.Mode is UiMode.BrowseFilter;
@@ -4353,6 +4360,7 @@ public sealed class ConsoleScreen : Window
         {
             UiMode.ReadingChangeset => PaneText.ChangesetLines(State, _readingSaid.Viewport.Width),
             UiMode.ReadingOutcome => PaneText.ApplyLines(State, _readingSaid.Viewport.Width),
+            UiMode.ReadingSaid => PaneText.SaidLines(State, _readingSaid.Viewport.Width),
             _ => PaneText.EnvelopeLines(State, _readingSaid.Viewport.Width),
         };
 
@@ -4408,11 +4416,35 @@ public sealed class ConsoleScreen : Window
         FillAirspaceDocument();
     }
 
+    /// <summary>
+    /// The activity line was laid out, so the model learns how wide it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Re-rendered only when the number moved</b>, the way a pointed row is:
+    /// a layout pass happens for reasons that have nothing to do with width,
+    /// and a render inside a layout that renders is the loop this shape avoids.
+    /// <c>Reducer.SaidMeasured</c> hands back the same instance when nothing
+    /// changed, which is what makes the check free.
+    /// </remarks>
+    private void OnSaidResized(object? sender, EventArgs args)
+    {
+        var measured = Reducer.SaidMeasured(State, _activity.Viewport.Width);
+
+        if (ReferenceEquals(measured, State))
+        {
+            return;
+        }
+
+        State = measured;
+        Render();
+    }
+
     /// <summary>The frame changed width, so the lines have to be broken again.</summary>
     private void OnReadingResized(object? sender, EventArgs args)
     {
         if (State.Mode is not (UiMode.ReadingEnvelope or UiMode.ReadingChangeset
-                                                      or UiMode.ReadingOutcome))
+                                                      or UiMode.ReadingOutcome
+                                                      or UiMode.ReadingSaid))
         {
             return;
         }

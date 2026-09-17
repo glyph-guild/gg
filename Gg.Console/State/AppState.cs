@@ -149,6 +149,20 @@ public enum UiMode
     ReadingOutcome,
 
     /// <summary>
+    /// The whole of what the activity line is showing part of.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE SAME REPAIR AS THE THREE ABOVE, made once for whatever is on the
+    /// line.</b> <see cref="HandFlight"/>, <see cref="Runner"/> and
+    /// <see cref="ReadingOutcome"/> each exist because one particular sentence
+    /// ran off the right edge of that one row — and every other sentence that
+    /// lands there has the same edge in front of it. This one is opened by a
+    /// key rather than by the write that filled the line, because most messages
+    /// fit and a modal nobody asked for is in the way.
+    /// </remarks>
+    ReadingSaid,
+
+    /// <summary>
     /// The question before retiring the names the tree no longer holds.
     /// </summary>
     /// <remarks>
@@ -2175,6 +2189,28 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public string? LastAction { get; init; }
+
+    /// <summary>
+    /// How wide the activity line was when it was last laid out, or zero
+    /// before anything has measured it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fact about the terminal, kept in the model because the keymap is
+    /// pure.</b> Whether <see cref="LastAction"/> fits is a question about the
+    /// text AND the width, and the key that opens the rest of it is advertised
+    /// from <c>KeymapContext</c> — which is built from this model and from
+    /// nothing else, so a width read off a widget at dispatch time would be an
+    /// answer the hint line could not see.
+    /// </para>
+    /// <para>
+    /// <b>Zero is unmeasured, and reads as "it fits".</b> A model built by hand
+    /// and a console that has not painted yet both have one, and the other
+    /// reading — everything is clipped until proven otherwise — would put a key
+    /// on the line of every console before its first layout.
+    /// </para>
+    /// </remarks>
+    public int SaidColumns { get; init; }
 
     /// <summary>
     /// How often a proposal was kept, per flight. Exported nowhere.

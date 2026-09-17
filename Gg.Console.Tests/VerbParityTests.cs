@@ -306,6 +306,11 @@ public class VerbParityTests
             ["RunnerUp"] = "a daemon. Correctly not a console verb.",
             ["RunnerServe"] = "a daemon. Correctly not a console verb.",
             ["RunnerMaintain"] = "a daemon. Correctly not a console verb.",
+            ["RunnerSweep"] = "a daemon, and the one a person is least at: it sweeps a watch "
+                            + "on the machine beside the credential, launching an agent per "
+                            + "decided sweep. Correctly not a console verb - what a person "
+                            + "wants to SEE of it is the watch's own row and the nominations "
+                            + "it made, which arrive on the board.",
             ["RunnerTools"] = "a tool server spoken over stdio by an agent, never by a person.",
             ["RunnerRead"] = "a tool server spoken over stdio by an agent, never by a person.",
             // MOVED, AND THE OLD REASON WAS FALSE ABOUT THIS PRODUCT. It read

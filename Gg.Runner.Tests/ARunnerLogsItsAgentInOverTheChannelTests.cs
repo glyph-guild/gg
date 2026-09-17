@@ -65,7 +65,66 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
             return Task.FromResult(Token);
         }
 
+        /// <summary>What the child had written when it was asked.</summary>
+        public string Screen { get; init; } = "";
+
+        public string LastWords(int characters) =>
+            Screen.Length <= characters ? Screen : Screen[^characters..];
+
         public void Dispose() => Disposed = true;
+    }
+
+    [Test]
+    public async Task A_login_that_minted_nothing_says_what_the_agent_said()
+    {
+        // THREE ROUNDS OF NOT KNOWING. A person pasted a code, the ceremony
+        // waited ninety seconds, and the refusal said the agent "printed no
+        // token ... the code may have been wrong, or the ceremony had expired".
+        // The one thing that knew - the child's own screen, which says `Invalid
+        // code` or `Expired` in its own words - was thrown away, so the next
+        // attempt was as blind as the last.
+        var rig = new Rig();
+        rig.Login.Next = () => new FakeChild
+        {
+            Token = null,
+            Screen = "Paste code here if prompted > \nInvalid code. Try again.",
+        };
+
+        _ = await rig.Ceremony.BeginAsync(flying: null, CancellationToken.None);
+        var finished = await rig.Ceremony.FinishAsync("a-code", CancellationToken.None);
+
+        await Assert.That(finished.Written).IsFalse();
+        await Assert.That(finished.Diagnosis).Contains("Invalid code")
+            .Because("the agent's own words are the only thing that says which of the two "
+                   + "guesses this was.");
+    }
+
+    [Test]
+    public async Task What_the_agent_said_carries_no_secret_and_no_escape()
+    {
+        // WHAT A DIAGNOSIS CROSSES INTO. It is rendered on somebody's console,
+        // so a screen scraped whole would carry the token the child just
+        // printed, the code a person typed, and whatever escape sequences the
+        // child used to draw itself.
+        var rig = new Rig();
+        rig.Login.Next = () => new FakeChild
+        {
+            Token = null,
+            Screen = "\u001b[2Jtoken: sk-ant-oat01-" + new string('x', 40)
+                   + " for code a-very-secret-code\u0007",
+        };
+
+        _ = await rig.Ceremony.BeginAsync(flying: null, CancellationToken.None);
+        var finished = await rig.Ceremony.FinishAsync(
+            "a-very-secret-code", CancellationToken.None);
+
+        await Assert.That(finished.Diagnosis).DoesNotContain("sk-ant-oat01-")
+            .Because("a token in a diagnosis is a token on a screen and in a log.");
+        await Assert.That(finished.Diagnosis).DoesNotContain("a-very-secret-code")
+            .Because("the code a person typed is theirs, and this side has it only to type it.");
+        await Assert.That(finished.Diagnosis!.Any(char.IsControl)).IsFalse()
+            .Because("this lands on a terminal, and a child that drew itself must not draw on "
+                   + "somebody else's screen.");
     }
 
     private sealed class FakeLogin : IRunAnAgentLogin

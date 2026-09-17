@@ -76,10 +76,13 @@ public sealed record WatchSkill
 /// polling one watch at one tick get disjoint sets and one sweeper runs.
 /// </para>
 /// <para>
-/// <b>The watch travels whole, at the version it was decided under.</b> The
+/// <b>The watch travels whole, as it stands when the sweep is served.</b> The
 /// runner needs its host, its credential locator, its filter and its mapping to
 /// run the sweep, and reading them from a second route would be a second
-/// version of the watch that could disagree with this one.
+/// version of the watch that could disagree with this one. <b>In force at
+/// serve time rather than at decision</b>, for the reason a pool action carries
+/// the strategy's current image: a sweep decided under v3 and served after v4
+/// was approved must not run the filter somebody replaced.
 /// </para>
 /// <para>
 /// <b>A skill or a diagnosis, never both and never neither.</b> A skill the
@@ -97,7 +100,7 @@ public sealed record WatchAction
     /// <summary>The watch's name.</summary>
     public required string Watch { get; init; }
 
-    /// <summary>The version this sweep was decided under, e.g. nightly-triage@v3.</summary>
+    /// <summary>The version this sweep runs under - the one in force when it was served, e.g. nightly-triage@v4.</summary>
     public required string WatchVersion { get; init; }
 
     /// <summary>The watch at <see cref="WatchVersion"/>.</summary>
@@ -122,8 +125,8 @@ public sealed record WatchAction
         if (string.IsNullOrWhiteSpace(action.Watch)
             || string.IsNullOrWhiteSpace(action.WatchVersion))
         {
-            return "A sweep names its watch and the version it was decided under. Without "
-                 + "them its report answers for nothing anybody can find.";
+            return "A sweep names its watch and the version it runs under. Without them its "
+                 + "report answers for nothing anybody can find.";
         }
 
         if (!WatchExecutors.All.Contains(action.Executor, StringComparer.Ordinal))

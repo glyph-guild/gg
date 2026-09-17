@@ -635,6 +635,124 @@ public static class TranscriptDigest
     }
 
     /// <summary>
+    /// Every nomination a sweep's executor made through gg and had answered, in
+    /// the order it made them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The record of what a sweep nominated</b> - ADR-0023 section 2: a
+    /// nomination passes through gg by construction. Read from the transcript for
+    /// <see cref="Nomination"/>'s reason: a call is something the agent chose to
+    /// make, and a sentence is something it can be told to write.
+    /// </para>
+    /// <para>
+    /// <b>All of them, where a flight keeps its last</b>, because a sweep
+    /// nominates every item worth a flight. A refused or unanswered call is not
+    /// one, a call with no subject, version or reason never was, and what is
+    /// kept is bounded before it crosses so the report is never refused whole.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<Gg.Contracts.SweepNomination> SweepNominations(string transcript)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+
+        var asked = new List<(string Id, Gg.Contracts.SweepNomination Nomination)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            SweepAsked(block, asked);
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        return [.. asked.Where(a => answered.Contains(a.Id)).Select(a => a.Nomination)];
+    }
+
+    /// <summary>Records a sweep's call to the nomination tool, when it is one.</summary>
+    private static void SweepAsked(
+        JsonElement block, List<(string Id, Gg.Contracts.SweepNomination Nomination)> asked)
+    {
+        if (!block.TryGetProperty("name", out var name)
+            || !string.Equals(name.GetString(), NominationTool.Qualified, StringComparison.Ordinal)
+            || !block.TryGetProperty("id", out var id)
+            || id.GetString() is not { Length: > 0 } callId
+            || !block.TryGetProperty("input", out var input)
+            || input.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        // HALF A NOMINATION IS NOT ONE, and a flight's shape - a kind and a
+        // reason, no subject - is not a sweep's.
+        if (Argument(input, NominationTool.Sweep.Subject) is not { } subject
+            || Argument(input, NominationTool.Sweep.Version) is not { } version
+            || Argument(input, "reason") is not { } reason)
+        {
+            return;
+        }
+
+        asked.Add((callId, new Gg.Contracts.SweepNomination
+        {
+            Subject = Bound(subject, Gg.Contracts.SweepNomination.MaxSubject, prose: false),
+            Version = Bound(version, Gg.Contracts.SweepNomination.MaxVersion, prose: false),
+            IntentKey = Argument(input, NominationTool.Sweep.IntentKey) is { } key
+                ? Bound(key, Gg.Contracts.SweepNomination.MaxIntentKey, prose: false)
+                : null,
+            WorkKind = Argument(input, "work_kind") is { } kind
+                ? Bound(kind, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false)
+                : null,
+            Reason = Bound(reason, Gg.Contracts.FlightNomination.MaxReason, prose: true),
+            Note = Argument(input, "note") is { } note
+                ? Bound(note, Gg.Contracts.FlightNomination.MaxNote, prose: true)
+                : null,
+        }));
+    }
+
+    /// <summary>
     /// What the agent asked its own proposal be called, or null.
     /// </summary>
     /// <remarks>

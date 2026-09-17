@@ -38,4 +38,27 @@ public static class NominationTool
     /// above is a description of what happened rather than a precaution.
     /// </remarks>
     public const string Qualified = $"mcp__{Server}__{Name}";
+
+    /// <summary>
+    /// The arguments the tool takes when the server was started for a sweep.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named here for the reason the tool is</b>: the server declares them and
+    /// the extractor reads them back out of the transcript, and two spellings is
+    /// how a sweep's nominations would silently stop being found.
+    /// </remarks>
+    public static class Sweep
+    {
+        /// <summary>The flag <c>gg runner tools</c> is started with for a sweep.</summary>
+        public const string Flag = "--sweep";
+
+        /// <summary>What names the item, from the watch's mapping.</summary>
+        public const string Subject = "subject";
+
+        /// <summary>Which version of it, from the watch's mapping.</summary>
+        public const string Version = "version";
+
+        /// <summary>What names it outside gg, from the watch's mapping.</summary>
+        public const string IntentKey = "intent_key";
+    }
 }

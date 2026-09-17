@@ -147,6 +147,10 @@ public static class PlatformToolServer
         // fault: a console with no reachable control plane still drafts,
         // because the working copy is local.
         string? inForce = null,
+        // A SWEEP'S SERVER, started by the runner with `--sweep`. Its one tool
+        // nominates many items, each by subject and version, and never tells
+        // the agent to stop after the first.
+        bool sweep = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -174,7 +178,7 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath, documentRoot, pull, inForce)
+                if (Answer(message.RootElement, intentPath, documentRoot, pull, inForce, sweep)
                         is { } answer)
                 {
                     await output.WriteLineAsync(answer);
@@ -191,7 +195,7 @@ public static class PlatformToolServer
     /// </summary>
     private static string? Answer(
         JsonElement message, string? intentPath, string? documentRoot, RunPull? pull,
-        string? inForce)
+        string? inForce, bool sweep)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -205,10 +209,10 @@ public static class PlatformToolServer
         return method switch
         {
             "initialize" => Initialized(id, message),
-            "tools/list" => Listed(id, intentPath, documentRoot),
+            "tools/list" => Listed(id, intentPath, documentRoot, sweep),
             "prompts/list" => Offered(id),
             "prompts/get" => Given(id, message),
-            "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce),
+            "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce, sweep),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -352,7 +356,8 @@ public static class PlatformToolServer
     /// <c>TheProposalToolActsOnNothingTests</c> asks of this server.
     /// </para>
     /// </remarks>
-    private static string Listed(JsonElement id, string? intentPath, string? documentRoot) =>
+    private static string Listed(
+        JsonElement id, string? intentPath, string? documentRoot, bool sweep) =>
         Write(writer =>
         {
             Envelope(writer, id);
@@ -375,6 +380,13 @@ public static class PlatformToolServer
                 // nothing else to do.
                 Intent(writer);
             }
+            else if (sweep)
+            {
+                // A SWEEP. Its only output is nominations (ADR-0023 section 3),
+                // so its only tool is nominating: no flight to hold for a
+                // person, no work item to change, no proposal to land.
+                SweepNomination(writer);
+            }
             else
             {
                 // A FLEET FLIGHT. The envelope decides which of these a loop
@@ -396,6 +408,131 @@ public static class PlatformToolServer
             writer.WriteEndObject();
         });
 
+
+    /// <summary>Declares <c>NominationTool</c> as a sweep calls it.</summary>
+    /// <remarks>
+    /// <b>The same tool, named for many items.</b> The owner put the choice with
+    /// the executor on 2026-09-16, so the agent says which item, at which
+    /// version, why - and, when it chooses, which kind. What becomes of each is
+    /// the board's, which the description says so the agent does not wait for a
+    /// flight that is not its to open.
+    /// </remarks>
+    private static void SweepNomination(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", NominationTool.Name);
+        writer.WriteString("description",
+            "Nominate one item this sweep found that is worth a flight. Call it once for "
+          + "EACH such item, naming the item, the version you looked at and why; the kind "
+          + "is optional when the watch offers only one. Nominating opens nothing: the "
+          + "board decides what becomes of each. An item that is not worth a flight needs "
+          + "no call. When you have looked at everything, say what you nominated and stop.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+
+        writer.WriteStartObject(NominationTool.Sweep.Subject);
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "The item's id, as the query answered it.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(NominationTool.Sweep.Version);
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "The item's revision, as the query answered it.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(NominationTool.Sweep.IntentKey);
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "Optional. The item's url, as the query answered it.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(WorkKindArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional. One of the work kinds you were offered; leave it out when there is "
+          + "only one.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(ReasonArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "Why this item is worth a flight, in your own words.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(NoteArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional. What whoever picks this up should know that the item does not say.");
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(NominationTool.Sweep.Subject);
+        writer.WriteStringValue(NominationTool.Sweep.Version);
+        writer.WriteStringValue(ReasonArgument);
+        writer.WriteEndArray();
+
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
+    /// <summary>
+    /// Takes one of a sweep's nominations, checks it is whole and identity-sized,
+    /// and answers.
+    /// </summary>
+    /// <remarks>
+    /// <b>The record is the call</b>, read back out of the transcript, as a
+    /// flight's is - so this refuses what the report could not carry and tells
+    /// the agent what was taken. Nothing is written or sent from here.
+    /// </remarks>
+    private static string SweepNominated(JsonElement id, JsonElement arguments)
+    {
+        var subject = Text(arguments, NominationTool.Sweep.Subject);
+        var version = Text(arguments, NominationTool.Sweep.Version);
+        var reason = Text(arguments, ReasonArgument);
+
+        if (subject is null || version is null || reason is null)
+        {
+            return Content(id, isError: true,
+                $"Refused: a sweep's nomination needs '{NominationTool.Sweep.Subject}', "
+              + $"'{NominationTool.Sweep.Version}' and '{ReasonArgument}'. Nothing was recorded.");
+        }
+
+        var intentKey = Text(arguments, NominationTool.Sweep.IntentKey);
+        var workKind = Text(arguments, WorkKindArgument);
+        var note = Text(arguments, NoteArgument);
+
+        // IDENTITY-SIZED, as the report the runner sends requires. Refused here
+        // rather than trimmed, so the agent reads why and calls again - a
+        // subject cut short names a different item.
+        if (subject.Length > Gg.Contracts.SweepNomination.MaxSubject
+            || version.Length > Gg.Contracts.SweepNomination.MaxVersion
+            || intentKey?.Length > Gg.Contracts.SweepNomination.MaxIntentKey
+            || workKind?.Length > Gg.Contracts.FlightNomination.MaxWorkKind)
+        {
+            return Content(id, isError: true,
+                $"Refused: a subject is at most {Gg.Contracts.SweepNomination.MaxSubject} "
+              + $"characters, a version {Gg.Contracts.SweepNomination.MaxVersion}, an intent "
+              + $"key {Gg.Contracts.SweepNomination.MaxIntentKey} and a kind "
+              + $"{Gg.Contracts.FlightNomination.MaxWorkKind}. They name things; they are not "
+              + "sentences. Nothing was recorded.");
+        }
+
+        if (note is not null && note.Length > Gg.Contracts.FlightNomination.MaxNote)
+        {
+            return Content(id, isError: true,
+                $"Refused: a note is at most {Gg.Contracts.FlightNomination.MaxNote} characters "
+              + $"and this one is {note.Length}. Nothing was recorded - shorten it and call "
+              + "again, or leave it out.");
+        }
+
+        return Content(id, isError: false,
+            $"Recorded: '{subject}' at version '{version}'"
+          + (workKind is null ? "" : $" as '{workKind}'")
+          + ". This opens nothing - the board decides what becomes of it. Go on with the "
+          + "next item.");
+    }
 
     /// <summary>Declares <c>NominationTool</c>.</summary>
     private static void Nomination(Utf8JsonWriter writer)
@@ -888,7 +1025,7 @@ public static class PlatformToolServer
 
     private static string Called(
         JsonElement id, JsonElement message, string? intentPath, string? documentRoot,
-        RunPull? pull, string? inForce)
+        RunPull? pull, string? inForce, bool sweep)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -936,6 +1073,11 @@ public static class PlatformToolServer
         if (string.Equals(called, LandingProposalTool.Name, StringComparison.Ordinal))
         {
             return Named(id, arguments);
+        }
+
+        if (sweep)
+        {
+            return SweepNominated(id, arguments);
         }
 
         // NOT AN UNKNOWN-TOOL ARM, deliberately. The nomination tool is what

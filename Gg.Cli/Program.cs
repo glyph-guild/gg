@@ -35,7 +35,7 @@ return CliArgs.Parse(args) switch
     // never supplied - submit_document refused every call it was ever given,
     // for as long as it has existed, while its own tests passed a root
     // directly and stayed green.
-    CliAction.RunnerTools => await PlatformToolServer.RunAsync(
+    CliAction.RunnerTools tools => await PlatformToolServer.RunAsync(
         System.Console.In,
         System.Console.Out,
         intentPath: Environment.GetEnvironmentVariable(IntentTool.PathVariable),
@@ -45,7 +45,8 @@ return CliArgs.Parse(args) switch
         // is the whole difference between a pull tool that works and one that
         // explains it was never wired.
         pull: AirspacePullChild.Run,
-        inForce: Environment.GetEnvironmentVariable(AirspaceContextTool.EnvelopeVariable)),
+        inForce: Environment.GetEnvironmentVariable(AirspaceContextTool.EnvelopeVariable),
+        sweep: tools.Sweep),
     // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.

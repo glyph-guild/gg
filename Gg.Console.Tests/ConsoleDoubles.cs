@@ -263,6 +263,14 @@ internal static class ConsoleDoubles
         internal List<(string Flight, string Obligation, bool Approved, string? Reason)> Decided
         { get; } = [];
 
+        /// <summary>Every nomination answered, in order.</summary>
+        /// <remarks>
+        /// Beside <see cref="Decided"/> rather than sharing it: a gate and a
+        /// nomination are two different transitions with two different doors,
+        /// and a test asserting one must not go green on the other.
+        /// </remarks>
+        internal List<(string Nomination, bool Open, string Reason)> Answered { get; } = [];
+
         /// <summary>How many times the duplicate check ran.</summary>
         internal int Asked { get; private set; }
 
@@ -279,6 +287,15 @@ internal static class ConsoleDoubles
             return refusing
                 ? "Nothing was decided — the control plane could not be reached."
                 : "decided";
+        }
+
+        public string AnswerNomination(string nomination, bool open, string reason)
+        {
+            Answered.Add((nomination, open, reason));
+
+            return refusing
+                ? "Nothing was answered — the control plane could not be reached."
+                : open ? "opened" : "declined";
         }
 
         /// <summary>Records the share, so a test can assert what was asked for.</summary>

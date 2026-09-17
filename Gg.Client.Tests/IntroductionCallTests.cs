@@ -111,6 +111,34 @@ public class IntroductionCallTests
                    + "in three different places.");
     }
 
+    [Test]
+    public async Task A_conflict_is_reported_in_the_control_planes_own_words()
+    {
+        // TWO 409s ON ONE ROUTE, and this client told one story about both. The
+        // other is a machine that says it will not keep a credential, refused
+        // with a sentence naming `accept-configured` - and answering that with
+        // "registered before runners offered keys, so there is nothing to seal
+        // an introduction to. Restarting it registers it again, with a key"
+        // sends somebody to restart a machine over a setting on it. Found by a
+        // person pressing Login on an agent-login gate for a pool member whose
+        // key was registered and fine.
+        const string refusal = """
+            {"detail":"This runner says it will not keep a credential, so nothing was minted and nobody need be asked for one. That is a setting on the machine rather than a permission here: its own configuration must say 'accept-configured'."}
+            """;
+
+        var introduced = await Against(new Answering(HttpStatusCode.Conflict, refusal))
+            .IntroduceRunnerAsync(
+                "a-session", Runner, "the-console-key", WatchARunner.Purpose);
+
+        await Assert.That(introduced.Introduction).IsNull();
+        await Assert.That(introduced.Said).Contains("accept-configured")
+            .Because("the control plane knows which of the two refusals this is and says so; "
+                   + "this side cannot know and must not guess.");
+        await Assert.That(introduced.Said).DoesNotContain("offered keys")
+            .Because("inventing the other cause is what sent somebody to restart a machine "
+                   + "whose key was registered and fine.");
+    }
+
     // ---- leaving the offer ----
 
     [Test]

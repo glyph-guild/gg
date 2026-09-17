@@ -75,7 +75,14 @@ public sealed record WorkItemSummary(
     /// case "enough to choose by, and no more" was never about.
     /// </para>
     /// </remarks>
-    IReadOnlyList<WorkItemField>? Fields = null);
+    IReadOnlyList<WorkItemField>? Fields = null,
+
+    /// <summary>The item's revision, when the listing was a watch's query.</summary>
+    /// <remarks>
+    /// Null on a browse, which never asked. A sweep keys its nominations on it,
+    /// so <see cref="QueryTool"/> answers it on every row.
+    /// </remarks>
+    string? Revision = null);
 
 /// <summary>
 /// What a caller is asking to see, or null where it is asking for the default.
@@ -209,6 +216,15 @@ public interface IWorkItemSource
     /// </remarks>
     Task<IReadOnlyList<WorkItemField>> FieldsAsync(
         string id, CancellationToken cancellationToken = default);
+
+    /// <summary>A page of what a watch's query matches, each row with its revision.</summary>
+    /// <remarks>
+    /// <b>The query is run as written.</b> It was reviewed as written, and a
+    /// source that added a clause or reordered one would be sweeping something
+    /// other than what the gate saw.
+    /// </remarks>
+    Task<WorkItemPage> QueryAsync(
+        string query, string? cursor, int limit, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

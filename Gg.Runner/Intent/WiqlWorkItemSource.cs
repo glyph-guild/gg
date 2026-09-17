@@ -600,9 +600,29 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
         return states;
     }
 
-    public async Task<WorkItemPage> BrowseAsync(
+    public Task<WorkItemPage> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        PageAsync(Asking(filter), cursor, limit, cancellationToken);
+
+    /// <summary>A page of what a watch's query matches, run exactly as written.</summary>
+    public Task<WorkItemPage> QueryAsync(
+        string query, string? cursor, int limit, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
+        return PageAsync(query, cursor, limit, cancellationToken);
+    }
+
+    /// <summary>
+    /// One page of a query: the ids it matches, then those rows read in a batch.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shared by a browse and a watch's query</b>, which differ only in who
+    /// wrote the query - this source, from three filters, or a person, through a
+    /// gate. Each row carries <c>rev</c>, which the batch read sends unasked.
+    /// </remarks>
+    private async Task<WorkItemPage> PageAsync(
+        string asking, string? cursor, int limit, CancellationToken cancellationToken)
     {
         var from = int.TryParse(cursor, out var offset) && offset > 0 ? offset : 0;
 
@@ -614,7 +634,7 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
         await using (var writing = new Utf8JsonWriter(body))
         {
             writing.WriteStartObject();
-            writing.WriteString("query", Asking(filter));
+            writing.WriteString("query", asking);
             writing.WriteEndObject();
         }
 
@@ -705,7 +725,14 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             // listing is built to choose by; a modal about one item wants
             // what the tracker actually holds, and this source was already
             // being handed all of it and throwing the rest away.
-            Fields: Everything(fields));
+            Fields: Everything(fields),
+
+            // THE REVISION, which the batch read sends beside the fields
+            // whether or not anybody asked. A sweep keys on it.
+            Revision: item.TryGetProperty("rev", out var rev)
+                && rev.ValueKind is JsonValueKind.Number or JsonValueKind.String
+                ? (rev.ValueKind == JsonValueKind.Number ? rev.GetRawText() : rev.GetString())
+                : null);
     }
 
     /// <summary>An id, whether the tracker quoted it or not.</summary>

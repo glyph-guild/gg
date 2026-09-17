@@ -61,7 +61,9 @@ public abstract record CliAction
     /// process's job, which is the whole reason the reader moved in-binary.
     /// </para>
     /// </remarks>
-    public sealed record RunnerRead(string Provider, string Host, string? Credential) : CliAction;
+    /// <param name="Query">A watch's query, bound for a sweep; null for a flight's reader.</param>
+    public sealed record RunnerRead(
+        string Provider, string Host, string? Credential, string? Query = null) : CliAction;
 
     /// <summary>The resident runner: pull decided pool actions, act, attest.</summary>
     public sealed record RunnerMaintain(string Pool) : CliAction;
@@ -1356,6 +1358,7 @@ public static class CliArgs
         string? provider = null;
         string? host = null;
         string? credential = null;
+        string? query = null;
 
         for (var at = 0; at < arguments.Length; at += 2)
         {
@@ -1369,10 +1372,12 @@ public static class CliArgs
                 case "--provider": provider = arguments[at + 1]; break;
                 case "--host": host = arguments[at + 1]; break;
                 case "--credential": credential = arguments[at + 1]; break;
+                case "--query": query = arguments[at + 1]; break;
                 default:
                     return Unknown(
                         $"gg runner read: '{arguments[at]}' is not one of its options. It takes "
-                      + "--provider, --host and an optional --credential.");
+                      + "--provider, --host, an optional --credential and, for a sweep, an "
+                      + "optional --query.");
             }
         }
 
@@ -1385,7 +1390,7 @@ public static class CliArgs
                 "gg runner read needs --host: the tracker root to read from. There is no "
               + "default, because a reader pointed at the wrong tracker answers confidently "
               + "with somebody else's work."),
-            _ => new CliAction.RunnerRead(provider, host, credential),
+            _ => new CliAction.RunnerRead(provider, host, credential, query),
         };
     }
 

@@ -2732,7 +2732,8 @@ static async Task<int> RunnerReadAsync(CliAction.RunnerRead read)
     return await WorkItemToolServer.RunAsync(
         System.Console.In,
         System.Console.Out,
-        new Gg.Runner.Intent.WiqlWorkItemSource(read.Host, secret, client));
+        new Gg.Runner.Intent.WiqlWorkItemSource(read.Host, secret, client),
+        read.Query);
 }
 
 /// <summary>

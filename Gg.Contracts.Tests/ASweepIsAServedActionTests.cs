@@ -25,11 +25,13 @@ namespace Gg.Contracts.Tests;
 /// back as the blob's digest, on the runner's word.
 /// </para>
 /// <para>
-/// <b>What comes back is identities and versions, bounded.</b> The runner
-/// reports; the control plane nominates (Article IX). So the report carries
-/// only what a nomination would be keyed by, and the limits are what keep a
-/// runner from putting a work item's text into a store by calling it a
-/// subject.
+/// <b>What comes back is the executor's nominations, bounded.</b> Decided
+/// 2026-09-16 by the owner, amending 0.182.0's sightings: <i>"the agent and/or
+/// script should be doing that. that way it can be dynamic if necessary."</i>
+/// So the report carries what the executor nominated - a subject, its version,
+/// the kind it chose and why - and the board still decides each one. The
+/// limits are what keep a runner from putting a work item's text into a store
+/// by calling it a subject or a reason.
 /// </para>
 /// </remarks>
 public class ASweepIsAServedActionTests
@@ -45,13 +47,15 @@ public class ASweepIsAServedActionTests
         Watch = "nightly-triage",
         ActionId = V7(),
         Outcome = WatchOutcomes.Swept,
-        Saw =
+        Nominated =
         [
-            new WatchSighting
+            new SweepNomination
             {
                 Subject = "4242",
                 Version = "7",
                 IntentKey = "https://tracker.example/items/4242",
+                WorkKind = "review",
+                Reason = "Tagged needs-review and nobody has looked at it in a week.",
             },
         ],
         MeasuredAt = DateTimeOffset.UnixEpoch.AddYears(56),
@@ -65,6 +69,7 @@ public class ASweepIsAServedActionTests
         WatchVersion = "nightly-triage@v3",
         Document = AWatchDeclaresReferencesTests.AWatch(),
         Executor = WatchExecutors.Instructions,
+        Moves = [LoopMoves.Read, LoopMoves.Propose],
         SkillCommit = new string('a', 40),
         DecidedAt = DateTimeOffset.UnixEpoch.AddYears(56),
     };
@@ -110,16 +115,17 @@ public class ASweepIsAServedActionTests
     {
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAction)])
             .IsEquivalentTo((string[])
-                ["actionId", "watch", "watchVersion", "document", "executor", "skillCommit",
-                 "diagnosis", "decidedAt"]);
+                ["actionId", "watch", "watchVersion", "document", "executor", "moves",
+                 "skillCommit", "diagnosis", "decidedAt"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchActionList)])
             .IsEquivalentTo((string[])["actions"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAttestation)])
             .IsEquivalentTo((string[])
-                ["attestationId", "watch", "actionId", "outcome", "saw", "measuredAt",
+                ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
                  "diagnosis", "skillSha"]);
-        await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchSighting)])
-            .IsEquivalentTo((string[])["subject", "version", "intentKey"]);
+        await Assert.That(ProtocolSurface.JsonMembers[typeof(SweepNomination)])
+            .IsEquivalentTo((string[])
+                ["subject", "version", "intentKey", "workKind", "reason", "note"]);
     }
 
     [Test]
@@ -140,10 +146,11 @@ public class ASweepIsAServedActionTests
     [Test]
     public async Task An_empty_sweep_is_a_valid_report()
     {
-        // RULE 8 OF THE SLICE, and `MaintainLoop`'s scar: found-nothing is a
-        // result and silence is a fault. A validator that refused an empty
+        // RULE 8 OF THE SLICE, and `MaintainLoop`'s scar: nominating nothing is
+        // a result and silence is a fault. A validator that refused an empty
         // list would make the quiet pass indistinguishable from a dead one.
-        await Assert.That(WatchAttestation.Validate(AnAttestation() with { Saw = [] })).IsNull();
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with { Nominated = [] }))
+            .IsNull();
     }
 
     [Test]
@@ -173,7 +180,7 @@ public class ASweepIsAServedActionTests
         var silent = WatchAttestation.Validate(AnAttestation() with
         {
             Outcome = WatchOutcomes.Unreachable,
-            Saw = [],
+            Nominated = [],
         });
 
         await Assert.That(silent).IsNotNull()
@@ -187,7 +194,7 @@ public class ASweepIsAServedActionTests
         });
 
         await Assert.That(seeing).IsNotNull()
-            .Because("a sweep that reports what it saw reached something. Half a report under "
+            .Because("a sweep that nominated something reached something. Half a report under "
                    + "an unreachable outcome is two answers, and the control plane would have "
                    + "to pick one.");
     }
@@ -206,57 +213,125 @@ public class ASweepIsAServedActionTests
     }
 
     [Test]
-    public async Task What_a_sweep_saw_is_bounded()
+    public async Task What_a_sweep_nominated_is_bounded()
     {
+        static SweepNomination A(string subject = "4242") => new()
+        {
+            Subject = subject,
+            Version = "1",
+            Reason = "It needs a person.",
+        };
+
         var tooMany = WatchAttestation.Validate(AnAttestation() with
         {
-            Saw =
+            Nominated =
             [
-                .. Enumerable.Range(0, WatchAttestation.MaxSightings + 1)
-                    .Select(i => new WatchSighting { Subject = $"{i}", Version = "1" }),
+                .. Enumerable.Range(0, WatchAttestation.MaxNominations + 1).Select(i => A($"{i}")),
             ],
         });
 
         await Assert.That(tooMany).IsNotNull();
 
-        var blank = WatchAttestation.Validate(AnAttestation() with
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
         {
-            Saw = [new WatchSighting { Subject = " ", Version = "1" }],
-        });
+            Nominated = [A(subject: " ")],
+        })).IsNotNull()
+            .Because("a nomination with no subject is not about anything the board could open.");
 
-        await Assert.That(blank).IsNotNull()
-            .Because("a sighting with no subject is not a thing anybody could nominate.");
-
-        var prose = WatchAttestation.Validate(AnAttestation() with
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
         {
-            Saw =
-            [
-                new WatchSighting
-                {
-                    Subject = new string('x', WatchSighting.MaxSubject + 1),
-                    Version = "1",
-                },
-            ],
-        });
-
-        await Assert.That(prose).IsNotNull()
+            Nominated = [A(new string('x', SweepNomination.MaxSubject + 1))],
+        })).IsNotNull()
             .Because("a subject is an identity. One the length of a paragraph is a work item's "
                    + "text arriving in a store under an identity's name.");
 
-        var longKey = WatchAttestation.Validate(AnAttestation() with
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
         {
-            Saw =
-            [
-                new WatchSighting
-                {
-                    Subject = "4242",
-                    Version = "1",
-                    IntentKey = new string('x', WatchSighting.MaxIntentKey + 1),
-                },
-            ],
+            Nominated = [A() with { IntentKey = new string('x', SweepNomination.MaxIntentKey + 1) }],
+        })).IsNotNull();
+
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
+        {
+            Nominated = [A() with { WorkKind = new string('x', FlightNomination.MaxWorkKind + 1) }],
+        })).IsNotNull();
+    }
+
+    [Test]
+    public async Task A_nomination_says_why_and_says_it_briefly()
+    {
+        // THE EXECUTOR'S JUDGMENT IS THE POINT, which is why the owner put the
+        // choice with it - and a choice with no reason is one a person on the
+        // board cannot weigh. The bounds are FlightNomination's own, measured
+        // there, so a sweep's reason and an agent's are held to one length.
+        var unsaid = WatchAttestation.Validate(AnAttestation() with
+        {
+            Nominated = [AnAttestation().Nominated[0] with { Reason = " " }],
         });
 
-        await Assert.That(longKey).IsNotNull();
+        await Assert.That(unsaid).IsNotNull();
+        await Assert.That(unsaid!).Contains("reason");
+
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
+        {
+            Nominated =
+            [
+                AnAttestation().Nominated[0] with
+                {
+                    Reason = new string('x', FlightNomination.MaxReason + 1),
+                },
+            ],
+        })).IsNotNull();
+
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
+        {
+            Nominated =
+            [
+                AnAttestation().Nominated[0] with
+                {
+                    Note = new string('x', FlightNomination.MaxNote + 1),
+                },
+            ],
+        })).IsNotNull();
+
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
+        {
+            Nominated = [AnAttestation().Nominated[0] with { WorkKind = null }],
+        })).IsNull()
+            .Because("the kind may be left to the bound: a menu of one names it, and a menu of "
+                   + "more is the board's refusal to write, not the wire's.");
+    }
+
+    [Test]
+    public async Task A_sighting_became_a_nomination_under_the_same_wire_identity()
+    {
+        // A RENAME MUST NOT CHANGE THE WIRE IDENTITY - the contract's own rule.
+        // What the record means changed with the owner's decision; which record
+        // it is did not.
+        await Assert.That(typeof(SweepNomination).Assembly.GetType("Gg.Contracts.WatchSighting"))
+            .IsNull();
+
+        var pinned = typeof(SweepNomination)
+            .GetCustomAttributes(typeof(PinnedIdAttribute), inherit: false)
+            .Cast<PinnedIdAttribute>()
+            .Single();
+
+        await Assert.That(pinned.Id.ToString()).IsEqualTo("763495ae-bbe3-4f0e-b9b2-e991fa9e4b3d");
+    }
+
+    [Test]
+    public async Task An_action_names_the_moves_its_executor_is_granted()
+    {
+        // THE SHIPPED `sweep` KIND'S COMPOSITION, handed to the runner so it
+        // attaches exactly those servers. An unknown move is refused here
+        // rather than launched as a tool nobody can name.
+        var refused = WatchAction.Validate(AnAction() with { Moves = ["send"] });
+
+        await Assert.That(refused).IsNotNull();
+        await Assert.That(refused!).Contains("send");
+
+        await Assert.That(WatchAction.Validate(AnAction() with { Moves = [] })).IsNull()
+            .Because("a tenant may tighten the kind to nothing. A sweep that can do nothing "
+                   + "attests that, which is the board-side answer, not a malformed action.");
     }
 
     [Test]
@@ -334,7 +409,7 @@ public class ASweepIsAServedActionTests
         await Assert.That(WatchAttestation.Validate(AnAttestation() with
         {
             Outcome = WatchOutcomes.Unreachable,
-            Saw = [],
+            Nominated = [],
             Diagnosis = "the commit could not be pinned",
             SkillSha = null,
         })).IsNull()
@@ -360,7 +435,7 @@ public class ASweepIsAServedActionTests
             ["host", "token", "secret", "password", "credential", "apikey", "content", "text",
              "body", "title", "description"];
 
-        var offending = new[] { typeof(WatchAttestation), typeof(WatchSighting) }
+        var offending = new[] { typeof(WatchAttestation), typeof(SweepNomination) }
             .SelectMany(t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.Name != "EqualityContract")
                 .Select(p => $"{t.Name}.{p.Name}"))

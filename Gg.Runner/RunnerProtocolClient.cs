@@ -43,6 +43,8 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(LandingDecision))]
 [JsonSerializable(typeof(PoolActionList))]
 [JsonSerializable(typeof(PoolAttestation))]
+[JsonSerializable(typeof(WatchActionList))]
+[JsonSerializable(typeof(WatchAttestation))]
 [JsonSerializable(typeof(MemberCredentialRequest))]
 [JsonSerializable(typeof(MemberCredentialMinted))]
 [JsonSerializable(typeof(RunnerCredentialRenewed))]
@@ -64,7 +66,7 @@ public sealed partial class RunnerJsonContext : JsonSerializerContext;
 /// </para>
 /// </remarks>
 public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerToken)
-    : IRunnerProtocol, Pools.IPoolProtocol, IRunnerCredential
+    : IRunnerProtocol, Pools.IPoolProtocol, IRunnerCredential, Sweeps.ISweepProtocol
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly string _runnerToken = runnerToken;
@@ -481,6 +483,48 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
             // halves fail closed on their own format, the envelope's rule.
             throw new InvalidOperationException(
                 "The attestation was refused: "
+              + await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>The sweeps half: decided sweeps for this watch. Serving is the claim.</summary>
+    public async Task<WatchActionList> PullSweepsAsync(
+        string watch, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get, $"/v1/watches/{Uri.EscapeDataString(watch)}/actions");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.WatchActionList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered nothing for the pull.");
+    }
+
+    /// <summary>Reports one sweep. Idempotent on the attestation id.</summary>
+    public async Task AttestSweepAsync(
+        string watch, WatchAttestation attestation, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attestation);
+
+        using var request = Request(
+            HttpMethod.Post, $"/v1/watches/{Uri.EscapeDataString(watch)}/attestations");
+        request.Content = JsonContent.Create(
+            attestation, RunnerJsonContext.Default.WatchAttestation);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // The contract's own Validate on the other side, or a sweep this
+            // runner was not handed - either way, not delivered.
+            throw new InvalidOperationException(
+                "The sweep's report was refused: "
               + await response.Content.ReadAsStringAsync(cancellationToken));
         }
 

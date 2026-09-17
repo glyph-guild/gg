@@ -376,6 +376,19 @@ public static class ProtocolSurface
             Statuses = [204, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [RunnerHeader],
         },
+        // AND THE WAY A RUNNER THAT PREDATES MACHINES GAINS ONE, for the key
+        // offer's reason. No id in the path, on the agent reading's: the
+        // credential names the runner. No 409 either - a machine is a display
+        // grouping nothing authorizes on, so a changed one is not a substitution.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runner/machine",
+            Audience = Audience.Runner,
+            Request = typeof(RunnerMachineOffer),
+            Statuses = [204, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
         new()
         {
             Method = "POST",
@@ -1680,6 +1693,7 @@ public static class ProtocolSurface
             [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey", "purpose"],
             [typeof(PendingIntroduction)] = ["introductionId", "offer"],
             [typeof(RunnerKeyOffer)] = ["publicKey"],
+            [typeof(RunnerMachineOffer)] = ["machine"],
             [typeof(RunnerSignalAnswer)] = ["introductionId", "answer"],
             [typeof(RunnerIntroduction)] =
                 ["introductionId", "runnerId", "runnerPublicKey", "capability", "expiresAt"],

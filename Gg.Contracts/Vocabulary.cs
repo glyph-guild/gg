@@ -46,6 +46,7 @@ public static class Vocabulary
         typeof(FinishAgentLoginAsk),
         typeof(AgentLoginFinished),
         typeof(RunnerKeyOffer),
+        typeof(RunnerMachineOffer),
         typeof(RunnerRetirementRequest),
         typeof(RunnerRetired),
         typeof(RunnerParkRequest),

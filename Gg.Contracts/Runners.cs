@@ -129,6 +129,35 @@ public sealed record RunnerKeyOffer
 }
 
 /// <summary>
+/// A runner saying which machine it runs on, after the fact.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b><see cref="RunnerKeyOffer"/>'s reason, one fact over.</b> Registration
+/// is read-or-register, so a runner with a stored credential never registers
+/// again and a machine added to registration reaches only runners registered
+/// from now on. The resident and the maintainer on a long-lived host are exactly
+/// the two a person wants members grouped under, and they would stay
+/// machineless for as long as their credentials last.
+/// </para>
+/// <para>
+/// <b>No runner in the body.</b> The credential names the runner; a member that
+/// could name one would let a runner speak for another.
+/// </para>
+/// <para>
+/// <b>A display grouping, so it may change.</b> A key offer refuses a different
+/// key because consoles pinned the first. Nothing authorizes on a machine, so a
+/// runner moved to another host simply says so.
+/// </para>
+/// </remarks>
+[PinnedId("51fea940-4130-46a4-90e5-c32f9447333d")]
+public sealed record RunnerMachineOffer
+{
+    /// <summary>The host this runner runs on.</summary>
+    public required string Machine { get; init; }
+}
+
+/// <summary>
 /// The registered runner and the credential it will authenticate with.
 /// </summary>
 /// <remarks>

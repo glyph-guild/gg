@@ -96,7 +96,10 @@ public class IntroductionCallTests
     [Test]
     [Arguments(HttpStatusCode.NotFound, IntroductionRefusal.NoSuchRunner, "gg runners")]
     [Arguments(HttpStatusCode.Forbidden, IntroductionRefusal.NotYoursToReach, "registered it")]
-    [Arguments(HttpStatusCode.Conflict, IntroductionRefusal.RegisteredBeforeKeys, "Restarting it")]
+    // A 409 WHOSE BODY A PROXY STRIPPED still says which status it was, which
+    // is all this side honestly knows: the two causes are the far end's to
+    // tell apart.
+    [Arguments(HttpStatusCode.Conflict, IntroductionRefusal.Refused, "409")]
     public async Task Each_refusal_is_its_own_answer_and_names_the_next_move(
         HttpStatusCode status, IntroductionRefusal refusal, string names)
     {

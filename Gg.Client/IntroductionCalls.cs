@@ -22,8 +22,17 @@ public enum IntroductionRefusal
     /// <summary>A runner in this tenant that this person did not register.</summary>
     NotYoursToReach,
 
-    /// <summary>A runner that registered before it could offer a key.</summary>
-    RegisteredBeforeKeys,
+    /// <summary>
+    /// The control plane would not mint one, and said why.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not named for a cause, deliberately.</b> 409 covers a runner with no
+    /// key to seal to and a machine whose own configuration refuses to keep a
+    /// credential. Naming one of them here is what told a person to restart a
+    /// machine over a setting; the far end's sentence is carried through
+    /// instead, and it names the one that happened.
+    /// </remarks>
+    Refused,
 }
 
 /// <summary>What asking to be introduced produced.</summary>

@@ -582,6 +582,13 @@ public static class Rows
     /// existed - so nothing flattens while the two repositories catch up.
     /// </para>
     /// <para>
+    /// <b>A member with no machine is on its host's.</b> The mint writes a
+    /// member's machine from its maintainer's row, so a member minted before
+    /// the maintainer stated one carries none. Grouping it by its host's
+    /// machine is the same fact read one step later - and without it the
+    /// member points at a maintainer that is itself nested, and lands flush.
+    /// </para>
+    /// <para>
     /// <b>An orphan keeps its place.</b> A row whose anchor and host are both
     /// absent sits flush where it was, because a revoked host is exactly when
     /// somebody needs to see the machine asking for help.
@@ -608,10 +615,20 @@ public static class Rows
             }
         }
 
+        var machines = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            machines.TryAdd(row.Id, row.MachineName);
+        }
+
         string Parent(RunnerRow row)
         {
-            if (row.MachineName.Length > 0
-                && residents.TryGetValue(row.MachineName, out var resident)
+            var machine = row.MachineName.Length > 0
+                ? row.MachineName
+                : machines.GetValueOrDefault(row.HostRunnerId, "");
+
+            if (machine.Length > 0
+                && residents.TryGetValue(machine, out var resident)
                 && !string.Equals(resident, row.Id, StringComparison.OrdinalIgnoreCase))
             {
                 return resident;

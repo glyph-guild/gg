@@ -1843,12 +1843,13 @@ public static class ProtocolSurface
             // a skill's words - the runner reads them - and the report carries
             // identities, versions and the digest of what ran.
             [typeof(WatchAction)] =
-                ["actionId", "watch", "watchVersion", "document", "executor", "skillCommit",
-                 "diagnosis", "decidedAt"],
+                ["actionId", "watch", "watchVersion", "document", "executor", "moves",
+                 "skillCommit", "diagnosis", "decidedAt"],
             [typeof(WatchActionList)] = ["actions"],
-            [typeof(WatchSighting)] = ["subject", "version", "intentKey"],
+            [typeof(SweepNomination)] =
+                ["subject", "version", "intentKey", "workKind", "reason", "note"],
             [typeof(WatchAttestation)] =
-                ["attestationId", "watch", "actionId", "outcome", "saw", "measuredAt",
+                ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
                  "diagnosis", "skillSha"],
             [typeof(PoolStatus)] =
                 ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",

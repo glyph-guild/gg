@@ -100,6 +100,20 @@ public sealed record WatchAction
     /// <summary>One of <see cref="WatchExecutors"/>.</summary>
     public required string Executor { get; init; }
 
+    /// <summary>
+    /// The moves the executor is granted: the shipped <c>sweep</c> kind's, as
+    /// the tenant's envelopes compose them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Composed control-plane-side and handed over</b>, because a sweep has no
+    /// lease to carry an envelope and a watch has no moves of its own - the owner
+    /// accepted that every sweep's tools are one kind's, so a tenant tightens
+    /// them the way it tightens any kind and no watch adds one. Empty is legal:
+    /// a tenant that tightened the kind to nothing has sweeps that can do
+    /// nothing, and they say so.
+    /// </remarks>
+    public required IReadOnlyList<string> Moves { get; init; }
+
     /// <summary>The commit the runner reads the skill at, when the ref resolved.</summary>
     public string? SkillCommit { get; init; }
 
@@ -124,6 +138,13 @@ public sealed record WatchAction
         {
             return $"'{action.Executor}' is not an executor this version knows. Expected one "
                  + $"of: {string.Join(", ", WatchExecutors.All)}.";
+        }
+
+        if (action.Moves.FirstOrDefault(m => !LoopMoves.All.Contains(m, StringComparer.Ordinal))
+            is { } unknown)
+        {
+            return $"'{unknown}' is not a move this version knows. Expected any of: "
+                 + $"{string.Join(", ", LoopMoves.All)}.";
         }
 
         if (action.SkillCommit is null == string.IsNullOrWhiteSpace(action.Diagnosis))
@@ -153,24 +174,55 @@ public sealed record WatchActionList
     public required IReadOnlyList<WatchAction> Actions { get; init; }
 }
 
-/// <summary>One thing a sweep saw: an identity and its version.</summary>
+/// <summary>One thing a sweep's executor nominated, and why.</summary>
 /// <remarks>
-/// <b>What a nomination would be keyed by, and nothing else.</b> The watch's
-/// mapping says which of the shape's fields fill these. A work item's title,
-/// its description and its comments have no member here, so the report cannot
-/// carry them into a store.
+/// <para>
+/// <b>The executor's choice, decided 2026-09-16 by the owner</b>: <i>"the
+/// agent and/or script should be doing that. that way it can be dynamic if
+/// necessary."</i> The agent - or later the script - decides which subject is
+/// worth a flight, which kind from the bound's menu, and why. The board still
+/// decides whether it stands, opens or is refused, rule by rule.
+/// </para>
+/// <para>
+/// <b>Was <c>WatchSighting</c>, and keeps its pinned id.</b> 0.182.0 had the
+/// runner report what it saw for the control plane to nominate from; the
+/// record grew the three members that make a nomination and kept its wire
+/// identity, because a rename must not change it.
+/// </para>
+/// <para>
+/// <b>A work item's title, description and comments have no member here</b>,
+/// and the reason and note are bounded at <see cref="FlightNomination"/>'s own
+/// measured lengths, so the report cannot carry an item's text into a store.
+/// </para>
 /// </remarks>
 [PinnedId("763495ae-bbe3-4f0e-b9b2-e991fa9e4b3d")]
-public sealed record WatchSighting
+public sealed record SweepNomination
 {
     /// <summary>What names the thing, from the mapping's <c>subject</c>.</summary>
     public required string Subject { get; init; }
 
-    /// <summary>Which version of it was seen, from the mapping's <c>version</c>.</summary>
+    /// <summary>Which version of it was nominated, from the mapping's <c>version</c>.</summary>
     public required string Version { get; init; }
 
     /// <summary>What names it outside gg, from the mapping's <c>intent-key</c>, when it has one.</summary>
     public string? IntentKey { get; init; }
+
+    /// <summary>
+    /// The kind the executor chose from the bound's menu, or null to leave it to
+    /// the bound.
+    /// </summary>
+    /// <remarks>
+    /// Null is legal on the wire: a menu of one names the kind, and a menu of
+    /// more with no choice made is a refusal the board writes with its own
+    /// sentence, not a malformed report.
+    /// </remarks>
+    public string? WorkKind { get; init; }
+
+    /// <summary>Why this subject is worth a flight, in the executor's words.</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>Anything else the person deciding should know.</summary>
+    public string? Note { get; init; }
 
     /// <summary>The most a subject may be.</summary>
     /// <remarks>
@@ -184,10 +236,54 @@ public sealed record WatchSighting
 
     /// <summary>The most an intent key may be — a uri, at the length a browser keeps one.</summary>
     public const int MaxIntentKey = 2048;
+
+    /// <summary>What is wrong with one nomination, or null.</summary>
+    public static string? Invalid(SweepNomination nomination)
+    {
+        ArgumentNullException.ThrowIfNull(nomination);
+
+        if (string.IsNullOrWhiteSpace(nomination.Subject)
+            || string.IsNullOrWhiteSpace(nomination.Version))
+        {
+            return "A nomination has no subject or no version. Without both it is not about "
+                 + "anything the board could open, or know it had already seen.";
+        }
+
+        if (nomination.Subject.Length > MaxSubject
+            || nomination.Version.Length > MaxVersion
+            || nomination.IntentKey?.Length > MaxIntentKey)
+        {
+            return $"A nomination names its subject at more length than an identity takes: a "
+                 + $"subject is at most {MaxSubject} characters, a version {MaxVersion} and an "
+                 + $"intent key {MaxIntentKey}. Past those it is text arriving under an "
+                 + "identity's name.";
+        }
+
+        if (string.IsNullOrWhiteSpace(nomination.Reason))
+        {
+            return $"The nomination of '{nomination.Subject}' gives no reason. The executor's "
+                 + "judgment is why it chooses, and a choice with no reason is one the person "
+                 + "deciding cannot weigh.";
+        }
+
+        if (nomination.Reason.Length > FlightNomination.MaxReason
+            || nomination.Note?.Length > FlightNomination.MaxNote
+            || nomination.WorkKind?.Length > FlightNomination.MaxWorkKind)
+        {
+            return $"The nomination of '{nomination.Subject}' runs past a nomination's bounds: a "
+                 + $"reason is at most {FlightNomination.MaxReason} characters, a note "
+                 + $"{FlightNomination.MaxNote} and a kind {FlightNomination.MaxWorkKind}. Past "
+                 + "those it is an analysis, not a nomination.";
+        }
+
+        return nomination.WorkKind is { } kind && string.IsNullOrWhiteSpace(kind)
+            ? "A nomination names a blank kind. Leave it out to let the bound choose."
+            : null;
+    }
 }
 
 /// <summary>
-/// What a sweep saw, attested by the runner that performed it.
+/// What a sweep nominated, attested by the runner that performed it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -197,10 +293,11 @@ public sealed record WatchSighting
 /// ordinary case rather than a duplicate.
 /// </para>
 /// <para>
-/// <b>The runner reports; the control plane nominates.</b> Article IX admits
-/// no exception, so nothing here says what should be opened. Which sightings
-/// become nominations, and whether the board admits them, is decided where
-/// the runner cannot reach.
+/// <b>The executor nominates; the board decides.</b> What the agent or
+/// script nominated through <c>gg</c> arrives here, because a sweep has no
+/// flight and the fact pipeline that carries an agent's nomination is
+/// lease-welded. Whether each one stands, opens or is refused is the board's,
+/// applied exactly as to any other nominator's - so Article IX holds there.
 /// </para>
 /// </remarks>
 [PinnedId("84048973-7115-4597-bcab-c13b0c8f574a")]
@@ -218,14 +315,14 @@ public sealed record WatchAttestation
     /// <summary>One of <see cref="WatchOutcomes"/>.</summary>
     public required string Outcome { get; init; }
 
-    /// <summary>What the sweep saw. Empty is a result.</summary>
+    /// <summary>What the sweep's executor nominated. Empty is a result.</summary>
     /// <remarks>
     /// The accessor delivers non-null and the initializer does not: this member
     /// is init-only, so a body that omits the key is built through a creator
     /// that assigns null. <c>AbsentCollectionsSurviveTheWireTests</c> holds it
     /// for the whole contract.
     /// </remarks>
-    public IReadOnlyList<WatchSighting> Saw
+    public IReadOnlyList<SweepNomination> Nominated
     {
         get => field ?? [];
         init;
@@ -248,13 +345,14 @@ public sealed record WatchAttestation
     /// </remarks>
     public string? SkillSha { get; init; }
 
-    /// <summary>The most one sweep may report.</summary>
+    /// <summary>The most one sweep may nominate.</summary>
     /// <remarks>
-    /// A watch's own cap per pass bounds what is nominated, and is the control
-    /// plane's to apply. This bounds what a runner may put on the wire at all,
-    /// whatever a watch declared.
+    /// A watch's own cap per pass bounds what stands, and is the control plane's
+    /// to apply. This bounds what a runner may put on the wire at all, whatever
+    /// a watch declared - <see cref="TrackerAdmission.MaxProposals"/>' number,
+    /// for its reason: past it a sweep is rewriting a backlog, not triaging one.
     /// </remarks>
-    public const int MaxSightings = 1000;
+    public const int MaxNominations = TrackerAdmission.MaxProposals;
 
     /// <summary>
     /// The schema's own rule, shared so the runner and the control plane cannot
@@ -290,9 +388,9 @@ public sealed record WatchAttestation
                  + "a person handed no reason has nothing to act on.";
         }
 
-        if (unreachable && attestation.Saw.Count > 0)
+        if (unreachable && attestation.Nominated.Count > 0)
         {
-            return "An unreachable sweep reports things it saw. A sweep that saw something "
+            return "An unreachable sweep nominates things. A sweep that nominated something "
                  + "reached something, and half a report under this outcome is two answers.";
         }
 
@@ -315,31 +413,18 @@ public sealed record WatchAttestation
                  + "sentence nobody is asked to read.";
         }
 
-        if (attestation.Saw.Count > MaxSightings)
+        if (attestation.Nominated.Count > MaxNominations)
         {
-            return $"This sweep reports {attestation.Saw.Count} things, and one report may "
-                 + $"carry at most {MaxSightings}. A watch's cap per pass bounds what is "
-                 + "nominated; this bounds what a runner may send at all.";
+            return $"This sweep nominates {attestation.Nominated.Count} things, and one report "
+                 + $"may carry at most {MaxNominations}. A watch's cap per pass bounds what "
+                 + "stands; this bounds what a runner may send at all.";
         }
 
-        foreach (var sighting in attestation.Saw)
+        foreach (var nomination in attestation.Nominated)
         {
-            if (string.IsNullOrWhiteSpace(sighting.Subject)
-                || string.IsNullOrWhiteSpace(sighting.Version))
+            if (SweepNomination.Invalid(nomination) is { } wrong)
             {
-                return "A sighting has no subject or no version. Without both it is not a "
-                     + "thing anybody could nominate, or know they had already seen.";
-            }
-
-            if (sighting.Subject.Length > WatchSighting.MaxSubject
-                || sighting.Version.Length > WatchSighting.MaxVersion
-                || sighting.IntentKey?.Length > WatchSighting.MaxIntentKey)
-            {
-                return $"A sighting is longer than an identity is: a subject is at most "
-                     + $"{WatchSighting.MaxSubject} characters, a version "
-                     + $"{WatchSighting.MaxVersion} and an intent key "
-                     + $"{WatchSighting.MaxIntentKey}. Past those it is text arriving under "
-                     + "an identity's name.";
+                return wrong;
             }
         }
 

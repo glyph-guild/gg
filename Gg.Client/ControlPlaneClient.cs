@@ -1606,9 +1606,13 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);
 
-        // THREE REFUSALS, THREE SENTENCES. The control plane sends a diagnosis
-        // with the 409 and this does not repeat it back at a person twice, so
-        // the sentence here is the one that says what to DO.
+        // THREE REFUSALS, THREE SENTENCES - and the third is the control
+        // plane's own, because 409 is TWO refusals rather than one. A runner
+        // with no key and a machine that says it will not keep a credential
+        // are both answered 409, and this arm used to tell the first story
+        // about both: somebody was sent to restart a pool member whose key
+        // was registered and fine, over a setting on the machine. Only the
+        // far end knows which happened, and it says so in the body.
         switch (response.StatusCode)
         {
             case HttpStatusCode.NotFound:
@@ -1626,10 +1630,8 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
             case HttpStatusCode.Conflict:
                 return new Introduced(
-                    null, IntroductionRefusal.RegisteredBeforeKeys,
-                    $"Runner {runnerId} registered before runners offered keys, so there is "
-                  + "nothing to seal an introduction to. It still takes work. Restarting it "
-                  + "registers it again, with a key.");
+                    null, IntroductionRefusal.Refused,
+                    await RefusalAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();

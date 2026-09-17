@@ -91,6 +91,14 @@ internal static class InForce
     /// <c>LocalFacts</c> runs at boot and on every reload and is the only place
     /// the model learns anything this file says, so telling it there covers
     /// every write by construction.
+    /// <para>
+    /// <b>THE FOURTH WRITER IS A MEMBER, AND IT BOOTS NO CONSOLE.</b> A pool
+    /// member opts itself in on the authority of the nonce it redeems, in the
+    /// middle of its own boot and after this file has already been read for the
+    /// control plane's address - so it calls this itself. Without it the member
+    /// reported that it would not keep a credential for its whole life, and a
+    /// member is the one machine class with no other way to be given one.
+    /// </para>
     /// </remarks>
     internal static void Forget() => _have = false;
 }

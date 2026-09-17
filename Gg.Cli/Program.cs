@@ -2789,6 +2789,19 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
                     LocalCredentialKeeper.Opened(
                         Gg.Local.ConfigurationFile.Read().Configuration));
 
+                // AND READ BACK, because this process asked InForce before
+                // it got here - the control plane's address comes from the
+                // same file - and that answer is memoized for the boot. A
+                // member that did not re-read built its keeper from the
+                // configuration from before this write, so its heartbeat
+                // said it would not keep a credential, so a console asking
+                // to configure it was refused. For its whole life: a member
+                // is created warm and replaced, never restarted, so its
+                // first boot is the only one it has. Measured on
+                // gg-pool-ui-1 and -2, both refusing while their own
+                // `gg config show` said a credential may be placed on them.
+                InForce.Forget();
+
                 return new StoredRunner
                 {
                     RunnerId = issued.RunnerId,

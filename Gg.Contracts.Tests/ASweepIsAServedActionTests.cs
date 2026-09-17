@@ -62,6 +62,14 @@ public class ASweepIsAServedActionTests
         SkillSha = new string('b', 40),
     };
 
+    /// <summary>Where the runner reads the skill: the repository, and the commit it was pinned at.</summary>
+    internal static LeaseRepoRef ASkill(string? commit = null) => new()
+    {
+        Provider = "forge.example",
+        Slug = "acme/payments",
+        PinnedRef = commit ?? new string('a', 40),
+    };
+
     internal static WatchAction AnAction() => new()
     {
         ActionId = V7(),
@@ -70,7 +78,7 @@ public class ASweepIsAServedActionTests
         Document = AWatchDeclaresReferencesTests.AWatch(),
         Executor = WatchExecutors.Instructions,
         Moves = [LoopMoves.Read, LoopMoves.Propose],
-        SkillCommit = new string('a', 40),
+        Skill = ASkill(),
         DecidedAt = DateTimeOffset.UnixEpoch.AddYears(56),
     };
 
@@ -116,7 +124,7 @@ public class ASweepIsAServedActionTests
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAction)])
             .IsEquivalentTo((string[])
                 ["actionId", "watch", "watchVersion", "document", "executor", "moves",
-                 "skillCommit", "diagnosis", "decidedAt"]);
+                 "skill", "diagnosis", "decidedAt"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchActionList)])
             .IsEquivalentTo((string[])["actions"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAttestation)])
@@ -335,17 +343,21 @@ public class ASweepIsAServedActionTests
     }
 
     [Test]
-    public async Task An_action_carries_a_pinned_commit_or_says_why_it_could_not()
+    public async Task An_action_says_where_its_skill_is_or_why_it_could_not()
     {
-        var neither = WatchAction.Validate(AnAction() with { SkillCommit = null });
+        // THE REPOSITORY AND THE COMMIT, in the shape the runner already fetches
+        // from. A runner handed a registry name could not reach it - the name is
+        // this tenant's, and the runner's fetch is keyed by provider and slug -
+        // which is the gap 0.184.0 left.
+        var neither = WatchAction.Validate(AnAction() with { Skill = null });
 
         await Assert.That(neither).IsNotNull()
-            .Because("a runner handed no commit would read the skill at whatever the ref says "
+            .Because("a runner handed no pin would read the skill at whatever the ref says "
                    + "now - which is the review the pin exists to hold.");
 
         await Assert.That(WatchAction.Validate(AnAction() with
         {
-            SkillCommit = null,
+            Skill = null,
             Diagnosis = "'refs/heads/main' does not resolve to a commit",
         })).IsNull();
 
@@ -358,7 +370,7 @@ public class ASweepIsAServedActionTests
     [Test]
     public async Task A_pin_is_a_commit_and_not_a_ref()
     {
-        var moving = WatchAction.Validate(AnAction() with { SkillCommit = "refs/heads/main" });
+        var moving = WatchAction.Validate(AnAction() with { Skill = ASkill("refs/heads/main") });
 
         await Assert.That(moving).IsNotNull()
             .Because("a ref moves. A pin that is a ref pins nothing, and the words that run "
@@ -366,10 +378,26 @@ public class ASweepIsAServedActionTests
 
         await Assert.That(WatchAction.Validate(AnAction() with
         {
-            SkillCommit = new string('a', 64),
+            Skill = ASkill(new string('a', 64)),
         })).IsNull()
             .Because("a SHA-256 repository's commits are sixty-four hex digits, and those are "
                    + "commits too.");
+    }
+
+    [Test]
+    public async Task A_skill_names_a_repository_the_runner_can_reach()
+    {
+        await Assert.That(WatchAction.Validate(AnAction() with
+        {
+            Skill = ASkill() with { Provider = " " },
+        })).IsNotNull();
+
+        await Assert.That(WatchAction.Validate(AnAction() with
+        {
+            Skill = ASkill() with { Slug = "" },
+        })).IsNotNull()
+            .Because("a provider and a slug are what the runner's fetch is keyed by, and a "
+                   + "blank one is a fetch of nothing.");
     }
 
     [Test]

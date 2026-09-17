@@ -831,6 +831,28 @@ public sealed record RunnerSummary
     /// </para>
     /// </remarks>
     public string? HostRunnerId { get; init; }
+
+    /// <summary>The machine this runner runs on, or null when nobody said.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What a person groups the fleet by.</b> <see cref="HostRunnerId"/> says
+    /// which runner warmed a member, and on a host that runner is usually the
+    /// pool maintainer - a registration that never beats and so reads as
+    /// offline. A person asked why two healthy members sat under a dead-looking
+    /// parent instead of under the machine; this is the machine.
+    /// </para>
+    /// <para>
+    /// <b>A member's is its maintainer's.</b> A member's own label names its
+    /// pool slot, not its host, so this row is the only place a member's
+    /// machine can travel.
+    /// </para>
+    /// <para>
+    /// <b>Null is "nobody said"</b>, which is every runner a control plane too
+    /// old to record this describes. The key is omitted rather than written
+    /// null, so that control plane's wire is unchanged.
+    /// </para>
+    /// </remarks>
+    public string? Machine { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

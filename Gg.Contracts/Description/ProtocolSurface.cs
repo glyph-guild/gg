@@ -1635,7 +1635,7 @@ public static class ProtocolSurface
             [typeof(InvitationRequest)] = [],
             [typeof(InvitationIssued)] = ["invitationUrl", "expiresAt"],
             [typeof(TenantNotice)] = ["code", "detail", "remedy", "blocking"],
-            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved", "publicKey"],
+            [typeof(RunnerRegistrationRequest)] = ["label", "protocolVersion", "reserved", "publicKey", "machine"],
             // Empty on purpose: the act is "reserve this to me" and the runner
             // is named by the path, so there is nothing for a body to say.
             [typeof(RunnerReservationRequest)] = [],
@@ -1760,7 +1760,7 @@ public static class ProtocolSurface
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels", "registeredByPrincipalId", "registeredBy",
-                 "parkedAt", "parkedBecause", "hostRunnerId"],
+                 "parkedAt", "parkedBecause", "hostRunnerId", "machine"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],

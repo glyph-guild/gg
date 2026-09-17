@@ -68,7 +68,7 @@ internal static class GitObjectIds
 /// was approved must not run the filter somebody replaced.
 /// </para>
 /// <para>
-/// <b>The runner reads the skill; this says at which commit.</b> Decided
+/// <b>The runner reads the skill; this says where, and at which commit.</b> Decided
 /// 2026-09-16 by the owner, amending 0.182.0: the control plane reads exactly
 /// one thing from a customer's repository and no code, so it resolves the
 /// watch's ref to a commit - a metadata call - and the runner reads
@@ -114,10 +114,20 @@ public sealed record WatchAction
     /// </remarks>
     public required IReadOnlyList<string> Moves { get; init; }
 
-    /// <summary>The commit the runner reads the skill at, when the ref resolved.</summary>
-    public string? SkillCommit { get; init; }
+    /// <summary>
+    /// Where the runner reads the skill: the repository, and the commit the
+    /// watch's ref resolved to as its <see cref="LeaseRepoRef.PinnedRef"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>A lease's repository reference</b>, because that is what the runner's
+    /// fetch is keyed by. 0.184.0 handed over only the commit, and the watch
+    /// names its repository by this tenant's registry name, which no runner can
+    /// reach - so the control plane resolves the name to a provider and a slug
+    /// and hands those over with the pin.
+    /// </remarks>
+    public LeaseRepoRef? Skill { get; init; }
 
-    /// <summary>Why there is no commit. Present exactly when <see cref="SkillCommit"/> is not.</summary>
+    /// <summary>Why there is no pin. Present exactly when <see cref="Skill"/> is not.</summary>
     public string? Diagnosis { get; init; }
 
     public required DateTimeOffset DecidedAt { get; init; }
@@ -147,20 +157,29 @@ public sealed record WatchAction
                  + $"{string.Join(", ", LoopMoves.All)}.";
         }
 
-        if (action.SkillCommit is null == string.IsNullOrWhiteSpace(action.Diagnosis))
+        if (action.Skill is null == string.IsNullOrWhiteSpace(action.Diagnosis))
         {
-            return action.SkillCommit is null
-                ? "This sweep carries no commit and no reason there is none. A runner handed "
-                  + "no pin would read the skill at whatever the ref says now, which is the "
-                  + "review the pin exists to hold."
-                : "This sweep carries a commit AND a reason it could not be pinned. That is two "
+            return action.Skill is null
+                ? "This sweep carries no pin and no reason there is none. A runner handed no "
+                  + "pin would read the skill at whatever the ref says now, which is the review "
+                  + "the pin exists to hold."
+                : "This sweep carries a pin AND a reason it could not be pinned. That is two "
                   + "answers to one question, and a runner would have to pick one.";
         }
 
-        if (action.SkillCommit is { } commit && !GitObjectIds.IsOne(commit))
+        if (action.Skill is { } skill)
         {
-            return $"'{commit}' is not a commit. A pin is forty or sixty-four hex digits; a "
-                 + "branch or a tag moves, and a pin that moves pins nothing.";
+            if (string.IsNullOrWhiteSpace(skill.Provider) || string.IsNullOrWhiteSpace(skill.Slug))
+            {
+                return "This sweep's skill names no provider or no repository. Those are what "
+                     + "the runner's fetch is keyed by, and a blank one is a fetch of nothing.";
+            }
+
+            if (!GitObjectIds.IsOne(skill.PinnedRef))
+            {
+                return $"'{skill.PinnedRef}' is not a commit. A pin is forty or sixty-four hex "
+                     + "digits; a branch or a tag moves, and a pin that moves pins nothing.";
+            }
         }
 
         return WatchDocument.Validate(action.Document);

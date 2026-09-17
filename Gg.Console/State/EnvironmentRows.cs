@@ -171,10 +171,10 @@ public static class EnvironmentRows
     /// What a pool last reported when it looked at itself.
     /// </summary>
     /// <remarks>
-    /// <b>Verify, and never whichever action came last.</b> Refresh and reset
-    /// are acts; verify is the observation, and the ledger carries the latest
-    /// of each per pool. A row taking the most recent of the three would read a
-    /// failed reset as the pool's health, when what it means is that somebody
+    /// <b>Verify, and never whichever action came last.</b> Refresh, reset and
+    /// roll are acts; verify is the observation, and the ledger carries the
+    /// latest of each per pool. A row taking the most recent of them would read
+    /// a failed reset as the pool's health, when what it means is that somebody
     /// rebuilt a container.
     /// </remarks>
     public static PoolStatus? Verified(AppState state, string pool)

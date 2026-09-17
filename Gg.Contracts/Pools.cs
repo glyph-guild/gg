@@ -32,7 +32,31 @@ public static class PoolActions
     /// </summary>
     public const string Reset = "reset";
 
-    public static IReadOnlyList<string> All { get; } = [Verify, Refresh, Reset];
+    /// <summary>
+    /// Make the whole pool current with the pinned image: destroy and recreate
+    /// every member made from something the strategy no longer names, and touch
+    /// the ones already current not at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not a wider refresh, and the difference is the pace.</b> Refresh is
+    /// how a pool GROWS — one member per decision, with a hold-off tuned to
+    /// that, and only while the pool is under its warm ceiling. A roll adds
+    /// nobody: it replaces what is there, so it must be able to act AT the
+    /// ceiling, which is exactly the state a pool sits in while its members go
+    /// stale.
+    /// </para>
+    /// <para>
+    /// <b>Whole-pool because the decider cannot see drift.</b> Which members
+    /// are off the pin is knowable only where the containers are, by comparing
+    /// what each says it was made FROM against what the strategy pins. A roll
+    /// that converged one member would leave the rest waiting on a decision
+    /// made from a count the control plane cannot measure.
+    /// </para>
+    /// </remarks>
+    public const string Roll = "roll";
+
+    public static IReadOnlyList<string> All { get; } = [Verify, Refresh, Reset, Roll];
 }
 
 /// <summary>
@@ -41,7 +65,7 @@ public static class PoolActions
 /// <remarks>
 /// <para>
 /// <b>MoveKinds' shape, second instance, deliberately its own table.</b>
-/// <c>refresh</c> and <c>reset</c> change a container on a customer's host —
+/// <c>refresh</c>, <c>reset</c> and <c>roll</c> change a container on a customer's host —
 /// their product faces no destination gate, so Article VI is the axis and
 /// the classification is the control. <c>verify</c> only looks.
 /// </para>
@@ -77,6 +101,7 @@ public static class PoolActionKinds
             [PoolActions.Verify] = RecordOnly,
             [PoolActions.Refresh] = OutwardAct,
             [PoolActions.Reset] = OutwardAct,
+            [PoolActions.Roll] = OutwardAct,
         };
 
     /// <summary>The kind, or a throw for an action nobody classified.</summary>

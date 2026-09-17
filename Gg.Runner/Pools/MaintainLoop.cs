@@ -146,60 +146,60 @@ public sealed class MaintainLoop(
         {
             try
             {
-            // A NEW SESSION WHEN THIS ONE HAS REACHED ITS BOUND, before anything
-            // this cycle stamps. Inside the try, so a probe that cannot be asked
-            // for a moment waits like any other transient failure - keeping the
-            // old stamp, which the decider will then read as stale and refuse to
-            // act on, which is the right answer while the bound is unproved.
-            if (_clock.UtcNow - probe.ProbedAt >= SessionLength)
-            {
-                if (await OpenSessionAsync(pool, cancellationToken) is not { } renewed)
+                // A NEW SESSION WHEN THIS ONE HAS REACHED ITS BOUND, before anything
+                // this cycle stamps. Inside the try, so a probe that cannot be asked
+                // for a moment waits like any other transient failure - keeping the
+                // old stamp, which the decider will then read as stale and refuse to
+                // act on, which is the right answer while the bound is unproved.
+                if (_clock.UtcNow - probe.ProbedAt >= SessionLength)
                 {
-                    return 69;
+                    if (await OpenSessionAsync(pool, cancellationToken) is not { } renewed)
+                    {
+                        return 69;
+                    }
+
+                    probe = renewed;
                 }
 
-                probe = renewed;
-            }
+                // ITS OWN CREDENTIAL FIRST, because everything below it is done
+                // with that credential. A maintainer that reached its expiry used
+                // to stop and wait for a person to sign in on a machine nobody
+                // visits, and every environment downstream of it went cold.
+                await RenewIfDueAsync(cancellationToken);
 
-            // ITS OWN CREDENTIAL FIRST, because everything below it is done
-            // with that credential. A maintainer that reached its expiry used
-            // to stop and wait for a person to sign in on a machine nobody
-            // visits, and every environment downstream of it went cold.
-            await RenewIfDueAsync(cancellationToken);
+                var members = await _adapter.ListAsync(pool, cancellationToken);
 
-            var members = await _adapter.ListAsync(pool, cancellationToken);
-
-            // THE EMPTY POOL ANNOUNCES ITSELF. The first attestation is the
-            // pull point coming up - it recovers bring-up, and it carries the
-            // scope stamp the decider requires before any outward act. A loop
-            // that stayed silent until a member existed deadlocked the whole
-            // management story at birth (found live, by the walk).
-            if (members.Count == 0)
-            {
-                await AttestAsync(pool, PoolActions.Verify, new PoolObservation
+                // THE EMPTY POOL ANNOUNCES ITSELF. The first attestation is the
+                // pull point coming up - it recovers bring-up, and it carries the
+                // scope stamp the decider requires before any outward act. A loop
+                // that stayed silent until a member existed deadlocked the whole
+                // management story at birth (found live, by the walk).
+                if (members.Count == 0)
                 {
-                    Outcome = PoolOutcomes.Verified,
-                }, probe, actionId: null, cancellationToken);
-            }
+                    await AttestAsync(pool, PoolActions.Verify, new PoolObservation
+                    {
+                        Outcome = PoolOutcomes.Verified,
+                    }, probe, actionId: null, cancellationToken);
+                }
 
-            foreach (var member in members)
-            {
-                var observed = await _adapter.VerifyAsync(member, cancellationToken);
-                await AttestAsync(pool, PoolActions.Verify, observed, probe, actionId: null,
-                    cancellationToken);
-            }
+                foreach (var member in members)
+                {
+                    var observed = await _adapter.VerifyAsync(member, cancellationToken);
+                    await AttestAsync(pool, PoolActions.Verify, observed, probe, actionId: null,
+                        cancellationToken);
+                }
 
-            var decided = await _protocol.PullActionsAsync(pool, cancellationToken);
-            foreach (var action in decided.Actions)
-            {
-                var observed = await ExecuteAsync(pool, action, cancellationToken);
-                await AttestAsync(pool, action.Action, observed, probe, action.ActionId,
-                    cancellationToken);
-            }
+                var decided = await _protocol.PullActionsAsync(pool, cancellationToken);
+                foreach (var action in decided.Actions)
+                {
+                    var observed = await ExecuteAsync(pool, action, cancellationToken);
+                    await AttestAsync(pool, action.Action, observed, probe, action.ActionId,
+                        cancellationToken);
+                }
 
-            // A SERVED CYCLE CLEARS IT, so an hour of health does not inherit a
-            // bad minute's wait.
-            _backoff = TimeSpan.Zero;
+                // A SERVED CYCLE CLEARS IT, so an hour of health does not inherit a
+                // bad minute's wait.
+                _backoff = TimeSpan.Zero;
             }
             catch (InvalidOperationException refused)
             {
@@ -373,10 +373,79 @@ public sealed class MaintainLoop(
                 };
         }
 
+        if (string.Equals(action.Action, PoolActions.Roll, StringComparison.Ordinal))
+        {
+            return await RollAsync(pool, image, cancellationToken);
+        }
+
         return new PoolObservation
         {
             Outcome = PoolOutcomes.Failed,
             Diagnosis = $"'{action.Action}' is not an action this runner knows how to take.",
+        };
+    }
+
+    /// <summary>
+    /// Destroy and recreate every member made from something other than the
+    /// pinned image, and report the first failure by name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The comparison is a pin against a pin</b> — what the container says it
+    /// was made FROM against what the strategy declares — and it is exact, for
+    /// the reason the adapter's own converge branch states: an approximate
+    /// drift check resets every sweep, forever, and that is a bill rather than
+    /// a bug.
+    /// </para>
+    /// <para>
+    /// <b>Silence is a member left alone.</b> A listing that does not say what
+    /// a member was made from says nothing about whether it drifted, and
+    /// destroying a warm member on a missing field is the one mistake this act
+    /// can make that costs somebody something.
+    /// </para>
+    /// <para>
+    /// <b>It stops at the first failure.</b> Ploughing on would destroy the
+    /// rest of the pool while the daemon is already refusing, and the
+    /// attestation can carry one diagnosis: the honest one is the first
+    /// refusal, named.
+    /// </para>
+    /// </remarks>
+    private async Task<PoolObservation> RollAsync(
+        string pool, string image, CancellationToken cancellationToken)
+    {
+        var members = await _adapter.ListAsync(pool, cancellationToken);
+        var stale = members
+            .Where(m => m.MadeFrom is { Length: > 0 } madeFrom
+                     && !string.Equals(madeFrom, image, StringComparison.Ordinal))
+            .ToList();
+
+        foreach (var member in stale)
+        {
+            var observed = await _adapter.ResetAsync(
+                member.Name,
+                await SpecFor(pool, member.Name, image, cancellationToken),
+                cancellationToken);
+
+            if (!string.Equals(observed.Outcome, PoolOutcomes.Verified, StringComparison.Ordinal))
+            {
+                return observed with
+                {
+                    Diagnosis = $"'{member.Name}' could not be rolled onto {image}: "
+                              + (observed.Diagnosis ?? "the adapter did not say why."),
+                };
+            }
+        }
+
+        // NOTHING TO DO IS DONE, NOT FAILED. A strategy applied without moving
+        // the image decides a roll as well, and a roll over a pool already on
+        // its pin is the proof that the image reached it - which is the answer
+        // `gg pools` should show for a fleet nobody needs to think about.
+        return new PoolObservation
+        {
+            Outcome = PoolOutcomes.Verified,
+            Provenance = stale.Count == 0
+                ? EnvironmentProvenance.Reused
+                : EnvironmentProvenance.Fresh,
         };
     }
 

@@ -60,6 +60,14 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
                         container.GetProperty("State").GetString(),
                         "running",
                         StringComparison.Ordinal),
+
+                    // AND SO HAS THIS. The listing carries the reference each
+                    // container was made from - the same string Config.Image
+                    // reports on an inspect - so a roll can tell which members
+                    // drifted from one request instead of one per member.
+                    MadeFrom = container.TryGetProperty("Image", out var madeFrom)
+                        ? madeFrom.GetString()
+                        : null,
                 });
             }
         }

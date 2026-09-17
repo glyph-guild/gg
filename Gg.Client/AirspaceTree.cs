@@ -13,6 +13,19 @@ public sealed record AirspaceEstate
     public required IReadOnlyList<NamedEnvelopeState> Documents { get; init; }
 
     public required IReadOnlyList<EnvironmentStrategyState> Strategies { get; init; }
+
+    /// <summary>
+    /// The watches in force. Defaulted empty, unlike its neighbours.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not <c>required</c>, and the reason is who builds one.</b> An estate is
+    /// assembled by <c>ReadEstateAsync</c> and by a good many tests that predate
+    /// watches; requiring the member would make every one of those a compile
+    /// error for a class of document they say nothing about, and the honest
+    /// reading of an estate that says nothing about watches is that it holds
+    /// none.
+    /// </remarks>
+    public IReadOnlyList<WatchState> Watches { get; init; } = [];
 }
 
 /// <summary>What a pull did to the tree.</summary>
@@ -159,6 +172,24 @@ public static class AirspaceTree
             else
             {
                 unrepresentable.Add(strategy.Name);
+            }
+        }
+
+        // A WATCH IN FORCE IS WRITTEN, which it never was before the estate
+        // carried them. A working copy that left them out would make the apply
+        // after this pull read as the person having deleted every one - and
+        // `Retiring` is where that reading lands.
+        foreach (var watch in estate.Watches)
+        {
+            if (Rendered(
+                    root, Roles.Watch, watch.Name,
+                    EnvelopeText.Render(watch.Watch), watch.Version) is { } path)
+            {
+                written.Add(path);
+            }
+            else
+            {
+                unrepresentable.Add(watch.Name);
             }
         }
 
@@ -357,6 +388,11 @@ public static class AirspaceTree
             held[strategy.Name] = EnvelopeText.Render(strategy.Strategy);
         }
 
+        foreach (var watch in estate.Watches)
+        {
+            held[watch.Name] = EnvelopeText.Render(watch.Watch);
+        }
+
         return
         [
             .. tree.Documents.Where(d =>
@@ -426,6 +462,7 @@ public static class AirspaceTree
         [
             .. estate.Documents.Select(d => d.Name)
                 .Concat(estate.Strategies.Select(s => s.Name))
+                .Concat(estate.Watches.Select(w => w.Name))
                 // Root cannot be retired - a tenant with no floor is ungoverned -
                 // so its absence from a tree is never an intent, whatever it looks
                 // like.
@@ -440,6 +477,11 @@ public static class AirspaceTree
         document.Narrowing is { } narrowing ? EnvelopeText.Render(narrowing)
         : document.Envelope is { } envelope ? EnvelopeText.Render(envelope)
         : document.Strategy is { } strategy ? EnvelopeText.Render(strategy)
+        // A WATCH BEFORE THE EMPTY STRING, and the empty string is the reason.
+        // An unrecognised document renders as nothing, which never equals what
+        // the estate holds - so without this arm every watch in a working copy
+        // would read as CHANGED on every diff, and be re-sent on every apply.
+        : document.Watch is { } watch ? EnvelopeText.Render(watch)
         : string.Empty;
 
     /// <summary>Parses one file by the role its path gave it.</summary>

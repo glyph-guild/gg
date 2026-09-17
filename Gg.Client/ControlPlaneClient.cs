@@ -66,6 +66,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
 [JsonSerializable(typeof(StrategyList))]
+[JsonSerializable(typeof(WatchDocument))]
+[JsonSerializable(typeof(WatchState))]
+[JsonSerializable(typeof(WatchList))]
 [JsonSerializable(typeof(CurrentVersion))]
 [JsonSerializable(typeof(NamedEnvelopeList))]
 [JsonSerializable(typeof(NamedEnvelopeState))]
@@ -866,6 +869,11 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         {
             Documents = (await ListEnvelopesAsync(sessionToken, cancellationToken)).Documents,
             Strategies = (await ListStrategiesAsync(sessionToken, cancellationToken)).Strategies,
+            // A THIRD READ, because a watch has its own door too. An estate that
+            // never carried watches rendered a working copy with none in it, and
+            // the apply after that pull would have read as a person deleting
+            // every one.
+            Watches = (await ListWatchesAsync(sessionToken, cancellationToken)).Watches,
         };
 
     public async Task<StrategyList> ListStrategiesAsync(
@@ -879,6 +887,76 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.StrategyList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>
+    /// Applies a watch to its topology name, through the watch door.
+    /// </summary>
+    /// <remarks>
+    /// <b>JSON on the wire, as a strategy's is</b> - the text form and its
+    /// parser stay on this side of the boundary. A 400 carries the control
+    /// plane's own diagnosis, which for a document the schema refuses is
+    /// <c>WatchDocument.Validate</c>'s sentence: the same one
+    /// <c>gg envelope validate</c> would have given.
+    /// </remarks>
+    public async Task<EnvelopeApplied> ApplyWatchAsync(
+        string sessionToken, string name, WatchDocument watch,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Put, $"/v1/airspace/watches/{Uri.EscapeDataString(name)}", sessionToken);
+        request.Content = JsonContent.Create(watch, ProtocolJsonContext.Default.WatchDocument);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>The watch in force for a name, or null when none is.</summary>
+    public async Task<WatchState?> GetWatchAsync(
+        string sessionToken, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get, $"/v1/airspace/watches/{Uri.EscapeDataString(name)}", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.WatchState, cancellationToken);
+    }
+
+    /// <summary>Every watch in force for the tenant. Empty is a state, not an error.</summary>
+    public async Task<WatchList> ListWatchesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/watches", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.WatchList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
     }
 

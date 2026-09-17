@@ -66,6 +66,16 @@ public class TheFleetShowsWhoWillAnswerTests
     }
 
     [Test]
+    public async Task A_maintainer_recedes_without_reading_as_stopped()
+    {
+        // IT WILL TAKE NO WORK, so it recedes. It has not stopped answering, so
+        // it is not the offline tint: that one says the heartbeat went stale.
+        await Assert.That(RunnerLook.IsAside("maintaining")).IsTrue();
+        await Assert.That(RunnerLook.Tint("maintaining")).IsNotEqualTo(RunnerTint.Offline);
+        await Assert.That(RunnerLook.Tint("maintaining · parked")).IsEqualTo(RunnerTint.Parked);
+    }
+
+    [Test]
     public async Task A_state_this_console_does_not_know_is_left_alone()
     {
         await Assert.That(RunnerLook.Tint("draining")).IsEqualTo(RunnerTint.None);

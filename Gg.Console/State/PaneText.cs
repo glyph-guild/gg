@@ -917,9 +917,11 @@ public static class PaneText
             // what would happen by an apply that is about to throw.
             said.Add("These stop every apply until they are fixed:");
 
-            foreach (var path in working.Unreadable)
+            foreach (var unreadable in working.Unreadable)
             {
-                said.Add("  " + Clean(path));
+                // AND WHY, not only which. The parser's own sentence is the
+                // half somebody can act on, and it was being dropped.
+                said.Add($"  {Clean(unreadable.Path)} - {Clean(unreadable.Diagnosis)}");
             }
 
             said.Add("");
@@ -1386,9 +1388,10 @@ public static class PaneText
         // applying the rest would land part of a changeset somebody meant as a
         // whole, and a person told only that something is wrong has to go and
         // find which file.
-        foreach (var path in estate.Working?.Unreadable ?? [])
+        foreach (var unreadable in estate.Working?.Unreadable ?? [])
         {
-            text.AppendLine($"  unreadable {Clean(path)} - this stops every apply");
+            text.AppendLine(
+                $"  unreadable {Clean(unreadable.Path)} - {Clean(unreadable.Diagnosis)}");
         }
 
         // AN INTENT, NOT AN ACT. There is no delete verb: retiring a name is
@@ -2839,9 +2842,9 @@ public static class PaneText
             text.AppendLine("These stop every apply until they are fixed:");
             text.AppendLine();
 
-            foreach (var path in working.Unreadable)
+            foreach (var unreadable in working.Unreadable)
             {
-                text.AppendLine("  " + Clean(path));
+                text.AppendLine($"  {Clean(unreadable.Path)} - {Clean(unreadable.Diagnosis)}");
             }
 
             text.AppendLine();

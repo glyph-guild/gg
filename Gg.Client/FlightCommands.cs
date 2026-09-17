@@ -1373,7 +1373,11 @@ public sealed class FlightCommands(
             // would be a review of something that never occurs.
             Changes = Changeset.InSafeOrder(changes),
             Retiring = AirspaceTree.Retiring(tree, estate),
-            Unreadable = [.. tree.Unreadable.Select(u => u.Path)],
+            // THE WHOLE RECORD, because the reason is the half a person acts
+            // on. This was `.Select(u => u.Path)` and the diagnosis the parser
+            // had already computed died here - one method after apply started
+            // putting the same sentence in its refusal.
+            Unreadable = tree.Unreadable,
         });
     }
 

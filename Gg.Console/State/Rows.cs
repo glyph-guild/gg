@@ -256,6 +256,20 @@ public static class Rows
         return (row.Under.Length > 0 ? "  " : "") + row.Runner;
     }
 
+    /// <summary>
+    /// What a person reads down each column of the board.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first column says which kind of row this is, because the board
+    /// holds two.</b> A nomination is work somebody could open; a sweep is the
+    /// watch that goes looking for it. They share a pane because they are one
+    /// story - a watch finds an item, the item stands as a nomination, a person
+    /// opens it - and a reader who cannot tell them apart at a glance has a
+    /// list of two things pretending to be one.
+    /// </remarks>
+    public static IReadOnlyList<string> BoardColumns { get; } =
+        ["", "subject", "state", "kind", "when", "why"];
+
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "state", "working on", "advertises", "last heard"];
 
@@ -377,6 +391,83 @@ public static class Rows
     /// somebody opened it to diagnose.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The board: every nomination, and every watch that makes them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nominations first, watches under them</b>, because the nominations
+    /// are what somebody can act on and the watches are why they are there. A
+    /// person opening this pane is usually answering a row rather than auditing
+    /// a schedule.
+    /// </para>
+    /// <para>
+    /// <b>A watch that has gone quiet reads as a state rather than a
+    /// timestamp.</b> `quiet` is the word the control plane uses for it and
+    /// the row a person acts on; making them subtract two clocks to find that
+    /// out is how a board comes to look healthy while nothing is sweeping.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<BoardRow> Board(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var rows = new List<BoardRow>();
+
+        foreach (var nomination in (state.Board?.Nominations ?? [])
+            .OrderByDescending(n => n.MadeAt))
+        {
+            rows.Add(new BoardRow(
+                nomination.NominationId.ToString(),
+                "nomination",
+                nomination.Subject,
+                // WHAT IT IS NOW: the ending if it has one, the mode if it is
+                // still standing. A row reading `standing` that has in fact
+                // been refused is the one thing this column must never say.
+                nomination.Ending is { Length: > 0 } ended ? ended : nomination.Mode,
+                nomination.WorkKind,
+                PaneText.AgeOf(nomination.MadeAt),
+                // THE SENTENCE THAT ENDED IT, or the one that gated it. A
+                // standing row with neither says nothing here rather than
+                // borrowing a word from somewhere else.
+                nomination.Because ?? ""));
+        }
+
+        foreach (var watch in (state.Watches?.Standings ?? [])
+            .OrderBy(w => w.Name, StringComparer.Ordinal))
+        {
+            rows.Add(new BoardRow(
+                watch.Name,
+                "sweep",
+                watch.Name,
+                watch.QuietSince is not null
+                    ? "quiet"
+                    : watch.Outcome is { Length: > 0 } outcome ? outcome : "never swept",
+                watch.Executor ?? "",
+                watch.LastHeardAt is { } heard ? PaneText.AgeOf(heard) : "-",
+                Spent(watch)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// What a watch has cost, with the scale beside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>`3` says nothing and `3 of 5 in 24h` says whether the next one will
+    /// stand.</b> A watch with no budget prints the count and no bound, because
+    /// unbounded is a state rather than a bound of zero - and the sentence is
+    /// the runner's own when it could not sweep, because that is the only thing
+    /// anybody can act on.
+    /// </remarks>
+    private static string Spent(Gg.Contracts.WatchStanding watch) =>
+        watch.Diagnosis is { Length: > 0 } why
+            ? why
+            : watch.Budgeted is { } bound
+                ? $"{watch.Opened} of {bound} in {watch.Window}"
+                : $"{watch.Opened} in {watch.Window}";
+
     public static IReadOnlyList<RunnerRow> Runners(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -986,3 +1077,16 @@ public static class Rows
                     .Split('\n', StringSplitOptions.RemoveEmptyEntries
                                 | StringSplitOptions.TrimEntries));
 }
+
+/// <summary>
+/// One row of the board: a nomination standing (or ended), or a watch and how
+/// its sweeping is going.
+/// </summary>
+/// <remarks>
+/// <b>One record for two shapes, because they share a pane and a cursor.</b>
+/// The alternative - two tables stacked - gives a person two cursors on one
+/// screen, which this console has already met once and wrote down: a pane and
+/// its title answering one question from different places.
+/// </remarks>
+public sealed record BoardRow(
+    string Key, string What, string Subject, string State, string Kind, string When, string Why);

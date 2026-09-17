@@ -207,6 +207,7 @@ public static class PaneText
             // joined here: what this answers is "does this tab say anything".
             TabId.Queue => string.Join("\n", QueueRows(state)),
             TabId.Flights => Flights(state),
+            TabId.Board => Board(state),
             TabId.Runners => Runners(state),
             TabId.Live => Live(state),
             TabId.Browse => Browse(state),
@@ -385,6 +386,48 @@ public static class PaneText
         }
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The board when it has no rows, or could not be read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three answers, because an empty pane means three things.</b> Nothing
+    /// fetched yet, a read that did not come back, and a tenant nobody has
+    /// nominated anything in are different facts, and a person shown the last
+    /// when the second happened stops looking.
+    /// </para>
+    /// <para>
+    /// <b>And the empty sentence names the watches too.</b> A tenant with no
+    /// nominations AND no watches is not waiting for a person - it is waiting
+    /// for somebody to declare a watch, which is a different next step from
+    /// "nothing has come in yet".
+    /// </para>
+    /// </remarks>
+    public static string Board(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Board is null || state.Watches is null)
+        {
+            return "  (could not load the board)";
+        }
+
+        if (Rows.Board(state).Count > 0)
+        {
+            // THE TABLE DRAWS THE ROWS. This sentence is the other two cases,
+            // which is the shape every list pane here has.
+            return string.Empty;
+        }
+
+        // AND ONLY ONE EMPTY CASE IS REACHABLE, which is worth saying because
+        // the first version of this had two. A watch in force is always a row -
+        // it is on the board whether or not it has found anything - so "no
+        // nominations but some watches" draws a table rather than a sentence.
+        // The empty pane means neither, and the next step is not to wait.
+        return "  nothing has been nominated, and no watch is in force. A watch is what goes "
+             + "looking - `gg airspace apply` declares one.";
     }
 
     /// <summary>

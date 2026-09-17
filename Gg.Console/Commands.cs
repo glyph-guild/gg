@@ -805,6 +805,19 @@ public enum Command
     /// </remarks>
     ShowFlightsTab,
 
+    /// <summary>
+    /// Goes to the board: every nomination, and the watches whose sweeps make
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shows rather than toggles, like the two lists beside it</b> - this
+    /// tab cannot be closed either. Unlike them it READS: the board and the
+    /// watch standings are two requests nothing else in the console makes, so
+    /// the shell fetches them when this is shown and on every refresh while it
+    /// is.
+    /// </remarks>
+    ShowBoardTab,
+
     /// <summary>Opens the question of how much of this allowance to keep.</summary>
     AskToKeepAShare,
 

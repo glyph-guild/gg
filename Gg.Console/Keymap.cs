@@ -1445,6 +1445,11 @@ public static class Keymap
                 { OffTheHintLine = true },
             new(KeyStroke.Char('.'), Command.ShowFlightsTab, "flights")
                 { OffTheHintLine = true },
+            // THE THIRD OF THE PUNCTUATION FAMILY, beside the two lists it
+            // completes: what needs somebody, what has run, and what has been
+            // nominated. `;` is free in every mode, so it means one thing.
+            new(KeyStroke.Char(';'), Command.ShowBoardTab, "board")
+                { OffTheHintLine = true },
 
             new(KeyStroke.Char('l'), Command.ToggleLive, Closes(context, TabId.Live, "live"))
                 { OffTheHintLine = true },

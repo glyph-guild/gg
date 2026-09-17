@@ -179,6 +179,19 @@ public sealed class ConsoleData(
         _commands.BoardAsync(ended, cancellationToken);
 
     /// <summary>
+    /// `gg watches` - how every watch in force is doing.
+    /// </summary>
+    /// <remarks>
+    /// <b>The board pane's other half, from the same fetch the verb makes.</b>
+    /// A watch is what goes looking for the work a nomination stands for, so a
+    /// board showing the rows and not the machinery that makes them can look
+    /// quiet when nothing is sweeping - which is the one thing rule 11 of slice
+    /// thirty-nine says a board must never do.
+    /// </remarks>
+    public Task<VerbResult> WatchesAsync(CancellationToken cancellationToken = default) =>
+        _commands.WatchesAsync(cancellationToken);
+
+    /// <summary>
     /// `gg board open` / `gg board decline` - answers a standing nomination.
     /// </summary>
     /// <remarks>
@@ -627,6 +640,14 @@ public static class ConsoleProjection
             VerbResult.Facts facts =>
                 state with { FlightFacts = facts.Value, Diagnosis = null },
             VerbResult.Runners runners => state with { Runners = runners.Value, Diagnosis = null },
+
+            // THE BOARD AND ITS WATCHES, two results and two members. Joined
+            // in the pane rather than here, for the reason the three below
+            // are kept apart: joining is a projection, and a projection
+            // belongs where it can be tested without a terminal.
+            VerbResult.Board board => state with { Board = board.Value, Diagnosis = null },
+            VerbResult.Watches watches =>
+                state with { Watches = watches.Value, Diagnosis = null },
 
             // THE THREE THAT ANSWER "WHAT ENVIRONMENTS DO I HAVE". The chart is
             // the list; the strategies say what furnishes each; the ledger says

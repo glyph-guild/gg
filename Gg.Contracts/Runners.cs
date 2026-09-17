@@ -16,6 +16,24 @@ public sealed record RunnerRegistrationRequest
     /// <summary>Protocol revision this runner speaks.</summary>
     public required int ProtocolVersion { get; init; }
 
+    /// <summary>The machine this runner runs on, or null when it does not say.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A machine runs several runners.</b> The resident that takes flights,
+    /// a maintainer per pool, and an attended runner started by hand are each
+    /// their own registration on one host, and this is the only thing that says
+    /// so. The label says HOW a runner was started - <c>vmlinux001:maintain</c> -
+    /// and parsing the host back out of it would make that string convention an
+    /// identity.
+    /// </para>
+    /// <para>
+    /// <b>Optional, so an older client keeps registering.</b> The two
+    /// repositories are not upgraded in step, and a control plane that refused a
+    /// registration for want of this would refuse every one it has always taken.
+    /// </para>
+    /// </remarks>
+    public string? Machine { get; init; }
+
     /// <summary>
     /// Reserve this runner to whoever is registering it. Defaults to false,
     /// which is what every runner does today: take the tenant's public work.

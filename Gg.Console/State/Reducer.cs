@@ -195,6 +195,7 @@ public static class Reducer
             Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),
             Command.ReadChangeset => Modal(state, UiMode.ReadingChangeset),
             Command.ReadOutcome => Modal(state, UiMode.ReadingOutcome),
+            Command.ReadSaid => Modal(state, UiMode.ReadingSaid),
 
             // TURNING A PAGE OVER WHAT IS ALREADY HELD. AirspaceViews answers
             // which views this row has, so a view that stopped being offered -
@@ -1344,6 +1345,30 @@ public static class Reducer
     /// the index alone would look right and quietly stop doing both.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Records how wide the activity line is, as the layout found it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same instance when nothing moved</b>, because the screen renders
+    /// on every model it is handed and a terminal raises a layout pass for
+    /// reasons that have nothing to do with its width. A new model per pass
+    /// would be a repaint per pass.
+    /// </para>
+    /// <para>
+    /// <b>Measured rather than assumed</b>: the line is <c>Dim.Fill()</c>, so
+    /// its width is the terminal's, and the one place that knows it is the
+    /// view. What it is FOR is the keymap, which cannot see a view — see
+    /// <see cref="AppState.SaidColumns"/>.
+    /// </para>
+    /// </remarks>
+    public static AppState SaidMeasured(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.SaidColumns == columns ? state : state with { SaidColumns = columns };
+    }
+
     public static AppState Pointed(AppState state, int row)
     {
         ArgumentNullException.ThrowIfNull(state);

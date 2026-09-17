@@ -86,6 +86,28 @@ public class ATruncatedLineSaysHowToReadItTests
     }
 
     [Test]
+    public async Task A_frozen_screen_offers_nothing_either()
+    {
+        // THE PIXELS HAVE STOPPED, so a modal opened here is a modal nobody
+        // sees - and the frozen sentence is itself longer than a narrow
+        // terminal, so this is not a corner case: it is every freeze on a small
+        // screen. A key that appears to work is worse than one that is not
+        // offered, which is the same Article XI this whole binding answers to.
+        var frozen = KeymapContext.For(new AppState
+        {
+            Frozen = true,
+            LastAction = TooLong,
+            SaidColumns = 40,
+        });
+
+        await Assert.That(Keymap.HintsStanding(frozen)).DoesNotContain("ctrl+r");
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Control('r'), frozen)).IsNull()
+            .Because("the hint line and the dispatch read one context, so a key that is not "
+                   + "advertised here must not answer here either.");
+    }
+
+    [Test]
     public async Task The_key_opens_the_whole_message()
     {
         var clipped = KeymapContext.For(Said(TooLong, 80));

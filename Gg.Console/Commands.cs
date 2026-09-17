@@ -268,6 +268,16 @@ public enum Command
     /// </remarks>
     ReadChangeset,
 
+    /// <summary>Read the whole of what the activity line is showing part of.</summary>
+    /// <remarks>
+    /// <b>No I/O: the message is already on the model</b>, which is what the
+    /// line is drawn from — this opens a view of the same string with room for
+    /// all of it. Bound only while the line is actually clipped, because a key
+    /// offered over a sentence a person can already read in full is a keypress
+    /// that opens a modal saying what the screen already says.
+    /// </remarks>
+    ReadSaid,
+
     /// <summary>Read what the last apply came to.</summary>
     /// <remarks>
     /// <b>No I/O either, and no key in Normal mode.</b> The outcome is already

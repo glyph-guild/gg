@@ -51,6 +51,11 @@ public static class Modals
         UiMode.ReadingEnvelope,
         UiMode.ReadingChangeset,
         UiMode.ReadingOutcome,
+
+        // THE FOURTH VIEW OF THE SAME BOX, over the activity line's own text:
+        // a title, wrapped prose and a way out. A dialog for the reason the
+        // other three are.
+        UiMode.ReadingSaid,
         UiMode.ConfirmRetire,
         UiMode.ComposeChoice,
 

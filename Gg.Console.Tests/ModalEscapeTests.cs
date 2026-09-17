@@ -283,12 +283,21 @@ public class ModalEscapeTests
         // so a console whose board has loaded nothing could never reach that
         // modal, and the walk would call it unreachable for the one reason this
         // test is not about.
+        //
+        // AND WITH A MESSAGE TOO LONG FOR THE LINE IT IS ON, which is the same
+        // widening a fourth time. `ctrl+r` opens the whole of what the activity
+        // line is showing part of, and it is offered only where there IS a rest
+        // to read - so a console that has said nothing could never reach that
+        // modal however many keys the walk presses.
         var everywhere = Enum.GetValues<TabId>()
             .Select(tab => new AppState
             {
                 Flights = OneFlight(),
                 ActiveTab = tab,
                 PrincipalId = "me",
+                LastAction = "the runner refused the credential because its own "
+                           + "configuration does not say accept-configured",
+                SaidColumns = 40,
                 RunnerSelected = 0,
                 BoardSelected = 0,
                 Board = new Gg.Contracts.BoardPage

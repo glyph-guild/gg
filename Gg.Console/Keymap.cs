@@ -188,6 +188,20 @@ public readonly record struct KeymapContext(
     public bool SignInStarted { get; init; }
 
     /// <summary>
+    /// Whether the activity line is showing part of its message rather than
+    /// all of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both halves of the question, answered once.</b> Clipping is the text
+    /// against the width, and neither alone decides it — a long message on a
+    /// wide terminal is not clipped, and a short one is not clipped anywhere.
+    /// In the CONTEXT rather than read off a widget, like everything else here,
+    /// so the key that opens the rest of it is advertised exactly where it
+    /// works.
+    /// </remarks>
+    public bool SaidIsClipped { get; init; }
+
+    /// <summary>
     /// Whether the runner the cursor is on is the one this console started.
     /// </summary>
     /// <remarks>
@@ -385,6 +399,13 @@ public readonly record struct KeymapContext(
             // ANSWER, for AGateWaits' reason one field up: two kinds of row
             // share that table and only one of them is a decision.
             ANominationWaits = Rows.StandingUnder(state) is not null,
+
+            // WHETHER THE LINE BELOW IS SHOWING ALL OF ITSELF, measured
+            // against the width the layout last found. Derived here with
+            // everything else, so the key that opens the rest is offered on
+            // exactly the messages that have a rest.
+            SaidIsClipped = state.SaidColumns > 0
+                            && PaneText.Activity(state).Length > state.SaidColumns,
 
             // WHAT THE REFRESH KEY HAS TO SAY, derived here with everything
             // else the hints are made of, so the line has one author.
@@ -1021,6 +1042,19 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
+        // THE LINE ITSELF, WITH ROOM FOR ALL OF IT. Two keys and no views to
+        // cross to: what is in this one is the message a person was already
+        // reading, so the only questions are "show me the rest" - answered by
+        // being open - and "let me keep it".
+        UiMode.ReadingSaid =>
+        [
+            // `c' FOR THE REASON THE THREE VIEWS GIVE IT. What lands on that
+            // line is most often a refusal, and a refusal is the thing somebody
+            // pastes into a message to somebody else.
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.ConfirmApply =>
         [
             new(KeyStroke.Char('y'), Command.ApplyEstate, "apply them")
@@ -1363,6 +1397,34 @@ public static class Keymap
 
         _ =>
         [
+            // THE ONE THAT COMES AND GOES, in front of the three that do not,
+            // so `q quit` keeps the corner it was given. It is standing because
+            // it is about the console's own line rather than about the tab -
+            // the same message is on that line whichever tab is showing.
+            //
+            // ONLY WHILE THERE IS A REST TO READ. A key offered over a sentence
+            // already on the screen in full opens a modal that says what the
+            // screen says, which is the dead key Article XI names arriving as a
+            // no-op rather than as silence.
+            //
+            // CTRL, SO IT SPENDS NO LETTER, for ctrl+f's reason below - and
+            // `r` alone is reject inside the gate modal.
+            // AND NOT WHILE THE SCREEN IS FROZEN, where the pixels have stopped
+            // and a modal opened here is one nobody sees. The frozen sentence
+            // is itself longer than a narrow terminal, so without this clause a
+            // freeze on a small screen advertises a key that does nothing
+            // visible - the failure Article XI names, arriving as a no-op.
+            .. context.SaidIsClipped && !context.Frozen
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Control('r'), Command.ReadSaid, "read")
+                    {
+                        Standing = true,
+                        When = "while the line below is showing part of its message",
+                    },
+                ]
+                : [],
+
             // THE THREE THAT ARE ALWAYS TRUE, drawn at the other end of the
             // line - see KeyBinding.Standing.
             //
@@ -2102,6 +2164,7 @@ public static class Keymap
         c => c with { FleetAllowancesOffered = true },
         c => c with { GateAsksForAgentLogin = true },
         c => c with { ANominationWaits = true },
+        c => c with { SaidIsClipped = true },
     ];
 
     /// <summary>

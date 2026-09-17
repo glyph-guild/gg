@@ -119,6 +119,11 @@ public class HelpNamesEveryKeyTests
         // over the first kind - so without this clause the key that answers a
         // nomination is invisible to the completeness check.
         from aNominationWaits in (bool[])[false, true]
+
+        // AND WHETHER THE ACTIVITY LINE IS SHOWING PART OF ITS MESSAGE, for the
+        // reason every clause above records, six times now. It binds the one
+        // standing key that comes and goes.
+        from saidIsClipped in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
@@ -132,6 +137,7 @@ public class HelpNamesEveryKeyTests
             RunnerIsBeating = flying,
             GateAsksForAgentLogin = gateAsksForAgentLogin,
             ANominationWaits = aNominationWaits,
+            SaidIsClipped = saidIsClipped,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
             Refresh = refresh,
@@ -186,7 +192,9 @@ public class HelpNamesEveryKeyTests
         // where there is a gate to act on.
         // TWENTY SINCE THE BOARD'S ANSWER KEY, which is offered over a standing
         // nomination and not over the watch that made it.
-        await Assert.That(members.Count).IsEqualTo(20)
+        // TWENTY-ONE SINCE THE LINE THAT CLIPS, which offers the key that opens
+        // the rest of its message and offers it nowhere else.
+        await Assert.That(members.Count).IsEqualTo(21)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

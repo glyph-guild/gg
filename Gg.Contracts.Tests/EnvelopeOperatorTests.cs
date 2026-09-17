@@ -344,7 +344,14 @@ public class EnvelopeOperatorTests
     public async Task Roles_are_a_closed_set_and_not_a_ranking()
     {
         await Assert.That(Roles.All)
-            .IsEquivalentTo((string[])[Roles.Root, Roles.WorkKind, Roles.Narrowing, Roles.Strategy]);
+            .IsEquivalentTo((string[])
+            [
+                Roles.Root, Roles.WorkKind, Roles.Narrowing, Roles.Strategy,
+                // SLICE THIRTY-NINE'S WATCH. ADR-0022 section 5 makes it a
+                // tenant-scoped, named, versioned airspace document - so a
+                // role, and the closed set moved to five deliberately.
+                Roles.Watch,
+            ]);
         // APPEND IS THE ONE MEMBER FOR WHICH ROLE ORDER MATTERS, and this
         // test's name is about Roles.All being closed rather than about the
         // operators being order-free. Said here because the name reads like a

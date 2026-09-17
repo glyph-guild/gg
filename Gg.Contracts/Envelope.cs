@@ -820,7 +820,16 @@ public static class Roles
     /// </summary>
     public const string Strategy = "strategy";
 
-    public static IReadOnlyList<string> All { get; } = [Root, WorkKind, Narrowing, Strategy];
+    /// <summary>
+    /// What to sweep and what may come of it: a trigger, a filter, a bound and
+    /// bounds. Composes root ⊓ watch ⊓ narrowings — unlike a
+    /// <see cref="Strategy"/>, which never composes — and a flight cannot be
+    /// FOR one, because a sweep is not a flight.
+    /// </summary>
+    public const string Watch = "watch";
+
+    public static IReadOnlyList<string> All { get; } =
+        [Root, WorkKind, Narrowing, Strategy, Watch];
 }
 
 /// <summary>

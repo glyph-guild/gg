@@ -51,6 +51,7 @@ public static class AirspaceNames
         (Roles.WorkKind, "work-kinds"),
         (Roles.Narrowing, "narrowings"),
         (Roles.Strategy, "strategies"),
+        (Roles.Watch, "watches"),
     ];
 
     /// <summary>The file a tenant's floor renders to. Never inside a directory.</summary>

@@ -1731,6 +1731,12 @@ public static class ProtocolSurface
             // could travel in, asserted over the shape as well as declared.
             [typeof(StrategyInventory)] = ["pool", "size", "warm"],
             [typeof(StrategyBounds)] = ["poolMax", "activeHours"],
+            [typeof(WatchDocument)] =
+                ["shape", "trigger", "host", "credential", "filter", "skill", "ref",
+                 "mapping", "pullPoint", "nominates", "bounds"],
+            [typeof(WatchTrigger)] = ["every"],
+            [typeof(WatchMapping)] = ["subject", "version", "intentKey"],
+            [typeof(WatchBounds)] = ["activeHours", "capPerPass", "budget"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],

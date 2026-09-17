@@ -17,11 +17,12 @@ namespace Gg.Contracts.Tests;
 /// action already has, and ADR-0022 § 5 says a sweep is one.
 /// </para>
 /// <para>
-/// <b>The skill travels in the answer, with the record of which one it
-/// was.</b> ADR-0023 § 1: the control plane fetches it and hands the content
-/// to the runner. The commit the ref resolved to and the blob's digest travel
-/// beside it, because those are what the control plane keeps — rule 16 of the
-/// slice, and <c>PolicyFile</c>'s own rule that the words never reach a store.
+/// <b>The runner reads the skill; the action says at which commit.</b> Decided
+/// 2026-09-16 by the owner, amending 0.182.0: the control plane reads exactly
+/// one thing from a customer's repository — a declared narrowings directory —
+/// and no code, so it pins the commit the watch's ref resolves to and the
+/// runner reads the skill there, with the customer's credential. What ran comes
+/// back as the blob's digest, on the runner's word.
 /// </para>
 /// <para>
 /// <b>What comes back is identities and versions, bounded.</b> The runner
@@ -54,6 +55,7 @@ public class ASweepIsAServedActionTests
             },
         ],
         MeasuredAt = DateTimeOffset.UnixEpoch.AddYears(56),
+        SkillSha = new string('b', 40),
     };
 
     internal static WatchAction AnAction() => new()
@@ -63,13 +65,7 @@ public class ASweepIsAServedActionTests
         WatchVersion = "nightly-triage@v3",
         Document = AWatchDeclaresReferencesTests.AWatch(),
         Executor = WatchExecutors.Instructions,
-        Skill = new WatchSkill
-        {
-            Path = ".goodgrief/skills/triage.md",
-            Commit = new string('a', 40),
-            Sha = new string('b', 40),
-            Content = "Look at each item and say whether it needs a person.",
-        },
+        SkillCommit = new string('a', 40),
         DecidedAt = DateTimeOffset.UnixEpoch.AddYears(56),
     };
 
@@ -114,16 +110,14 @@ public class ASweepIsAServedActionTests
     {
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAction)])
             .IsEquivalentTo((string[])
-                ["actionId", "watch", "watchVersion", "document", "executor", "skill",
+                ["actionId", "watch", "watchVersion", "document", "executor", "skillCommit",
                  "diagnosis", "decidedAt"]);
-        await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchSkill)])
-            .IsEquivalentTo((string[])["path", "commit", "sha", "content"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchActionList)])
             .IsEquivalentTo((string[])["actions"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAttestation)])
             .IsEquivalentTo((string[])
                 ["attestationId", "watch", "actionId", "outcome", "saw", "measuredAt",
-                 "diagnosis"]);
+                 "diagnosis", "skillSha"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchSighting)])
             .IsEquivalentTo((string[])["subject", "version", "intentKey"]);
     }
@@ -266,18 +260,18 @@ public class ASweepIsAServedActionTests
     }
 
     [Test]
-    public async Task An_action_carries_a_skill_or_says_why_it_could_not()
+    public async Task An_action_carries_a_pinned_commit_or_says_why_it_could_not()
     {
-        var neither = WatchAction.Validate(AnAction() with { Skill = null });
+        var neither = WatchAction.Validate(AnAction() with { SkillCommit = null });
 
         await Assert.That(neither).IsNotNull()
-            .Because("an instructions executor with no instructions and no reason would run an "
-                   + "agent on nothing, or do nothing and say nothing.");
+            .Because("a runner handed no commit would read the skill at whatever the ref says "
+                   + "now - which is the review the pin exists to hold.");
 
         await Assert.That(WatchAction.Validate(AnAction() with
         {
-            Skill = null,
-            Diagnosis = "the skill is not in the repository's declared directory",
+            SkillCommit = null,
+            Diagnosis = "'refs/heads/main' does not resolve to a commit",
         })).IsNull();
 
         await Assert.That(WatchAction.Validate(AnAction() with
@@ -287,21 +281,64 @@ public class ASweepIsAServedActionTests
     }
 
     [Test]
-    public async Task A_skill_travels_with_the_record_of_which_one_it_was()
+    public async Task A_pin_is_a_commit_and_not_a_ref()
     {
-        var unpinned = WatchAction.Validate(AnAction() with
-        {
-            Skill = AnAction().Skill! with { Commit = " " },
-        });
+        var moving = WatchAction.Validate(AnAction() with { SkillCommit = "refs/heads/main" });
 
-        await Assert.That(unpinned).IsNotNull()
-            .Because("the commit is what the control plane keeps instead of the words, so a "
-                   + "skill without one ran and left no record of what it said.");
+        await Assert.That(moving).IsNotNull()
+            .Because("a ref moves. A pin that is a ref pins nothing, and the words that run "
+                   + "are whatever somebody pushed after the sweep was decided.");
 
         await Assert.That(WatchAction.Validate(AnAction() with
         {
-            Skill = AnAction().Skill! with { Sha = "" },
-        })).IsNotNull();
+            SkillCommit = new string('a', 64),
+        })).IsNull()
+            .Because("a SHA-256 repository's commits are sixty-four hex digits, and those are "
+                   + "commits too.");
+    }
+
+    [Test]
+    public async Task No_member_of_the_action_can_carry_the_skills_words()
+    {
+        // THE OWNER'S DECISION, HELD STRUCTURALLY. 0.182.0 had a `WatchSkill`
+        // with a `Content` member; the control plane was never to fill it. A
+        // member that exists will be filled by somebody.
+        var members = typeof(WatchAction)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.Name != "EqualityContract")
+            .Select(p => (p.Name, p.PropertyType))
+            .ToList();
+
+        await Assert.That(members.Where(m => m.Name.Contains("Content", StringComparison.Ordinal)
+                                          || m.Name.Contains("Text", StringComparison.Ordinal)))
+            .IsEmpty();
+        await Assert.That(typeof(WatchAction).Assembly.GetType("Gg.Contracts.WatchSkill"))
+            .IsNull()
+            .Because("the record that had somewhere to put the words is gone, and a second one "
+                   + "under the same name would be the same member coming back.");
+    }
+
+    [Test]
+    public async Task A_good_pass_reports_the_digest_of_the_skill_it_followed()
+    {
+        var unsaid = WatchAttestation.Validate(AnAttestation() with { SkillSha = null });
+
+        await Assert.That(unsaid).IsNotNull()
+            .Because("the digest is the record of what ran. A sweep that swept and cannot say "
+                   + "which words it followed leaves the review with nothing to point at.");
+
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with { SkillSha = "latest" }))
+            .IsNotNull()
+            .Because("a digest is hex, forty or sixty-four digits - anything else is a label.");
+
+        await Assert.That(WatchAttestation.Validate(AnAttestation() with
+        {
+            Outcome = WatchOutcomes.Unreachable,
+            Saw = [],
+            Diagnosis = "the commit could not be pinned",
+            SkillSha = null,
+        })).IsNull()
+            .Because("an unreachable sweep may never have read the skill at all.");
     }
 
     [Test]

@@ -78,6 +78,7 @@ public static class AnAirspaceTreeOnDisk
         Host = "tracker.example",
         Credential = "op://vault/tracker/token",
         Filter = "SELECT [System.Id] FROM WorkItems WHERE [System.Tags] CONTAINS 'needs-review'",
+        Repository = "payments",
         Skill = ".goodgrief/skills/triage.md",
         Ref = "refs/heads/main",
         Mapping = new Gg.Contracts.WatchMapping

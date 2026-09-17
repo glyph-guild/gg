@@ -1909,11 +1909,11 @@ public static class PaneText
             // command they would have to run in another terminal.
             var work = row.Work is { Length: > 0 } flight ? $"  on {flight}" : "";
 
-            // THE INDENT IS ON THE ROW, not added here: the tab draws the same
-            // cell as a table and the two nested by different amounts while
-            // each decided it for itself.
+            // THROUGH Rows.Nested, which the table's cell projection also
+            // calls: the two nested by different amounts while each decided
+            // it for itself, and one shared function is what ended that.
             text.AppendLine(
-                $"{row.Here} {row.Runner}  {row.State}{work}{Spent(state, row.Id)}");
+                $"{row.Here} {Rows.Nested(row)}  {row.State}{work}{Spent(state, row.Id)}");
         }
 
         return text.ToString().TrimEnd();

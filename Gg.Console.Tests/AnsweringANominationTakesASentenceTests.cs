@@ -262,7 +262,9 @@ public class AnsweringANominationTakesASentenceTests
                        + "refusing here as well means a person who saved an empty buffer has "
                        + "not answered by accident.");
 
-            await Assert.That(final.LastNomination!).Contains("nothing was sent")
+            await Assert.That(
+                    final.LastNomination!.Contains(
+                        "nothing was sent", StringComparison.OrdinalIgnoreCase)).IsTrue()
                 .Because("falling silent is indistinguishable from a console that is broken, "
                        + "and this is the path a person reaches by changing their mind.");
         }

@@ -419,7 +419,7 @@ public static class Rows
         {
             rows.Add(new BoardRow(
                 nomination.NominationId.ToString(),
-                "nomination",
+                BoardRow.Nomination,
                 nomination.Subject,
                 // WHAT IT IS NOW: the ending if it has one, the mode if it is
                 // still standing. A row reading `standing` that has in fact
@@ -438,7 +438,7 @@ public static class Rows
         {
             rows.Add(new BoardRow(
                 watch.Name,
-                "sweep",
+                BoardRow.Sweep,
                 watch.Name,
                 watch.QuietSince is not null
                     ? "quiet"
@@ -461,6 +461,53 @@ public static class Rows
     /// the runner's own when it could not sweep, because that is the only thing
     /// anybody can act on.
     /// </remarks>
+    /// <summary>
+    /// The nomination under the board's cursor that can still be answered, or
+    /// null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Through the rows rather than into the list, because the cursor
+    /// indexes what is on the screen.</b> <see cref="Board"/> orders
+    /// nominations newest first and then puts the watches underneath, so the
+    /// nth nomination and the nth row are different things - and reading the
+    /// second as the first is how a key answers a row somebody is not looking
+    /// at.
+    /// </para>
+    /// <para>
+    /// <b>Null for a watch, and null for a row already ended.</b> A watch is
+    /// the machinery that made the rows above it and has nothing on it to
+    /// answer; an ended row is a 409 at the door, and a key advertised where it
+    /// will be refused is worse than no key at all.
+    /// </para>
+    /// </remarks>
+    public static NominationSummary? StandingUnder(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var rows = Board(state);
+
+        if (state.BoardSelected < 0 || state.BoardSelected >= rows.Count)
+        {
+            return null;
+        }
+
+        var row = rows[state.BoardSelected];
+
+        if (!string.Equals(row.What, BoardRow.Nomination, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var one = (state.Board?.Nominations ?? [])
+            .FirstOrDefault(n => n.NominationId.ToString() == row.Key);
+
+        // STANDING IS WHAT THE ENDING SAYS, and it is the row's own word rather
+        // than `State`: the board sends both, and the one every other reader
+        // here already trusts is the ending.
+        return one is not null && one.Ending is not { Length: > 0 } ? one : null;
+    }
+
     private static string Spent(Gg.Contracts.WatchStanding watch) =>
         watch.Diagnosis is { Length: > 0 } why
             ? why
@@ -1089,4 +1136,18 @@ public static class Rows
 /// its title answering one question from different places.
 /// </remarks>
 public sealed record BoardRow(
-    string Key, string What, string Subject, string State, string Kind, string When, string Why);
+    string Key, string What, string Subject, string State, string Kind, string When, string Why)
+{
+    /// <summary>What a nomination's row says it is.</summary>
+    /// <remarks>
+    /// <b>A constant since a key started dispatching on it.</b> While this was
+    /// only drawn, the word was a literal in one place and that was honest; now
+    /// the answer key asks the column which kind of row it is before it offers
+    /// anything, and two spellings of one word would be a key that silently
+    /// stopped being offered.
+    /// </remarks>
+    public const string Nomination = "nomination";
+
+    /// <summary>What a watch's row says it is.</summary>
+    public const string Sweep = "sweep";
+}

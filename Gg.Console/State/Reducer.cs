@@ -178,6 +178,11 @@ public static class Reducer
             Command.AskHowToFlyByHand => Asked(state, ComposingFor.HandFlight),
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
+            // THE SAME MOVE OVER THE OTHER DECISION. Asking is a mode change
+            // and nothing else - which is this function's whole job, and the
+            // reason both of its answers below leave the state alone.
+            Command.AskToAnswerNomination => Modal(state, UiMode.NominationDecision),
+
             // ASKING IS A MODE CHANGE AND NOTHING ELSE, which is the reducer's
             // whole job. Both of these were written in the loop, where they
             // reached nobody: the screen hands a command to the shell only when
@@ -224,6 +229,15 @@ public static class Reducer
             // clothing, which is the dangerous kind, because the demo works.
             Command.ApproveGate => state,
             Command.RejectGate => state,
+
+            // AND THE BOARD'S TWO ANSWERS, for that paragraph's reason with one
+            // more on top: opening a nomination starts an ADMISSION PASS, which
+            // composes the envelope again and may refuse. A reducer that ended
+            // the row here would be reporting an outcome nobody has computed
+            // yet - and the row would go back to standing on the next refresh,
+            // which is worse than never having moved.
+            Command.OpenNomination => state,
+            Command.DeclineNomination => state,
 
             // THE SHELL DOES IT, so the reducer does nothing - and it must do
             // nothing, because a local effect here would land whether or not

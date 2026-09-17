@@ -858,6 +858,25 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                case Command.OpenNomination:
+                case Command.DeclineNomination:
+                    // THE SAME SHAPE AS THE GATE ABOVE, and the same two
+                    // reasons: the reducer deliberately does not write, and a
+                    // board still showing a row somebody just answered is the
+                    // staleness rule 4 names.
+                    //
+                    // THE EDITOR IS OPENED FOR BOTH ANSWERS, which is where
+                    // this differs. A gate's approval is free and its rejection
+                    // costs a sentence; the board's door demands one either
+                    // way, and that is what makes this the only key on a row
+                    // here that cannot be given by accident.
+                    state = Reloaded(
+                        Answered(state, actions, editor,
+                                 open: outcome.Exit == Command.OpenNomination),
+                        reload,
+                        asked: false);
+                    break;
+
                 case Command.FlyByHand:
                     // THE SAME TERMINAL-RELEASE SHAPE as the takeover beside it,
                     // and for a longer stretch: a person holds the screen for as
@@ -1025,6 +1044,7 @@ public sealed class ConsoleLoop(
         : after.LastEstate != before.LastEstate ? after.LastEstate
         : after.LastInvite != before.LastInvite ? after.LastInvite
         : after.LastDecision != before.LastDecision ? after.LastDecision
+        : after.LastNomination != before.LastNomination ? after.LastNomination
         : after.LastTakeover != before.LastTakeover ? after.LastTakeover
         : after.LastHandBack != before.LastHandBack ? after.LastHandBack
         : after.LastHandFlight != before.LastHandFlight ? after.LastHandFlight
@@ -1158,6 +1178,58 @@ public sealed class ConsoleLoop(
         return state with
         {
             LastDecision = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason),
+        };
+    }
+
+    /// <summary>
+    /// Answers the nomination under the board's cursor, or says why nothing was
+    /// sent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The row is read again HERE rather than carried in the mode.</b> The
+    /// modal holds no id; what it is about is whatever the cursor is on, which
+    /// is the one fact that cannot have changed between the key and this - the
+    /// UI session is over and nothing has reloaded yet. Carrying it would be a
+    /// second answer to a question the rows already answer.
+    /// </para>
+    /// <para>
+    /// <b>AND IT IS REFUSED HERE AS WELL AS AT THE DOOR.</b> The verb rejects a
+    /// decision with no <c>because</c>; refusing it again in front of the
+    /// editor means a person who changed their mind by saving an empty buffer
+    /// has not opened a flight - which is the whole of this key's confirmation.
+    /// </para>
+    /// </remarks>
+    private static AppState Answered(
+        AppState state, IConsoleActions? actions, IEditorSession editor, bool open)
+    {
+        if (actions is null || Rows.StandingUnder(state) is not { } nomination)
+        {
+            return state with
+            {
+                LastNomination = actions is null
+                    ? "This console is not configured to answer nominations."
+                    : "Nothing under the cursor is waiting to be answered.",
+            };
+        }
+
+        var reason = editor.Edit("").Trim();
+
+        if (reason.Length == 0)
+        {
+            return state with
+            {
+                LastNomination = "Nothing was sent. A decision must say why - it is the only "
+                               + "thing that survives to tell a later reader why a person "
+                               + "opened work nobody had asked for, or declined work somebody "
+                               + "had.",
+            };
+        }
+
+        return state with
+        {
+            LastNomination = actions.AnswerNomination(
+                nomination.NominationId.ToString(), open, reason),
         };
     }
 

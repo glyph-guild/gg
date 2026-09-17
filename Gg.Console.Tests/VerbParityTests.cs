@@ -115,24 +115,26 @@ public class VerbParityTests
                       + "member, because an attestation carries no member name - so whatever "
                       + "draws it may say what a pool last reported and never what a "
                       + "container is doing.",
-            // THE BOARD'S TWO VERBS, and they now differ. The pane exists: the
-            // board tab draws every nomination beside the watches whose sweeps
-            // make them, from the same fetch the verb uses. What it does not
-            // have yet is the ANSWER - a key that opens or declines the row
-            // under the cursor - and that is a decision about manners rather
-            // than wiring: every other key on a row here acts with no
-            // confirmation because everything they do is reversible, and
-            // opening a nomination starts work.
+            // THE BOARD'S TWO VERBS, and both of them are now on the tab. The
+            // pane draws every nomination beside the watches whose sweeps make
+            // them, from the same fetch the verb uses, and enter answers the
+            // row under the cursor.
             //
-            // REMOVE THE SECOND LINE when the modal lands.
+            // THE SECOND LINE USED TO SAY "no key yet", and what it was waiting
+            // on was a decision about manners rather than wiring: every other
+            // key on a row here acts with no confirmation because everything
+            // they do is reversible, and opening a nomination starts work. The
+            // confirmation it arrived with is the one the door already
+            // demanded - a reason, for both answers - so the console asks for a
+            // sentence rather than inventing a second yes/no in front of it.
             ["Board"] = "reachable: the board tab, `;`, holds every nomination and the "
                       + "watches that make them - one table, because a watch finding an "
                       + "item and the item standing as a nomination are one story.",
-            ["BoardDecide"] = "reaches ConsoleData; no key yet. The pane is there and the "
-                            + "answer is not: opening a row starts work, and every other key "
-                            + "on a row in this console is reversible - so it arrives with a "
-                            + "confirmation the others do not have, and that confirmation is "
-                            + "the work.",
+            ["BoardDecide"] = "reachable: enter on a standing nomination opens the question, "
+                            + "`o` and `d` answer it, and both release the terminal to "
+                            + "$EDITOR for the reason the door requires. Not offered over a "
+                            + "watch or a row already ended - the first is machinery and the "
+                            + "second is a 409.",
             ["Watches"] = "reachable: it is the board tab's other half, drawn in the same "
                         + "table with a column saying which kind of row it is.",
             ["AllowanceFloor"] = "reachable: `o` on the runners pane offers a share to keep "

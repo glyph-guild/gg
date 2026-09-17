@@ -249,6 +249,19 @@ public readonly record struct KeymapContext(
     public bool GateAsksForAgentLogin { get; init; }
 
     /// <summary>
+    /// Whether the board's cursor is on a nomination that can still be
+    /// answered.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="AGateWaits"/>'s question, asked about the other
+    /// decision.</b> The board holds two kinds of row and one of them is
+    /// machinery: a watch has nothing on it for a person to answer, and a row
+    /// already ended is a 409 at the door. Derived with the rest, so the hint
+    /// line and the dispatch cannot disagree about whether the key is live.
+    /// </remarks>
+    public bool ANominationWaits { get; init; }
+
+    /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
     /// </summary>
@@ -367,6 +380,11 @@ public readonly record struct KeymapContext(
 
             AllowanceIsMine = Rows.Selected(state) is { Yours: true }
                               && AllowanceRows.SelectedName(state) is not null,
+
+            // AND WHETHER THE ROW UNDER THE BOARD'S CURSOR IS ONE SOMEBODY CAN
+            // ANSWER, for AGateWaits' reason one field up: two kinds of row
+            // share that table and only one of them is a decision.
+            ANominationWaits = Rows.StandingUnder(state) is not null,
 
             // WHAT THE REFRESH KEY HAS TO SAY, derived here with everything
             // else the hints are made of, so the line has one author.
@@ -713,6 +731,30 @@ public static class Keymap
             new(KeyStroke.Char('a'), Command.ApproveGate, "approve"),
             new(KeyStroke.Char('r'), Command.RejectGate, "reject"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
+        // THE OTHER DECISION, AND IT OWNS THE KEYBOARD THE SAME WAY. Both
+        // answers together, because declining has to be as reachable as
+        // opening - a console that made one of them the easy key would have an
+        // opinion about which answer somebody came to give.
+        //
+        // `o' AND `d', WHICH ARE THE CONTRACT'S OWN WORDS for the two endings a
+        // person may cause. Both are live in Normal mode and neither can be
+        // reached from here, which is what a modal owning the keyboard means -
+        // GateDecision's `a' and `r' are the same two letters in the same
+        // situation.
+        //
+        // NOT `y'/`n', although this is a confirmation. What confirms it is the
+        // sentence the door demands next, and a yes/no in front of that would
+        // be two confirmations where the second one is the one with something
+        // in it afterwards.
+        UiMode.NominationDecision =>
+        [
+            new(KeyStroke.Char('o'), Command.OpenNomination, "open it") { Label = "Open" },
+            new(KeyStroke.Char('d'), Command.DeclineNomination, "decline it")
+                { Label = "Decline" },
+            new(KeyStroke.Esc, Command.CloseModal, "leave it standing")
+                { Label = "Leave it" },
         ],
 
         // A CONFIRMATION IS A MODAL LIKE ANY OTHER: it captures the keyboard,
@@ -1410,7 +1452,7 @@ public static class Keymap
             // expression, because KeyBinding is a value type and "no binding
             // here" cannot be null - and a harmless placeholder would still be
             // the answer Resolve returns and the help page advertises.
-            .. Enter(context.Showing),
+            .. Enter(context),
             // BOUND AND NOT TAUGHT. See KeyBinding.Hidden: the arrows do this
             // through the list widget, so the hint line's slots go to keys a
             // person has no other way to find.
@@ -1903,8 +1945,24 @@ public static class Keymap
     /// so they have no enter. It used to be a fallback arm, which meant Live,
     /// Browse, Repositories and Allowances all offered "open this flight".
     /// </remarks>
-    private static KeyBinding[] Enter(TabId showing) => showing switch
+    private static KeyBinding[] Enter(KeymapContext context) => context.Showing switch
     {
+        // THE TAB THAT LISTS DECISIONS, so enter reaches the deciding - the
+        // queue's argument, over rows that are not flights.
+        //
+        // AND ONLY OVER A ROW THAT IS ONE. This tab holds two kinds: a
+        // nomination somebody can answer, and the watch that made it, which is
+        // machinery. A row already ended is a 409 at the door. The flag is
+        // derived from the same model the hint line reads, so the key is
+        // offered exactly where it does something.
+        TabId.Board => context.ANominationWaits
+            ?
+            [
+                new(KeyStroke.EnterKey, Command.AskToAnswerNomination, "answer this")
+                    { OffTheHintLine = true, When = "on a standing nomination" },
+            ]
+            : [],
+
         TabId.Runners =>
         [
             new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
@@ -2043,6 +2101,7 @@ public static class Keymap
         c => c with { AllowanceIsMine = true },
         c => c with { FleetAllowancesOffered = true },
         c => c with { GateAsksForAgentLogin = true },
+        c => c with { ANominationWaits = true },
     ];
 
     /// <summary>

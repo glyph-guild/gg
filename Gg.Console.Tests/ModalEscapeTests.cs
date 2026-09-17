@@ -276,6 +276,13 @@ public class ModalEscapeTests
         // own machine's allowance, so a fleet with no runners leaves
         // FloorChoice unreachable - not because no key opens it, but because
         // the walk never built the state where that key exists.
+        //
+        // AND WITH A STANDING NOMINATION ON THE BOARD, which is the same
+        // widening a third time. `enter` answers the row under the board's
+        // cursor and is not offered over a watch or over a row already ended -
+        // so a console whose board has loaded nothing could never reach that
+        // modal, and the walk would call it unreachable for the one reason this
+        // test is not about.
         var everywhere = Enum.GetValues<TabId>()
             .Select(tab => new AppState
             {
@@ -283,6 +290,26 @@ public class ModalEscapeTests
                 ActiveTab = tab,
                 PrincipalId = "me",
                 RunnerSelected = 0,
+                BoardSelected = 0,
+                Board = new Gg.Contracts.BoardPage
+                {
+                    IncludedEnded = true,
+                    Nominations =
+                    [
+                        new()
+                        {
+                            NominationId = new Guid("01a078bb-0000-7000-8000-00000000000c"),
+                            Nominator = "watch:nightly-triage",
+                            Subject = "work-item:https://tracker.example/acme/4242",
+                            Version = "7",
+                            WorkKind = "review",
+                            Mode = "gated",
+                            State = "standing",
+                            MadeAt = DateTimeOffset.UnixEpoch,
+                        },
+                    ],
+                },
+                Watches = new Gg.Contracts.WatchStandingList { Standings = [] },
                 Runners = new Gg.Contracts.RunnerList
                 {
                     Runners =

@@ -334,6 +334,31 @@ public class TheSignInModalReadsTests
                     },
                 ],
             },
+            // AND A STANDING NOMINATION UNDER THE BOARD'S CURSOR, which is two
+            // facts again: the board holds a row that has not ended, and the
+            // cursor is on it. A board whose only row is a watch, or whose one
+            // nomination has already been answered, leaves the flag false
+            // however the derivation is written.
+            Board = new Gg.Contracts.BoardPage
+            {
+                IncludedEnded = true,
+                Nominations =
+                [
+                    new()
+                    {
+                        NominationId = new Guid("019fe8b4-0000-7000-8000-00000000000b"),
+                        Nominator = "watch:nightly-triage",
+                        Subject = "work-item:https://tracker.example/acme/4242",
+                        Version = "7",
+                        WorkKind = "review",
+                        Mode = "gated",
+                        State = "standing",
+                        MadeAt = DateTimeOffset.UnixEpoch,
+                    },
+                ],
+            },
+            BoardSelected = 0,
+            Watches = new Gg.Contracts.WatchStandingList { Standings = [] },
             Flights = new Gg.Contracts.FlightList
             {
                 Flights =

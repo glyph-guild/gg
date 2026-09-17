@@ -108,6 +108,28 @@ public enum Command
     /// <summary>Answer it no, with a reason. Posts; decides nothing locally.</summary>
     RejectGate,
 
+    /// <summary>Ask what to do about the nomination under the board's cursor.</summary>
+    /// <remarks>
+    /// <b>The question, never one of its answers.</b> Called
+    /// <c>OpenNomination</c> this would be the name of the ask AND the name of
+    /// one of the two things it can produce, which is a command that means two
+    /// things depending on where it is read. <see cref="OpenGate"/> has the
+    /// same shape and the same reason.
+    /// </remarks>
+    AskToAnswerNomination,
+
+    /// <summary>Open the nominated work. Posts; decides nothing locally.</summary>
+    /// <remarks>
+    /// <b>The word the CONTRACT uses for this ending</b>, so the console is not
+    /// inventing a third vocabulary for a transition the board and the verb
+    /// already name. What the row becomes is an admission pass that may still
+    /// refuse.
+    /// </remarks>
+    OpenNomination,
+
+    /// <summary>Decline it, with a reason. Posts; decides nothing locally.</summary>
+    DeclineNomination,
+
     /// <summary>Re-read everything the boot read.</summary>
     /// <remarks>
     /// <b>A shell command, because a read is not a session's business.</b> Rule
@@ -1055,6 +1077,13 @@ public static class ShellCommands
         Command.FlyByHand,
         Command.ApproveGate,
         Command.RejectGate,
+
+        // THE BOARD'S TWO ANSWERS, and each of them is here twice over: it
+        // posts a decision, and it hands the terminal to $EDITOR first, because
+        // the door refuses an answer that says nothing. Either half alone would
+        // put it in this set.
+        Command.OpenNomination,
+        Command.DeclineNomination,
 
         // The three the parity guard used to exempt. Writes, so the shell does them.
         Command.OpenFlight,

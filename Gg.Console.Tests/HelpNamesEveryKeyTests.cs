@@ -112,6 +112,13 @@ public class HelpNamesEveryKeyTests
         // ratchet below and never crossed here is a binding the completeness
         // check cannot see. This one binds `s` in the gate modal.
         from gateAsksForAgentLogin in (bool[])[false, true]
+
+        // AND WHETHER THE BOARD'S CURSOR IS ON A ROW SOMEBODY CAN ANSWER, for
+        // the reason every clause above records, five times now. That tab holds
+        // nominations and the watches that make them, and enter is offered only
+        // over the first kind - so without this clause the key that answers a
+        // nomination is invisible to the completeness check.
+        from aNominationWaits in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
@@ -124,6 +131,7 @@ public class HelpNamesEveryKeyTests
             RunnerIsOurs = ours,
             RunnerIsBeating = flying,
             GateAsksForAgentLogin = gateAsksForAgentLogin,
+            ANominationWaits = aNominationWaits,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
             Refresh = refresh,
@@ -176,7 +184,9 @@ public class HelpNamesEveryKeyTests
         // intent names one and a reader here can read it.
         // EIGHTEEN SINCE THE QUEUE'S ENTER, whose modal offers two acts only
         // where there is a gate to act on.
-        await Assert.That(members.Count).IsEqualTo(19)
+        // TWENTY SINCE THE BOARD'S ANSWER KEY, which is offered over a standing
+        // nomination and not over the watch that made it.
+        await Assert.That(members.Count).IsEqualTo(20)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

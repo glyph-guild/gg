@@ -43,6 +43,10 @@ public static class Modals
         UiMode.ConfirmFlyAgain,
         UiMode.ConfirmApply,
         UiMode.GateDecision,
+
+        // THE OTHER DECISION, and the same shape: a title, what is being
+        // decided, and both answers as buttons.
+        UiMode.NominationDecision,
         UiMode.SignIn,
         UiMode.ReadingEnvelope,
         UiMode.ReadingChangeset,

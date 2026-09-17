@@ -149,6 +149,11 @@ public static class ProtocolSurface
          // prefix's reason - a runner-audience route nobody declared would be
          // an unaudited way for a runner to reach the control plane.
          "/v1/pools",
+         // The sweeps surface: what a runner pulls to sweep a watch, and what
+         // it saw. Governed for the pools prefix's reason, and for one of its
+         // own - a sweep's report is the input to what gets nominated, so an
+         // undeclared route under here could move that without an audit.
+         "/v1/watches",
          // What a control plane offers a fleet. An offer can change where code
          // is fetched from and where proposals are sent, so a route under this
          // prefix that nobody declared would be an unaudited way to repoint
@@ -1176,6 +1181,31 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE SWEEP'S PULL POINT, on the pool's shape and for its reason.
+            // Serving is the claim: a decided sweep appears in exactly one
+            // answer, so two runners polling one watch run one sweep. Nothing
+            // decided is an empty list, never a 404.
+            Method = "GET",
+            Path = "/v1/watches/{name}/actions",
+            Audience = Audience.Runner,
+            Response = typeof(WatchActionList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            // WHAT THE SWEEP SAW. 202 because the write is a command, and 400
+            // is `WatchAttestation.Validate` - the same rule the runner checked
+            // before sending, so the two sides cannot disagree about a report.
+            Method = "POST",
+            Path = "/v1/watches/{name}/attestations",
+            Audience = Audience.Runner,
+            Request = typeof(WatchAttestation),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             // THE ATTESTATION. 202 because the write is a command; the row it
             // becomes is a query resource. 400 is the contract's own Validate
             // refusal - both sides fail closed on their own format.
@@ -1795,6 +1825,18 @@ public static class ProtocolSurface
             [typeof(PoolAction)] =
                 ["actionId", "pool", "action", "image", "strategyVersion", "decidedAt"],
             [typeof(PoolActionList)] = ["actions"],
+            // The sweeps surface. The action carries the skill's words one way,
+            // with the commit and digest that are all the control plane keeps;
+            // the report carries identities and versions only.
+            [typeof(WatchSkill)] = ["path", "commit", "sha", "content"],
+            [typeof(WatchAction)] =
+                ["actionId", "watch", "watchVersion", "document", "executor", "skill",
+                 "diagnosis", "decidedAt"],
+            [typeof(WatchActionList)] = ["actions"],
+            [typeof(WatchSighting)] = ["subject", "version", "intentKey"],
+            [typeof(WatchAttestation)] =
+                ["attestationId", "watch", "actionId", "outcome", "saw", "measuredAt",
+                 "diagnosis"],
             [typeof(PoolStatus)] =
                 ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",
                  "diagnosis"],

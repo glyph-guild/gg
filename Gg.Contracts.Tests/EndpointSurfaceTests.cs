@@ -395,8 +395,24 @@ public class EndpointSurfaceTests
         // THE WIRE SURFACE MOVES TOO - the request is a new type, and so is the
         // gate's maintenance member - so the contract version moves to 0.172.0
         // with a ledger entry and this fingerprint moves with it.
+        // Moved for slice thirty-nine: the watch door. PUT and two GETs under
+        // /v1/airspace/watches, on the strategy door's shape one document class
+        // over - the same per-name stream, the same EnvelopeApplied answer,
+        // Developer all three because a runner performs a sweep and never
+        // authors the watch that governs it.
+        //
+        // WHY NOW: `EnvelopeStream.ApplyWatchAsync` had already landed with no
+        // route in front of it, which is a port nothing calls.
+        //
+        // AND PUT DECLARES 202, which is a promise rather than a description.
+        // A widening watch is diverted to the gate, so the control plane that
+        // pins this must serve the diversion and the re-apply after it - the
+        // return path good-grief #445 found missing and recorded.
+        //
+        // The contract version moves too, to 0.179.0: the two response types
+        // are new.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7e579cfa7a0a62b9be5153acd277d67236ee39f8249056c2191bc2e1806ee857")
+            .IsEqualTo("7a038c9d867d5f4e3df81c3591c0a434154b138573cda5a6250dba184c4c629f")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -333,3 +333,36 @@ public sealed record WatchDocument
             : null;
     }
 }
+
+/// <summary>A watch in force: the document, and which version of it.</summary>
+/// <remarks>
+/// <b><c>EnvironmentStrategyState</c>'s shape with one member renamed</b>, so a
+/// reader that holds one already knows how to hold the other. The version is
+/// what a <c>based-on</c> precondition names, which is the reason a watch rides
+/// the envelope stream rather than a table of its own.
+/// </remarks>
+[PinnedId("9e2b7d41-6c08-4f35-a1d9-3b54e87f0c62")]
+public sealed record WatchState
+{
+    /// <summary>The topology name the watch was applied to.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The per-name version in force, e.g. v2.</summary>
+    public required string Version { get; init; }
+
+    public required DateTimeOffset AppliedAt { get; init; }
+
+    public required WatchDocument Watch { get; init; }
+}
+
+/// <summary>Every watch in force for the tenant.</summary>
+/// <remarks>
+/// An envelope rather than a bare array, for the reason <c>StrategyList</c> is
+/// one: a bare array has nowhere to put the paging this will grow. Empty is a
+/// tenant watching nothing, which is a state and not an error.
+/// </remarks>
+[PinnedId("4f71a8c3-2e59-4d06-b8a7-c10d95e36b24")]
+public sealed record WatchList
+{
+    public required IReadOnlyList<WatchState> Watches { get; init; }
+}

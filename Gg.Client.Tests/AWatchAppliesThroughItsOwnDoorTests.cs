@@ -190,6 +190,40 @@ public class AWatchAppliesThroughItsOwnDoorTests
     }
 
     [Test]
+    public async Task The_documents_listing_names_a_watch_and_never_claims_nothing_is_applied()
+    {
+        // THE LISTING NAMED DOCUMENTS AND STRATEGIES AND STOPPED. A tenant whose
+        // only applied document is a watch was told "nothing has been applied to
+        // any name in this airspace" - which is false, and is the sentence that
+        // sends somebody to apply a watch that is already in force.
+        var estate = new AirspaceEstate
+        {
+            Documents = [],
+            Strategies = [],
+            Watches =
+            [
+                new WatchState
+                {
+                    Name = "nightly-triage",
+                    Version = "nightly-triage@v3",
+                    AppliedAt = DateTimeOffset.UnixEpoch,
+                    Watch = AnAirspaceTreeOnDisk.Watch(),
+                },
+            ],
+        };
+
+        var text = VerbOutput.ToText(new VerbResult.AirspaceDocuments(estate));
+
+        await Assert.That(text).DoesNotContain("nothing has been applied")
+            .Because("a watch is applied. Saying otherwise is the claim that sends somebody to "
+                   + "apply it again.");
+
+        await Assert.That(text).Contains("nightly-triage");
+        await Assert.That(text).Contains(Roles.Watch);
+        await Assert.That(text).Contains("nightly-triage@v3");
+    }
+
+    [Test]
     public async Task A_watch_is_ordered_by_its_own_comparator_rather_than_assumed()
     {
         // BETTER THAN A STRATEGY GETS, and the difference is deliberate. gg has

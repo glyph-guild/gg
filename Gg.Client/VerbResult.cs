@@ -3084,6 +3084,16 @@ public static class VerbOutput
                 $"{Clean(strategy.Name),-24}{"strategy",-12}{Clean(strategy.Version)}\n");
         }
 
+        // AND A WATCH, OR THE EMPTY-LISTING SENTENCE BELOW LIES. A tenant whose
+        // only applied document is a watch was told nothing had been applied to
+        // any name - the claim that sends somebody to apply a watch already in
+        // force.
+        foreach (var watch in estate.Watches)
+        {
+            text.Append(
+                $"{Clean(watch.Name),-24}{Roles.Watch,-12}{Clean(watch.Version)}\n");
+        }
+
         return text.Length == 0
             ? "nothing has been applied to any name in this airspace\n"
             : text.ToString();

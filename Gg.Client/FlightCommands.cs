@@ -1266,9 +1266,16 @@ public sealed class FlightCommands(
 
             try
             {
+                // THE WATCH DOOR BEFORE THE FALL-THROUGH. The fall-through is
+                // the envelope door, and a watch sent there arrives as the
+                // empty body the comment above describes - the strategy's
+                // defect, one document class later.
                 answer = document.Strategy is { } strategy
                     ? await _client.ApplyStrategyAsync(
                         Session(), document.Name, strategy, cancellationToken)
+                    : document.Watch is { } watch
+                    ? await _client.ApplyWatchAsync(
+                        Session(), document.Name, watch, cancellationToken)
                     : await _client.ApplyNamedAsync(
                         Session(), document.Name, Body(document), document.BasedOn,
                         cancellationToken);
@@ -1428,6 +1435,27 @@ public sealed class FlightCommands(
                  + "tighten here. The control plane compares it and will apply it directly "
                  + "if it does - so this orders last and may land without a gate.")
                 : (Changeset.Tightening, null, null);
+        }
+
+        // A WATCH IS ORDERED BY ITS OWN COMPARATOR - better than a strategy
+        // gets, deliberately. gg holds no strategy comparator and says so
+        // above; it holds `WatchDirection`, so a watch whose filter changed is
+        // KNOWN to widen and one whose period lengthened is known to tighten.
+        if (document.Watch is { } proposedWatch)
+        {
+            var heldWatch = estate.Watches.FirstOrDefault(
+                w => string.Equals(w.Name, document.Name, StringComparison.Ordinal));
+
+            if (heldWatch is null)
+            {
+                return (Changeset.Tightening, null, null);
+            }
+
+            var widens = WatchDirection.Widening(heldWatch.Watch, proposedWatch);
+
+            return widens is null
+                ? (Changeset.Tightening, null, null)
+                : (Changeset.Widening, widens.Field, widens.Because);
         }
 
         var held = estate.Documents.FirstOrDefault(

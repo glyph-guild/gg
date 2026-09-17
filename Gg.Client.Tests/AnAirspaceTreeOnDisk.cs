@@ -50,6 +50,52 @@ public static class AnAirspaceTreeOnDisk
         return root;
     }
 
+    /// <summary>A tree holding one watch, and nothing else.</summary>
+    /// <remarks>
+    /// <b>Rendered by the real renderer rather than written as a literal</b>, so
+    /// the fixture is what `gg airspace pull` would write and cannot drift from
+    /// it - the strategy fixture above is a literal because it predates the
+    /// round trip that makes this possible.
+    /// </remarks>
+    public static DirectoryInfo WithAWatch(string name = "nightly-triage")
+    {
+        var root = Directory.CreateTempSubdirectory("gg-tree-");
+
+        Directory.CreateDirectory(Path.Combine(root.FullName, "airspace", "watches"));
+
+        File.WriteAllText(
+            Path.Combine(root.FullName, "airspace", "watches", $"{name}.yaml"),
+            Gg.Contracts.EnvelopeText.Render(Watch()));
+
+        return root;
+    }
+
+    /// <summary>A whole watch, as a model.</summary>
+    public static Gg.Contracts.WatchDocument Watch() => new()
+    {
+        Shape = Gg.Contracts.WatchShapes.WorkItems,
+        Trigger = new Gg.Contracts.WatchTrigger { Every = "1h" },
+        Host = "tracker.example",
+        Credential = "op://vault/tracker/token",
+        Filter = "SELECT [System.Id] FROM WorkItems WHERE [System.Tags] CONTAINS 'needs-review'",
+        Skill = ".goodgrief/skills/triage.md",
+        Ref = "refs/heads/main",
+        Mapping = new Gg.Contracts.WatchMapping
+        {
+            Subject = "id",
+            Version = "rev",
+            IntentKey = "url",
+        },
+        PullPoint = Gg.Contracts.PullPoints.ResidentRunner,
+        Nominates = new Gg.Contracts.Destination
+        {
+            Id = "what-a-sweep-opens",
+            Kind = Gg.Contracts.DestinationKinds.Flight,
+            Requires = [],
+            Opens = ["review"],
+        },
+    };
+
     /// <summary>
     /// A work kind, whole, from a real tree the diff read successfully.
     /// </summary>

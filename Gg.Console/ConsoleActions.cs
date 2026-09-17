@@ -41,6 +41,33 @@ public interface IConsoleActions
     string Decide(string flight, string obligation, bool approved, string? reason);
 
     /// <summary>
+    /// Answers a standing nomination, and says what was sent.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="Decide"/> rather than sharing it.</b> They read
+    /// alike - a subject, an answer and a reason - and they are two different
+    /// transitions through two different doors: a gate says whether work
+    /// already flying may continue, and this says whether work nobody asked for
+    /// should start at all.
+    /// </remarks>
+    /// <param name="nomination">
+    /// The row's own id, never its subject. Two nominations can name one work
+    /// item - a second sweep after the first was declined - and only one of
+    /// them is under the cursor.
+    /// </param>
+    /// <param name="open">
+    /// What the PERSON answered. What the row becomes is an admission pass that
+    /// may still refuse, and it arrives on the next load.
+    /// </param>
+    /// <param name="reason">
+    /// Required for BOTH answers, which is where this differs from a gate. The
+    /// door refuses a decision that says nothing, and the loop refuses one here
+    /// too - so somebody who changed their mind by saving an empty buffer has
+    /// not opened a flight by accident.
+    /// </param>
+    string AnswerNomination(string nomination, bool open, string reason);
+
+    /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
     /// happened.
     /// </summary>

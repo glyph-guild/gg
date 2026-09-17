@@ -193,6 +193,27 @@ public enum UiMode
     GateDecision,
 
     /// <summary>
+    /// Answering a nomination: what was found, what a flight for it would be
+    /// for, and both answers.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="GateDecision"/>'s shape over the other decision this
+    /// platform asks a person for</b>, and for its reasons: what is being
+    /// decided has to be stated, and both answers have to be offered together
+    /// or the console has an opinion about which one somebody came to give.
+    /// </para>
+    /// <para>
+    /// <b>A mode rather than an item on an actions menu, because of what
+    /// follows it.</b> Both answers release the terminal to <c>$EDITOR</c> -
+    /// the door refuses a decision that says nothing - so this is the last
+    /// screen a person sees before the console goes away, and it is the only
+    /// place the subject can still be named.
+    /// </para>
+    /// </remarks>
+    NominationDecision,
+
+    /// <summary>
     /// Nobody is signed in on this machine, and what to do about it.
     /// </summary>
     /// <remarks>
@@ -1916,6 +1937,16 @@ public sealed record AppState
     /// on the next load.
     /// </remarks>
     public string? LastDecision { get; init; }
+
+    /// <summary>What came of the last nomination this console answered.</summary>
+    /// <remarks>
+    /// Its own field rather than sharing <see cref="LastDecision"/>, for
+    /// <c>Said</c>'s reason and for one more: a gate and a nomination are two
+    /// different transitions through two different doors, and a person who
+    /// answered one while the other's sentence was still on the line would be
+    /// reading about the wrong thing.
+    /// </remarks>
+    public string? LastNomination { get; init; }
 
     /// <summary>What came of the last flight this console opened.</summary>
     public string? LastFlightOpened { get; init; }

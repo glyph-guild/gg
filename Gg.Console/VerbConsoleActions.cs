@@ -107,6 +107,52 @@ public sealed class VerbConsoleActions(
         }
     }
 
+    /// <summary>Posts the answer to a nomination, and says what was sent.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Through the same verb <c>gg board open</c> uses</b>, for
+    /// <see cref="Decide"/>'s reason one method up: two paths to one state
+    /// transition is how a console's view and the control plane's record drift
+    /// apart, and nothing would say which was right.
+    /// </para>
+    /// <para>
+    /// <b>What comes back is not interpreted.</b> `open' starts an admission
+    /// pass that composes the envelope again and may refuse - so this says what
+    /// was SENT, and what the row became arrives on the next load. A console
+    /// that reported the outcome it hoped for would be deciding.
+    /// </para>
+    /// </remarks>
+    public string AnswerNomination(string nomination, bool open, string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nomination);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        // THE CONTRACT'S OWN WORDS FOR THE TWO ENDINGS A PERSON MAY CAUSE, and
+        // the verb refuses any other - the board, the world, the clock and the
+        // rules own the rest.
+        var outcome = open ? NominationEndings.Opened : NominationEndings.Declined;
+
+        if (!Guid.TryParse(nomination, out var id))
+        {
+            // THE ROW CARRIES A STRING AND THE DOOR TAKES A GUID, so somebody
+            // has to say what an unparseable one means. It cannot happen from a
+            // row this console drew, which is exactly why it is worth a
+            // sentence rather than an exception nobody sees.
+            return $"'{nomination}' is not a nomination this console can answer.";
+        }
+
+        try
+        {
+            _ = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
+
+            return $"Answered {outcome}. What it became is on the board when this refreshes.";
+        }
+        catch (Exception refusal) when (Expected(refusal))
+        {
+            return $"Nothing was answered — {refusal.Message}";
+        }
+    }
+
     /// <summary>Opens a flight, and says what came back.</summary>
     /// <remarks>
     /// The number is not here. `gg fly` answers 202 - the flight is materialized

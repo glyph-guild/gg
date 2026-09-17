@@ -87,4 +87,9 @@ internal sealed class AuthenticatingProvider(LocalVcsAdapter inner) : IVcsAdapte
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
         CancellationToken cancellationToken = default) =>
         inner.FetchAlsoAsync(target, resolvedRef, intoDirectory, secret: null, cancellationToken);
+
+    public Task<RepositoryFile?> ReadFileAsync(
+        RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
+        CancellationToken cancellationToken = default) =>
+        inner.ReadFileAsync(target, commit, path, scratchDirectory, secret: null, cancellationToken);
 }

@@ -634,6 +634,106 @@ public static class TranscriptDigest
         return null;
     }
 
+    /// <summary>How one tool's calls went: how many came back, and how many were refused.</summary>
+    /// <param name="Answered">Calls that came back without an error.</param>
+    /// <param name="Refused">Calls the tool answered with an error.</param>
+    public readonly record struct ToolCalls(int Answered, int Refused);
+
+    /// <summary>
+    /// What happened when the agent called one tool by name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because "it nominated nothing" has two causes and they are not the
+    /// same answer.</b> An agent that read its tracker and found nothing worth a
+    /// flight has swept; an agent whose every read was refused - an expired
+    /// credential, a tracker serving a sign-in page - has established nothing,
+    /// and reporting that as swept would tell the board an unread backlog was
+    /// empty. Rule 11: the board must never look quiet when it is blind.
+    /// </para>
+    /// <para>
+    /// <b>Counts, and never the tool's words.</b> A refused read can quote what
+    /// came back, and what came back is a customer's tracker. The caller's
+    /// diagnosis crosses to the control plane; the text stays in the transcript
+    /// on this machine, where the operator can read it.
+    /// </para>
+    /// </remarks>
+    public static ToolCalls CallsTo(string transcript, string tool)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tool);
+
+        var asked = new HashSet<string>(StringComparer.Ordinal);
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+        var refused = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use"
+                            when Named(block) is { } name
+                              && string.Equals(name, tool, StringComparison.Ordinal)
+                              && block.TryGetProperty("id", out var id)
+                              && id.GetString() is { Length: > 0 } callId:
+                            asked.Add(callId);
+                            break;
+
+                        // THE CALL'S OWN ID DECIDES WHICH TOOL THIS IS. A
+                        // result carries no name, so counting results by
+                        // position would count another server's answers as
+                        // this one's.
+                        case "tool_result"
+                            when block.TryGetProperty("tool_use_id", out var answeredId)
+                              && answeredId.GetString() is { Length: > 0 } of
+                              && asked.Contains(of):
+                            (block.TryGetProperty("is_error", out var flag)
+                             && flag.ValueKind == JsonValueKind.True
+                                ? refused
+                                : answered).Add(of);
+                            break;
+                    }
+                }
+            }
+        }
+
+        return new ToolCalls(answered.Count, refused.Count);
+    }
+
     /// <summary>
     /// Every nomination a sweep's executor made through gg and had answered, in
     /// the order it made them.

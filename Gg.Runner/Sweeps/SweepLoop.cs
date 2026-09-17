@@ -70,18 +70,131 @@ public interface ISweepExecutor
 /// </para>
 /// </remarks>
 /// <param name="transcripts">Where executors' transcripts go, normally <c>LocalPaths.Transcripts()</c>.</param>
+/// <param name="delay">How this loop waits. Injected, so a test's waiting is a test's.</param>
+/// <param name="narrate">
+/// Where this loop says what happened, or null for a caller that is not
+/// watching. <c>MaintainLoop</c>'s scar: <i>"this loop reported NOTHING for its
+/// whole life, so hours of crash-looping looked identical to hours of quietly
+/// working."</i>
+/// </param>
 public sealed class SweepLoop(
     ISweepProtocol protocol,
     SkillReader skills,
     ISweepExecutor executor,
     IClock clock,
-    string transcripts)
+    string transcripts,
+    Func<TimeSpan, CancellationToken, Task>? delay = null,
+    Action<string>? narrate = null)
 {
     private readonly ISweepProtocol _protocol = protocol;
     private readonly SkillReader _skills = skills;
     private readonly ISweepExecutor _executor = executor;
     private readonly IClock _clock = clock;
     private readonly string _transcripts = transcripts;
+    private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? Task.Delay;
+    private readonly Action<string> _narrate = narrate ?? (_ => { });
+
+    /// <summary>How long to wait before asking again. Zero while things are well.</summary>
+    private TimeSpan _backoff = TimeSpan.Zero;
+
+    /// <summary>How this machine's credential ended, once a 401 says one has.</summary>
+    private CredentialEnding? _endedCredential;
+
+    /// <summary>
+    /// How long between asks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Slower than a pool's, because a sweep is not an event.</b> A watch
+    /// triggers on its own period and the control plane decides one row per
+    /// tick, so asking every few seconds would be a poll that finds nothing
+    /// hundreds of times between sweeps. Half a minute keeps a sweep inside the
+    /// bounded latch a watch's period allows without making the wait itself the
+    /// thing that delays one.
+    /// </remarks>
+    public static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Pulls, sweeps and attests until cancelled. 0 is a session that ended.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>MaintainLoop</c>'s three arms, and its three scars.</b> A
+    /// transient failure waits and asks again - a deploy, a restart and a cold
+    /// start all pass, and that loop died on one and was restarted into the
+    /// same wall six times. A refusal waits too: a 400 may be a clock a
+    /// fraction out, and when it is permanent a live loop saying so every cycle
+    /// is more findable than a crash loop something keeps restarting. A 401
+    /// stops, because no amount of waiting fixes this machine's credential.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is attested on the way out.</b> An attestation travels on the
+    /// credential that was just refused, so the ledger is not somewhere this
+    /// one can be said. The journal is.
+    /// </para>
+    /// </remarks>
+    public async Task<int> RunAsync(string watch, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(watch);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var swept = await PassAsync(watch, cancellationToken);
+
+                if (swept > 0)
+                {
+                    _narrate($"Swept {swept} for '{watch}' and reported every one.");
+                }
+
+                // A SERVED CYCLE CLEARS IT, so an hour of health does not
+                // inherit a bad minute's wait.
+                _backoff = TimeSpan.Zero;
+            }
+            catch (InvalidOperationException refused)
+            {
+                // THE CONTROL PLANE REFUSED SOMETHING, which is not a reason to
+                // stop sweeping: a sweep handed to another runner, a clock a
+                // fraction out, a report the contract read differently. The
+                // diagnosis is carried whole because it is the only thing
+                // anybody can act on.
+                _backoff = TransientFailure.Next(_backoff);
+                _narrate($"{refused.Message} Asking again in {_backoff.TotalSeconds:0}s.");
+            }
+            catch (HttpRequestException refused)
+                when (refused.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                // THE ONE REFUSAL THAT IS NOT WORTH WAITING FOR. Above the
+                // transient arm, because a 401 is this machine's credential and
+                // no deploy finishes and heals it.
+                _endedCredential = CredentialEnding.For(
+                    expiresAt: null, _clock.UtcNow, refused);
+
+                _narrate(_endedCredential.Said);
+                break;
+            }
+            catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
+            {
+                _backoff = TransientFailure.Next(_backoff);
+                _narrate(TransientFailure.Diagnose(refusal, _backoff));
+            }
+
+            try
+            {
+                await _delay(
+                    _backoff == TimeSpan.Zero ? PollEvery : _backoff, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+
+        // Cancellation is still a session that ended; a credential that was
+        // taken away is not, and the code says which without anybody parsing
+        // the sentence.
+        return _endedCredential?.Exit ?? 0;
+    }
 
     /// <summary>
     /// One pass: pull, sweep and attest each sweep this runner was handed.

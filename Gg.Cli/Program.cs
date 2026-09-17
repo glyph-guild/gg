@@ -53,6 +53,7 @@ return CliArgs.Parse(args) switch
     CliAction.RunnerRead read => await RunnerReadAsync(read),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
+    CliAction.RunnerSweep sweeping => await RunnerSweepAsync(sweeping.Watch),
 
     // BEFORE THE ORDINARY ARM, because a pattern that matched both would take
     // whichever came first - and it was the ordinary one, which is how
@@ -3122,6 +3123,122 @@ static async Task<int> RunnerMaintainAsync(string pool)
         });
 
     return await loop.RunAsync(pool, stopping.Token);
+}
+
+/// <summary>
+/// `gg runner sweep &lt;watch&gt;`. Pull this watch's decided sweeps, run each,
+/// attest every one.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It mints no flight and takes no lease</b>, which is the whole reason the
+/// routine tier costs zero flights per tick. What arrives is a decided row
+/// carrying the watch in force, its moves and a pinned commit; what leaves is
+/// an attestation.
+/// </para>
+/// <para>
+/// <b>This verb registers nothing.</b> Registering a runner is a person's act,
+/// and a sweeping role that minted its own identity would put a second row in
+/// `gg runners` per machine for work the resident already has a credential for.
+/// So it reads the credential `gg runner up` stored and refuses when there is
+/// none - naming the one command that fixes it.
+/// </para>
+/// <para>
+/// <b>Every value is read once, here, and handed down.</b> Which trackers this
+/// machine reads, where its skills' repositories are, which agent it has and
+/// where credentials live: all of it through <c>Settings</c>, so a line in the
+/// configuration file reaches a sweep as surely as a variable does.
+/// </para>
+/// </remarks>
+static async Task<int> RunnerSweepAsync(string watch)
+{
+    var inForce = InForce.Configuration;
+
+    // THE RESIDENT'S OWN CREDENTIAL, read and never minted. A sweep is served
+    // to a runner id, so this role sweeps as the machine it runs on.
+    var store = new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName));
+    if (store.Usable(DateTimeOffset.UtcNow) is not { } identity)
+    {
+        return Fail(
+            "this machine holds no usable runner credential, so there is nothing to sweep "
+          + "with. Registering a runner is a person's action: run `gg runner up` once on this "
+          + "host - it reads or registers - and start this again.");
+    }
+
+    // WHICH AGENT THIS MACHINE HAS, and none is a refusal rather than a loop
+    // that pulls sweeps forever and reports every one unreachable.
+    var agent = Gg.Runner.Execution.ExecutorConfiguration.ForSweeps(
+        secretFor: locator => new FileCredentialStore().Read(locator),
+        declaration: Settings.Value(
+            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, inForce));
+
+    if (agent is null)
+    {
+        return Fail(
+            "this machine declares no executor, and a sweep is an agent reading a backlog. Set "
+          + $"{Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable} on this host.");
+    }
+
+    using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+    using var stopping = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
+
+    var loop = new Gg.Runner.Sweeps.SweepLoop(
+        new Gg.Runner.RunnerProtocolClient(http, identity.RunnerToken),
+
+        // THE SKILL IS READ HERE, AT THE PIN THE CONTROL PLANE DECIDED. The
+        // control plane reads no repository bytes - providers.md - so the
+        // words a sweep follows are fetched by this machine, with this
+        // machine's credential, and cached by commit because a commit's bytes
+        // never change.
+        new Gg.Runner.Sweeps.SkillReader(
+            Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, inForce)),
+            Gg.Local.LocalPaths.Skills(),
+            secretFor: target => Task.FromResult(SkillCredential(target))),
+
+        new Gg.Runner.Sweeps.AgentSweepExecutor(
+            agent,
+            // THE PAIRS THIS OPERATOR DECLARED. A watch names a host and a
+            // credential and both arrive over the wire; the launcher will only
+            // present a credential where this machine already presents it.
+            Gg.Local.IntentConfiguration.ServedTrackers(
+                Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)),
+            Gg.Local.SelfInvocation.Current,
+            Gg.Local.LocalPaths.Sweeps()),
+
+        new Gg.Runner.SystemClock(),
+        transcripts: Gg.Local.LocalPaths.Transcripts(),
+
+        // NARRATED, because nobody is at a sweeping runner. MaintainLoop's own
+        // scar: a pull point that crash-looped for hours looked exactly like
+        // one quietly doing its job.
+        narrate: Console.Error.WriteLine);
+
+    return await loop.RunAsync(watch, stopping.Token);
+}
+
+/// <summary>
+/// The credential this machine reads a skill's repository with, or null.
+/// </summary>
+/// <remarks>
+/// <b>The same locator a flight's clone of that repository uses</b>, because it
+/// is the same repository and the same read. A slug this derivation refuses -
+/// one under the namespace reserved for agents' own tokens - resolves to
+/// nothing rather than throwing: the read then fails at the forge with a
+/// diagnosis about a repository, which is what the sweep is actually about.
+/// </remarks>
+static string? SkillCredential(Gg.Runner.Vcs.RepoTarget target)
+{
+    try
+    {
+        return new FileCredentialStore().Read(
+            Gg.Contracts.CredentialLocator.ForRepo(target.Slug));
+    }
+    catch (ArgumentException)
+    {
+        return null;
+    }
 }
 
 static int Fail(string message)

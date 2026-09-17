@@ -63,6 +63,21 @@ public static class LocalPaths
         Path.Combine(StateRoot(stateHome), "skills");
 
     /// <summary>
+    /// Where a sweep's agent starts: one empty directory per sweep, deleted
+    /// when it ends.
+    /// </summary>
+    /// <remarks>
+    /// <b>A sweep materializes nothing, and still needs somewhere to be.</b> An
+    /// agent started in the runner's own working directory would be an agent
+    /// standing in whatever that machine happens to hold, with
+    /// <c>--setting-sources project</c> reading a repository nobody chose. So a
+    /// sweep gets a directory with nothing in it, which is also the cheapest
+    /// way to make "it changed nothing" checkable.
+    /// </remarks>
+    public static string Sweeps(string? stateHome = null) =>
+        Path.Combine(StateRoot(stateHome), "sweeps");
+
+    /// <summary>
     /// What an agent is doing. Deletable, and swept.
     /// </summary>
     /// <remarks>

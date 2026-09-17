@@ -31,6 +31,30 @@ public readonly record struct IntentReader(
     string? Locator = null);
 
 /// <summary>
+/// One tracker this binary reads for itself: the key, where it is, and which
+/// credential this machine's operator paired with it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The pair is the point.</b> A flight's reader only ever needs the host and
+/// the locator together, so joining them at the launch was enough. A sweep
+/// arrives with a host and a credential that a document names - both of them
+/// from outside this machine - and a runner that joined THOSE would send a
+/// customer's secret wherever the document pointed. So the declared pairing is
+/// a value something can be checked against.
+/// </para>
+/// <para>
+/// <b>A locator names a credential and is not one</b>, which is why this may be
+/// passed around, logged and compared. Only this machine's store can turn it
+/// into a secret.
+/// </para>
+/// </remarks>
+/// <param name="Key">The provider key, which is also the tool-name prefix an agent sees.</param>
+/// <param name="Host">The tracker root, as the operator wrote it.</param>
+/// <param name="Locator">The credential to resolve, or null for a tracker needing none.</param>
+public readonly record struct ServedTracker(string Key, string Host, string? Locator);
+
+/// <summary>
 /// Which trackers this runner can resolve a work item in.
 /// </summary>
 /// <remarks>
@@ -188,8 +212,63 @@ public static class IntentConfiguration
     private static List<IntentReader> ServedByThisBinary(
         string? served, SelfInvocation? self, List<IntentReader> declared)
     {
-        var raw = served ?? Environment.GetEnvironmentVariable(ServedVariable) ?? "";
         var readers = new List<IntentReader>();
+
+        foreach (var tracker in ServedTrackers(served))
+        {
+            // A KEY CANNOT BE BOTH, and no default settles which wins. An
+            // operator who edited the variable they had in mind and saw no
+            // change at all is the worst way for a precedence rule to announce
+            // itself, so it is refused where both are written.
+            if (declared.Any(r => string.Equals(r.Key, tracker.Key, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    $"'{tracker.Key}' is declared in both {ReadersVariable} and "
+                  + $"{ServedVariable}. One names a process to launch and the other a tracker "
+                  + "this binary reads itself; a key can be one or the other. Remove it from "
+                  + "whichever is stale.");
+            }
+
+            // NAMED AND UNRESOLVABLE IS NOT THIS METHOD'S CALL. The child
+            // resolves the locator, and a store that cannot answer produces a
+            // 401 the agent is told about - which beats a runner that refused
+            // to start over a credential no flight was going to need.
+            var invocation = self ?? SelfInvocation.Current
+                ?? throw new InvalidOperationException(
+                    $"'{tracker.Key}' in {ServedVariable} asks this binary to serve a reader, "
+                  + "and this process cannot name how to start itself again. Declare the "
+                  + $"tracker as a command in {ReadersVariable} instead, or run gg as an "
+                  + "executable rather than through a host that hides its own path.");
+
+            readers.Add(Served(tracker.Key, tracker.Host, tracker.Locator, invocation));
+        }
+
+        return readers;
+    }
+
+    /// <summary>
+    /// The trackers this machine's operator declared, as the three parts each
+    /// line has.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Parsed once and read twice.</b> A flight's reader is built from these
+    /// here; a sweep needs the same triples for a different reason - it has to
+    /// check that the host and credential a watch names are a pair this machine
+    /// already declared - and a second parser for the same line would be a
+    /// second answer to what an operator wrote.
+    /// </para>
+    /// <para>
+    /// <b>The locator is a name and never a secret</b>, which is what makes
+    /// handing these around safe: it says where a credential is, and only this
+    /// machine's store can turn it into one.
+    /// </para>
+    /// </remarks>
+    /// <param name="served">The declaration, or null to read the environment.</param>
+    public static IReadOnlyList<ServedTracker> ServedTrackers(string? served = null)
+    {
+        var raw = served ?? Environment.GetEnvironmentVariable(ServedVariable) ?? "";
+        var trackers = new List<ServedTracker>();
 
         foreach (var entry in raw.Split(
             ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -206,18 +285,6 @@ public static class IntentConfiguration
             var key = entry[..split].Trim();
             var rest = entry[(split + 1)..].Trim();
 
-            // A KEY CANNOT BE BOTH, and no default settles which wins. An
-            // operator who edited the variable they had in mind and saw no
-            // change at all is the worst way for a precedence rule to announce
-            // itself, so it is refused where both are written.
-            if (declared.Any(r => string.Equals(r.Key, key, StringComparison.Ordinal)))
-            {
-                throw new InvalidOperationException(
-                    $"'{key}' is declared in both {ReadersVariable} and {ServedVariable}. One "
-                  + "names a process to launch and the other a tracker this binary reads "
-                  + "itself; a key can be one or the other. Remove it from whichever is stale.");
-            }
-
             var bar = rest.IndexOf('|');
             var host = (bar < 0 ? rest : rest[..bar]).Trim();
             var locator = bar < 0 ? null : rest[(bar + 1)..].Trim();
@@ -230,21 +297,11 @@ public static class IntentConfiguration
                   + "worse than not declaring it: name the tracker root, or remove the entry.");
             }
 
-            // NAMED AND UNRESOLVABLE IS NOT THIS METHOD'S CALL. The child
-            // resolves the locator, and a store that cannot answer produces a
-            // 401 the agent is told about - which beats a runner that refused
-            // to start over a credential no flight was going to need.
-            var invocation = self ?? SelfInvocation.Current
-                ?? throw new InvalidOperationException(
-                    $"'{key}' in {ServedVariable} asks this binary to serve a reader, and this "
-                  + "process cannot name how to start itself again. Declare the tracker as a "
-                  + $"command in {ReadersVariable} instead, or run gg as an executable rather "
-                  + "than through a host that hides its own path.");
-
-            readers.Add(Served(key, host, locator, invocation));
+            trackers.Add(new ServedTracker(
+                key, host, locator is { Length: > 0 } named ? named : null));
         }
 
-        return readers;
+        return trackers;
     }
 
     /// <summary>The verb this binary serves a tracker reader under.</summary>

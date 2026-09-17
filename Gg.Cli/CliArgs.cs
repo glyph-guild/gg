@@ -70,6 +70,19 @@ public abstract record CliAction
     public sealed record RunnerMaintain(string Pool) : CliAction;
 
     /// <summary>
+    /// The resident runner, one noun over: pull one watch's decided sweeps, run
+    /// each, attest every one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own role rather than a second job inside <c>runner serve</c>.</b>
+    /// A sweep mints no flight and takes no lease - it is the routine tier - and
+    /// a machine that sweeps is usually not the machine that flies. Sharing the
+    /// process would also put a sweep's agent and a flight's agent on one
+    /// wall-clock budget with nothing deciding which matters more.
+    /// </remarks>
+    public sealed record RunnerSweep(string Watch) : CliAction;
+
+    /// <summary>
     /// Opens a flight. Exactly one payload: <see cref="Text"/>, <see cref="Uri"/>,
     /// or <see cref="Provider"/> and <see cref="Id"/> together.
     /// </summary>
@@ -1011,6 +1024,10 @@ public static class CliArgs
             ["runner", "tools", Gg.Local.NominationTool.Sweep.Flag] => new CliAction.RunnerTools(Sweep: true),
             ["runner", "read", .. var read] => ReadArguments(read),
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
+            // ONE WATCH, NAMED. A sweeping runner that found its own watches
+            // would claim work nobody pointed this machine at, which is the
+            // derivation every pull point in the fleet is written to avoid.
+            ["runner", "sweep", var watched] => new CliAction.RunnerSweep(watched),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
             // LINES IS BOUNDED BY THE CONTRACT, not here: RunnerAskBounds.MaxLines

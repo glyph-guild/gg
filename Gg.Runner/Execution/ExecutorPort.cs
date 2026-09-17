@@ -183,6 +183,29 @@ public sealed record ExecutorRequest
     public string? Brief { get; init; }
 
     /// <summary>
+    /// The whole task sentence, for work that is not a flight's, or null for a
+    /// flight's own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One step beyond <see cref="Brief"/>, and the step is the subject.</b>
+    /// A brief replaces what to DO with a subject the flight was given; a sweep
+    /// is given no subject at all - it goes and finds the subjects - so
+    /// <i>"Work the issue at …"</i> has nothing to name. Rendered unconditionally,
+    /// that arm produced "Work on this, in this repository:" followed by
+    /// nothing, which is a sentence naming nothing that still reads like an
+    /// instruction.
+    /// </para>
+    /// <para>
+    /// <b>Composed by the caller that knows what the work is.</b>
+    /// <c>SweepLauncher</c> writes a sweep's; this class only decides where it
+    /// goes, which is exactly where a flight's task sentence goes - first,
+    /// because an agent reads the task before anything else.
+    /// </para>
+    /// </remarks>
+    public string? Task { get; init; }
+
+    /// <summary>
     /// Every repository this flight put on disk, by the slug a person knows and
     /// the directory it is actually in.
     /// </summary>

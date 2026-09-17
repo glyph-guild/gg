@@ -98,6 +98,44 @@ public class MemberIsARunnerTests
     }
 
     [Test]
+    public async Task A_member_is_told_where_to_ask_for_its_own_address()
+    {
+        // MEASURED ON gg-pool-ui-1, AND IT IS THE WHOLE OF WHY A MEMBER CANNOT
+        // BE REACHED. A console asking to be introduced got as far as opening
+        // the channel and then NoRouteBetweenUs: ICE never connected. The
+        // member offered only the address it can see, 172.17.x inside its
+        // container, because nothing ever told it where to ask what its public
+        // one is. The deployment tells the resident - GG_STUN_SERVERS is on
+        // that unit - and the member it warms was told nothing.
+        //
+        // AND THE ROUTE IS THERE. A STUN request from inside that container
+        // answers 20.127.66.195:49106 from a local 49106, and the console's own
+        // answers 76.14.3.224:59070 from 59070: both mappings keep the port, so
+        // the two ends can meet. Nobody was asking.
+        using var spec = await CreatedAsync(
+            ASpec() with { StunServers = "stun:one.invalid:3478,stun:two.invalid:3478" });
+
+        await Assert.That(EnvOf(spec))
+            .Contains("GG_STUN_SERVERS=stun:one.invalid:3478,stun:two.invalid:3478")
+            .Because("a member is the one machine class nobody can open a shell on to "
+                   + "configure, so what it needs to be reachable has to arrive with it.");
+    }
+
+    [Test]
+    public async Task A_member_is_told_nothing_when_the_deployment_names_no_server()
+    {
+        // ABSENCE, NOT AN EMPTY CLAIM. StunConfiguration reads "told nothing"
+        // from a missing variable and an empty one alike, and writing the
+        // variable with nothing in it would say this deployment named a server
+        // and the server is the empty string.
+        using var spec = await CreatedAsync(ASpec());
+
+        await Assert.That(EnvOf(spec).Any(
+                e => e.StartsWith("GG_STUN_SERVERS", StringComparison.Ordinal)))
+            .IsFalse();
+    }
+
+    [Test]
     public async Task A_member_is_NOT_told_what_to_advertise()
     {
         // WRITTEN THE OTHER WAY FIRST, and it was wrong. A member receives what

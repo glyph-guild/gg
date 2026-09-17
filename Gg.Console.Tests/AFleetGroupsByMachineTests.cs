@@ -81,6 +81,35 @@ public class AFleetGroupsByMachineTests
     }
 
     [Test]
+    public async Task A_member_with_no_machine_sits_under_its_hosts_machine()
+    {
+        // FOUND ON vmlinux001 THE MOMENT MACHINES ARRIVED. The members were
+        // minted before their maintainer had stated a machine, so they carry
+        // none and pointed at the maintainer - which now sits under the
+        // resident, and one level only put the members back out flush.
+        var rows = Rows.Runners(With(
+            Runner(Resident, "vmlinux001", machine: "vmlinux001"),
+            Runner(Maintainer, "vmlinux001:maintain", machine: "vmlinux001"),
+            Runner("m1", "gg-pool-ui-1", host: Maintainer),
+            Runner("m2", "gg-pool-ui-2", host: Maintainer)));
+
+        var labels = rows.Select(r => r.Label).ToList();
+        var maintainer = rows.Single(r => r.Label == "vmlinux001:maintain");
+
+        foreach (var label in new[] { "gg-pool-ui-1", "gg-pool-ui-2" })
+        {
+            var member = rows.Single(r => r.Label == label);
+
+            await Assert.That(labels.IndexOf(label)).IsGreaterThan(labels.IndexOf("vmlinux001"));
+            await Assert.That(Indent(Rows.Nested(member)))
+                .IsEqualTo(Indent(Rows.Nested(maintainer)))
+                .Because("a member's machine is its maintainer's, so with none of its own it sits "
+                       + "where the maintainer's machine puts it. Order: " + string.Join(", ", labels));
+            await Assert.That(Indent(Rows.Nested(member))).IsGreaterThan(0);
+        }
+    }
+
+    [Test]
     public async Task A_machine_sits_flush_and_so_does_a_laptop()
     {
         var rows = Rows.Runners(With(

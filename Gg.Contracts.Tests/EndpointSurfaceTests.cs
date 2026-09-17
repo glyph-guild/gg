@@ -411,8 +411,21 @@ public class EndpointSurfaceTests
         //
         // The contract version moves too, to 0.179.0: the two response types
         // are new.
+        // Moved for slice thirty-nine step 2: a sweep's pull point and its
+        // report. GET /v1/watches/{name}/actions and POST
+        // /v1/watches/{name}/attestations, runner audience both, on the pools
+        // surface's shape and for its reason - a sweep has no flight, so the
+        // lease-welded fact pipeline cannot carry it. Serving is the claim, and
+        // the report is a command, so 200 and 202.
+        //
+        // /v1/watches IS GOVERNED FROM ITS FIRST ROUTE. A sweep's report is the
+        // input to what gets nominated, so an undeclared route under it would
+        // move that without an audit.
+        //
+        // The contract version moves too, to 0.182.0: the action, the skill,
+        // the report and the sighting are new types.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7a038c9d867d5f4e3df81c3591c0a434154b138573cda5a6250dba184c4c629f")
+            .IsEqualTo("2a7ecfad3ac13f4f1f9ae68640cd694c2e50372c88aaa1b59005694b040762fe")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

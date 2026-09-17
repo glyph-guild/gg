@@ -105,11 +105,21 @@ public class AMemberSitsUnderItsHostTests
         var member = rows.Single(r => r.Label == "gg-pool-ui-1");
         var host = rows.Single(r => r.Label == "vmlinux001");
 
-        await Assert.That(member.Runner.StartsWith("  ", StringComparison.Ordinal)).IsTrue()
-            .Because("the cell the table draws carries the indent, so every surface that "
-                   + "shows this row shows it nested. Drawn: [" + member.Runner + "]");
-        await Assert.That(host.Runner.StartsWith(" ", StringComparison.Ordinal)).IsFalse()
+        // COMPOSED, NOT STORED. The row keeps what is true - which host warmed
+        // this one - and `Rows.Nested` is where the nesting is drawn from it.
+        // Both surfaces call it, so neither invents its own amount, and the
+        // data a person dumps with GG_STATE_DUMP has no spaces in it.
+        await Assert.That(Rows.Nested(member).StartsWith("  ", StringComparison.Ordinal)).IsTrue()
+            .Because("the table's cell projection and the pane both draw this, so every "
+                   + "surface nests. Drawn: [" + Rows.Nested(member) + "]");
+        await Assert.That(Rows.Nested(host).StartsWith(" ", StringComparison.Ordinal)).IsFalse()
             .Because("a machine is flush in the same column, or the indent says nothing.");
+
+        await Assert.That(member.Runner.StartsWith(" ", StringComparison.Ordinal)).IsFalse()
+            .Because("THE ROW ITSELF CARRIES NO PRESENTATION. It is written to disk under "
+                   + "GG_STATE_DUMP and read back by things that are not a renderer, and a "
+                   + "tree fed this cell would indent it twice - which a spike proved by "
+                   + "having to strip it again.");
     }
 
     [Test]
@@ -132,8 +142,8 @@ public class AMemberSitsUnderItsHostTests
         var paneHost = drawn.Split('\n')
             .Single(l => l.Contains("vmlinux001", StringComparison.Ordinal));
 
-        var cellMember = rows.Single(r => r.Label == "gg-pool-ui-1").Runner;
-        var cellHost = rows.Single(r => r.Label == "vmlinux001").Runner;
+        var cellMember = Rows.Nested(rows.Single(r => r.Label == "gg-pool-ui-1"));
+        var cellHost = Rows.Nested(rows.Single(r => r.Label == "vmlinux001"));
 
         // BY HOW MUCH, not from which column. The pane opens every line with a
         // one-character marker the table puts in a column of its own, so the

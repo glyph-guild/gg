@@ -458,4 +458,12 @@ internal sealed class NoPullRequestsAdapter : IVcsAdapter
         CloneAttempts++;
         throw new InvalidOperationException("Nothing should have got this far.");
     }
+
+    public Task<RepositoryFile?> ReadFileAsync(
+        RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        CloneAttempts++;
+        throw new InvalidOperationException("Nothing should have got this far.");
+    }
 }

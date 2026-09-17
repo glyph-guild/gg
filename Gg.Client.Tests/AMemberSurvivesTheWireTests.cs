@@ -82,6 +82,60 @@ public class AMemberSurvivesTheWireTests
     }
 
     [Test]
+    public async Task Gg_runners_groups_a_machine_under_its_resident()
+    {
+        // THE SAME RULE THE CONSOLE KEEPS, on the surface a person reads when
+        // hunting for a machine: the maintainer and the members sit beneath
+        // the resident as peers, not the members beneath the maintainer.
+        const string resident = "01a06572-a784-7000-8000-000000000000";
+        const string maintainer = "01a0632b-e971-7000-8000-000000000000";
+
+        var text = VerbOutput.ToText(new VerbResult.Runners(new RunnerList
+        {
+            Runners =
+            [
+                new RunnerSummary
+                {
+                    RunnerId = "m1", Label = "gg-pool-ui-1", State = "idle",
+                    Machine = "vmlinux001", HostRunnerId = maintainer,
+                },
+                new RunnerSummary
+                {
+                    RunnerId = maintainer, Label = "vmlinux001:maintain", State = "offline",
+                    Machine = "vmlinux001",
+                },
+                new RunnerSummary
+                {
+                    RunnerId = resident, Label = "vmlinux001", State = "idle",
+                    Machine = "vmlinux001",
+                },
+                Laptop(),
+            ],
+        }));
+
+        var lines = text.Split('\n');
+        int Line(string label) => Array.FindIndex(
+            lines, l => l.Contains(label + " ", StringComparison.Ordinal)
+                     || l.EndsWith(label, StringComparison.Ordinal));
+
+        var residentLine = Line("vmlinux001");
+        var maintainerLine = Line("vmlinux001:maintain");
+        var memberLine = Line("gg-pool-ui-1");
+
+        await Assert.That(maintainerLine).IsGreaterThan(residentLine);
+        await Assert.That(memberLine).IsGreaterThan(residentLine);
+        await Assert.That(lines[maintainerLine].StartsWith("  ", StringComparison.Ordinal))
+            .IsTrue()
+            .Because("the maintainer runs on the machine, so it sits under it. Drawn:\n" + text);
+        await Assert.That(lines[memberLine].StartsWith("    ", StringComparison.Ordinal))
+            .IsFalse()
+            .Because("a member is a peer of the maintainer under the machine, not a "
+                   + "grandchild of it. Drawn:\n" + text);
+        await Assert.That(lines[residentLine].StartsWith(" ", StringComparison.Ordinal))
+            .IsFalse();
+    }
+
+    [Test]
     public async Task A_runner_with_no_host_writes_no_key()
     {
         // OMITTED RATHER THAN NULL. A control plane that has not learned this

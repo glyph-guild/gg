@@ -342,6 +342,7 @@ public static class Reducer
             // whatever was open stays open behind the tab a person asked for.
             Command.ShowQueueTab => state with { ActiveTab = TabId.Queue },
             Command.ShowFlightsTab => state with { ActiveTab = TabId.Flights },
+            Command.ShowBoardTab => state with { ActiveTab = TabId.Board },
 
             // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
             // two lists, and moving the queue underneath a person reading work
@@ -1276,6 +1277,7 @@ public static class Reducer
                 TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
                 TabId.Browse => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
+                TabId.Board => PickBoardRow(state, state.BoardSelected + by),
                 TabId.Runners => PickRunner(state, state.RunnerSelected + by),
                 TabId.Envelope => PickAirspaceRow(state, state.AirspaceSelected + by),
                 _ => Select(state, state.SelectedRow + by),
@@ -1386,6 +1388,7 @@ public static class Reducer
             TabId.Repositories => PickRepository(state, row),
             TabId.Browse => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
+            TabId.Board => PickBoardRow(state, row),
             TabId.Runners => PickRunner(state, row),
             TabId.Envelope => PickAirspaceRow(state, row),
             _ => Select(state, row),
@@ -1415,6 +1418,22 @@ public static class Reducer
     {
         FlightSelected = state.Flights is { Flights.Count: > 0 } listed
             ? Math.Clamp(to, 0, listed.Flights.Count - 1)
+            : 0,
+    };
+
+    /// <summary>
+    /// Move the board cursor, over the rows a person is looking at.
+    /// </summary>
+    /// <remarks>
+    /// <b>Over the ROWS rather than over the nominations</b>, for the reason
+    /// the fleet's cursor is: the board's rows are nominations AND watches, so
+    /// clamping to either list alone would stop the cursor short of the table
+    /// on the screen.
+    /// </remarks>
+    private static AppState PickBoardRow(AppState state, int to) => state with
+    {
+        BoardSelected = Rows.Board(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
             : 0,
     };
 

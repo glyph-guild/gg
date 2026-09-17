@@ -605,6 +605,20 @@ public enum TabId
     Flights,
 
     /// <summary>
+    /// The board: every nomination, and the watches whose sweeps make them.
+    /// </summary>
+    /// <remarks>
+    /// <b>What the queue is a subset of.</b> The queue shows what needs
+    /// somebody - a standing nomination is one of its rows already - and this
+    /// shows the board those rows come from: the ones already answered, the
+    /// ones refused, and the watches that go looking. Flights has the same
+    /// relationship to the queue, and for the same reason: a person who has
+    /// just answered something wants to see what happened to it, and a
+    /// needing-me list is exactly the list it has left.
+    /// </remarks>
+    Board,
+
+    /// <summary>
     /// The fleet, with this machine's runner first.
     /// </summary>
     /// <remarks>
@@ -1039,6 +1053,31 @@ public sealed record AppState
     /// queue; keeping it costs no request at all.
     /// </remarks>
     public FlightList? Flights { get; init; }
+
+    /// <summary>
+    /// The board, exactly as `gg board` returned it, or null when nothing has
+    /// fetched one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null and empty are different answers and the pane says which.</b> A
+    /// tenant nobody has nominated anything in, and a read that did not come
+    /// back, look identical in a list and mean opposite things.
+    /// </remarks>
+    public BoardPage? Board { get; init; }
+
+    /// <summary>
+    /// How every watch in force is doing, exactly as `gg watches` returned it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the board rather than under it.</b> A watch is not a
+    /// nomination - it makes them - so folding it into the same list at the
+    /// wire would lose which is which. The pane puts them in one table with a
+    /// column that says.
+    /// </remarks>
+    public WatchStandingList? Watches { get; init; }
+
+    /// <summary>Which board row the cursor is on.</summary>
+    public int BoardSelected { get; init; }
 
     /// <summary>
     /// Each flight's log, keyed by flight id, exactly as `gg log` returned them.

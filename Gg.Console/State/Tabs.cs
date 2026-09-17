@@ -82,6 +82,10 @@ public static class Tabs
             // stranded-runner reason, so this tab has an answer from the first
             // frame - even when the answer is "no runners".
             TabId.Runners => true,
+            // BOTH READS OR NEITHER. The pane holds nominations and watches,
+            // and one of them arriving alone is a board that looks complete
+            // and is not - so it says "not read yet" until both have answered.
+            TabId.Board => state.Board is not null && state.Watches is not null,
             TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
@@ -133,6 +137,13 @@ public static class Tabs
         // shadows another is worse than one chosen for being free and said to be.
         TabId.Runners => KeyStroke.Char('u'),
         TabId.Envelope => KeyStroke.Char('e'),
+        // PUNCTUATION, FOR THE REASON THE TWO LEFTMOST TABS HAVE IT, and it is
+        // the third of the same family: the queue is what needs somebody, the
+        // flights are what has run, the board is what has been nominated. Every
+        // letter that says anything about this word is taken - b is browse, n
+        // is new flight, o is the floor modal, d and w are bound in Normal -
+        // and `;` is free in every mode, so it means one thing.
+        TabId.Board => KeyStroke.Char(';'),
 
         // `v`, because the letters that say what this is are all taken: `a` is
         // actions, `f` is freeze and fly, `l` is live, `s` is the estate's
@@ -166,6 +177,10 @@ public static class Tabs
         // nothing: the fleet is already in the model, fetched at boot.
         TabId.Runners => Command.ToggleRunners,
         TabId.Envelope => Command.ToggleEnvelope,
+        // A SHELL COMMAND, unlike the queue and the flights: the board and the
+        // watches are two reads nothing else fetches, so showing this tab is
+        // the first thing that asks for them.
+        TabId.Board => Command.ShowBoardTab,
         TabId.Allowances => Command.ToggleAllowances,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
@@ -259,6 +274,7 @@ public static class Tabs
         // rather than a rename of the type.
         TabId.Envelope => "airspace",
         TabId.Allowances => "allowances",
+        TabId.Board => "board",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 }

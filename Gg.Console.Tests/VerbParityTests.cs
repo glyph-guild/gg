@@ -115,22 +115,26 @@ public class VerbParityTests
                       + "member, because an attestation carries no member name - so whatever "
                       + "draws it may say what a pool last reported and never what a "
                       + "container is doing.",
-            // THE BOARD'S TWO VERBS, and the decision is the same for both
-            // because they are one act read and answered. The data path exists
-            // on ConsoleData - the same fetch and the same door the verb uses,
-            // so the console cannot end up with a second way to answer a
-            // nomination - and no key reaches it yet.
+            // THE BOARD'S TWO VERBS, and they now differ. The pane exists: the
+            // board tab draws every nomination beside the watches whose sweeps
+            // make them, from the same fetch the verb uses. What it does not
+            // have yet is the ANSWER - a key that opens or declines the row
+            // under the cursor - and that is a decision about manners rather
+            // than wiring: every other key on a row here acts with no
+            // confirmation because everything they do is reversible, and
+            // opening a nomination starts work.
             //
-            // REMOVE THESE LINES when the pane lands. The absence is a
-            // sequence rather than a decision, and what it waits on is named:
-            // the queue's row requires a flight id and a flight number, and a
-            // standing nomination has neither.
-            ["Board"] = "reaches ConsoleData; no pane yet. It is the queue's other kind of "
-                      + "row - work that has not started, beside flights that have stopped "
-                      + "- and S37.4-01 is the excavation that lets a row be either.",
-            ["BoardDecide"] = "reaches ConsoleData; no key yet. `gg decide`'s shape one noun "
-                            + "earlier: the modal arrives with the pane, and the write "
-                            + "happens through the same door the verb uses.",
+            // REMOVE THE SECOND LINE when the modal lands.
+            ["Board"] = "reachable: the board tab, `;`, holds every nomination and the "
+                      + "watches that make them - one table, because a watch finding an "
+                      + "item and the item standing as a nomination are one story.",
+            ["BoardDecide"] = "reaches ConsoleData; no key yet. The pane is there and the "
+                            + "answer is not: opening a row starts work, and every other key "
+                            + "on a row in this console is reversible - so it arrives with a "
+                            + "confirmation the others do not have, and that confirmation is "
+                            + "the work.",
+            ["Watches"] = "reachable: it is the board tab's other half, drawn in the same "
+                        + "table with a column saying which kind of row it is.",
             ["AllowanceFloor"] = "reachable: `o` on the runners pane offers a share to keep "
                                + "back, and the write happens between sessions with the "
                                + "terminal free - like every other write here.",

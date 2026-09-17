@@ -43,6 +43,11 @@ public static class ConsoleRefresh
                 TabId.Queue or TabId.Flights => await TheFleetAndItsWorkAsync(
                     data, cancellationToken),
                 TabId.Runners => await TheFleetAndWhatItHasLeftAsync(data, cancellationToken),
+                // TWO READS, AND THE PANE WAITS FOR BOTH. Nominations and the
+                // watches that make them are separate routes; folding one in
+                // while the other is still null would draw a board that looks
+                // complete and is half a story.
+                TabId.Board => await TheBoardAndItsWatchesAsync(data, cancellationToken),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
 
@@ -67,6 +72,28 @@ public static class ConsoleRefresh
 
     private static Func<AppState, AppState> Apply(VerbResult result) =>
         state => ConsoleProjection.Apply(state, result);
+
+    /// <summary>
+    /// The board, and the watches whose sweeps put rows on it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two reads because they are two questions</b>, joined in the pane
+    /// rather than on the wire - the arrangement the fleet and its allowances
+    /// already have. A board drawn without its watches can look quiet while
+    /// nothing is sweeping, which is the state slice thirty-nine's rule 11
+    /// exists to make impossible.
+    /// </remarks>
+    private static async Task<Func<AppState, AppState>> TheBoardAndItsWatchesAsync(
+        ConsoleData data, CancellationToken cancellationToken)
+    {
+        // ENDED ROWS TOO. The queue already shows what is standing; what this
+        // pane adds is what happened to the rest, and a board that dropped
+        // every answered row would be the queue with a second name.
+        var board = Apply(await data.BoardAsync(ended: true, cancellationToken));
+        var watches = await data.WatchesAsync(cancellationToken);
+
+        return state => ConsoleProjection.Apply(board(state), watches);
+    }
 
     /// <summary>
     /// The fleet, and what each machine's allowance has left.

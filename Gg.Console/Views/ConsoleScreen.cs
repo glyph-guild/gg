@@ -135,6 +135,8 @@ public sealed class ConsoleScreen : Window
     private readonly Label _allowances;
     private readonly Label _flights;
     private readonly FrameView _flightsPane;
+    private readonly Label _board;
+    private readonly FrameView _boardPane;
 
     /// <summary>
     /// The three views that are lists of one shape of thing.
@@ -147,6 +149,7 @@ public sealed class ConsoleScreen : Window
     /// widget's job.
     /// </remarks>
     private readonly TableView _flightsTable;
+    private readonly TableView _boardTable;
     private readonly TableView _browseTable;
     private readonly TableView _repositoriesTable;
     private readonly FrameView _runnersPane;
@@ -816,6 +819,22 @@ public sealed class ConsoleScreen : Window
         _flights = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _flightsTable = CollectionViews.Table();
         _flightsPane.Add(_flights, _flightsTable);
+
+        // THE BOARD: nominations and the watches that make them, one table and
+        // one cursor. Built here with the flights pane because it is the same
+        // shape - a table over a label that speaks when there are no rows.
+        _boardPane = new FrameView
+        {
+            Title = "board",
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _board = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _boardTable = CollectionViews.Table();
+        _boardPane.Add(_board, _boardTable);
         _browseTable = CollectionViews.Table();
         _browsePane.Add(_browseTable);
         _repositoriesTable = CollectionViews.Table();
@@ -831,6 +850,7 @@ public sealed class ConsoleScreen : Window
             _flightsTable, Rows.FlightColumns.ToList().IndexOf("state"));
 
         _flightsTable.ValueChanged += OnRowPointedAt;
+        _boardTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
@@ -1749,6 +1769,10 @@ public sealed class ConsoleScreen : Window
         [
             (TabId.Queue, queueTab),
             (TabId.Flights, Tabbed(_flightsPane)),
+
+            // BESIDE THE FLIGHTS, WHERE IT IS DECLARED - the rule three lines
+            // down, applied on the way in rather than after a tab skips six.
+            (TabId.Board, Tabbed(_boardPane)),
 
             // BESIDE THE FLIGHTS, WHERE IT IS DECLARED. This was appended after
             // Repositories, so the bar drew it seventh while Tabs.Next - which
@@ -3259,6 +3283,10 @@ public sealed class ConsoleScreen : Window
                 State.FlightSelected,
                 r => [r.Number, r.State, r.Kind, r.Loop, r.Age, r.Work]);
 
+            Fill(_boardTable, _board, Rows.Board(State), Rows.BoardColumns,
+                State.BoardSelected,
+                r => [r.What, r.Subject, r.State, r.Kind, r.When, r.Why]);
+
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,
                 r => [r.Id, r.State, r.Where ?? "", r.Title]);
@@ -3365,6 +3393,7 @@ public sealed class ConsoleScreen : Window
         _airspacePathBox.Title = PaneText.AirspaceBox(State);
 
         _flights.Text = PaneText.Flights(State);
+        _board.Text = PaneText.Board(State);
         _repositories.Text = PaneText.Repositories(State);
         _runners.Text = PaneText.Runners(State);
         _livePane.Title = State.Frozen ? "live (frozen — ctrl+f to resume)" : "live";
@@ -4887,6 +4916,7 @@ public sealed class ConsoleScreen : Window
         View landing = State.ActiveTab switch
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
+            TabId.Board => _boardTable.Visible ? _boardTable : _board,
             TabId.Live => _live,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
             TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
@@ -4969,6 +4999,7 @@ public sealed class ConsoleScreen : Window
             // and the tables were outside it - which is how the fourth came to
             // be built without a subscription at all.
             _flightsTable.ValueChanged -= OnRowPointedAt;
+            _boardTable.ValueChanged -= OnRowPointedAt;
             _browseTable.ValueChanged -= OnRowPointedAt;
             _repositoriesTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;

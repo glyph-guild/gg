@@ -2286,7 +2286,9 @@ static async Task<int> HoldAsync(
                     // MADE HERE, ON FIRST REGISTRATION, because that is the moment a
                     // console pins. The private half never leaves this machine.
                     publicKey: RunnerIdentityKey
-                        .LoadOrCreate(RunnerIdentityKey.PathFor(name)).PublicKey);
+                        .LoadOrCreate(RunnerIdentityKey.PathFor(name)).PublicKey,
+                    // WHERE IT RUNS, which its `:hand` label only implied.
+                    machine: Environment.MachineName);
 
             return new StoredRunner
             {
@@ -2397,7 +2399,10 @@ static async Task<int> RunnerUpAsync()
                     session.SessionToken, Environment.MachineName,
                     publicKey: RunnerIdentityKey
                         .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName))
-                        .PublicKey);
+                        .PublicKey,
+                    // WHERE IT RUNS. The resident's label happens to be the host
+                    // name as well, and the fleet groups by this, not by that.
+                    machine: Environment.MachineName);
 
             return new StoredRunner
             {
@@ -3024,7 +3029,11 @@ static async Task<int> RunnerMaintainAsync(string pool)
                     publicKey: RunnerIdentityKey
                         .LoadOrCreate(
                             RunnerIdentityKey.PathFor(Environment.MachineName + ":maintain"))
-                        .PublicKey);
+                        .PublicKey,
+                    // WHERE IT RUNS: a maintainer groups with the machine it maintains,
+                    // not with itself, which is what put members under a runner that
+                    // never beats.
+                    machine: Environment.MachineName);
 
             return new StoredRunner
             {

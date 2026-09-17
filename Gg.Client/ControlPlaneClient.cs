@@ -361,9 +361,14 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// What a console will seal an introduction to, or null when this caller has
     /// no key to offer.
     /// </param>
+    /// <param name="machine">
+    /// The host this runner runs on, or null when the caller has none to name.
+    /// The label says how a runner was started; this says where, which is what
+    /// lets a maintainer group with the machine it maintains.
+    /// </param>
     public async Task<RunnerRegistered> RegisterRunnerAsync(
         string sessionToken, string label, CancellationToken cancellationToken = default,
-        string? publicKey = null)
+        string? publicKey = null, string? machine = null)
     {
         using var request = Request(HttpMethod.Post, "/v1/runners", sessionToken);
         request.Content = JsonContent.Create(
@@ -372,6 +377,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
                 Label = label,
                 ProtocolVersion = GgVersions.Protocol,
                 PublicKey = publicKey,
+                Machine = machine,
             },
             ProtocolJsonContext.Default.RunnerRegistrationRequest);
 

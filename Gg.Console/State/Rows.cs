@@ -211,6 +211,34 @@ public static class Rows
     /// repositories' first column has none: a heading over a column of marks is
     /// a word explaining a symbol that already explains itself.
     /// </remarks>
+    /// <summary>
+    /// The runner cell with a member pushed in under the machine that warmed
+    /// it, which is how every surface draws the fleet's shape.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Composed here rather than stored on the row.</b> <see cref="RunnerRow"/>
+    /// keeps what is true - which host warmed this one - and this is where
+    /// that becomes an indent. The record is written to disk under
+    /// <c>GG_STATE_DUMP</c> and read back by things that are not a renderer,
+    /// so spaces baked into it are presentation in the wrong place: a spike
+    /// feeding those cells to a <c>TreeView</c> had to strip them off again
+    /// before drawing, one renderer undoing another's decision.
+    /// </para>
+    /// <para>
+    /// <b>A function rather than a column style.</b> Terminal.Gui's
+    /// <c>RepresentationGetter</c> would be the idiomatic home and cannot do
+    /// it: it is handed the CELL VALUE and nothing else, so it cannot tell a
+    /// member from a machine. The table's cell projection has the row and so
+    /// does the pane, so both call this and neither invents its own amount.
+    /// </para>
+    /// </remarks>
+    public static string Nested(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return (row.HostRunnerId.Length > 0 ? "  " : "") + row.Runner;
+    }
+
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "state", "working on", "advertises", "last heard"];
 
@@ -580,13 +608,9 @@ public static class Rows
         ParkedBecause: ControlText.Strip(runner.ParkedBecause),
         Label: ControlText.Strip(runner.Label),
         Here: mine ? Ours : yours ? Owned : machine ? Alongside : " ",
-        // INDENTED HERE, so every surface that draws this row nests it. The
-        // tab is a TABLE and draws this cell directly; the pane draws its own
-        // line. Deciding it twice is how they came to disagree - the pane
-        // nested and the tab did not, which is what a person reported.
-        Runner: (runner.HostRunnerId is { Length: > 0 } ? "  " : "")
-            + Short(runner.RunnerId)
-            + (runner.Label is { Length: > 0 } label ? "  " + label : ""),
+        Runner: Short(runner.RunnerId) + (runner.Label is { Length: > 0 } label
+            ? "  " + label
+            : ""),
         // BOTH FACTS OR NEITHER. Parking sits beside the state on the wire
         // because a runner can be parked AND busy - draining, which is the
         // reason to park anything. A column that printed only State would show

@@ -136,6 +136,52 @@ public class AMemberSurvivesTheWireTests
     }
 
     [Test]
+    public async Task Gg_runners_puts_a_member_with_no_machine_under_its_hosts_machine()
+    {
+        // THE CONSOLE'S CASE ON THIS SURFACE: members minted before their
+        // maintainer stated a machine carry none, and pointing at a maintainer
+        // that is itself nested sent them back out flush.
+        const string resident = "01a06572-a784-7000-8000-000000000000";
+        const string maintainer = "01a0632b-e971-7000-8000-000000000000";
+
+        var text = VerbOutput.ToText(new VerbResult.Runners(new RunnerList
+        {
+            Runners =
+            [
+                Laptop(),
+                new RunnerSummary
+                {
+                    RunnerId = resident, Label = "vmlinux001", State = "idle",
+                    Machine = "vmlinux001",
+                },
+                new RunnerSummary
+                {
+                    RunnerId = maintainer, Label = "vmlinux001:maintain", State = "offline",
+                    Machine = "vmlinux001",
+                },
+                new RunnerSummary
+                {
+                    RunnerId = "m1", Label = "gg-pool-ui-1", State = "idle",
+                    HostRunnerId = maintainer,
+                },
+            ],
+        }));
+
+        var lines = text.Split('\n');
+        int Line(string label) => Array.FindIndex(
+            lines, l => l.Contains(label + " ", StringComparison.Ordinal)
+                     || l.EndsWith(label, StringComparison.Ordinal));
+
+        var memberLine = Line("gg-pool-ui-1");
+
+        await Assert.That(memberLine).IsGreaterThan(Line("vmlinux001"));
+        await Assert.That(lines[memberLine].StartsWith("  ", StringComparison.Ordinal)).IsTrue()
+            .Because("with no machine of its own, a member is on its maintainer's. Drawn:\n" + text);
+        await Assert.That(lines[memberLine].StartsWith("    ", StringComparison.Ordinal)).IsFalse()
+            .Because("and a peer of the maintainer there, not its grandchild. Drawn:\n" + text);
+    }
+
+    [Test]
     public async Task A_runner_with_no_host_writes_no_key()
     {
         // OMITTED RATHER THAN NULL. A control plane that has not learned this

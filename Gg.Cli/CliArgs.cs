@@ -1044,6 +1044,14 @@ public static class CliArgs
             // would claim work nobody pointed this machine at, which is the
             // derivation every pull point in the fleet is written to avoid.
             ["runner", "sweep", var watched] => new CliAction.RunnerSweep(watched),
+            // AND THE REFUSAL NAMES WHAT IS MISSING. Without this arm the
+            // fall-through answered "'runner' is not a gg command", which is
+            // false about the verb and useless about the mistake - the shape
+            // `runner retire` and `runner repin` already have their own
+            // sentences for.
+            ["runner", "sweep", ..] => Unknown(
+                "gg runner sweep needs one watch name - the watch this machine sweeps. Run "
+              + "gg watches to see which ones are in force."),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
             // LINES IS BOUNDED BY THE CONTRACT, not here: RunnerAskBounds.MaxLines

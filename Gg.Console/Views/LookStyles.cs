@@ -409,7 +409,9 @@ public static class LookStyles
 
     /// <summary>The state cell of a runner that will take no work.</summary>
     /// <remarks>
-    /// <b>Grey for offline, yellow for parked</b> - see <c>RunnerLook</c> for
+    /// <b>Grey for offline and for a maintainer, yellow for parked</b> - a
+    /// maintainer recedes because it takes no work, not because anything is
+    /// wrong - see <c>RunnerLook</c> for
     /// why offline is not red: most offline runners are laptops that are
     /// closed, and a fault colour on every shut machine is the cry of wolf that
     /// teaches people to stop reading colour.

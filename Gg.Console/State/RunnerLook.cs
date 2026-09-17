@@ -20,6 +20,12 @@ public enum RunnerTint
 
     /// <summary>Somebody withheld it deliberately.</summary>
     Parked,
+
+    /// <summary>
+    /// It maintains a pool: alive, and taking no work. Not <see cref="Offline"/>,
+    /// which says the heartbeat went stale.
+    /// </summary>
+    Maintaining,
 }
 
 /// <summary>
@@ -78,7 +84,12 @@ public static class RunnerLook
         // added, and the state itself is what the control plane derived.
         var derived = state.Split('·', 2)[0].Trim();
 
-        return derived == RunnerStates.Offline ? RunnerTint.Offline : RunnerTint.None;
+        return derived switch
+        {
+            RunnerStates.Offline => RunnerTint.Offline,
+            RunnerStates.Maintaining => RunnerTint.Maintaining,
+            _ => RunnerTint.None,
+        };
     }
 
     /// <summary>

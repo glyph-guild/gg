@@ -72,6 +72,11 @@ public static class ConsoleWatchRunner
         // console would wait out its whole minute to learn nothing. Flying is
         // no longer the question: attaching to a machine that is WAITING is
         // what lets somebody see work arrive.
+        if (Gg.Client.RunnerReach.Maintains(row.State))
+        {
+            return state with { LastRunner = Gg.Client.RunnerReach.MaintainerSaid(row.Label) };
+        }
+
         if (row.State.StartsWith(RunnerStates.Offline, StringComparison.Ordinal))
         {
             return state with

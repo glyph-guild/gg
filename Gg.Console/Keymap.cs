@@ -353,8 +353,10 @@ public readonly record struct KeymapContext(
             // act on, so the key and the act cannot disagree.
             GateAsksForAgentLogin = ConsoleAgentLogin.Asking(state) is not null,
 
+            // BEATING, NOT MERELY NOT OFFLINE: a maintainer is alive and never
+            // beats, and an introduction is picked up on a heartbeat.
             RunnerIsBeating = Rows.Selected(state) is { } watchable
-                && !watchable.State.StartsWith(Gg.Contracts.RunnerStates.Offline, StringComparison.Ordinal),
+                && Gg.Client.RunnerReach.Beats(watchable.State),
 
             // WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM. Yours rather
             // than Mine: an allowance belongs to the people who registered the

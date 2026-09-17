@@ -253,6 +253,11 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
               + "collect later, because nothing stores it in between.");
         }
 
+        if (RunnerReach.Maintains(runner.State))
+        {
+            return new Sent(SendOutcome.Offline, RunnerReach.MaintainerSaid(runner.Label));
+        }
+
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
         say($"asking the control plane to introduce you to {runner.Label}");

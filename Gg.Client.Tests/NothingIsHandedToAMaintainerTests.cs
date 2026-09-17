@@ -106,7 +106,7 @@ public class NothingIsHandedToAMaintainerTests
         var (control, channel, handler, pins) = Parts();
 
         var sent = await new SendACredential(control, channel).SendAsync(
-            "session", Maintainer, "github://acme/widgets", "not-a-real-secret", pins, Now);
+            "session", Maintainer, "secret://acme/widgets", "not-a-real-secret", pins, Now);
 
         await Assert.That(sent.Outcome).IsEqualTo(SendOutcome.Offline)
             .Because("a secret typed for a machine nothing can reach is a secret typed for "

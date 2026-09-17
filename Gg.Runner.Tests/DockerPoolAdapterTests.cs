@@ -180,6 +180,28 @@ public class DockerPoolAdapterTests
             .Because("the pool is the inventory; a member from outside the prefix in this "
                    + "list would be the adapter widening its own scope.");
     }
+
+    [Test]
+    public async Task The_listing_says_what_each_member_was_made_from()
+    {
+        // WHAT MAKES A ROLL POSSIBLE. Comparing a pin to a pin is the only
+        // comparison that means anything here - the resolved image id is a
+        // different thing and differs from a reference every time - and the
+        // roll has to know which members drifted WITHOUT inspecting each one,
+        // because a pool of four would be four round trips per sweep.
+        //
+        // Measured on vmlinux001 first: the daemon's own listing carries the
+        // full digest-pinned reference, the same string Config.Image reports.
+        var adapter = Adapter();
+        _ = await adapter.RefreshAsync("gg-e2e-pool", "gg-e2e-pool-7", Spec(Image));
+
+        var listed = (await adapter.ListAsync("gg-e2e-pool"))
+            .Single(m => m.Name == "gg-e2e-pool-7");
+
+        await Assert.That(listed.MadeFrom).IsEqualTo(Image)
+            .Because("the strategy pins name@sha256:… and the roll compares against that "
+                   + "exact string; anything else is a drift check that is always true.");
+    }
     /// <summary>
     /// A member spec around an image, for tests whose subject is not the spec.
     /// </summary>

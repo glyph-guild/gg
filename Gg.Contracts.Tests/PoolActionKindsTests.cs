@@ -32,7 +32,8 @@ public class PoolActionKindsTests
         // value outside its own membership list is refused by the check that
         // exists to admit it.
         await Assert.That(PoolActions.All)
-            .IsEquivalentTo((string[])[PoolActions.Verify, PoolActions.Refresh, PoolActions.Reset]);
+            .IsEquivalentTo((string[])
+                [PoolActions.Verify, PoolActions.Refresh, PoolActions.Reset, PoolActions.Roll]);
     }
 
     [Test]
@@ -57,7 +58,7 @@ public class PoolActionKindsTests
     }
 
     [Test]
-    public async Task The_outward_set_is_exactly_refresh_and_reset()
+    public async Task The_outward_set_is_exactly_refresh_reset_and_roll()
     {
         var outward = PoolActionKinds.Table
             .Where(entry => entry.Value == PoolActionKinds.OutwardAct)
@@ -65,9 +66,10 @@ public class PoolActionKindsTests
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(outward).IsEquivalentTo((string[])["refresh", "reset"])
-            .Because("refresh and reset change a container on a customer's host; verify "
-                   + "only looks. Article VI is the axis.");
+        await Assert.That(outward).IsEquivalentTo((string[])["refresh", "reset", "roll"])
+            .Because("refresh, reset and roll change a container on a customer's host; "
+                   + "verify only looks. Article VI is the axis - and a roll DESTROYS "
+                   + "members that are off the pin, so it is the most outward of the three.");
         await Assert.That(PoolActionKinds.Of(PoolActions.Verify))
             .IsEqualTo(PoolActionKinds.RecordOnly);
     }

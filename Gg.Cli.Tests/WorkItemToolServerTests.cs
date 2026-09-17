@@ -47,6 +47,10 @@ public class WorkItemToolServerTests
     /// </remarks>
     private sealed class StubSource : IWorkItemSource
     {
+        public Task<WorkItemPage> QueryAsync(
+            string query, string? cursor, int limit, CancellationToken token) =>
+            Task.FromResult(new WorkItemPage([], null));
+
         public Task<WorkItem?> ReadAsync(string id, CancellationToken token) =>
             Task.FromResult<WorkItem?>(null);
 
@@ -77,6 +81,10 @@ public class WorkItemToolServerTests
     /// </remarks>
     private sealed class RecordingSource : IWorkItemSource
     {
+        public Task<WorkItemPage> QueryAsync(
+            string query, string? cursor, int limit, CancellationToken token) =>
+            Task.FromResult(new WorkItemPage([], null));
+
         internal WorkItemFilter? Asked { get; private set; }
 
         internal bool Called { get; private set; }

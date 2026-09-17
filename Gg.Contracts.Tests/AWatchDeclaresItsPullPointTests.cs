@@ -66,7 +66,7 @@ public class AWatchDeclaresItsPullPointTests
         // already has, where a repository's bound accepts only `flight`.
         var strategy = new EnvironmentStrategy
         {
-            Kind = StrategyKinds.Docker,
+            Kind = StrategyKinds.DockerHost,
             Environment = "payments-ci",
             Inventory = new StrategyInventory { Pool = "payments", Size = 2, Warm = 1 },
             PullPoint = PullPoints.ControlPlane,

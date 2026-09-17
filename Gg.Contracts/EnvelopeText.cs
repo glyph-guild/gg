@@ -206,99 +206,195 @@ public static class EnvelopeText
         text.Append("destinations:\n");
         foreach (var destination in envelope.Destinations)
         {
-            text.Append($"{Indent}{Scalar(destination.Id)}:\n");
-            text.Append($"{Indent}{Indent}kind: {Scalar(destination.Kind)}\n");
-            Sequence(text, "requires", destination.Requires, depth: 2);
-            // WRITTEN ONLY WHEN DECLARED. Emitting `preserve-unadmitted: false` for
-            // every destination that omits it would rewrite every tenant's document
-            // on the next show, and a diff nobody made is how a review practice
-            // gets abandoned.
-            if (destination.PreserveUnadmitted is { } preserve)
-            {
-                text.Append(
-                    $"{Indent}{Indent}preserve-unadmitted: {(preserve ? "true" : "false")}\n");
-            }
-
-            // SAME RULE, AND HERE IT IS A NAME. Emitting the default template
-            // for every destination that omits it would rewrite every tenant's
-            // document on the next show - and would also write down, as though
-            // somebody had chosen it, a branch shape this platform reserves the
-            // right to be the default.
-            if (destination.Branch is { } branch)
-            {
-                text.Append($"{Indent}{Indent}branch: {Scalar(branch)}\n");
-            }
-
-            // THE TWO INSTRUCTIONS, on the same rule. Written only when
-            // declared, because a default sentence emitted for every
-            // destination would be this repository putting words in a tenant's
-            // document and then showing them the diff.
-            if (destination.Title is { } titled)
-            {
-                text.Append($"{Indent}{Indent}title: {Scalar(titled)}\n");
-            }
-
-            if (destination.Description is { } described)
-            {
-                text.Append($"{Indent}{Indent}description: {Scalar(described)}\n");
-            }
-
-            // SAME RULE, SAME REASON. Only a flight destination may carry this,
-            // so emitting `opens: []` for the four kinds that may not would put
-            // a refused key into every document that has ever been written.
-            if (destination.Opens is { } opens)
-            {
-                Sequence(text, "opens", opens, depth: 2);
-            }
-
-            // ABSENT STAYS ABSENT. Emitting `opens-as: auto` where nothing was
-            // written would add a line to every flight destination in every
-            // tenant's document, saying what they already meant - and a diff
-            // nobody made is how a review practice gets abandoned.
-            if (destination.OpensAs is { Length: > 0 } opensAs)
-            {
-                text.Append($"{Indent}{Indent}opens-as: {Scalar(opensAs)}\n");
-            }
-
-            // SAME RULE, THIRD KNOB. Only a tracker may carry this, so emitting
-            // it for the five kinds that may not would put a refused key into
-            // every document anybody has written.
-            if (destination.MayPerform is { } performable)
-            {
-                Sequence(text, "may-perform", performable, depth: 2);
-            }
-
-            // SAME RULE, FOURTH KNOB. Only a tracker writes fields, so
-            // emitting it elsewhere would put a refused key into every
-            // document anybody has written.
-            if (destination.MayWrite is { } writable)
-            {
-                Sequence(text, "may-write", writable, depth: 2);
-            }
-
-            // AND THE SAME AGAIN, one member over. Emitted only when declared,
-            // and each set only when IT is declared - writing `environments: []`
-            // for a destination that bounded only repositories would say the
-            // tenant permits no environment, which is a policy nobody wrote.
-            if (destination.MaySelect is { } selection)
-            {
-                text.Append($"{Indent}{Indent}may-select:\n");
-
-                if (selection.Environments is { } environments)
-                {
-                    Sequence(text, "environments", environments, depth: 3);
-                }
-
-                if (selection.Repositories is { } repositories)
-                {
-                    Sequence(text, "repositories", repositories, depth: 3);
-                }
-            }
+            DestinationBlock(text, destination);
         }
 
         return text.ToString();
     }
 
+
+    /// <summary>
+    /// A watch, in the canonical form the working copy holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every optional member is written only when declared</b>, which is the
+    /// rule this whole file turns on: a rendering that grows a line by itself
+    /// is a rendering that lies about the stream, and a diff nobody made is how
+    /// a review practice gets abandoned. So an absent bound, an absent cap and
+    /// absent active hours emit nothing at all.
+    /// </remarks>
+    public static string Render(WatchDocument watch)
+    {
+        ArgumentNullException.ThrowIfNull(watch);
+
+        var text = new StringBuilder();
+
+        text.Append($"shape: {Scalar(watch.Shape)}\n");
+
+        text.Append("trigger:\n");
+        text.Append($"{Indent}every: {Scalar(watch.Trigger.Every)}\n");
+
+        text.Append($"host: {Scalar(watch.Host)}\n");
+        text.Append($"credential: {Scalar(watch.Credential)}\n");
+        text.Append($"filter: {Scalar(watch.Filter)}\n");
+        text.Append($"skill: {Scalar(watch.Skill)}\n");
+        text.Append($"ref: {Scalar(watch.Ref)}\n");
+
+        text.Append("mapping:\n");
+        text.Append($"{Indent}subject: {Scalar(watch.Mapping.Subject)}\n");
+        text.Append($"{Indent}version: {Scalar(watch.Mapping.Version)}\n");
+        text.Append($"{Indent}intent-key: {Scalar(watch.Mapping.IntentKey)}\n");
+
+        text.Append($"pull-point: {Scalar(watch.PullPoint)}\n");
+
+        // THE SAME BLOCK AN ENVELOPE'S DESTINATIONS GET, at the same
+        // indentation, because `nominates:` and `destinations:` are both
+        // top-level keys. One spelling of a destination, one canonical form.
+        if (watch.Nominates is { } bound)
+        {
+            text.Append("nominates:\n");
+            DestinationBlock(text, bound);
+        }
+
+        if (watch.Bounds is not { } bounds)
+        {
+            return text.ToString();
+        }
+
+        text.Append("bounds:\n");
+
+        if (bounds.ActiveHours is { Length: > 0 } hours)
+        {
+            text.Append($"{Indent}active-hours: {Scalar(hours)}\n");
+        }
+
+        if (bounds.CapPerPass is { } cap)
+        {
+            text.Append($"{Indent}cap-per-pass: {cap}\n");
+        }
+
+        if (bounds.Budget is { } budget)
+        {
+            text.Append($"{Indent}budget:\n");
+            text.Append($"{Indent}{Indent}flights: {budget.Flights}\n");
+            text.Append($"{Indent}{Indent}window: {Scalar(budget.Window)}\n");
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// One destination's block, shared by every render path.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>EXTRACTED, NOT COPIED</b>, when the watch arrived — on
+    /// <see cref="ObligationBlock"/>'s precedent and for the reason it records:
+    /// <i>two emitters with two obligation blocks would disagree about the
+    /// canonical form the day one of them gained a member, which is how
+    /// `evidence:` vanished from the first one.</i> A destination has eleven
+    /// optional members, each written only when declared, so a second copy
+    /// would have drifted faster than that one did.
+    /// </para>
+    /// <para>
+    /// <b>No depth parameter, because there is nothing to vary.</b> A watch's
+    /// bound sits under <c>nominates:</c> and an envelope's sit under
+    /// <c>destinations:</c> — both top-level keys — so the id indents once and
+    /// its members twice either way. A parameter would offer a choice the two
+    /// call sites do not have.
+    /// </para>
+    /// </remarks>
+    private static void DestinationBlock(StringBuilder text, Destination destination)
+    {
+        text.Append($"{Indent}{Scalar(destination.Id)}:\n");
+        text.Append($"{Indent}{Indent}kind: {Scalar(destination.Kind)}\n");
+        Sequence(text, "requires", destination.Requires, depth: 2);
+        // WRITTEN ONLY WHEN DECLARED. Emitting `preserve-unadmitted: false` for
+        // every destination that omits it would rewrite every tenant's document
+        // on the next show, and a diff nobody made is how a review practice
+        // gets abandoned.
+        if (destination.PreserveUnadmitted is { } preserve)
+        {
+            text.Append(
+                $"{Indent}{Indent}preserve-unadmitted: {(preserve ? "true" : "false")}\n");
+        }
+
+        // SAME RULE, AND HERE IT IS A NAME. Emitting the default template
+        // for every destination that omits it would rewrite every tenant's
+        // document on the next show - and would also write down, as though
+        // somebody had chosen it, a branch shape this platform reserves the
+        // right to be the default.
+        if (destination.Branch is { } branch)
+        {
+            text.Append($"{Indent}{Indent}branch: {Scalar(branch)}\n");
+        }
+
+        // THE TWO INSTRUCTIONS, on the same rule. Written only when
+        // declared, because a default sentence emitted for every
+        // destination would be this repository putting words in a tenant's
+        // document and then showing them the diff.
+        if (destination.Title is { } titled)
+        {
+            text.Append($"{Indent}{Indent}title: {Scalar(titled)}\n");
+        }
+
+        if (destination.Description is { } described)
+        {
+            text.Append($"{Indent}{Indent}description: {Scalar(described)}\n");
+        }
+
+        // SAME RULE, SAME REASON. Only a flight destination may carry this,
+        // so emitting `opens: []` for the four kinds that may not would put
+        // a refused key into every document that has ever been written.
+        if (destination.Opens is { } opens)
+        {
+            Sequence(text, "opens", opens, depth: 2);
+        }
+
+        // ABSENT STAYS ABSENT. Emitting `opens-as: auto` where nothing was
+        // written would add a line to every flight destination in every
+        // tenant's document, saying what they already meant - and a diff
+        // nobody made is how a review practice gets abandoned.
+        if (destination.OpensAs is { Length: > 0 } opensAs)
+        {
+            text.Append($"{Indent}{Indent}opens-as: {Scalar(opensAs)}\n");
+        }
+
+        // SAME RULE, THIRD KNOB. Only a tracker may carry this, so emitting
+        // it for the five kinds that may not would put a refused key into
+        // every document anybody has written.
+        if (destination.MayPerform is { } performable)
+        {
+            Sequence(text, "may-perform", performable, depth: 2);
+        }
+
+        // SAME RULE, FOURTH KNOB. Only a tracker writes fields, so
+        // emitting it elsewhere would put a refused key into every
+        // document anybody has written.
+        if (destination.MayWrite is { } writable)
+        {
+            Sequence(text, "may-write", writable, depth: 2);
+        }
+
+        // AND THE SAME AGAIN, one member over. Emitted only when declared,
+        // and each set only when IT is declared - writing `environments: []`
+        // for a destination that bounded only repositories would say the
+        // tenant permits no environment, which is a policy nobody wrote.
+        if (destination.MaySelect is { } selection)
+        {
+            text.Append($"{Indent}{Indent}may-select:\n");
+
+            if (selection.Environments is { } environments)
+            {
+                Sequence(text, "environments", environments, depth: 3);
+            }
+
+            if (selection.Repositories is { } repositories)
+            {
+                Sequence(text, "repositories", repositories, depth: 3);
+            }
+        }
+    }
 
     /// <summary>
     /// One obligation's block, shared by every render path.

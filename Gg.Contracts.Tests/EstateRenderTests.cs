@@ -33,6 +33,7 @@ public class EstateRenderTests
         Roles.Root or Roles.WorkKind => typeof(Envelope),
         Roles.Narrowing => typeof(EnvelopeNarrowing),
         Roles.Strategy => typeof(EnvironmentStrategy),
+        Roles.Watch => typeof(WatchDocument),
         _ => throw new ArgumentOutOfRangeException(
             nameof(role), role,
             "This role carries no known document type. A role that reaches here is one "

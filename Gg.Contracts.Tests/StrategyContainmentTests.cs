@@ -87,8 +87,13 @@ public class StrategyContainmentTests
     public async Task The_strategy_role_exists_and_the_vocabulary_still_closes()
     {
         await Assert.That(Roles.All).Contains(Roles.Strategy);
-        await Assert.That(Roles.All.Count).IsEqualTo(4)
-            .Because("root, work-kind, narrowing, strategy - a fifth role is a design event");
+        await Assert.That(Roles.All.Count).IsEqualTo(5)
+            .Because("root, work-kind, narrowing, strategy, watch - and the fifth WAS the "
+                   + "design event this sentence asked for: ADR-0022 section 5's watch, "
+                   + "landed by slice thirty-nine. Its cost is recorded as S39.0-04, which "
+                   + "under-counted it - this guard and `EnvelopeLayerTests` were the two "
+                   + "that measurement found, and `EnvelopeOperatorTests`, `EstateRenderTests` "
+                   + "and the vocabulary and pinned-id ledgers were the three it missed.");
     }
 
     [Test]

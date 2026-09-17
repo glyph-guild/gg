@@ -36,7 +36,22 @@ public static class PullPoints
     /// </summary>
     public const string ResidentRunner = "resident-runner";
 
-    public static IReadOnlyList<string> All { get; } = [ResidentRunner];
+    /// <summary>
+    /// The control plane performs it itself, where it can reach the system of
+    /// record. Legal for a watch and NOT for a strategy — a pool the control
+    /// plane performs is a pool nothing warms, so each document validates the
+    /// subset it can actually be performed by.
+    /// </summary>
+    public const string ControlPlane = "control-plane";
+
+    /// <summary>
+    /// The forge's own scheduler, as the always-on party. Legal for a watch and
+    /// not for a strategy, for the reason above.
+    /// </summary>
+    public const string ForgeScheduler = "forge-scheduler";
+
+    public static IReadOnlyList<string> All { get; } =
+        [ResidentRunner, ControlPlane, ForgeScheduler];
 }
 
 /// <summary>The pool a strategy manages: a name and how many.</summary>
@@ -162,6 +177,20 @@ public sealed record EnvironmentStrategy
     public static string? Validate(EnvironmentStrategy strategy)
     {
         ArgumentNullException.ThrowIfNull(strategy);
+
+        // THE VOCABULARY HOLDS THREE AND A STRATEGY TAKES ONE, which is the
+        // shape `DestinationKinds` already has where a repository's bound
+        // accepts only `flight`. A pull point widened for a watch must not
+        // silently become legal for a pool: the control plane cannot warm a
+        // container, and a forge's scheduler has never heard of one.
+        if (!string.Equals(
+                strategy.PullPoint, PullPoints.ResidentRunner, StringComparison.Ordinal))
+        {
+            return $"This strategy is performed by '{strategy.PullPoint}', and a pool is "
+                 + $"warmed by a runner on the managed host - '{PullPoints.ResidentRunner}'. "
+                 + "A powered-off pool cannot pull, and neither can one nothing is resident "
+                 + "on.";
+        }
 
         if (!StrategyKinds.All.Contains(strategy.Kind, StringComparer.Ordinal))
         {

@@ -431,22 +431,10 @@ public sealed record RegisterRepositoryRequest
     {
         ArgumentNullException.ThrowIfNull(registration);
 
-        if (registration.Nominates is { } bound)
+        if (registration.Nominates is { } bound
+            && NominationBounds.Invalid(bound) is { } wrong)
         {
-            // ONLY A FLIGHT NOMINATES, which is `opens:`' rule at the same
-            // door. A bound of any other kind governs nothing and reads to
-            // whoever wrote it as a control they set.
-            if (!string.Equals(bound.Kind, DestinationKinds.Flight, StringComparison.Ordinal))
-            {
-                return $"This repository nominates through a '{bound.Kind}' destination, and "
-                     + $"only a '{DestinationKinds.Flight}' opens anything. A bound of any "
-                     + "other kind is a control that governs nothing.";
-            }
-
-            if (DestinationOpening.Refused(bound) is { } refused)
-            {
-                return refused;
-            }
+            return wrong;
         }
 
         if (registration.Budget is not { } budget)
@@ -469,20 +457,7 @@ public sealed record RegisterRepositoryRequest
         // zero would be a repository that may nominate nothing at all, which
         // somebody might mean and must therefore not be reachable by leaving a
         // number out or by typing the wrong one.
-        if (budget.Flights <= 0)
-        {
-            return $"This repository's budget is {budget.Flights} flights, and a budget is a "
-                 + "number of them greater than none. Leaving the budget out is how a "
-                 + "repository nominates without one.";
-        }
-
-        if (!EnvelopeDurations.TryParse(budget.Window, out var window) || window <= TimeSpan.Zero)
-        {
-            return $"This repository's budget window is '{budget.Window}', which is not a "
-                 + "duration this reads. Whole seconds, minutes or hours - 30m, 24h.";
-        }
-
-        return null;
+        return NominationBounds.Invalid(budget);
     }
 
     /// <summary>

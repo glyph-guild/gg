@@ -22,9 +22,9 @@ namespace Gg.Cli;
 /// <b>Null unless the file says <c>accept-agent-login</c></b>, and then both
 /// ports as one grant: the class that drives the agent's binary under a
 /// pseudo-terminal, and the keeper that writes what it mints to the same
-/// store the runner reads at launch. A member never asks this - its path
-/// leaves the port null by construction - and takes its token by
-/// <c>gg credential send --agent</c> instead.
+/// store the runner reads at launch. A member asks the same question and its
+/// file says yes, because a member opens this key itself at first start - a
+/// decision reversed on 2026-09-17, when it had been closed on members.
 /// </para>
 /// </remarks>
 public static class LocalAgentLogin

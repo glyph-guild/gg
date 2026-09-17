@@ -2610,7 +2610,8 @@ static async Task<int> RunnerUpAsync()
             // WHETHER A CONSOLE MAY MAKE THIS MACHINE RUN ITS AGENT'S LOGIN
             // CEREMONY: null unless this machine's own file says
             // accept-agent-login, through the one gate, for the same
-            // declaration the agent came from. A member never asks this.
+            // declaration the agent came from. A member asks the same
+            // question; its file answers yes because it opened itself.
             login: Gg.Local.ExecutorDeclaration.ParseOrNull(
                 Environment.GetEnvironmentVariable(Gg.Local.ExecutorDeclaration.Variable),
                 Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
@@ -2914,6 +2915,18 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // holds until a token is sent, and the hold is what keeps it reachable.
         agent: agent,
         agentToken: () => agent is null ? null : new FileCredentialStore().Read(agent.Locator),
+
+        // THE LOGIN CEREMONY, through the resident's own gate. This member
+        // opened accept-agent-login at first start - read back above, which
+        // is why InForce is current here - so a console pressing Login on its
+        // gate starts the agent's setup-token on this machine rather than
+        // being told it is closed. That it was closed was a decision, and it
+        // was reversed: this is the machine nobody can open a shell on.
+        login: Gg.Local.ExecutorDeclaration.ParseOrNull(
+            Environment.GetEnvironmentVariable(Gg.Local.ExecutorDeclaration.Variable),
+            Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
+            ? LocalAgentLogin.For(inForce, new FileCredentialStore(), declaredAgent)
+            : null,
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
         // TWELVE HOURS, AND THEN THIS MEMBER IS DONE. A member token is not
         // renewable and a member cannot mint itself another - the pool warms a

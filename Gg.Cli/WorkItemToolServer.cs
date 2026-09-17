@@ -69,10 +69,16 @@ public static class WorkItemToolServer
     /// </remarks>
     private const int MaximumLimit = 200;
 
+    /// <param name="query">
+    /// A watch's query, bound for a sweep, or null for a flight's reader. When
+    /// bound, <see cref="QueryTool"/> is offered and pages through exactly this;
+    /// the agent can never supply one of its own.
+    /// </param>
     public static async Task<int> RunAsync(
         TextReader input,
         TextWriter output,
         IWorkItemSource source,
+        string? query = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -101,7 +107,8 @@ public static class WorkItemToolServer
 
             using (message)
             {
-                if (await AnswerAsync(message.RootElement, source, cancellationToken) is { } answer)
+                if (await AnswerAsync(message.RootElement, source, query, cancellationToken)
+                    is { } answer)
                 {
                     await output.WriteLineAsync(answer);
                     await output.FlushAsync(cancellationToken);
@@ -113,7 +120,8 @@ public static class WorkItemToolServer
     }
 
     private static async Task<string?> AnswerAsync(
-        JsonElement message, IWorkItemSource source, CancellationToken cancellationToken)
+        JsonElement message, IWorkItemSource source, string? query,
+        CancellationToken cancellationToken)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -127,8 +135,8 @@ public static class WorkItemToolServer
         return method switch
         {
             "initialize" => Initialized(id, message),
-            "tools/list" => Listed(id),
-            "tools/call" => await CalledAsync(id, message, source, cancellationToken),
+            "tools/list" => Listed(id, query),
+            "tools/call" => await CalledAsync(id, message, source, query, cancellationToken),
             _ => Error(id, -32601,
                 $"'{method}' is not a method this server has. It has initialize, tools/list "
               + "and tools/call."),
@@ -163,7 +171,7 @@ public static class WorkItemToolServer
             writer.WriteEndObject();
         });
 
-    private static string Listed(JsonElement id) =>
+    private static string Listed(JsonElement id, string? query) =>
         Write(writer =>
         {
             Envelope(writer, id);
@@ -313,12 +321,48 @@ public static class WorkItemToolServer
             writer.WriteEndObject();
             writer.WriteEndObject();
 
+            // ONLY WHEN A QUERY WAS BOUND, and it takes none. A flight's reader
+            // has no watch; a sweep's reader was started with the watch's
+            // reviewed filter, and paging through it is all this tool does.
+            if (query is not null)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("name", QueryTool.Name);
+                writer.WriteString("description",
+                    "Page through the work items this sweep's watch matches: id, revision, "
+                  + "title, state and url for each. The query is fixed by the watch and cannot "
+                  + "be changed here; pass the cursor you were given to continue, and call "
+                  + ReadName + " to read one.");
+                writer.WriteStartObject("inputSchema");
+                writer.WriteString("type", "object");
+                writer.WriteStartObject("properties");
+
+                writer.WriteStartObject(BrowseTool.Paging.Cursor);
+                writer.WriteString("type", "string");
+                writer.WriteString("description",
+                    "Where to continue from, as returned in "
+                  + BrowseTool.Paging.NextCursor + ". Omit for the first page.");
+                writer.WriteEndObject();
+
+                writer.WriteStartObject(BrowseTool.Paging.Limit);
+                writer.WriteString("type", "integer");
+                writer.WriteString("description",
+                    $"How many to return. Defaults to {DefaultLimit}, capped at {MaximumLimit}.");
+                writer.WriteEndObject();
+
+                writer.WriteEndObject();
+                writer.WriteStartArray("required");
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+                writer.WriteEndObject();
+            }
+
             writer.WriteEndArray();
             writer.WriteEndObject();
         });
 
     private static async Task<string> CalledAsync(
-        JsonElement id, JsonElement message, IWorkItemSource source,
+        JsonElement id, JsonElement message, IWorkItemSource source, string? query,
         CancellationToken cancellationToken)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
@@ -342,6 +386,8 @@ public static class WorkItemToolServer
                     await FieldsAsync(id, arguments, source, cancellationToken),
                 BrowseTool.Name => await BrowseAsync(id, arguments, source, cancellationToken),
                 FacetTool.Name => await FacetsAsync(id, source, cancellationToken),
+                QueryTool.Name when query is not null =>
+                    await QueryAsync(id, arguments, source, query, cancellationToken),
                 _ => Error(id, -32602,
                     $"'{name}' is not a tool this server has. It has {ReadName} and "
                   + BrowseTool.Name + "."),
@@ -559,19 +605,7 @@ public static class WorkItemToolServer
         JsonElement id, JsonElement arguments, IWorkItemSource source,
         CancellationToken cancellationToken)
     {
-        var cursor = arguments.ValueKind == JsonValueKind.Object
-                  && arguments.TryGetProperty(BrowseTool.Paging.Cursor, out var from)
-            ? Text(from)
-            : null;
-
-        var asked = arguments.ValueKind == JsonValueKind.Object
-                 && arguments.TryGetProperty(BrowseTool.Paging.Limit, out var many)
-                 && many.ValueKind is JsonValueKind.Number or JsonValueKind.String
-                 && int.TryParse(Text(many), out var parsed)
-            ? parsed
-            : DefaultLimit;
-
-        var limit = Math.Clamp(asked, 1, MaximumLimit);
+        var (cursor, limit) = Paging(arguments);
         var page = await source.BrowseAsync(cursor, limit, Narrowing(arguments), cancellationToken);
 
         // THE CONTRACT'S OWN SHAPE, written by its own names. A pane parses
@@ -616,6 +650,72 @@ public static class WorkItemToolServer
         });
 
         return Content(id, body);
+    }
+
+    /// <summary>
+    /// A page of the bound query, and never of one the agent wrote.
+    /// </summary>
+    /// <remarks>
+    /// <b>A query argument is refused, not ignored.</b> Ignoring it would answer
+    /// the watch's page under the agent's query's name, and an agent told its
+    /// query ran would reason from results it never asked for.
+    /// </remarks>
+    private static async Task<string> QueryAsync(
+        JsonElement id, JsonElement arguments, IWorkItemSource source, string query,
+        CancellationToken cancellationToken)
+    {
+        if (arguments.ValueKind == JsonValueKind.Object
+            && arguments.EnumerateObject().Any(a =>
+                a.Name is not (BrowseTool.Paging.Cursor or BrowseTool.Paging.Limit)))
+        {
+            return Failed(id,
+                "This tool pages through the watch's own query, which was reviewed and cannot "
+              + "be changed here. It takes only " + BrowseTool.Paging.Cursor + " and "
+              + BrowseTool.Paging.Limit + ". Nothing was queried.");
+        }
+
+        var (cursor, limit) = Paging(arguments);
+        var page = await source.QueryAsync(query, cursor, limit, cancellationToken);
+
+        return Content(id, Write(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteStartArray(BrowseTool.Paging.Items);
+            foreach (var item in page.Items)
+            {
+                writer.WriteStartObject();
+                writer.WriteString(BrowseTool.Fields.Id, item.Id);
+                writer.WriteString(QueryTool.Revision, item.Revision);
+                writer.WriteString(BrowseTool.Fields.Title, item.Title);
+                writer.WriteString(BrowseTool.Fields.State, item.State);
+                writer.WriteString(BrowseTool.Fields.Url, item.Url);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+
+            if (page.NextCursor is { Length: > 0 } next)
+            {
+                writer.WriteString(BrowseTool.Paging.NextCursor, next);
+            }
+        }));
+    }
+
+    /// <summary>A cursor and a clamped limit, as a browse and a query both read them.</summary>
+    private static (string? Cursor, int Limit) Paging(JsonElement arguments)
+    {
+        var cursor = arguments.ValueKind == JsonValueKind.Object
+                  && arguments.TryGetProperty(BrowseTool.Paging.Cursor, out var from)
+            ? Text(from)
+            : null;
+
+        var asked = arguments.ValueKind == JsonValueKind.Object
+                 && arguments.TryGetProperty(BrowseTool.Paging.Limit, out var many)
+                 && many.ValueKind is JsonValueKind.Number or JsonValueKind.String
+                 && int.TryParse(Text(many), out var parsed)
+            ? parsed
+            : DefaultLimit;
+
+        return (cursor, Math.Clamp(asked, 1, MaximumLimit));
     }
 
     /// <summary>

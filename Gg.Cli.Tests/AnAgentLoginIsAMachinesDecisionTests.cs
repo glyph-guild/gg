@@ -21,10 +21,15 @@ namespace Gg.Cli.Tests;
 /// that agreed to be HANDED a token has not agreed to START anything.
 /// </para>
 /// <para>
-/// <b>Closed on members, by decision.</b> A member's first start opens
-/// <c>accept-configured</c> on the authority of its nonce; it opens nothing
-/// else. Members receive the token by <c>gg credential send --agent</c>; the
-/// ceremony runs on residents and laptops, whose files a person can open.
+/// <b>Open on members, by a later decision that reversed the first.</b> A
+/// member's first start opened <c>accept-configured</c> on the authority of its
+/// nonce and nothing else, so a member took its token only by
+/// <c>gg credential send --agent</c>. On 2026-09-17 a person pressed Login on an
+/// agent-login gate for a pool member, was told it was closed by decision, and
+/// decided it should not be: a member is the machine most in need of the
+/// ceremony, because it is the one nobody can open a shell on. So a member's
+/// first start opens this too, on the same authority, IN ITS OWN FILE - there is
+/// still no variable and the control plane still cannot offer it.
 /// </para>
 /// </remarks>
 public class AnAgentLoginIsAMachinesDecisionTests
@@ -115,31 +120,39 @@ public class AnAgentLoginIsAMachinesDecisionTests
     }
 
     [Test]
-    public async Task A_member_opening_accept_configured_does_not_open_this()
+    public async Task A_member_opens_both_doors_at_first_start()
     {
+        // THE REVERSAL, AND IT IS STILL TWO DOORS. Accept_configured_does_not_
+        // open_it above still holds for a machine a person opens by hand; what
+        // changed is that the member, which nobody can open by hand, opens both
+        // on the nonce's authority - written, so `gg config show` inside the
+        // container says so.
         var opened = LocalCredentialKeeper.Opened(new Configuration());
 
         await Assert.That(opened.AcceptConfigured).IsTrue();
-        await Assert.That(opened.AcceptAgentLogin).IsNull()
-            .Because("the nonce bought one door, and this is the other one.");
+        await Assert.That(opened.AcceptAgentLogin).IsTrue()
+            .Because("a member with a Login button that answers 'closed' is a member nobody "
+                   + "can log in from a console, and that was decided to be wrong.");
     }
 
     [Test]
-    public async Task A_member_is_never_handed_the_ceremony_and_a_resident_is_asked_the_one_question()
+    public async Task Both_ways_a_runner_comes_up_ask_the_file_through_the_one_gate()
     {
-        // THE DRIFT THIS PREVENTS IS THE DANGEROUS DIRECTION: a member path
-        // that built the ceremony's ports would be a container starting
-        // programs on a channel with nothing written down saying it may.
-        var member = Body("MemberUpAsync");
-        await Assert.That(member).DoesNotContain("LocalAgentLogin")
-            .Because("closed on members by decision, and the decision is that the member "
-                   + "path never asks.");
-        await Assert.That(member).DoesNotContain("login:")
-            .Because("the port's default is null, and a member leaves it there.");
+        // STILL THE DANGEROUS DIRECTION, and now it guards both paths: a member
+        // or a resident that built the ceremony's ports directly would be a
+        // machine starting programs on a channel with nothing written down
+        // saying it may. Both go through LocalAgentLogin.For, which reads the
+        // file and nothing else.
+        foreach (var path in (string[])["MemberUpAsync", "RunnerUpAsync"])
+        {
+            var body = Body(path);
 
-        var resident = Body("RunnerUpAsync");
-        await Assert.That(resident).Contains("LocalAgentLogin.For")
-            .Because("a resident asks its file, through the one gate, and nowhere else.");
+            await Assert.That(body).Contains("login:")
+                .Because($"{path} has to hand the runner the ceremony's ports, or a console "
+                       + "pressing Login is told the machine is closed.");
+            await Assert.That(body).Contains("LocalAgentLogin.For")
+                .Because($"{path} asks its file, through the one gate, and nowhere else.");
+        }
     }
 
     /// <summary>The source of one method in the composition root.</summary>

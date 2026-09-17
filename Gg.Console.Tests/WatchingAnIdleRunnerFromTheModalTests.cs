@@ -87,6 +87,41 @@ public class WatchingAnIdleRunnerFromTheModalTests
     }
 
     [Test]
+    public async Task A_maintainer_is_not_offered_the_key()
+    {
+        // ALIVE AND UNREACHABLE. A pool maintainer reports every few seconds
+        // and never beats, so it never picks up an introduction - and being
+        // other than offline is not the same as beating.
+        var context = KeymapContext.For(Over("maintaining"));
+
+        await Assert.That(context.RunnerIsBeating).IsFalse();
+        await Assert.That(Keymap.Bindings(context).Any(b => b.Command == Command.WatchRunner))
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task A_maintainer_is_refused_even_if_asked()
+    {
+        var after = ConsoleWatchRunner.Watch(
+            Over("maintaining"),
+            _ => throw new InvalidOperationException("nothing should be started"));
+
+        await Assert.That(after.LastRunner).Contains("maintains")
+            .Because("`start it and try again` is the wrong advice for a machine that is "
+                   + "running and doing its job. Said: " + after.LastRunner);
+    }
+
+    [Test]
+    public async Task A_maintainer_is_given_no_credential_even_if_asked()
+    {
+        var after = ConsoleSendCredential.Give(
+            Over("maintaining"),
+            (_, _) => throw new InvalidOperationException("nothing should be sent"));
+
+        await Assert.That(after.LastCredential).Contains("maintains");
+    }
+
+    [Test]
     public async Task Watching_names_the_runner_rather_than_a_flight()
     {
         var asked = new List<string>();

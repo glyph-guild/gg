@@ -168,6 +168,17 @@ public abstract record CliAction
 
     public sealed record Runners(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// How every watch is doing: the executor in force, the newest report and
+    /// the cost per window.
+    /// </summary>
+    /// <remarks>
+    /// <b>A watch is the one thing here that runs with nobody watching it</b> -
+    /// no lease, no flight, no queue row while it works - so asking is the only
+    /// way to know it is alive. S39.6-01.
+    /// </remarks>
+    public sealed record Watches(bool Json) : CliAction, IEmitsResult;
+
     /// <summary>The chart: every environment name an envelope may select.</summary>
     /// <remarks>
     /// <b>The refusal has been pointing here since the chart shipped.</b> An
@@ -672,6 +683,11 @@ public static class CliArgs
         "gg log <flight>                a flight's log",
         "gg facts <flight>              what a flight recorded, and which budget held it",
         "gg runners                     the runners this tenant has",
+        // BESIDE RUNNERS, because it answers the same question about the other
+        // kind of machine work: a runner reports by beating, and a watch
+        // reports by sweeping. Nobody is watching a sweep while it runs, so
+        // asking is the only way to know one is alive.
+        "gg watches                     how each watch is doing: executor, last report, cost",
         "gg plan [flight]               what must hold before a flight can start",
         "gg gates                       flights stopped, waiting on somebody",
         // BESIDE GATES, because it is the same question one noun earlier: what
@@ -1057,6 +1073,11 @@ public static class CliArgs
             ["flights", ..] => Unknown(
                 "gg flights takes --all, --json, and --intent <provider>#<id> or a uri."),
             ["runners"] => new CliAction.Runners(json),
+            // PLURAL, like runners and pools: it lists what is in force and
+            // how each one is doing. `gg runner watch <id>` is a different
+            // verb about a flight, and the two have never been confusable
+            // because that one takes an id.
+            ["watches"] => new CliAction.Watches(json),
             ["environments"] => new CliAction.Environments(json),
             // SINGULAR VERB, PLURAL LIST, the way envelope/envelopes and
             // strategy/strategies already read. The list arm is above this one

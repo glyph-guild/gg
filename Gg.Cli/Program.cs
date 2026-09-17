@@ -67,6 +67,7 @@ return CliArgs.Parse(args) switch
     CliAction.Facts facts =>
         await EmitAsync(facts.Json, c => c.FactsAsync(facts.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
+    CliAction.Watches watches => await EmitAsync(watches.Json, c => c.WatchesAsync()),
     CliAction.Environments charted =>
         await EmitAsync(charted.Json, c => c.EnvironmentsAsync()),
     CliAction.EnvironmentChart charting => await EmitAsync(

@@ -507,6 +507,10 @@ public sealed class FlightCommands(
     public async Task<VerbResult> StrategiesAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Strategies(await _client.ListStrategiesAsync(Session(), cancellationToken));
 
+    /// <summary>How every watch in force is doing. Empty is a state, not an error.</summary>
+    public async Task<VerbResult> WatchesAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Watches(await _client.WatchStandingsAsync(Session(), cancellationToken));
+
     /// <summary>
     /// Grants or revokes administration, then answers with who this is.
     /// </summary>

@@ -94,6 +94,24 @@ public class ProjectionParityTests
                       + "flight number, and a standing nomination has neither - having no "
                       + "flight yet is the whole point of one. S37.4-01 is that excavation.",
 
+            // HOW EVERY WATCH IS DOING, and its arm arrives with its pane.
+            // S39.6-01 wants the console to show, per watch, the executor in
+            // force, the cost per window and the newest attestation - and the
+            // verb answers all three for the command line now. What the pane
+            // waits on is a decision nobody has made: whether a watch is a row
+            // in the queue beside flights and standing nominations, or a tab of
+            // its own. A watch is not work and has no flight, so the queue's
+            // row does not fit it any better than it fits a board row - which
+            // is the same excavation `Board` is waiting on, one noun over.
+            //
+            // REMOVE THIS ENTRY when a pane draws a watch. An arm before then
+            // would put standings in a model nothing renders them from, which
+            // is the shape this whole ratchet exists to catch.
+            ["Watches"] = "not projected yet: the verb answers S39.6-01 for the command "
+                        + "line, and where a watch belongs in the console - a queue row "
+                        + "beside flights, or a tab - is the same open question `Board` "
+                        + "waits on.",
+
             // AND ITS ANSWER MUST NEVER GET ONE. What comes back from
             // answering a nomination is one row plus how long gg waited for it
             // - a report about this invocation, not state about the tenant.

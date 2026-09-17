@@ -101,6 +101,21 @@ public abstract record VerbResult
     /// one is a document a person asked for by name; this is the list, which is
     /// the only way to find out which names have one.
     /// </remarks>
+    /// <summary>
+    /// How every watch in force is doing: the executor, the newest report and
+    /// the cost.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="AirspaceDocuments"/> rather than inside it.</b> The
+    /// estate says what is in force and is what a working copy is written from;
+    /// this says how it is going, and the two change on completely different
+    /// clocks.
+    /// </remarks>
+    public sealed record Watches(WatchStandingList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Watches;
+    }
+
     public sealed record Strategies(StrategyList Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Strategies;
@@ -459,6 +474,9 @@ public static class VerbResultKinds
     public const string Chart = "environment-chart";
     public const string Pools = "pools";
     public const string Strategies = "strategies";
+
+    /// <summary>How every watch in force is doing.</summary>
+    public const string Watches = "watches";
     public const string Invited = "invited";
     public const string Diagnosis = "diagnosis";
     public const string Credentials = "credentials";
@@ -591,6 +609,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.Envelope))]
 [JsonSerializable(typeof(AirspaceEstate))]
 [JsonSerializable(typeof(Gg.Contracts.EnvironmentStrategyState))]
+[JsonSerializable(typeof(Gg.Contracts.WatchStandingList))]
 [JsonSerializable(typeof(Gg.Contracts.StrategyList))]
 [JsonSerializable(typeof(Gg.Contracts.EnvironmentChart))]
 [JsonSerializable(typeof(Gg.Contracts.PoolLedger))]
@@ -709,6 +728,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PoolLedger),
         VerbResult.Strategies r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.StrategyList),
+        VerbResult.Watches r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.WatchStandingList),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -849,6 +870,7 @@ public static class VerbOutput
         VerbResult.Chart r => ChartText(r.Value),
         VerbResult.Pools r => PoolsText(r.Value),
         VerbResult.Strategies r => StrategiesText(r.Value),
+        VerbResult.Watches r => WatchesText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -1938,6 +1960,73 @@ public static class VerbOutput
     /// diagnosis, which is why the diagnosis is printed in full rather than
     /// summarised.
     /// </remarks>
+    /// <summary>
+    /// A line per watch: what would run it, what it last said, and what it has
+    /// spent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every absence is a word rather than a gap.</b> A watch that has never
+    /// swept, one nothing has declared an executor for and one with no budget
+    /// are three different states that all render as blank columns if nobody
+    /// decides otherwise - and a person reading a quiet board cannot tell them
+    /// apart. So `never` is printed, and an unbounded cost prints its count
+    /// without inventing a bound of zero.
+    /// </para>
+    /// <para>
+    /// <b>Quiet is called quiet, on the row.</b> Rule 11 is that the board must
+    /// never look quiet when it is blind; this is the verb a person types to
+    /// ask, so the answer has to be the loud half of that rather than a
+    /// timestamp they have to subtract.
+    /// </para>
+    /// </remarks>
+    private static string WatchesText(WatchStandingList standings)
+    {
+        if (standings.Standings.Count == 0)
+        {
+            return "no watch is in force for this tenant. That is a tenant watching nothing - "
+                 + "`gg airspace show` lists the names that have been declared.";
+        }
+
+        var text = new StringBuilder();
+
+        foreach (var watch in standings.Standings.OrderBy(w => w.Name, StringComparer.Ordinal))
+        {
+            var heard = watch.LastHeardAt is { } when
+                ? $"{when:u}"
+                : "never reported";
+
+            text.AppendLine(
+                $"{Clean(watch.Name),-24}{Clean(watch.Executor ?? "no executor yet"),-14}"
+              + $"{Clean(watch.Outcome ?? "-"),-13}{heard}");
+
+            text.AppendLine(
+                $"  {Cost(watch)}"
+              + (watch.Outcome is { Length: > 0 } ? $", {watch.Nominated} nominated" : ""));
+
+            if (watch.QuietSince is { } since)
+            {
+                text.AppendLine(
+                    $"  quiet since {since:u}: nothing this watch should have found has been "
+                  + "seen. Either no runner is sweeping it, or the ones that took its sweeps "
+                  + "are not reporting.");
+            }
+
+            if (watch.Diagnosis is { Length: > 0 } why)
+            {
+                text.AppendLine($"  {Clean(why)}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>The cost with its scale, because a bare number says nothing.</summary>
+    private static string Cost(WatchStanding watch) =>
+        watch.Budgeted is { } bound
+            ? $"{watch.Opened} of {bound} in {Clean(watch.Window)}"
+            : $"{watch.Opened} in {Clean(watch.Window)}, unbounded";
+
     private static string PoolsText(PoolLedger ledger)
     {
         if (ledger.Pools.Count == 0)

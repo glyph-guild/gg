@@ -69,6 +69,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(WatchDocument))]
 [JsonSerializable(typeof(WatchState))]
 [JsonSerializable(typeof(WatchList))]
+[JsonSerializable(typeof(WatchStandingList))]
 [JsonSerializable(typeof(CurrentVersion))]
 [JsonSerializable(typeof(NamedEnvelopeList))]
 [JsonSerializable(typeof(NamedEnvelopeState))]
@@ -963,6 +964,30 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.WatchList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>
+    /// How every watch in force is doing: what would run it, what it last
+    /// said, and what it has spent.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second read beside <see cref="ListWatchesAsync"/>, not a widening
+    /// of it.</b> That one answers what is in force and is what an estate is
+    /// pulled from; this one answers how it is going, and the two change on
+    /// completely different clocks.
+    /// </remarks>
+    public async Task<WatchStandingList> WatchStandingsAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/watch-standings", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.WatchStandingList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
     }
 

@@ -425,6 +425,16 @@ public class EndpointSurfaceTests
         // The contract version moves too, to 0.182.0: the action, the skill,
         // the report and the sighting are new types.
         //
+        // Moved for a watch's standing: GET /v1/airspace/watch-standings, the
+        // read S39.6-01 needs. Developer audience, because how a watch is
+        // doing is a person's question and a runner performs sweeps without
+        // ever asking about them. A ROUTE OF ITS OWN rather than three members
+        // on `WatchState`: that type is what `gg airspace pull` writes a
+        // working copy from, and liveness in a working copy is churn in a file
+        // whose purpose is to be diffed. The path is hyphenated because
+        // `/v1/airspace/watches/standings` would shadow a watch somebody named
+        // `standings`.
+        //
         // Moved for a runner naming its machine: POST /v1/runner/machine, the
         // way a runner that predates machines gains one - RunnerKeyOffer's
         // reason, because registration is read-or-register and a stored
@@ -434,7 +444,7 @@ public class EndpointSurfaceTests
         // substitution anybody pinned. The request type is new, so the contract
         // version moves as well, to 0.183.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7f34e8fca70c1622cfa67c5361558b758c0a6917ef9ff6c2c3115ff5ee32f985")
+            .IsEqualTo("5344c2baf52b32dd67dd05ab2bc9faf8b4b24d6e7206fbbeef30c63ca576fb69")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

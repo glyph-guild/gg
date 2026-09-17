@@ -186,6 +186,20 @@ public class ConsoleDataTests
             // way to make a request the console has already made.
             "RunnerLabelsAsync",
 
+            // THE WATCH STANDINGS, AND THE ABSENCE IS A SEQUENCE RATHER THAN A
+            // DECISION. S39.6-01 wants the console to show how each watch is
+            // doing; the verb answers it for the command line, and what the
+            // console half waits on is where a watch belongs - a queue row
+            // beside flights and standing nominations, or a tab of its own. A
+            // watch has no flight and is not work, so `QueueRow` fits it no
+            // better than it fits a board row, which is the same excavation
+            // S37.4-01 named.
+            //
+            // REMOVE THIS ENTRY when a pane draws a watch. A port with no pane
+            // is a request nothing renders, which is the pairing this ratchet
+            // exists to keep honest.
+            "WatchesAsync",
+
             // ONE-WAY, AND THE CONSOLE IS A PLACE PEOPLE ARRIVE AT BY ARROW KEY.
             // Retiring revokes a credential and cannot be undone; every other
             // runner key in this console acts on whatever row the cursor happens

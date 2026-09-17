@@ -375,6 +375,121 @@ public sealed record WatchState
     public required WatchDocument Watch { get; init; }
 }
 
+/// <summary>
+/// How a watch is doing: what would run it, what it last said, and what it has
+/// spent.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A separate read from <see cref="WatchState"/>, and the estate is why.</b>
+/// <c>gg airspace pull</c> writes a working copy from the watches in force, and
+/// a working copy exists to be diffed against what somebody wrote. Liveness
+/// members on that type would put timestamps in those files and change them on
+/// every pull - so what is in force and how it is going are two reads.
+/// </para>
+/// <para>
+/// <b>Every member is nullable or counted, because a watch that has never
+/// swept is an ordinary state.</b> A watch applied a minute ago has no
+/// executor in force, said nothing, and spent nothing; a reader has to be able
+/// to tell that from a watch that has gone quiet, which is what
+/// <see cref="QuietSince"/> is for.
+/// </para>
+/// </remarks>
+[PinnedId("2a6f91c4-7b3e-4d58-9c02-e85d1a43f6b7")]
+public sealed record WatchStanding
+{
+    /// <summary>The topology name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The watch version in force.</summary>
+    public required string Version { get; init; }
+
+    /// <summary>
+    /// What would run this watch's next sweep, as its newest decided sweep
+    /// declared - or null for a watch that has never had one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Reported rather than defaulted.</b> Every sweep today carries
+    /// <c>instructions</c> and ADR-0023's script executor arrives later; a
+    /// member that answered the shipped word by construction would be a
+    /// surface performing a value instead of reading one, and would be wrong
+    /// the day the second executor lands without anything changing.
+    /// </remarks>
+    public string? Executor { get; init; }
+
+    /// <summary>When this watch last reported, on the control plane's clock.</summary>
+    public DateTimeOffset? LastHeardAt { get; init; }
+
+    /// <summary>The newest report's outcome, one of <see cref="WatchOutcomes"/>, or null.</summary>
+    public string? Outcome { get; init; }
+
+    /// <summary>How many nominations the newest report carried.</summary>
+    public int Nominated { get; init; }
+
+    /// <summary>Why the newest sweep could not do its job, when it could not.</summary>
+    public string? Diagnosis { get; init; }
+
+    /// <summary>
+    /// The instant this watch has said nothing since, when that is longer than
+    /// twice its period.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is the healthy answer, and it is not the same as
+    /// <see cref="LastHeardAt"/> being recent.</b> A watch that has never swept
+    /// at all has no last-heard and can still be quiet - measured from when it
+    /// was applied, because that is when the board started expecting to hear
+    /// from it.
+    /// </remarks>
+    public DateTimeOffset? QuietSince { get; init; }
+
+    /// <summary>
+    /// How many flights this watch's nominations have opened inside its budget
+    /// window - or inside <see cref="DefaultCostWindow"/> when it has no
+    /// budget.
+    /// </summary>
+    public int Opened { get; init; }
+
+    /// <summary>
+    /// The window <see cref="Opened"/> was counted over, as a duration.
+    /// </summary>
+    /// <remarks>
+    /// Carried so a reader sees the scale rather than a bare number: "3 in 24h"
+    /// says something and "3" does not.
+    /// </remarks>
+    public required string Window { get; init; }
+
+    /// <summary>
+    /// What the watch budgeted for that window, or null for unbounded.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unbounded is a state, not an absence</b>, and it is what every watch
+    /// written before a budget existed says - so the count is reported either
+    /// way and only the bound goes missing.
+    /// </remarks>
+    public int? Budgeted { get; init; }
+
+    /// <summary>
+    /// The window a watch with no budget's cost is counted over.
+    /// </summary>
+    /// <remarks>
+    /// <b>A day, because the number is for a person rather than for a rule.</b>
+    /// Nothing decides anything from it: the budget's own window is used
+    /// wherever there is one, and this is only so a watch without one still
+    /// answers "how much has this been costing".
+    /// </remarks>
+    public const string DefaultCostWindow = "24h";
+}
+
+/// <summary>How every watch in force is doing.</summary>
+/// <remarks>
+/// An envelope rather than a bare array, for <see cref="WatchList"/>'s reason.
+/// </remarks>
+[PinnedId("58c3e07a-9d41-4b26-8f95-71a0d6c2e438")]
+public sealed record WatchStandingList
+{
+    public required IReadOnlyList<WatchStanding> Standings { get; init; }
+}
+
 /// <summary>Every watch in force for the tenant.</summary>
 /// <remarks>
 /// An envelope rather than a bare array, for the reason <c>StrategyList</c> is

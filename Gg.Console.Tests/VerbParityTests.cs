@@ -306,6 +306,10 @@ public class VerbParityTests
             ["RunnerUp"] = "a daemon. Correctly not a console verb.",
             ["RunnerServe"] = "a daemon. Correctly not a console verb.",
             ["RunnerMaintain"] = "a daemon. Correctly not a console verb.",
+            ["Watches"] = "absent, and a gap this slice names: S39.6-01 wants the console "
+                        + "to show how each watch is doing, and the verb answers it for the "
+                        + "command line only. A watch is the one thing here that runs with "
+                        + "nobody watching it, so the pane is the half a person keeps open.",
             ["RunnerSweep"] = "a daemon, and the one a person is least at: it sweeps a watch "
                             + "on the machine beside the credential, launching an agent per "
                             + "decided sweep. Correctly not a console verb - what a person "

@@ -1075,6 +1075,21 @@ public static class ProtocolSurface
         },
         new()
         {
+            // HOW EVERY WATCH IS DOING, which is a different question from
+            // what is in force: the estate is a working copy and this is a
+            // status board. ONE route rather than one per watch, and a
+            // hyphenated path rather than `/v1/airspace/watches/standings`,
+            // because that would shadow a watch somebody named `standings`.
+            Method = "GET",
+            Path = "/v1/airspace/watch-standings",
+            Audience = Audience.Developer,
+            Response = typeof(WatchStandingList),
+            // Empty is a tenant watching nothing, as the list beside it is.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/airspace/watches",
             Audience = Audience.Developer,
@@ -1823,6 +1838,10 @@ public static class ProtocolSurface
             [typeof(WatchBounds)] = ["activeHours", "capPerPass", "budget"],
             [typeof(WatchState)] = ["name", "version", "appliedAt", "watch"],
             [typeof(WatchList)] = ["watches"],
+            [typeof(WatchStanding)] =
+                ["name", "version", "executor", "lastHeardAt", "outcome", "nominated",
+                 "diagnosis", "quietSince", "opened", "window", "budgeted"],
+            [typeof(WatchStandingList)] = ["standings"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],

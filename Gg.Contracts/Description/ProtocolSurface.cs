@@ -1844,7 +1844,7 @@ public static class ProtocolSurface
             // identities, versions and the digest of what ran.
             [typeof(WatchAction)] =
                 ["actionId", "watch", "watchVersion", "document", "executor", "moves",
-                 "skillCommit", "diagnosis", "decidedAt"],
+                 "skill", "diagnosis", "decidedAt"],
             [typeof(WatchActionList)] = ["actions"],
             [typeof(SweepNomination)] =
                 ["subject", "version", "intentKey", "workKind", "reason", "note"],

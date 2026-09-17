@@ -3328,9 +3328,12 @@ public static class VerbOutput
             text.Append($"{name}: missing from the tree - an intent to retire\n");
         }
 
-        foreach (var path in diff.Unreadable)
+        foreach (var unreadable in diff.Unreadable)
         {
-            text.Append($"{path}: does not read as a document\n");
+            // THE REASON, BESIDE THE PATH. "does not read as a document" alone
+            // is a shrug: it says a file is wrong and nothing about which part,
+            // so the only way forward is to bisect it against one that works.
+            text.Append($"{unreadable.Path}: {unreadable.Diagnosis}\n");
         }
 
         return text.ToString();

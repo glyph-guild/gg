@@ -37,7 +37,7 @@ public class TheEstateReachesTheConsoleTests
 {
     private static EstateOnThisMachine Estate(
         IReadOnlyList<DocumentChange>? changes = null,
-        IReadOnlyList<string>? unreadable = null,
+        IReadOnlyList<UnreadableDocument>? unreadable = null,
         IReadOnlyList<string>? retiring = null,
         string? root = "/home/someone/estate") => new()
         {
@@ -125,7 +125,11 @@ public class TheEstateReachesTheConsoleTests
     {
         var text = PaneText.Estate(new AppState
         {
-            Estate = Estate(unreadable: ["airspace/narrowings/pci.yaml"]),
+            Estate = Estate(unreadable: [new UnreadableDocument
+            {
+                Path = "airspace/narrowings/pci.yaml",
+                Diagnosis = "'banana' is not a check this version knows.",
+            }]),
         });
 
         await Assert.That(text).Contains("pci.yaml", StringComparison.Ordinal)

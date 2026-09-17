@@ -147,7 +147,15 @@ internal static class StateGenerator
                 }),
             ],
             Retiring = [.. Enumerable.Range(0, random.Next(0, 2)).Select(_ => NextId(random))],
-            Unreadable = [.. Enumerable.Range(0, random.Next(0, 2)).Select(_ => NextId(random))],
+            Unreadable =
+            [
+                .. Enumerable.Range(0, random.Next(0, 2)).Select(
+                    _ => new Gg.Client.UnreadableDocument
+                    {
+                        Path = NextId(random),
+                        Diagnosis = NextText(random),
+                    }),
+            ],
         },
         Diagnosis = random.Next(3) == 0 ? NextText(random) : null,
     };

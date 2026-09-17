@@ -813,5 +813,17 @@ public sealed record EstateDiff
 
     public required IReadOnlyList<string> Retiring { get; init; }
 
-    public required IReadOnlyList<string> Unreadable { get; init; }
+    /// <summary>
+    /// The files that should be documents and are not, each with the reason.
+    /// </summary>
+    /// <remarks>
+    /// <b>The whole record rather than its path.</b> This was
+    /// <c>IReadOnlyList&lt;string&gt;</c>, and the projection that filled it
+    /// dropped the one thing a person can act on: the parser computes a
+    /// sentence, <c>AirspaceTree.Read</c> keeps it, apply puts it in its
+    /// refusal, and diff reduced it to a path. So the command somebody runs
+    /// FIRST had the worse message, and finding out why a file did not read
+    /// meant bisecting it against one that did.
+    /// </remarks>
+    public required IReadOnlyList<UnreadableDocument> Unreadable { get; init; }
 }

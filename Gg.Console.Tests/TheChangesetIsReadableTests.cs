@@ -169,7 +169,14 @@ public class TheChangesetIsReadableTests
         {
             Changes = [],
             Retiring = [],
-            Unreadable = ["airspace/narrowings/broken.yaml"],
+            Unreadable =
+            [
+                new UnreadableDocument
+                {
+                    Path = "airspace/narrowings/broken.yaml",
+                    Diagnosis = "'banana' is not a check this version knows.",
+                },
+            ],
         }), 0));
 
         await Assert.That(said).Contains("broken.yaml", StringComparison.Ordinal);

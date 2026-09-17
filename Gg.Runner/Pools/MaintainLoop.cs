@@ -104,6 +104,28 @@ public sealed class MaintainLoop(
     /// <summary>How long between cycles. Injected waiting makes it a test's choice too.</summary>
     public static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How long one scope probe governs, after which the loop opens a new session.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because the control plane already bounds it, and this side did not
+    /// know.</b> The decider refuses an outward act whose stamp is older than its
+    /// ProbeFreshness - one hour, in the control plane's repository - on the
+    /// grounds that such a probe governs some other session. A maintainer probed
+    /// once at startup and stamped that instant forever, so an hour after it
+    /// started it could never refresh again: a member that ended on its
+    /// credential stayed ended, and an applied image never rolled out. Found on
+    /// vmlinux001 after seven hours, three of them with a dead member.
+    /// </para>
+    /// <para>
+    /// <b>Half of that bound</b>, which leaves the decider's own tick, a cycle's
+    /// backoff and the skew between two clocks before a stamp reads as stale.
+    /// Still one probe per session, never one per cycle.
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan SessionLength = TimeSpan.FromMinutes(30);
+
     /// <summary>Runs until cancelled. 0 is a session that ended; 69 is a bound that broke.</summary>
     public async Task<int> RunAsync(string pool, CancellationToken cancellationToken)
     {
@@ -113,31 +135,32 @@ public sealed class MaintainLoop(
         // treats as proof the bound holds. Refusing here keeps those two apart.
         pool = PoolNaming.Require(pool);
 
-        var probe = await _adapter.ProbeScopeAsync(cancellationToken);
-        if (!probe.Held)
+        if (await OpenSessionAsync(pool, cancellationToken) is not { } opened)
         {
-            // The failure CROSSES before the stop: escalation reads the
-            // ledger, and a silent exit would be nothing-arrived-nothing-
-            // complained. No scope stamp - a broken probe proves nothing,
-            // and stamping it would let a refusal read as a proof.
-            await _protocol.AttestAsync(pool, new PoolAttestation
-            {
-                AttestationId = Guid.CreateVersion7(),
-                Pool = pool,
-                Action = PoolActions.Verify,
-                Outcome = PoolOutcomes.Failed,
-                MeasuredAt = _clock.UtcNow,
-                Diagnosis = probe.Diagnosis
-                    ?? "the scope probe did not hold and did not say why.",
-            }, cancellationToken);
-
             return 69;
         }
+
+        ScopeProbe probe = opened;
 
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
+            // A NEW SESSION WHEN THIS ONE HAS REACHED ITS BOUND, before anything
+            // this cycle stamps. Inside the try, so a probe that cannot be asked
+            // for a moment waits like any other transient failure - keeping the
+            // old stamp, which the decider will then read as stale and refuse to
+            // act on, which is the right answer while the bound is unproved.
+            if (_clock.UtcNow - probe.ProbedAt >= SessionLength)
+            {
+                if (await OpenSessionAsync(pool, cancellationToken) is not { } renewed)
+                {
+                    return 69;
+                }
+
+                probe = renewed;
+            }
+
             // ITS OWN CREDENTIAL FIRST, because everything below it is done
             // with that credential. A maintainer that reached its expiry used
             // to stop and wait for a person to sign in on a machine nobody
@@ -394,6 +417,40 @@ public sealed class MaintainLoop(
         }
 
         return $"{pool}-{slot}";
+    }
+
+    /// <summary>
+    /// Probes the scope, and says so on the ledger when the bound does not hold.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is a session that must not act</b>, at startup and at every bound
+    /// after it alike: a bound that has stopped holding is the same fact as one
+    /// that never held. The failure CROSSES before the stop - escalation reads
+    /// the ledger, and a silent exit would be nothing-arrived-nothing-complained.
+    /// No scope stamp: a broken probe proves nothing, and stamping it would let a
+    /// refusal read as a proof.
+    /// </remarks>
+    private async Task<ScopeProbe?> OpenSessionAsync(
+        string pool, CancellationToken cancellationToken)
+    {
+        var probe = await _adapter.ProbeScopeAsync(cancellationToken);
+        if (probe.Held)
+        {
+            return probe;
+        }
+
+        await _protocol.AttestAsync(pool, new PoolAttestation
+        {
+            AttestationId = Guid.CreateVersion7(),
+            Pool = pool,
+            Action = PoolActions.Verify,
+            Outcome = PoolOutcomes.Failed,
+            MeasuredAt = _clock.UtcNow,
+            Diagnosis = probe.Diagnosis
+                ?? "the scope probe did not hold and did not say why.",
+        }, cancellationToken);
+
+        return null;
     }
 
     private Task AttestAsync(

@@ -221,7 +221,20 @@ public sealed record WatchDocument
     /// <summary>What to ask the shape for. Blank is refused, never read as everything.</summary>
     public required string Filter { get; init; }
 
-    /// <summary>The skill the instructions executor follows, as a path in the repository.</summary>
+    /// <summary>
+    /// The registered repository <see cref="Skill"/> is a path in, by its
+    /// registry name.
+    /// </summary>
+    /// <remarks>
+    /// <b>A reference like the others, and the one the skill could not do
+    /// without.</b> The control plane fetches the skill at <see cref="Ref"/>
+    /// (ADR-0018 § 5, one noun over), so it has to know whose tree to read -
+    /// and a registered repository is one somebody declared through a gate,
+    /// with a forge binding to reach it by.
+    /// </remarks>
+    public required string Repository { get; init; }
+
+    /// <summary>The skill the instructions executor follows, as a path in <see cref="Repository"/>.</summary>
     public required string Skill { get; init; }
 
     /// <summary>The ref that path is read at, so what ran is what somebody reviewed.</summary>
@@ -275,6 +288,13 @@ public sealed record WatchDocument
             return "This watch names no host or no credential to reach it with. Both are "
                  + "references - the runner resolves the secret, and this document never "
                  + "holds it - but a reference to nothing reaches nothing.";
+        }
+
+        if (string.IsNullOrWhiteSpace(watch.Repository))
+        {
+            return "This watch names no repository. Its skill is a path, and a path in no "
+                 + "repository is a path in nothing - name the registered repository the "
+                 + "skill is in.";
         }
 
         if (string.IsNullOrWhiteSpace(watch.Skill) || string.IsNullOrWhiteSpace(watch.Ref))

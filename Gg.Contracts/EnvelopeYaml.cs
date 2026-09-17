@@ -389,8 +389,8 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(
-            root, BasedOnKey, "shape", "trigger", "host", "credential", "filter", "skill",
-            "ref", "mapping", "pull-point", "nominates", "bounds");
+            root, BasedOnKey, "shape", "trigger", "host", "credential", "filter", "repository",
+            "skill", "ref", "mapping", "pull-point", "nominates", "bounds");
 
         // THE REQUIRED KEYS NAMED HERE, BEFORE THE GENERIC WORDING CLAIMS THEM.
         // `Require` says "an envelope without it governs nothing", which is
@@ -399,16 +399,17 @@ public static class EnvelopeYaml
         // `MapStrategy` dodges the same sentence for `pull-point` and for the
         // same reason.
         foreach (var key in (string[])
-            ["shape", "trigger", "host", "credential", "filter", "skill", "ref", "mapping",
-             "pull-point"])
+            ["shape", "trigger", "host", "credential", "filter", "repository", "skill", "ref",
+             "mapping", "pull-point"])
         {
             if (!root.Entries.ContainsKey(key))
             {
                 throw new EnvelopeSyntaxException(
                     $"This watch declares no '{key}'. A watch says what to sweep, how often, "
-                  + "where, with which credential, under which filter, by which skill at "
-                  + "which ref, how to map what it finds, and who performs it - and it is "
-                  + "refused here, at authoring, rather than by a sweep that does nothing.");
+                  + "where, with which credential, under which filter, by which skill in "
+                  + "which repository at which ref, how to map what it finds, and who "
+                  + "performs it - and it is refused here, at authoring, rather than by a "
+                  + "sweep that does nothing.");
             }
         }
 
@@ -441,6 +442,7 @@ public static class EnvelopeYaml
             Host = RequireScalar(Require(root, "host"), "host"),
             Credential = RequireScalar(Require(root, "credential"), "credential"),
             Filter = RequireScalar(Require(root, "filter"), "filter"),
+            Repository = RequireScalar(Require(root, "repository"), "repository"),
             Skill = RequireScalar(Require(root, "skill"), "skill"),
             Ref = RequireScalar(Require(root, "ref"), "ref"),
             Mapping = new WatchMapping

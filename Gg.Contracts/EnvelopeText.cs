@@ -237,6 +237,7 @@ public static class EnvelopeText
         text.Append($"host: {Scalar(watch.Host)}\n");
         text.Append($"credential: {Scalar(watch.Credential)}\n");
         text.Append($"filter: {Scalar(watch.Filter)}\n");
+        text.Append($"repository: {Scalar(watch.Repository)}\n");
         text.Append($"skill: {Scalar(watch.Skill)}\n");
         text.Append($"ref: {Scalar(watch.Ref)}\n");
 

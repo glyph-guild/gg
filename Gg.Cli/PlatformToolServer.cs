@@ -1632,9 +1632,15 @@ public static class PlatformToolServer
           + "document nor anything following it ever holds the secret.");
         said.AppendLine("  filter:           what to ask that system for.");
         said.AppendLine(
-            "  skill:            the instructions a sweep follows, as a path in the "
+            "  repository:       the registered repository the skill is in, by name.");
+        said.AppendLine(
+            "  skill:            the instructions a sweep follows, as a path in that "
           + "repository. A PATH and never the words: the repository holds those, at a ref, "
           + "where they are reviewed.");
+        said.AppendLine(
+            "  Changing what a watch reads or reaches - repository, skill, ref, host, "
+          + "credential, shape, pull-point or mapping - is always reviewed, because none of "
+          + "them is more or less than the last.");
         said.AppendLine("  mapping:          how what it finds becomes a nomination.");
         said.AppendLine("  subject:          which part of that names the thing.");
         said.AppendLine("  intent-key:       which part names it outside gg.");

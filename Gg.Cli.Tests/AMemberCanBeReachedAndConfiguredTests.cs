@@ -104,6 +104,39 @@ public partial class AMemberCanBeReachedAndConfiguredTests
     }
 
     [Test]
+    public async Task A_member_reads_back_the_opt_in_it_just_wrote()
+    {
+        // MEASURED ON gg-pool-ui-1 AND -2. Both refused a configure
+        // introduction - "there is nothing to seal an introduction to" - while
+        // their own `gg config show` said a credential may be placed on them.
+        // A member writes accept-configured when it redeems its nonce and then
+        // asks InForce, which memoizes for the process and had already been
+        // read: so the keeper was built from the answer from before the write.
+        //
+        // AND ITS FIRST LIFE IS ITS WHOLE LIFE. Forget() is called on the
+        // console's boot path only, and a member never restarts - it is created
+        // warm and replaced when its credential ends. So every fresh member was
+        // unreachable, and a member is the one machine class with no other way
+        // to be given a credential.
+        var member = Body("MemberUpAsync");
+
+        var wrote = member.IndexOf("LocalCredentialKeeper.Opened(", StringComparison.Ordinal);
+        var forgot = member.IndexOf("InForce.Forget()", StringComparison.Ordinal);
+        var keeps = member.IndexOf("keepCredential:", StringComparison.Ordinal);
+
+        await Assert.That(wrote).IsGreaterThan(-1)
+            .Because("this asserts over the member's own opt-in, so the write has to be here.");
+        await Assert.That(keeps).IsGreaterThan(-1);
+
+        await Assert.That(forgot).IsGreaterThan(wrote)
+            .Because("the cached configuration is the answer from before the write, so what "
+                   + "this member may do has to be re-read after it opts itself in.");
+        await Assert.That(keeps).IsGreaterThan(forgot)
+            .Because("re-reading after the keeper is built changes nothing, and the keeper is "
+                   + "what the heartbeat's accepts-configuration is derived from.");
+    }
+
+    [Test]
     public async Task Both_ways_a_runner_comes_up_ask_the_same_question()
     {
         // THE DRIFT THIS PREVENTS IS THE DANGEROUS DIRECTION. A member path

@@ -347,16 +347,16 @@ public static class Reducer
             // that happened to be visible, which under one shared region was
             // the same question; a view takes the whole screen now, so "the
             // next thing" is the next tab and focus follows it.
-            Command.FocusNextPane => state with { ActiveTab = Tabs.Next(state) },
+            Command.FocusNextPane => Arrived(state with { ActiveTab = Tabs.Next(state) }),
 
             // STRAIGHT THERE, AND NOT THROUGH Showing. That helper closes a
             // view by clearing its visibility flag, and these two have none to
             // clear - they are always there, which is what makes them the
             // things a close lands on. Nothing else about the screen moves:
             // whatever was open stays open behind the tab a person asked for.
-            Command.ShowQueueTab => state with { ActiveTab = TabId.Queue },
-            Command.ShowFlightsTab => state with { ActiveTab = TabId.Flights },
-            Command.ShowBoardTab => state with { ActiveTab = TabId.Board },
+            Command.ShowQueueTab => Arrived(state with { ActiveTab = TabId.Queue }),
+            Command.ShowFlightsTab => Arrived(state with { ActiveTab = TabId.Flights }),
+            Command.ShowBoardTab => Arrived(state with { ActiveTab = TabId.Board }),
 
             // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
             // two lists, and moving the queue underneath a person reading work
@@ -668,7 +668,7 @@ public static class Reducer
     /// somewhere to go.
     /// </para>
     /// </remarks>
-    private static AppState Showing(AppState state, TabId tab, bool open) => state with
+    private static AppState Showing(AppState state, TabId tab, bool open) => Arrived(state with
     {
         ActiveTab = open ? tab : TabId.Queue,
         LiveVisible = tab == TabId.Live ? open : state.LiveVisible,
@@ -676,7 +676,36 @@ public static class Reducer
         RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
         AllowancesVisible = tab == TabId.Allowances ? open : state.AllowancesVisible,
-    };
+    });
+
+    /// <summary>
+    /// Arriving at a tab nobody has read asks for it now.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The boot fetches what the queue needs, and a tab with reads of its
+    /// own is not one of them.</b> The board is two routes - the nominations
+    /// and the watch standings - so pressing its key on a fresh console drew a
+    /// sentence until <c>AutoRefresh</c>'s next tick, up to thirty seconds
+    /// later. What the pane said in the meantime was that the read had failed,
+    /// which is a different thing from nobody having made one.
+    /// </para>
+    /// <para>
+    /// <b>HERE, BECAUSE THIS IS THE EDGE.</b> Asking is level-triggered
+    /// anywhere else - "read while this tab is unread" - and a control plane
+    /// that is refusing would then be asked once per frame, for as long as
+    /// somebody left the console open on that tab. A tab CHANGE happens once.
+    /// </para>
+    /// <para>
+    /// <b>And it asks for nothing when the answer is already on the screen</b>,
+    /// which is what stops the six tab keys becoming six requests. `g` is still
+    /// the gesture that always costs one.
+    /// </para>
+    /// </remarks>
+    private static AppState Arrived(AppState state) =>
+        Tabs.HasRead(state, state.ActiveTab)
+            ? state
+            : state with { Refresh = state.Refresh with { Wanted = true } };
 
     /// <summary>What a view's own key does to it.</summary>
     /// <remarks>

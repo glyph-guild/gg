@@ -27,9 +27,9 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class TheRunnerReadsTheSkillAtItsPinTests
 {
-    private const string SkillPath = ".goodgrief/skills/triage.md";
+    internal const string SkillPath = ".goodgrief/skills/triage.md";
 
-    private sealed class SkillRepository : IDisposable
+    internal sealed class SkillRepository : IDisposable
     {
         internal string Directory { get; }
 

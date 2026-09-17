@@ -69,6 +69,37 @@ public static partial class SetupTokenScreen
     }
 
     /// <summary>The first token-shaped run on the screen, or null.</summary>
+    /// <summary>One keystroke, and how long to let it settle.</summary>
+    public readonly record struct Keystroke(string Text, TimeSpan Settle);
+
+    /// <summary>
+    /// How long the code is left alone before the return follows it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second, and it is a measurement rather than a taste.</b> Sent in one
+    /// write, the agent shows the code masked at its prompt and does nothing with
+    /// it: it reads a burst as a paste and the return inside the burst is part of
+    /// the pasted text. Sent after a pause, the same agent answers immediately.
+    /// Measured inside gg-pool-ui-1 both ways, with a bogus code, for the answer
+    /// rather than the acceptance.
+    /// </remarks>
+    public static readonly TimeSpan Settle = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// What a person does at this prompt: paste, pause, press return.
+    /// </summary>
+    /// <remarks>
+    /// The sequence is the subject, so it is a list a test can read rather than
+    /// two writes buried in a child - three attempts at an agent login were lost
+    /// inside the one write this replaces.
+    /// </remarks>
+    public static IReadOnlyList<Keystroke> Typing(string code)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+
+        return [new Keystroke(code, Settle), new Keystroke("\r", TimeSpan.Zero)];
+    }
+
     public static string? Token(string screen)
     {
         ArgumentNullException.ThrowIfNull(screen);
@@ -152,12 +183,21 @@ public sealed class SetupTokenLogin(string binary, IReadOnlyList<string>? argume
         {
             ArgumentNullException.ThrowIfNull(code);
 
-            // TYPED, WITH THE RETURN THE PROMPT WAITS FOR. The child's prompt
-            // has long been on the screen by the time a person comes back from
-            // a browser; the keystrokes are read by whatever is reading.
-            var typed = Encoding.UTF8.GetBytes(code + "\r");
-            await _connection.WriterStream.WriteAsync(typed, cancellationToken);
-            await _connection.WriterStream.FlushAsync(cancellationToken);
+            // TYPED, THEN SUBMITTED, and the gap between them is the fix. The
+            // child's prompt has long been on the screen by the time a person
+            // comes back from a browser - but a code and its return arriving in
+            // one write are one paste to the agent, which then sits on it.
+            foreach (var stroke in SetupTokenScreen.Typing(code))
+            {
+                var typed = Encoding.UTF8.GetBytes(stroke.Text);
+                await _connection.WriterStream.WriteAsync(typed, cancellationToken);
+                await _connection.WriterStream.FlushAsync(cancellationToken);
+
+                if (stroke.Settle > TimeSpan.Zero)
+                {
+                    await Task.Delay(stroke.Settle, cancellationToken);
+                }
+            }
 
             return await WaitForAsync(SetupTokenScreen.Token, cancellationToken);
         }

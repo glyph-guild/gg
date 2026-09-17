@@ -686,10 +686,18 @@ public sealed class ClaudeCodeExecutor(
     /// wrote produces "Score this item. in this working tree only" the first
     /// time a brief ends in a full stop.
     /// </remarks>
+    /// <remarks>
+    /// <b>And a caller may supply the whole sentence.</b> A brief still answers
+    /// "what to do with this subject"; work that has no subject to be given -
+    /// a sweep, which goes and finds them - has nothing for either arm below
+    /// to name, so it writes its own. See <see cref="ExecutorRequest.Task"/>.
+    /// </remarks>
     private static string Task(ExecutorRequest request) =>
-        request.Brief is { Length: > 0 } brief
-            ? $"Work {Subject(request)}. {brief.TrimEnd()}"
-            : $"Work {Subject(request)}. Make the code changes it asks for.";
+        request.Task is { Length: > 0 } written
+            ? written.TrimEnd()
+            : request.Brief is { Length: > 0 } brief
+                ? $"Work {Subject(request)}. {brief.TrimEnd()}"
+                : $"Work {Subject(request)}. Make the code changes it asks for.";
 
     /// <summary>
     /// Where each repository is, because the directory names do not say.
@@ -741,7 +749,15 @@ public sealed class ClaudeCodeExecutor(
         Task(request)
       + " Do not create a branch, do not commit, and do not push anything anywhere."
       + Trees(request)
-      + WhenItCannot
+      // ONLY WHERE THE TOOL IT NAMES IS THERE TO CALL. Every flight is told,
+      // whatever its moves declare - that part is unchanged, because a
+      // read-only loop can be as stuck as a writing one. A session with NOBODY
+      // to ask is the other thing: the help tool is withheld from it by the
+      // grant below, so this paragraph would send it calling a tool that does
+      // not exist. Two sessions are in that state - the move-bound probe, which
+      // must attempt the write rather than ask about it, and a sweep, which has
+      // no flight in front of it and no person behind it.
+      + (request.CanAskAPerson ? WhenItCannot : string.Empty)
       // AFTER THE WORK AND BEFORE ANY PRIOR ATTEMPT, which is the decision
       // rather than an accident of concatenation. An agent should know what it
       // is doing and under what standing policy before it reads what somebody

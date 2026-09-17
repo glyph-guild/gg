@@ -70,6 +70,47 @@ public static class ExecutorConfiguration
                 AgentFor(declared))
             : null;
 
+    /// <summary>
+    /// How to build the agent for ONE sweep, or null where this machine
+    /// declares no executor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Per sweep, because the servers are per sweep.</b> A flight's executor
+    /// is composed once with every tracker this runner can read and one way of
+    /// starting its own server; a sweep is launched with exactly one tracker -
+    /// bound to that watch's reviewed query - and with the server in sweep
+    /// mode. Building the executor per sweep is what keeps
+    /// <c>SweepLauncher</c>'s decision from being reimplemented as a second
+    /// reader list somewhere else.
+    /// </para>
+    /// <para>
+    /// <b>The choice of adapter stays here</b>, with the flight path's, for the
+    /// reason <see cref="FromEnvironment"/> records: the day
+    /// <c>ExecutorDeclaration.Known</c> has a second member, the second arm is
+    /// written in this file rather than in a caller that assumed the first.
+    /// </para>
+    /// </remarks>
+    /// <param name="secretFor">This machine's credential lookup, for the agent's own token.</param>
+    /// <param name="declaration">
+    /// The declaration, or null to read the environment - so a value in the
+    /// configuration file reaches this as surely as a variable does.
+    /// </param>
+    public static Func<IntentReader, SelfInvocation, IExecutorPort>? ForSweeps(
+        Func<string, string?>? secretFor = null, string? declaration = null) =>
+        ExecutorDeclaration.ParseOrNull(
+            declaration ?? Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable)
+            is { } declared
+            ? (reader, self) => new ClaudeCodeExecutor(
+                declared.Binary,
+                // ONE TRACKER: the watch's, and a sweep names no other.
+                [reader],
+                secretFor,
+                // IN SWEEP MODE, decided by the launcher rather than here.
+                self,
+                AgentFor(declared))
+            : null;
+
     /// <summary>How this machine's agent authenticates, or null for none - from the environment.</summary>
     /// <remarks>
     /// A second read of the same variable through the same parser, for the

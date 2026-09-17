@@ -91,6 +91,18 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
         return GitWorkingTree.FetchAlsoAsync(
             $"https://{_host}/{target.Slug}.git", resolvedRef, intoDirectory, secret, cancellationToken);
     }
+
+    /// <summary>One file at one commit - a sweep's skill - from the same repository url.</summary>
+    public Task<RepositoryFile?> ReadFileAsync(
+        RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        return GitWorkingTree.ReadFileAsync(
+            $"https://{_host}/{target.Slug}.git", commit, path, scratchDirectory, secret,
+            cancellationToken);
+    }
 }
 
 /// <summary>

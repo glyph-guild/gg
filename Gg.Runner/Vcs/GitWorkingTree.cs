@@ -48,6 +48,81 @@ internal static class GitWorkingTree
     }
 
     /// <summary>
+    /// One file at one commit, fetched as objects into a scratch repository that
+    /// is gone before this returns.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No working copy, and no blobless fetch either - measured, not
+    /// assumed.</b> A fetch with <c>--filter=blob:none</c> needs the source
+    /// configured as the repository's promisor remote, and this runner never
+    /// writes a remote: the url is an argument so nothing on disk knows where it
+    /// came from. So the commit is fetched at depth one into a bare scratch
+    /// repository, the file is found by <c>rev-parse</c> and printed by
+    /// <c>cat-file</c>, and the scratch is removed. The caller caches the result,
+    /// so this runs once per commit.
+    /// </para>
+    /// <para>
+    /// <b>Null means the commit has no such file</b>; a fetch that fails throws,
+    /// because an unreachable forge is not an absent skill.
+    /// </para>
+    /// </remarks>
+    internal static async Task<RepositoryFile?> ReadFileAsync(
+        string url, string commit, string path, string scratchDirectory, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(scratchDirectory);
+
+        try
+        {
+            await GitInvocation.Plain("init", "--quiet", "--bare")
+                .RunAsync(scratchDirectory, cancellationToken);
+
+            await GitInvocation.Fetch(url, commit, secret)
+                .RunAsync(scratchDirectory, cancellationToken);
+
+            string blob;
+            try
+            {
+                blob = (await GitInvocation.Plain("rev-parse", "--verify", $"{commit}:{path}")
+                    .RunAsync(scratchDirectory, cancellationToken)).Trim();
+            }
+            catch (InvalidOperationException)
+            {
+                // rev-parse exits non-zero when the path is not in the commit,
+                // which is an answer rather than a failure.
+                return null;
+            }
+
+            var type = (await GitInvocation.Plain("cat-file", "-t", blob)
+                .RunAsync(scratchDirectory, cancellationToken)).Trim();
+
+            if (!string.Equals(type, "blob", StringComparison.Ordinal))
+            {
+                // A directory is not a skill.
+                return null;
+            }
+
+            var content = await GitInvocation.Plain("cat-file", "blob", blob)
+                .RunAsync(scratchDirectory, cancellationToken);
+
+            return new RepositoryFile(content, blob);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(scratchDirectory, recursive: true);
+            }
+            catch (IOException)
+            {
+                // A scratch that will not delete is left for the operating
+                // system's temp sweep; it holds objects, not a working copy.
+            }
+        }
+    }
+
+    /// <summary>
     /// Brings one more ref into an existing tree, without disturbing it.
     /// </summary>
     /// <remarks>

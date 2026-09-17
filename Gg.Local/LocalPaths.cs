@@ -52,6 +52,16 @@ public static class LocalPaths
     public static string Transcripts(string? stateHome = null) =>
         Path.Combine(StateRoot(stateHome), "transcripts");
 
+    /// <summary>What a runner has read of sweeps' skills, by commit.</summary>
+    /// <remarks>
+    /// <b>Disposable, and kept under state with the live views for their
+    /// reason</b>: a commit's bytes never change, so clearing this costs one
+    /// fetch per skill and loses nothing - which is also why it is a directory of
+    /// its own, so clearing it is never clearing evidence.
+    /// </remarks>
+    public static string Skills(string? stateHome = null) =>
+        Path.Combine(StateRoot(stateHome), "skills");
+
     /// <summary>
     /// What an agent is doing. Deletable, and swept.
     /// </summary>

@@ -157,7 +157,31 @@ public interface IVcsAdapter
     Task<string> FetchAlsoAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One file's bytes at one commit, or null where the commit has no such file.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>For a sweep's skill, which is read and never worked on.</b> The commit's
+    /// objects are fetched into <paramref name="scratchDirectory"/>, which holds no
+    /// working copy and is removed before this returns; what comes back is the
+    /// file's text and git's own id for it.
+    /// </para>
+    /// <para>
+    /// <b>Still read-only, still one commit.</b> Nothing here can write, and the
+    /// secret travels as it does for a clone.
+    /// </para>
+    /// </remarks>
+    Task<RepositoryFile?> ReadFileAsync(
+        RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>A file as a commit holds it.</summary>
+/// <param name="Content">The file's text.</param>
+/// <param name="BlobSha">Git's id for exactly these bytes - the digest of what was read.</param>
+public sealed record RepositoryFile(string Content, string BlobSha);
 
 /// <summary>An adapter declared it cannot serve this repository.</summary>
 /// <remarks>

@@ -110,4 +110,11 @@ public sealed class PathScopedGitVcsAdapter(string provider, string host) : IVcs
         CancellationToken cancellationToken = default) =>
         GitWorkingTree.FetchAlsoAsync(
             CloneUrlFor(target), resolvedRef, intoDirectory, secret, cancellationToken);
+
+    /// <summary>One file at one commit - a sweep's skill - from the same repository url.</summary>
+    public Task<RepositoryFile?> ReadFileAsync(
+        RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
+        CancellationToken cancellationToken = default) =>
+        GitWorkingTree.ReadFileAsync(
+            CloneUrlFor(target), commit, path, scratchDirectory, secret, cancellationToken);
 }

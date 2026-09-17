@@ -143,6 +143,16 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.FromResult(KeyAnswer);
     }
 
+    /// <summary>Machines this runner said it is on, in order.</summary>
+    internal List<string> MachinesOffered { get; } = [];
+
+    public Task<bool> OfferMachineAsync(
+        string machine, CancellationToken cancellationToken = default)
+    {
+        MachinesOffered.Add(machine);
+        return Task.FromResult(true);
+    }
+
     /// <summary>Answers this fake posted outward, in order.</summary>
     internal List<RunnerSignalAnswer> Signalled { get; } = [];
 

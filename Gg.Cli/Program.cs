@@ -2554,9 +2554,9 @@ static async Task<int> RunnerUpAsync()
     // registered before keys existed permanently unreachable, holding one on its
     // own disk. Idempotent: the control plane answers 204 whether it set the key
     // or already had this one.
-    switch (await new Gg.Runner.RunnerProtocolClient(
-                new HttpClient { BaseAddress = new Uri(baseAddress) }, registered.RunnerToken)
-            .OfferKeyAsync(registered.RunnerId, identity.PublicKey))
+    var offering = new Gg.Runner.RunnerProtocolClient(
+        new HttpClient { BaseAddress = new Uri(baseAddress) }, registered.RunnerToken);
+    switch (await offering.OfferKeyAsync(registered.RunnerId, identity.PublicKey))
     {
         case Gg.Runner.KeyOfferResult.Refused:
             // A DIFFERENT KEY IS REGISTERED, and this runner cannot fix that.
@@ -2574,6 +2574,18 @@ static async Task<int> RunnerUpAsync()
 
         default:
             break;
+    }
+
+    // AND THE MACHINE, for the same reason: registration named it only for
+    // runners registered since, and a person grouping a host's members wants
+    // them under this one. Best-effort - a display grouping is not worth a
+    // runner, so an older control plane or a dropped connection is let go.
+    try
+    {
+        await offering.OfferMachineAsync(Environment.MachineName);
+    }
+    catch (HttpRequestException)
+    {
     }
 
     var pidFile = new RunnerPidFile(RunnerPidPath());
@@ -3058,6 +3070,19 @@ static async Task<int> RunnerMaintainAsync(string pool)
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
 
     var protocol = new Gg.Runner.RunnerProtocolClient(http, runnerToken);
+
+    // THE MACHINE THIS HOST IS, stated on every start. The maintainer reuses its
+    // credential for thirty days at a time, so registration never told anybody,
+    // and its members were grouped under it by label instead of under the
+    // resident. Best-effort, as the resident's is.
+    try
+    {
+        await protocol.OfferMachineAsync(Environment.MachineName, stopping.Token);
+    }
+    catch (HttpRequestException)
+    {
+    }
+
     var adapter = new Gg.Runner.Pools.DockerPoolAdapter(
         new HttpClient { BaseAddress = new Uri(configuration.Endpoint) });
 

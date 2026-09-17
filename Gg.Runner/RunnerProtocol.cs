@@ -242,6 +242,18 @@ public interface IRunnerProtocol
     Task<KeyOfferResult> OfferKeyAsync(
         string runnerId, string publicKey, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Tells the control plane which machine this runner is on, and says whether
+    /// it was heard.
+    /// </summary>
+    /// <remarks>
+    /// <b>For <see cref="OfferKeyAsync"/>'s reason.</b> A runner reusing a stored
+    /// credential never registers again, so a machine added to registration
+    /// never reaches it. False rather than a throw when the control plane does
+    /// not serve the route: a display grouping is not worth a runner.
+    /// </remarks>
+    Task<bool> OfferMachineAsync(string machine, CancellationToken cancellationToken = default);
+
     Task SignalAsync(
         string runnerId, RunnerSignalAnswer answer, CancellationToken cancellationToken = default);
 

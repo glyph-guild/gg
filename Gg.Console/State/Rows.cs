@@ -135,16 +135,33 @@ public sealed record RunnerRow(
     string Heard,
 
     /// <summary>
-    /// The machine that warmed this one, when this row is a pool member, and
+    /// The runner that warmed this one, when this row is a pool member, and
     /// empty when it is a machine in its own right.
     /// </summary>
     /// <remarks>
-    /// <b>Carried rather than re-derived at render.</b> The pane indents on
-    /// this, and working out which rows are members a second time in the
-    /// drawing code is how the list and the order come to disagree. Empty
-    /// rather than null, like every other absent string on this record.
+    /// <b>A fact, not a position.</b> Where a row is drawn is
+    /// <see cref="Under"/>; this is only what the control plane said.
     /// </remarks>
-    string HostRunnerId = "");
+    string HostRunnerId = "",
+
+    /// <summary>The machine this runner runs on, or empty when nobody said.</summary>
+    /// <remarks>
+    /// <b>Not <see cref="Machine"/>, which is a bool</b> saying whether this row
+    /// is the runner registered on the machine running this console.
+    /// </remarks>
+    string MachineName = "",
+
+    /// <summary>
+    /// The row this one is drawn beneath, or empty when it sits flush.
+    /// </summary>
+    /// <remarks>
+    /// <b>Decided once, by <c>Rows.Runners</c>, and read by every surface.</b>
+    /// Whether a row is nested depends on the WHOLE list - whether its machine
+    /// has a resident here, whether its host is here at all - so no single row
+    /// can answer it, and a renderer that tried would disagree with the order.
+    /// Empty rather than null, like every other absent string on this record.
+    /// </remarks>
+    string Under = "");
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -236,7 +253,7 @@ public static class Rows
     public static string Nested(RunnerRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
-        return (row.HostRunnerId.Length > 0 ? "  " : "") + row.Runner;
+        return (row.Under.Length > 0 ? "  " : "") + row.Runner;
     }
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
@@ -545,47 +562,93 @@ public static class Rows
     private const string Alongside = "·";
 
     /// <summary>
-    /// Moves each member to sit directly after the machine that warmed it,
-    /// leaving everything else in the order it arrived.
+    /// Arranges the fleet as machines: each row that sits flush, followed by
+    /// everything drawn beneath it, with <see cref="RunnerRow.Under"/> set.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Three machines under fifteen members is a list nobody can use.</b> A
-    /// member belongs in the fleet and is not a peer of the machines beside it,
-    /// so the order has to say which is which before the render can.
+    /// <b>The resident is the anchor.</b> On a host, the runner whose label IS
+    /// the machine name is the one a person thinks of as the machine, so every
+    /// other runner on that host - the pool maintainer, an attended runner, the
+    /// members - is drawn beneath it, as peers. Nesting members under the
+    /// maintainer instead is what put two healthy members beneath a
+    /// registration that never beats and reads as offline.
     /// </para>
     /// <para>
-    /// <b>An orphan keeps its place rather than disappearing.</b> A member
-    /// whose host is revoked, or a listing read mid-change, is exactly when
-    /// somebody needs to see the machine that is asking for help - so a host
-    /// that is not here leaves its members where they were.
+    /// <b>Then the host, as a fallback.</b> A control plane that has not
+    /// learned machines sends none, and a host running only a maintainer has
+    /// no resident to sit under. In both cases a member is drawn beneath the
+    /// runner that warmed it, which is what the fleet showed before machines
+    /// existed - so nothing flattens while the two repositories catch up.
     /// </para>
     /// <para>
-    /// <b>Stable, like the ordering above it.</b> Members keep the fleet's own
-    /// order among themselves; this only decides where the group sits.
+    /// <b>An orphan keeps its place.</b> A row whose anchor and host are both
+    /// absent sits flush where it was, because a revoked host is exactly when
+    /// somebody needs to see the machine asking for help.
+    /// </para>
+    /// <para>
+    /// <b>Stable.</b> Rows keep the order they arrived in among their peers;
+    /// this only decides where each group sits.
     /// </para>
     /// </remarks>
     private static List<RunnerRow> UnderTheirHosts(List<RunnerRow> rows)
     {
-        var hosts = new HashSet<string>(
+        var present = new HashSet<string>(
             rows.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
 
-        var adopted = rows
-            .Where(r => r.HostRunnerId.Length > 0 && hosts.Contains(r.HostRunnerId))
-            .ToList();
-
-        if (adopted.Count == 0)
+        // THE RESIDENT OF EACH MACHINE: the row whose label is the machine's
+        // own name. First wins, so a host registered twice anchors once.
+        var residents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
         {
-            return rows;
+            if (row.MachineName.Length > 0
+                && string.Equals(row.Label, row.MachineName, StringComparison.OrdinalIgnoreCase))
+            {
+                residents.TryAdd(row.MachineName, row.Id);
+            }
         }
 
-        var ordered = new List<RunnerRow>(rows.Count);
-        foreach (var row in rows.Where(r => !adopted.Contains(r)))
+        string Parent(RunnerRow row)
         {
-            ordered.Add(row);
-            ordered.AddRange(adopted.Where(m => string.Equals(
-                m.HostRunnerId, row.Id, StringComparison.OrdinalIgnoreCase)));
+            if (row.MachineName.Length > 0
+                && residents.TryGetValue(row.MachineName, out var resident)
+                && !string.Equals(resident, row.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                return resident;
+            }
+
+            return row.HostRunnerId.Length > 0 && present.Contains(row.HostRunnerId)
+                ? row.HostRunnerId
+                : "";
         }
+
+        var placed = rows.Select(r => r with { Under = Parent(r) }).ToList();
+
+        if (placed.All(r => r.Under.Length == 0))
+        {
+            return placed;
+        }
+
+        // ONE LEVEL, deliberately. A row whose parent is itself drawn beneath
+        // something would need a tree; this list has two depths, and a row that
+        // would have been a grandchild is listed flush instead.
+        var roots = placed.Where(r => r.Under.Length == 0).ToList();
+        var rootIds = new HashSet<string>(
+            roots.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
+
+        var ordered = new List<RunnerRow>(placed.Count);
+        foreach (var root in roots)
+        {
+            ordered.Add(root);
+            ordered.AddRange(placed.Where(c => string.Equals(
+                c.Under, root.Id, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // Anything whose parent was not a root is still listed, flush, rather
+        // than dropped.
+        ordered.AddRange(placed
+            .Where(c => c.Under.Length > 0 && !rootIds.Contains(c.Under))
+            .Select(c => c with { Under = "" }));
 
         return ordered;
     }
@@ -626,7 +689,8 @@ public static class Rows
         // Stripped like every other string a control plane composes, even
         // though this one is an id: the doorway cleans, and an exception here
         // would be an exception nobody told the next reader about.
-        HostRunnerId: ControlText.Strip(runner.HostRunnerId ?? ""));
+        HostRunnerId: ControlText.Strip(runner.HostRunnerId ?? ""),
+        MachineName: ControlText.Strip(runner.Machine ?? ""));
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

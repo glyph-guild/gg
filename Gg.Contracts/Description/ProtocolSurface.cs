@@ -1858,7 +1858,8 @@ public static class ProtocolSurface
             [typeof(WatchList)] = ["watches"],
             [typeof(WatchStanding)] =
                 ["name", "version", "executor", "lastHeardAt", "outcome", "nominated",
-                 "diagnosis", "quietSince", "opened", "window", "budgeted"],
+                 "diagnosis", "quietSince", "opened", "window", "budgeted",
+                 "nextSweepAt", "nextSweepSaid"],
             [typeof(WatchStandingList)] = ["standings"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],

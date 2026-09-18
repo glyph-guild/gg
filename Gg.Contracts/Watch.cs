@@ -430,6 +430,38 @@ public sealed record WatchStanding
     public string? Diagnosis { get; init; }
 
     /// <summary>
+    /// When this watch's next sweep is due, or null when none is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Said here because nobody else can say it.</b> The schedule is timed
+    /// between two DECISIONS - so a runner's pace never stretches it and its
+    /// clock never shortens it - and it is held back by a latch while a sweep
+    /// has not reported, and by the watch's active hours. A reader holding only
+    /// <see cref="LastHeardAt"/> would compute a time that disagrees with the
+    /// planner exactly when somebody is asking why nothing has run.
+    /// </para>
+    /// <para>
+    /// <b>In the past means due and waiting to be pulled</b>, which is a real
+    /// state rather than a stale number: the control plane has decided nothing
+    /// is stopping it and no runner has taken it yet.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? NextSweepAt { get; init; }
+
+    /// <summary>
+    /// Why there is no next sweep, when there is none, in the planner's words.
+    /// </summary>
+    /// <remarks>
+    /// <b>A time and a reason are different answers, and a reader needs to tell
+    /// them apart.</b> Null with a <see cref="NextSweepAt"/> is the ordinary
+    /// case; a reason with no time is a watch nothing will ever pull - an
+    /// unperformed pull point, a period that does not read as a duration - and
+    /// showing a blank there would read as "soon".
+    /// </remarks>
+    public string? NextSweepSaid { get; init; }
+
+    /// <summary>
     /// The instant this watch has said nothing since, when that is longer than
     /// twice its period.
     /// </summary>

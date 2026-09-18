@@ -268,7 +268,7 @@ public static class Rows
     /// list of two things pretending to be one.
     /// </remarks>
     public static IReadOnlyList<string> BoardColumns { get; } =
-        ["", "subject", "state", "kind", "when", "why"];
+        ["", "subject", "state", "kind", "since", "next", "why"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "state", "working on", "advertises", "last heard"];
@@ -427,6 +427,10 @@ public static class Rows
                 nomination.Ending is { Length: > 0 } ended ? ended : nomination.Mode,
                 nomination.WorkKind,
                 PaneText.AgeOf(nomination.MadeAt),
+
+                // NOTHING, BECAUSE A NOMINATION HAS NO SCHEDULE. A dash would
+                // be a claim about a next run it never had.
+                "",
                 // THE SENTENCE THAT ENDED IT, or the one that gated it. A
                 // standing row with neither says nothing here rather than
                 // borrowing a word from somewhere else.
@@ -445,6 +449,17 @@ public static class Rows
                     : watch.Outcome is { Length: > 0 } outcome ? outcome : "never swept",
                 watch.Executor ?? "",
                 watch.LastHeardAt is { } heard ? PaneText.AgeOf(heard) : "-",
+
+                // WHAT THE CONTROL PLANE SAID, and nothing derived. The
+                // schedule is timed between two decisions, latched while a
+                // sweep has not reported and bounded by active hours - none of
+                // which a standing carries - so a time computed here would
+                // disagree with the planner exactly when somebody is asking
+                // why nothing has run. Absent is empty rather than a dash: an
+                // older control plane has not said, which is not "never".
+                watch.NextSweepAt is { } next
+                    ? PaneText.Until(next)
+                    : watch.NextSweepSaid ?? "",
                 Spent(watch)));
         }
 
@@ -1136,7 +1151,8 @@ public static class Rows
 /// its title answering one question from different places.
 /// </remarks>
 public sealed record BoardRow(
-    string Key, string What, string Subject, string State, string Kind, string When, string Why)
+    string Key, string What, string Subject, string State, string Kind, string Since,
+    string Next, string Why)
 {
     /// <summary>What a nomination's row says it is.</summary>
     /// <remarks>

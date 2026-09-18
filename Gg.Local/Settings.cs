@@ -82,6 +82,11 @@ public static class Settings
             ["EDITOR"] = "vi",
             ["GG_TAKE_COMMAND"] = "claude",
             ["GG_RUNNER_HOLD_SECONDS"] = "10",
+
+            // ON, AND SAID. ResidentSweeps reads unset as on already; this is
+            // here so `gg config` shows "on, by default" rather than a blank for
+            // a setting that decides whether this machine runs an agent.
+            ["GG_RUNNER_SWEEPS"] = "on",
         };
 
     /// <summary>Whether the file has anywhere to put this one.</summary>

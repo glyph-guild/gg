@@ -2676,7 +2676,15 @@ static async Task<int> RunnerUpAsync()
                   + "next start takes it.");
 
                 stopping.Cancel();
-            });
+            },
+            // AND IT SWEEPS WHEN IT HAS NOTHING ELSE TO DO - the owner, running
+            // slice thirty-nine's walk: "today a watch sweeps only while someone
+            // keeps that process running". On by default, off with
+            // `gg config set runner-sweeps off`, and decided here from THIS
+            // machine's own setting and declared trackers, never from anything
+            // on the wire. Null - off, no tracker declared, or no executor to
+            // sweep with - is a runner that behaves exactly as it did.
+            sweeps: ResidentSweepsFor(inForce));
     }
     finally
     {
@@ -3218,14 +3226,95 @@ static async Task<int> RunnerSweepAsync(string watch)
     using var stopping = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopping.Cancel(); };
 
-    var loop = new Gg.Runner.Sweeps.SweepLoop(
-        new Gg.Runner.RunnerProtocolClient(http, identity.RunnerToken),
+    var loop = SweepLoopFor(
+        new Gg.Runner.RunnerProtocolClient(http, identity.RunnerToken), agent, inForce);
 
-        // THE SKILL IS READ HERE, AT THE PIN THE CONTROL PLANE DECIDED. The
-        // control plane reads no repository bytes - providers.md - so the
-        // words a sweep follows are fetched by this machine, with this
-        // machine's credential, and cached by commit because a commit's bytes
-        // never change.
+    return await loop.RunAsync(watch, stopping.Token);
+}
+
+/// <summary>
+/// How `gg runner up` sweeps when idle, or null when it does not.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Decided from this machine and nothing else.</b> The setting is the
+/// operator's (`runner-sweeps`, on by default), the trackers are the ones the
+/// operator declared, and the executor is the one on this host. Nothing on the
+/// wire can switch it on - which is why the key is not offerable.
+/// </para>
+/// <para>
+/// <b>Null is three different things and all of them mean "do not ask":</b>
+/// sweeping turned off, no tracker declared to sweep with, and no executor to
+/// run a sweep. The runner behaves exactly as it did before this existed.
+/// </para>
+/// <para>
+/// <b>A malformed setting stops the start</b>, the way a malformed
+/// `runner-hold-seconds` already does. ResidentSweeps refuses anything but `on`
+/// or `off` by name, and letting that surface here means an operator who typed
+/// `of` sees it before the runner runs at all - rather than a runner that
+/// quietly decided what the typo meant.
+/// </para>
+/// </remarks>
+static Func<Gg.Runner.Sweeps.ISweepProtocol, Func<CancellationToken, Task>?>? ResidentSweepsFor(
+    Configuration? inForce)
+{
+    var claim = Gg.Runner.Sweeps.ResidentSweeps.ClaimFor(
+        Settings.Value(Gg.Runner.Sweeps.ResidentSweeps.Variable, inForce),
+        Gg.Local.IntentConfiguration.ServedTrackers(
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)));
+
+    if (claim is null)
+    {
+        return null;
+    }
+
+    var agent = Gg.Runner.Execution.ExecutorConfiguration.ForSweeps(
+        secretFor: locator => new FileCredentialStore().Read(locator),
+        declaration: Settings.Value(
+            Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, inForce));
+
+    if (agent is null)
+    {
+        return null;
+    }
+
+    return protocol =>
+    {
+        var loop = SweepLoopFor(protocol, agent, inForce);
+        return cancellationToken => loop.ClaimPassAsync(claim, cancellationToken);
+    };
+}
+
+/// <summary>
+/// A sweep loop, built one way for both the manual verb and the resident runner.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>ONE CONSTRUCTION.</b> `gg runner sweep` and `gg runner up` both sweep,
+/// and they did it with the same skill reader, the same executor and the same
+/// declared trackers - so two copies of this would be two answers to "how does
+/// this machine sweep", and the one that drifted would be whichever nobody
+/// happened to be testing.
+/// </para>
+/// <para>
+/// <b>The protocol is handed in</b>, because who is asking is the caller's: the
+/// manual verb reads the resident's credential, and the resident runner passes
+/// the very client it claims flights with, so a sweep is served to the same
+/// runner id that is beating.
+/// </para>
+/// </remarks>
+static Gg.Runner.Sweeps.SweepLoop SweepLoopFor(
+    Gg.Runner.Sweeps.ISweepProtocol protocol,
+    Func<Gg.Local.IntentReader, Gg.Local.SelfInvocation, Gg.Runner.Execution.IExecutorPort> agent,
+    Configuration? inForce) =>
+    new(
+        protocol,
+
+        // THE SKILL IS READ HERE, AT THE REF THE WATCH NAMES. The control plane
+        // reads no repository bytes - providers.md - so the words a sweep
+        // follows are fetched by this machine, with this machine's credential.
+        // The ref is resolved first and the cache is keyed by the commit it
+        // lands on, because a ref moves and a commit's bytes never change.
         new Gg.Runner.Sweeps.SkillReader(
             Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
                 Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, inForce)),
@@ -3249,9 +3338,6 @@ static async Task<int> RunnerSweepAsync(string watch)
         // scar: a pull point that crash-looped for hours looked exactly like
         // one quietly doing its job.
         narrate: Console.Error.WriteLine);
-
-    return await loop.RunAsync(watch, stopping.Token);
-}
 
 /// <summary>
 /// The credential this machine reads a skill's repository with, or null.

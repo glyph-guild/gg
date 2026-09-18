@@ -101,6 +101,14 @@ public static class ConsoleEnvironment
         Of("GG_RUNNER_HOLD_SECONDS", file, environment,
            "how long a claim waits for work before coming back empty."),
 
+        // SAID HERE BECAUSE IT DECIDES WHETHER THIS MACHINE RUNS AN AGENT UNASKED.
+        // A switch nobody can find is a switch nobody turns off - and "on by
+        // default" is only true of a setting the page shows as on.
+        Of(Gg.Runner.Sweeps.ResidentSweeps.Variable, file, environment,
+           "whether this machine's runner sweeps on its own when it has no flight: `on`, "
+         + "the default, or `off`. A sweep reads a tracker and nominates work, and spends "
+         + "this machine's allowance on an agent to do it."),
+
         Of("GG_POOL_ENDPOINT", file, environment,
            "the scope-enforcing proxy `gg runner maintain` works through. Unset means "
          + "maintain refuses rather than reaching a host directly."),

@@ -976,6 +976,16 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "leave it flying"),
         ],
 
+        UiMode.BrowseFind =>
+        [
+            // TWO KEYS, AND EVERY OTHER ONE FALLS THROUGH TO THE FIELD - the
+            // airspace path's rule: a title is letters, and a keymap that
+            // answered them would make it untypeable.
+            new(KeyStroke.EnterKey, Command.GoToOrFind, "go there or find it")
+                { Label = "Go" },
+            new(KeyStroke.Esc, Command.CloseModal, "back to the list"),
+        ],
+
         UiMode.AirspacePath =>
         [
             // TWO KEYS, AND EVERY OTHER ONE FALLS THROUGH TO THE FIELD. That is
@@ -1655,6 +1665,14 @@ public static class Keymap
                     // It also says the right thing: it is what narrows a list
                     // everywhere else a person has narrowed one.
                     new(KeyStroke.Char('/'), Command.FilterBrowse, "narrow the list")
+                        { When = "while the browse tab is showing" },
+
+                    // THE PAIR. `/` picks from what the tracker offers; this
+                    // says what you are after, which is the half a facet cannot
+                    // express. Ctrl because every plain letter is bound, and
+                    // ctrl+/ reaches the keymap on every terminal - see
+                    // KeyTranslator, where the two encodings become one.
+                    new(KeyStroke.Control('/'), Command.FindInBrowse, "go to or find")
                         { When = "while the browse tab is showing" },
                 ]
                 : [],

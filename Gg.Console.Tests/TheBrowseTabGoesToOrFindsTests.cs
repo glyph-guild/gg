@@ -86,20 +86,20 @@ public class TheBrowseTabGoesToOrFindsTests
     [Test]
     public async Task A_number_is_an_item_to_go_to()
     {
-        await Assert.That(BrowseFind.Wanted(" 18490 ")).IsEqualTo(new BrowseFind.AnItem("18490"));
+        await Assert.That(BrowseFind.Wanted(" 18490 ")).IsEqualTo(new BrowseFind.Wish.AnItem("18490"));
     }
 
     [Test]
     public async Task Anything_else_is_words_to_find()
     {
         await Assert.That(BrowseFind.Wanted("login form"))
-            .IsEqualTo(new BrowseFind.SomeWords("login form"));
+            .IsEqualTo(new BrowseFind.Wish.SomeWords("login form"));
 
         // AN ID WITH A LETTER IN IT IS NOT A NUMBER, and this console does not
         // know which trackers number their items and which key them - so the
         // rule is the narrow one: digits, and nothing else, are an id.
         await Assert.That(BrowseFind.Wanted("GG-153"))
-            .IsEqualTo(new BrowseFind.SomeWords("GG-153"));
+            .IsEqualTo(new BrowseFind.Wish.SomeWords("GG-153"));
     }
 
     [Test]

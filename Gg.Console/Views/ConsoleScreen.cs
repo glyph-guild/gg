@@ -122,6 +122,11 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly TextField _airspacePath;
 
+    /// <summary>Where a person types an item to go to, or words to find.</summary>
+    private readonly TextField _browseFind;
+
+    private readonly FrameView _browseFindBox;
+
     /// <summary>The box the field sits in, so it reads as one.</summary>
     /// <remarks>
     /// <b>An unlabelled field on the last row is invisible when it is
@@ -837,6 +842,34 @@ public sealed class ConsoleScreen : Window
         _boardPane.Add(_board, _boardTable);
         _browseTable = CollectionViews.Table();
         _browsePane.Add(_browseTable);
+
+        // THE AIRSPACE FIELD'S SHAPE, one tab over, and for its reasons: a box
+        // at the bottom that is focusable throughout and writable only while
+        // the question is open, with the title carrying what the field alone
+        // cannot say.
+        _browseFindBox = new FrameView
+        {
+            Title = "go to or find",
+            X = 0,
+            Y = Pos.AnchorEnd(3),
+            Width = Dim.Fill(),
+            Height = 3,
+            Visible = false,
+        };
+
+        _browseFind = new TextField
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            CanFocus = true,
+            ReadOnly = true,
+            TabStop = TabBehavior.NoStop,
+        };
+
+        _browseFindBox.Add(_browseFind);
+        _browsePane.Add(_browseFindBox);
+        _browseFind.KeyDown += OnBrowseFindKeyDown;
         _repositoriesTable = CollectionViews.Table();
         _repositoriesPane.Add(_repositoriesTable);
         _runnersTable = CollectionViews.Table();
@@ -2819,6 +2852,46 @@ public sealed class ConsoleScreen : Window
     /// is in the model before the session ends, and the file is written
     /// after it.
     /// </remarks>
+    /// <summary>
+    /// The find field's own two keys, and everything else typed into it.
+    /// </summary>
+    /// <remarks>
+    /// <c>OnAirspacePathKeyDown</c>'s shape and its reasons: while the question
+    /// is not open every key is the tab's, and enter is intercepted here
+    /// because whether a focused field lets it bubble is a Terminal.Gui
+    /// behaviour this console has been wrong about before.
+    /// </remarks>
+    private void OnBrowseFindKeyDown(object? sender, Key key)
+    {
+        if (State.Mode != UiMode.BrowseFind)
+        {
+            if (Keymap.Resolve(KeyTranslator.Translate(key), Context()) is { } command)
+            {
+                Dispatch(command);
+            }
+
+            key.Handled = true;
+            return;
+        }
+
+        if (key == Key.Enter)
+        {
+            // WHAT WAS TYPED, INTO THE MODEL, BEFORE THE READ. Command is a
+            // parameterless enum, so the field's text has to be somewhere the
+            // read can find it - the airspace path's rule.
+            State = Reducer.BrowseFindTyped(State, _browseFind.Text);
+            key.Handled = true;
+            Dispatch(Command.GoToOrFind);
+            return;
+        }
+
+        if (key == Key.Esc)
+        {
+            key.Handled = true;
+            Dispatch(Command.CloseModal);
+        }
+    }
+
     private void OnAirspacePathKeyDown(object? sender, Key key)
     {
         // WHILE IT IS NOT BEING EDITED, ITS KEYS ARE THE TAB'S. A focused
@@ -3401,6 +3474,17 @@ public sealed class ConsoleScreen : Window
         // THE SECOND STAGE, and the only thing that changes between them: the
         // box is focusable throughout and writable only here.
         _airspacePath.ReadOnly = State.Mode != UiMode.AirspacePath;
+
+        // THE FIELD IS THERE WHILE THE QUESTION IS, and gone otherwise: a box
+        // sitting empty under every listing is three rows of the pane spent on
+        // a question nobody asked.
+        _browseFindBox.Visible = State.Mode == UiMode.BrowseFind;
+        _browseFind.ReadOnly = State.Mode != UiMode.BrowseFind;
+
+        if (State.Mode != UiMode.BrowseFind)
+        {
+            _browseFind.Text = "";
+        }
 
         // THE TITLE CARRIES WHAT THE PATH ALONE CANNOT SAY: that nothing is set,
         // that git cannot see it, or that this is the moment to type. A box

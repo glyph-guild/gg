@@ -3170,7 +3170,19 @@ static async Task<int> RunnerMaintainAsync(string pool)
         // raw rather than parsed, because what the member needs is the spelling
         // its own reader will parse.
         stunServers: Settings.Value(
-            Gg.Runner.StunConfiguration.Variable, InForce.Configuration));
+            Gg.Runner.StunConfiguration.Variable, InForce.Configuration),
+
+        // AND HOW IT BUILDS A POOL'S IMAGE (slice forty-one). The recipe is read
+        // the way a sweep's skill is: through this machine's declared VCS hosts,
+        // with this machine's credential for that repository, by its own key -
+        // rule 16, and nothing borrowed. The build goes through the same proxy
+        // as everything else this host does to Docker, which is what the scope
+        // probe proves.
+        recipes: new Gg.Runner.Pools.GitRecipeSource(
+            Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)),
+            SkillCredential),
+        builder: adapter);
 
     return await loop.RunAsync(pool, stopping.Token);
 }

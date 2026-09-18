@@ -65,7 +65,7 @@ public class TheMaintainerBuildsFromTheRecipeTests
             return Task.FromResult(Built);
         }
 
-        public Task<ImagePushed> PushAsync(
+        public Task<ImagePushed> PushImageAsync(
             string repository, string tag, CancellationToken cancellationToken = default)
         {
             Pushes.Add((repository, tag));

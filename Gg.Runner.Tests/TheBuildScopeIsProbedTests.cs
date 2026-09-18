@@ -86,10 +86,13 @@ public class TheBuildScopeIsProbedTests
             .ToDictionary(p => p[0], p => p.Length > 1 ? p[1] : "", StringComparer.Ordinal);
 
         // if ($arg_x !~ regex) { return 403; }  - refuse unless the argument matches.
-        foreach (Match rule in Regex.Matches(body, @"if\s*\(\s*\$arg_(?<arg>\w+)\s*!~\s*(?<re>[^)]+?)\s*\)\s*\{\s*return 403;"))
+        // A regex with parentheses in it is quoted, as nginx requires - so the
+        // pattern is read between the quotes rather than up to the first ')'.
+        foreach (Match rule in Regex.Matches(body, @"if\s*\(\s*\$arg_(?<arg>\w+)\s*!~\s*(?:""(?<quoted>[^""]+)""|(?<re>[^)\s]+))\s*\)\s*\{\s*return 403;"))
         {
             var value = query.GetValueOrDefault(rule.Groups["arg"].Value, "");
-            if (!Regex.IsMatch(value, rule.Groups["re"].Value.Trim()))
+            var pattern = rule.Groups["quoted"].Success ? rule.Groups["quoted"].Value : rule.Groups["re"].Value;
+            if (!Regex.IsMatch(value, pattern))
             {
                 return false;
             }

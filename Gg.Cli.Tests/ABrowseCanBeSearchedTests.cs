@@ -77,7 +77,7 @@ public class ABrowseCanBeSearchedTests
 
         await Assert.That(said).Contains("a-tracker");
         await Assert.That(said).Contains(BrowseTool.Filters.Text);
-        await Assert.That(said).Contains("narrow")
+        await Assert.That(said).Contains("Narrow")
             .Because("what still works is the half this does not take away.");
     }
 

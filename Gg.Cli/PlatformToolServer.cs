@@ -1761,6 +1761,21 @@ public static class PlatformToolServer
         said.AppendLine("  pull-point:       where machines are drawn from.");
         said.AppendLine("  active-hours:     when they may run.");
         said.AppendLine("  bounds:           the limits the whole of it sits inside.");
+        said.AppendLine(
+            "  build:            where the next image comes from: a directory in a "
+          + "registered repository, built by the pool's own runner. image is still what a "
+          + "machine is made from - this never is.");
+        said.AppendLine(
+            "    repository:     the repository, by its name in this tenant's registry.");
+        said.AppendLine(
+            "    path:           the recipe's directory in it, and the whole of what the "
+          + "build can see.");
+        said.AppendLine("    ref:            what to build from; the runner reports the commit.");
+        said.AppendLine("    dockerfile:     the file inside path, when it is not `Dockerfile`.");
+        said.AppendLine(
+            "  built-from:       written by a build, not by you: the repository, path and "
+          + "commit the image in force was made from. One written by hand is refused.");
+        said.AppendLine("    commit:         the commit the ref resolved to when it was built.");
         said.AppendLine();
 
         said.AppendLine(

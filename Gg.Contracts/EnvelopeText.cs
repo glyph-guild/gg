@@ -674,6 +674,30 @@ public static class EnvelopeText
         text.Append($"pull-point: {Scalar(strategy.PullPoint)}\n");
         text.Append($"image: {Scalar(strategy.Image)}\n");
 
+        // ABSENT IS NOT RENDERED, for `warm`'s reason: every strategy in force
+        // names no recipe, and a line grown onto it would make the first pull
+        // after slice forty-one report a change nobody made.
+        if (strategy.Build is { } recipe)
+        {
+            text.Append("build:\n");
+            text.Append($"  repository: {Scalar(recipe.Repository)}\n");
+            text.Append($"  path: {Scalar(recipe.Path)}\n");
+            text.Append($"  ref: {Scalar(recipe.Ref)}\n");
+
+            if (recipe.Dockerfile is { } dockerfile)
+            {
+                text.Append($"  dockerfile: {Scalar(dockerfile)}\n");
+            }
+        }
+
+        if (strategy.BuiltFrom is { } provenance)
+        {
+            text.Append("built-from:\n");
+            text.Append($"  repository: {Scalar(provenance.Repository)}\n");
+            text.Append($"  path: {Scalar(provenance.Path)}\n");
+            text.Append($"  commit: {Scalar(provenance.Commit)}\n");
+        }
+
         text.Append("bounds:\n");
         text.Append($"  pool-max: {strategy.Bounds.PoolMax}\n");
 

@@ -33,6 +33,14 @@ public class StrategyContainmentTests
         typeof(EnvironmentStrategy),
         typeof(StrategyInventory),
         typeof(StrategyBounds),
+
+        // SLICE FORTY-ONE'S RECIPE AND ITS PROVENANCE, listed so that they are
+        // held to both checks below rather than excused from them: a recipe
+        // names a repository by its registry name, a path and a ref, and none of
+        // those is a host, a socket or a secret. The machine that fetches it
+        // holds the credential, and nothing here can say which one.
+        typeof(StrategyBuild),
+        typeof(StrategyProvenance),
     ];
 
     private static readonly string[] ForbiddenWords =

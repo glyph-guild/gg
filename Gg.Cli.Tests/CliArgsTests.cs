@@ -35,6 +35,28 @@ public class CliArgsTests
         await Assert.That(((CliAction.Unknown)action).Message).Contains("usage");
     }
 
+    // ---- slice forty-one: asking for a build of a strategy's recipe ----
+
+    [Test]
+    public async Task Strategy_build_names_the_strategy()
+    {
+        var action = CliArgs.Parse(["strategy", "build", "dev"]);
+
+        await Assert.That(action).IsTypeOf<CliAction.StrategyBuild>();
+        await Assert.That(((CliAction.StrategyBuild)action).Name).IsEqualTo("dev");
+    }
+
+    [Test]
+    public async Task Strategy_build_without_a_name_says_what_it_needs()
+    {
+        var action = CliArgs.Parse(["strategy", "build"]);
+
+        await Assert.That(action).IsTypeOf<CliAction.Unknown>();
+        await Assert.That(((CliAction.Unknown)action).Message).Contains("gg strategy build")
+            .Because("a build is of one strategy's recipe, and the sentence names the verb "
+                   + "that takes it.");
+    }
+
     // ---- the verbs landing at step 4a ----
 
     [Test]

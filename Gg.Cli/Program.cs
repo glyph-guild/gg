@@ -166,6 +166,8 @@ return CliArgs.Parse(args) switch
     CliAction.StrategyApply strategy =>
         await StrategyAsync(strategy.Json,
             c => c.ApplyAsync(strategy.Name, ReadEnvelope(strategy.Source))),
+    CliAction.StrategyBuild build =>
+        await EmitAsync(build.Json, c => c.BuildStrategyAsync(build.Name)),
     // No client and no session: validate contacts nothing, so a syntax error
     // costs no round trip and works with no network at all.
     CliAction.EnvelopeValidate check => EmitLocal(check.Json, () =>

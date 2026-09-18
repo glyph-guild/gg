@@ -496,6 +496,20 @@ public sealed class FlightCommands(
     public async Task<VerbResult> PoolsAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Pools(await _client.PoolsAsync(Session(), cancellationToken));
 
+    /// <summary>
+    /// <c>gg strategy build &lt;name&gt;</c>: asks for a build of the strategy's recipe.
+    /// </summary>
+    /// <remarks>
+    /// <b>A build is decided, never polled</b> (slice forty-one, rule 4): a
+    /// recipe change merged into its branch builds nothing until somebody asks,
+    /// and this is the asking. What comes back is the decision; the build runs
+    /// at the pool's pull point.
+    /// </remarks>
+    public async Task<VerbResult> BuildStrategyAsync(
+        string strategy, CancellationToken cancellationToken = default) =>
+        new VerbResult.StrategyBuild(
+            await _client.RequestBuildAsync(Session(), strategy, cancellationToken));
+
     /// <summary>Every strategy in force: what furnishes each charted environment.</summary>
     /// <remarks>
     /// <b>The client could already ask and nothing did.</b>

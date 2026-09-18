@@ -251,6 +251,14 @@ public class ConsoleDataTests
             // something a person cannot then see or use.
             "DeclareNameAsync",
 
+            // ASKING FOR A BUILD (slice forty-one), and it is exempt for the
+            // reason VerbParityTests gives rather than the working copy's: it
+            // takes a name and nothing else. What is missing is the strategy
+            // pane - the place a person would ask from and read the outcome in
+            // - and a build runs a recipe on a customer's host, which is a write
+            // this console asks about first. REMOVE THIS LINE with that pane.
+            "BuildStrategyAsync",
+
             // CHARTING AN ENVIRONMENT, AND THE ROWS IT WOULD APPEAR ON EXIST -
             // so this is RegisterRepositoryAsync's exemption rather than the
             // one above it, and it is just as weak. What is missing is not a

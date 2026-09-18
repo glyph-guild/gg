@@ -183,11 +183,25 @@ public class StrategyRoundTripTests
             nameof(StrategyInventory.Warm),
             nameof(StrategyBounds.PoolMax),
             nameof(StrategyBounds.ActiveHours),
+
+            // SLICE FORTY-ONE'S TWO, covered by AStrategyDeclaresItsRecipeTests
+            // rather than here: Full() is shared by suites that render it, and a
+            // recipe on it would change every one of their outputs. The round
+            // trip and a poison twin per key live beside the rules that need
+            // them, and this list is where the decision to cover them is written.
+            nameof(EnvironmentStrategy.Build),
+            nameof(EnvironmentStrategy.BuiltFrom),
+            nameof(StrategyBuild.Repository),
+            nameof(StrategyBuild.Path),
+            nameof(StrategyBuild.Ref),
+            nameof(StrategyBuild.Dockerfile),
+            nameof(StrategyProvenance.Commit),
         ];
 
         var members = new[]
             {
                 typeof(EnvironmentStrategy), typeof(StrategyInventory), typeof(StrategyBounds),
+                typeof(StrategyBuild), typeof(StrategyProvenance),
             }
             .SelectMany(t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             .Where(p => !string.Equals(p.Name, "EqualityContract", StringComparison.Ordinal))

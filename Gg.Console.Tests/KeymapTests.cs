@@ -18,6 +18,12 @@ public class KeymapTests
     [
         .. Enumerable.Range(32, 95).Select(c => KeyStroke.Char((char)c)),
         .. Enumerable.Range('a', 26).Select(c => KeyStroke.Control((char)c)),
+
+        // CTRL AND PUNCTUATION, which the letter range above cannot reach. The
+        // browse tab's find key is ctrl+/, and a universe that only knew ctrl
+        // with letters called it advertised-but-not-live - correctly, since
+        // this list is what "live" MEANS here.
+        .. "/".Select(KeyStroke.Control),
         KeyStroke.Esc,
         KeyStroke.TabKey,
         // A NAMED KEY IS NOT A RUNE, so each one has to be listed. Enter

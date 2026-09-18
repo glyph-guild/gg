@@ -86,6 +86,17 @@ public enum UiMode
     /// </remarks>
     ConfirmApply,
 
+    /// <summary>
+    /// Typing an item to go to, or words to find.
+    /// </summary>
+    /// <remarks>
+    /// <b>A field at the bottom of the browse tab, like the airspace path's</b>
+    /// - and for the same reason: a title has letters in it, so the keymap must
+    /// not answer them. One mode for both acts, because what was typed says
+    /// which it was.
+    /// </remarks>
+    BrowseFind,
+
     /// <summary>Typing where the airspace is.</summary>
     /// <remarks>
     /// <b>A mode, because a field that accepts keystrokes owns the
@@ -2139,6 +2150,16 @@ public sealed record AppState
     /// </para>
     /// </remarks>
     public string? AirspacePathTyped { get; init; }
+
+    /// <summary>
+    /// What is in the browse tab's find field, while somebody is typing it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The widget's in-progress text, read into the model on enter</b>, the
+    /// way the airspace path is: <c>Command</c> is a parameterless enum, so
+    /// what was typed has to be somewhere the read can find it.
+    /// </remarks>
+    public string? BrowseFindTyped { get; init; }
 
     /// <summary>Where gg was launched from.</summary>
     /// <remarks>

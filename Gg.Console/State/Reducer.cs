@@ -223,6 +223,12 @@ public static class Reducer
             // of the mode it landed.
             Command.FocusAirspacePath => state with { Mode = UiMode.AirspacePath },
 
+            // THE FIELD OPENS EMPTY. Somebody pressing this is asking a new
+            // question, and the last one's words sitting in the box is an
+            // answer they have to delete before they can ask.
+            Command.FindInBrowse =>
+                state with { Mode = UiMode.BrowseFind, BrowseFindTyped = null },
+
             // ANSWERING POSTS; IT DOES NOT DECIDE. Both answers leave the state exactly as
             // it is: the loop sends the decision, the control plane records it, the Engine
             // re-evaluates, and what comes back is what closes this modal. A reducer that
@@ -1362,6 +1368,19 @@ public static class Reducer
     /// <see cref="AppState.SaidColumns"/>.
     /// </para>
     /// </remarks>
+    /// <summary>Keeps what is in the find field, so the read can use it.</summary>
+    /// <remarks>
+    /// <c>AirspacePathTyped</c>'s shape and its reason: <c>Command</c> is a
+    /// parameterless enum, so the widget's text is read into the model on the
+    /// way to the read rather than carried by the command.
+    /// </remarks>
+    public static AppState BrowseFindTyped(AppState state, string? typed)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state with { BrowseFindTyped = typed };
+    }
+
     public static AppState SaidMeasured(AppState state, int columns)
     {
         ArgumentNullException.ThrowIfNull(state);

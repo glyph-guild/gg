@@ -1414,6 +1414,11 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.FilterBrowse =>
                         Gg.Console.ConsoleBrowsing.FacetsPatch(browsing, current),
 
+                    // THE FIELD'S TWO ARMS, both reads, and which one is
+                    // decided by what was typed rather than by a second key.
+                    Gg.Console.Command.GoToOrFind =>
+                        Gg.Console.ConsoleBrowsing.FindPatch(browsing, current),
+
                     // AND A FOURTH THROWS RATHER THAN GUESSING, which is the
                     // rule this codebase applies wherever a value decides
                     // what happens: ConsoleLoop throws on an exit command it

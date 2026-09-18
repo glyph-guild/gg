@@ -746,6 +746,21 @@ public enum Command
     /// </remarks>
     FilterBrowse,
 
+    /// <summary>Open the browse tab's field, to go to an item or find one.</summary>
+    /// <remarks>
+    /// <b>Opens a field and reads nothing.</b> What is asked for is decided by
+    /// what somebody types, so the request is <see cref="GoToOrFind"/>'s.
+    /// </remarks>
+    FindInBrowse,
+
+    /// <summary>Go to the item that was typed, or find the words that were.</summary>
+    /// <remarks>
+    /// <b>The shell's, because both arms read.</b> One asks the reader for a
+    /// single item and the other for a listing; which it is comes from
+    /// <see cref="BrowseFind.Wanted"/> rather than from two keys.
+    /// </remarks>
+    GoToOrFind,
+
     /// <summary>
     /// Pick, or un-pick, the choice the filter cursor is on.
     /// </summary>
@@ -1032,6 +1047,10 @@ public static class ShellCommands
         // the id came off a flight rather than off a row.
         Command.OpenTheTicket,
         Command.FilterBrowse,
+
+        // THE FIELD'S ANSWER, and it reads whichever arm it takes: one item by
+        // the id somebody typed, or a listing for the words they typed.
+        Command.GoToOrFind,
         Command.BrowseFiltered,
     };
 

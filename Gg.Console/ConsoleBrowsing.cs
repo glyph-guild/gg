@@ -96,6 +96,82 @@ public static class ConsoleBrowsing
     /// first — <c>ConsoleLoop</c>'s own sentence, kept here rather than
     /// restated differently.
     /// </remarks>
+    /// <summary>
+    /// Goes to the item somebody typed, or finds the words they typed.
+    /// </summary>
+    /// <remarks>
+    /// <b>One read, two arms, and the typing decides which</b> -
+    /// <see cref="BrowseFind.Wanted"/>. An id is read the way a row is read, so
+    /// an item reached by typing its number and one reached by walking to it
+    /// land in the same modal with the same three views; words go back to the
+    /// tracker as a listing, which is the browse this tab has always drawn.
+    /// </remarks>
+    public static Func<AppState, AppState> FindPatch(IWorkBrowser? browser, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var wanted = BrowseFind.Wanted(state.BrowseFindTyped);
+
+        if (wanted is null)
+        {
+            // NOTHING TYPED IS NOTHING ASKED, and the field closes rather than
+            // fetching the listing somebody is already looking at.
+            return current => current with { Mode = UiMode.Normal };
+        }
+
+        if (browser is null)
+        {
+            return current => current with
+            {
+                Mode = UiMode.Normal,
+                LastRunner = "This console is not configured to read work items.",
+            };
+        }
+
+        if (wanted is BrowseFind.Wish.AnItem(var id))
+        {
+            var said = Words(browser, id);
+            var happened = Happened(browser, id);
+            var records = Records(browser, id);
+
+            return current => current with
+            {
+                Mode = UiMode.WorkItemDetail,
+                WorkItemId = id,
+                WorkItemSaid = said,
+                WorkItemChanges = happened.Rows,
+                WorkItemHistorySaid = happened.Said,
+                WorkItemFields = records.Fields,
+                WorkItemFieldsSaid = records.Said,
+                WorkItemSelected = 0,
+                WorkItemTab = WorkItemTab.Details,
+            };
+        }
+
+        // THE LISTING READ THIS TAB ALREADY DOES, with words where the facets
+        // would be - so a found page scrolls, reads and flies exactly like a
+        // browsed one, and the pane says what it was asked for.
+        var key = browser.Key ?? "the reader";
+        var asked = Searching(state);
+
+        try
+        {
+            var listing = browser.BrowseAsync(
+                cursor: null, limit: 50, asked, CancellationToken.None).GetAwaiter().GetResult();
+
+            return current => Reducer.Browsed(
+                current with { Mode = UiMode.Normal }, key, listing, Said(asked));
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            var failed = new BrowseOutcome.Unintelligible(
+                $"Finding in '{key}' failed inside this console rather than at the tracker: "
+              + problem.Message);
+
+            return current => Reducer.Browsed(current with { Mode = UiMode.Normal }, key, failed);
+        }
+    }
+
     public static Func<AppState, AppState> ItemPatch(IWorkBrowser? browser, AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -356,6 +432,35 @@ public static class ConsoleBrowsing
 
         return filter.Narrows ? filter : null;
     }
+
+    /// <summary>
+    /// What a search asks the tracker for, or nothing when nothing was typed.
+    /// </summary>
+    /// <remarks>
+    /// <b>The words REPLACE the facets rather than joining them.</b> Somebody
+    /// who narrowed to a sprint and then searched is looking in the whole
+    /// tracker: the search is the act they just performed, and anding the two
+    /// answers an empty list for a reason nothing on the screen explains. What
+    /// they narrowed to is still on the model, so going back to it is the key
+    /// they already know.
+    /// </remarks>
+    public static WorkItemFilter? Searching(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return BrowseFind.Wanted(state.BrowseFindTyped) is BrowseFind.Wish.SomeWords(var words)
+            ? new WorkItemFilter(Text: words)
+            : null;
+    }
+
+    /// <summary>What the pane says a found listing was asked for.</summary>
+    /// <remarks>
+    /// <c>BrowseFilters.Said</c>'s job for the other half of narrowing: a page
+    /// that does not say what produced it is a page somebody reads as the whole
+    /// tracker.
+    /// </remarks>
+    private static string? Said(WorkItemFilter? asked) =>
+        asked?.Text is { Length: > 0 } words ? $"finding '{words}'" : null;
 
     /// <summary>The row the cursor is on, or nothing.</summary>
     private static BrowseRow? Under(AppState state) =>

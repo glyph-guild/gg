@@ -19,10 +19,14 @@ namespace Gg.Console.Tests;
 /// <para>
 /// <b>The flights tab's colour logic, applied to a list with two kinds of row
 /// in it.</b> Only the endings are tinted, because most rows are not endings
-/// and a colour every row carries distinguishes nothing; an ended nomination
-/// recedes, because this half of the tab is a record. A watch never recedes:
-/// it is a live thing that keeps looking, and a quiet or unreachable one is
-/// the opposite of finished.
+/// and a colour every row carries distinguishes nothing.
+/// </para>
+/// <para>
+/// <b>What recedes is what nothing came of, which is not the same as what
+/// ended.</b> The first draft dimmed every ending, and that put `opened` —
+/// the one where a flight is now running — in the background with the refusals.
+/// A watch never recedes either: it keeps looking, so a quiet or unreachable
+/// one is the opposite of finished.
 /// </para>
 /// <para>
 /// <b>And the two vocabularies share a column.</b> `state` holds a
@@ -60,20 +64,35 @@ public class TheBoardSitsSecondAndSaysWhatIsOverTests
     }
 
     [Test]
-    public async Task Every_ending_has_its_own_tint_and_recedes()
+    public async Task An_opened_nomination_keeps_its_foreground()
     {
+        // THE ENDING THAT IS NOT AN ENDING. `opened` ends the NOMINATION and
+        // starts a flight - the work is running, and on a tab where receding
+        // means "this is a record" it was the one row pushed back that somebody
+        // can still do something about. The colour was right and the dimming
+        // was backwards.
         await Assert.That(BoardLook.Tint(NominationEndings.Opened)).IsEqualTo(BoardTint.Opened);
+
+        await Assert.That(BoardLook.IsOver(NominationEndings.Opened)).IsFalse()
+            .Because("what came of it is live, and the flights tab dims a landing because "
+                   + "nothing is left to do - the opposite of this.");
+    }
+
+    [Test]
+    public async Task Every_ending_that_came_to_nothing_recedes()
+    {
         await Assert.That(BoardLook.Tint(NominationEndings.Declined)).IsEqualTo(BoardTint.Refused);
         await Assert.That(BoardLook.Tint(NominationEndings.Refused)).IsEqualTo(BoardTint.Refused);
         await Assert.That(BoardLook.Tint(NominationEndings.Withdrawn)).IsEqualTo(BoardTint.Moot);
         await Assert.That(BoardLook.Tint(NominationEndings.Superseded)).IsEqualTo(BoardTint.Moot);
         await Assert.That(BoardLook.Tint(NominationEndings.Lapsed)).IsEqualTo(BoardTint.Moot);
 
-        foreach (var ending in NominationEndings.All)
+        foreach (var ending in NominationEndings.All.Where(
+                     e => !string.Equals(e, NominationEndings.Opened, StringComparison.Ordinal)))
         {
             await Assert.That(BoardLook.IsOver(ending)).IsTrue()
-                .Because($"'{ending}' is an ending, and this half of the board is a record: "
-                       + "what is still standing is the thing anybody can do something about.");
+                .Because($"'{ending}' is an ending nothing came of, and this half of the board "
+                       + "is a record: what somebody can still act on stays in front.");
         }
     }
 

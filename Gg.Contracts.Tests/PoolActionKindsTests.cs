@@ -33,7 +33,8 @@ public class PoolActionKindsTests
         // exists to admit it.
         await Assert.That(PoolActions.All)
             .IsEquivalentTo((string[])
-                [PoolActions.Verify, PoolActions.Refresh, PoolActions.Reset, PoolActions.Roll]);
+                [PoolActions.Verify, PoolActions.Refresh, PoolActions.Reset, PoolActions.Roll,
+                 PoolActions.Build]);
     }
 
     [Test]
@@ -58,7 +59,7 @@ public class PoolActionKindsTests
     }
 
     [Test]
-    public async Task The_outward_set_is_exactly_refresh_reset_and_roll()
+    public async Task The_outward_set_is_exactly_refresh_reset_roll_and_build()
     {
         var outward = PoolActionKinds.Table
             .Where(entry => entry.Value == PoolActionKinds.OutwardAct)
@@ -66,10 +67,13 @@ public class PoolActionKindsTests
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(outward).IsEquivalentTo((string[])["refresh", "reset", "roll"])
+        await Assert.That(outward).IsEquivalentTo((string[])["build", "refresh", "reset", "roll"])
             .Because("refresh, reset and roll change a container on a customer's host; "
                    + "verify only looks. Article VI is the axis - and a roll DESTROYS "
-                   + "members that are off the pin, so it is the most outward of the three.");
+                   + "members that are off the pin, so it is the most outward of the three. "
+                   + "Build is the fourth, from slice forty-one's step 0: it runs a recipe on "
+                   + "the host's daemon and pushes an image, so the attestation is not its "
+                   + "whole product, and it passes a proxy allowance the probe must prove.");
         await Assert.That(PoolActionKinds.Of(PoolActions.Verify))
             .IsEqualTo(PoolActionKinds.RecordOnly);
     }

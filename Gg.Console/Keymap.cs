@@ -188,6 +188,19 @@ public readonly record struct KeymapContext(
     public bool SignInStarted { get; init; }
 
     /// <summary>
+    /// Whether the flight on screen names a link and no ticket a reader here
+    /// can read.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second half is what keeps one key honest.</b> Where a reader can
+    /// read the item, the modal is the better answer and this stays false; this
+    /// is every other flight that names somewhere to go - which is what a
+    /// sweep's nomination produces, since it carries the work item's url and no
+    /// provider at all.
+    /// </remarks>
+    public bool OverALink { get; init; }
+
+    /// <summary>
     /// Whether the activity line is showing part of its message rather than
     /// all of it.
     /// </summary>
@@ -399,6 +412,11 @@ public readonly record struct KeymapContext(
             // ANSWER, for AGateWaits' reason one field up: two kinds of row
             // share that table and only one of them is a decision.
             ANominationWaits = Rows.StandingUnder(state) is not null,
+
+            // AND WHETHER IT NAMES SOMEWHERE TO GO WITH NO READER FOR IT,
+            // derived here with the rest so the hint line and the dispatch
+            // cannot disagree about which of the two `t' means.
+            OverALink = FlightDetails.LinkHere(state) is not null,
 
             // WHETHER THE LINE BELOW IS SHOWING ALL OF ITSELF, measured
             // against the width the layout last found. Derived here with
@@ -1094,6 +1112,17 @@ public static class Keymap
             .. context.OverAReadableTicket
                 ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.OpenTheTicket, "the ticket")
                     { When = "when the flight names a ticket a reader here can read" }]
+                : [],
+
+            // AND THE SAME KEY WHERE THERE IS ONLY A LINK. A sweep nominates a
+            // work item by its url, so the flight it opens carries no provider
+            // and no id - and a flight about a page somebody can open offered
+            // nothing at all until this. The browser is the console's existing
+            // way out to a page; the hint says which of the two this is, so
+            // neither is advertised where the other would happen.
+            .. context.OverALink && !context.OverAReadableTicket
+                ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.OpenTheLink, "the link")
+                    { When = "when the flight names a link and no ticket a reader here can read" }]
                 : [],
 
             // THE COMMAND, THE CLIPBOARD AND THE WIRING ALL EXISTED, and three
@@ -2165,6 +2194,7 @@ public static class Keymap
         c => c with { GateAsksForAgentLogin = true },
         c => c with { ANominationWaits = true },
         c => c with { SaidIsClipped = true },
+        c => c with { OverALink = true },
     ];
 
     /// <summary>

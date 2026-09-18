@@ -800,6 +800,10 @@ public sealed class ConsoleLoop(
                     state = OpenedWorkItem(state, openUri);
                     break;
 
+                case Command.OpenTheLink:
+                    state = OpenedTheLink(state, openUri);
+                    break;
+
                 case Command.ForgetCredential:
                     // A WRITE, SO IT REFRESHES WHAT IT INVALIDATED. Rule 4: the
                     // credential list the flight pane reads is exactly what this
@@ -1622,6 +1626,33 @@ public sealed class ConsoleLoop(
             {
                 LastRunner = "This tracker gave no link for that item, so there is nowhere "
                            + "to open.",
+            };
+        }
+
+        return openUri is null
+            ? state with { LastRunner = "This console is not configured to open a browser." }
+            : openUri(state, where);
+    }
+
+    /// <summary>
+    /// Opens the page the flight on screen names.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="OpenedWorkItem"/>'s shape, reading the flight rather than
+    /// the listing.</b> The same port and the same two answers: a console with
+    /// no browser configured says so, because a keypress that does nothing
+    /// reads as a broken console rather than as a deployment choice.
+    /// </remarks>
+    public static AppState OpenedTheLink(
+        AppState state, Func<AppState, string, AppState>? openUri)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (FlightDetails.LinkHere(state) is not { Length: > 0 } where)
+        {
+            return state with
+            {
+                LastRunner = "This flight names no page to open.",
             };
         }
 

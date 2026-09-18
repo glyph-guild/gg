@@ -124,6 +124,11 @@ public class HelpNamesEveryKeyTests
         // reason every clause above records, six times now. It binds the one
         // standing key that comes and goes.
         from saidIsClipped in (bool[])[false, true]
+
+        // AND WHETHER THE FLIGHT ON SCREEN NAMES A LINK WITH NO READER FOR IT,
+        // which is what a sweep's flight is: the same key as the ticket, and
+        // the other arm of it.
+        from overALink in (bool[])[false, true]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
@@ -138,6 +143,7 @@ public class HelpNamesEveryKeyTests
             GateAsksForAgentLogin = gateAsksForAgentLogin,
             ANominationWaits = aNominationWaits,
             SaidIsClipped = saidIsClipped,
+            OverALink = overALink,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
             Refresh = refresh,
@@ -194,7 +200,10 @@ public class HelpNamesEveryKeyTests
         // nomination and not over the watch that made it.
         // TWENTY-ONE SINCE THE LINE THAT CLIPS, which offers the key that opens
         // the rest of its message and offers it nowhere else.
-        await Assert.That(members.Count).IsEqualTo(21)
+        // TWENTY-TWO SINCE A FLIGHT'S LINK, the ticket key's other arm: a
+        // sweep's flight names a page and no provider, so the same key opens a
+        // browser where it would otherwise open the item.
+        await Assert.That(members.Count).IsEqualTo(22)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

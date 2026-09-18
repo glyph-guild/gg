@@ -46,10 +46,11 @@ public enum BoardTint
 /// gets no colour, because inventing one teaches a person something false.
 /// </para>
 /// <para>
-/// <b>Only an ENDING is over.</b> The flights tab recedes what is finished
-/// because that tab is a record, and half of this one is too — but a watch is
-/// the live thing on the board, and dimming an unreachable one would push back
-/// the row most worth reading.
+/// <b>Over means "nothing came of it", not "it ended".</b> The flights tab
+/// recedes what is finished because that tab is a record, and half of this one
+/// is too — but <c>opened</c> ends a nomination by starting a flight, and a
+/// watch never ends at all. Dimming either would push back the rows most worth
+/// reading.
 /// </para>
 /// </remarks>
 public static class BoardLook
@@ -64,9 +65,9 @@ public static class BoardLook
 
     public static BoardTint Tint(string? state) => state switch
     {
-        // THE ONE GOOD ENDING. Green is the one colour nobody has to be taught,
-        // and the flights tab spends it on the same thing: the outcome somebody
-        // wanted.
+        // THE ONE GOOD ENDING, and the one that does not recede: green is the
+        // colour nobody has to be taught, and what is behind this row is a
+        // flight that is running now. See IsOver.
         NominationEndings.Opened => BoardTint.Opened,
 
         // SOMEBODY SAID NO, and the two ways of saying it read alike on
@@ -105,9 +106,26 @@ public static class BoardLook
     };
 
     /// <summary>
-    /// Whether this row is a finished nomination, and so belongs in the
-    /// background.
+    /// Whether this row is a nomination that came to nothing, and so belongs in
+    /// the background.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What nothing came of, which is not the same as what ended.</b> The
+    /// first version of this receded every ending, and <c>opened</c> is the one
+    /// where something did: a flight is running because of that row, and the
+    /// person reading the board wants it more than any refusal on the tab. It
+    /// was the only live thing here drawn as history.
+    /// </para>
+    /// <para>
+    /// <b>The flights tab dims a landing for the opposite reason</b> — nothing
+    /// is left to do with it. The same word, "over", means finished there and
+    /// came-to-nothing here, and the two tabs are about different objects: one
+    /// row is the work, the other is the question that started it.
+    /// </para>
+    /// </remarks>
     public static bool IsOver(string? state) =>
-        state is { Length: > 0 } && NominationEndings.All.Contains(state, StringComparer.Ordinal);
+        state is { Length: > 0 }
+        && !string.Equals(state, NominationEndings.Opened, StringComparison.Ordinal)
+        && NominationEndings.All.Contains(state, StringComparer.Ordinal);
 }

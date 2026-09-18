@@ -393,9 +393,9 @@ public static class LookStyles
     /// <remarks>
     /// <b><see cref="FlightStates"/>'s shape over a table with two kinds of row
     /// in it</b>, and the difference is which rows recede. A nomination that
-    /// ended is a record, like a flight that landed; a watch is the live thing
-    /// on this tab, so it keeps its foreground however loudly it is tinted -
-    /// dimming an unreachable one would push back the row most worth reading.
+    /// came to nothing is a record, like a flight that landed - but an opened
+    /// one started a flight that is running, and a watch never ends at all, so
+    /// both keep their foreground however loudly they are tinted.
     /// </remarks>
     public static void BoardStates(TableView table, int stateColumn)
     {

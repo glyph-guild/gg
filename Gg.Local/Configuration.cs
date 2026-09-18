@@ -77,6 +77,18 @@ public sealed record Configuration
     /// <summary>The labels this machine's runner advertises.</summary>
     public string? RunnerLabels { get; init; }
 
+    /// <summary>
+    /// Whether this machine's resident runner sweeps on its own: <c>on</c>,
+    /// the default, or <c>off</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The operator's, and not offerable.</b> A sweep runs an agent against
+    /// this machine's allowance, so whether it happens is the call of whoever
+    /// pays for it - a control plane able to offer it could turn sweeping back
+    /// on for a machine its operator turned off.
+    /// </remarks>
+    public string? RunnerSweeps { get; init; }
+
     /// <summary>How long a lease claim waits, in seconds.</summary>
     /// <remarks>
     /// A number rather than the text its variable carries, unlike every member
@@ -354,6 +366,8 @@ public sealed record Configuration
                 Get = c => c.ExecutorBinary, With = (c, v) => c with { ExecutorBinary = v } },
         new() { Variable = "GG_RUNNER_LABELS", Key = "runner-labels",
                 Get = c => c.RunnerLabels, With = (c, v) => c with { RunnerLabels = v } },
+        new() { Variable = "GG_RUNNER_SWEEPS", Key = "runner-sweeps",
+                Get = c => c.RunnerSweeps, With = (c, v) => c with { RunnerSweeps = v } },
 
         // THE ONE NUMBER, rendered to text here so the resolution has one shape
         // to work in. Its variable carries text like every other, and the file

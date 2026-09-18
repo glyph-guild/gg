@@ -258,7 +258,15 @@ public static class RunnerHost
         // ask, or null for never. Both ports as one decision, made by the
         // machine's own file (accept-agent-login) and handed in here because
         // this project may not allocate the terminal the ceremony needs.
-        AgentLoginPorts? login = null)
+        AgentLoginPorts? login = null,
+        // HOW THIS RUNNER SWEEPS WHEN IDLE, or null for a runner that does not.
+        // A factory rather than a delegate because the sweep has to speak with
+        // the SAME client and the same credential this runner claims flights
+        // with - which is built below - while what it sweeps with (the skill
+        // reader, the executor, the declared trackers) is the composition
+        // root's. Only `gg runner up` passes it: a held takeover and a pool
+        // member do not sweep.
+        Func<Sweeps.ISweepProtocol, Func<CancellationToken, Task>?>? sweeps = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -411,8 +419,13 @@ public static class RunnerHost
                 new AskDispatch(says, keepCredential, ceremony, kept: Kept),
                 says);
 
+        // ONE CLIENT, SO THE SWEEP IS THIS RUNNER. A second one would be a
+        // second reading of the credential, and the sweep is served to a
+        // runner id - so it has to ask as the machine that claims flights.
+        var protocol = new RunnerProtocolClient(http, runnerToken);
+
         var loop = new RunnerLoop(
-            new RunnerProtocolClient(http, runnerToken),
+            protocol,
             new SystemClock(),
             (span, token) => Task.Delay(span, token),
             says,
@@ -456,7 +469,8 @@ public static class RunnerHost
             agent: agent,
             agentToken: agentToken,
             initialStanding: standing,
-            login: ceremony)
+            login: ceremony,
+            sweepWhenIdle: sweeps?.Invoke(protocol))
         {
             HoldFor = holdFor,
         };

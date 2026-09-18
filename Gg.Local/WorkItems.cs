@@ -139,13 +139,29 @@ public sealed record WorkItemFacets(
 public sealed record WorkItemFilter(
     string? AreaPath = null,
     string? Iteration = null,
-    IReadOnlyList<string>? States = null)
+    IReadOnlyList<string>? States = null,
+
+    /// <summary>
+    /// Words to find in an item's title, or null for the whole listing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Last, and defaulted, because a reader may not offer it</b> - see
+    /// <c>BrowseTool.CanSearch</c>. Every caller that narrowed by facets before
+    /// this existed still says exactly what it said.
+    /// </remarks>
+    string? Text = null)
 {
     /// <summary>Whether this narrows anything at all.</summary>
+    /// <remarks>
+    /// <b>Blank words narrow nothing.</b> A search for spaces would read as
+    /// every item, which is the listing somebody already has - and asking a
+    /// tracker for it costs a page for no answer.
+    /// </remarks>
     public bool Narrows =>
         AreaPath is { Length: > 0 }
         || Iteration is { Length: > 0 }
-        || States is { Count: > 0 };
+        || States is { Count: > 0 }
+        || !string.IsNullOrWhiteSpace(Text);
 }
 
 /// <summary>

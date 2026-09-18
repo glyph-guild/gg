@@ -292,6 +292,18 @@ public static class WorkItemToolServer
               + "asking for closed work means naming it here. Omit for the default.");
             writer.WriteEndObject();
 
+            // WORDS, AND THE TITLE IS WHAT THEY ARE MATCHED AGAINST. Declaring
+            // it is also the ANSWER to whether this server can be searched -
+            // BrowseTool.CanSearch reads the declaration rather than a version,
+            // so a caller asks the tool what it can do rather than assuming.
+            writer.WriteStartObject(BrowseTool.Filters.Text);
+            writer.WriteString("type", "string");
+            writer.WriteString("description",
+                "Only items whose title contains these words. The title, not the body: a "
+              + "listing carries no body, and searching one would make every page as "
+              + "expensive as reading everything on it.");
+            writer.WriteEndObject();
+
             writer.WriteEndObject();
 
             // NONE IS REQUIRED. A first page with a default size is the
@@ -568,7 +580,8 @@ public static class WorkItemToolServer
         var filter = new WorkItemFilter(
             AreaPath: Argument(arguments, BrowseTool.Filters.AreaPath),
             Iteration: Argument(arguments, BrowseTool.Filters.Iteration),
-            States: States(arguments));
+            States: States(arguments),
+            Text: Argument(arguments, BrowseTool.Filters.Text));
 
         return filter.Narrows ? filter : null;
     }

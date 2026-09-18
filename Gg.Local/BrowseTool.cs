@@ -139,7 +139,32 @@ public static class BrowseTool
         /// <summary>Optional. An array of states, REPLACING whatever the default is.</summary>
         public const string States = "states";
 
-        /// <summary>All three, for a reader declaring them or a caller checking.</summary>
+        /// <summary>
+        /// Optional. Words to find, matched against an item's title.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Deliberately NOT in <see cref="All"/>.</b> <see cref="CanFilter"/>
+        /// demands a reader declare every name in that list, so a fourth would
+        /// make every reader in the field unfilterable the day it shipped - the
+        /// narrow modal would stop working against readers that were fine a
+        /// moment before. This asks its own question, <see cref="CanSearch"/>,
+        /// and a reader that answers no keeps everything it had.
+        /// </para>
+        /// <para>
+        /// <b>The title, not the body.</b> The browse contract excludes bodies
+        /// because a list that carried them would make every page as expensive
+        /// as reading everything on it, and the same sentence answers what a
+        /// search may look at.
+        /// </para>
+        /// </remarks>
+        public const string Text = "text";
+
+        /// <summary>The three every reader declares, for a caller checking.</summary>
+        /// <remarks>
+        /// <b><see cref="Text"/> is not here on purpose</b> - see its own
+        /// remark. This list is what <see cref="CanFilter"/> demands in full.
+        /// </remarks>
         public static IReadOnlyList<string> All { get; } = [AreaPath, Iteration, States];
     }
 
@@ -203,6 +228,33 @@ public static class BrowseTool
     public static bool CanFilter(IReadOnlyList<string>? declaredArguments) =>
         declaredArguments is not null
         && Filters.All.All(name => declaredArguments.Contains(name, StringComparer.Ordinal));
+
+    /// <summary>
+    /// Whether this reader can be asked for words as well as facets.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own question, so an older reader loses nothing.</b> A reader that
+    /// declares the three narrowings and not this one narrows exactly as it did
+    /// - which is what stops a new argument from being a breaking change to
+    /// every deployment that has one.
+    /// </remarks>
+    public static bool CanSearch(IReadOnlyList<string>? declaredArguments) =>
+        declaredArguments is not null
+        && declaredArguments.Contains(Filters.Text, StringComparer.Ordinal);
+
+    /// <summary>
+    /// What to tell a person whose reader can be narrowed but not searched.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="NotFilterable"/>'s shape and its reason: it names the
+    /// argument, because the person reading it is usually the operator who
+    /// installed the reader, and it says what still works - narrowing is
+    /// untouched by this.
+    /// </remarks>
+    public static string NotSearchable(string providerKey) =>
+        $"The reader for '{providerKey}' declares '{Name}' without '{Filters.Text}', so it "
+      + "cannot be searched for words. Narrow it by area, iteration or state instead, or "
+      + "point at a reader whose tool declares that argument.";
 
     /// <summary>
     /// What to tell a person whose reader can be browsed but not narrowed.

@@ -166,6 +166,15 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             predicates.Add($"[{IterationField}] = '{Quoted(iteration)}'");
         }
 
+        // WORDS AGAINST THE TITLE, and CONTAINS rather than equality: a person
+        // typing two words of a title is remembering it, not quoting it. The
+        // tracker's own quick search does the same, which is what makes the
+        // answers match what they would have got there.
+        if (filter?.Text is { Length: > 0 } words && !string.IsNullOrWhiteSpace(words))
+        {
+            predicates.Add($"[{TitleField}] CONTAINS '{Quoted(words.Trim())}'");
+        }
+
         predicates.Add(filter?.States is { Count: > 0 } states
             ? "(" + string.Join(
                 " OR ", states.Select(state => $"[{StateField}] = '{Quoted(state)}'")) + ")"

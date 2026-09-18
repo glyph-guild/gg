@@ -504,7 +504,9 @@ public static class EnvelopeYaml
     private static EnvironmentStrategy MapStrategy(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "kind", "environment", "inventory", "pull-point", "image", "bounds");
+        Closed(
+            root, BasedOnKey, "kind", "environment", "inventory", "pull-point", "image", "bounds",
+            "build", "built-from");
 
         if (!root.Entries.ContainsKey("pull-point"))
         {
@@ -558,6 +560,41 @@ public static class EnvelopeYaml
             PullPoint = RequireScalar(Require(root, "pull-point"), "pull-point"),
             Image = RequireScalar(Require(root, "image"), "image"),
             Bounds = bounds,
+            Build = root.Entries.TryGetValue("build", out var build) ? RecipeOf(build) : null,
+            BuiltFrom = root.Entries.TryGetValue("built-from", out var builtFrom)
+                ? ProvenanceOf(builtFrom)
+                : null,
+        };
+    }
+
+    /// <summary>A strategy's recipe: a closed map, so a misspelt key is refused rather than read as absent.</summary>
+    private static StrategyBuild RecipeOf(Node declared)
+    {
+        var map = RequireMap(declared, "build");
+        Closed(map, "repository", "path", "ref", "dockerfile");
+
+        return new StrategyBuild
+        {
+            Repository = RequireScalar(Require(map, "repository"), "build.repository"),
+            Path = RequireScalar(Require(map, "path"), "build.path"),
+            Ref = RequireScalar(Require(map, "ref"), "build.ref"),
+            Dockerfile = map.Entries.TryGetValue("dockerfile", out var dockerfile)
+                ? RequireScalar(dockerfile, "build.dockerfile")
+                : null,
+        };
+    }
+
+    /// <summary>What a strategy's image was built from: a closed map of three.</summary>
+    private static StrategyProvenance ProvenanceOf(Node declared)
+    {
+        var map = RequireMap(declared, "built-from");
+        Closed(map, "repository", "path", "commit");
+
+        return new StrategyProvenance
+        {
+            Repository = RequireScalar(Require(map, "repository"), "built-from.repository"),
+            Path = RequireScalar(Require(map, "path"), "built-from.path"),
+            Commit = RequireScalar(Require(map, "commit"), "built-from.commit"),
         };
     }
 

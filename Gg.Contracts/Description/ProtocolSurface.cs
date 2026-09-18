@@ -1862,7 +1862,10 @@ public static class ProtocolSurface
                  "nextSweepAt", "nextSweepSaid"],
             [typeof(WatchStandingList)] = ["standings"],
             [typeof(EnvironmentStrategy)] =
-                ["kind", "environment", "inventory", "pullPoint", "image", "bounds"],
+                ["kind", "environment", "inventory", "pullPoint", "image", "bounds", "build",
+                 "builtFrom"],
+            [typeof(StrategyBuild)] = ["repository", "path", "ref", "dockerfile"],
+            [typeof(StrategyProvenance)] = ["repository", "path", "commit"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],
             [typeof(NamedEnvelopeState)] =
                 ["name", "role", "version", "envelope", "narrowing", "updatedAt", "updatedBy"],

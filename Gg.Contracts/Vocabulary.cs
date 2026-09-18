@@ -179,6 +179,8 @@ public static class Vocabulary
         typeof(StrategyInventory),
         typeof(StrategyBounds),
         typeof(EnvironmentStrategy),
+        typeof(StrategyBuild),
+        typeof(StrategyProvenance),
         typeof(WatchDocument),
         typeof(WatchTrigger),
         typeof(WatchMapping),

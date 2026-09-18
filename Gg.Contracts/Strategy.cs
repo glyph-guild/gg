@@ -119,6 +119,71 @@ public sealed record StrategyBounds
 }
 
 /// <summary>
+/// Where a strategy's image comes from: a directory in a registered
+/// repository, at a ref.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>By reference, never by content.</b> The shape a watch's skill already
+/// has - a repository by its registry name, a path and a ref - and nothing a
+/// Dockerfile's text could arrive in. The control plane resolves the name and
+/// never reads the recipe; the runner that builds it fetches it with the
+/// machine's own credential.
+/// </para>
+/// <para>
+/// <b>Never read when a member is made.</b> <see cref="EnvironmentStrategy.Image"/>
+/// is still the pin. This says where the NEXT pin comes from, so declaring or
+/// changing it moves nothing until a build has run and its digest has come
+/// back through the door.
+/// </para>
+/// </remarks>
+[PinnedId("c783624d-3877-4a78-9309-79ee8b7f3ec8")]
+public sealed record StrategyBuild
+{
+    /// <summary>The repository, by its name in the tenant's registry. Never a url.</summary>
+    public required string Repository { get; init; }
+
+    /// <summary>
+    /// The recipe directory inside it, relative to the repository root. This
+    /// is the whole build context: nothing outside it reaches the build.
+    /// </summary>
+    public required string Path { get; init; }
+
+    /// <summary>What to build from. The runner resolves it and reports the commit.</summary>
+    public required string Ref { get; init; }
+
+    /// <summary>
+    /// The Dockerfile's name inside <see cref="Path"/>, or null for
+    /// <c>Dockerfile</c>.
+    /// </summary>
+    public string? Dockerfile { get; init; }
+}
+
+/// <summary>
+/// What the image in force was built from: the recipe, at the commit a build
+/// resolved it to.
+/// </summary>
+/// <remarks>
+/// <b>A record, written by a build.</b> It means something only beside the
+/// <see cref="StrategyBuild"/> it names, which is why a strategy carrying one
+/// without the other, or naming a different directory, is refused - and the
+/// control plane believes it only when a build it decided attested that
+/// digest and that commit, so a line written by hand cannot pass for one.
+/// </remarks>
+[PinnedId("42cc92d5-893d-47a9-95b7-12418303e1d9")]
+public sealed record StrategyProvenance
+{
+    /// <summary>The recipe's repository, as <see cref="StrategyBuild.Repository"/> names it.</summary>
+    public required string Repository { get; init; }
+
+    /// <summary>The recipe's directory, as <see cref="StrategyBuild.Path"/> names it.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>The commit the ref resolved to when the image was built. Never a ref.</summary>
+    public required string Commit { get; init; }
+}
+
+/// <summary>
 /// A strategy: the document under which Good Grief manages a pool of
 /// environments on a tenant's host.
 /// </summary>
@@ -168,6 +233,18 @@ public sealed record EnvironmentStrategy
 
     /// <summary>The declared bounds. Managing happens inside them.</summary>
     public required StrategyBounds Bounds { get; init; }
+
+    /// <summary>
+    /// Where the next image comes from, or null for a strategy whose image is
+    /// pinned by hand - which is every strategy written before slice forty-one.
+    /// </summary>
+    public StrategyBuild? Build { get; init; }
+
+    /// <summary>
+    /// What <see cref="Image"/> was built from, written by a build. Null when
+    /// the image was pinned by hand or no build has run.
+    /// </summary>
+    public StrategyProvenance? BuiltFrom { get; init; }
 
     /// <summary>
     /// The schema's own rule, shared so gg and the control plane cannot
@@ -269,6 +346,110 @@ public sealed record EnvironmentStrategy
         {
             return $"bounds.active-hours '{hours}' is not readable. Expected HH:MM-HH:MMZ, "
                  + "e.g. 08:00-20:00Z - a schedule bound nobody can parse binds nothing.";
+        }
+
+        if (strategy.Build is { } recipe && RecipeRefusal(recipe) is { } badRecipe)
+        {
+            return badRecipe;
+        }
+
+        if (strategy.BuiltFrom is { } provenance)
+        {
+            // A RECORD OF A BUILD NOTHING ON THIS DOCUMENT COULD HAVE ASKED FOR.
+            // Provenance means something only beside the recipe it names; alone,
+            // or naming another directory, it is a claim the direction rule would
+            // read as "built from the reviewed recipe" when it was not.
+            if (strategy.Build is not { } declared)
+            {
+                return "built-from says what the image was built from, and this strategy names "
+                     + "no recipe for it to have been built from. Declare build:, or remove "
+                     + "built-from.";
+            }
+
+            if (!string.Equals(provenance.Repository, declared.Repository, StringComparison.Ordinal)
+                || !string.Equals(provenance.Path, declared.Path, StringComparison.Ordinal))
+            {
+                return $"built-from names {provenance.Repository}:{provenance.Path}, and this "
+                     + $"strategy's recipe is {declared.Repository}:{declared.Path}. An image "
+                     + "built from another directory is not this recipe's.";
+            }
+
+            if (!GitObjectIds.IsOne(provenance.Commit))
+            {
+                return $"built-from.commit '{provenance.Commit}' is not a commit. A commit is forty "
+                     + "or sixty-four hex digits, and a ref here would be the one answer that "
+                     + "looks like an answer and is not - refs move.";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>What is wrong with a recipe, or null when nothing is.</summary>
+    /// <remarks>
+    /// <b>The build context is the directory, and nothing else</b>, so a path
+    /// that could climb out of the repository or name a place on whatever
+    /// machine reads it is refused where the author can still act - the
+    /// narrowings directory's rule, for a directory that is built rather than
+    /// read.
+    /// </remarks>
+    private static string? RecipeRefusal(StrategyBuild recipe)
+    {
+        if (string.IsNullOrWhiteSpace(recipe.Repository))
+        {
+            return "build.repository is blank. A recipe names the repository it is in by its "
+                 + "name in this tenant's registry.";
+        }
+
+        if (string.IsNullOrWhiteSpace(recipe.Path))
+        {
+            return "build.path is blank. A recipe is a directory, and the directory is the "
+                 + "whole build context.";
+        }
+
+        if (PathRefusal(recipe.Path, "build.path") is { } badPath)
+        {
+            return badPath;
+        }
+
+        if (string.IsNullOrWhiteSpace(recipe.Ref))
+        {
+            return "build.ref is blank. A recipe is built at a ref, which the runner resolves "
+                 + "and reports as the commit it built.";
+        }
+
+        if (recipe.Dockerfile is { } dockerfile
+            && (string.IsNullOrWhiteSpace(dockerfile)
+                || PathRefusal(dockerfile, "build.dockerfile") is not null))
+        {
+            return $"build.dockerfile '{dockerfile}' is not a file inside the recipe's "
+                 + "directory. Name it relative to build.path, with no '..' and no leading '/'.";
+        }
+
+        return null;
+    }
+
+    /// <summary>A refusal for a path that could leave where it is declared, or null.</summary>
+    private static string? PathRefusal(string path, string key)
+    {
+        if (path.Contains('\\', StringComparison.Ordinal))
+        {
+            return $"{key} '{path}' contains a backslash. A forge serves forward slashes, so a "
+                 + "backslash would mean one thing where it is declared and another where it "
+                 + "is fetched.";
+        }
+
+        if (path.StartsWith('/'))
+        {
+            return $"{key} '{path}' is absolute, which names a place on whatever machine reads "
+                 + "it. Declare it relative to the repository root.";
+        }
+
+        if (path.Split('/').Contains("..", StringComparer.Ordinal))
+        {
+            return $"{key} '{path}' contains '..'. The build context is this directory and "
+                 + "nothing else, and a path that can climb out of it has no containment at "
+                 + "all.";
         }
 
         return null;

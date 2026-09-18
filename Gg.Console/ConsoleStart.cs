@@ -150,6 +150,40 @@ public static class ConsoleStart
     /// credential stores and this project has neither - the composition root
     /// is where the ambient answers are allowed to be ambient.
     /// </param>
+    /// <summary>
+    /// The flight a person is looking at, whose detail a refresh has to
+    /// re-read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two cursors, and the screen decides which one counts.</b>
+    /// <c>SelectedRow</c> is the queue's, and a healthy tenant has an empty
+    /// queue; the flights list has its own, and that is what a modal draws.
+    /// Keying the refresh on the queue alone emptied the modal every thirty
+    /// seconds - reported from a live console, where the queue was empty and
+    /// the modal was not.
+    /// </para>
+    /// <para>
+    /// <b>The modal wins where both exist</b>, because it is drawn over the
+    /// other: what somebody is reading is what has to stay on the screen.
+    /// </para>
+    /// </remarks>
+    public static string? OnTheScreen(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Mode is UiMode.FlightDetail)
+        {
+            return PaneText.Detailed(state)?.FlightNumber;
+        }
+
+        var queue = state.Queue;
+
+        return queue.Count > 0
+            ? queue[Math.Clamp(state.SelectedRow, 0, queue.Count - 1)].FlightNumber
+            : null;
+    }
+
     public static async Task<AppState> LoadAsync(
         ConsoleData data,
         string principal = "",
@@ -340,7 +374,11 @@ public static class ConsoleStart
             // requests for a flight that does not exist, and the console would
             // report their failure as a partial read rather than as a row that
             // was never going to have them.
-            var selectedFlight = selected?.FlightNumber;
+            // WHAT IS ON THE SCREEN, which is not always the queue's row. A
+            // modal draws the flights list's cursor, and on a healthy tenant
+            // the queue is empty - so a refresh keyed on the queue asked for
+            // nothing and emptied the modal somebody was reading.
+            var selectedFlight = OnTheScreen(start) ?? selected?.FlightNumber;
 
             var seeding = selectedFlight is null
                 ? Task.FromResult<VerbResult?>(null)

@@ -30,6 +30,14 @@ public class PoolAttestationTests
         typeof(PoolActionList),
         typeof(PoolStatus),
         typeof(PoolLedger),
+
+        // SLICE FORTY-ONE: a build's recipe, and the repository coordinate it
+        // carries - listed so both are held to the checks below rather than
+        // refused as unknown containers. Names only: a provider, a slug, refs, a
+        // directory and a file name, and nothing a Dockerfile's text or a
+        // credential could ride in.
+        typeof(PoolRecipe),
+        typeof(LeaseRepoRef),
     ];
 
     private static readonly string[] ForbiddenWords =

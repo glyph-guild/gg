@@ -452,8 +452,15 @@ public class EndpointSurfaceTests
         // purpose - one would put a watch name back in the request. POST
         // because it carries the runner's tracker pairs and claiming is a side
         // effect. The request type is new, so the contract moves to 0.191.0.
+        //
+        // Moved for asking for a build: POST /v1/airspace/strategies/{name}/builds,
+        // slice forty-one. Developer audience, because a build is asked for by a
+        // person and performed at the pool's pull point, which pulls it like any
+        // other decided action. 404 for a strategy that names no recipe, 409 while
+        // a build stands - one at a time. The response is the decided PoolAction,
+        // which gained its recipe in the same step, so the contract moves to 0.195.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("ed18f55d740075e36c5d5a57222da05ce78494095f401d0d1c834549269a19e7")
+            .IsEqualTo("7060135b4c1cd15a161a15b3df8ca159507a73387e517898f9d3400f573ed056")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

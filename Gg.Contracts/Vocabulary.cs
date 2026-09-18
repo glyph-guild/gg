@@ -202,6 +202,7 @@ public static class Vocabulary
         typeof(StrategyList),
         typeof(PoolAttestation),
         typeof(PoolAction),
+        typeof(PoolRecipe),
         typeof(PoolActionList),
 
         // The member-identity exchange, registered so the build refuses a wire

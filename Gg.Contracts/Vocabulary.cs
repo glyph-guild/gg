@@ -189,6 +189,8 @@ public static class Vocabulary
         typeof(WatchStandingList),
         typeof(WatchAction),
         typeof(WatchActionList),
+        typeof(SweepClaim),
+        typeof(SweepServes),
         typeof(SweepNomination),
         typeof(WatchAttestation),
         typeof(EnvironmentStrategyState),

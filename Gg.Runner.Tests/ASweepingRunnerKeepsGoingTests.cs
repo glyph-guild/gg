@@ -49,6 +49,13 @@ public class ASweepingRunnerKeepsGoingTests
                 answers[Math.Min(at, answers.Length - 1)](at));
         }
 
+        // THIS DOUBLE IS ABOUT THE NAMED PULL. A claim reaching it would be a
+        // resident runner's path wandering into a test of the manual one, so it
+        // says so rather than answering empty and passing.
+        public Task<WatchActionList> ClaimSweepsAsync(
+            SweepClaim claim, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("this double serves the named pull, not a claim.");
+
         public async Task AttestSweepAsync(
             string watch, WatchAttestation attestation, CancellationToken cancellationToken = default)
         {

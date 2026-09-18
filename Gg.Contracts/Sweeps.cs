@@ -175,10 +175,18 @@ public sealed record WatchAction
                      + "the runner's fetch is keyed by, and a blank one is a fetch of nothing.";
             }
 
-            if (!GitObjectIds.IsOne(skill.PinnedRef))
+            // A REF, AND IT MAY MOVE - rule 16 as the owner amended it on
+            // 2026-09-17. This demanded a commit, and the sentence it refused
+            // with is still true: "a branch or a tag moves, and a pin that
+            // moves pins nothing". What replaces the guarantee is a RECORD -
+            // the runner resolves this ref and reports the commit it landed on
+            // in `WatchAttestation.SkillCommit` - so what ran is answerable
+            // afterwards rather than fixed beforehand. A commit is still
+            // accepted, because a caller holding one may still hand it over.
+            if (string.IsNullOrWhiteSpace(skill.PinnedRef))
             {
-                return $"'{skill.PinnedRef}' is not a commit. A pin is forty or sixty-four hex "
-                     + "digits; a branch or a tag moves, and a pin that moves pins nothing.";
+                return "This sweep's skill names no ref. That is what the runner's fetch is "
+                     + "keyed by, and a blank one is a fetch of nothing.";
             }
         }
 
@@ -364,6 +372,20 @@ public sealed record WatchAttestation
     /// </remarks>
     public string? SkillSha { get; init; }
 
+    /// <summary>
+    /// The commit the runner resolved this sweep's skill ref to, and read at.
+    /// </summary>
+    /// <remarks>
+    /// <b>What replaces the pin, and the reason this is not a regression on
+    /// paper only.</b> Rule 16 had the control plane resolve the ref so that
+    /// what ran was fixed before it ran; the owner amended that on 2026-09-17,
+    /// so the ref handed over may move and the runner says where it landed.
+    /// Required on a good pass for <see cref="SkillSha"/>'s reason and one
+    /// more: a digest with no commit beside it is a record nobody can resolve
+    /// back to a reviewed version.
+    /// </remarks>
+    public string? SkillCommit { get; init; }
+
     /// <summary>The most one sweep may nominate.</summary>
     /// <remarks>
     /// A watch's own cap per pass bounds what stands, and is the control plane's
@@ -423,6 +445,21 @@ public sealed record WatchAttestation
         if (attestation.SkillSha is { } sha && !GitObjectIds.IsOne(sha))
         {
             return $"'{sha}' is not a blob digest. A digest is forty or sixty-four hex digits.";
+        }
+
+        if (!unreachable && attestation.SkillCommit is null)
+        {
+            return "A sweep that reached its system of record does not say which commit it read "
+                 + "its skill at. The control plane no longer pins one, so this is the only "
+                 + "record of which version ran - and a digest with no commit beside it cannot "
+                 + "be resolved back to a reviewed version.";
+        }
+
+        if (attestation.SkillCommit is { } read && !GitObjectIds.IsOne(read))
+        {
+            return $"'{read}' is not a commit. A commit is forty or sixty-four hex digits, and "
+                 + "reporting the ref back is the one answer that looks like an answer and is "
+                 + "not.";
         }
 
         if (!unreachable && attestation.Diagnosis is not null)

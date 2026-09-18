@@ -1023,6 +1023,21 @@ public static class ProtocolSurface
         },
         new()
         {
+            // ASKING FOR A BUILD (slice forty-one). A person asks; the control
+            // plane decides, and the answer is what it decided - the action, with
+            // the recipe resolved to where the runner will fetch it. 404 is a
+            // strategy that names no recipe, so there is nothing to build; 409 is
+            // a build already standing for it - one at a time, rule 13. The build
+            // itself is performed at the pool's pull point and never here.
+            Method = "POST",
+            Path = "/v1/airspace/strategies/{name}/builds",
+            Audience = Audience.Developer,
+            Response = typeof(PoolAction),
+            Statuses = [202, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/airspace/strategies/{name}",
             Audience = Audience.Developer,
@@ -1876,9 +1891,12 @@ public static class ProtocolSurface
             // over the shape as well as declared.
             [typeof(PoolAttestation)] =
                 ["attestationId", "pool", "action", "actionId", "outcome", "imageDigest",
-                 "locks", "provenance", "scopeProbedAt", "measuredAt", "diagnosis"],
+                 "locks", "provenance", "scopeProbedAt", "measuredAt", "diagnosis",
+                 "recipeCommit"],
             [typeof(PoolAction)] =
-                ["actionId", "pool", "action", "image", "strategyVersion", "decidedAt"],
+                ["actionId", "pool", "action", "image", "strategyVersion", "decidedAt",
+                 "recipe"],
+            [typeof(PoolRecipe)] = ["repository", "path", "dockerfile"],
             [typeof(PoolActionList)] = ["actions"],
             // The sweeps surface. The action carries a pinned commit and never
             // a skill's words - the runner reads them - and the report carries

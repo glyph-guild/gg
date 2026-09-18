@@ -2,7 +2,7 @@ namespace Gg.Contracts;
 
 /// <summary>
 /// The routine maintenance actions a resident runner performs against a
-/// managed pool. Closed at three; every member is mirrored into
+/// managed pool. Closed at five; every member is mirrored into
 /// <see cref="All"/>, because a declared value outside its own membership
 /// list is refused by the very check that exists to admit it — the
 /// <see cref="DestinationKinds"/> hole slice twelve's step 0 found, not
@@ -56,7 +56,28 @@ public static class PoolActions
     /// </remarks>
     public const string Roll = "roll";
 
-    public static IReadOnlyList<string> All { get; } = [Verify, Refresh, Reset, Roll];
+    /// <summary>
+    /// Build the strategy's recipe, push the image to the pool's own registry,
+    /// and attest the digest and the commit it was built from. Changes no member.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Slice forty-one.</b> A strategy may name where its image comes from
+    /// (<see cref="EnvironmentStrategy.Build"/>); this is the act that turns that
+    /// recipe into a digest. The digest does not become the pin here: it comes
+    /// back through the strategy door as a new version, and the existing
+    /// <see cref="Roll"/> converges the members from there.
+    /// </para>
+    /// <para>
+    /// <b>An outward act, though it touches no member.</b> Its product is an
+    /// image in a registry rather than its attestation, and it runs a recipe on
+    /// the pool host's daemon through a proxy allowance the scope probe has to
+    /// prove - which is exactly what the decider withholds an outward act for.
+    /// </para>
+    /// </remarks>
+    public const string Build = "build";
+
+    public static IReadOnlyList<string> All { get; } = [Verify, Refresh, Reset, Roll, Build];
 }
 
 /// <summary>
@@ -102,6 +123,11 @@ public static class PoolActionKinds
             [PoolActions.Refresh] = OutwardAct,
             [PoolActions.Reset] = OutwardAct,
             [PoolActions.Roll] = OutwardAct,
+
+            // THE FOURTH, AND IT TOUCHES NO MEMBER. Outward because the
+            // attestation is not its whole product - an image is - and because
+            // it reaches the daemon through an allowance the probe must prove.
+            [PoolActions.Build] = OutwardAct,
         };
 
     /// <summary>The kind, or a throw for an action nobody classified.</summary>
@@ -201,6 +227,19 @@ public sealed record PoolAttestation
     public string? Diagnosis { get; init; }
 
     /// <summary>
+    /// The commit a build resolved its recipe's ref to and built from. Only a
+    /// build carries one; a good build must.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never the ref.</b> Refs move, and reporting one back is the answer that
+    /// looks like an answer and is not - the same rule a sweep's skill commit is
+    /// held to. Beside <see cref="ImageDigest"/>, it is what lets the control
+    /// plane believe a strategy's <c>built-from</c>: a digest and a commit that a
+    /// build it decided actually attested.
+    /// </remarks>
+    public string? RecipeCommit { get; init; }
+
+    /// <summary>
     /// The schema's own rule, shared so the runner and the control plane
     /// cannot disagree about what a valid attestation is.
     /// </summary>
@@ -246,6 +285,37 @@ public sealed record PoolAttestation
                  + $"of: {string.Join(", ", EnvironmentProvenance.All)}.";
         }
 
+        var build = string.Equals(attestation.Action, PoolActions.Build, StringComparison.Ordinal);
+
+        if (!build && attestation.RecipeCommit is not null)
+        {
+            return $"A {attestation.Action} attestation says it built from a commit. Only a "
+                 + "build builds, and a recipe commit anywhere else is a claim about a build "
+                 + "that did not happen - one a reader of the ledger would believe.";
+        }
+
+        if (build && string.Equals(attestation.Outcome, PoolOutcomes.Verified, StringComparison.Ordinal))
+        {
+            if (attestation.RecipeCommit is null)
+            {
+                return "A build that succeeded does not say which commit it built. That commit "
+                     + "is the only thing tracing the image back to a reviewed recipe.";
+            }
+
+            if (string.IsNullOrWhiteSpace(attestation.ImageDigest))
+            {
+                return "A build that succeeded does not say what it pushed, so there is no "
+                     + "digest to move the pin to.";
+            }
+        }
+
+        if (attestation.RecipeCommit is { } commit && !GitObjectIds.IsOne(commit))
+        {
+            return $"'{commit}' is not a commit. A commit is forty or sixty-four hex digits, and "
+                 + "reporting the ref back is the one answer that looks like an answer and is "
+                 + "not.";
+        }
+
         return null;
     }
 }
@@ -274,6 +344,44 @@ public sealed record PoolAction
     public required string StrategyVersion { get; init; }
 
     public required DateTimeOffset DecidedAt { get; init; }
+
+    /// <summary>
+    /// Where a build's recipe is, resolved when the build was decided. Only a
+    /// build carries one; null for every other action.
+    /// </summary>
+    public PoolRecipe? Recipe { get; init; }
+}
+
+/// <summary>
+/// A build's recipe as the runner fetches it: the repository, the directory,
+/// and the Dockerfile inside it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Resolved control-plane-side, fetched runner-side.</b> A strategy names its
+/// recipe by the tenant's registry name, which never leaves the control plane;
+/// what crosses is the provider and slug the registry held when the build was
+/// decided - the coordinate type the runner's VCS port already takes, as a
+/// sweep's skill does since 0.187.0. The ref rides in
+/// <see cref="LeaseRepoRef.PinnedRef"/> and the runner resolves it.
+/// </para>
+/// <para>
+/// <b>Names only.</b> Nothing here can carry a Dockerfile's text: the machine
+/// that builds reads the recipe with its own credential, and the control plane
+/// never does.
+/// </para>
+/// </remarks>
+[PinnedId("1967ec15-abe2-4f7a-8c7d-328d98ddad98")]
+public sealed record PoolRecipe
+{
+    /// <summary>The recipe's repository, with the strategy's ref as its pinned ref.</summary>
+    public required LeaseRepoRef Repository { get; init; }
+
+    /// <summary>The recipe's directory in it: the whole build context.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>The Dockerfile inside <see cref="Path"/>, or null for <c>Dockerfile</c>.</summary>
+    public string? Dockerfile { get; init; }
 }
 
 /// <summary>The decided actions a pull answered with.</summary>

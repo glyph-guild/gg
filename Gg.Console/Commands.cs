@@ -795,6 +795,17 @@ public enum Command
     /// </remarks>
     OpenWorkItem,
 
+    /// <summary>Open the page this flight's intent names, in a browser.</summary>
+    /// <remarks>
+    /// <b><see cref="OpenWorkItem"/>'s act, reached from the flight rather than
+    /// from the listing.</b> A sweep nominates a work item by its url, so the
+    /// flight it opens carries a link and no ticket - and the ticket key needs
+    /// a provider, an id and a reader here. This is the same port and the same
+    /// exception to the session rule: a browser takes the display and stays the
+    /// shell's.
+    /// </remarks>
+    OpenTheLink,
+
     /// <summary>
     /// Shows the work item a flight was opened against.
     /// </summary>

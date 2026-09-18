@@ -398,16 +398,41 @@ public class TheSignInModalReadsTests
 
         var context = KeymapContext.For(state);
 
+        // THE ONE PAIR THAT CANNOT BOTH BE TRUE, named rather than skipped. An
+        // intent has exactly one kind, so a flight that names a ticket a reader
+        // here can read is not a flight that names a bare link - and the key
+        // they share means the modal in the first case and the browser in the
+        // second, which is the whole point of the second flag. This model keeps
+        // the ticket, because that is the arm with the reader in it; the link
+        // arm has a class of its own where both are set the other way.
+        var exclusive = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [nameof(KeymapContext.OverALink)] =
+                "a flight's intent is a ticket or a link, never both - "
+              + "AFlightCanOpenItsLinkTests holds the other arm.",
+        };
+
         var defaults = typeof(KeymapContext)
             .GetProperties()
             .Where(p => p.PropertyType == typeof(bool))
             .Where(p => !(bool)p.GetValue(context)!)
             .Select(p => p.Name)
+            .Where(name => !exclusive.ContainsKey(name))
             .ToList();
 
         await Assert.That(defaults).IsEmpty()
             .Because("every flag the keymap dispatches on is set on this model, so one still "
                    + "false is one the derivation does not read. Found: "
                    + string.Join(", ", defaults));
+
+        // AND THE EXEMPTION STAYS HONEST. A flag listed here that this model
+        // DOES set is one somebody exempted and then made reachable, which
+        // would quietly take it out of the check above for ever.
+        foreach (var (flag, why) in exclusive)
+        {
+            await Assert.That((bool)typeof(KeymapContext).GetProperty(flag)!.GetValue(context)!)
+                .IsFalse()
+                .Because($"{flag} is exempt because {why}");
+        }
     }
 }

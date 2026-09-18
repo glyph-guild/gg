@@ -415,6 +415,15 @@ public sealed class MaintainLoop(
     {
         var members = await _adapter.ListAsync(pool, cancellationToken);
         var stale = members
+            // RUNNING MEMBERS ONLY. The listing asks for ?all=true, so a member
+            // whose twelve-hour credential ran out is in it, stopped - and a
+            // reset creates a RUNNING member, so resetting that one grows the
+            // pool. Measured on vmlinux001: the first roll that ran brought a
+            // spent gg-pool-ui-3 back to life and left a pool bounded at two
+            // with three. A stopped member is a slot, as NextSlotAsync says
+            // below, and filling a slot is refresh's - decided only inside the
+            // strategy's inventory, and converged onto the pin when it is.
+            .Where(m => m.Running)
             .Where(m => m.MadeFrom is { Length: > 0 } madeFrom
                      && !string.Equals(madeFrom, image, StringComparison.Ordinal))
             .ToList();

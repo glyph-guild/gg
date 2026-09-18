@@ -1,5 +1,6 @@
 using Gg.Console;
 using Gg.Contracts;
+using Gg.Contracts.Description;
 
 namespace Gg.Console.Tests;
 

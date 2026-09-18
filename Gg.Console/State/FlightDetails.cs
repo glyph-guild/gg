@@ -191,6 +191,38 @@ public static class FlightDetails
     }
 
     /// <summary>
+    /// The page this flight names, where it names one and no reader here can
+    /// read it as a ticket.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The second condition is what keeps one key honest.</b> Where the item
+    /// can be read without leaving the console, that is the better answer and
+    /// this is null; this is every other flight with somewhere to go.
+    /// </para>
+    /// <para>
+    /// <b>A link is what a sweep's flight carries.</b> A watch nominates a work
+    /// item by its url and the board opens a flight from it, so the intent has
+    /// a uri and no provider at all - which is how GG-153 came to be about a
+    /// page nobody could reach from the console.
+    /// </para>
+    /// </remarks>
+    public static string? LinkHere(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (TicketAReaderHere(state) is not null
+            || PaneText.Detailed(state) is not { } flight
+            || !string.Equals(flight.Intent.Kind, FlightIntentKinds.Uri, StringComparison.Ordinal)
+            || flight.Intent.Uri is not { Length: > 0 } uri)
+        {
+            return null;
+        }
+
+        return ControlText.Strip(uri);
+    }
+
+    /// <summary>
     /// The intent as a person would have typed it, for seeding a new flight.
     /// </summary>
     /// <remarks>

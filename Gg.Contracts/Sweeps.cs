@@ -201,6 +201,82 @@ public sealed record WatchActionList
     public required IReadOnlyList<WatchAction> Actions { get; init; }
 }
 
+/// <summary>
+/// A resident runner asking for any sweep it can serve, naming no watch.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Why it names no watch.</b> The pull before this was scoped to one watch,
+/// so a watch was swept only while somebody at a shell named it to
+/// <c>gg runner sweep</c> - the owner's words, running the walk: "today a
+/// watch sweeps only while someone keeps that process running". A flight claim
+/// names no flight; the control plane matches. This is that shape for a sweep.
+/// </para>
+/// <para>
+/// <b>It says what this runner can reach, so it is handed only what it can
+/// do.</b> Rule 18 presents a credential only where the operator declared the
+/// pair, and a runner that claimed a sweep it could not serve would attest a
+/// FALSE unreachable. So the claim carries the declared pairs and the control
+/// plane serves only a watch naming one of them.
+/// </para>
+/// <para>
+/// <b>On the claim rather than the heartbeat.</b> Labels ride the heartbeat
+/// because flights are routed before anybody asks; a sweep is pulled, so the
+/// pairs travel with the pull that uses them - never stored, never stale. A
+/// locator is a reference, not a secret, and the watch document already carries
+/// the same one.
+/// </para>
+/// </remarks>
+[PinnedId("4f2b8e61-9c3a-4d7e-b5a1-2e8f6c0d9a37")]
+public sealed record SweepClaim
+{
+    /// <summary>The (host, credential locator) pairs this runner can sweep.</summary>
+    public required IReadOnlyList<SweepServes> Serves { get; init; }
+
+    /// <summary>Why this claim cannot be served, or null when it can.</summary>
+    public static string? Validate(SweepClaim claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        // NOT ANSWERED EMPTY. A runner that can reach nothing asking is a
+        // mistake in the runner, and "nothing decided" would make it
+        // indistinguishable from a quiet period.
+        if (claim.Serves is not { Count: > 0 })
+        {
+            return "This claim names no tracker this runner can reach, so no sweep could ever be "
+                 + "served to it. A runner with nothing declared should not ask.";
+        }
+
+        foreach (var serves in claim.Serves)
+        {
+            if (string.IsNullOrWhiteSpace(serves.Host)
+                || string.IsNullOrWhiteSpace(serves.Credential))
+            {
+                return "A pair in this claim has no host or no credential. Rule 18 compares the "
+                     + "two together, so half a pair matches nothing it would accept.";
+            }
+        }
+
+        return null;
+    }
+}
+
+/// <summary>One tracker a runner can sweep: where it is, and how it is reached.</summary>
+/// <remarks>
+/// <b>The pair, never the host alone.</b> A watch names both, and rule 18
+/// compares both - a runner holding a DIFFERENT credential for the same tracker
+/// cannot serve that watch, and matching on the host would hand it one anyway.
+/// </remarks>
+[PinnedId("b83d5f14-6e2c-4a90-8f7d-1c9e3b5a6d02")]
+public sealed record SweepServes
+{
+    /// <summary>The tracker's root, as the runner's operator declared it.</summary>
+    public required string Host { get; init; }
+
+    /// <summary>The credential locator paired with it - a reference, never the secret.</summary>
+    public required string Credential { get; init; }
+}
+
 /// <summary>One thing a sweep's executor nominated, and why.</summary>
 /// <remarks>
 /// <para>

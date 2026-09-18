@@ -1209,6 +1209,24 @@ public static class ProtocolSurface
         },
         new()
         {
+            // A RESIDENT RUNNER'S SWEEP CLAIM, and it names no watch. The pull
+            // below is scoped to one, so a watch was swept only while somebody
+            // named it to `gg runner sweep` at a shell. This is how a runner
+            // asks for any sweep it can serve, the way a flight claim names no
+            // flight. POST because it carries a body and claiming is a side
+            // effect; 400 is SweepClaim.Validate, including a claim that can
+            // reach nothing, which is a runner's mistake rather than a quiet
+            // period.
+            Method = "POST",
+            Path = "/v1/runner/sweeps/claim",
+            Audience = Audience.Runner,
+            Request = typeof(SweepClaim),
+            Response = typeof(WatchActionList),
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             // THE SWEEP'S PULL POINT, on the pool's shape and for its reason.
             // Serving is the claim: a decided sweep appears in exactly one
             // answer, so two runners polling one watch run one sweep. Nothing
@@ -1867,6 +1885,8 @@ public static class ProtocolSurface
             [typeof(WatchActionList)] = ["actions"],
             [typeof(SweepNomination)] =
                 ["subject", "version", "intentKey", "workKind", "reason", "note"],
+            [typeof(SweepClaim)] = ["serves"],
+            [typeof(SweepServes)] = ["host", "credential"],
             [typeof(WatchAttestation)] =
                 ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
                  "diagnosis", "skillSha", "skillCommit"],

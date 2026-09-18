@@ -443,8 +443,17 @@ public class EndpointSurfaceTests
         // a display grouping nothing authorizes on, so a changed one is not a
         // substitution anybody pinned. The request type is new, so the contract
         // version moves as well, to 0.183.0.
+        //
+        // Moved for a resident runner claiming a sweep without naming a watch:
+        // POST /v1/runner/sweeps/claim. The owner, running slice thirty-nine's
+        // walk: "today a watch sweeps only while someone keeps that process
+        // running". The pull beside it is scoped to one watch, so a sweep ran
+        // only while somebody named the watch at a shell. No path parameter on
+        // purpose - one would put a watch name back in the request. POST
+        // because it carries the runner's tracker pairs and claiming is a side
+        // effect. The request type is new, so the contract moves to 0.191.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("5344c2baf52b32dd67dd05ab2bc9faf8b4b24d6e7206fbbeef30c63ca576fb69")
+            .IsEqualTo("ed18f55d740075e36c5d5a57222da05ce78494095f401d0d1c834549269a19e7")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -121,6 +121,11 @@ public sealed record PoolObservation
 
     /// <summary>What went wrong, when the outcome is failed.</summary>
     public string? Diagnosis { get; init; }
+
+    /// <summary>
+    /// The commit a build built from - only a build says one (slice forty-one).
+    /// </summary>
+    public string? RecipeCommit { get; init; }
 }
 
 /// <summary>

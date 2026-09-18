@@ -54,9 +54,17 @@ public sealed class MaintainLoop(
     // it. Handed in for the control plane address's reason, and it is the
     // difference between a member a console can reach and one that answers an
     // introduction nobody can arrive at.
-    string? stunServers = null)
+    string? stunServers = null,
+    // WHERE A BUILD'S RECIPE COMES FROM, AND WHAT BUILDS IT (slice forty-one).
+    // Optional because a pool with no recipe never builds - and a runner
+    // started without them answers a decided build with that sentence rather
+    // than doing nothing, which would leave the control plane waiting forever.
+    IRecipeSource? recipes = null,
+    IImageBuilder? builder = null)
 {
     private readonly IPoolProtocol _protocol = protocol;
+    private readonly IRecipeSource? _recipes = recipes;
+    private readonly IImageBuilder? _builder = builder;
     private readonly IPoolAdapter _adapter = adapter;
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
@@ -340,6 +348,11 @@ public sealed class MaintainLoop(
                 };
         }
 
+        if (string.Equals(action.Action, PoolActions.Build, StringComparison.Ordinal))
+        {
+            return await BuildAsync(action, cancellationToken);
+        }
+
         if (action.Image is not { Length: > 0 } image)
         {
             return new PoolObservation
@@ -383,6 +396,134 @@ public sealed class MaintainLoop(
             Outcome = PoolOutcomes.Failed,
             Diagnosis = $"'{action.Action}' is not an action this runner knows how to take.",
         };
+    }
+
+    /// <summary>
+    /// Build a strategy's recipe, push it to the pool's own registry, and say
+    /// what it was built from (slice forty-one).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No member is touched.</b> The digest does not become the pin here: it
+    /// goes back on the attestation, the control plane writes it as a new
+    /// strategy version, and the roll that follows converges the members.
+    /// </para>
+    /// <para>
+    /// <b>The daemon's own words stay on this machine.</b> A failed step echoes
+    /// the recipe's lines, and the attestation crosses to a control plane that
+    /// never holds a recipe's words (rule 2) - so the detail is narrated to this
+    /// host's log and the attestation carries which stage failed.
+    /// </para>
+    /// </remarks>
+    private async Task<PoolObservation> BuildAsync(PoolAction action, CancellationToken cancellationToken)
+    {
+        if (_recipes is null || _builder is null)
+        {
+            return new PoolObservation
+            {
+                Outcome = PoolOutcomes.Failed,
+                Diagnosis = "a build was decided and this runner was started without a way to "
+                          + "build - no recipe source or no image builder - so nothing was built.",
+            };
+        }
+
+        if (action.Recipe is not { } recipe)
+        {
+            return new PoolObservation
+            {
+                Outcome = PoolOutcomes.Failed,
+                Diagnosis = "a build was decided with no recipe, so there was nothing to build.",
+            };
+        }
+
+        // THE POOL'S REGISTRY IS THE IMAGE'S OWN (rule 11): the repository part of
+        // the pin in force, and nowhere a recipe could name.
+        var at = action.Image?.IndexOf("@sha256:", StringComparison.Ordinal) ?? -1;
+        if (action.Image is not { } pin || at < 1)
+        {
+            return new PoolObservation
+            {
+                Outcome = PoolOutcomes.Failed,
+                Diagnosis = "a build was decided without a pinned image, so there is no registry "
+                          + "repository to push to.",
+            };
+        }
+
+        var repository = pin[..at];
+        var scratch = Path.Combine(
+            Path.GetTempPath(), "gg-recipe-build", Guid.NewGuid().ToString("n"));
+
+        try
+        {
+            var fetch = await _recipes.FetchAsync(recipe, scratch, cancellationToken);
+            if (fetch is not RecipeFetch.Fetched fetched)
+            {
+                return new PoolObservation
+                {
+                    Outcome = PoolOutcomes.Failed,
+                    Diagnosis = fetch is RecipeFetch.Refused(var why)
+                        ? why
+                        : "the recipe could not be fetched.",
+                };
+            }
+
+            var tag = fetched.Commit.Length > 12 ? fetched.Commit[..12] : fetched.Commit;
+            var labels = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["gg.built-from"] = $"{recipe.Repository.Slug}@{fetched.Commit}:{recipe.Path}",
+            };
+
+            var built = await _builder.BuildAsync(
+                fetched.Directory, recipe.Dockerfile ?? "Dockerfile", $"{repository}:{tag}", labels,
+                cancellationToken);
+
+            if (built is ImageBuilt.Failed(var buildDiagnosis, var buildDetail))
+            {
+                _narrate($"build of {recipe.Repository.Slug}@{fetched.Commit}:{recipe.Path} failed: "
+                       + (buildDetail ?? buildDiagnosis));
+                return new PoolObservation
+                {
+                    Outcome = PoolOutcomes.Failed,
+                    Diagnosis = buildDiagnosis,
+                    RecipeCommit = fetched.Commit,
+                };
+            }
+
+            var pushed = await _builder.PushImageAsync(repository, tag, cancellationToken);
+
+            if (pushed is ImagePushed.Failed(var pushDiagnosis, var pushDetail))
+            {
+                _narrate($"push of {repository}:{tag} failed: " + (pushDetail ?? pushDiagnosis));
+                return new PoolObservation
+                {
+                    Outcome = PoolOutcomes.Failed,
+                    Diagnosis = pushDiagnosis,
+                    RecipeCommit = fetched.Commit,
+                };
+            }
+
+            return new PoolObservation
+            {
+                Outcome = PoolOutcomes.Verified,
+                ImageDigest = ((ImagePushed.Pushed)pushed).Digest,
+                RecipeCommit = fetched.Commit,
+            };
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(scratch))
+                {
+                    Directory.Delete(scratch, recursive: true);
+                }
+            }
+            catch (IOException)
+            {
+                // A clone that will not delete is not a reason to fail a build that
+                // succeeded. The operating system will get it.
+            }
+        }
     }
 
     /// <summary>
@@ -550,6 +691,7 @@ public sealed class MaintainLoop(
             ScopeProbedAt = probe.ProbedAt,
             MeasuredAt = _clock.UtcNow,
             Diagnosis = observed.Diagnosis,
+            RecipeCommit = observed.RecipeCommit,
         }, cancellationToken);
     /// <summary>
     /// What this member is to be made of, including a nonce minted for it.

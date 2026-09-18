@@ -23,7 +23,7 @@ namespace Gg.Runner.Pools;
 /// what the member actually runs, never what was asked for.
 /// </para>
 /// </remarks>
-public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
+public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IImageBuilder
 {
     private readonly HttpClient _httpClient = httpClient;
 
@@ -242,9 +242,9 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
             using var response = await _httpClient.GetAsync(
                 $"/containers/{outside}/json", cancellationToken);
 
-            return response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized
-                ? new ScopeProbe { Held = true, ProbedAt = probedAt }
-                : new ScopeProbe
+            if (response.StatusCode is not (HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized))
+            {
+                return new ScopeProbe
                 {
                     Held = false,
                     ProbedAt = probedAt,
@@ -252,6 +252,47 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
                               + $"/containers/{outside}/json answered {(int)response.StatusCode} "
                               + "instead of a refusal. The endpoint is not scoping.",
                 };
+            }
+
+            // AND THE BUILD SCOPE (slice forty-one, rule 17). The proxy admits a
+            // build tagged into the host's own registry and a push of an image in
+            // it; so the probe asks for one tagged elsewhere and a push of a
+            // foreign image, and requires both refused. An empty body builds
+            // nothing even if a broken proxy lets it through.
+            using (var build = await _httpClient.PostAsync(
+                       $"/build?t={Uri.EscapeDataString(outside + "/outside:probe")}",
+                       new ByteArrayContent([]), cancellationToken))
+            {
+                if (build.StatusCode is not (HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized))
+                {
+                    return new ScopeProbe
+                    {
+                        Held = false,
+                        ProbedAt = probedAt,
+                        Diagnosis = "a build tagged outside the host's registry was ALLOWED: POST "
+                                  + $"/build answered {(int)build.StatusCode} instead of a refusal. "
+                                  + "The build scope is not bounded.",
+                    };
+                }
+            }
+
+            using (var push = await _httpClient.PostAsync(
+                       $"/images/{outside}/outside/push?tag=probe", content: null, cancellationToken))
+            {
+                if (push.StatusCode is not (HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized))
+                {
+                    return new ScopeProbe
+                    {
+                        Held = false,
+                        ProbedAt = probedAt,
+                        Diagnosis = "a push of an image outside the host's registry was ALLOWED: "
+                                  + $"answered {(int)push.StatusCode} instead of a refusal. The "
+                                  + "push scope is not bounded.",
+                    };
+                }
+            }
+
+            return new ScopeProbe { Held = true, ProbedAt = probedAt };
         }
         catch (HttpRequestException unreachable)
         {
@@ -263,6 +304,155 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter
                           + "Unknown is not false - an unreachable proxy proves nothing.",
             };
         }
+    }
+
+    /// <summary>
+    /// Builds a recipe directory through the daemon, tagged into the pool's own
+    /// registry and labelled with what it was made from (slice forty-one).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The context is a tar of the directory, symbolic links kept as links</b>
+    /// - so a link inside a recipe that points at the host sends a link, never
+    /// the file it points at.
+    /// </para>
+    /// <para>
+    /// <b>Headers first, then the stream.</b> A build answers at once and then
+    /// talks for as long as it takes, so the client's timeout bounds the answer
+    /// and not the build.
+    /// </para>
+    /// </remarks>
+    public async Task<ImageBuilt> BuildAsync(
+        string context, string dockerfile, string tag, IReadOnlyDictionary<string, string> labels,
+        CancellationToken cancellationToken = default)
+    {
+        await using var tar = new MemoryStream();
+        await System.Formats.Tar.TarFile.CreateFromDirectoryAsync(
+            context, tar, includeBaseDirectory: false, cancellationToken);
+        tar.Position = 0;
+
+        await using var labelJson = new MemoryStream();
+        await using (var writer = new Utf8JsonWriter(labelJson))
+        {
+            writer.WriteStartObject();
+            foreach (var (key, value) in labels)
+            {
+                writer.WriteString(key, value);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/build?t={Uri.EscapeDataString(tag)}&dockerfile={Uri.EscapeDataString(dockerfile)}"
+          + $"&labels={Uri.EscapeDataString(Encoding.UTF8.GetString(labelJson.ToArray()))}"
+          + "&rm=1&forcerm=1")
+        {
+            Content = new StreamContent(tar),
+        };
+        request.Content.Headers.ContentType = new("application/x-tar");
+
+        using var response = await _httpClient.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new ImageBuilt.Failed(
+                $"the daemon refused the build (HTTP {(int)response.StatusCode}). A 403 is the pool "
+              + "proxy: its configuration predates the build allowance, or the tag is outside the "
+              + "host's registry.",
+                null);
+        }
+
+        var (aux, error) = await StreamAsync(response, "ID", cancellationToken);
+
+        return error is not null
+            ? new ImageBuilt.Failed(
+                "the recipe did not build: the daemon reported a failed step. Its output is in this "
+              + "pool host's maintainer log and is not sent, because it echoes the recipe.",
+                error)
+            : aux is { Length: > 0 } id
+                ? new ImageBuilt.Built(id)
+                : new ImageBuilt.Failed("the daemon finished the build without naming an image.", null);
+    }
+
+    /// <summary>
+    /// Pushes a built image to its registry, and returns the digest the registry
+    /// answered with - which is what a pin can name.
+    /// </summary>
+    public async Task<ImagePushed> PushImageAsync(
+        string repository, string tag, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, $"/images/{repository}/push?tag={Uri.EscapeDataString(tag)}");
+
+        // ANONYMOUS: the pool's registry is the host's own. The header is required
+        // by the daemon even when it carries nothing.
+        request.Headers.Add("X-Registry-Auth", Convert.ToBase64String("{}"u8.ToArray()));
+
+        using var response = await _httpClient.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new ImagePushed.Failed(
+                $"the daemon refused the push (HTTP {(int)response.StatusCode}).", null);
+        }
+
+        var (digest, error) = await StreamAsync(response, "Digest", cancellationToken);
+
+        return error is not null
+            ? new ImagePushed.Failed("the registry refused the push.", error)
+            : digest is { Length: > 0 } pushed
+                ? new ImagePushed.Pushed(pushed)
+                : new ImagePushed.Failed("the registry accepted the push without naming a digest.", null);
+    }
+
+    /// <summary>
+    /// Reads the daemon's line-per-object progress stream, returning one member
+    /// of the final <c>aux</c> object and the first error, if any.
+    /// </summary>
+    private static async Task<(string? Aux, string? Error)> StreamAsync(
+        HttpResponseMessage response, string auxMember, CancellationToken cancellationToken)
+    {
+        string? aux = null;
+        string? error = null;
+
+        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                using var progress = JsonDocument.Parse(line);
+                var root = progress.RootElement;
+
+                if (root.TryGetProperty("error", out var failed) && failed.ValueKind == JsonValueKind.String)
+                {
+                    error ??= failed.GetString();
+                }
+
+                if (root.TryGetProperty("aux", out var carried)
+                    && carried.ValueKind == JsonValueKind.Object
+                    && carried.TryGetProperty(auxMember, out var value)
+                    && value.ValueKind == JsonValueKind.String)
+                {
+                    aux = value.GetString();
+                }
+            }
+            catch (JsonException)
+            {
+                // A line that is not an object is progress text, and progress text
+                // decides nothing.
+            }
+        }
+
+        return (aux, error);
     }
 
     private async Task<PoolObservation> CreateAndStartAsync(

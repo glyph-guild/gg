@@ -131,10 +131,19 @@ public class MoveKindsTests
     [Test]
     public async Task The_default_wiring_classifies_by_the_real_table()
     {
-        // All five real moves are record-only, so the one-argument Validate
-        // accepts them - and an unknown move still dies at the unknown-move
-        // refusal rather than reaching Of's poison, ordering intact.
-        await Assert.That(Envelope.Validate(Declaring([.. LoopMoves.All]))).IsNull();
+        // Every real move is record-only, so the one-argument Validate accepts
+        // them - and an unknown move still dies at the unknown-move refusal
+        // rather than reaching Of's poison, ordering intact.
+        //
+        // ALL BUT ONE, and the exception is not a classification. `anything` is
+        // record-only like the rest; what it will not do is share a list, so a
+        // set containing it and anything else is refused by its own rule - see
+        // ALoopMayRunUnboundedTests, where that refusal is the subject.
+        var classifiable = LoopMoves.All
+            .Where(m => !string.Equals(m, LoopMoves.Anything, StringComparison.Ordinal))
+            .ToArray();
+
+        await Assert.That(Envelope.Validate(Declaring(classifiable))).IsNull();
 
         var unknown = Envelope.Validate(Declaring("run-migrations"));
         await Assert.That(unknown).IsNotNull();

@@ -103,7 +103,12 @@ public class AMoveGrantsOneToolTests
         // mapping it is caught before anybody writes a test for it: a move in
         // the vocabulary that maps to itself is a grant of a tool called
         // "propose-work-item", which no agent has.
-        foreach (var move in LoopMoves.All)
+        // EVERY MOVE BUT ONE, and the exception maps to nothing on purpose:
+        // `anything` removes the allow-list rather than adding a name to it, so
+        // asking which tool it grants has no answer and ToolFor throws rather
+        // than handing back the move's own spelling. Asserted in
+        // AnUnboundedLoopIsLaunchedUnboundedTests, where the throw is the point.
+        foreach (var move in LoopMoves.All.Where(m => !LoopMoves.Unbounded([m])))
         {
             await Assert.That(ClaudeCodeExecutor.ToolFor(move)).IsNotEqualTo(move)
                 .Because($"'{move}' is in the vocabulary and maps to nothing.");

@@ -77,6 +77,7 @@ public class EnforcesMovesTests
         // allow-list does not bind at all. A flight declaring read plus run-tests
         // can edit, and no flag available here changes that.
         var mapped = LoopMoves.All
+            .Where(m => !LoopMoves.Unbounded([m]))
             .ToDictionary(m => m, ClaudeCodeExecutor.ToolFor, StringComparer.Ordinal);
 
         await Assert.That(mapped[LoopMoves.RunTests]).IsEqualTo("Bash");
@@ -90,7 +91,9 @@ public class EnforcesMovesTests
     [Test]
     public async Task Every_declared_move_maps_to_something()
     {
-        foreach (var move in LoopMoves.All)
+        // ALL BUT `anything`, which maps to no tool because it removes the list
+        // - the one move whose grant is the absence of a grant.
+        foreach (var move in LoopMoves.All.Where(m => !LoopMoves.Unbounded([m])))
         {
             await Assert.That(ClaudeCodeExecutor.ToolFor(move)).IsNotEqualTo(move)
                 .Because($"'{move}' falls through the mapping and would be passed as itself.");

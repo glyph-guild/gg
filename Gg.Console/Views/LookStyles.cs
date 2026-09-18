@@ -387,6 +387,66 @@ public static class LookStyles
     }
 
     /// <summary>
+    /// The board: a finished nomination recedes, and every row says how it is
+    /// doing.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="FlightStates"/>'s shape over a table with two kinds of row
+    /// in it</b>, and the difference is which rows recede. A nomination that
+    /// ended is a record, like a flight that landed; a watch is the live thing
+    /// on this tab, so it keeps its foreground however loudly it is tinted -
+    /// dimming an unreachable one would push back the row most worth reading.
+    /// </remarks>
+    public static void BoardStates(TableView table, int stateColumn)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+
+        table.Style.RowColorGetter = args =>
+            BoardLook.IsOver(Cell(args.Table, args.RowIndex, stateColumn))
+                ? Receding(table.GetScheme())
+                : null;
+
+        table.Style.GetOrCreateColumnStyle(stateColumn).ColorGetter = args =>
+            Boarded(args.RowScheme ?? table.GetScheme(), BoardLook.Tint(args.CellValue as string));
+    }
+
+    /// <summary>A board row's state cell, in the colour its word earns.</summary>
+    /// <remarks>
+    /// <b>The flights tab's palette, spent on the same distinctions.</b> Green
+    /// for the outcome somebody wanted, yellow for a decision that went the
+    /// other way, grey for a question that stopped applying, and the one red is
+    /// kept for the watch that cannot do its job - the only thing on this tab
+    /// that is broken rather than decided.
+    /// </remarks>
+    private static Scheme Boarded(Scheme basis, BoardTint tint)
+    {
+        if (tint is BoardTint.None)
+        {
+            return basis;
+        }
+
+        var colour = new Color(tint switch
+        {
+            BoardTint.Opened => ColorName16.Green,
+            BoardTint.Refused => ColorName16.Yellow,
+            BoardTint.Moot => ColorName16.DarkGray,
+            BoardTint.Broken => ColorName16.Red,
+
+            // A WATCH THAT HAS GONE SILENT, which is a warning rather than a
+            // fault: it has not errored, it has simply stopped finding
+            // anything, and that is how a nominator stops nominating without
+            // anybody noticing.
+            _ => ColorName16.Yellow,
+        });
+
+        return basis with
+        {
+            Normal = new Attribute(colour, basis.Normal.Background, basis.Normal.Style),
+            HotNormal = new Attribute(colour, basis.HotNormal.Background, basis.HotNormal.Style),
+        };
+    }
+
+    /// <summary>
     /// The fleet table: a runner that will take no work recedes, and says why.
     /// </summary>
     /// <remarks>

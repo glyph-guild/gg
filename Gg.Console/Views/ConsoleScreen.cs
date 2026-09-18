@@ -849,6 +849,12 @@ public sealed class ConsoleScreen : Window
         LookStyles.FlightStates(
             _flightsTable, Rows.FlightColumns.ToList().IndexOf("state"));
 
+        // AND THE BOARD, on the same rule with one difference: what recedes
+        // there is a nomination that ended, never a watch - a watch is the live
+        // thing on that tab.
+        LookStyles.BoardStates(
+            _boardTable, Rows.BoardColumns.ToList().IndexOf("state"));
+
         _flightsTable.ValueChanged += OnRowPointedAt;
         _boardTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
@@ -1775,11 +1781,14 @@ public sealed class ConsoleScreen : Window
         _tabbed =
         [
             (TabId.Queue, queueTab),
-            (TabId.Flights, Tabbed(_flightsPane)),
 
-            // BESIDE THE FLIGHTS, WHERE IT IS DECLARED - the rule three lines
-            // down, applied on the way in rather than after a tab skips six.
+            // SECOND, BESIDE THE QUEUE. The queue is what needs somebody and a
+            // standing nomination is already one of its rows, so this is where
+            // a person goes the moment they have answered one. Declared in the
+            // enum's order, which is the rule six lines down.
             (TabId.Board, Tabbed(_boardPane)),
+
+            (TabId.Flights, Tabbed(_flightsPane)),
 
             // BESIDE THE FLIGHTS, WHERE IT IS DECLARED. This was appended after
             // Repositories, so the bar drew it seventh while Tabs.Next - which

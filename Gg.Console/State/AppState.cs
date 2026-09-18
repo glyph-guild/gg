@@ -628,18 +628,6 @@ public enum TabId
     Queue,
 
     /// <summary>
-    /// Every flight this tenant has recently, needed or not.
-    /// </summary>
-    /// <remarks>
-    /// <b>OPEN BEFORE ANYBODY ASKS, like the queue.</b> A flight whose loop
-    /// asked a question the envelope never turned into a gate lands, needs
-    /// nobody, and was invisible - the queue was telling the truth and a person
-    /// still could not find what they had just started. A view you have to
-    /// learn a key to reach is one somebody in that position does not reach.
-    /// </remarks>
-    Flights,
-
-    /// <summary>
     /// The board: every nomination, and the watches whose sweeps make them.
     /// </summary>
     /// <remarks>
@@ -652,6 +640,18 @@ public enum TabId
     /// needing-me list is exactly the list it has left.
     /// </remarks>
     Board,
+
+    /// <summary>
+    /// Every flight this tenant has recently, needed or not.
+    /// </summary>
+    /// <remarks>
+    /// <b>OPEN BEFORE ANYBODY ASKS, like the queue.</b> A flight whose loop
+    /// asked a question the envelope never turned into a gate lands, needs
+    /// nobody, and was invisible - the queue was telling the truth and a person
+    /// still could not find what they had just started. A view you have to
+    /// learn a key to reach is one somebody in that position does not reach.
+    /// </remarks>
+    Flights,
 
     /// <summary>
     /// The fleet, with this machine's runner first.

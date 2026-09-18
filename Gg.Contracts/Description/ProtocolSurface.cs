@@ -1869,7 +1869,7 @@ public static class ProtocolSurface
                 ["subject", "version", "intentKey", "workKind", "reason", "note"],
             [typeof(WatchAttestation)] =
                 ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
-                 "diagnosis", "skillSha"],
+                 "diagnosis", "skillSha", "skillCommit"],
             [typeof(PoolStatus)] =
                 ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",
                  "diagnosis"],

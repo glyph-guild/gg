@@ -28,9 +28,9 @@ namespace Gg.Contracts.Tests;
 /// — it clones the skill's repository either way, and <c>CloneOutcome</c>
 /// already carries the commit it landed on, so nothing new computes it. The
 /// control plane stops needing forge reach per tenant for this path, which is
-/// what blocked the walk on an Azure DevOps repository: there is no binding
-/// shape for one, and the refusal a person read was about GitHub App
-/// installations.
+/// what blocked the walk on a repository whose forge this system has no
+/// binding shape for - and the refusal a person read named a different forge's
+/// idea of an installation, which is worse than saying nothing.
 /// </para>
 /// <para>
 /// <b>Rule 19 is untouched.</b> The control plane still resolves the watch's

@@ -60,6 +60,7 @@ public class ASweepIsAServedActionTests
         ],
         MeasuredAt = DateTimeOffset.UnixEpoch.AddYears(56),
         SkillSha = new string('b', 40),
+        SkillCommit = new string('a', 40),
     };
 
     /// <summary>Where the runner reads the skill: the repository, and the commit it was pinned at.</summary>
@@ -130,7 +131,7 @@ public class ASweepIsAServedActionTests
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAttestation)])
             .IsEquivalentTo((string[])
                 ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
-                 "diagnosis", "skillSha"]);
+                 "diagnosis", "skillSha", "skillCommit"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(SweepNomination)])
             .IsEquivalentTo((string[])
                 ["subject", "version", "intentKey", "workKind", "reason", "note"]);
@@ -368,20 +369,27 @@ public class ASweepIsAServedActionTests
     }
 
     [Test]
-    public async Task A_pin_is_a_commit_and_not_a_ref()
+    public async Task A_pin_may_be_a_ref_now_and_a_commit_is_still_one()
     {
-        var moving = WatchAction.Validate(AnAction() with { Skill = ASkill("refs/heads/main") });
-
-        await Assert.That(moving).IsNotNull()
-            .Because("a ref moves. A pin that is a ref pins nothing, and the words that run "
-                   + "are whatever somebody pushed after the sweep was decided.");
+        // SUPERSEDED, NOT DELETED. This asserted that a ref is refused here,
+        // and the reason it gave was sound: "a ref moves. A pin that is a ref
+        // pins nothing, and the words that run are whatever somebody pushed
+        // after the sweep was decided." The owner amended rule 16 on
+        // 2026-09-17 - the runner resolves the ref and reports the commit it
+        // landed on - so that consequence is now accepted and RECORDED rather
+        // than prevented. TheRunnerResolvesTheSkillsRefTests holds the whole
+        // decision and what it cost.
+        await Assert.That(WatchAction.Validate(AnAction() with
+        {
+            Skill = ASkill("refs/heads/main"),
+        })).IsNull();
 
         await Assert.That(WatchAction.Validate(AnAction() with
         {
             Skill = ASkill(new string('a', 64)),
         })).IsNull()
-            .Because("a SHA-256 repository's commits are sixty-four hex digits, and those are "
-                   + "commits too.");
+            .Because("a SHA-256 repository's commits are sixty-four hex digits, and a caller "
+                   + "holding a commit may still hand one over.");
     }
 
     [Test]

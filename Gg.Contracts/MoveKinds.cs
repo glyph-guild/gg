@@ -105,6 +105,24 @@ public static class MoveKinds
             // flight has moved when it is called, and admission can still
             // refuse the whole landing.
             [LoopMoves.ProposeLanding] = RecordOnly,
+
+            // AND THE ONE THE GAP ABOVE IS ABOUT, AT ITS WIDEST. `anything`
+            // grants every tool the agent binary has, with the permission check
+            // off - so the cloudflared paragraph is true of it without needing
+            // Bash as the route. Reclassifying it would be dishonest in the
+            // other direction and useless in this one: an outward act nothing
+            // can probe is REFUSED at authoring, so `outward-act` here would
+            // make the value undeclarable, which is the machine-level switch
+            // this move was minted to replace.
+            //
+            // WHAT IS DIFFERENT, AND WHY THAT MAKES IT ACCEPTABLE. Every other
+            // row is a claim about a grant somebody might not have read. This
+            // one IS the reading: the envelope says, in the one word that
+            // cannot be mistaken for anything else, that it is not bounding
+            // this agent. The classification is not what bounds it, and for
+            // this value nothing is - which is the fact the envelope states
+            // and every reader downstream is made to repeat.
+            [LoopMoves.Anything] = RecordOnly,
         };
 
     /// <summary>The kind of a declared move. THROWS on one nobody classified.</summary>

@@ -154,7 +154,20 @@ public class SliceTwelveGuardTests
     /// own record and its own prefix, which is the attestation's argument that
     /// the count guard above was written to defend.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.31.0";
+    /// <para>
+    /// <b>And to 0.32.0 — a VALUE this time, which is the expensive kind, and
+    /// deliberately so.</b> <c>LoopMoves</c> gains <c>anything</c>: the envelope
+    /// declining to bound an agent at all. The alternative shape was a member —
+    /// <c>unbounded: true</c> — which would have left this literal where it was,
+    /// and that is exactly the argument against it: a reader that predates a
+    /// member IGNORES it and believes the flight was bounded, while a reader
+    /// that meets an unknown VALUE halts. The vocabulary version moving is the
+    /// property being bought, not the price. The count above is unchanged: no
+    /// kind crosses that did not, and <c>MoveEnforcements.none</c> — which had
+    /// never crossed from a working runner — now does, for the flight whose
+    /// envelope declined the bound, which is what the value always meant.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.32.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

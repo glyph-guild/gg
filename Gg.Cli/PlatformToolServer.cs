@@ -1694,7 +1694,9 @@ public static class PlatformToolServer
             "    discharges:       which obligations this loop satisfies by running.");
         said.AppendLine(
             $"    moves:            what the agent is permitted to do. Any of: "
-          + $"{string.Join(", ", Gg.Contracts.LoopMoves.All)}.");
+          + $"{string.Join(", ", Gg.Contracts.LoopMoves.All)}. "
+          + $"\"{Gg.Contracts.LoopMoves.Anything}\" is not one of the others - it is this "
+          + "envelope declining to bound the agent at all, and it must stand alone.");
         said.AppendLine(
             "    budget:           how much the loop gets.");
         said.AppendLine(

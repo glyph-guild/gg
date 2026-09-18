@@ -58,7 +58,15 @@ public static class MoveRefusal
     }
 
     /// <summary>The declared move that would have granted a tool, when one would.</summary>
+    /// <remarks>
+    /// <b>Every move but <c>anything</c>, which grants no named tool and whose
+    /// mapping throws.</b> It is skipped rather than caught: this sentence tells
+    /// somebody which move to add, and "add `anything`" is advice to stop
+    /// bounding the flight in order to run one more tool.
+    /// </remarks>
     private static string? MoveFor(string tool) =>
-        LoopMoves.All.FirstOrDefault(move =>
-            string.Equals(ClaudeCodeExecutor.ToolFor(move), tool, StringComparison.Ordinal));
+        LoopMoves.All
+            .Where(move => !LoopMoves.Unbounded([move]))
+            .FirstOrDefault(move =>
+                string.Equals(ClaudeCodeExecutor.ToolFor(move), tool, StringComparison.Ordinal));
 }

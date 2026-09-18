@@ -58,11 +58,18 @@ public static class EnvironmentSurvey
     /// capability constant; a broken bound never reaches here, because that
     /// lease was released with the diagnosis instead of shipping.
     /// </param>
+    /// <param name="unbounded">
+    /// Whether this flight's loop declared <c>LoopMoves.Anything</c>, in which
+    /// case no probe ran because there was nothing for one to measure - and the
+    /// enforcement is <c>none</c> rather than null, because the envelope
+    /// answered the question instead of leaving it open.
+    /// </param>
     public static EnvironmentIdentity Observe(
         string? treePath,
         string provenance,
         string? imageDigest = null,
-        Execution.ProbeResult? probe = null)
+        Execution.ProbeResult? probe = null,
+        bool unbounded = false)
     {
         var digest = imageDigest ?? Environment.GetEnvironmentVariable(ImageDigestVariable);
 
@@ -80,7 +87,13 @@ public static class EnvironmentSurvey
             // What was proven, and WHEN, differ by session now: the probe runs
             // before every invocation, and the timestamp is what makes 'a
             // measurement of this session' auditable rather than asserted.
-            MoveEnforcement = Execution.MoveEnforcementMeasurement.Of(probe),
+            //
+            // AND `none` WHEN THE ENVELOPE DECLARED NO BOUND, with the other
+            // two left empty and null: nothing was proven withheld because
+            // nothing was withheld, and a timestamp is what makes "a
+            // measurement of this session" auditable rather than asserted -
+            // there was no measurement to stamp.
+            MoveEnforcement = Execution.MoveEnforcementMeasurement.Of(probe, unbounded),
             MovesProbed = probe?.Held ?? [],
             ProbedAt = probe?.MeasuredAt,
         };

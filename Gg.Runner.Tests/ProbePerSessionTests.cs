@@ -74,7 +74,8 @@ public class ProbePerSessionTests
         }
     }
 
-    private static LeaseGranted ALease(GitFixture fixture, int number) => new()
+    private static LeaseGranted ALease(
+        GitFixture fixture, int number, IReadOnlyList<string>? moves = null) => new()
     {
         LeaseId = $"lease-{number}",
         Generation = number,
@@ -99,14 +100,16 @@ public class ProbePerSessionTests
         {
             LoopId = "implement",
             Executor = ExecutorRungs.Frontier,
-            Moves = [LoopMoves.Read, LoopMoves.Edit],
+            Moves = moves ?? [LoopMoves.Read, LoopMoves.Edit],
             WallClockSeconds = 600,
             OnExhaustion = ExhaustionPolicies.HandoffToHuman,
         },
     };
 
     private static async Task<(SessionExecutor Executor, FakeProtocol Protocol, int Exit)>
-        RunAsync(SessionExecutor executor, int leases, int stopAfterReleases)
+        RunAsync(
+            SessionExecutor executor, int leases, int stopAfterReleases,
+            IReadOnlyList<string>? moves = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
@@ -114,7 +117,7 @@ public class ProbePerSessionTests
         var protocol = new FakeProtocol();
         for (var lease = 1; lease <= leases; lease++)
         {
-            protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, lease)));
+            protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture, lease, moves)));
         }
 
         var observer = new RecordingObserver();
@@ -158,6 +161,36 @@ public class ProbePerSessionTests
             .Because("one startup probe answering for every later session is a measurement "
                    + "of something else - ambient settings act on the session, and the "
                    + "family has five members now (acceptEdits joined at step 0).");
+    }
+
+    [Test]
+    public async Task A_session_that_declared_no_bound_is_not_probed_and_the_fact_says_none()
+    {
+        // NOTHING TO MEASURE, so nothing is spent measuring it. The probe's
+        // whole claim is that it measures the session it governs, and this
+        // session withholds nothing - so a probe here would cost fifteen to
+        // twenty-one seconds to prove Edit and Write were withheld from a
+        // session that withheld neither, and stamp that on the flight.
+        var (executor, protocol, _) = await RunAsync(
+            new SessionExecutor(), leases: 1, stopAfterReleases: 1,
+            moves: [LoopMoves.Anything]);
+
+        await Assert.That(string.Join(",", executor.Sequence)).IsEqualTo("work")
+            .Because("a measurement of a bound nobody declared is a measurement of "
+                   + "something else, which is the error this whole method exists to "
+                   + "refuse in the other direction.");
+
+        var identity = protocol.ShippedFacts.SelectMany(b => b.Items)
+            .Where(f => f.Kind == FactKinds.EnvironmentIdentity)
+            .Select(f => f.Environment)
+            .Single();
+
+        await Assert.That(identity!.MoveEnforcement).IsEqualTo(MoveEnforcements.None)
+            .Because("`none` means \"nothing declared is withheld\", which has never been "
+                   + "true of a working runner until now - and null would say unmeasured, "
+                   + "which is a different and weaker claim.");
+        await Assert.That(identity.MovesProbed).IsEmpty();
+        await Assert.That(identity.ProbedAt).IsNull();
     }
 
     [Test]

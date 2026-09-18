@@ -44,6 +44,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(PoolActionList))]
 [JsonSerializable(typeof(PoolAttestation))]
 [JsonSerializable(typeof(WatchActionList))]
+[JsonSerializable(typeof(SweepClaim))]
 [JsonSerializable(typeof(WatchAttestation))]
 [JsonSerializable(typeof(MemberCredentialRequest))]
 [JsonSerializable(typeof(MemberCredentialMinted))]
@@ -503,6 +504,40 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         return await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.WatchActionList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane answered nothing for the pull.");
+    }
+
+    /// <summary>
+    /// Any sweep this runner can serve, naming no watch. Serving is the claim.
+    /// </summary>
+    /// <remarks>
+    /// A 400 is the contract's own <c>SweepClaim.Validate</c> on the other side
+    /// - an empty claim or half a pair - and is raised with the control plane's
+    /// words, because the sweep loop turns a refusal into a line in the journal
+    /// rather than a crash, and the words are what makes that line useful.
+    /// </remarks>
+    public async Task<WatchActionList> ClaimSweepsAsync(
+        SweepClaim claim, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        using var request = Request(HttpMethod.Post, "/v1/runner/sweeps/claim");
+        request.Content = JsonContent.Create(claim, RunnerJsonContext.Default.SweepClaim);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new InvalidOperationException(
+                "The sweep claim was refused: "
+              + await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.WatchActionList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane answered nothing for the claim.");
     }
 
     /// <summary>Reports one sweep. Idempotent on the attestation id.</summary>

@@ -9,6 +9,19 @@ public interface ISweepProtocol
     /// <summary>The sweeps decided for this watch. Serving is the claim, control-plane-side.</summary>
     Task<WatchActionList> PullSweepsAsync(string watch, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Any sweep this runner can serve, naming no watch. Serving is the claim.
+    /// </summary>
+    /// <remarks>
+    /// <b>How a resident runner finds its own work.</b> The named pull above
+    /// needs a watch, and what supplied one was a person at a shell. This asks
+    /// with the tracker pairs this machine can reach and is handed only a
+    /// watch naming one of them - rule 18, and the reason a runner never
+    /// claims a sweep it would have to call unreachable.
+    /// </remarks>
+    Task<WatchActionList> ClaimSweepsAsync(
+        SweepClaim claim, CancellationToken cancellationToken = default);
+
     /// <summary>Reports one sweep. Idempotent on the attestation id.</summary>
     Task AttestSweepAsync(
         string watch, WatchAttestation attestation, CancellationToken cancellationToken = default);
@@ -211,6 +224,40 @@ public sealed class SweepLoop(
         }
 
         return decided.Actions.Count;
+    }
+
+    /// <summary>
+    /// One claim: ask for any sweep this runner can serve, then sweep and
+    /// attest each one it is handed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The named pass, reached a different way.</b> Everything after the
+    /// ask is <see cref="SweepAsync"/>, unchanged - what differs is only how
+    /// the sweep was found. That is the point: the work was never the problem,
+    /// the finding was.
+    /// </para>
+    /// <para>
+    /// <b>The report goes to the watch the ACTION names.</b> A resident runner
+    /// never names a watch, so it could not address the attestation any other
+    /// way - and the action carrying it is what makes a claim that names no
+    /// watch possible at all.
+    /// </para>
+    /// </remarks>
+    /// <returns>How many sweeps were attested.</returns>
+    public async Task<int> ClaimPassAsync(SweepClaim claim, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        var served = await _protocol.ClaimSweepsAsync(claim, cancellationToken);
+
+        foreach (var action in served.Actions)
+        {
+            var attestation = await SweepAsync(action, cancellationToken);
+            await _protocol.AttestSweepAsync(action.Watch, attestation, cancellationToken);
+        }
+
+        return served.Actions.Count;
     }
 
     /// <summary>Runs one sweep and says how it went, in a report the contract accepts.</summary>

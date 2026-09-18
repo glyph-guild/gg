@@ -50,6 +50,13 @@ public class AnEmptySweepStillAttestsTests
                 Actions = _pulls.TryDequeue(out var next) ? next : [],
             });
 
+        // THIS DOUBLE IS ABOUT THE NAMED PULL. A claim reaching it would be a
+        // resident runner's path wandering into a test of the manual one, so it
+        // says so rather than answering empty and passing.
+        public Task<WatchActionList> ClaimSweepsAsync(
+            SweepClaim claim, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("this double serves the named pull, not a claim.");
+
         public Task AttestSweepAsync(
             string watch, WatchAttestation attestation, CancellationToken cancellationToken = default)
         {

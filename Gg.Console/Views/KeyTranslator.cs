@@ -12,6 +12,9 @@ namespace Gg.Console.Views;
 /// </remarks>
 public static class KeyTranslator
 {
+    /// <summary>What a terminal without CSI-u sends for <c>ctrl+/</c>.</summary>
+    private const int UnitSeparator = 0x1F;
+
     public static KeyStroke Translate(Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -46,6 +49,20 @@ public static class KeyTranslator
         if (key == Key.CursorRight)
         {
             return KeyStroke.RightKey;
+        }
+
+        // THE ONE C0 BYTE THIS CONSOLE GIVES A MEANING, and it is the byte a
+        // terminal sends FOR ctrl+/. A terminal that speaks the kitty keyboard
+        // protocol sends ESC [ 47;5u instead, which arrives below as slash with
+        // ctrl and needs nothing; everywhere else this arrives as 0x1F, which
+        // Rune.IsControl drops - so the key worked on one terminal and did
+        // nothing on another, measured in a pty both ways.
+        //
+        // NARROW ON PURPOSE. Tab, enter and escape are C0 bytes too, and a rule
+        // that mapped the range back to its characters would rebind all three.
+        if (key.AsRune.Value == UnitSeparator)
+        {
+            return KeyStroke.Control('/');
         }
 
         var bare = key.NoCtrl.NoAlt.NoShift;

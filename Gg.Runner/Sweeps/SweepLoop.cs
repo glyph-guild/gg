@@ -243,7 +243,7 @@ public sealed class SweepLoop(
             action.Document.Skill,
             cancellationToken);
 
-        if (read is not SkillRead.Read { Skill: var skill })
+        if (read is not SkillRead.Read { Skill: var skill, Commit: var commit })
         {
             return Unreachable(action, ((SkillRead.Unreadable)read).Diagnosis);
         }
@@ -272,14 +272,22 @@ public sealed class SweepLoop(
                 Nominated = [.. nominated.Take(WatchAttestation.MaxNominations)],
                 MeasuredAt = _clock.UtcNow,
                 SkillSha = skill.BlobSha,
+
+                // WHICH COMMIT THOSE WORDS CAME FROM, and this machine is the
+                // only one that knows since rule 16 was amended: the control
+                // plane hands over a ref now, so the record of what ran is
+                // made here or nowhere.
+                SkillCommit = commit,
             },
-            SweepExecution.Failed { Diagnosis: var why } => Unreachable(action, why, skill.BlobSha),
+            SweepExecution.Failed { Diagnosis: var why } =>
+                Unreachable(action, why, skill.BlobSha, commit),
             _ => throw new InvalidOperationException(
                 $"The executor answered {ran.GetType().Name}, which nothing here reports."),
         };
     }
 
-    private WatchAttestation Unreachable(WatchAction action, string diagnosis, string? skillSha = null) =>
+    private WatchAttestation Unreachable(
+        WatchAction action, string diagnosis, string? skillSha = null, string? skillCommit = null) =>
         new()
         {
             AttestationId = Guid.CreateVersion7(_clock.UtcNow),
@@ -291,5 +299,6 @@ public sealed class SweepLoop(
                 ? "The sweep could not do its job and did not say why."
                 : diagnosis,
             SkillSha = skillSha,
+            SkillCommit = skillCommit,
         };
 }

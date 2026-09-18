@@ -67,6 +67,56 @@ internal static class GitWorkingTree
     /// because an unreachable forge is not an absent skill.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Asks the remote which commit a ref points at, without fetching it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>ls-remote</c> rather than a fetch, and that is the point.</b> The
+    /// caller caches by commit, so a ref that has not moved must cost one
+    /// question and no objects. Resolving by fetching would answer the same
+    /// thing after paying the price the cache exists to avoid.
+    /// </para>
+    /// <para>
+    /// <b>Null when the ref names nothing.</b> `ls-remote` exits zero and prints
+    /// nothing for a ref that is not there, which is an answer rather than a
+    /// failure - the shape <see cref="ReadFileAsync"/>'s rev-parse arm already
+    /// uses. An unreachable remote still throws.
+    /// </para>
+    /// <para>
+    /// <b>A commit handed in answers itself.</b> A remote has no ref by that
+    /// name, so asking would answer null for something already resolved - and
+    /// the amendment that put this call here kept commits acceptable in the
+    /// same slot.
+    /// </para>
+    /// </remarks>
+    internal static async Task<string?> ResolveRemoteAsync(
+        string url, string reference, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsCommit(reference))
+        {
+            return reference;
+        }
+
+        var printed = await GitInvocation.LsRemoteRef(url, reference, secret)
+            .RunAsync(Path.GetTempPath(), cancellationToken);
+
+        // "<sha>\t<refname>", one line per match, and nothing at all when the
+        // ref is not there.
+        var first = printed
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        var sha = first?.Split('\t', StringSplitOptions.TrimEntries).FirstOrDefault();
+
+        return IsCommit(sha) ? sha : null;
+    }
+
+    /// <summary>Git's own shape for a commit id, in both hash sizes.</summary>
+    private static bool IsCommit(string? value) =>
+        value is { Length: 40 or 64 } && value.All(Uri.IsHexDigit);
+
     internal static async Task<RepositoryFile?> ReadFileAsync(
         string url, string commit, string path, string scratchDirectory, string? secret,
         CancellationToken cancellationToken = default)

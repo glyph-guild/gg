@@ -144,6 +144,22 @@ public sealed record GitInvocation
     /// git's wording, which changes between versions. Carries the same credential as the
     /// push because a private repository will not advertise its refs without one.
     /// </remarks>
+    /// <summary>The same question about a WHOLE ref, rather than a branch name.</summary>
+    /// <remarks>
+    /// <see cref="LsRemote"/> takes a branch and spells <c>refs/heads/</c> for
+    /// it, which is right for a destination. A watch names its ref in full and
+    /// may name a tag, so this one passes it through - and re-spelling a ref
+    /// the author already wrote is how a tag becomes a branch nobody has.
+    /// </remarks>
+    public static GitInvocation LsRemoteRef(string url, string reference, string? secret)
+    {
+        var (arguments, environment) = Anonymous(secret);
+
+        arguments.AddRange(["ls-remote", url, reference]);
+
+        return new GitInvocation { Arguments = arguments, Environment = environment };
+    }
+
     public static GitInvocation LsRemote(string url, string branch, string? secret)
     {
         var (arguments, environment) = Anonymous(secret);

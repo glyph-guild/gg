@@ -92,6 +92,17 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
             $"https://{_host}/{target.Slug}.git", resolvedRef, intoDirectory, secret, cancellationToken);
     }
 
+    /// <summary>Which commit a ref points at, from the same repository url.</summary>
+    public Task<string?> ResolveRemoteAsync(
+        RepoTarget target, string reference, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        return GitWorkingTree.ResolveRemoteAsync(
+            $"https://{_host}/{target.Slug}.git", reference, secret, cancellationToken);
+    }
+
     /// <summary>One file at one commit - a sweep's skill - from the same repository url.</summary>
     public Task<RepositoryFile?> ReadFileAsync(
         RepoTarget target, string commit, string path, string scratchDirectory, string? secret,

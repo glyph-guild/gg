@@ -173,6 +173,33 @@ public interface IVcsAdapter
     /// secret travels as it does for a clone.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Which commit a ref points at on the remote, or null when it points at
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A READ, and it is the runner's to make since rule 16 was amended on
+    /// 2026-09-17.</b> The control plane used to resolve a watch's skill ref
+    /// and hand the commit over; it hands the ref over now, so the machine that
+    /// fetches is the machine that decides which commit that is and reports it.
+    /// </para>
+    /// <para>
+    /// <b>Separate from the fetch, because the CACHE sits between them.</b>
+    /// Reading the file would resolve the ref too, but by then the fetch has
+    /// happened - and the reader caches by commit precisely so a ref that has
+    /// not moved costs nothing. Resolving first is what makes that saving
+    /// reachable.
+    /// </para>
+    /// <para>
+    /// Null rather than a throw: a ref naming nothing is a governed refusal the
+    /// sweep attests, where an exception reads as an outage.
+    /// </para>
+    /// </remarks>
+    Task<string?> ResolveRemoteAsync(
+        RepoTarget target, string reference, string? secret,
+        CancellationToken cancellationToken = default);
+
     Task<RepositoryFile?> ReadFileAsync(
         RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
         CancellationToken cancellationToken = default);

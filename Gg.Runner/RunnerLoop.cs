@@ -352,10 +352,71 @@ public sealed class RunnerLoop(
     Func<string?>? agentToken = null,
     // WHAT THE HOST MEASURED BEFORE THIS LOOP EXISTED, so the first turn does
     // not launch a process to learn what startup just learned.
-    Execution.AgentStanding? initialStanding = null)
+    Execution.AgentStanding? initialStanding = null,
+    // A SWEEP, ASKED FOR WHEN THIS RUNNER HAS NOTHING ELSE TO DO, or null. The
+    // owner, running slice thirty-nine's walk: "today a watch sweeps only while
+    // someone keeps that process running - we need to have the runner
+    // automatically check" - and "it's on by default", with a way to turn it
+    // off. Null is off, no tracker declared, or an older root, and the loop
+    // behaves exactly as it did.
+    //
+    // A DELEGATE, handed in like everything else here this loop does not go
+    // looking for: whether to ask and with which trackers is ResidentSweeps'
+    // decision, made once by the composition root from the operator's own
+    // setting - never by anything on the wire.
+    //
+    // LAST and defaulted, because every existing caller passes positionally.
+    Func<CancellationToken, Task>? sweepWhenIdle = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
+
+    /// <summary>
+    /// Asks for a sweep, when this runner was composed to, and survives one
+    /// that fails.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The runner outlives its sweeps.</b> A tracker outage, a refused claim
+    /// or a control plane mid-deploy is one sweep's problem. A resident runner
+    /// that died on one would stop taking flights as well - which trades a
+    /// missed triage for a missed deploy.
+    /// </para>
+    /// <para>
+    /// <b>And it says so rather than surviving quietly.</b> What throws out of
+    /// here is the claim or the report failing in transit, which the control
+    /// plane cannot be told about because the telling is what failed - so the
+    /// runner's own journal is the only place left. ControlPlaneRefused is the
+    /// line for that, and its remark is the argument: a runner that retried in
+    /// silence looks idle from both ends. The next ask is the next idle cycle,
+    /// which the claim's long poll paces.
+    /// </para>
+    /// <para>
+    /// Cancellation is not a failure and is not reported as one.
+    /// </para>
+    /// </remarks>
+    private async Task SweepWhileIdleAsync(CancellationToken cancellationToken)
+    {
+        if (sweepWhenIdle is not { } sweep)
+        {
+            return;
+        }
+
+        try
+        {
+            await sweep(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception failed) when (failed is not OutOfMemoryException)
+        {
+            _observer.ControlPlaneRefused(
+                "A sweep could not be claimed or reported: " + failed.Message,
+                TimeSpan.FromSeconds(ClaimWaitSeconds));
+        }
+    }
 
     /// <summary>
     /// How long a claimed lease is held before it is released.
@@ -809,6 +870,14 @@ public sealed class RunnerLoop(
                     else if (claim is not ClaimResult.Waiting)
                     {
                         _observer.Idle();
+
+                        // ONLY HERE - on a plain idle. Parked is a person
+                        // withholding this runner, AllowanceSpent is the agent
+                        // a sweep would run already being out of budget, and
+                        // Waiting is a flight ready and blocked on a credential
+                        // that should start the moment it arrives. Each of the
+                        // three is a reason not to fill the slot.
+                        await SweepWhileIdleAsync(cancellationToken);
                     }
 
                     continue;

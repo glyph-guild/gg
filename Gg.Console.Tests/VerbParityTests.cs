@@ -456,5 +456,16 @@ public class VerbParityTests
                               + "the READ is in scope, in step 4, which is the distinction.",
             ["EnvelopeValidate"] = "validates a file. Same reason.",
             ["StrategyApply"] = "applies a document from a file. Same reason.",
+            // SLICE FORTY-ONE, and it is not the file reason above: a build is
+            // asked for by name alone. It is absent because of where its answer
+            // would be read. Strategies reach the model with no pane, so a key
+            // here would ask for a build and show nothing of what came of it -
+            // and a build runs a recipe on a customer's host, which is the kind
+            // of write this console asks about first.
+            ["StrategyBuild"] = "asks for a build of a strategy's recipe, and waits for the "
+                              + "strategy pane: Strategies reach the model with no pane, so a "
+                              + "key would ask and show nothing of what came of it - and a "
+                              + "build runs a recipe on a customer's host, which the console "
+                              + "asks about first. Asking and seeing the answer land together.",
         };
 }

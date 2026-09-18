@@ -170,6 +170,10 @@ public class ProjectionParityTests
             ["CredentialAdded"] = "step 5: the console can register one and cannot see the "
                                 + "result reach the model.",
             ["CredentialRemoved"] = "step 5, the mirror of it.",
+            ["StrategyBuild"] = "not projected, and not pending an arm: it is a decision, and "
+                              + "nothing in the model holds decided pool actions. What came of "
+                              + "it reaches the model later and on its own, through Pools, "
+                              + "when the pool's runner attests the build.",
             ["RunnerRepinned"] = "no arm because no console verb, and nothing to project "
                                + "either: forgetting a pin changes a file this machine "
                                + "keeps, not anything a pane draws. The reason is at "

@@ -88,6 +88,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RegisterRepositoryRequest))]
 [JsonSerializable(typeof(RepositoryRegistered))]
 [JsonSerializable(typeof(PoolLedger))]
+[JsonSerializable(typeof(PoolAction))]
 [JsonSerializable(typeof(MemberCredentialRedemption))]
 [JsonSerializable(typeof(MemberCredentialIssued))]
 [JsonSerializable(typeof(OfferedConfiguration))]
@@ -1305,6 +1306,38 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// has not come up has attested nothing. The endpoint declares 200 for
     /// both, and what tells them apart is whether a strategy is in force.
     /// </remarks>
+    /// <summary>
+    /// Asks for a build of a strategy's recipe, and returns what was decided.
+    /// </summary>
+    /// <remarks>
+    /// <b>Slice forty-one.</b> 404 is a strategy that names no recipe and 409 a
+    /// build already standing for it; both are facts only the control plane
+    /// holds, so both come back as its own sentence rather than ours.
+    /// </remarks>
+    public async Task<PoolAction> RequestBuildAsync(
+        string sessionToken, string strategy, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post,
+            $"/v1/airspace/strategies/{Uri.EscapeDataString(strategy)}/builds",
+            sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict)
+        {
+            throw new EnvelopeRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+                   ProtocolJsonContext.Default.PoolAction, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane decided nothing it would name.");
+    }
+
     public async Task<PoolLedger> PoolsAsync(
         string sessionToken, CancellationToken cancellationToken = default)
     {

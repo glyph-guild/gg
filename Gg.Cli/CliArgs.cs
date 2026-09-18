@@ -598,6 +598,12 @@ public abstract record CliAction
     /// <summary>Apply a strategy document to its topology name.</summary>
     public sealed record StrategyApply(string Name, string Source, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// <c>gg strategy build &lt;name&gt;</c>: ask for a build of the strategy's
+    /// recipe (slice forty-one). What comes back is the decision.
+    /// </summary>
+    public sealed record StrategyBuild(string Name, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>Checks an envelope without contacting anything.</summary>
     public sealed record EnvelopeValidate(string Source, bool Json) : CliAction, IEmitsResult;
 
@@ -733,6 +739,7 @@ public static class CliArgs
         "                               make a repository nameable - a new one rides a gate",
         "gg envelope show               the rules governing this tenant's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
+        "gg strategy build <name>       build the strategy's recipe; the pin moves when it lands",
         "gg environment chart <name> [--means <predicate>]",
         "                               chart one, so an envelope may select it - rides a gate",
         "gg environments                every environment name an envelope may select",
@@ -1250,6 +1257,10 @@ public static class CliArgs
             ["envelope", "apply", var source] => new CliAction.EnvelopeApply(source, json),
             ["strategy", "apply", var name, var source] =>
                 new CliAction.StrategyApply(name, source, json),
+            ["strategy", "build", var name] => new CliAction.StrategyBuild(name, json),
+            ["strategy", "build"] => Unknown(
+                "gg strategy build needs a strategy: gg strategy build dev. A build is of one "
+              + "strategy's recipe, and the pin it produces moves only that strategy."),
             ["envelope", "apply"] => Unknown(
                 "gg envelope apply needs a file, or - to read the envelope from stdin."),
             ["envelope", "validate", var source] => new CliAction.EnvelopeValidate(source, json),

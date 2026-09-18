@@ -95,6 +95,20 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Pools;
     }
 
+    /// <summary>
+    /// A build of a strategy's recipe, as it was decided - not as it ran.
+    /// </summary>
+    /// <remarks>
+    /// Slice forty-one. The build runs at the pool's pull point, and its digest
+    /// moves the pin only when it comes back through the strategy door, so what
+    /// a person is handed here is the decision: the action, the version it
+    /// answers to, and the recipe it will fetch.
+    /// </remarks>
+    public sealed record StrategyBuild(PoolAction Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.StrategyBuild;
+    }
+
     /// <summary>Every strategy in force: what furnishes each charted environment.</summary>
     /// <remarks>
     /// <b>Beside <see cref="StrategyShown"/> rather than instead of it.</b> That
@@ -473,6 +487,9 @@ public static class VerbResultKinds
     public const string Runners = "runners";
     public const string Chart = "environment-chart";
     public const string Pools = "pools";
+
+    /// <summary>A build of a strategy's recipe, decided (slice forty-one).</summary>
+    public const string StrategyBuild = "strategy-build";
     public const string Strategies = "strategies";
 
     /// <summary>How every watch in force is doing.</summary>
@@ -629,6 +646,7 @@ public static class VerbResultKinds
 /// support output. Not worth trading for whitespace.
 /// </para>
 /// </remarks>
+[JsonSerializable(typeof(PoolAction))]
 public sealed partial class VerbJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -726,6 +744,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentChart),
         VerbResult.Pools r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PoolLedger),
+        VerbResult.StrategyBuild r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PoolAction),
         VerbResult.Strategies r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.StrategyList),
         VerbResult.Watches r =>
@@ -869,6 +889,7 @@ public static class VerbOutput
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         VerbResult.Chart r => ChartText(r.Value),
         VerbResult.Pools r => PoolsText(r.Value),
+        VerbResult.StrategyBuild r => StrategyBuildText(r.Value),
         VerbResult.Strategies r => StrategiesText(r.Value),
         VerbResult.Watches r => WatchesText(r.Value),
         _ => throw Unknown(result?.Kind),
@@ -2026,6 +2047,31 @@ public static class VerbOutput
         watch.Budgeted is { } bound
             ? $"{watch.Opened} of {bound} in {Clean(watch.Window)}"
             : $"{watch.Opened} in {Clean(watch.Window)}, unbounded";
+
+    private static string StrategyBuildText(PoolAction decided)
+    {
+        var text = new StringBuilder();
+        text.AppendLine(
+            $"build decided for {Clean(decided.Pool)} under {Clean(decided.StrategyVersion)}");
+
+        if (decided.Recipe is { } recipe)
+        {
+            var dockerfile = recipe.Dockerfile is { Length: > 0 } named ? $" ({Clean(named)})" : "";
+            text.AppendLine(
+                $"  recipe  {Clean(recipe.Repository.Slug)}:{Clean(recipe.Path)}{dockerfile} "
+              + $"at {Clean(recipe.Repository.PinnedRef)}");
+        }
+
+        // RULE 4's OTHER HALF, said to whoever asked. Nothing has been built
+        // yet: the pool's runner builds it, and the pin moves only when the
+        // digest comes back through the strategy door - after which the pool
+        // rolls onto it. `gg pools` shows the build's outcome when it lands.
+        text.AppendLine(
+            "  the pool's runner builds it; the pin moves when the build reports back, and "
+          + "the pool rolls from there. gg pools shows how it went.");
+
+        return text.ToString();
+    }
 
     private static string PoolsText(PoolLedger ledger)
     {

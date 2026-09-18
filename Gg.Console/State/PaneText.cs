@@ -488,6 +488,37 @@ public static class PaneText
         };
     }
 
+    /// <summary>How long until an instant, in the coarsest unit that is true.</summary>
+    /// <remarks>
+    /// <b><see cref="Age"/> forwards, and the past is not an error here.</b> A
+    /// due time that has passed is a real state - decided, and waiting for
+    /// something to pull it - so it reads "now" rather than the empty string
+    /// <see cref="Age"/> answers a negative with. Nothing else about a
+    /// countdown differs: the same coarse units, because a list of them is a
+    /// list of subtractions otherwise.
+    /// </remarks>
+    internal static string Until(DateTimeOffset at)
+    {
+        var left = at - DateTimeOffset.UtcNow;
+
+        if (left <= TimeSpan.Zero)
+        {
+            return "now";
+        }
+
+        // ROUNDED UP, WHERE AN AGE TRUNCATES, and the asymmetry is the point:
+        // an age that says 3m when three minutes and fifty-nine seconds have
+        // passed is telling the truth about what HAS happened, and a countdown
+        // that said the same would promise something sooner than it is. Up
+        // never does.
+        return left switch
+        {
+            { TotalHours: < 1 } => $"{(int)Math.Ceiling(left.TotalMinutes)}m",
+            { TotalDays: < 1 } => $"{(int)Math.Ceiling(left.TotalHours)}h",
+            _ => $"{(int)Math.Ceiling(left.TotalDays)}d",
+        };
+    }
+
     public static string Flight(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

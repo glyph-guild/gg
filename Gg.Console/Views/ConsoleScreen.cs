@@ -3320,6 +3320,16 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private bool _stopped;
 
+    /// <summary>
+    /// Whether gg is currently receiving mouse events, as last set.
+    /// </summary>
+    /// <remarks>
+    /// <b>So the sequences are written on the change rather than on every
+    /// paint.</b> Render runs once a second for the countdown, and three escape
+    /// sequences a second is a terminal being told something it already knows.
+    /// </remarks>
+    private bool _mouseIsOurs = true;
+
     private void Render()
     {
         // THE PIXELS STOP, AND THE MOUSE GOES BACK. One paint happens after the
@@ -3340,7 +3350,6 @@ public sealed class ConsoleScreen : Window
         else if (_stopped)
         {
             _stopped = false;
-            TerminalMouse.ToTheConsole(_app);
         }
 
         _queue.SetSource(new ObservableCollection<string>(PaneText.QueueRows(State)));
@@ -3709,13 +3718,31 @@ public sealed class ConsoleScreen : Window
         // the seconds have to sit on.
         Counting();
 
-        // AND THE MOUSE CHANGES HANDS LAST, on the paint that froze the screen.
-        // After this the terminal draws its own selection over whatever is on
-        // it, so what is on it has to be finished first - including the line
-        // that says the screen has stopped and how to start it again.
-        if (State.Frozen)
+        // AND THE MOUSE CHANGES HANDS LAST, on the paint that froze the screen
+        // or opened the modal. After this the terminal draws its own selection
+        // over whatever is on it, so what is on it has to be finished first -
+        // including the line that says the screen has stopped and how to start
+        // it again.
+        //
+        // A MODAL IS THE SECOND REASON, and it is not cosmetic: a click on what
+        // a modal covers asks the library to focus a hidden view, which ends
+        // the process - see ConsoleMouse. Written once here rather than at the
+        // two places that used to ask about freezing, so the console cannot
+        // hold the mouse in a state nobody decided it should.
+        var ours = ConsoleMouse.OursWhile(State);
+
+        if (ours != _mouseIsOurs)
         {
-            TerminalMouse.ToTheTerminal(_app);
+            _mouseIsOurs = ours;
+
+            if (ours)
+            {
+                TerminalMouse.ToTheConsole(_app);
+            }
+            else
+            {
+                TerminalMouse.ToTheTerminal(_app);
+            }
         }
 
         Focus();

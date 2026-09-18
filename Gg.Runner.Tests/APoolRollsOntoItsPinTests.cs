@@ -49,6 +49,9 @@ public class APoolRollsOntoItsPinTests
         /// <summary>Each member, and the reference it says it was made from.</summary>
         public Dictionary<string, string?> Members { get; } = [];
 
+        /// <summary>Members the daemon lists but reports as not running.</summary>
+        public HashSet<string> Stopped { get; } = [];
+
         public PoolCapabilities Capabilities { get; } = new() { Provider = "fake" };
 
         public PoolObservation Resetting { get; set; } = new()
@@ -73,7 +76,7 @@ public class APoolRollsOntoItsPinTests
                 [.. Members.Select(m => new PoolMember
                 {
                     Name = m.Key,
-                    Running = true,
+                    Running = !Stopped.Contains(m.Key),
                     MadeFrom = m.Value,
                 })]);
         }
@@ -188,6 +191,43 @@ public class APoolRollsOntoItsPinTests
         await Assert.That(adapter.Calls).DoesNotContain($"reset:gg-pool-ui-3:{Pin}")
             .Because("destroying a current member is a warm member taken away for nothing, "
                    + "and a pool that rolls what is already rolled never settles.");
+    }
+
+    [Test]
+    public async Task A_stopped_member_is_a_slot_and_the_roll_does_not_bring_it_back()
+    {
+        // MEASURED ON vmlinux001, 2026-09-18, the first roll that ran. The ui
+        // pool - size 2, pool-max 2 - listed three containers: two members
+        // running, and gg-pool-ui-3 EXITED 0 at 11:09:54, twelve hours to the
+        // second after it was created, because its credential had expired. The
+        // listing asks for ?all=true so that corpse is in it, the roll read only
+        // whether each was made from the pin, and a reset brought ui-3 back
+        // running with a fresh credential. The pool came out of the roll at
+        // three members against a bound of two.
+        //
+        // A STOPPED MEMBER IS A SLOT, NOT AN OCCUPANT - the rule NextSlotAsync
+        // already states, one method down. Rolling is converging what is
+        // there; bringing a slot back to life is growth, and growth is
+        // refresh's, decided only inside the strategy's inventory. Left alone
+        // it is converged anyway if a refresh ever reuses the slot, because
+        // refresh replaces a member that drifted from the pin.
+        var (loop, adapter, protocol, stop) = Rig();
+        adapter.Members["gg-pool-ui-1"] = Stale;
+        adapter.Members["gg-pool-ui-2"] = Stale;
+        adapter.Members["gg-pool-ui-3"] = Stale;
+        adapter.Stopped.Add("gg-pool-ui-3");
+        protocol.Served.Enqueue([Roll()]);
+
+        _ = await loop.RunAsync("gg-pool-ui", stop.Token);
+
+        await Assert.That(adapter.Calls).DoesNotContain($"reset:gg-pool-ui-3:{Pin}")
+            .Because("a reset creates a RUNNING member, so resetting a stopped one grows the "
+                   + "pool past the bound its strategy declares - which is what a roll over "
+                   + "a pool with one spent member did on the first day it ran.");
+
+        await Assert.That(adapter.Calls).Contains($"reset:gg-pool-ui-1:{Pin}")
+            .Because("the running members off the pin are still the whole subject of the act.");
+        await Assert.That(adapter.Calls).Contains($"reset:gg-pool-ui-2:{Pin}");
     }
 
     [Test]

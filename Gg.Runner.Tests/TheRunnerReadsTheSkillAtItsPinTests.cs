@@ -66,6 +66,22 @@ public class TheRunnerReadsTheSkillAtItsPinTests
             Pushed = GitFixture.Run(work, "rev-parse", "HEAD").Trim();
         }
 
+        /// <summary>Moves the branch on, and answers the commit it moved to.</summary>
+        /// <remarks>
+        /// For the staleness case a moving ref introduces: a reader that cached
+        /// by the ref would answer the first read's words after this.
+        /// </remarks>
+        internal string PushAnother(string words)
+        {
+            var work = Path.Combine(Directory, "work");
+
+            File.WriteAllText(Path.Combine(work, SkillPath), words);
+            GitFixture.Run(work, "commit", "-am", "pushed later still");
+            GitFixture.Run(work, "push", "origin", "main");
+
+            return GitFixture.Run(work, "rev-parse", "HEAD").Trim();
+        }
+
         internal string BlobAt(string commit, string path) =>
             GitFixture.Run(BarePath, "rev-parse", $"{commit}:{path}").Trim();
 

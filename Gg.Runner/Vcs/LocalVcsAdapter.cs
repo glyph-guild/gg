@@ -142,6 +142,25 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
             secret: null, cancellationToken);
     }
 
+    public Task<string?> ResolveRemoteAsync(
+        RepoTarget target, string reference, string? secret,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        // file:// has nothing to authenticate to - the clone's rule, and the
+        // same refusal one method down.
+        if (!string.IsNullOrEmpty(secret))
+        {
+            throw new InvalidOperationException(
+                "The local adapter speaks file:// and has nothing to authenticate to. "
+              + "A credential offered here would be one nobody could have needed.");
+        }
+
+        return GitWorkingTree.ResolveRemoteAsync(
+            new Uri(Bounded(target.Slug)).AbsoluteUri, reference, secret: null, cancellationToken);
+    }
+
     public Task<RepositoryFile?> ReadFileAsync(
         RepoTarget target, string commit, string path, string scratchDirectory, string? secret,
         CancellationToken cancellationToken = default)

@@ -11,8 +11,15 @@ public abstract record SkillRead
     {
     }
 
-    /// <summary>The skill, as the pinned commit holds it.</summary>
-    public sealed record Read(RepositoryFile Skill) : SkillRead;
+    /// <summary>The skill, and the commit the runner resolved and read it at.</summary>
+    /// <remarks>
+    /// <b>The commit is carried because nothing else knows it.</b> Rule 16 had
+    /// the control plane resolve the ref and hand a commit over; since the
+    /// owner amended that on 2026-09-17 this machine decides which commit a
+    /// watch's ref names, so the attestation's record of what ran can only come
+    /// from here.
+    /// </remarks>
+    public sealed record Read(RepositoryFile Skill, string Commit) : SkillRead;
 
     /// <summary>Why it could not be read, in a sentence the sweep attests.</summary>
     public sealed record Unreadable(string Diagnosis) : SkillRead;
@@ -67,25 +74,51 @@ public sealed class SkillReader(
             return new SkillRead.Unreadable(unsafePath);
         }
 
-        var commit = where.PinnedRef;
-        if (!IsCommit(commit))
-        {
-            return new SkillRead.Unreadable(
-                $"'{commit}' is not a commit, so the skill has no pin to be read at.");
-        }
-
-        var entry = Path.Combine(_cacheRoot, Key(where, path));
-        if (Cached(entry) is { } cached)
-        {
-            return new SkillRead.Read(cached);
-        }
-
         if (_adapters.FirstOrDefault(a =>
                 string.Equals(a.Provider, where.Provider, StringComparison.Ordinal)) is not { } adapter)
         {
             return new SkillRead.Unreadable(
                 $"This runner serves no repositories from '{where.Provider}', so it cannot read "
               + $"{path} from {where.Slug}.");
+        }
+
+        // RESOLVE FIRST, THEN LOOK IN THE CACHE - the owner's call of
+        // 2026-09-17, and the order is the whole of it. Rule 16 used to hand
+        // this machine a commit; it hands a ref now, and a ref MOVES. Keyed by
+        // the ref, a watch whose skill was updated would run the first words
+        // this machine ever read, forever, and nothing would say so. Keyed by
+        // what the ref resolved to, the cache is sound for the reason it was
+        // added: commits still do not change.
+        //
+        // `ls-remote` rather than a fetch, so a ref that has not moved costs
+        // one question and no objects - which is the saving the cache exists
+        // for, and it disappears if resolving means fetching.
+        string? commit;
+
+        try
+        {
+            commit = await adapter.ResolveRemoteAsync(
+                where, where.PinnedRef, await _secretFor(where), cancellationToken);
+        }
+        catch (Exception failed) when (failed is InvalidOperationException
+                                          or VcsCapabilityException
+                                          or IOException)
+        {
+            return new SkillRead.Unreadable(
+                $"'{where.PinnedRef}' could not be resolved in {where.Slug}.");
+        }
+
+        if (commit is not { Length: > 0 })
+        {
+            return new SkillRead.Unreadable(
+                $"'{where.PinnedRef}' does not resolve to a commit in {where.Slug}, so there is "
+              + "no version of this watch's skill to run.");
+        }
+
+        var entry = Path.Combine(_cacheRoot, Key(where, commit, path));
+        if (Cached(entry) is { } cached)
+        {
+            return new SkillRead.Read(cached, commit);
         }
 
         RepositoryFile? file;
@@ -112,7 +145,7 @@ public sealed class SkillReader(
         }
 
         Keep(entry, file);
-        return new SkillRead.Read(file);
+        return new SkillRead.Read(file, commit);
     }
 
     /// <summary>Why this path may not be read, or null.</summary>
@@ -135,13 +168,20 @@ public sealed class SkillReader(
     }
 
     /// <summary>Forty or sixty-four hex digits - a commit, and never a name that moves.</summary>
-    private static bool IsCommit(string value) =>
-        value is { Length: 40 or 64 } && value.All(Uri.IsHexDigit);
-
     /// <summary>One file name per repository, commit and path.</summary>
-    private static string Key(RepoTarget where, string path) =>
+    /// <summary>
+    /// The cache key: the repository, the COMMIT, and the path.
+    /// </summary>
+    /// <remarks>
+    /// <b>The commit rather than <c>PinnedRef</c>, which is what was asked
+    /// for.</b> Since a sweep may be handed a ref, the two are different
+    /// questions - and keying on the question means one answer is kept under
+    /// a name that will later mean something else. It also makes a ref and the
+    /// commit it points at one entry rather than two.
+    /// </remarks>
+    private static string Key(RepoTarget where, string commit, string path) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
-            $"{where.Provider}\n{where.Slug}\n{where.PinnedRef}\n{path}")));
+            $"{where.Provider}\n{where.Slug}\n{commit}\n{path}")));
 
     private static RepositoryFile? Cached(string entry)
     {

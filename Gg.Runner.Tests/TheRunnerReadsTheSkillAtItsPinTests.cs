@@ -217,15 +217,23 @@ public class TheRunnerReadsTheSkillAtItsPinTests
     }
 
     [Test]
-    public async Task A_pin_that_is_not_a_commit_is_refused()
+    public async Task A_ref_is_read_now_and_the_cache_is_keyed_by_what_it_resolved_to()
     {
+        // SUPERSEDED, NOT DELETED. This refused a ref, and its reason was "a
+        // ref moves, and the cache is keyed by something that must not." Both
+        // halves were true. The owner amended rule 16 on 2026-09-17 so the
+        // runner resolves the ref itself, and the second half is answered
+        // rather than dropped: the reader resolves FIRST and keys the cache by
+        // the commit, so the thing the key is made of still cannot move.
+        // TheRunnerResolvesThenCachesByCommitTests holds that, including the
+        // staleness case this file could not have caught.
         using var repository = new SkillRepository();
         var (reader, _) = Reader(repository);
 
         var read = await reader.ReadAsync(At(repository, "refs/heads/main"), SkillPath);
 
-        await Assert.That(read).IsTypeOf<SkillRead.Unreadable>()
-            .Because("a ref moves, and the cache is keyed by something that must not.");
+        await Assert.That(read).IsTypeOf<SkillRead.Read>();
+        await Assert.That(((SkillRead.Read)read).Commit).IsEqualTo(repository.Pushed);
     }
 
     [Test]

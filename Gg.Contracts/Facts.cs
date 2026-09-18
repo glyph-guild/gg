@@ -360,7 +360,26 @@ public static class FactVocabulary
     /// No gap VALUE is added for it; loop.attended already says the session
     /// was attended, and a closed vocabulary's values are the expensive kind.
     /// NO VALUE MOVED and no kind changed.
-    public const string Version = "0.31.0";
+    /// 0.32.0 ADDS A NINTH LoopMoves VALUE, `anything`: the envelope declining
+    /// to bound an agent at all. A VALUE is why this bumps - a member may be
+    /// added freely and a value may not, because the only safe response to an
+    /// unknown value is to halt - and that property is the whole design rather
+    /// than its cost. The same statement as a MEMBER (`unbounded: true`) would
+    /// be ignored by a reader that predates it, which would then believe the
+    /// flight was bounded; the option to decline a bound has to arrive through
+    /// the door that halts.
+    ///
+    /// AND ONE VALUE'S MEANING BECOMES REACHABLE WITHOUT MOVING.
+    /// MoveEnforcements.none - "nothing declared is withheld" - had never
+    /// crossed from a working runner, which 0.16.0's entry recorded as a
+    /// property of the design: a broken bound releases the lease instead of
+    /// shipping. It now crosses for a flight whose envelope declined the bound,
+    /// which is what the value always meant. Null still means UNMEASURED, the
+    /// attended flight's weaker answer, and the two must not be read as one.
+    /// loop.digest.refusedMoves is empty for such a flight by construction: a
+    /// refusal is a tool the envelope did not name, and this envelope named
+    /// them all. NO KIND CHANGED.
+    public const string Version = "0.32.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

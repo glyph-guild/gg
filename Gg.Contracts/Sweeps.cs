@@ -157,6 +157,22 @@ public sealed record WatchAction
                  + $"{string.Join(", ", LoopMoves.All)}.";
         }
 
+        // NOT THROUGH THIS DOOR. A loop may declare `anything` because an
+        // envelope declares it, a person reads it on the flight, and the
+        // runner's facts are made to say the bound was declined. A sweep's
+        // moves arrive from a watch the control plane resolved and a schedule
+        // performs - nobody is looking at the moment it runs - and none of
+        // that machinery has been built for the unbounded case. A value that
+        // also worked here would be a bound lost where nobody was watching
+        // for it, which is the thing the value exists to stop.
+        if (LoopMoves.Unbounded(action.Moves))
+        {
+            return $"A sweep may not declare '{LoopMoves.Anything}'. That value is an "
+                 + "envelope declining to bound an agent, read by a person on the flight it "
+                 + "governs; a sweep is decided by a schedule and performed with nobody "
+                 + "looking. Name the moves this sweep needs.";
+        }
+
         if (action.Skill is null == string.IsNullOrWhiteSpace(action.Diagnosis))
         {
             return action.Skill is null

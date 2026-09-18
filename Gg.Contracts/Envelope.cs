@@ -148,6 +148,14 @@ public static class ObligationPredicates
 /// the bound before every invocation, so what a fact set claims about
 /// enforcement is what a probe demonstrated on that machine at that moment
 /// (environment.identity: moveEnforcement, movesProbed, probedAt).
+///
+/// <para>
+/// <b>Or declared absent, which is <see cref="Anything"/>.</b> Every other
+/// value in this list names one tool; that one names none and removes the
+/// list, so a loop declaring it is a loop nothing bounds. It is here rather
+/// than nowhere because the alternative to an envelope saying so is a machine
+/// somebody reconfigured, which no envelope declares and no fact records.
+/// </para>
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Fact)]
 public static class LoopMoves
@@ -275,8 +283,76 @@ public static class LoopMoves
     /// </remarks>
     public const string ProposeLanding = "propose-landing";
 
+    /// <summary>
+    /// The envelope declining to bound this agent at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Asked for as an option to let an agent be dangerous, and built as a
+    /// declaration rather than a switch.</b> Some work cannot have its tools
+    /// enumerated in advance - a migration that must run a database, a spike
+    /// whose next step is what it finds - and before this there were two ways
+    /// to get there, both worse. A loop could declare <c>run-tests</c> and
+    /// reach the rest through <c>Bash</c>, which is a bound defeated rather
+    /// than declined; or an operator could turn the bound off on the machine,
+    /// which no envelope names, no probe contradicts and no fact records.
+    /// </para>
+    /// <para>
+    /// <b>It grants no tool. It removes the list.</b> A grant naming every
+    /// tool would still be a list, and the tool an agent binary gains next
+    /// month would not be on it - so <c>--allowedTools</c> is not passed at
+    /// all and the vendor's own bypass flag goes in its place. Asking which
+    /// tool this move maps to therefore has no answer, and
+    /// <c>ClaudeCodeExecutor.Tool</c> throws rather than handing back this
+    /// move's own spelling, which would be a grant of a tool called
+    /// "anything" - a bound removed by a name nobody reads.
+    /// </para>
+    /// <para>
+    /// <b>Alone, or not at all.</b> <c>[read, anything]</c> is two answers to
+    /// one question: either <c>read</c> was meant to hold, in which case this
+    /// is a mistake, or it was not, in which case naming it is theatre. A
+    /// bound nobody can read is worse than no bound, because it looks like
+    /// one - so <see cref="Envelope.Validate"/> refuses the pair where an
+    /// author can still act.
+    /// </para>
+    /// <para>
+    /// <b>What stops claiming things, downstream.</b> The session is not
+    /// probed - a probe would spend fifteen to twenty-one seconds proving Edit
+    /// and Write were withheld from a session that withheld neither, and stamp
+    /// that on the flight - so <c>environment.identity</c> reports
+    /// <c>moveEnforcement: none</c>, whose definition has always been this and
+    /// which had never crossed from a working runner. The digest lists no
+    /// refusals, because a refusal is a tool the envelope did not name and
+    /// this envelope named them all.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version</b>, on <see cref="Write"/>'s reasoning, and
+    /// why the reasoning is the whole design: the only safe response to an
+    /// unknown value in a closed vocabulary is to halt, so an added value
+    /// breaks every prior reader by design. The same statement as a new FIELD
+    /// - <c>unbounded: true</c> - is the exact opposite: a reader that
+    /// predates it ignores it and believes the flight was bounded. The
+    /// dangerous option has to arrive through the door that halts. Envelopes
+    /// in force are unchanged in meaning - they are bounded, which they were
+    /// before too.
+    /// </para>
+    /// </remarks>
+    public const string Anything = "anything";
+
     public static IReadOnlyList<string> All { get; } =
-        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding];
+        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding, Anything];
+
+    /// <summary>
+    /// Whether this set of moves declines to bound the agent.
+    /// </summary>
+    /// <remarks>
+    /// <b>One question, asked in one place, by everything that has to stop
+    /// claiming a bound.</b> The launch, the digest, the probe and the
+    /// environment survey each read it, and a set-membership test written out
+    /// four times is four places for the fifth reader to be forgotten in.
+    /// </remarks>
+    public static bool Unbounded(IEnumerable<string>? moves) =>
+        moves is not null && moves.Contains(Anything, StringComparer.Ordinal);
 }
 
 /// <summary>What happens when a loop runs out of budget.</summary>
@@ -2067,6 +2143,28 @@ public sealed record Envelope
                          + "executor this product has lets a probe confirm that bound, so the "
                          + "envelope would grant what nothing can be shown to withhold.";
                 }
+            }
+
+            // TWO ANSWERS TO ONE QUESTION, refused where an author can still
+            // act. `anything` removes the allow-list; a move beside it names a
+            // tool for a list that will not be passed - so a reader cannot tell
+            // whether the narrower move was meant to hold, and a bound nobody
+            // can read is worse than no bound, because it looks like one.
+            //
+            // AFTER the unknown-move gate, so a typo is refused as a typo: this
+            // sentence tells somebody to remove a value, and telling them that
+            // about a word they misspelled sends them the wrong way.
+            if (LoopMoves.Unbounded(loop.Moves) && loop.Moves.Count > 1)
+            {
+                return $"Loop '{loop.Id}' declares '{LoopMoves.Anything}' beside "
+                     + string.Join(", ", loop.Moves
+                         .Where(m => !string.Equals(m, LoopMoves.Anything, StringComparison.Ordinal))
+                         .Select(m => $"'{m}'"))
+                     + $". '{LoopMoves.Anything}' is not a move among moves - it is this "
+                     + "envelope declining to bound the agent at all, and a list saying both "
+                     + "gives a reader no way to tell whether the narrower moves were meant "
+                     + $"to hold. Declare '{LoopMoves.Anything}' on its own, or name the "
+                     + "moves this loop actually needs.";
             }
 
             // A PERMISSION NOTHING ENFORCES, refused where an author can still do

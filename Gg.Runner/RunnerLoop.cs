@@ -1804,6 +1804,22 @@ public sealed class RunnerLoop(
             return (null, await InvokeAsync(lease, workspace, cancellationToken));
         }
 
+        // AND NOTHING TO MEASURE WHEN NOTHING WAS DECLARED. A loop that declared
+        // `anything` withholds no tool, so the probe in front of it would spend
+        // fifteen to twenty-one seconds proving that Edit and Write were
+        // withheld - from a session that withheld neither - and stamp that
+        // proof onto this flight's environment.identity. That is the same error
+        // as a measurement taken at startup, arriving from the other side: a
+        // measurement of a bound this session does not have.
+        //
+        // The fact says so rather than saying nothing: `none` crosses, which is
+        // the value whose definition has always been this and which no working
+        // runner had ever shipped. See ShipAsync, where the flag is read.
+        if (Gg.Contracts.LoopMoves.Unbounded(lease.Loop.Moves))
+        {
+            return (null, await InvokeAsync(lease, workspace, cancellationToken));
+        }
+
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
         if (!probe.Bound)
         {
@@ -2040,7 +2056,13 @@ public sealed class RunnerLoop(
                 // nothing to hash and the fact is about the machine alone.
                 workspace.Trees.Count > 0 ? workspace.Trees[0].Path : null,
                 workspace.Reused ? EnvironmentProvenance.Reused : EnvironmentProvenance.Fresh,
-                probe: probe)),
+                probe: probe,
+                // NO PROBE AND NO SILENCE. An unbounded loop is not probed -
+                // there is nothing for a probe to measure - and a null
+                // enforcement would say UNMEASURED, which is the attended
+                // flight's answer. This flight's answer is `none`: the envelope
+                // declined the bound, which is a statement rather than a gap.
+                unbounded: Gg.Contracts.LoopMoves.Unbounded(lease.Loop?.Moves))),
         };
 
         foreach (var tree in workspace.Trees)

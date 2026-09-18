@@ -362,6 +362,47 @@ public sealed class ClaudeCodeExecutor(
     /// </para>
     /// </remarks>
     private string[] BoundingArguments(ExecutorRequest request, string? secret) =>
+        LoopMoves.Unbounded(request.Moves)
+            ? Unbounded(request, secret)
+            : Bounded(request, secret);
+
+    /// <summary>
+    /// What a loop that declared no bound is launched with.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The allow-list is not passed, rather than passed full.</b> A list
+    /// naming every tool would still be a list, and the tool this binary gains
+    /// next month would not be on it - so a grant that meant "everything"
+    /// would quietly mean "everything as of the day somebody wrote it down".
+    /// Omitting the flag is the vendor's own way of saying no list.
+    /// </para>
+    /// <para>
+    /// <b>And the permission check off by name.</b> Measured on Claude Code
+    /// 2.1.276: without it a headless session still asks, and a headless
+    /// session that asks is a session that stops - the bound arriving as a
+    /// hang rather than a refusal. <c>--permission-mode</c> is not passed
+    /// beside it: it was pinned to <c>default</c> because a repository
+    /// declaring <c>acceptEdits</c> defeated an allow-list, and a launch with
+    /// no allow-list has nothing left for that to defeat.
+    /// </para>
+    /// <para>
+    /// <b>Two flags stay, because they are a different axis.</b>
+    /// <c>--setting-sources project</c> and <c>--strict-mcp-config</c> answer
+    /// whose settings and whose servers this session runs under, not what the
+    /// agent may do. Dropping them would not make the flight freer; it would
+    /// make it the operator's machine's, which is a question the envelope was
+    /// never asked.
+    /// </para>
+    /// </remarks>
+    private string[] Unbounded(ExecutorRequest request, string? secret) =>
+        ["--setting-sources", "project",
+         "--strict-mcp-config",
+         .. ServerArguments(request, secret),
+         "--dangerously-skip-permissions"];
+
+    /// <summary>What every other loop is launched with: the allow-list and the mode.</summary>
+    private string[] Bounded(ExecutorRequest request, string? secret) =>
         // THE REPOSITORY'S, AND ONLY THE REPOSITORY'S. This was empty, which
         // cleared the OPERATOR's settings - the point - and also cleared the
         // repository's, which was not. A skill in the tree the flight
@@ -988,6 +1029,17 @@ public sealed class ClaudeCodeExecutor(
         // name: one move granting two tools is the prefix grant the comment
         // above refuses, arriving by a different route.
         LoopMoves.ProposeLanding => LandingProposalTool.Qualified,
+        // THE ONE VALUE WITH NO ANSWER, and the fall-through below is why it
+        // has to throw rather than return one. `anything` grants no tool: it
+        // removes the allow-list, so nothing ever asks this question on the
+        // launch path. Somewhere else asking it would otherwise be handed
+        // "anything" as a tool name - a grant of a tool no agent has, passed in
+        // a list that was meant not to exist, which reads as a bound and is
+        // not one. Article XI's poison on the mapping.
+        LoopMoves.Anything => throw new InvalidOperationException(
+            $"'{LoopMoves.Anything}' grants no named tool - it is the allow-list not being "
+          + "passed at all. Whatever asked which tool it grants is on a path built for "
+          + "bounded loops; LoopMoves.Unbounded is the question to ask first."),
         _ => move,
     };
 
@@ -1205,7 +1257,17 @@ public sealed class ClaudeCodeExecutor(
             // what crosses is what the extractor could name mechanically.
             Digest = TranscriptDigest.Extract(
                 transcript.ToString(), request.LoopId, TreeRoots(request.WorkingDirectory),
-                run.Outcome, [.. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)]),
+                run.Outcome,
+                // NO TOOL NAMES WHEN THERE WAS NO LIST. `anything` maps to no
+                // tool - asking is the throw one method up - and the declared
+                // set is what a refusal is measured against, which is why the
+                // unbounded flag rather than an empty list decides it: an empty
+                // list means "the envelope named nothing", and this envelope
+                // named everything.
+                LoopMoves.Unbounded(request.Moves)
+                    ? []
+                    : [.. request.Moves.Select(Tool).Distinct(StringComparer.Ordinal)],
+                unbounded: LoopMoves.Unbounded(request.Moves)),
 
             // AT THE SAME BOUNDARY, and from the same text. A nomination is a
             // value the agent DECLARED rather than a measurement, so it gets

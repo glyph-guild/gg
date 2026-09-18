@@ -56,6 +56,14 @@ public static class TranscriptDigest
     /// The moves the envelope named, so a refusal can be told from a tool that
     /// simply was not asked for.
     /// </param>
+    /// <param name="unbounded">
+    /// Whether the envelope declined to bound this loop at all
+    /// (<c>LoopMoves.Anything</c>), in which case nothing can have been
+    /// refused. <b>A flag rather than an empty <paramref name="declared"/>
+    /// list</b>, because the two say opposite things: empty means the envelope
+    /// named no tool, and every call would be a refusal; this means it named
+    /// them all.
+    /// </param>
     /// <remarks>
     /// <para>
     /// <b>The declared moves come in and a set difference does not go out.</b> This
@@ -78,7 +86,8 @@ public static class TranscriptDigest
         string loopId,
         IReadOnlyList<string> treeRoots,
         string outcome,
-        IReadOnlyList<string> declared)
+        IReadOnlyList<string> declared,
+        bool unbounded = false)
     {
         ArgumentNullException.ThrowIfNull(transcript);
         ArgumentNullException.ThrowIfNull(treeRoots);
@@ -197,7 +206,12 @@ public static class TranscriptDigest
             // the control plane derives for itself from loop.outcome's moves and
             // the envelope it holds - the runner is not an authority on the
             // envelope, and it was making a claim about one.
-            RefusedMoves = Bounded(calls.Keys
+            // AND EMPTY BY CONSTRUCTION WHEN THE ENVELOPE NAMED THEM ALL. A
+            // refusal is a tool the envelope did not name; an unbounded loop
+            // named every tool there is and every tool there will be, so a
+            // non-empty list here would be this fact inventing a bound for a
+            // flight that declared none - the probe's error, one artifact along.
+            RefusedMoves = unbounded ? [] : Bounded(calls.Keys
                 .Where(t => !declared.Contains(t, StringComparer.Ordinal))
                 // ASKING FOR A DECISION IS NOT A MOVE, so it can be neither
                 // declared nor refused. A successful call never reached this

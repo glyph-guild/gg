@@ -17,10 +17,26 @@ namespace Gg.Runner.Execution;
 /// refusals. Both stay in the vocabulary as the values whose absence is the
 /// finding.
 /// </para>
+/// <para>
+/// <b><c>none</c> now has one caller, and it is not a broken bound.</b> A loop
+/// declaring <c>LoopMoves.Anything</c> withholds nothing, which is the
+/// vocabulary's own definition of the value - <i>"nothing declared is withheld.
+/// A move is an observation only"</i> - so it derives here rather than being
+/// left as null. Null would say UNMEASURED, which is the attended flight's
+/// answer and a weaker claim: unknown is not none any more than unknown is
+/// false.
+/// </para>
 /// </remarks>
 public static class MoveEnforcementMeasurement
 {
     /// <summary>The enforcement the probe proved, or null when it proved none.</summary>
-    public static string? Of(ProbeResult? probe) =>
-        probe is { Bound: true } ? MoveEnforcements.PerTool : null;
+    /// <param name="probe">What this session's probe measured, when one ran.</param>
+    /// <param name="unbounded">
+    /// Whether the envelope declined to bound this loop, in which case no probe
+    /// ran and none is what crossed.
+    /// </param>
+    public static string? Of(ProbeResult? probe, bool unbounded = false) =>
+        unbounded ? MoveEnforcements.None
+        : probe is { Bound: true } ? MoveEnforcements.PerTool
+        : null;
 }

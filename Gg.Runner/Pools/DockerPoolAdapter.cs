@@ -365,7 +365,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
                 null);
         }
 
-        var (aux, error) = await StreamAsync(response, "ID", cancellationToken);
+        var (aux, error) = await StreamAsync(response, "ID", statusPrefix: null, cancellationToken);
 
         return error is not null
             ? new ImageBuilt.Failed(
@@ -400,7 +400,13 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
                 $"the daemon refused the push (HTTP {(int)response.StatusCode}).", null);
         }
 
-        var (digest, error) = await StreamAsync(response, "Digest", cancellationToken);
+        // THE DIGEST IS WHERE THIS DAEMON SAYS IT, which is not always aux. Docker
+        // 29 on the containerd image store sends no aux for a push and names the
+        // digest only in its last status line - found on slice forty-one's walk,
+        // where a push that landed attested failed. The tag is part of the line,
+        // so a line about any other tag names nothing.
+        var (digest, error) = await StreamAsync(
+            response, "Digest", statusPrefix: $"{tag}: digest: ", cancellationToken);
 
         return error is not null
             ? new ImagePushed.Failed("the registry refused the push.", error)
@@ -413,10 +419,17 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
     /// Reads the daemon's line-per-object progress stream, returning one member
     /// of the final <c>aux</c> object and the first error, if any.
     /// </summary>
+    /// <param name="statusPrefix">
+    /// Where a digest may be named instead, when no <c>aux</c> carries it: a
+    /// status line starting with this, followed by <c>sha256:</c> and the hex.
+    /// Null where only <c>aux</c> answers.
+    /// </param>
     private static async Task<(string? Aux, string? Error)> StreamAsync(
-        HttpResponseMessage response, string auxMember, CancellationToken cancellationToken)
+        HttpResponseMessage response, string auxMember, string? statusPrefix,
+        CancellationToken cancellationToken)
     {
         string? aux = null;
+        string? stated = null;
         string? error = null;
 
         using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
@@ -444,6 +457,19 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
                 {
                     aux = value.GetString();
                 }
+
+                if (statusPrefix is not null
+                    && root.TryGetProperty("status", out var status)
+                    && status.ValueKind == JsonValueKind.String
+                    && status.GetString() is { } said
+                    && said.StartsWith(statusPrefix, StringComparison.Ordinal)
+                    && said[statusPrefix.Length..].Split(' ')[0] is var named
+                    && named.StartsWith("sha256:", StringComparison.Ordinal)
+                    && named.Length == "sha256:".Length + 64
+                    && named["sha256:".Length..].All(char.IsAsciiHexDigitLower))
+                {
+                    stated = named;
+                }
             }
             catch (JsonException)
             {
@@ -452,7 +478,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
             }
         }
 
-        return (aux, error);
+        return (aux ?? stated, error);
     }
 
     private async Task<PoolObservation> CreateAndStartAsync(

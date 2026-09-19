@@ -152,10 +152,11 @@ public class AConsoleReachesARunnerTests
         // whoever reads the journal at the end that worked, which is exactly
         // the wrong-end problem this whole path keeps having.
         //
-        // Short bound so the wrong answer arrives in seconds rather than in the
-        // minute a real runner allows.
+        // A BOUND SHORTER THAN THE HANDSHAKE, set on purpose: the runner closes
+        // its end before ICE connects, and the console reports no route at its
+        // own twenty seconds - the shape CI has been failing in.
         var (reached, answered, _) = await HandshakeAsync(
-            new ALog("first", "second"), arrivalBound: TimeSpan.FromSeconds(3));
+            new ALog("first", "second"), arrivalBound: TimeSpan.FromMilliseconds(50));
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None).Because(reached.Said);
 

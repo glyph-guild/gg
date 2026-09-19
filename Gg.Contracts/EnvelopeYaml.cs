@@ -390,7 +390,7 @@ public static class EnvelopeYaml
         var root = RequireMap(document, "");
         Closed(
             root, BasedOnKey, "shape", "trigger", "host", "credential", "filter", "repository",
-            "skill", "ref", "mapping", "pull-point", "nominates", "bounds");
+            "skill", "ref", "mapping", "pull-point", "nominates", "bounds", "for");
 
         // THE REQUIRED KEYS NAMED HERE, BEFORE THE GENERIC WORDING CLAIMS THEM.
         // `Require` says "an envelope without it governs nothing", which is
@@ -454,6 +454,12 @@ public static class EnvelopeYaml
             PullPoint = RequireScalar(Require(root, "pull-point"), "pull-point"),
             Nominates = bounds.Count == 1 ? MapDestination(bounds[0]) : null,
             Bounds = MapWatchBounds(root),
+            // ABSENT STAYS ABSENT, for the reason MapWatchBounds gives: reading
+            // it as `tenant` would make every watch in the estate read back
+            // with a line nobody wrote, and pull would report the change.
+            For = root.Entries.TryGetValue("for", out var whose)
+                ? RequireScalar(whose, "for")
+                : null,
         };
     }
 

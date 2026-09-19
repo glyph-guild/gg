@@ -162,6 +162,11 @@ public static class NominationDirection
 /// </remarks>
 public static class WatchDirection
 {
+    private static string WhoseWatch(string whose) =>
+        string.Equals(whose, LinesOfWork.Tenant, StringComparison.Ordinal)
+            ? "the tenant's"
+            : $"{whose}'s";
+
     /// <summary>How this watch widens the one in force, or null.</summary>
     public static EnvelopeWidening? Widening(WatchDocument applied, WatchDocument proposed)
     {
@@ -169,6 +174,23 @@ public static class WatchDirection
         ArgumentNullException.ThrowIfNull(proposed);
 
         const string Whose = "this watch's sweeps";
+
+        // WHOSE IT IS NEVER MOVES, and the door refuses a version that tries.
+        // Reported here too, so a diff says so before an apply finds out -
+        // with the only way a watch does change hands. Absent and `tenant` are
+        // one answer, so writing the default down is not a change.
+        var wasFor = applied.For ?? LinesOfWork.Tenant;
+        var nowFor = proposed.For ?? LinesOfWork.Tenant;
+        if (!string.Equals(wasFor, nowFor, StringComparison.Ordinal))
+        {
+            return new EnvelopeWidening
+            {
+                Field = "for",
+                Because = $"this watch was {WhoseWatch(wasFor)} and would be "
+                        + $"{WhoseWatch(nowFor)}. A watch never changes whose it is - retire "
+                        + "it and declare it again.",
+            };
+        }
 
         if (NominationDirection.BoundWidening(applied.Nominates, proposed.Nominates, Whose)
             is { } bound)

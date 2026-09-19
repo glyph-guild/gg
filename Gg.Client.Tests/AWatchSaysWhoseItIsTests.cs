@@ -69,8 +69,12 @@ public class AWatchSaysWhoseItIsTests
         var text = EnvelopeText.Render(written);
         var parsed = EnvelopeYaml.ParseWatch(text);
 
-        await Assert.That(text).Contains($"for: {whose}")
+        // QUOTED OR NOT BY THE RENDERER'S OWN ALLOW-LIST, which quotes anything
+        // that is not a plain identifier - so the line is looked for, and the
+        // value is checked by reading it back.
+        await Assert.That(text).StartsWith("for: ")
             .Because("a member the renderer drops is one the tree silently forgets.");
+        await Assert.That(text).Contains(whose);
         await Assert.That(parsed.Diagnosis).IsNull()
             .Because("refused with: " + (parsed.Diagnosis ?? "nothing"));
         await Assert.That(parsed.Watch!.For).IsEqualTo(whose);

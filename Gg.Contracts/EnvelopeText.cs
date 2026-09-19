@@ -229,6 +229,14 @@ public static class EnvelopeText
 
         var text = new StringBuilder();
 
+        // WHOSE IT IS, FIRST, and only when it was said - an absent line is the
+        // tenant, and rendering the default would put a line in every watch
+        // nobody wrote.
+        if (watch.For is { } whose)
+        {
+            text.Append($"for: {Scalar(whose)}\n");
+        }
+
         text.Append($"shape: {Scalar(watch.Shape)}\n");
 
         text.Append("trigger:\n");

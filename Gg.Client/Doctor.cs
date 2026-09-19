@@ -509,7 +509,7 @@ public sealed class Doctor(
             () => TelemetryCheckAsync(
                 honoured, reachable, protocolRefusal is null, cancellationToken)));
 
-        checks.Add(RunnerCheck(stored, honoured));
+        checks.Add(RunnerCheck(stored, honoured, role?.InstalledUnits));
         checks.Add(MovesCheck());
         checks.Add(await Surviving(
             DoctorChecks.Channel, () => ChannelCheckAsync(cancellationToken)));
@@ -707,6 +707,23 @@ public sealed class Doctor(
                 Detail = pool,
                 Blocking = false,
                 Fixable = false,
+            }
+            // AND A UNIT'S ENVIRONMENT IS NOT THIS SHELL'S. A pool host names
+            // its endpoint in its maintainer's unit, which a person's shell
+            // cannot see, so "configured for nothing" was a claim about the
+            // wrong process. Named, and disclosed rather than failed.
+            : role.InstalledUnits is { Count: > 0 } units
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Pool,
+                Passed = false,
+                Discloses = true,
+                Detail = "this shell, not the unit: no pool endpoint in this shell or its "
+                       + $"config.json, and {string.Join(", ", units)} is installed here with an "
+                       + "environment of its own, which this check cannot read",
+                Blocking = false,
+                Fixable = false,
+                Fix = $"`systemctl cat {units[0]}` shows what the unit is given.",
             }
             : new DoctorCheck
             {
@@ -1470,7 +1487,26 @@ public sealed class Doctor(
     /// <param name="units">The gg services installed on this machine, if any.</param>
     public static DoctorCheck RunnerCheck(
         StoredSession? stored, StoredSession? honoured, IReadOnlyList<string>? units = null) =>
-        new()
+        // A SERVICE KEEPS ITS OWN IDENTITY, under its own user, and this shell
+        // reads neither. Without a session here that is not a fault of the
+        // machine: its runner may be flying right now. Said as what this check
+        // can see, rather than as a failure of a host that is fine.
+        honoured is null && units is { Count: > 0 }
+            ? new DoctorCheck
+            {
+                Name = DoctorChecks.Runner,
+                Passed = false,
+                Discloses = true,
+                Detail = $"this shell, not the unit: {string.Join(", ", units)} is installed "
+                       + "here and runs on its own runner identity, which this check does not "
+                       + "read - it found "
+                       + (stored is null ? "no session in this shell" : "this shell's session not honoured"),
+                Blocking = false,
+                Fixable = false,
+                Fix = $"`systemctl status {units[0]}` (or `launchctl print`) describes the unit; "
+                    + "`gg login` here only if this shell should register a runner of its own.",
+            }
+            : new DoctorCheck
         {
             Name = DoctorChecks.Runner,
             Passed = honoured is not null,

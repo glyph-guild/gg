@@ -961,6 +961,11 @@ static async Task<int> DoctorAsync(bool json)
         // is a subprocess spent answering a question that has no subject.
         Airspace = airspace,
         AirspaceIsRepository = airspace is { Length: > 0 } && Git.IsRepository(airspace),
+
+        // WHETHER THERE IS A PROCESS HERE THIS SHELL IS NOT. A gg service runs
+        // under its own user with its own environment, so the runner and pool
+        // checks say when what they read is this shell rather than the unit.
+        InstalledUnits = InstalledUnits.Find(),
     };
 
     var report = await new Doctor(

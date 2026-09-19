@@ -44,7 +44,8 @@ public static class ExecutorConfiguration
     /// </remarks>
     public static IExecutorPort? FromEnvironment(
         IReadOnlyList<IntentReader>? readers = null,
-        Func<string, string?>? secretFor = null) =>
+        Func<string, string?>? secretFor = null,
+        string? declaration = null) =>
         // THE CHOICE IS MADE HERE, IN THE DEFAULT, which is where the vcs and
         // destination seams learned it has to be: "the adapterFor parameter
         // was passed only from tests, which is the same bug one layer up".
@@ -117,7 +118,7 @@ public static class ExecutorConfiguration
     /// composition root that needs the adapter beside the executor and cannot
     /// reach into one to ask.
     /// </remarks>
-    public static IAuthenticateAnAgent? AgentFromEnvironment() =>
+    public static IAuthenticateAnAgent? AgentFromEnvironment(string? declaration = null) =>
         ExecutorDeclaration.ParseOrNull(
             Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable) is { } declared
             ? AgentFor(declared)

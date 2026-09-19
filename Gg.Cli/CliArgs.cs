@@ -281,7 +281,8 @@ public abstract record CliAction
     /// override belongs.
     /// </remarks>
     public sealed record AirspaceName(
-        string Role, string Name, string Parent, bool Json) : CliAction, IEmitsResult;
+        string Role, string Name, string Parent, bool Json, bool Personal = false)
+        : CliAction, IEmitsResult;
 
     /// <summary>Registers a repository, so a flight may name it.</summary>
     /// <remarks>

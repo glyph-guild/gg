@@ -48,7 +48,8 @@ public static class FlyByHandCommand
         Func<string, Task<IReadOnlyList<PendingGate>>> gates,
         IGateAnswer answer,
         Func<string, string, string, string?, Task<bool>> decide,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<string, CancellationToken, Task<string?>>? numberOf = null)
     {
         ArgumentNullException.ThrowIfNull(fly);
         ArgumentNullException.ThrowIfNull(hold);
@@ -171,4 +172,7 @@ public static class FlyByHandCommand
                 + "Nothing about the flight changed.");
         }
     }
+
+    /// <summary>Whether a decision the person gave here was recorded.</summary>
+    public static bool Recorded(VerbResult decided) => true;
 }

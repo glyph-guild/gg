@@ -172,6 +172,35 @@ public class AnsweringANominationTakesASentenceTests
     }
 
     [Test]
+    public async Task Opening_one_watches_for_the_flight_it_opened()
+    {
+        // THE ROW ENDS AT ONCE AND THE FLIGHT DOES NOT. The board's row is
+        // written in the request; the flight it opened is projected seconds
+        // later, so the re-read after answering drops the row and has nothing
+        // to put in its place. The flight the answer named is watched for.
+        var final = new ConsoleLoop(
+                new ConsoleDoubles.TypesKeys(Command.OpenNomination),
+                new ConsoleDoubles.Writes("the tracker has had this open for three weeks"),
+                actions: new ConsoleDoubles.Records())
+            .Run(Board() with { Mode = UiMode.NominationDecision });
+
+        await Assert.That(final.Expecting.Select(e => e.Id)).Contains(ConsoleDoubles.Records.Opened);
+    }
+
+    [Test]
+    public async Task Declining_one_watches_for_nothing()
+    {
+        var final = new ConsoleLoop(
+                new ConsoleDoubles.TypesKeys(Command.DeclineNomination),
+                new ConsoleDoubles.Writes("somebody already fixed it"),
+                actions: new ConsoleDoubles.Records())
+            .Run(Board() with { Mode = UiMode.NominationDecision });
+
+        await Assert.That(final.Expecting).IsEmpty()
+            .Because("a declined nomination opens no flight, so there is nothing to see.");
+    }
+
+    [Test]
     public async Task Answering_sends_the_row_the_outcome_and_the_reason()
     {
         var records = new ConsoleDoubles.Records();

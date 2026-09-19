@@ -2055,6 +2055,18 @@ public sealed record AppState
     /// <summary>What came of the last flight this console opened.</summary>
     public string? LastFlightOpened { get; init; }
 
+    /// <summary>
+    /// What this console's writes said they did and no read has shown yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>In place of the reload that could not see it.</b> Opening a flight
+    /// re-read everything the moment the door answered 202 - before the flight
+    /// was anywhere a read could find it - so the row arrived with the next
+    /// thirty-second tick. The write names its flight now, and this is the
+    /// list of what is being looked for.
+    /// </remarks>
+    public IReadOnlyList<Expectation> Expecting { get; init; } = [];
+
     /// <summary>What the open compose question is about, if one is open.</summary>
     /// <remarks>
     /// Meaningful only while <see cref="Mode"/> is

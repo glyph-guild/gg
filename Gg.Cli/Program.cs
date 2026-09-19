@@ -1686,19 +1686,23 @@ static async Task<int> LaunchConsoleAsync()
                 return current with { LastEstate = NoAirspace("apply") };
             }
 
+            // THE RESULT KEPT as well as said, because the flights it diverted
+            // to are named in it and the sentences are not something to parse.
+            VerbResult? applied = null;
+
             var said = ConsoleApply.Applied(
                 // DECLARING, BECAUSE THE QUESTION LISTED THEM. PaneText's apply
                 // question names every undeclared name and the parent it would
                 // use, so the `y` that reached this arm was an answer to that
                 // too. Passing false here would make the question a lie.
-                () => data.ApplyEstateAsync(applyFrom, declareNames: true)
+                () => applied = data.ApplyEstateAsync(applyFrom, declareNames: true)
                     .GetAwaiter().GetResult());
 
-            return current with
+            return ConsoleApply.Watching(current with
             {
                 ApplyOutcome = said,
                 LastEstate = ConsoleApply.Summary(said),
-            };
+            }, applied);
         },
 
         // THE ONE ACT THAT REMOVES GOVERNANCE, wired by name like the rest. A

@@ -2273,14 +2273,19 @@ static async Task<int> HoldAsync(
     // machine and the fleet runner treats that as "this host has no agent" - on
     // a hand-flight there is a person waiting at a terminal for one, so it is
     // said rather than discovered as a session that never starts.
+    //
+    // AND FROM THE FILE, as the doctor reads it: `gg config set executor-binary`
+    // is the doctor's own fix, and a hand-flight that read only the environment
+    // told the person who followed it that this machine had no agent.
     if (Gg.Local.ExecutorDeclaration.ParseOrNull(
-            Environment.GetEnvironmentVariable(
-                Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable),
+            Settings.Value(
+                Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration),
             Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is not { } declared)
     {
         return Fail(
-            $"this machine declares no agent — set {Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable} "
-          + "to the binary you want handed the flight.");
+            "this machine declares no agent — run `gg config set executor-binary <path>` "
+          + $"(or set {Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable}) to the binary "
+          + "you want handed the flight.");
     }
 
     var binary = declared.Binary;
@@ -2323,7 +2328,9 @@ static async Task<int> HoldAsync(
             Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot()),
         cancellationToken,
         destinations: Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
-            api => new HttpClient { BaseAddress = new Uri(api) }),
+            api => new HttpClient { BaseAddress = new Uri(api) },
+            apis: Settings.Value(Gg.Runner.Vcs.DestinationConfiguration.ApisVariable, InForce.Configuration),
+            hosts: Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)),
         // THE OTHER EXECUTOR, and the only line that decides a person rather
         // than an agent does the work. The SAME binary the fleet runs, from the
         // same variable: a hand-flight and a fleet flight run the same agent,
@@ -2517,8 +2524,14 @@ static async Task<int> RunnerUpAsync()
     // Where this runner may LAND work, which is a second declaration on purpose.
     // A runner configured to read and not to write cannot write - there is no
     // adapter for it to reach. Absent is the ordinary state.
+    //
+    // THROUGH THE ONE READER, with the hosts it is checked against: a
+    // destination-apis line the doctor reported green was, until slice
+    // forty-three, a destination this runner did not have.
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
-        api => new HttpClient { BaseAddress = new Uri(api) });
+        api => new HttpClient { BaseAddress = new Uri(api) },
+        apis: Settings.Value(Gg.Runner.Vcs.DestinationConfiguration.ApisVariable, inForce),
+        hosts: Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, inForce));
 
     // AND WHERE IT MAY WRITE TO A TRACKER, which is a third declaration for
     // the reason the second one is a second: reading a backlog and changing
@@ -2546,9 +2559,22 @@ static async Task<int> RunnerUpAsync()
     // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
     // process hands one over. The same store `gg credential add` writes; the
     // secret goes into the server's own environment and never into the agent's.
+    //
+    // AND WHICH AGENT IS THE ONE THE DOCTOR NAMED. The doctor reads
+    // executor-binary from the environment and then the file; this read the
+    // environment alone, so a machine configured by the doctor's own advice
+    // was reported ready and flew nothing. One resolved value, handed to both,
+    // so the executor and its login cannot disagree about the agent.
+    var agentDeclaration = Settings.Value(
+        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, inForce);
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
-        secretFor: locator => new FileCredentialStore().Read(locator));
-    var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment();
+        readers: Gg.Local.IntentConfiguration.FromEnvironment(
+            Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, inForce),
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)),
+        secretFor: locator => new FileCredentialStore().Read(locator),
+        declaration: agentDeclaration);
+    var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment(
+        declaration: agentDeclaration);
 
     // WHERE THIS RUNNER IS RUNNING, for any console that wants to look. A
     // runner outlives the console that started it - reparented to init a moment
@@ -2621,8 +2647,7 @@ static async Task<int> RunnerUpAsync()
             // declaration the agent came from. A member asks the same
             // question; its file answers yes because it opened itself.
             login: Gg.Local.ExecutorDeclaration.ParseOrNull(
-                Environment.GetEnvironmentVariable(Gg.Local.ExecutorDeclaration.Variable),
-                Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
+                agentDeclaration, Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
                 ? LocalAgentLogin.For(inForce, new FileCredentialStore(), declaredAgent)
                 : null,
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
@@ -2851,7 +2876,9 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
             Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot());
 
     var destinations = Gg.Runner.Vcs.DestinationConfiguration.FromEnvironment(
-        api => new HttpClient { BaseAddress = new Uri(api) });
+        api => new HttpClient { BaseAddress = new Uri(api) },
+        apis: Settings.Value(Gg.Runner.Vcs.DestinationConfiguration.ApisVariable, InForce.Configuration),
+        hosts: Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration));
 
     // AND WHERE IT MAY WRITE TO A TRACKER, which is a third declaration for
     // the reason the second one is a second: reading a backlog and changing
@@ -2885,9 +2912,18 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
     // process hands one over. The same store `gg credential add` writes; the
     // secret goes into the server's own environment and never into the agent's.
+    //
+    // AND THE AGENT FROM ONE RESOLVED VALUE, for runner up's reason.
+    var agentDeclaration = Settings.Value(
+        Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration);
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
-        secretFor: locator => new FileCredentialStore().Read(locator));
-    var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment();
+        readers: Gg.Local.IntentConfiguration.FromEnvironment(
+            Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)),
+        secretFor: locator => new FileCredentialStore().Read(locator),
+        declaration: agentDeclaration);
+    var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment(
+        declaration: agentDeclaration);
 
     // THE KEY THIS MEMBER CAN BE REACHED ON, and it had none. Everything else
     // about the channel was built and correct; a member simply never got one,
@@ -2939,8 +2975,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // being told it is closed. That it was closed was a decision, and it
         // was reversed: this is the machine nobody can open a shell on.
         login: Gg.Local.ExecutorDeclaration.ParseOrNull(
-            Environment.GetEnvironmentVariable(Gg.Local.ExecutorDeclaration.Variable),
-            Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
+            agentDeclaration, Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
             ? LocalAgentLogin.For(inForce, new FileCredentialStore(), declaredAgent)
             : null,
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),

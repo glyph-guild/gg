@@ -1807,6 +1807,25 @@ public static class PlatformToolServer
             "  nominates:        the destination its nominations stand under. Required - "
           + "nothing else says what kind a sweep opens.");
         said.AppendLine("  cap-per-pass:     the most it may report in one run.");
+
+        said.AppendLine(
+            "WHAT A FLEET PROFILE SAYS. Also not rules about work: it says what a class of "
+          + "enrolled machine is, under fleet/<name>.yaml. It NAMES and the machine RESOLVES - "
+          + "a path or a secret written here is refused.");
+        said.AppendLine("  roles:            run, maintain, or both. maintain may mint pool members.");
+        said.AppendLine(
+            "  environment:      the charted environment it furnishes; a runner under it "
+          + "advertises at most environment=<this>, whatever it says itself.");
+        said.AppendLine("  agent:            the agent it runs, by NAME - never a binary's path.");
+        said.AppendLine("  forges:           the forges it serves, key=host, as vcs-hosts is written.");
+        said.AppendLine("  destinations:     where it may land work, key=api, as destination-apis is.");
+        said.AppendLine("  sweeps:           true when it sweeps the tenant's watches while idle.");
+        said.AppendLine(
+            "  credentials:      WHERE each secret is - local:<name> or "
+          + "keyvault://<vault-host>/<secret> - never what it is.");
+        said.AppendLine(
+            "  Adding a role, forge, destination or credential, turning sweeps on, or changing "
+          + "environment or agent widens and is reviewed; removing any of them applies at once.");
     }
 
     /// <summary>

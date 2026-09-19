@@ -66,6 +66,11 @@ public static class OfferedConfigurations
     /// those keys are offerable at all is that somebody sees what is being
     /// repointed.
     /// </param>
+    /// <summary>Whether this offer is the profile this machine enrolled under.</summary>
+    private static bool IsThisMachinesProfile(OfferedConfiguration offered, Configuration into) =>
+        offered.Profile is { Length: > 0 } profile
+        && string.Equals(profile, into.EnrolledProfile, StringComparison.Ordinal);
+
     public static OfferTaken Accept(
         OfferedConfiguration offered, Configuration into, bool attended = true)
     {
@@ -100,7 +105,13 @@ public static class OfferedConfigurations
         // A directed offer is one somebody may take; it simply may not take
         // itself. Reporting it as a refusal would send an operator looking for
         // something wrong with the document.
-        if (!attended && OfferedConfiguration.NeedsAPerson(offered))
+        // UNLESS A PERSON ALREADY SAID YES, AT THE PROFILE'S GATE (slice
+        // forty-three, rule 15) - and only for the profile this machine's own
+        // file says it enrolled under. The control plane naming a profile is a
+        // claim; the file is the consent.
+        if (!attended
+            && OfferedConfiguration.NeedsAPerson(offered)
+            && !IsThisMachinesProfile(offered, into))
         {
             return new OfferTaken { Waiting = true };
         }

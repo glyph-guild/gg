@@ -351,6 +351,10 @@ public class EnvelopeOperatorTests
                 // tenant-scoped, named, versioned airspace document - so a
                 // role, and the closed set moved to five deliberately.
                 Roles.Watch,
+                // SLICE FORTY-THREE'S FLEET PROFILE. ADR-0025 section 2: what an
+                // enrolled machine is, applied and governed like a strategy - a
+                // document of its own shape, so a role, and the set moved to six.
+                Roles.FleetProfile,
             ]);
         // APPEND IS THE ONE MEMBER FOR WHICH ROLE ORDER MATTERS, and this
         // test's name is about Roles.All being closed rather than about the

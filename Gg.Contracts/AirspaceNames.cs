@@ -52,6 +52,7 @@ public static class AirspaceNames
         (Roles.Narrowing, "narrowings"),
         (Roles.Strategy, "strategies"),
         (Roles.Watch, "watches"),
+        (Roles.FleetProfile, "fleet"),
     ];
 
     /// <summary>The file a tenant's floor renders to. Never inside a directory.</summary>

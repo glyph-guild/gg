@@ -31,8 +31,8 @@ public class AProfileNamesAndTheMachineResolvesTests
         Roles = [ProfileRoles.Run],
         Environment = "dev",
         Agent = "claude",
-        Forges = ["github=github.com"],
-        Destinations = ["github=https://api.github.com"],
+        Forges = ["acme=git.acme.example"],
+        Destinations = ["acme=https://git.acme.example/api"],
         Credentials = ["keyvault://acme-fleet.vault.example.net/forge-token", "local:npm-token"],
     };
 
@@ -93,7 +93,7 @@ public class AProfileNamesAndTheMachineResolvesTests
     [Test]
     public async Task A_forge_is_written_as_vcs_hosts_writes_one()
     {
-        await Assert.That(FleetProfile.Validate(ADevWorker() with { Forges = ["github.com"] }))
+        await Assert.That(FleetProfile.Validate(ADevWorker() with { Forges = ["git.acme.example"] }))
             .Contains("key=host");
     }
 
@@ -224,7 +224,7 @@ public class AProfileNamesAndTheMachineResolvesTests
         Profile = profile,
         Settings =
         [
-            new OfferedSetting { Key = OfferableKeys.VcsHosts, Value = "github=github.com" },
+            new OfferedSetting { Key = OfferableKeys.VcsHosts, Value = "acme=git.acme.example" },
             new OfferedSetting { Key = OfferableKeys.RunnerLabels, Value = "environment=dev" },
         ],
     };
@@ -238,7 +238,7 @@ public class AProfileNamesAndTheMachineResolvesTests
             attended: false);
 
         await Assert.That(taken.Waiting).IsFalse();
-        await Assert.That(taken.Configuration!.VcsHosts).IsEqualTo("github=github.com")
+        await Assert.That(taken.Configuration!.VcsHosts).IsEqualTo("acme=git.acme.example")
             .Because("a person accepted this forge at the profile's gate; asking again on every "
                    + "machine is what enrollment exists to end.");
     }

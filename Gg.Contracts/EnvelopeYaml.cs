@@ -107,14 +107,19 @@ public sealed record StrategyParse
 }
 
 /// <summary>A fleet profile read from text, or the reason it could not be.</summary>
+/// <remarks>A separate result for a separate door, the strategy's rule.</remarks>
 public sealed record ProfileParse
 {
+    /// <summary>The version the text says it was based on, or null. Consumed, never stored.</summary>
     public string? BasedOn { get; init; }
 
+    /// <summary>The profile, or null when there is a diagnosis.</summary>
     public FleetProfile? Profile { get; init; }
 
+    /// <summary>What was wrong, or null when nothing was.</summary>
     public string? Diagnosis { get; init; }
 
+    /// <summary>Facts about what the round trip did. Comments are the only one today.</summary>
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
@@ -342,9 +347,56 @@ public static class EnvelopeYaml
         };
     }
 
-    /// <summary>Reads fleet profile text. Reads nothing yet.</summary>
-    public static ProfileParse ParseProfile(string text) =>
-        new() { Diagnosis = "A fleet profile is not read yet." };
+    /// <summary>Reads fleet profile text, or says what is wrong with it.</summary>
+    /// <remarks>
+    /// A closed key set, as every document here has: a misspelt key is refused
+    /// rather than read as absent, because an absent <c>credentials:</c> and a
+    /// misspelt one are different machines.
+    /// </remarks>
+    public static ProfileParse ParseProfile(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ProfileParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new ProfileParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        FleetProfile profile;
+        try
+        {
+            profile = MapProfile(document);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ProfileParse { Diagnosis = refusal.Message };
+        }
+
+        if (FleetProfile.Validate(profile) is { } invalid)
+        {
+            return new ProfileParse { Diagnosis = invalid };
+        }
+
+        return new ProfileParse
+        {
+            Profile = profile,
+            BasedOn = Consumed(document),
+            Notes = Notes(text),
+        };
+    }
 
     /// <summary>Reads watch text, or says what is wrong with it.</summary>
     /// <remarks>
@@ -520,6 +572,31 @@ public static class EnvelopeYaml
                 ? WholeNumber(cap, "bounds.cap-per-pass")
                 : null,
             Budget = budget,
+        };
+    }
+
+    private static FleetProfile MapProfile(Node document)
+    {
+        var root = RequireMap(document, "");
+        Closed(
+            root, BasedOnKey, "roles", "environment", "agent", "forges", "destinations", "sweeps",
+            "credentials");
+
+        return new FleetProfile
+        {
+            Roles = Strings(Require(root, "roles"), "roles"),
+            Environment = RequireScalar(Require(root, "environment"), "environment"),
+            Agent = root.Entries.TryGetValue("agent", out var agent)
+                ? RequireScalar(agent, "agent")
+                : null,
+            Forges = root.Entries.TryGetValue("forges", out var forges) ? Strings(forges, "forges") : [],
+            Destinations = root.Entries.TryGetValue("destinations", out var destinations)
+                ? Strings(destinations, "destinations")
+                : [],
+            Sweeps = root.Entries.TryGetValue("sweeps", out var sweeps) && Flag(sweeps, "sweeps"),
+            Credentials = root.Entries.TryGetValue("credentials", out var credentials)
+                ? Strings(credentials, "credentials")
+                : [],
         };
     }
 

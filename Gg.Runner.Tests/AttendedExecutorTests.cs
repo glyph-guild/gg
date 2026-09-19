@@ -655,7 +655,12 @@ public class AttendedExecutorTests
                     // would put the file outside every tree, where no manifest
                     // could see it: which is exactly what this test caught when
                     // the working directory moved.
-                    var tree = Directory.EnumerateDirectories(info.WorkingDirectory).Single();
+                    //
+                    // AND BESIDE IT NOW, the flight's scratch (2026-09-19), which
+                    // is not a tree - so "the one directory here" became "the one
+                    // that is not where TMPDIR points".
+                    var tree = Directory.EnumerateDirectories(info.WorkingDirectory)
+                        .Single(d => !string.Equals(d, info.Environment["TMPDIR"], StringComparison.Ordinal));
 
                     File.WriteAllText(Path.Combine(tree, file), "a person was here\n");
                 }

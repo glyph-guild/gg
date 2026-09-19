@@ -1864,6 +1864,16 @@ public sealed class RunnerLoop(
             return Invocation.Nothing;
         }
 
+        // SOMEWHERE FOR WHAT IS NOT THE CHANGE, inside the flight's own
+        // directory so it goes where that goes: released with it, or held with
+        // it for a takeover. GG-190 wrote its scanner scripts to the host's
+        // /tmp, which no flight owns and nothing removes. Beside the repository
+        // trees rather than in one, so nothing an agent scratches is ever part
+        // of a change; a tree's directory is sixteen hex characters, so this
+        // name cannot collide with one.
+        var scratch = Path.Combine(workspace.Root, ScratchName);
+        Directory.CreateDirectory(scratch);
+
         var request = new ExecutorRequest
         {
             // ALWAYS, because this side cannot know whether anybody is
@@ -1898,6 +1908,7 @@ public sealed class RunnerLoop(
             // it on every lease, the landing tool existed to answer it, and this
             // line was absent - so no agent ever read it.
             LandingWording = loop.Landing,
+            ScratchDirectory = scratch,
             // AND WHAT THIS FLIGHT IS TO DO, carried the same way and for the
             // same reason: the contract composed it from the work kind and the
             // runner hands it over. Null is every kind that states none, which
@@ -2226,6 +2237,9 @@ public sealed class RunnerLoop(
 
     /// <summary>How long a runner holds its tree waiting for a landing decision.</summary>
     private static readonly TimeSpan LandingPatience = TimeSpan.FromMinutes(5);
+
+    /// <summary>The flight directory's scratch, beside its repository trees.</summary>
+    internal const string ScratchName = "scratch";
 
     /// <summary>How often it asks while it waits.</summary>
     private static readonly TimeSpan LandingPoll = TimeSpan.FromSeconds(2);

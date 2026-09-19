@@ -289,7 +289,30 @@ public sealed class ClaudeCodeExecutor(
         }
 
         PlaceToken(info, _agent, token);
+        PlaceScratch(info, request);
         return info;
+    }
+
+    /// <summary>
+    /// Points every temporary-directory variable at the flight's scratch, and
+    /// touches nothing when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <b>All three</b>, because tools disagree about which one they read:
+    /// <c>TMPDIR</c> is POSIX's and what .NET and Python ask first, <c>TMP</c>
+    /// and <c>TEMP</c> are what everything with a Windows past asks.
+    /// </remarks>
+    internal static void PlaceScratch(ProcessStartInfo info, ExecutorRequest request)
+    {
+        if (request.ScratchDirectory is not { Length: > 0 } scratch)
+        {
+            return;
+        }
+
+        foreach (var variable in (string[])["TMPDIR", "TMP", "TEMP"])
+        {
+            info.Environment[variable] = scratch;
+        }
     }
 
     /// <summary>
@@ -786,10 +809,23 @@ public sealed class ClaudeCodeExecutor(
         return said.ToString();
     }
 
+    /// <summary>Where scratch goes, said to the agent - or nothing.</summary>
+    /// <remarks>
+    /// <b>Said as well as set</b>, because GG-190's agent wrote
+    /// <c>/tmp/s3928.py</c> by name and no environment variable reaches a path
+    /// somebody typed.
+    /// </remarks>
+    private static string Scratch(ExecutorRequest request) =>
+        request.ScratchDirectory is { Length: > 0 } scratch
+            ? $"\n\nScripts, notes and anything else that is not part of the change go in {scratch}, "
+            + "which is removed with this flight - not /tmp, which is the machine's and outlives you."
+            : string.Empty;
+
     private static string Prompt(ExecutorRequest request) =>
         Task(request)
       + " Do not create a branch, do not commit, and do not push anything anywhere."
       + Trees(request)
+      + Scratch(request)
       // ONLY WHERE THE TOOL IT NAMES IS THERE TO CALL. Every flight is told,
       // whatever its moves declare - that part is unchanged, because a
       // read-only loop can be as stuck as a writing one. A session with NOBODY

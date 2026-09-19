@@ -130,7 +130,7 @@ public class AFlightKeepsItsScratchTests
         var (request, existed, _, _) = await FlyAsync();
 
         await Assert.That(request.ScratchDirectory).IsNotNull();
-        await Assert.That(Path.GetDirectoryName(request.ScratchDirectory!)).IsEqualTo(request.WorkingDirectory)
+        await Assert.That(Path.GetDirectoryName(request.ScratchDirectory)).IsEqualTo(request.WorkingDirectory)
             .Because("inside the flight's own directory, so it is released, or held for a "
                    + "takeover, with everything else the flight put on disk.");
         await Assert.That(existed).IsTrue()

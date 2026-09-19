@@ -72,8 +72,19 @@ public sealed class Expectations(
     }
 
     /// <summary>Every look that is waiting, due now.</summary>
+    /// <remarks>
+    /// <b>For a notice that something changed.</b> The gap between looks is a
+    /// guess at when the answer might be ready; a notice is the control plane
+    /// saying it may be, and waiting out the guess after being told would be
+    /// the tick doing the notice's job. A look already in the air is left to
+    /// land.
+    /// </remarks>
     public void Hurry()
     {
+        foreach (var waiting in _waiting.Values.Where(w => w.Running is null))
+        {
+            waiting.Due = DateTimeOffset.MinValue;
+        }
     }
 
     /// <summary>
@@ -322,9 +333,7 @@ public sealed class Expectations(
             ExpectationKind.GateAnswered => new Notification
             {
                 Kind = seen ? NotificationKind.GateAnswered : NotificationKind.GateStillWaiting,
-                FlightId = flights.FirstOrDefault(f => string.Equals(
-                        f.FlightNumber, expected.Id, StringComparison.OrdinalIgnoreCase))?.FlightId
-                    ?? expected.Id,
+                FlightId = Reducer.FlightIdFor(state, expected.Id),
                 FlightNumber = expected.Id,
                 Name = expected.Obligation,
             },
@@ -349,13 +358,8 @@ public sealed class Expectations(
     /// <b>The page does not move under a person reading it</b>; only the count
     /// does. Unfocused, the newest is the one worth drawing.
     /// </remarks>
-    private static AppState Raised(AppState state, Notification notification) => state with
-    {
-        Notifications = [.. state.Notifications, notification],
-        NotificationAt = state.Mode == UiMode.Notifications
-            ? state.NotificationAt
-            : state.Notifications.Count,
-    };
+    private static AppState Raised(AppState state, Notification notification) =>
+        Reducer.Notified(state, notification);
 
     /// <summary>
     /// Gone when the corner has been quiet for long enough - and never while

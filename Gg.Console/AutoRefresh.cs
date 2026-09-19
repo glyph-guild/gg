@@ -75,7 +75,8 @@ public sealed class AutoRefresh(
             // countdown permanently at zero, which reads as broken.
             _due = now + every;
 
-            state = Folded(state, finished);
+            var before = state;
+            state = Opened(before, Folded(state, finished));
         }
 
         if (_running is null && (state.Refresh.Wanted || now >= _due))
@@ -163,6 +164,12 @@ public sealed class AutoRefresh(
         return refresh switch
         {
             { Busy: true } => Working,
+
+            // TOLD, NOT COUNTING. While the control plane says when things
+            // change, a change is read when it happens and the countdown is
+            // only the backstop - and a key counting down to it reads as the
+            // way the screen stays true.
+            { Live: true } => "live",
             { NextIn: > 0 } counted => $"{counted.NextIn}s",
             _ => "",
         };
@@ -178,6 +185,45 @@ public sealed class AutoRefresh(
     /// kind of reason and is not a tab any more - it is a tab of the flight
     /// modal now, which this does not refresh.
     /// </remarks>
+    /// <summary>
+    /// A gate the refresh brought that the console did not have, said in the
+    /// corner.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one notification about what somebody else did.</b> The queue grew
+    /// while a person was looking at something else; a refresh is how the
+    /// console finds out - whether a notice or the tick asked for it - so this
+    /// is where it says so.
+    /// </para>
+    /// <para>
+    /// <b>Not on a first read.</b> A console that had no gate list before has
+    /// nothing to compare against, and every gate would read as new.
+    /// </para>
+    /// </remarks>
+    private static AppState Opened(AppState before, AppState after)
+    {
+        if (before.Gates is not { } had || after.Gates is not { } now)
+        {
+            return after;
+        }
+
+        foreach (var gate in now.Gates.Where(g => !had.Gates.Any(h =>
+                     string.Equals(h.FlightNumber, g.FlightNumber, StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(h.ObligationId, g.ObligationId, StringComparison.Ordinal))))
+        {
+            after = Reducer.Notified(after, new Notification
+            {
+                Kind = NotificationKind.GateOpened,
+                FlightId = Reducer.FlightIdFor(after, gate.FlightNumber),
+                FlightNumber = gate.FlightNumber,
+                Name = gate.ObligationId,
+            });
+        }
+
+        return after;
+    }
+
     private static bool Reads(TabId tab) =>
         tab is not (TabId.Live or TabId.Browse);
 

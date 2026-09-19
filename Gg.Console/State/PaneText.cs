@@ -3494,6 +3494,7 @@ public static class PaneText
             NotificationKind.NotListedYet => "not listed yet",
             NotificationKind.GateAnswered => "gate answered",
             NotificationKind.GateStillWaiting => "gate still showing",
+            NotificationKind.GateOpened => "waiting on you",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(state), showing.Kind, "unknown notification"),
         };
@@ -3536,6 +3537,11 @@ public static class PaneText
             [
                 $"{answered.FlightNumber ?? answered.FlightId} is waiting on nobody now",
                 Clean(answered.Name ?? ""),
+            ],
+            { Kind: NotificationKind.GateOpened } opened =>
+            [
+                $"{opened.FlightNumber ?? opened.FlightId} has a gate to answer",
+                Clean(opened.Name ?? ""),
             ],
             { Kind: NotificationKind.GateStillWaiting } still =>
             [

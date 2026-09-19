@@ -20,7 +20,9 @@ public sealed class TerminalGuiSession(
     BackgroundReads? reads = null,
     // WHAT THE CONSOLE'S WRITES SAID THEY DID, looked for on the tick. Last and
     // defaulted, for reads' reason.
-    Expectations? expectations = null) : IUiSession
+    Expectations? expectations = null,
+    // WHAT THE CONTROL PLANE SAYS HAS CHANGED, folded on the same tick.
+    ChangeStream? changes = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -32,7 +34,7 @@ public sealed class TerminalGuiSession(
         using var app = Application.Create();
         app.Init();
         using var screen = new ConsoleScreen(
-            app, state, tails, runnerLog, refresh, signInLanded, reads, expectations);
+            app, state, tails, runnerLog, refresh, signInLanded, reads, expectations, changes);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

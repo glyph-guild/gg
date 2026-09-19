@@ -1898,4 +1898,45 @@ public static class Reducer
         var index = Math.Clamp(at, 0, notifications.Count - 1);
         return [.. notifications.Where((_, i) => i != index)];
     }
+
+    /// <summary>
+    /// A notification added to the corner, and showing unless somebody is reading.
+    /// </summary>
+    /// <remarks>
+    /// <b>One place, because two things raise them</b> - what the console was
+    /// looking for, and what a refresh found that nobody here did. The page does
+    /// not move under a person reading the corner; only the count does.
+    /// Unfocused, the newest is the one worth drawing.
+    /// </remarks>
+    public static AppState Notified(AppState state, Notification notification)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(notification);
+
+        return state with
+        {
+            Notifications = [.. state.Notifications, notification],
+            NotificationAt = state.Mode == UiMode.Notifications
+                ? state.NotificationAt
+                : state.Notifications.Count,
+        };
+    }
+
+    /// <summary>
+    /// The id of the flight a gate names by number, or the number where the
+    /// list does not have it.
+    /// </summary>
+    /// <remarks>
+    /// Going to a notification looks for the id first, so the id is worth
+    /// finding; the number stands in for a flight not listed yet, and going to
+    /// it matches on that.
+    /// </remarks>
+    public static string FlightIdFor(AppState state, string number)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.Flights?.Flights.FirstOrDefault(f => string.Equals(
+                   f.FlightNumber, number, StringComparison.OrdinalIgnoreCase))?.FlightId
+               ?? number;
+    }
 }

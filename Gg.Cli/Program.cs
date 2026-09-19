@@ -1346,6 +1346,19 @@ static async Task<int> LaunchConsoleAsync()
     var expectations = new Gg.Console.Expectations(
         expected => Task.Run(() => lookFor(expected)), new SystemClock());
 
+    // WHAT THE CONTROL PLANE SAYS HAS CHANGED, on a connection this root owns and
+    // starts - an HTTP request on a task, not a child process, and nothing waits
+    // for it to open. The session is read at every attempt, so a sign-in is
+    // heard on the next one; a control plane that serves no stream answers 404
+    // and this console polls as it always did.
+    var changes = new Gg.Console.ChangeStream(
+        token => client.ChangesAsync(
+            sessions.Read()?.SessionToken
+                ?? throw new NotSignedInException("Not signed in, so there is nothing to hear."),
+            token),
+        expectations);
+    changes.Start();
+
     var final = new ConsoleLoop(
         new TerminalGuiSession(
             tails, runnerLog, refresh, signIn.Landed,
@@ -1453,7 +1466,8 @@ static async Task<int> LaunchConsoleAsync()
                       + "for it, so a keypress would fetch somebody else's answer. Add "
                       + "one, or take the command out of Reads."),
                 })),
-            expectations: expectations),
+            expectations: expectations,
+            changes: changes),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of

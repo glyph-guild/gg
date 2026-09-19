@@ -461,6 +461,8 @@ public sealed class ConsoleScreen : Window
 
     private readonly Expectations? _expectations;
 
+    private readonly ChangeStream? _changes;
+
     /// <summary>How wide the corner is: a flight number, a name, and four buttons.</summary>
     private const int NotificationsWidth = 50;
 
@@ -578,10 +580,13 @@ public sealed class ConsoleScreen : Window
         BackgroundReads? reads = null,
         // WHAT THE CONSOLE'S WRITES SAID THEY DID, looked for on a tick of its
         // own. Last and defaulted, for reads' reason.
-        Expectations? expectations = null)
+        Expectations? expectations = null,
+        // WHAT THE CONTROL PLANE SAYS HAS CHANGED, folded on the same tick.
+        ChangeStream? changes = null)
     {
         _app = app;
         _expectations = expectations;
+        _changes = changes;
         _tails = tails;
         _runnerLog = runnerLog;
         _refresh = refresh;
@@ -2019,16 +2024,20 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Watch()
     {
-        if (_expectations is not null)
+        if (_expectations is not null || _changes is not null)
         {
             // WHAT THE CONSOLE IS WAITING TO SEE, on AutoRefresh's terms: the
             // look runs on a task owned outside this lifetime, and this tick
             // only folds what has already landed and ages the corner. A quarter
             // of a second, because the first gap is a quarter of a second and a
             // coarser tick would stretch it.
+            //
+            // THE STREAM FIRST, because a notice is what hurries the looks: folded
+            // after them, a notice would wait a whole tick to do its one job.
             _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
             {
-                var advanced = _expectations.Advance(State);
+                var heard = _changes?.Advance(State) ?? State;
+                var advanced = _expectations?.Advance(heard) ?? heard;
 
                 if (ReferenceEquals(advanced, State))
                 {

@@ -54,6 +54,11 @@ return CliArgs.Parse(args) switch
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
     CliAction.RunnerSweep sweeping => await RunnerSweepAsync(sweeping.Watch),
+    CliAction.ServiceInstall installing => Serviced(ServiceInstaller.Install(
+        ServiceHost(),
+        new ServiceRequest(installing.ControlPlane, installing.Enroll, installing.User),
+        () => new ConsoleSecretPrompt().ReadSecret("Enrollment token (not echoed): "))),
+    CliAction.ServiceUninstall => Serviced(ServiceInstaller.Uninstall(ServiceHost())),
 
     // BEFORE THE ORDINARY ARM, because a pattern that matched both would take
     // whichever came first - and it was the ordinary one, which is how
@@ -3433,6 +3438,27 @@ static string? SkillCredential(Gg.Runner.Vcs.RepoTarget target)
         return null;
     }
 }
+
+/// <summary>
+/// What <c>gg service install</c> and <c>uninstall</c> did, a sentence a line.
+/// </summary>
+/// <remarks>
+/// A refusal goes to stderr with the refused exit code, like every other one,
+/// so an install script that runs this can tell.
+/// </remarks>
+static int Serviced(ServiceOutcome outcome)
+{
+    foreach (var sentence in outcome.Said)
+    {
+        (outcome.Done ? Console.Out : Console.Error).WriteLine(sentence);
+    }
+
+    return outcome.Done ? 0 : ExitCodes.Refused;
+}
+
+/// <summary>This machine, or none on the one platform nothing is installed on.</summary>
+static IServiceHost ServiceHost() =>
+    OperatingSystem.IsWindows() ? new NoServiceHost() : new SystemServiceHost();
 
 static int Fail(string message)
 {

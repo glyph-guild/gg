@@ -79,6 +79,14 @@ jobs:
         with:
           name: pool-host-bundle
           path: artifacts/*.tar.gz
+      # THE INSTALLER, as a release asset of its own, so it is attached and
+      # attested with the binaries it installs: the release job attaches and
+      # signs everything that arrives in incoming/, and a script a person pipes
+      # into sudo sh deserves the same proof the bytes it fetches have.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: deploy/install.sh
 
   binaries:
     name: ${{ matrix.rid }}

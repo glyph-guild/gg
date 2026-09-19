@@ -62,7 +62,7 @@ says so. That covers CI, anything behind a pipe, and Windows, where
 **No .NET required** — a pool host, a CI runner, a laptop:
 
 ```sh
-v=0.37.3
+v=0.38.0
 curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/gg-linux-x64.tar.gz | tar xz
 sudo install -m 0755 gg /usr/local/bin/gg
 sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
@@ -88,7 +88,7 @@ pressed the key.
 **As a .NET tool**, if you already have the SDK, from nuget.org:
 
 ```sh
-v=0.37.3
+v=0.38.0
 sudo dotnet tool install GlyphGuild.Gg.Cli --version $v --tool-path /usr/local/lib/gg
 sudo ln -sf /usr/local/lib/gg/gg /usr/local/bin/gg
 ```

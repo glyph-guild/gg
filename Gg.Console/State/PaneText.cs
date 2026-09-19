@@ -3473,6 +3473,15 @@ public static class PaneText
     /// never be the reassuring one.
     /// </para>
     /// </remarks>
+    /// <summary>What the corner calls the notification showing.</summary>
+    public static string NotificationTitle(AppState state) => "";
+
+    /// <summary>What the notification showing says, a line at a time.</summary>
+    public static IReadOnlyList<string> NotificationLines(AppState state) => [];
+
+    /// <summary>The two keys that reach the corner from the main view.</summary>
+    public static string NotificationHint(KeymapContext context) => "";
+
     public static string HelpDoctorText(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

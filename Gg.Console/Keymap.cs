@@ -913,6 +913,8 @@ public static class Keymap
 
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
+        UiMode.Notifications => [new(KeyStroke.Esc, Command.CloseModal, "put them down")],
+
         // THE TWO THINGS THAT CAN BE DONE TO A RUNNER, and the way out. `r' and
         // `x' are repositories and forget-a-credential in Normal mode and mean
         // these here, which is what a modal owning the keyboard is for.

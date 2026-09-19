@@ -122,7 +122,7 @@ public sealed class VerbConsoleActions(
     /// that reported the outcome it hoped for would be deciding.
     /// </para>
     /// </remarks>
-    public string AnswerNomination(string nomination, bool open, string reason)
+    public Opening AnswerNomination(string nomination, bool open, string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nomination);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -138,18 +138,28 @@ public sealed class VerbConsoleActions(
             // has to say what an unparseable one means. It cannot happen from a
             // row this console drew, which is exactly why it is worth a
             // sentence rather than an exception nobody sees.
-            return $"'{nomination}' is not a nomination this console can answer.";
+            return new Opening($"'{nomination}' is not a nomination this console can answer.");
         }
 
         try
         {
-            _ = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
+            var decided = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
 
-            return $"Answered {outcome}. What it became is on the board when this refreshes.";
+            // THE FLIGHT AN OPENING STARTED, which the report names once the row
+            // has ended. It was discarded, so the row left the board and nothing
+            // took its place until the next tick.
+            var started = open
+                && decided is VerbResult.NominationDecided { Value.Nomination.FlightId: { } flight }
+                    ? flight.ToString()
+                    : null;
+
+            return new Opening(
+                $"Answered {outcome}. What it became is on the board when this refreshes.",
+                started);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was answered — {refusal.Message}";
+            return new Opening($"Nothing was answered — {refusal.Message}");
         }
     }
 
@@ -178,7 +188,7 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
+    public Opening Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);
 
@@ -187,18 +197,15 @@ public sealed class VerbConsoleActions(
             var opened = _data.FlyAsync(intent, repositories, workKind)
                 .GetAwaiter().GetResult();
 
-            return opened is VerbResult.Launched launched
-                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-                + "so it appears on the next refresh."
-                : "The flight was accepted.";
+            return Launched(opened);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was opened — {refusal.Message}";
+            return new Opening($"Nothing was opened — {refusal.Message}");
         }
     }
 
-    public string FlyTicket(
+    public Opening FlyTicket(
         string provider, string id, IReadOnlyList<string> repositories,
         string? workKind)
     {
@@ -210,16 +217,26 @@ public sealed class VerbConsoleActions(
             var opened = _data.FlyTicketAsync(provider, id, repositories, workKind)
                 .GetAwaiter().GetResult();
 
-            return opened is VerbResult.Launched launched
-                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-                + "so it appears on the next refresh."
-                : "The flight was accepted.";
+            return Launched(opened);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was opened — {refusal.Message}";
+            return new Opening($"Nothing was opened — {refusal.Message}");
         }
     }
+
+    /// <summary>What the door answered, and the flight it named.</summary>
+    /// <remarks>
+    /// <b>The id crosses, not only the sentence.</b> It is the one way to ask
+    /// whether the flight has appeared yet, and it used to be written into the
+    /// sentence and dropped.
+    /// </remarks>
+    private static Opening Launched(VerbResult opened) => opened is VerbResult.Launched launched
+        ? new Opening(
+            $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
+            + "and it appears here when it does.",
+            launched.Value.FlightId)
+        : new Opening("The flight was accepted.");
 
     /// <summary>
     /// Whether this work item has flown before, and what to say if it has.

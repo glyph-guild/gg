@@ -236,8 +236,18 @@ public static class ConsoleStart
             // three above it. A console whose doctor could not run must still
             // open - the page says it has no report, which is a different fact
             // from a clean one and is the only honest thing to show.
-            var health = doctor is null
-                ? Task.FromResult<Gg.Client.DoctorReport?>(null)
+            //
+            // ONLY WHEN THERE IS NO REPORT YET. This method is the reload after
+            // every write as well as the boot, and asking every time put a STUN
+            // gather and a WebRTC loopback - seconds, with nothing on the screen
+            // - in front of every answered gate and every opened flight. A write
+            // does not change what those checks answer. The boot has no report,
+            // and a sign-in drops the one it made stale, so both still ask; a
+            // reload that already holds one keeps it, and so does a console
+            // that was given no doctor at all - not asking again is not the
+            // same fact as never having asked.
+            var health = doctor is null || start.Doctor is not null
+                ? Task.FromResult(start.Doctor)
                 : HealthAsync(doctor, partial, cancellationToken);
 
             // WHAT A RUNNER RUNS, on their own failure for the allowances'

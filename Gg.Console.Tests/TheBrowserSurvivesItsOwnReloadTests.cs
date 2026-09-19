@@ -73,11 +73,17 @@ public class TheBrowserSurvivesItsOwnReloadTests
                 ],
                 null)));
 
+    /// <remarks>
+    /// <b>A write that named no flight</b>, because that is the one still
+    /// re-read. A flight the door named is watched for instead of re-read, and
+    /// the browser survives that trivially; the reload this file is about runs
+    /// when a console cannot tell what changed.
+    /// </remarks>
     private static AppState AfterFlyingFromTheBrowser() =>
         new ConsoleLoop(
             new ConsoleDoubles.TypesKeys(Command.SelectNext, Command.FlyPicked),
             new ConsoleDoubles.NoEditor(),
-            actions: new ConsoleDoubles.Records(),
+            actions: new ConsoleDoubles.Records(opens: null),
             reload: Reload)
         .Run(Listed());
 

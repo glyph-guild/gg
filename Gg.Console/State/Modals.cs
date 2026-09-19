@@ -102,6 +102,11 @@ public static class Modals
               + "reason: a title has letters in it, so a dialog whose keys answered them "
               + "would make them untypeable.",
 
+            [UiMode.Notifications] =
+                "the notifications in the corner own it. They are already on the screen when the "
+              + "mode opens, and a dialog over the middle of it would be a second copy of "
+              + "what somebody just chose to read.",
+
             [UiMode.AirspacePath] =
                 "a field at the bottom of the airspace tab owns it. Drawing a dialog would "
               + "cover the field the mode exists to focus, and a title over one input is "

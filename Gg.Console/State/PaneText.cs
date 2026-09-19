@@ -3473,6 +3473,80 @@ public static class PaneText
     /// never be the reassuring one.
     /// </para>
     /// </remarks>
+    /// <summary>What the corner calls the notification showing.</summary>
+    /// <remarks>
+    /// <b>"x of y" only when there is a y worth counting.</b> One notification
+    /// numbered "1 of 1" is a count that says nothing and takes the room a title
+    /// needs.
+    /// </remarks>
+    public static string NotificationTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Showing(state) is not { } showing)
+        {
+            return "";
+        }
+
+        var what = showing.Kind switch
+        {
+            NotificationKind.FlightOpened => "flight opened",
+            NotificationKind.NotListedYet => "not listed yet",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(state), showing.Kind, "unknown notification"),
+        };
+
+        return state.Notifications.Count > 1
+            ? $"{what} · {Math.Clamp(state.NotificationAt, 0, state.Notifications.Count - 1) + 1} "
+              + $"of {state.Notifications.Count}"
+            : what;
+    }
+
+    /// <summary>What the notification showing says, a line at a time.</summary>
+    /// <remarks>
+    /// <b>The number first</b>, because it is the one thing the door could not
+    /// give when the flight was opened and the reason the notification exists.
+    /// A flight that never appeared says what is known - that it was accepted -
+    /// and names it by the only thing it has.
+    /// </remarks>
+    public static IReadOnlyList<string> NotificationLines(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Showing(state) switch
+        {
+            null => [],
+            { Kind: NotificationKind.FlightOpened } opened =>
+            [
+                $"{opened.FlightNumber ?? "a flight"} is in the air",
+                Clean(opened.Name ?? ""),
+            ],
+            { Kind: NotificationKind.NotListedYet } unlisted =>
+            [
+                $"accepted, and not listed after {(int)Expectations.Patience.TotalSeconds}s",
+                $"flight {unlisted.FlightId}",
+            ],
+            { } other => throw new ArgumentOutOfRangeException(
+                nameof(state), other.Kind, "unknown notification"),
+        };
+    }
+
+    /// <summary>The two keys that reach the corner from the main view.</summary>
+    /// <remarks>
+    /// <b>From the bindings that resolve them</b>, so the corner cannot advertise a
+    /// key the keymap would not answer - the rule the hint line keeps, one view
+    /// over.
+    /// </remarks>
+    public static string NotificationHint(KeymapContext context) =>
+        string.Join(" · ", Keymap.Bindings(context)
+            .Where(b => b.Command is Command.GoToNotification or Command.ShowNotifications)
+            .Select(b => $"{b.Key.Name} {b.Description}"));
+
+    private static Notification? Showing(AppState state) =>
+        state.Notifications.Count == 0
+            ? null
+            : state.Notifications[Math.Clamp(state.NotificationAt, 0, state.Notifications.Count - 1)];
+
     public static string HelpDoctorText(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -3486,11 +3560,22 @@ public static class PaneText
 
         if (state.Doctor is not { } report)
         {
-            text.AppendLine("  This console has not read a health report. It asks when it");
-            text.AppendLine("  opens and again on r; gg doctor answers the same question");
-            text.AppendLine("  from a terminal, which is where a remedy would be typed.");
+            // IT PROMISED `r`, which is the repositories tab and has never
+            // re-run anything here. What actually asks is the boot and a
+            // sign-in, so that is what the page says.
+            text.AppendLine("  This console has not read a health report. It asks");
+            text.AppendLine("  when it opens and when somebody signs in; gg doctor answers");
+            text.AppendLine("  the same question from a terminal, which is where a remedy");
+            text.AppendLine("  would be typed.");
             return text.ToString().TrimEnd();
         }
+
+        // WHEN IT WAS TAKEN, because it is no longer re-taken on every write. A
+        // page that does not say so reads as a check made a moment ago, and the
+        // one fact that would send somebody to gg doctor is that it was not.
+        text.AppendLine("  Taken when this console opened or somebody last signed in;");
+        text.AppendLine("  gg doctor asks again from a terminal.");
+        text.AppendLine();
 
         foreach (var check in report.Checks)
         {

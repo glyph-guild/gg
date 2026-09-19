@@ -289,10 +289,23 @@ public class ModalEscapeTests
         // line is showing part of, and it is offered only where there IS a rest
         // to read - so a console that has said nothing could never reach that
         // modal however many keys the walk presses.
+        //
+        // AND WITH A NOTIFICATION IN THE CORNER, the same widening a fifth time.
+        // `!` picks the corner up and is offered only while something is in it,
+        // so a console nothing has happened to could never reach that mode.
         var everywhere = Enum.GetValues<TabId>()
             .Select(tab => new AppState
             {
                 Flights = OneFlight(),
+                Notifications =
+                [
+                    new Notification
+                    {
+                        Kind = NotificationKind.FlightOpened,
+                        FlightId = "01a0776a-cacb-76dc-b444-2b7031e840d8",
+                        FlightNumber = "GG-52",
+                    },
+                ],
                 ActiveTab = tab,
                 PrincipalId = "me",
                 LastAction = "the runner refused the credential because its own "

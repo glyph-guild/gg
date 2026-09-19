@@ -233,9 +233,20 @@ internal static class ConsoleDoubles
     /// matched those opening words, so a double that refused in words of its own
     /// would let that defect back in silently.
     /// </param>
-    internal sealed class Records(string? alreadyFlown = null, bool refusing = false)
+    /// <param name="opens">
+    /// The flight id every opening answers with, the way the door's 202 names
+    /// one. A refusal answers with none, because nothing can be watched for -
+    /// which is also what a declined nomination answers. Null is a control
+    /// plane that accepted the flight without naming it, which the loop meets
+    /// with the re-read it always did.
+    /// </param>
+    internal sealed class Records(
+        string? alreadyFlown = null, bool refusing = false, string? opens = Records.Opened)
         : IConsoleActions
     {
+        /// <summary>The flight every opening names unless a test says otherwise.</summary>
+        internal const string Opened = "f-opened";
+
         /// <summary>Every ticket flown, in order.</summary>
         internal List<(string Provider, string Id)> Flown { get; } = [];
 
@@ -289,13 +300,13 @@ internal static class ConsoleDoubles
                 : "decided";
         }
 
-        public string AnswerNomination(string nomination, bool open, string reason)
+        public Opening AnswerNomination(string nomination, bool open, string reason)
         {
             Answered.Add((nomination, open, reason));
 
             return refusing
-                ? "Nothing was answered — the control plane could not be reached."
-                : open ? "opened" : "declined";
+                ? new Opening("Nothing was answered — the control plane could not be reached.")
+                : open ? new Opening("opened", opens) : new Opening("declined");
         }
 
         /// <summary>Records the share, so a test can assert what was asked for.</summary>
@@ -305,16 +316,18 @@ internal static class ConsoleDoubles
             return "recorded";
         }
 
-        public string Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
+        public Opening Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
         {
             Pasted.Add(intent);
             Intents.Add((intent, repositories, workKind));
             Kinds.Add(workKind);
 
-            return refusing ? "Nothing was opened — the control plane could not be reached." : "opened";
+            return refusing
+                ? new Opening("Nothing was opened — the control plane could not be reached.")
+                : new Opening("opened", opens);
         }
 
-        public string FlyTicket(
+        public Opening FlyTicket(
             string provider, string id, IReadOnlyList<string> repositories,
             string? workKind)
         {
@@ -328,8 +341,8 @@ internal static class ConsoleDoubles
             Kinds.Add(workKind);
 
             return refusing
-                ? "Nothing was opened — the control plane could not be reached."
-                : $"Opened a flight for {provider}#{id}.";
+                ? new Opening("Nothing was opened — the control plane could not be reached.")
+                : new Opening($"Opened a flight for {provider}#{id}.", opens);
         }
 
         public string? AlreadyFlown(string provider, string id)

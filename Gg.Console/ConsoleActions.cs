@@ -19,6 +19,13 @@ namespace Gg.Console;
 /// which is a different fact and the only one the console is entitled to.
 /// </para>
 /// <para>
+/// <b>The three that open a flight also say WHICH flight</b>, in an
+/// <see cref="Opening"/>. That is not an outcome either - the door answers 202
+/// before the flight exists anywhere a read can see it - but it is the question
+/// the console now has to ask: is it there yet. Without the id the only way to
+/// ask was a reload that ran before the row could exist and saw nothing.
+/// </para>
+/// <para>
 /// <b>Nothing that must not be stored crosses this boundary.</b> A secret and an
 /// invitation link are both capabilities, and <c>AppState</c> is source-generated
 /// JSON that is written to disk under <c>GG_STATE_DUMP</c> and fed to the
@@ -65,7 +72,7 @@ public interface IConsoleActions
     /// too - so somebody who changed their mind by saving an empty buffer has
     /// not opened a flight by accident.
     /// </param>
-    string AnswerNomination(string nomination, bool open, string reason);
+    Opening AnswerNomination(string nomination, bool open, string reason);
 
     /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
@@ -91,7 +98,7 @@ public interface IConsoleActions
     /// singular when there is exactly one, so a flight naming one travels
     /// exactly as it always did.
     /// </param>
-    string Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
+    Opening Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
     /// Open a flight for a work item somebody picked, by provider and id.
@@ -112,7 +119,7 @@ public interface IConsoleActions
     /// missing kind as <c>implement</c>, and a console that supplied that name
     /// would be declaring something nobody chose.
     /// </remarks>
-    string FlyTicket(
+    Opening FlyTicket(
         string provider, string id, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
@@ -157,3 +164,18 @@ public interface IConsoleActions
     /// </remarks>
     string Invite();
 }
+
+/// <summary>
+/// What opening a flight said, and the flight the console now watches for.
+/// </summary>
+/// <remarks>
+/// <b>The id is null whenever nothing can be watched for</b>: a refusal, a
+/// control plane that answered without one, a nomination declined rather than
+/// opened. Null is not "nothing happened" - a POST that reached the control
+/// plane and failed on the way back opens a flight and reports a refusal - so
+/// the loop re-reads when there is no id, exactly as it did before there was
+/// one.
+/// </remarks>
+/// <param name="Said">The sentence a person reads.</param>
+/// <param name="FlightId">The flight the write opened, when the door named it.</param>
+public sealed record Opening(string Said, string? FlightId = null);

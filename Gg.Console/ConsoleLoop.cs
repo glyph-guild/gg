@@ -371,9 +371,14 @@ public sealed class ConsoleLoop(
                                 HandFlightProblem =
                                     "This console is not configured to fly flights by hand.",
                             }
-                            : flyByHand(
-                                Closed(state),
-                                () => Chosen(outcome.Exit, editor, compose).Edit(""))));
+                            // AND READ AGAIN WHEN THE TERMINAL COMES BACK - the
+                            // FlyByHand arm's reason, which is this arm's too.
+                            : Reloaded(
+                                flyByHand(
+                                    Closed(state),
+                                    () => Chosen(outcome.Exit, editor, compose).Edit("")),
+                                reload,
+                                asked: false)));
                     break;
 
                 case Command.OpenFlight:
@@ -387,7 +392,8 @@ public sealed class ConsoleLoop(
                     // on the way out, so it lasts exactly one flight - an answer
                     // left behind is one the next flight through this arm would
                     // inherit without being asked.
-                    state = Reloaded(
+                    state = ReadAgainUnlessWatching(
+                        state,
                         Spent(Opened(
                             // ONLY THE ANSWERS CLOSE A MODAL, because only they
                             // were asked from inside one. Resetting the mode for
@@ -398,8 +404,7 @@ public sealed class ConsoleLoop(
                             outcome.Exit == Command.OpenFlight ? state : Closed(state),
                             actions,
                             Chosen(outcome.Exit, editor, compose))),
-                        reload,
-                        asked: false);
+                        reload);
                     break;
 
                 // A SHARE KEPT BACK, and it RE-READS for AddCredential's
@@ -748,13 +753,14 @@ public sealed class ConsoleLoop(
                     // longer looking at. A flight actually opened is a flight
                     // the queue does not have.
                     bool opened;
+                    var picking = state;
                     state = state.PendingFlight is null
                         ? FlewPicked(state, actions, out opened)
                         : ConfirmedFlight(state, actions, out opened);
 
                     if (opened)
                     {
-                        state = Reloaded(state, reload, asked: false);
+                        state = ReadAgainUnlessWatching(picking, state, reload);
                     }
 
                     break;
@@ -782,6 +788,7 @@ public sealed class ConsoleLoop(
                     // somebody escapes - so it lasts one flight's opening and
                     // never reaches the next.
                     bool flew = false;
+                    var asking = state;
                     state = state.AskingKindFor switch
                     {
                         ComposingFor.WorkItem => Answering(
@@ -791,7 +798,7 @@ public sealed class ConsoleLoop(
 
                     if (flew)
                     {
-                        state = Reloaded(state, reload, asked: false);
+                        state = ReadAgainUnlessWatching(asking, state, reload);
                     }
 
                     break;
@@ -908,7 +915,15 @@ public sealed class ConsoleLoop(
                             HandFlightProblem =
                                 "This console is not configured to fly flights by hand.",
                         }
-                        : flyByHand(state, () => editor.Edit(""));
+                        // AND READ AGAIN WHEN THE TERMINAL COMES BACK. The child
+                        // holds it for as long as the work takes, so the flight
+                        // has been created, flown and usually landed by the time
+                        // this returns - and the console used to come back
+                        // showing the list from before it, until the tick. What
+                        // the loop knows is that the branch that can create a
+                        // flight ran; whether the sentence it got back means one
+                        // was created is prose, and prose does not decide this.
+                        : Reloaded(flyByHand(state, () => editor.Edit("")), reload, asked: false);
 
                     // OVER THE CONSOLE, when nothing was created. The refusal is
                     // three sentences and the activity line is one, so the
@@ -937,7 +952,14 @@ public sealed class ConsoleLoop(
 
                     if (arrived)
                     {
-                        state = Reloaded(state, reload, asked: false);
+                        // AND THE HEALTH REPORT GOES WITH EVERYTHING ELSE. The
+                        // loader keeps a report it already holds, because a
+                        // write does not change what the checks answer - but a
+                        // sign-in changes the session, runner and credential
+                        // checks, even for the same person signing in again
+                        // after theirs ran out. Dropped here, so this reload is
+                        // the one that asks.
+                        state = Reloaded(state with { Doctor = null }, reload, asked: false);
                     }
 
                     break;
@@ -1116,16 +1138,67 @@ public sealed class ConsoleLoop(
         // a problem this has to solve.
         var intent = editor.Edit(seed).Trim();
 
-        return state with
+        if (intent.Length == 0)
         {
-            LastFlightOpened = intent.Length == 0
-                ? "Nothing was opened: no intent was written."
-                // THE CHOSEN REPOSITORY CROSSES ON BOTH DOORS. A setting that
-                // worked depending on whether you pasted or picked would be
-                // worse than no setting.
-                : actions.Fly(intent, state.Against, WorkKinds.Picked(state)),
-        };
+            return state with { LastFlightOpened = "Nothing was opened: no intent was written." };
+        }
+
+        // THE CHOSEN REPOSITORY CROSSES ON BOTH DOORS. A setting that worked
+        // depending on whether you pasted or picked would be worse than no
+        // setting.
+        var opening = actions.Fly(intent, state.Against, WorkKinds.Picked(state));
+
+        return Expect(state with { LastFlightOpened = opening.Said }, opening);
     }
+
+    /// <summary>
+    /// Records the flight a write named as something to look for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only when it named one.</b> A refusal, an empty buffer and a declined
+    /// nomination open nothing that can be asked about by id, and inventing a
+    /// question would leave the console looking for a flight nobody made.
+    /// </remarks>
+    public static AppState Expect(AppState state, Opening opening)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(opening);
+
+        return opening.FlightId is { Length: > 0 } id
+            ? state with
+            {
+                Expecting =
+                [
+                    .. state.Expecting,
+                    new Expectation { Kind = ExpectationKind.FlightAppears, Id = id },
+                ],
+            }
+            : state;
+    }
+
+    /// <summary>
+    /// Re-reads after a write, unless the write named what it changed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A named flight is watched for, not re-read.</b> The door answers 202
+    /// before the flight is projected, so a reload the moment it returns finds
+    /// nothing - and costs every read the boot makes, between one session and
+    /// the next, with nothing on the screen. Whatever is watching for the id
+    /// brings the row when it exists.
+    /// </para>
+    /// <para>
+    /// <b>No name, the old rule.</b> A console cannot tell from a sentence
+    /// whether anything changed - a POST that reached the control plane and
+    /// failed on the way back opens a flight and reports that nothing was
+    /// opened - so a write that named nothing is re-read exactly as before.
+    /// </para>
+    /// </remarks>
+    private static AppState ReadAgainUnlessWatching(
+        AppState before, AppState after, Func<AppState, AppState>? reload) =>
+        after.Expecting.Count > before.Expecting.Count
+            ? after
+            : Reloaded(after, reload, asked: false);
 
     /// <summary>
     /// Sends the answer, and folds what was sent into the model.
@@ -1230,11 +1303,13 @@ public sealed class ConsoleLoop(
             };
         }
 
-        return state with
-        {
-            LastNomination = actions.AnswerNomination(
-                nomination.NominationId.ToString(), open, reason),
-        };
+        var answered = actions.AnswerNomination(nomination.NominationId.ToString(), open, reason);
+
+        // THE ROW IS RE-READ AND THE FLIGHT IS WATCHED FOR. The board's row
+        // ends in the request, so the re-read that follows is right about it;
+        // the flight an opening started is projected seconds later, and only
+        // the id finds it.
+        return Expect(state with { LastNomination = answered.Said }, answered);
     }
 
     /// <summary>
@@ -1514,12 +1589,15 @@ public sealed class ConsoleLoop(
         // AND IT SAYS IT DID NOT ASK. Two of the three ways into a flight offer
         // a choice of composer and this one cannot, so the receipt gives the
         // reason where the person is already looking - S33.4-04.
-        return state with
-        {
-            LastFlightOpened = actions.FlyTicket(
-                    listing.ProviderKey, id, state.Against, WorkKinds.Picked(state))
-                + " " + PaneText.ComposedBy(ComposingFor.WorkItem),
-        };
+        var opening = actions.FlyTicket(
+            listing.ProviderKey, id, state.Against, WorkKinds.Picked(state));
+
+        return Expect(
+            state with
+            {
+                LastFlightOpened = opening.Said + " " + PaneText.ComposedBy(ComposingFor.WorkItem),
+            },
+            opening);
     }
 
     /// <summary>
@@ -1553,16 +1631,17 @@ public sealed class ConsoleLoop(
             return state;
         }
 
-        return state with
+        var answered = state with { Mode = UiMode.Normal, PendingFlight = null };
+
+        if (actions is null)
         {
-            Mode = UiMode.Normal,
-            PendingFlight = null,
-            LastFlightOpened = actions is null
-                ? "This console is not configured to open flights."
-                : actions.FlyTicket(
-                    pending.Provider, pending.Id, state.Against,
-                    WorkKinds.Picked(state)),
-        };
+            return answered with { LastFlightOpened = "This console is not configured to open flights." };
+        }
+
+        var opening = actions.FlyTicket(
+            pending.Provider, pending.Id, state.Against, WorkKinds.Picked(state));
+
+        return Expect(answered with { LastFlightOpened = opening.Said }, opening);
     }
 
     /// <summary>

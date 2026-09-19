@@ -242,8 +242,13 @@ public sealed class ConsoleData(
     {
         var read = PastedIntent.Of(pasted);
 
+        // REFUSED AS AN INTENT, because that is what it is - and the client's
+        // type for a refused intent is the one every caller already catches.
+        // This was InvalidOperationException, which nothing expects from a
+        // person's input: `ado#` escaped VerbConsoleActions.Fly, escaped the
+        // loop, and ended the console over a typo.
         return read.Refusal is { } refusal
-            ? Task.FromException<VerbResult>(new InvalidOperationException(refusal))
+            ? Task.FromException<VerbResult>(new FlightIntentException(refusal))
             : _commands.FlyAsync(
                 read.Text, read.Uri, name: null, cancellationToken,
                 provider: read.Provider, id: read.Id,

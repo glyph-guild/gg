@@ -3474,13 +3474,78 @@ public static class PaneText
     /// </para>
     /// </remarks>
     /// <summary>What the corner calls the notification showing.</summary>
-    public static string NotificationTitle(AppState state) => "";
+    /// <remarks>
+    /// <b>"x of y" only when there is a y worth counting.</b> One notification
+    /// numbered "1 of 1" is a count that says nothing and takes the room a title
+    /// needs.
+    /// </remarks>
+    public static string NotificationTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Showing(state) is not { } showing)
+        {
+            return "";
+        }
+
+        var what = showing.Kind switch
+        {
+            NotificationKind.FlightOpened => "flight opened",
+            NotificationKind.NotListedYet => "not listed yet",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(state), showing.Kind, "unknown notification"),
+        };
+
+        return state.Notifications.Count > 1
+            ? $"{what} · {Math.Clamp(state.NotificationAt, 0, state.Notifications.Count - 1) + 1} "
+              + $"of {state.Notifications.Count}"
+            : what;
+    }
 
     /// <summary>What the notification showing says, a line at a time.</summary>
-    public static IReadOnlyList<string> NotificationLines(AppState state) => [];
+    /// <remarks>
+    /// <b>The number first</b>, because it is the one thing the door could not
+    /// give when the flight was opened and the reason the notification exists.
+    /// A flight that never appeared says what is known - that it was accepted -
+    /// and names it by the only thing it has.
+    /// </remarks>
+    public static IReadOnlyList<string> NotificationLines(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Showing(state) switch
+        {
+            null => [],
+            { Kind: NotificationKind.FlightOpened } opened =>
+            [
+                $"{opened.FlightNumber ?? "a flight"} is in the air",
+                Clean(opened.Name ?? ""),
+            ],
+            { Kind: NotificationKind.NotListedYet } unlisted =>
+            [
+                $"accepted, and not listed after {(int)Expectations.Patience.TotalSeconds}s",
+                $"flight {unlisted.FlightId}",
+            ],
+            { } other => throw new ArgumentOutOfRangeException(
+                nameof(state), other.Kind, "unknown notification"),
+        };
+    }
 
     /// <summary>The two keys that reach the corner from the main view.</summary>
-    public static string NotificationHint(KeymapContext context) => "";
+    /// <remarks>
+    /// <b>From the bindings that resolve them</b>, so the corner cannot advertise a
+    /// key the keymap would not answer - the rule the hint line keeps, one view
+    /// over.
+    /// </remarks>
+    public static string NotificationHint(KeymapContext context) =>
+        string.Join(" · ", Keymap.Bindings(context)
+            .Where(b => b.Command is Command.GoToNotification or Command.ShowNotifications)
+            .Select(b => $"{b.Key.Name} {b.Description}"));
+
+    private static Notification? Showing(AppState state) =>
+        state.Notifications.Count == 0
+            ? null
+            : state.Notifications[Math.Clamp(state.NotificationAt, 0, state.Notifications.Count - 1)];
 
     public static string HelpDoctorText(AppState state)
     {

@@ -288,6 +288,12 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool ANominationWaits { get; init; }
 
+    /// <summary>Whether a notification is showing in the corner.</summary>
+    public bool NotificationsWaiting { get; init; }
+
+    /// <summary>Whether there is more than one, so paging means something.</summary>
+    public bool NotificationsSeveral { get; init; }
+
     /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
@@ -412,6 +418,9 @@ public readonly record struct KeymapContext(
             // ANSWER, for AGateWaits' reason one field up: two kinds of row
             // share that table and only one of them is a decision.
             ANominationWaits = Rows.StandingUnder(state) is not null,
+
+            NotificationsWaiting = state.Notifications.Count > 0,
+            NotificationsSeveral = state.Notifications.Count > 1,
 
             // AND WHETHER IT NAMES SOMEWHERE TO GO WITH NO READER FOR IT,
             // derived here with the rest so the hint line and the dispatch
@@ -913,7 +922,33 @@ public static class Keymap
 
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
-        UiMode.Notifications => [new(KeyStroke.Esc, Command.CloseModal, "put them down")],
+        // THE CORNER, PICKED UP. A modal like any other while it holds the
+        // keyboard: its own keys, a button for each - labelled, because the
+        // buttons are all or nothing - and esc the one way out. Enter belongs
+        // to whichever button has focus, which is what a button is for.
+        //
+        // PAGING ONLY WHERE THERE IS A PAGE TO TURN. One notification offering
+        // "next" is a key that does nothing, the dead key Article XI names.
+        //
+        // THE ARROWS, NOT j AND k. Those are the list widgets' habit and are
+        // bound and never taught; a page turned sideways is what the arrows
+        // already mean on the Look page, and what the buttons' marks draw.
+        UiMode.Notifications =>
+        [
+            .. context.NotificationsSeveral
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.LeftKey, Command.PreviousNotification, "previous")
+                        { Label = "‹", When = "with more than one notification" },
+                    new(KeyStroke.RightKey, Command.NextNotification, "next")
+                        { Label = "›", When = "with more than one notification" },
+                ]
+                : [],
+            new(KeyStroke.Char('>'), Command.GoToNotification, "go to it") { Label = "Go to it" },
+            new(KeyStroke.Char('x'), Command.DismissNotification, "dismiss it")
+                { Label = "Dismiss" },
+            new(KeyStroke.Esc, Command.CloseModal, "put them down"),
+        ],
 
         // THE TWO THINGS THAT CAN BE DONE TO A RUNNER, and the way out. `r' and
         // `x' are repositories and forget-a-credential in Normal mode and mean
@@ -1462,6 +1497,34 @@ public static class Keymap
                     {
                         Standing = true,
                         When = "while the line below is showing part of its message",
+                    },
+                ]
+                : [],
+
+            // THE CORNER'S TWO KEYS, and only while something is in it. It has
+            // no keyboard of its own until somebody picks it up - a notification
+            // that took the next key would eat whatever a person was halfway
+            // through - so these are how it is reached.
+            //
+            // PUNCTUATION, BECAUSE THE LETTERS ARE SPENT, and two that say what
+            // they do: `>` goes there, `!` is the stack wanting attention. Both
+            // free in every mode.
+            //
+            // OFF THE HINT LINE, because the corner names them itself from these
+            // same bindings - see PaneText.NotificationHint - and the line is
+            // capped.
+            .. context.NotificationsWaiting && !context.Frozen
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('>'), Command.GoToNotification, "go to it")
+                    {
+                        OffTheHintLine = true,
+                        When = "while a notification is showing",
+                    },
+                    new(KeyStroke.Char('!'), Command.ShowNotifications, "notifications")
+                    {
+                        OffTheHintLine = true,
+                        When = "while a notification is showing",
                     },
                 ]
                 : [],
@@ -2215,6 +2278,11 @@ public static class Keymap
         c => c with { ANominationWaits = true },
         c => c with { SaidIsClipped = true },
         c => c with { OverALink = true },
+
+        // THE CORNER WITH MORE THAN ONE IN IT, which is both of its flags at
+        // once - "several" is never true without "waiting" - and is the shape
+        // every one of its keys exists in.
+        c => c with { NotificationsWaiting = true, NotificationsSeveral = true },
     ];
 
     /// <summary>

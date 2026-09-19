@@ -1012,6 +1012,11 @@ public static class ShellCommands
     {
         Command.ShowFlight,
 
+        // THE SAME FLIGHT, REACHED FROM THE CORNER. It opens the modal ShowFlight
+        // opens, so it asks for what ShowFlight asks for - or the modal draws a
+        // flight whose log never comes.
+        Command.GoToNotification,
+
         // THE FOUR TOGGLES, for the same reason and with the same shape: a
         // pane that is opened wants filling, and filling it used to mean the
         // console going away and coming back. Closing one reads nothing, which

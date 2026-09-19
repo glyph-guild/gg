@@ -181,7 +181,12 @@ public class AFlightKeepsItsScratchTests
     {
         var info = ClaudeCodeExecutor.StartInfoFor(ARequest(scratch: null), []);
 
-        await Assert.That(info.Environment["TMPDIR"])
+        // ABSENT IS AN INHERITED VALUE TOO. macOS always sets TMPDIR; a Linux
+        // CI runner does not, and the indexer throws for a key that is not
+        // there - which is how this first failed, on CI only.
+        _ = info.Environment.TryGetValue("TMPDIR", out var inherited);
+
+        await Assert.That(inherited)
             .IsEqualTo(Environment.GetEnvironmentVariable("TMPDIR"))
             .Because("a sweep and the move-bound probe have no flight directory, and changing "
                    + "their environment would be a second decision nobody asked for.");
